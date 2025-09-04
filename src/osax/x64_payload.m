@@ -5,7 +5,9 @@
     __asm__("movq %0, %%rdi;""movq %1, %%rsi;""movq %2, %%rdx;""movq %3, %%r13;""callq *%4;" : :"r"(v0), "r"(v1), "r"(v2), "r"(v3), "r"(func) :"%rdi", "%rsi", "%rdx", "%r13");
 
 uint64_t get_dock_spaces_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x90000;
+    } else if (os_version.majorVersion == 15) {
         return 0xA0000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0xD5000 : 0x140000;
@@ -21,7 +23,9 @@ uint64_t get_dock_spaces_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_dppm_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x140000;
+    } else if (os_version.majorVersion == 15) {
         return 0x13b000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x12ce00 : 0x8000;
@@ -37,7 +41,9 @@ uint64_t get_dppm_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_fix_animation_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x2A0000;
+    } else if (os_version.majorVersion == 15) {
         return os_version.minorVersion >= 4 ? 0x270000 : 0x280000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x1f0000 : 0x210000;
@@ -53,7 +59,10 @@ uint64_t get_fix_animation_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_add_space_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+
+    if (os_version.majorVersion == 26) {
+        return 0x2A5000;
+    } else if (os_version.majorVersion == 15) {
         return os_version.minorVersion >= 4 ? 0x270000 : 0x280000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x1f0000 : 0x217000;
@@ -69,7 +78,9 @@ uint64_t get_add_space_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_remove_space_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x211000;
+    } else if (os_version.majorVersion == 15) {
         return 0x1e0000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x2B0000 : 0x2D0000;
@@ -85,7 +96,9 @@ uint64_t get_remove_space_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_move_space_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x210000;
+    } else if (os_version.majorVersion == 15) {
         return 0x1e0000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x2A0000 : 0x2C0000;
@@ -101,7 +114,9 @@ uint64_t get_move_space_offset(NSOperatingSystemVersion os_version) {
 }
 
 uint64_t get_set_front_window_offset(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        return 0x22000;
+    } else if (os_version.majorVersion == 15) {
         return 0x3d000;
     } else if (os_version.majorVersion == 14) {
         return os_version.minorVersion > 0 ? 0x4a000 : 0x51BBE;
@@ -117,7 +132,7 @@ uint64_t get_set_front_window_offset(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_dock_spaces_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26 || os_version.majorVersion == 15) {
         return "?? ?? ?? 00 48 8B 38 48 8B 35 ?? ?? ?? 00 89 DA 41 FF D5 48 89 C7 E8 ?? ?? ?? 00 49 89 C7 48 8B 35 ?? ?? ?? 00 48 89";
     } else if (os_version.majorVersion == 14) {
         if (os_version.minorVersion > 0) {
@@ -136,7 +151,7 @@ const char *get_dock_spaces_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_dppm_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26 || os_version.majorVersion == 15) {
         return "?? ?? ?? 00 31 FF 5D E9 ?? ??";
     } else if (os_version.majorVersion == 14) {
         if (os_version.minorVersion > 0) {
@@ -156,7 +171,11 @@ const char *get_dppm_pattern(NSOperatingSystemVersion os_version) {
 
 
 const char *get_fix_animation_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    if (os_version.majorVersion == 26) {
+        // This pattern is pulled from a different spot with a MOVSD referencing
+        // the same 'global.' This pattern also works on 15, let's not change it.
+        return "F2 0F 10 ?? ?? ?? ?? ?? 48 89 ?? 48 89 ?? 4C 8B ?? ?? E8";
+    } else if (os_version.majorVersion == 15) {
         if (os_version.minorVersion >= 4) {
             return "F2 0F 10 05 DB 13 0B 00 4C 89 F7 48 89 DE";
         }
@@ -175,7 +194,11 @@ const char *get_fix_animation_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_add_space_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    // Find this one as the function prologue where the function
+    // references string 'addSpace:forDisplayUUID:'
+    if (os_version.majorVersion == 26) {
+        return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? 48 89 7D ?? 4D 8D 75 ??";
+    } else if (os_version.majorVersion == 15) {
         if (os_version.minorVersion >= 4) {
             return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 28 4D 89 EE 48 89 7D B8";
         }
@@ -200,7 +223,13 @@ const char *get_add_space_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_remove_space_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    // Here a regex search over decompiled text;
+    // _objc_msgSend\(.*,"removeSpace:"
+    // and the function with four parameters.
+
+    if (os_version.majorVersion == 26) {
+        return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? 48 89 CB 49 89 D6 49 89 F5 49";
+    } else if (os_version.majorVersion == 15) {
         return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? 49 89 ?? 49 89 D6 49 89 F5 ?? 89 ??";
     } else if (os_version.majorVersion == 14) {
         return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 68 48 89 4D ?? 49 89 D7 49 89 F5 49 89 FC 48 BB F8 FF FF FF FF FF FF 00 E8 ?? ?? ?? FF 49 89 C6 48 B8 01 00 00 00 00 00 00 40 4C 21 F3 49 85 C6 0F 85 ?? 02 00 00 48 8B 43 10 48 83 F8 02 0F 8C ?? 02 00 00 4C 89 6D ?? 4C 89 75 A0 48 8D 05 ?? ?? ?? 00 48 8B 00 49 8B 1C 04 4D 8B 74 04 08 48 8D 05 ?? ?? ?? 00 48 8B 38 48 8B 35 ?? ?? ??";
@@ -222,7 +251,12 @@ const char *get_remove_space_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_move_space_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    // Searching decompiled text for regex;
+    // _objc_msgSend\(.*,"moveSpace:toDisplay:displayUUID:"
+    // two parameter function.
+    if (os_version.majorVersion == 26) {
+        return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 38 4D 89 EC 41 89 D5 49 89 F7 48 8B 05";
+    } else if (os_version.majorVersion == 15) {
         return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 38 4C 89 E9 41 89 D5 49 89 F7 49 89 FC 48 8B 05 ?? ?? 25";
     } else if (os_version.majorVersion == 14) {
         return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC 48 4C 89 E9 41 89 D5 49 89 ?? 49 89 FF ?? 8D ?? ?? ?? ?? 00 ?? 8B ?? ?? 8B ?? 07 ?? 89 ?? 48 89 4D A0 48 89 CE E8 ?? ?? 00 00 48 89 55 D0 48 89 45 C8 48 85 C0 74 3F 48 8D 05 ?? ?? ?? 00 80 38 01 75 ?? ?? 8B ?? D0 ?? 89 ?? 49 83 C5 28 4C 8B 7D C8 4C 89 FF E8 ?? ?? ?? FF 48 89 C7 FF 15 ?? ?? 0C 00";
@@ -244,7 +278,11 @@ const char *get_move_space_pattern(NSOperatingSystemVersion os_version) {
 }
 
 const char *get_set_front_window_pattern(NSOperatingSystemVersion os_version) {
-    if (os_version.majorVersion == 15) {
+    // references to string "com.apple.window_proxies.startup" -
+    // two parameter function
+    if (os_version.majorVersion == 26) {
+        return "85 F6 0F 84 ?? ?? ?? ?? 55 48 89 E5 41 57 41 56 41 54 53 48 83 EC 40";
+    } else if (os_version.majorVersion == 15) {
         return "55 48 89 E5 41 57 41 56 41 54 53 48 83 EC 60 48 8B 05 ?? ?? ?? 00 48 8B 00 48 89 45 D8 85 F6 0F 84 ?? 02 00 00 89 F3 49 89 FE 49 89 FC 49 C1 ?? 20 ?? 8D ?? AF 41 C6 07 00 4C 89 FE E8 ?? ?? 06 00 48 8B";
     } else if (os_version.majorVersion == 14) {
         return "55 48 89 E5 41 57 41 56 41 54 53 48 83 EC 60 48 8B 05 ?? ?? ?? 00 48 8B 00 48 89 45 D8 85 F6 0F 84 ?? 02 00 00 89 F3 49 89 FE 49 89 FF 49 C1 EF 20 48 8D 75 AF C6 06 00 E8 ?? ?? 02 00 48 8B 3D ?? ?? ?? 00 BE 01 00 00 00 E8 ?? ?? ?? 00 84 C0 74 5A 44 0F B6 65 AF 4C 8D 45 B0 41 C7 00 00 04 00 04 45 89 70 04 66 B8 00 04 66 41 89 40 08 45 89 78 0A 66 41 89 40 0E 41 89 58 10 66 41 89 40";
@@ -258,4 +296,3 @@ const char *get_set_front_window_pattern(NSOperatingSystemVersion os_version) {
 
     return NULL;
 }
-

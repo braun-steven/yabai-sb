@@ -14,7 +14,7 @@ static void update_window_notifications(void)
     int window_count = 0;
     uint32_t window_list[1024] = {0};
 
-    if (workspace_is_macos_sequoia()) {
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         // NOTE(koekeishiya): Subscribe to all windows because of window_destroyed (and ordered) notifications
         table_for (struct window *window, g_window_manager.window, {
             window_list[window_count++] = window->id;
@@ -238,7 +238,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         view_clear_flag(view, VIEW_IS_DIRTY);
     }
 
-    if (workspace_is_macos_sequoia()) {
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
 }
@@ -331,7 +331,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
         view_clear_flag(view, VIEW_IS_DIRTY);
     }
 
-    if (workspace_is_macos_sequoia()) {
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
 
@@ -571,7 +571,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
         event_signal_push(SIGNAL_WINDOW_CREATED, window);
     }
 
-    if (workspace_is_macos_sequoia()) {
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
 }
@@ -603,7 +603,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     window_unobserve(window);
     window_destroy(window);
 
-    if (workspace_is_macos_sequoia()) {
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
 }
@@ -1506,7 +1506,8 @@ static EVENT_HANDLER(DOCK_DID_RESTART)
     if (workspace_is_macos_monterey() ||
         workspace_is_macos_ventura() ||
         workspace_is_macos_sonoma() ||
-        workspace_is_macos_sequoia()) {
+        workspace_is_macos_sequoia() ||
+        workspace_is_macos_tahoe()) {
         mission_control_unobserve();
         mission_control_observe();
     }

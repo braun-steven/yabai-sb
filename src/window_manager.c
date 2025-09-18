@@ -2250,7 +2250,8 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
     if (workspace_is_macos_monterey() ||
         workspace_is_macos_ventura() ||
         workspace_is_macos_sonoma() ||
-        workspace_is_macos_sequoia()) {
+        workspace_is_macos_sequoia() ||
+        workspace_is_macos_tahoe()) {
         while (!space_is_user(space_manager_active_space())) {
 
             //

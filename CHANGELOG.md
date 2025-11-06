@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Update scripting addition for macOS 26.1 Apple Silicon [#2693](https://github.com/koekeishiya/yabai/issues/2693)
 
 ## [7.1.16] - 2025-10-07
 ### Changed

@@ -6,20 +6,20 @@
   <b>Tiling window management for the Mac.</b>
 </p>
 <p align="center">
-  <a href="https://github.com/koekeishiya/yabai/blob/master/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/koekeishiya/yabai.svg?color=green" alt="License Badge">
+  <a href="https://github.com/asmvik/yabai/blob/master/LICENSE.txt">
+    <img src="https://img.shields.io/github/license/asmvik/yabai.svg?color=green" alt="License Badge">
   </a>
-  <a href="https://github.com/koekeishiya/yabai/blob/master/doc/yabai.asciidoc">
+  <a href="https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc">
     <img src="https://img.shields.io/badge/view-documentation-green.svg" alt="Documentation Badge">
   </a>
-  <a href="https://github.com/koekeishiya/yabai/wiki">
+  <a href="https://github.com/asmvik/yabai/wiki">
     <img src="https://img.shields.io/badge/view-wiki-green.svg" alt="Wiki Badge">
   </a>
-  <a href="https://github.com/koekeishiya/yabai/blob/master/CHANGELOG.md">
+  <a href="https://github.com/asmvik/yabai/blob/master/CHANGELOG.md">
     <img src="https://img.shields.io/badge/view-changelog-green.svg" alt="Changelog Badge">
   </a>
-  <a href="https://github.com/koekeishiya/yabai/releases">
-    <img src="https://img.shields.io/github/commits-since/koekeishiya/yabai/latest.svg?color=green" alt="Version Badge">
+  <a href="https://github.com/asmvik/yabai/releases">
+    <img src="https://img.shields.io/github/commits-since/asmvik/yabai/latest.svg?color=green" alt="Version Badge">
   </a>
 </p>
 
@@ -60,7 +60,7 @@ Please also take note of the following caveats.
 |System&nbsp;Integrity&nbsp;Protection (Optional)|System Integrity Protection can be (partially) disabled for yabai to inject a scripting addition into Dock.app for controlling windows with functions that require elevated privileges. This enables control of the window server, which is the sole owner of all window connections, and enables additional features of yabai.|
 |Code&nbsp;Signing|When building from source (or installing from HEAD), it is necessary to codesign the binary so it retains its accessibility and automation privileges when updated or rebuilt.|
 |Finder&nbsp;Desktop|Some people disable the Finder Desktop window using an undocumented defaults write command. This breaks focusing of empty spaces and should be avoided when using yabai. To re-activate the Finder Desktop, run: "defaults write com.apple.finder CreateDesktop -bool true".|
-|NSDocument-based&nbsp;Applications|Windows that utilize native macOS tabs such as Terminal and Finder, [do not behave correctly when creating tabs](https://github.com/koekeishiya/yabai/issues/68). Avoid creating tabs in these applications, consider alternatives that do not use NSDocument's tab system, or make these windows float using rules.|
+|NSDocument-based&nbsp;Applications|Windows that utilize native macOS tabs such as Terminal and Finder, [do not behave correctly when creating tabs](https://github.com/asmvik/yabai/issues/68). Avoid creating tabs in these applications, consider alternatives that do not use NSDocument's tab system, or make these windows float using rules.|
 |System&nbsp;Preferences&nbsp;(macOS 11.x, 12.x)|In the Mission Control pane, the setting "Automatically rearrange Spaces based on most recent use" should be disabled for commands that rely on the ordering of spaces to work reliably.|
 |System&nbsp;Settings&nbsp;(macOS 13.x, 14.x, 15.x)|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Automatically rearrange Spaces based on most recent use" should be disabled for commands that rely on the ordering of spaces to work reliably.|
 |System&nbsp;Settings&nbsp;(macOS 14.x, 15.x)|In the Desktop & Dock tab, inside the Desktop & Stage Manager pane, the setting "Show Items On Desktop" should be enabled for display and space focus commands to work reliably in multi-display configurations.|
@@ -83,12 +83,12 @@ You acknowledge that you understand the potential risk that may come from disabl
 
 <!-- Project internal links -->
 [yabai-license]: LICENSE.txt
-[yabai-examples]: https://github.com/koekeishiya/yabai/tree/master/examples
-[yabai-wiki]: https://github.com/koekeishiya/yabai/wiki
-[yabai-docs]: https://github.com/koekeishiya/yabai/blob/master/doc/yabai.asciidoc
+[yabai-examples]: https://github.com/asmvik/yabai/tree/master/examples
+[yabai-wiki]: https://github.com/asmvik/yabai/wiki
+[yabai-docs]: https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc
 
 <!-- Links to other GitHub projects/users -->
-[gh-skhd]: https://github.com/koekeishiya/skhd
+[gh-skhd]: https://github.com/asmvik/skhd
 [gh-fools-mate]: https://github.com/fools-mate
 [gh-dominiklohmann]: https://github.com/dominiklohmann
 

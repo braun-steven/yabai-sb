@@ -26,7 +26,7 @@ static OBSERVER_CALLBACK(application_notification_handler)
         struct window *window = context;
 
         //
-        // NOTE(koekeishiya): Flag events that are already queued, but not yet processed,
+        // NOTE(asmvik): Flag events that are already queued, but not yet processed,
         // so that they will be ignored; the memory we allocated is still valid and will
         // be freed when this event is handled.
         //

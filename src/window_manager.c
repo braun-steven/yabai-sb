@@ -76,7 +76,7 @@ void window_manager_query_windows_for_displays(FILE *rsp, uint64_t flags)
         if (!list) continue;
 
         //
-        // NOTE(koekeishiya): display_space_list(..) uses a linear allocator,
+        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
         // and so we only need to track the beginning of the first list along
         // with the total number of spaces that have been allocated.
         //
@@ -729,7 +729,7 @@ void window_manager_animate_window(struct window_capture capture)
 void window_manager_set_window_frame(struct window *window, float x, float y, float width, float height)
 {
     //
-    // NOTE(koekeishiya): Attempting to check the window frame cache to prevent unnecessary movement and resize calls to the AX API
+    // NOTE(asmvik): Attempting to check the window frame cache to prevent unnecessary movement and resize calls to the AX API
     // is not reliable because it is possible to perform operations that should be applied, at a higher rate than the AX API events
     // are received, causing our cache to become out of date and incorrectly guard against some changes that **should** be applied.
     // This causes the window layout to **not** be modified the way we expect.
@@ -739,12 +739,12 @@ void window_manager_set_window_frame(struct window *window, float x, float y, fl
     //
 
     AX_ENHANCED_UI_WORKAROUND(window->application->ref, {
-        // NOTE(koekeishiya): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
+        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
         window_manager_resize_window(window, width, height);
 
         window_manager_move_window(window, x, y);
 
-        // NOTE(koekeishiya): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
+        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
         window_manager_resize_window(window, width, height);
     });
 }
@@ -1259,7 +1259,7 @@ static void window_manager_make_key_window(ProcessSerialNumber *window_psn, uint
     //
     // :SynthesizedEvent
     //
-    // NOTE(koekeishiya): These events will be picked up by an event-tap
+    // NOTE(asmvik): These events will be picked up by an event-tap
     // registered at the "Annotated Session" location; specifying that an
     // event-tap is placed at the point where session events have been
     // annotated to flow to an application.
@@ -1440,7 +1440,7 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
     }
 
     //
-    // NOTE(koekeishiya): Attempt to track **all** windows.
+    // NOTE(asmvik): Attempt to track **all** windows.
     //
 
     if (!window_observe(window)) {
@@ -1459,13 +1459,13 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
     window_manager_add_window(wm, window);
 
     //
-    // NOTE(koekeishiya): However, only **root windows** are eligible for management.
+    // NOTE(asmvik): However, only **root windows** are eligible for management.
     //
 
     if (window->is_root) {
 
         //
-        // NOTE(koekeishiya): A lot of windows misreport their accessibility role, so we allow the user
+        // NOTE(asmvik): A lot of windows misreport their accessibility role, so we allow the user
         // to specify rules to make sure that we do in fact manage these windows properly.
         //
         // This part of the rule must be applied at this stage (prior to other rule properties), and if
@@ -1502,7 +1502,7 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
             window_set_flag(window, WINDOW_FLOAT);
 
             //
-            // NOTE(koekeishiya): Print window information when debug_output is enabled.
+            // NOTE(asmvik): Print window information when debug_output is enabled.
             // Useful for identifying and creating rules if this window should in fact be managed.
             //
 
@@ -1517,7 +1517,7 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
         window_set_flag(window, WINDOW_FLOAT);
 
         //
-        // NOTE(koekeishiya): Print window information when debug_output is enabled.
+        // NOTE(asmvik): Print window information when debug_output is enabled.
         //
 
         if (g_verbose) {
@@ -1580,7 +1580,7 @@ static uint32_t *window_manager_existing_application_window_list(struct applicat
         if (!list) continue;
 
         //
-        // NOTE(koekeishiya): display_space_list(..) uses a linear allocator,
+        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
         // and so we only need to track the beginning of the first list along
         // with the total number of windows that have been allocated.
         //
@@ -1613,7 +1613,7 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
         //
         // :Workaround
         //
-        // NOTE(koekeishiya): The AX API appears to always include a single element for Finder that returns an empty window id.
+        // NOTE(asmvik): The AX API appears to always include a single element for Finder that returns an empty window id.
         // This is likely the desktop window. Other similar cases should be handled the same way; simply ignore the window when
         // we attempt to do an equality check to see if we have correctly discovered the number of windows to track.
         //
@@ -1645,7 +1645,7 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                 debug("%s: %s has %d windows that are not yet resolved, attempting workaround\n", __FUNCTION__, application->name, ts_buf_len(app_window_list));
 
                 //
-                // NOTE(koekeishiya): MacOS API does not return AXUIElementRef of windows on inactive spaces.
+                // NOTE(asmvik): MacOS API does not return AXUIElementRef of windows on inactive spaces.
                 // However, we can just brute-force the element_id and create the AXUIElementRef ourselves.
                 //
                 // :Attribution
@@ -1872,7 +1872,7 @@ enum window_op_error window_manager_warp_window(struct space_manager *sm, struct
             //
             // :NaturalWarp
             //
-            // NOTE(koekeishiya): Precalculate both target areas and select the one that has the closest distance to the source area.
+            // NOTE(asmvik): Precalculate both target areas and select the one that has the closest distance to the source area.
             // This allows the warp to feel more natural in terms of where the window is placed on screen, however, this is only utilized
             // for warp operations where both operands belong to the same space. There may be a better system to handle this if/when multiple
             // monitors should be supported.
@@ -1919,7 +1919,7 @@ enum window_op_error window_manager_warp_window(struct space_manager *sm, struct
             //
             // :NaturalWarp
             //
-            // TODO(koekeishiya): Warp operations with operands that belong to different monitors does not yet implement a heuristic to select
+            // TODO(asmvik): Warp operations with operands that belong to different monitors does not yet implement a heuristic to select
             // the target area that feels the most natural in terms of where the window is placed on screen. Is it possible to do better when
             // warping between spaces that belong to the same monitor as well??
             //
@@ -2255,7 +2255,7 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
         while (!space_is_user(space_manager_active_space())) {
 
             //
-            // NOTE(koekeishiya): Window has exited native-fullscreen mode.
+            // NOTE(asmvik): Window has exited native-fullscreen mode.
             // We need to spin lock until the display is finished animating
             // because we are not actually able to interact with the window.
             //
@@ -2270,7 +2270,7 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
         do {
 
             //
-            // NOTE(koekeishiya): Window has exited native-fullscreen mode.
+            // NOTE(asmvik): Window has exited native-fullscreen mode.
             // We need to spin lock until the display is finished animating
             // because we are not actually able to interact with the window.
             //
@@ -2287,7 +2287,7 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
     uint32_t sid = window_space(window->id);
 
     //
-    // NOTE(koekeishiya): The window must become the focused window
+    // NOTE(asmvik): The window must become the focused window
     // before we can change its fullscreen attribute. We focus the
     // window and spin lock until a potential space animation has finished.
     //
@@ -2303,7 +2303,7 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
     }
 
     //
-    // NOTE(koekeishiya): We toggled the fullscreen attribute and must
+    // NOTE(asmvik): We toggled the fullscreen attribute and must
     // now spin lock until the post-exit space animation has finished.
     //
 
@@ -2439,7 +2439,7 @@ bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct w
     uint64_t sid = space_manager_active_space();
     if (!sid) return false;
 
-    // TODO(koekeishiya): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
+    // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
     bool visible_space = window_space(window->id) == sid || window_is_sticky(window->id);
 
     uint8_t ordered_in = 0;
@@ -2548,7 +2548,7 @@ static void window_manager_validate_windows_on_space(struct window_manager *wm, 
             //
             // :AXBatching
             //
-            // NOTE(koekeishiya): Batch all operations and mark the view as dirty so that we can perform a single flush,
+            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
             // making sure that each window is only moved and resized a single time, when the final layout has been computed.
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
@@ -2577,7 +2577,7 @@ static void window_manager_check_for_windows_on_space(struct window_manager *wm,
             //
             // :AXBatching
             //
-            // NOTE(koekeishiya): Batch all operations and mark the view as dirty so that we can perform a single flush,
+            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
             // making sure that each window is only moved and resized a single time, when the final layout has been computed.
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
@@ -2596,7 +2596,7 @@ static void window_manager_check_for_windows_on_space(struct window_manager *wm,
             //
             // :AXBatching
             //
-            // NOTE(koekeishiya): Batch all operations and mark the view as dirty so that we can perform a single flush,
+            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
             // making sure that each window is only moved and resized a single time, when the final layout has been computed.
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
@@ -2624,7 +2624,7 @@ void window_manager_validate_and_check_for_windows_on_space(struct space_manager
     //
     // :AXBatching
     //
-    // NOTE(koekeishiya): Flush previously batched operations if the view is marked as dirty.
+    // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
     // This is necessary to make sure that we do not call the AX API for each modification to the tree.
     //
 

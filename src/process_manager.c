@@ -95,7 +95,7 @@ static PROCESS_EVENT_HANDLER(process_handler)
         if (process_manager_find_process(pm, &psn)) {
 
             //
-            // NOTE(koekeishiya): Some garbage applications (e.g Steam) are reported twice with the same PID and PSN for some hecking reason.
+            // NOTE(asmvik): Some garbage applications (e.g Steam) are reported twice with the same PID and PSN for some hecking reason.
             // It is by definition NOT possible for two processes to exist at the same time with the same PID and PSN.
             // If we detect such a scenario we simply discard the dupe notification..
             //

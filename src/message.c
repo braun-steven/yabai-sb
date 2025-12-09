@@ -307,7 +307,7 @@ static struct token get_token(char **message)
     if ((*message)[0] == '\0' && (*message)[1] != '\0') {
         ++(*message);
     } else {
-        // NOTE(koekeishiya): don't go past the null-terminator
+        // NOTE(asmvik): don't go past the null-terminator
     }
 
     return token;

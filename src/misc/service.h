@@ -2,7 +2,7 @@
 #define SERVICE_H
 
 #define _PATH_LAUNCHCTL   "/bin/launchctl"
-#define _NAME_YABAI_PLIST "com.koekeishiya.yabai"
+#define _NAME_YABAI_PLIST "com.asmvik.yabai"
 #define _PATH_YABAI_PLIST "%s/Library/LaunchAgents/"_NAME_YABAI_PLIST".plist"
 
 #define _YABAI_PLIST \
@@ -42,7 +42,7 @@
     "</plist>"
 
 //
-// NOTE(koekeishiya): A launchd service has the following states:
+// NOTE(asmvik): A launchd service has the following states:
 //
 //          1. Installed / Uninstalled
 //          2. Active (Enable / Disable)
@@ -132,7 +132,7 @@ static char *populate_plist(int *length)
 static inline void ensure_directory_exists(char *yabai_plist_path)
 {
     //
-    // NOTE(koekeishiya): Temporarily remove filename.
+    // NOTE(asmvik): Temporarily remove filename.
     // We know the filepath will contain a slash, as
     // it is controlled by us, so don't bother checking
     // the result..
@@ -146,7 +146,7 @@ static inline void ensure_directory_exists(char *yabai_plist_path)
     }
 
     //
-    // NOTE(koekeishiya): Restore original filename.
+    // NOTE(asmvik): Restore original filename.
     //
 
     *last_slash = '/';
@@ -209,7 +209,7 @@ static int service_start(void)
     snprintf(domain_target, sizeof(domain_target), "gui/%d", getuid());
 
     //
-    // NOTE(koekeishiya): Check if service is bootstrapped
+    // NOTE(asmvik): Check if service is bootstrapped
     //
 
     const char *const args[] = { _PATH_LAUNCHCTL, "print", service_target, NULL };
@@ -218,7 +218,7 @@ static int service_start(void)
     if (is_bootstrapped != 0) {
 
         //
-        // NOTE(koekeishiya): Service is not bootstrapped and could be disabled.
+        // NOTE(asmvik): Service is not bootstrapped and could be disabled.
         // There is no way to query if the service is disabled, and we cannot
         // bootstrap a disabled service. Try to enable the service. This will be
         // a no-op if the service is already enabled.
@@ -228,7 +228,7 @@ static int service_start(void)
         safe_exec((char *const*)args, false);
 
         //
-        // NOTE(koekeishiya): Bootstrap service into the target domain.
+        // NOTE(asmvik): Bootstrap service into the target domain.
         // This will also start the program **iff* RunAtLoad is set to true.
         //
 
@@ -237,7 +237,7 @@ static int service_start(void)
     } else {
 
         //
-        // NOTE(koekeishiya): The service has already been bootstrapped.
+        // NOTE(asmvik): The service has already been bootstrapped.
         // Tell the bootstrapped service to launch immediately; it is an
         // error to bootstrap a service that has already been bootstrapped.
         //
@@ -275,7 +275,7 @@ static int service_stop(void)
     snprintf(domain_target, sizeof(domain_target), "gui/%d", getuid());
 
     //
-    // NOTE(koekeishiya): Check if service is bootstrapped
+    // NOTE(asmvik): Check if service is bootstrapped
     //
 
     const char *const args[] = { _PATH_LAUNCHCTL, "print", service_target, NULL };
@@ -284,7 +284,7 @@ static int service_stop(void)
     if (is_bootstrapped != 0) {
 
         //
-        // NOTE(koekeishiya): Service is not bootstrapped, but the program
+        // NOTE(asmvik): Service is not bootstrapped, but the program
         // could still be running an instance that was started **while the service
         // was bootstrapped**, so we tell it to stop said service.
         //
@@ -294,7 +294,7 @@ static int service_stop(void)
     } else {
 
         //
-        // NOTE(koekeishiya): Service is bootstrapped; we stop a potentially
+        // NOTE(asmvik): Service is bootstrapped; we stop a potentially
         // running instance of the program and unload the service, making it
         // not trigger automatically in the future.
         //

@@ -310,7 +310,7 @@ CGRect display_manager_menu_bar_rect(uint32_t did)
 #elif __arm64__
 
     //
-    // NOTE(koekeishiya): SLSGetRevealedMenuBarBounds is broken on Apple Silicon,
+    // NOTE(asmvik): SLSGetRevealedMenuBarBounds is broken on Apple Silicon,
     // but we expected it to return the full display bounds along with the menubar
     // height. Combine this information ourselves using two separate functions..
     //
@@ -323,7 +323,7 @@ CGRect display_manager_menu_bar_rect(uint32_t did)
 #endif
 
     //
-    // NOTE(koekeishiya): Height needs to be offset by 1 because that is the actual
+    // NOTE(asmvik): Height needs to be offset by 1 because that is the actual
     // position on the screen that windows can be positioned at..
     //
 

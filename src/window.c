@@ -945,7 +945,7 @@ static int SLSGetWindowSubLevel__Internal(int cid, uint32_t wid)
     msg.header.msgh_bits = 0x1513;
     msg.header.msgh_remote_port = CGSGetConnectionPortById(cid);
     msg.header.msgh_local_port = mig_get_special_reply_port();
-    msg.header.msgh_id = 0x73C3;
+    msg.header.msgh_id = workspace_is_macos_tahoe() ? 0x76E3 : 0x73C3;
     mach_msg(&msg.header, MACH_SEND_MSG|MACH_RCV_MSG, 0x24, 0x30, msg.header.msgh_local_port, 0, 0);
 
     return msg.sub_level;

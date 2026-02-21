@@ -5,8 +5,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.1.17] - 2026-02-21
 ### Changed
-- Update scripting addition for macOS 26.2 Apple Silicon [#2693](https://github.com/asmvik/yabai/issues/2693)
+- Update scripting addition for macOS 26.2 and 26.3 Apple Silicon [#2693](https://github.com/asmvik/yabai/issues/2693)
 - Fix window sub-level query for macOS 26 [#2726](https://github.com/asmvik/yabai/issues/2726)
 
 ## [7.1.16] - 2025-10-07
@@ -767,7 +769,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.16...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.17...HEAD
+[7.1.17]: https://github.com/asmvik/yabai/compare/v7.1.16...v7.1.17
 [7.1.16]: https://github.com/asmvik/yabai/compare/v7.1.15...v7.1.16
 [7.1.15]: https://github.com/asmvik/yabai/compare/v7.1.14...v7.1.15
 [7.1.14]: https://github.com/asmvik/yabai/compare/v7.1.13...v7.1.14

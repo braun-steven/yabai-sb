@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.1.18] - 2026-03-29
 ### Changed
 - Validate scripting-addition socket message length to prevent possbility of stack corruption [#2751](https://github.com/asmvik/yabai/issues/2751)
 - Update scripting addition for 26.4 Apple Silicon [#2764](https://github.com/asmvik/yabai/issues/2764)
@@ -772,7 +774,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.17...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.18...HEAD
+[7.1.18]: https://github.com/asmvik/yabai/compare/v7.1.17...v7.1.18
 [7.1.17]: https://github.com/asmvik/yabai/compare/v7.1.16...v7.1.17
 [7.1.16]: https://github.com/asmvik/yabai/compare/v7.1.15...v7.1.16
 [7.1.15]: https://github.com/asmvik/yabai/compare/v7.1.14...v7.1.15

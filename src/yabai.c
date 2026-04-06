@@ -160,7 +160,7 @@ static inline bool configure_settings_and_acquire_lock(void)
     hook_autoreleasepool_release();
 #endif
 
-    int handle = open(g_lock_file, O_CREAT | O_WRONLY, 0600);
+    int handle = open(g_lock_file, O_CREAT | O_WRONLY | O_CLOEXEC, 0600);
     if (handle == -1) {
         error("yabai: could not create lock-file! abort..\n");
     }

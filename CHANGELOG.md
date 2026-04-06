@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Lockfile descriptor should not be kept alive by the signal system [#2775](https://github.com/asmvik/yabai/issues/2775)
 
 ## [7.1.18] - 2026-03-29
 ### Changed

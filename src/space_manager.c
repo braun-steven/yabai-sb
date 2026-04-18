@@ -917,45 +917,29 @@ static bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t n
     //
     // :Attribution
     // https://github.com/jurplel/InstantSpaceSwitcher
-    // Technique first observed in, and reverse-engineered from, BetterTouchTool.
+    // https://github.com/thenickdude/wacom-driver-fix/blob/bdfda9a788934c88d09d31ea6a42664b9ba1471e/Readme.md
+    // Technique first observed in practice, and reverse-engineered from, BetterTouchTool.
     //
 
     CGEventRef event_dock_control = CGEventCreate(NULL);
     if (!event_dock_control) return false;
 
-    CGEventRef event_gesture = CGEventCreate(NULL);
-    if (!event_gesture) {
-        CFRelease(event_dock_control);
-        return false;
-    }
-
-    int32_t flag_bits;
-    float flag_value = (new_index - cur_index) > 0 ? FLT_TRUE_MIN : -FLT_TRUE_MIN;
-    memcpy(&flag_bits, &flag_value, sizeof(int32_t));
-
-    int count = abs(new_index - cur_index);
-    double velocity_x = count * ((new_index - cur_index) > 0 ? 999999.0 : -999999.0);
-
-    CGEventSetIntegerValueField(event_gesture,      /* kCGSEventTypeField            */  55, /* kCGSEventGesture           */ 29);
+    float sign = (new_index - cur_index) > 0 ? 1.0 : -1.0;
     CGEventSetIntegerValueField(event_dock_control, /* kCGSEventTypeField            */  55, /* kCGSEventDockControl       */ 30);
     CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureHIDType        */ 110, /* kIOHIDEventTypeDockSwipe   */ 23);
-    CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureSwipeMotion    */ 123, /* kCGGestureMotionHorizontal */ 1);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureScrollY        */ 119, 0);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityX */ 129, velocity_x);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityY */ 130, 0);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureZoomDeltaX     */ 139, FLT_TRUE_MIN);
-    CGEventSetIntegerValueField(event_dock_control, /* kCGEventScrollGestureFlagBits */ 135, flag_bits);
+    CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureSwipeMotion    */ 123, /* kCGGestureMotionHorizontal */  1);
+    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityX */ 129, sign * 999.0);
+    CGEventSetIntegerValueField(event_dock_control, /* kCGEventScrollGestureFlagBits */ 135, *(int32_t*)&sign);
 
+    int count = abs(new_index - cur_index);
     for (int i = 0; i < count; ++i) {
-        for (int phase = /* kCGSGesturePhaseBegan */ 1; phase <= /* kCGSGesturePhaseEnded */ 4; phase <<= 1) /* kCGSGesturePhaseChanged 2 */ {
-            CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, phase);
-            CGEventPost(kCGSessionEventTap, event_dock_control);
-            CGEventPost(kCGSessionEventTap, event_gesture);
-        }
+        CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, /* kCGSGesturePhaseBegan */ 1);
+        CGEventPost(kCGSessionEventTap, event_dock_control);
+        CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, /* kCGSGesturePhaseEnded */ 4);
+        CGEventPost(kCGSessionEventTap, event_dock_control);
     }
 
     CFRelease(event_dock_control);
-    CFRelease(event_gesture);
     display_manager_focus_display(new_did, new_sid);
 
     return true;

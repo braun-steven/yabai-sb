@@ -443,6 +443,8 @@ void display_manager_set_active_display_id(uint32_t did)
     CFRelease(uuid);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 void display_manager_focus_display(uint32_t did, uint64_t sid)
 {
     struct window *window = window_manager_find_window_on_space_by_rank_filtering_window(&g_window_manager, sid, 1, 0);
@@ -451,10 +453,17 @@ void display_manager_focus_display(uint32_t did, uint64_t sid)
         window_manager_center_mouse(&g_window_manager, window);
         display_manager_set_active_display_id(did);
     } else {
-        CGWarpMouseCursorPosition(display_center(did));
+        CGPoint point = display_center(did);
+        CGWarpMouseCursorPosition(point);
         display_manager_set_active_display_id(did);
+
+        if (space_manager_active_space() != display_space_id(did)) {
+            CGPostMouseEvent(point, false, 1, true);
+            CGPostMouseEvent(point, false, 1, false);
+        }
     }
 }
+#pragma clang diagnostic pop
 
 enum space_op_error display_manager_focus_space(uint32_t did, uint64_t sid)
 {

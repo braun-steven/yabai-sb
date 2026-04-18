@@ -899,6 +899,8 @@ enum space_op_error space_manager_move_space_to_display(struct space_manager *sm
     return SPACE_OP_ERROR_SCRIPTING_ADDITION;
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid)
 {
     int cur_index = space_manager_mission_control_index(display_space_id(new_did));
@@ -955,6 +957,7 @@ static bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t n
 
     return true;
 }
+#pragma clang diagnostic pop
 
 enum space_op_error space_manager_focus_space(uint64_t sid)
 {

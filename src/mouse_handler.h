@@ -7,14 +7,16 @@
                              (1 << kCGEventLeftMouseDragged) | \
                              (1 << kCGEventRightMouseDown) | \
                              (1 << kCGEventRightMouseUp) | \
-                             (1 << kCGEventRightMouseDragged)
+                             (1 << kCGEventRightMouseDragged) | \
+                             (1 << /* kCGSEventDockControl */ 30)
 
 #define MOUSE_EVENT_MASK     (1 << kCGEventLeftMouseDown) | \
                              (1 << kCGEventLeftMouseUp) | \
                              (1 << kCGEventLeftMouseDragged) | \
                              (1 << kCGEventRightMouseDown) | \
                              (1 << kCGEventRightMouseUp) | \
-                             (1 << kCGEventRightMouseDragged)
+                             (1 << kCGEventRightMouseDragged) | \
+                             (1 << /* kCGSEventDockControl */ 30)
 
 #define MOUSE_HANDLER(name) CGEventRef name(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *context)
 

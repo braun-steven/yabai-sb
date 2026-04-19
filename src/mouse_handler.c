@@ -1,4 +1,6 @@
 extern struct event_loop g_event_loop;
+extern volatile bool __pending_gesture;
+extern volatile uint64_t __last_gesture_time;
 
 static inline uint8_t mouse_mod_from_cgflags(uint32_t cgflags)
 {
@@ -63,6 +65,21 @@ static MOUSE_HANDLER(mouse_handler)
         if (mod == mouse_state->modifier) return event;
 
         event_loop_post(&g_event_loop, MOUSE_MOVED, (void *) CFRetain(event), mod);
+    } break;
+    case /* kCGSEventDockControl */ 30: {
+        int type = CGEventGetIntegerValueField(event, /* kCGEventGestureHIDType */ 110);
+        if (type == /* kIOHIDEventTypeDockSwipe */ 23) {
+            int motion = CGEventGetIntegerValueField(event, /* kCGEventGestureSwipeMotion */ 123);
+            if (motion == /* kCGGestureMotionHorizontal */ 1) {
+                int phase = CGEventGetIntegerValueField(event, /* kCGEventGesturePhase */ 132);
+                if (phase == /* kCGSGesturePhaseBegan */ 1) {
+                    __atomic_store_n(&__pending_gesture, true, __ATOMIC_RELEASE);
+                } else if (phase == /* kCGSGesturePhaseEnded */ 4 || phase == /* kCGSGesturePhaseCancelled */ 8) {
+                    __atomic_store_n(&__pending_gesture, false, __ATOMIC_RELEASE);
+                    __atomic_store_n(&__last_gesture_time, read_os_timer(), __ATOMIC_RELEASE);
+                }
+            }
+        }
     } break;
     }
 

@@ -9,6 +9,8 @@ extern int g_connection;
 extern void *g_workspace_context;
 extern int g_layer_below_window_level;
 volatile uint32_t __pending_focus_wid;
+volatile bool __pending_gesture;
+volatile uint64_t __last_gesture_time;
 
 static void update_window_notifications(void)
 {
@@ -1334,6 +1336,11 @@ static EVENT_HANDLER(MOUSE_MOVED)
     if (g_window_manager.ffm_mode == FFM_DISABLED) goto out;
     if (mission_control_is_active())               goto out;
     if (g_mouse_state.ffm_window_id)               goto out;
+
+    if (__atomic_load_n(&__pending_gesture, __ATOMIC_RELAXED)) goto out;
+    uint64_t last_gesture_time = __atomic_load_n(&__last_gesture_time, __ATOMIC_RELAXED);
+    float dt = ((float) read_os_timer() - last_gesture_time) * (1000.0f / (float)read_os_freq());
+    if (dt < 1250.0f) goto out;
 
     CGPoint point = CGEventGetLocation(context);
     struct window *window = window_manager_find_window_at_point(&g_window_manager, point);

@@ -787,7 +787,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.20...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.21...HEAD
+[7.1.21]: https://github.com/asmvik/yabai/compare/v7.1.20...v7.1.21
 [7.1.20]: https://github.com/asmvik/yabai/compare/v7.1.19...v7.1.20
 [7.1.19]: https://github.com/asmvik/yabai/compare/v7.1.18...v7.1.19
 [7.1.18]: https://github.com/asmvik/yabai/compare/v7.1.17...v7.1.18

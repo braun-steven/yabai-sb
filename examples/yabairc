@@ -23,6 +23,7 @@ yabai -m config                                 \
     window_insertion_point       focused        \
     window_zoom_persist          on             \
     window_shadow                on             \
+    skip_window_focus_animation  off            \
     window_animation_duration    0.0            \
     window_animation_easing      ease_out_circ  \
     window_opacity_duration      0.0            \

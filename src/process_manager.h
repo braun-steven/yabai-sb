@@ -31,5 +31,6 @@ struct process_manager
 void process_destroy(struct process *process);
 struct process *process_manager_find_process(struct process_manager *pm, ProcessSerialNumber *psn);
 bool process_manager_begin(struct process_manager *pm);
+uint64_t process_manager_active_space_for_psn(int connection);
 
 #endif

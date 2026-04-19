@@ -8,6 +8,7 @@ extern enum mission_control_mode g_mission_control_mode;
 extern int g_connection;
 extern void *g_workspace_context;
 extern int g_layer_below_window_level;
+volatile uint32_t __pending_focus_wid;
 
 static void update_window_notifications(void)
 {
@@ -394,8 +395,19 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         return;
     }
 
+    if (g_space_manager.skip_window_focus_animation) {
+        if (__atomic_load_n(&__pending_focus_wid, __ATOMIC_RELAXED) == 0) {
+            uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
+            if (psn_sid && !space_is_visible(psn_sid)) {
+                SLSSpaceSetFrontPSN(g_connection, psn_sid, application->psn);
+                space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
+            }
+        }
+    }
+
     window_did_receive_focus(&g_window_manager, &g_mouse_state, window);
     event_signal_push(SIGNAL_WINDOW_FOCUSED, window);
+    __atomic_store_n(&__pending_focus_wid, 0, __ATOMIC_RELEASE);
 }
 #pragma clang diagnostic pop
 
@@ -610,9 +622,10 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
 
 static EVENT_HANDLER(WINDOW_FOCUSED)
 {
+    __atomic_store_n(&__pending_focus_wid, 0, __ATOMIC_RELEASE);
     uint32_t window_id = (uint32_t)(intptr_t) context;
-    struct window *window = window_manager_find_window(&g_window_manager, window_id);
 
+    struct window *window = window_manager_find_window(&g_window_manager, window_id);
     if (!window) {
         window_manager_add_lost_focused_event(&g_window_manager, window_id);
         return;
@@ -633,6 +646,15 @@ static EVENT_HANDLER(WINDOW_FOCUSED)
     }
 
     debug("%s: %s %d\n", __FUNCTION__, window->application->name, window->id);
+
+    if (g_space_manager.skip_window_focus_animation) {
+        uint64_t sid = window_space(window->id);
+        if (sid && !space_is_visible(sid)) {
+            SLSSpaceSetFrontPSN(g_connection, sid, window->application->psn);
+            space_manager_focus_space_using_gesture(space_display_id(sid), sid);
+        }
+    }
+
     window_did_receive_focus(&g_window_manager, &g_mouse_state, window);
     event_signal_push(SIGNAL_WINDOW_FOCUSED, window);
 }

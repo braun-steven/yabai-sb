@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-04-18
+.\"      Date: 2026-04-19
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-04-18" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-04-19" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -241,6 +241,15 @@ Specify where new managed windows will be inserted.
 \fBwindow_zoom_persist\fP [\fI<BOOL_SEL>\fP]
 .RS 4
 Windows will keep their zoom\-state through layout changes.
+.RE
+.sp
+\fBskip_window_focus_animation\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Bypass macOS space animation when an application or window on an inactive space is focused.
+.br
+You should only enable this if you do NOT use the scripting addition.
+.br
+The scripting addition implements the same functionality in a more robust way.
 .RE
 .sp
 \fBwindow_shadow\fP [\fI<BOOL_SEL>|float\fP]

@@ -1,4 +1,5 @@
 extern struct event_loop g_event_loop;
+extern volatile uint32_t __pending_focus_wid;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -7,7 +8,9 @@ static OBSERVER_CALLBACK(application_notification_handler)
     if (CFEqual(notification, kAXCreatedNotification)) {
         event_loop_post(&g_event_loop, WINDOW_CREATED, (void *) CFRetain(element), 0);
     } else if (CFEqual(notification, kAXFocusedWindowChangedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_FOCUSED, (void *)(intptr_t) ax_window_id(element), 0);
+        uint32_t wid = ax_window_id(element);
+        __atomic_store_n(&__pending_focus_wid, wid, __ATOMIC_RELEASE);
+        event_loop_post(&g_event_loop, WINDOW_FOCUSED, (void *)(intptr_t) wid, 0);
     } else if (CFEqual(notification, kAXWindowMovedNotification)) {
         event_loop_post(&g_event_loop, WINDOW_MOVED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXWindowResizedNotification)) {

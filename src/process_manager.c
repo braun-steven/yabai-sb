@@ -80,7 +80,7 @@ static bool process_is_being_debugged(pid_t pid)
     return ((info.kp_proc.p_flag & P_TRACED) != 0);
 }
 
-static uint64_t process_manager_active_space_for_psn(int connection)
+uint64_t process_manager_active_space_for_psn(int connection)
 {
     uint64_t sid = 0;
 
@@ -197,12 +197,6 @@ static PROCESS_EVENT_HANDLER(process_handler)
     case kEventAppFrontSwitched: {
         struct process *process = process_manager_find_process(pm, &psn);
         if (!process) return noErr;
-
-        uint64_t psn_sid = process_manager_active_space_for_psn(process->connection);
-        if (psn_sid && !space_is_visible(psn_sid)) {
-            SLSSpaceSetFrontPSN(g_connection, psn_sid, psn);
-            space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
-        }
 
         event_loop_post(&g_event_loop, APPLICATION_FRONT_SWITCHED, process, 0);
     } break;

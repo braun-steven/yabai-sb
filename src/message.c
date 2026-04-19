@@ -51,6 +51,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_MOUSE_ACTION2         "mouse_action2"
 #define COMMAND_CONFIG_MOUSE_DROP_ACTION     "mouse_drop_action"
 #define COMMAND_CONFIG_EXTERNAL_BAR          "external_bar"
+#define COMMAND_CONFIG_SKIP_SPACE_ANIMATION  "skip_window_focus_animation"
 
 #define SELECTOR_CONFIG_SPACE                "--space"
 
@@ -1259,6 +1260,17 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 g_space_manager.window_zoom_persist = false;
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
                 g_space_manager.window_zoom_persist = true;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_SKIP_SPACE_ANIMATION)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_space_manager.skip_window_focus_animation]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_space_manager.skip_window_focus_animation = false;
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_space_manager.skip_window_focus_animation = true;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }

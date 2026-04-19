@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Improve implementation to remove native window focus space animation, with SIP enabled. Gated behind config option (`skip_window_focus_animation`) [#2781](https://github.com/asmvik/yabai/issues/2781)
 
 ## [7.1.21] - 2026-04-19
 ### Changed

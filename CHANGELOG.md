@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Improve implementation to remove native window focus space animation, with SIP enabled. Gated behind config option (`skip_window_focus_animation`) [#2781](https://github.com/asmvik/yabai/issues/2781)
+
+## [7.1.22] - 2026-04-19
+### Changed
+- Improved implementation to remove native window focus space animation, with SIP enabled. Gated behind config option (`skip_window_focus_animation`) [#2781](https://github.com/asmvik/yabai/issues/2781)
 
 ## [7.1.21] - 2026-04-19
 ### Changed
@@ -788,7 +791,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.21...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.22...HEAD
+[7.1.22]: https://github.com/asmvik/yabai/compare/v7.1.21...v7.1.22
 [7.1.21]: https://github.com/asmvik/yabai/compare/v7.1.20...v7.1.21
 [7.1.20]: https://github.com/asmvik/yabai/compare/v7.1.19...v7.1.20
 [7.1.19]: https://github.com/asmvik/yabai/compare/v7.1.18...v7.1.19

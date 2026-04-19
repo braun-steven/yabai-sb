@@ -901,7 +901,7 @@ enum space_op_error space_manager_move_space_to_display(struct space_manager *sm
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid)
+bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid)
 {
     int cur_index = space_manager_mission_control_index(display_space_id(new_did));
     int new_index = space_manager_mission_control_index(new_sid);
@@ -937,7 +937,7 @@ static bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t n
     CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureHIDType        */ 110, /* kIOHIDEventTypeDockSwipe   */ 23);
     CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureSwipeMotion    */ 123, /* kCGGestureMotionHorizontal */  1);
     CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeProgress  */ 124, sign);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityX */ 129, sign * 999.0);
+    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityX */ 129, sign * 9999.0);
 
     for (int i = 0; i < count; ++i) {
         CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, /* kCGSGesturePhaseBegan */ 1);

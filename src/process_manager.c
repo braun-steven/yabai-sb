@@ -59,6 +59,7 @@ static struct process *process_create(ProcessSerialNumber psn, pid_t pid)
     }
 
     struct process *process = malloc(sizeof(struct process));
+    SLSGetConnectionIDForPSN(g_connection, &psn, &process->connection);
     process->psn = psn;
     process->pid = pid;
     process->name = process_name;
@@ -78,6 +79,73 @@ static bool process_is_being_debugged(pid_t pid)
     sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
     return ((info.kp_proc.p_flag & P_TRACED) != 0);
 }
+
+static uint64_t process_manager_active_space_for_psn(int connection)
+{
+    uint64_t sid = 0;
+
+    int display_count;
+    uint32_t *display_list = display_manager_active_display_list(&display_count);
+    if (!display_list) return sid;
+
+    int space_count = 0;
+    uint64_t *space_list = NULL;
+
+    for (int i = 0; i < display_count; ++i) {
+        int count;
+        uint64_t *list = display_space_list(display_list[i], &count);
+        if (!list) continue;
+
+        //
+        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
+        // and so we only need to track the beginning of the first list along
+        // with the total number of windows that have been allocated.
+        //
+
+        if (!space_list) space_list = list;
+        space_count += count;
+    }
+
+    uint64_t set_tags = 0;
+    uint64_t clear_tags = 0;
+    uint32_t options = 0x2;
+
+    CFArrayRef space_list_ref = cfarray_of_cfnumbers(space_list, sizeof(uint64_t), space_count, kCFNumberSInt64Type);
+    CFArrayRef window_list_ref = SLSCopyWindowsWithOptionsAndTags(g_connection, connection, space_list_ref, options, &set_tags, &clear_tags);
+    if (!window_list_ref) goto err;
+
+    int count = CFArrayGetCount(window_list_ref);
+    if (!count) goto out;
+
+    CFTypeRef query = SLSWindowQueryWindows(g_connection, window_list_ref, count);
+    CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
+
+    while (SLSWindowIteratorAdvance(iterator)) {
+        uint64_t tags = SLSWindowIteratorGetTags(iterator);
+        uint64_t attributes = SLSWindowIteratorGetAttributes(iterator);
+        uint32_t parent_wid = SLSWindowIteratorGetParentID(iterator);
+        uint32_t wid = SLSWindowIteratorGetWindowID(iterator);
+        int level = SLSWindowIteratorGetLevel(iterator);
+
+        if (parent_wid == 0) {
+            if (level == 0 || level == 3 || level == 8) {
+                if (((attributes & 0x2) || (tags & 0x400000000000000)) && (((tags & 0x1)) || ((tags & 0x2) && (tags & 0x80000000)))) {
+                    sid = window_space(wid);
+                    break;
+                }
+            }
+        }
+    }
+
+    CFRelease(query);
+    CFRelease(iterator);
+out:
+    CFRelease(window_list_ref);
+err:
+    CFRelease(space_list_ref);
+    return sid;
+}
+
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -129,6 +197,12 @@ static PROCESS_EVENT_HANDLER(process_handler)
     case kEventAppFrontSwitched: {
         struct process *process = process_manager_find_process(pm, &psn);
         if (!process) return noErr;
+
+        uint64_t psn_sid = process_manager_active_space_for_psn(process->connection);
+        if (psn_sid && !space_is_visible(psn_sid)) {
+            SLSSpaceSetFrontPSN(g_connection, psn_sid, psn);
+            space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
+        }
 
         event_loop_post(&g_event_loop, APPLICATION_FRONT_SWITCHED, process, 0);
     } break;

@@ -6,6 +6,7 @@ typedef PROCESS_EVENT_HANDLER(process_event_handler);
 
 struct process
 {
+    int connection;
     ProcessSerialNumber psn;
     pid_t pid;
     char *name;

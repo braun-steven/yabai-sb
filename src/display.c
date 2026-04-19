@@ -98,7 +98,7 @@ void display_serialize(FILE *rsp, uint32_t did, uint64_t flags)
     fprintf(rsp, "\n}");
 }
 
-CFStringRef display_uuid(uint32_t did)
+inline CFStringRef display_uuid(uint32_t did)
 {
     CFUUIDRef uuid_ref = CGDisplayCreateUUIDFromDisplayID(did);
     if (!uuid_ref) return NULL;
@@ -109,7 +109,7 @@ CFStringRef display_uuid(uint32_t did)
     return uuid_str;
 }
 
-uint32_t display_id(CFStringRef uuid)
+inline uint32_t display_id(CFStringRef uuid)
 {
     CFUUIDRef uuid_ref = CFUUIDCreateFromString(NULL, uuid);
     if (!uuid_ref) return 0;
@@ -176,7 +176,7 @@ CGPoint display_center(uint32_t did)
     return (CGPoint) { bounds.origin.x + bounds.size.width/2, bounds.origin.y + bounds.size.height/2 };
 }
 
-uint64_t display_space_id(uint32_t did)
+inline uint64_t display_space_id(uint32_t did)
 {
     CFStringRef uuid = display_uuid(did);
     if (!uuid) return 0;

@@ -6,9 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [7.1.20] - 2026-04-19
+### Changed
+- Minor performance improvement of `space --focus` command with SIP enabled [#2780](https://github.com/asmvik/yabai/issues/2780)
+
 ## [7.1.19] - 2026-04-18
 ### Changed
-- `Space --focus` command now works with SIP enabled [#2780](https://github.com/asmvik/yabai/issues/2780)
+- `space --focus` command now works with SIP enabled [#2780](https://github.com/asmvik/yabai/issues/2780)
 - Lockfile descriptor should not be kept alive by the signal system [#2775](https://github.com/asmvik/yabai/issues/2775)
 
 ## [7.1.18] - 2026-03-29
@@ -779,7 +783,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.19...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.20...HEAD
+[7.1.20]: https://github.com/asmvik/yabai/compare/v7.1.19...v7.1.20
 [7.1.19]: https://github.com/asmvik/yabai/compare/v7.1.18...v7.1.19
 [7.1.18]: https://github.com/asmvik/yabai/compare/v7.1.17...v7.1.18
 [7.1.17]: https://github.com/asmvik/yabai/compare/v7.1.16...v7.1.17

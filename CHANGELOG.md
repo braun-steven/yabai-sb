@@ -8,7 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.21] - 2026-04-19
 ### Changed
-- Remove the space switch animation when using cmd+tab, and clicking on an item in the Dock [#2781](https://github.com/asmvik/yabai/issues/2781)
+- Remove the space switch animation when using cmd+tab, and clicking on an item in the Dock, with SIP enabled [#2781](https://github.com/asmvik/yabai/issues/2781)
 
 ## [7.1.20] - 2026-04-19
 ### Changed

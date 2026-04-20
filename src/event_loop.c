@@ -360,7 +360,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
 
         uint64_t last_cmd_tab_time = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED);
         float dt = ((float) read_os_timer() - last_cmd_tab_time) * (1000.0f / (float)read_os_freq());
-        if (dt > 999.0f) {
+        if (dt > 1500.0f) {
             CFTypeRef dummy = NULL;
             AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
         }

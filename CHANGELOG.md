@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Properly reset *focus follows mouse* window id upon window close [#2217](https://github.com/asmvik/yabai/issues/2217)
 
 ## [7.1.23] - 2026-04-20
 ### Changed

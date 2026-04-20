@@ -303,6 +303,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
         }
 
         if (g_mouse_state.window == window) g_mouse_state.window = NULL;
+        if (g_mouse_state.ffm_window_id == window->id) g_mouse_state.ffm_window_id = 0;
 
         if (window->is_eligible) {
             event_signal_push(SIGNAL_WINDOW_DESTROYED, window);
@@ -616,6 +617,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     }
 
     if (g_mouse_state.window == window) g_mouse_state.window = NULL;
+    if (g_mouse_state.ffm_window_id == window->id) g_mouse_state.ffm_window_id = 0;
 
     if (window->is_eligible) {
         event_signal_push(SIGNAL_WINDOW_DESTROYED, window);

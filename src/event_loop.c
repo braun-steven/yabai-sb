@@ -1572,12 +1572,10 @@ static EVENT_HANDLER(MENU_CLOSED)
     debug("%s\n", __FUNCTION__);
     --is_menu_open;
 
-    if (is_menu_open < 0) {
-        is_menu_open = 0;
-    }
-
     if (is_menu_open == 0) {
         g_window_manager.ffm_mode = ffm_value;
+    } else if (is_menu_open < 0) {
+        is_menu_open = 0;
     }
 }
 

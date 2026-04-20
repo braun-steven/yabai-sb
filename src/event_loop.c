@@ -11,6 +11,7 @@ extern int g_layer_below_window_level;
 volatile bool __pending_window_focus;
 volatile bool __pending_gesture;
 volatile uint64_t __last_gesture_time;
+volatile uint64_t __last_cmd_tab_time;
 
 static void update_window_notifications(void)
 {
@@ -357,8 +358,12 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
     if (g_space_manager.skip_window_focus_animation) {
         uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
 
-        CFTypeRef dummy = NULL;
-        AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
+        uint64_t last_cmd_tab_time = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED);
+        float dt = ((float) read_os_timer() - last_cmd_tab_time) * (1000.0f / (float)read_os_freq());
+        if (dt > 999.0f) {
+            CFTypeRef dummy = NULL;
+            AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
+        }
 
         if (__atomic_load_n(&__pending_window_focus, __ATOMIC_RELAXED) == false) {
             if (psn_sid && !space_is_visible(psn_sid)) {

@@ -1,5 +1,6 @@
 extern struct event_loop g_event_loop;
 extern enum mission_control_mode g_mission_control_mode;
+extern volatile uint64_t __last_cmd_tab_time;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -19,6 +20,8 @@ static CONNECTION_CALLBACK(connection_handler)
     } else if (type == 804) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         event_loop_post(&g_event_loop, SLS_WINDOW_DESTROYED, (void *) (intptr_t) wid, 0);
+    } else if (type == 1202) {
+        __atomic_store_n(&__last_cmd_tab_time, read_os_timer(), __ATOMIC_RELEASE);
     }
 }
 #pragma clang diagnostic pop

@@ -177,7 +177,7 @@ const char *get_fix_animation_pattern(NSOperatingSystemVersion os_version) {
         return "F2 0F 10 ?? ?? ?? ?? ?? 48 89 ?? 48 89 ?? 4C 8B ?? ?? E8";
     } else if (os_version.majorVersion == 15) {
         if (os_version.minorVersion >= 4) {
-            return "F2 0F 10 05 DB 13 0B 00 4C 89 F7 48 89 DE";
+            return "F2 0F 10 ?? ?? ?? ?? ?? ?? 89 ?? 48 89 DE";
         }
         return "F2 0F 10 05 ?? ?? ?? 00 48 8B ?? ?? 48 ?? ??";
     } else if (os_version.majorVersion == 14) {

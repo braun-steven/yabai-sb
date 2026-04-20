@@ -739,13 +739,25 @@ void window_manager_set_window_frame(struct window *window, float x, float y, fl
     //
 
     AX_ENHANCED_UI_WORKAROUND(window->application->ref, {
-        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
-        window_manager_resize_window(window, width, height);
+        CGPoint position = CGPointMake(x, y);
+        CFTypeRef position_ref = AXValueCreate(kAXValueTypeCGPoint, (void *) &position);
 
-        window_manager_move_window(window, x, y);
+        CGSize size = CGSizeMake(width, height);
+        CFTypeRef size_ref = AXValueCreate(kAXValueTypeCGSize, (void *) &size);
+
+        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
+        if (size_ref) AXUIElementSetAttributeValue(window->ref, kAXSizeAttribute, size_ref);
+
+        if (position_ref) {
+            AXUIElementSetAttributeValue(window->ref, kAXPositionAttribute, position_ref);
+            CFRelease(position_ref);
+        }
 
         // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
-        window_manager_resize_window(window, width, height);
+        if (size_ref) {
+            AXUIElementSetAttributeValue(window->ref, kAXSizeAttribute, size_ref);
+            CFRelease(size_ref);
+        }
     });
 }
 

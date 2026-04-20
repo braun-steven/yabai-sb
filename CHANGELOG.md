@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 - Prevent *focus follows mouse* from triggering while inside a space switching gesture [#2781](https://github.com/asmvik/yabai/issues/2781)
 - Attempt to resolve *focus follows mouse* incorrectly getting disabled by stale context menu events [#2217](https://github.com/asmvik/yabai/issues/2217)
+- Stub out private API that has returned nonsense result for many modern macOS versions [#2147](https://github.com/asmvik/yabai/issues/2147)
 
 ## [7.1.22] - 2026-04-19
 ### Changed

@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.1.23] - 2026-04-20
 ### Changed
+- Further improvements to implementation for removing native window focus space animation (`skip_window_focus_animation`), with SIP enabled [#2781](https://github.com/asmvik/yabai/issues/2781)
 - Prevent *focus follows mouse* from triggering while inside a space switching gesture [#2781](https://github.com/asmvik/yabai/issues/2781)
 - Attempt to resolve *focus follows mouse* incorrectly getting disabled by stale context menu events [#2217](https://github.com/asmvik/yabai/issues/2217)
 - Stub out private API that has returned nonsense result for many modern macOS versions [#2147](https://github.com/asmvik/yabai/issues/2147)
@@ -796,7 +799,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.22...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.23...HEAD
+[7.1.23]: https://github.com/asmvik/yabai/compare/v7.1.22...v7.1.23
 [7.1.22]: https://github.com/asmvik/yabai/compare/v7.1.21...v7.1.22
 [7.1.21]: https://github.com/asmvik/yabai/compare/v7.1.20...v7.1.21
 [7.1.20]: https://github.com/asmvik/yabai/compare/v7.1.19...v7.1.20

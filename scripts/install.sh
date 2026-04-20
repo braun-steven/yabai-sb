@@ -57,8 +57,8 @@ fi
 
 AUTHOR="asmvik"
 NAME="yabai"
-VERSION="7.1.22"
-EXPECTED_HASH="28dbafbad5baa1f509e4a34f5c0547cf449c4e66dba1727fb9df88c63f6d7a60"
+VERSION="7.1.23"
+EXPECTED_HASH="f4470f881ead9d0d4da929a25c8b1c8cdc48f0e18657efb6d42b3458cfcb31cf"
 TMP_DIR="./${AUTHOR}-${NAME}-v${VERSION}-installer"
 
 mkdir $TMP_DIR

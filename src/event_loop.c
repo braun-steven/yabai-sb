@@ -8,7 +8,7 @@ extern enum mission_control_mode g_mission_control_mode;
 extern int g_connection;
 extern void *g_workspace_context;
 extern int g_layer_below_window_level;
-volatile uint32_t __pending_focus_wid;
+volatile bool __pending_window_focus;
 volatile bool __pending_gesture;
 volatile uint64_t __last_gesture_time;
 
@@ -354,6 +354,20 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         return;
     }
 
+    if (g_space_manager.skip_window_focus_animation) {
+        uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
+
+        CFTypeRef dummy = NULL;
+        AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
+
+        if (__atomic_load_n(&__pending_window_focus, __ATOMIC_RELAXED) == false) {
+            if (psn_sid && !space_is_visible(psn_sid)) {
+                SLSSpaceSetFrontPSN(g_connection, psn_sid, process->psn);
+                space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
+            }
+        }
+    }
+
     struct application *deactivated_application = window_manager_find_application(&g_window_manager, g_process_manager.front_pid);
     if (deactivated_application) event_signal_push(SIGNAL_APPLICATION_DEACTIVATED, deactivated_application);
 
@@ -397,19 +411,9 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         return;
     }
 
-    if (g_space_manager.skip_window_focus_animation) {
-        if (__atomic_load_n(&__pending_focus_wid, __ATOMIC_RELAXED) == 0) {
-            uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
-            if (psn_sid && !space_is_visible(psn_sid)) {
-                SLSSpaceSetFrontPSN(g_connection, psn_sid, application->psn);
-                space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
-            }
-        }
-    }
-
     window_did_receive_focus(&g_window_manager, &g_mouse_state, window);
     event_signal_push(SIGNAL_WINDOW_FOCUSED, window);
-    __atomic_store_n(&__pending_focus_wid, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&__pending_window_focus, false, __ATOMIC_RELEASE);
 }
 #pragma clang diagnostic pop
 
@@ -624,7 +628,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
 
 static EVENT_HANDLER(WINDOW_FOCUSED)
 {
-    __atomic_store_n(&__pending_focus_wid, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&__pending_window_focus, false, __ATOMIC_RELEASE);
     uint32_t window_id = (uint32_t)(intptr_t) context;
 
     struct window *window = window_manager_find_window(&g_window_manager, window_id);

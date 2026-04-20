@@ -59,7 +59,6 @@ static struct process *process_create(ProcessSerialNumber psn, pid_t pid)
     }
 
     struct process *process = malloc(sizeof(struct process));
-    SLSGetConnectionIDForPSN(g_connection, &psn, &process->connection);
     process->psn = psn;
     process->pid = pid;
     process->name = process_name;

@@ -172,9 +172,7 @@ const char *get_dppm_pattern(NSOperatingSystemVersion os_version) {
 
 const char *get_fix_animation_pattern(NSOperatingSystemVersion os_version) {
     if (os_version.majorVersion == 26) {
-        // This pattern is pulled from a different spot with a MOVSD referencing
-        // the same 'global.' This pattern also works on 15, let's not change it.
-        return "F2 0F 10 ?? ?? ?? ?? ?? 48 89 ?? 48 89 ?? 4C 8B ?? ?? E8";
+        return "F2 0F 10 05 24 1D 0B 00 48 8B BD 40";
     } else if (os_version.majorVersion == 15) {
         if (os_version.minorVersion >= 4) {
             return "F2 0F 10 ?? ?? ?? ?? ?? ?? 89 ?? 48 89 DE";
@@ -228,7 +226,7 @@ const char *get_remove_space_pattern(NSOperatingSystemVersion os_version) {
     // and the function with four parameters.
 
     if (os_version.majorVersion == 26) {
-        return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? 48 89 CB 49 89 D6 49 89 F5 49";
+        return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? ?? 89 ?? ?? 89 ?? 49 89 F5 49";
     } else if (os_version.majorVersion == 15) {
         return "55 48 89 E5 41 57 41 56 41 55 41 54 53 48 83 EC ?? 49 89 ?? 49 89 D6 49 89 F5 ?? 89 ??";
     } else if (os_version.majorVersion == 14) {

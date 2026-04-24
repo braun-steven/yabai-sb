@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 ### Changed
 - Properly reset *focus follows mouse* window id upon window close [#2217](https://github.com/asmvik/yabai/issues/2217)
+- Fix scripting addition for macOS 26.4 Intel x64 [#2708](https://github.com/asmvik/yabai/issues/2708)
 
 ## [7.1.23] - 2026-04-20
 ### Changed

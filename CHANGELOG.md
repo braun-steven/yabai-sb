@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.1.25] - 2026-05-08
 ### Changed
 - Functionality for moving windows between spaces works with SIP enabled again [#2788](https://github.com/asmvik/yabai/issues/2788)
 
@@ -806,7 +808,8 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 ### Added
 - First official release
 
-[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.24...HEAD
+[Unreleased]: https://github.com/asmvik/yabai/compare/v7.1.25...HEAD
+[7.1.25]: https://github.com/asmvik/yabai/compare/v7.1.24...v7.1.25
 [7.1.24]: https://github.com/asmvik/yabai/compare/v7.1.23...v7.1.24
 [7.1.23]: https://github.com/asmvik/yabai/compare/v7.1.22...v7.1.23
 [7.1.22]: https://github.com/asmvik/yabai/compare/v7.1.21...v7.1.22

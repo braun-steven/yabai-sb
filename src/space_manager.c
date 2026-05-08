@@ -662,6 +662,7 @@ void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list
         Class cls = objc_getClass("SLSBridgedMoveWindowsToManagedSpaceOperation");
         SEL sel = sel_registerName("initWithWindows:spaceID:");
         id operation = ((id (*)(id, SEL, id, uint64_t))objc_msgSend)([cls alloc], sel, (__bridge id)window_list_ref, sid);
+        SLSPerformAsynchronousBridgedWindowManagementOperation(operation);
         [operation release];
         CFRelease(window_list_ref);
     } else if (!workspace_use_macos_space_workaround()) {

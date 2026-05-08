@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Functionality for moving windows between spaces works with SIP enabled again [#2788](https://github.com/asmvik/yabai/issues/2788)
 
 ## [7.1.24] - 2026-04-24
 ### Changed

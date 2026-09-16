@@ -4,7 +4,7 @@
 #define SA_SOCKET_PATH_FMT "/tmp/yabai-sa_%s.socket"
 #define SA_SOCKET_BUFF_LEN 0x1000
 
-#define OSAX_VERSION                "2.1.30"
+#define OSAX_VERSION                "2.1.31"
 
 #define OSAX_ATTRIB_DOCK_SPACES     0x01
 #define OSAX_ATTRIB_DPPM            0x02
@@ -14,12 +14,12 @@
 #define OSAX_ATTRIB_SET_WINDOW      0x20
 #define OSAX_ATTRIB_ANIM_TIME       0x40
 
+// SET_WINDOW omitted: its only caller is behind a disabled #if in window_manager.c
 #define OSAX_ATTRIB_ALL             (OSAX_ATTRIB_DOCK_SPACES | \
                                      OSAX_ATTRIB_DPPM | \
                                      OSAX_ATTRIB_ADD_SPACE | \
                                      OSAX_ATTRIB_REM_SPACE | \
                                      OSAX_ATTRIB_MOV_SPACE | \
-                                     OSAX_ATTRIB_SET_WINDOW | \
                                      OSAX_ATTRIB_ANIM_TIME)
 
 enum sa_opcode

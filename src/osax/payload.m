@@ -251,7 +251,7 @@ static bool verify_os_version(NSOperatingSystemVersion os_version)
     } else if (os_version.majorVersion == 15) {
         macOSSequoia = true;
         return true; // Sequoia 15.0
-    } else if (os_version.majorVersion == 26) {
+    } else if (os_version.majorVersion == 26 || os_version.majorVersion == 27) {
 
         NSLog(@"[yabai-sa] Detected Tahoe Preview... flagging 'macOSSequoia=true.'");
         macOSSequoia = true;

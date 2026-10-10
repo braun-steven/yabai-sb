@@ -338,6 +338,31 @@ Color of the \fBwindow \-\-insert\fP message and mouse_drag selection.
 The purpose is to provide a visual preview of the new window frame.
 .RE
 .sp
+\fBscratchpad_exclusive\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Keep at most one scratchpad window shown.
+.br
+When \fBwindow \-\-toggle\fP \fI<LABEL>\fP shows or focuses a scratchpad, every other scratchpad window that is shown, on any space or display, is hidden.
+.br
+Hiding a scratchpad does not show the one that was hidden before it.
+.br
+System Integrity Protection must be partially disabled.
+.RE
+.sp
+\fBscratchpad_raise\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+When \fBwindow \-\-toggle\fP \fI<LABEL>\fP acts on a scratchpad that is shown on the active space but does not have focus, focus and raise it instead of hiding it.
+.br
+The scratchpad is only hidden if it already has focus.
+.RE
+.sp
+\fBscratchpad_grid\fP [\fI<rows>:<cols>:<start\-x>:<start\-y>:<width>:<height>|off\fP]
+.RS 4
+Set the frame of a scratchpad window, as with \fBwindow \-\-grid\fP, each time \fBwindow \-\-toggle\fP \fI<LABEL>\fP shows it while it was hidden.
+.br
+A scratchpad that is already shown, on this or another space, keeps its frame when it is focused or moved to the active space.
+.RE
+.sp
 \fBsplit_ratio\fP [\fI<FLOAT_SEL>\fP]
 .RS 4
 Specify the size distribution when a window is split.
@@ -674,6 +699,8 @@ A positive/negative delta will increase/decrease the size of the left\-child.
 Toggle the given property of the selected window.
 .br
 The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) .
+.br
+Toggling a scratchpad by \fILABEL\fP shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options \fBscratchpad_exclusive\fP, \fBscratchpad_raise\fP and \fBscratchpad_grid\fP.
 .RE
 .sp
 \fB\-\-sub\-layer\fP \fI<LAYER>\fP

@@ -12,11 +12,14 @@ typedef TEST_SIG(function);
 #define TEST_CHECK(r, e) if ((r) != (e)) { printf("                   \e[1;33m%s\e[m\e[1;31m#%d %s == %s\e[m \e[1;31m(%d == %d)\e[m\n", test_name, __LINE__, #r, #e, r, e); result = false; }
 
 #include "area.c"
+#include "space_layout.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
     TEST_ENTRY(display_area_is_in_direction)                   \
-    TEST_ENTRY(closest_display_in_direction)
+    TEST_ENTRY(closest_display_in_direction)                   \
+    TEST_ENTRY(space_layout_parse)                             \
+    TEST_ENTRY(space_layout_targets)
 
 static struct {
     char *name;

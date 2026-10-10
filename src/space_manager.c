@@ -493,7 +493,7 @@ int space_manager_mission_control_index(uint64_t sid)
     uint64_t result = 0;
     int desktop_cnt = 1;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
@@ -523,7 +523,7 @@ uint64_t space_manager_mission_control_space(int desktop_id)
     uint64_t result = 0;
     int desktop_cnt = 1;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
@@ -559,7 +559,7 @@ uint64_t space_manager_prev_space(uint64_t sid)
     uint64_t p_sid = 0;
     uint64_t n_sid = 0;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
@@ -588,7 +588,7 @@ uint64_t space_manager_next_space(uint64_t sid)
     uint64_t n_sid = 0;
     bool found_sid = false;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
@@ -616,7 +616,7 @@ uint64_t space_manager_first_space(void)
 {
     uint64_t sid = 0;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, 0);
@@ -634,7 +634,7 @@ uint64_t space_manager_last_space(void)
 {
     uint64_t sid = 0;
 
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
+    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
     if (!display_spaces_ref) return 0;
 
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
@@ -1069,6 +1069,174 @@ enum space_op_error space_manager_add_space(uint64_t sid)
     if (is_animating) return SPACE_OP_ERROR_DISPLAY_IS_ANIMATING;
 
     return scripting_addition_create_space(sid) ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION;
+}
+
+bool space_manager_parse_space_layout(char *text, int length, struct space_layout *layout)
+{
+    layout->count = 0;
+    layout->builtin_index = -1;
+
+    int i = 0;
+    while (i < length) {
+        if (layout->count == SPACE_LAYOUT_MAX) return false;
+
+        int value = 0;
+        int digits = 0;
+        while (i < length && text[i] >= '0' && text[i] <= '9') {
+            value = value * 10 + (text[i] - '0');
+            if (value > 1000) return false;
+            ++digits;
+            ++i;
+        }
+        if (!digits || value < 1) return false;
+
+        if (i < length && text[i] == 'b') {
+            if (layout->builtin_index != -1) return false;
+            layout->builtin_index = layout->count;
+            ++i;
+        }
+
+        layout->target[layout->count++] = value;
+
+        if (i < length) {
+            if (text[i] != ':' || i + 1 == length) return false;
+            ++i;
+        }
+    }
+
+    return layout->count > 0;
+}
+
+void space_manager_space_layout_targets(struct space_layout *layout, int builtin, int *target)
+{
+    if (layout->builtin_index != -1 && builtin != -1) {
+        target[builtin] = layout->target[layout->builtin_index];
+        for (int i = 0, j = 0; i < layout->count; ++i) {
+            if (i == builtin) continue;
+            if (j == layout->builtin_index) ++j;
+            target[i] = layout->target[j++];
+        }
+    } else {
+        for (int i = 0; i < layout->count; ++i) {
+            target[i] = layout->target[i];
+        }
+    }
+}
+
+static int space_manager_user_space_count(uint64_t *space_list, int space_count)
+{
+    int result = 0;
+
+    for (int i = 0; i < space_count; ++i) {
+        if (space_is_user(space_list[i])) ++result;
+    }
+
+    return result;
+}
+
+static uint64_t space_manager_find_space_layout_destroy_candidate(uint32_t did)
+{
+    int space_count;
+    uint64_t *space_list = display_space_list(did, &space_count);
+    if (!space_list) return 0;
+
+    uint64_t visible_sid = display_space_id(did);
+    uint64_t fallback_sid = 0;
+
+    for (int i = space_count - 1; i >= 0; --i) {
+        uint64_t sid = space_list[i];
+        if (!space_is_user(sid)) continue;
+        if (space_manager_is_space_last_user_space(sid)) continue;
+
+        int window_count = -1;
+        space_window_list(sid, &window_count, true);
+        if (window_count != 0) continue;
+
+        if (sid != visible_sid) return sid;
+        if (!fallback_sid) fallback_sid = sid;
+    }
+
+    return fallback_sid;
+}
+
+enum space_layout_result space_manager_reconcile_space_layout(struct space_manager *sm)
+{
+    int display_count = display_manager_active_display_count();
+    if (display_count < 1 || display_count > SPACE_LAYOUT_MAX) return SPACE_LAYOUT_RESULT_DONE;
+
+    struct space_layout *layout = NULL;
+    for (int i = 0; i < sm->space_layout_count; ++i) {
+        if (sm->space_layout[i].count == display_count) {
+            layout = &sm->space_layout[i];
+            break;
+        }
+    }
+
+    if (!layout) {
+        debug("%s: no space_layout for %d display(s)\n", __FUNCTION__, display_count);
+        return SPACE_LAYOUT_RESULT_DONE;
+    }
+
+    uint32_t did_list[SPACE_LAYOUT_MAX];
+    int target[SPACE_LAYOUT_MAX];
+    int actual[SPACE_LAYOUT_MAX];
+    int builtin = -1;
+
+    for (int i = 0; i < display_count; ++i) {
+        did_list[i] = display_manager_arrangement_display_id(i + 1);
+        if (!did_list[i]) return SPACE_LAYOUT_RESULT_FAILED;
+        if (builtin == -1 && CGDisplayIsBuiltin(did_list[i])) builtin = i;
+    }
+
+    space_manager_space_layout_targets(layout, builtin, target);
+
+    for (int i = 0; i < display_count; ++i) {
+        int space_count;
+        uint64_t *space_list = display_space_list(did_list[i], &space_count);
+        if (!space_list) return SPACE_LAYOUT_RESULT_FAILED;
+        actual[i] = space_manager_user_space_count(space_list, space_count);
+    }
+
+    int surplus = -1;
+    int deficit = -1;
+    for (int i = 0; i < display_count; ++i) {
+        if (surplus == -1 && actual[i] > target[i]) surplus = i;
+        if (deficit == -1 && actual[i] < target[i]) deficit = i;
+    }
+
+    if (surplus == -1 && deficit == -1) return SPACE_LAYOUT_RESULT_DONE;
+
+    enum space_op_error result;
+
+    if (surplus != -1 && deficit != -1) {
+        int space_count;
+        uint64_t *space_list = display_space_list(did_list[surplus], &space_count);
+        if (!space_list) return SPACE_LAYOUT_RESULT_FAILED;
+
+        uint64_t sid = 0;
+        if (deficit > surplus) {
+            for (int i = space_count - 1; i >= 0 && !sid; --i) if (space_is_user(space_list[i])) sid = space_list[i];
+        } else {
+            for (int i = 0; i < space_count && !sid; ++i) if (space_is_user(space_list[i])) sid = space_list[i];
+        }
+
+        debug("%s: move space %lld from display %d to display %d\n", __FUNCTION__, sid, surplus + 1, deficit + 1);
+        result = space_manager_move_space_to_display(sm, sid, did_list[deficit]);
+    } else if (deficit != -1) {
+        debug("%s: create space on display %d (%d/%d)\n", __FUNCTION__, deficit + 1, actual[deficit], target[deficit]);
+        result = space_manager_add_space(display_space_id(did_list[deficit]));
+    } else {
+        uint64_t sid = space_manager_find_space_layout_destroy_candidate(did_list[surplus]);
+        if (!sid) {
+            debug("%s: display %d has %d/%d spaces, but no empty space can be destroyed\n", __FUNCTION__, surplus + 1, actual[surplus], target[surplus]);
+            return SPACE_LAYOUT_RESULT_DONE;
+        }
+
+        debug("%s: destroy empty space %lld on display %d (%d/%d)\n", __FUNCTION__, sid, surplus + 1, actual[surplus], target[surplus]);
+        result = space_manager_destroy_space(sid);
+    }
+
+    return result == SPACE_OP_ERROR_SUCCESS ? SPACE_LAYOUT_RESULT_PERFORMED : SPACE_LAYOUT_RESULT_FAILED;
 }
 
 void space_manager_assign_process_to_space(pid_t pid, uint64_t sid)

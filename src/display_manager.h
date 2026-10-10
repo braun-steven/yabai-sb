@@ -48,6 +48,7 @@ struct display_manager
     int bottom_padding;
 
     enum display_arrangement_order order;
+    bool builtin_last;
     enum external_bar_mode mode;
 
     struct display_label *labels;
@@ -68,6 +69,8 @@ CFStringRef display_manager_point_display_uuid(CGPoint point);
 uint32_t display_manager_point_display_id(CGPoint point);
 uint32_t display_manager_cursor_display_id(void);
 int display_manager_display_id_arrangement(uint32_t did);
+CFArrayRef display_manager_order_builtin_last(CFArrayRef list, bool display_spaces);
+CFArrayRef display_manager_copy_managed_display_spaces(void);
 CFStringRef display_manager_arrangement_display_uuid(int arrangement);
 uint32_t display_manager_arrangement_display_id(int arrangement);
 uint32_t display_manager_prev_display_id(uint32_t did);

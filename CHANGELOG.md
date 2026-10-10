@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
+- Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices
+
 ### Changed
 - Fixed scripting-addition *add_space* pattern for macOS 26.6 Apple Silicon arm64 [#2799](https://github.com/asmvik/yabai/issues/2799)
 - Fixed minor memory leak on space destruction, and added a few missing null checks to SkyLight API calls [#2791](https://github.com/asmvik/yabai/issues/2791)

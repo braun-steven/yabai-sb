@@ -162,6 +162,41 @@ static CFComparisonResult display_manager_coordinate_comparator(CFTypeRef a, CFT
     return kCFCompareEqualTo;
 }
 
+static bool display_manager_uuid_is_builtin(CFStringRef uuid)
+{
+    if (!uuid || CFGetTypeID(uuid) != CFStringGetTypeID()) return false;
+
+    uint32_t did = display_id(uuid);
+    return did && CGDisplayIsBuiltin(did);
+}
+
+CFArrayRef display_manager_order_builtin_last(CFArrayRef list, bool display_spaces)
+{
+    if (!list || !g_display_manager.builtin_last) return list;
+
+    int count = CFArrayGetCount(list);
+    for (int i = 0; i < count - 1; ++i) {
+        const void *item = CFArrayGetValueAtIndex(list, i);
+        CFStringRef uuid = display_spaces ? CFDictionaryGetValue(item, CFSTR("Display Identifier")) : item;
+        if (!display_manager_uuid_is_builtin(uuid)) continue;
+
+        CFMutableArrayRef result = CFArrayCreateMutableCopy(NULL, count, list);
+        CFRetain(item);
+        CFArrayRemoveValueAtIndex(result, i);
+        CFArrayAppendValue(result, item);
+        CFRelease(item);
+        CFRelease(list);
+        return result;
+    }
+
+    return list;
+}
+
+CFArrayRef display_manager_copy_managed_display_spaces(void)
+{
+    return display_manager_order_builtin_last(SLSCopyManagedDisplaySpaces(g_connection), true);
+}
+
 int display_manager_display_id_arrangement(uint32_t did)
 {
     int result = 0;
@@ -180,6 +215,8 @@ int display_manager_display_id_arrangement(uint32_t did)
         CFArraySortValues(mut_displays, CFRangeMake(0, count), &display_manager_coordinate_comparator, (void *)(uintptr_t) g_display_manager.order);
         CFRelease(displays); displays = mut_displays;
     }
+
+    displays = display_manager_order_builtin_last(displays, false);
 
     for (int i = 0; i < count; ++i) {
         if (CFEqual(CFArrayGetValueAtIndex(displays, i), uuid)) {
@@ -211,6 +248,7 @@ CFStringRef display_manager_arrangement_display_uuid(int arrangement)
             CFRelease(displays); displays = mut_displays;
         }
 
+        displays = display_manager_order_builtin_last(displays, false);
         result = CFRetain(CFArrayGetValueAtIndex(displays, index));
     }
 

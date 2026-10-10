@@ -24,6 +24,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_MFF                   "mouse_follows_focus"
 #define COMMAND_CONFIG_FFM                   "focus_follows_mouse"
 #define COMMAND_CONFIG_DISPLAY_ORDER         "display_arrangement_order"
+#define COMMAND_CONFIG_BUILTIN_LAST          "builtin_display_last"
 #define COMMAND_CONFIG_WINDOW_ORIGIN         "window_origin_display"
 #define COMMAND_CONFIG_WINDOW_PLACEMENT      "window_placement"
 #define COMMAND_CONFIG_WINDOW_INSERT_POINT   "window_insertion_point"
@@ -52,6 +53,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_MOUSE_DROP_ACTION     "mouse_drop_action"
 #define COMMAND_CONFIG_EXTERNAL_BAR          "external_bar"
 #define COMMAND_CONFIG_SKIP_SPACE_ANIMATION  "skip_window_focus_animation"
+#define COMMAND_CONFIG_SPACE_LAYOUT          "space_layout"
 
 #define SELECTOR_CONFIG_SPACE                "--space"
 
@@ -1215,6 +1217,19 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }
+        } else if (token_equals(command, COMMAND_CONFIG_BUILTIN_LAST)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_display_manager.builtin_last]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_display_manager.builtin_last = false;
+                space_layout_schedule(0.0, true);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_display_manager.builtin_last = true;
+                space_layout_schedule(0.0, true);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
         } else if (token_equals(command, COMMAND_CONFIG_WINDOW_ORIGIN)) {
             struct token value = get_token(&message);
             if (!token_is_valid(value)) {
@@ -1273,6 +1288,63 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 g_space_manager.skip_window_focus_animation = true;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_SPACE_LAYOUT)) {
+            if (sel_sid) {
+                daemon_fail(rsp, "command '%.*s' for domain '%.*s' does not support the '%s' selector\n", command.length, command.text, domain.length, domain.text, SELECTOR_CONFIG_SPACE);
+                return;
+            }
+
+            char *cursor = message;
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", g_space_manager.space_layout_spec ? g_space_manager.space_layout_spec : ARGUMENT_COMMON_VAL_OFF);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
+                g_space_manager.space_layout_spec = NULL;
+                g_space_manager.space_layout_count = 0;
+            } else {
+                struct space_layout layout_list[SPACE_LAYOUT_MAX];
+                int layout_count = 0;
+                char spec[256] = {0};
+                int spec_length = 0;
+
+                while (token_is_valid(value) && value.text[0] >= '0' && value.text[0] <= '9') {
+                    if (layout_count == SPACE_LAYOUT_MAX || !space_manager_parse_space_layout(value.text, value.length, &layout_list[layout_count])) {
+                        daemon_fail(rsp, "invalid value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                        return;
+                    }
+
+                    for (int i = 0; i < layout_count; ++i) {
+                        if (layout_list[i].count == layout_list[layout_count].count) {
+                            daemon_fail(rsp, "value '%.*s' given to command '%.*s' for domain '%.*s' repeats a layout for %d display(s)\n", value.length, value.text, command.length, command.text, domain.length, domain.text, layout_list[i].count);
+                            return;
+                        }
+                    }
+
+                    spec_length += snprintf(spec + spec_length, sizeof(spec) - spec_length, "%s%.*s", layout_count ? " " : "", value.length, value.text);
+                    if (spec_length >= (int) sizeof(spec)) {
+                        daemon_fail(rsp, "value given to command '%.*s' for domain '%.*s' is too long\n", command.length, command.text, domain.length, domain.text);
+                        return;
+                    }
+
+                    ++layout_count;
+                    cursor = message;
+                    value = get_token(&message);
+                }
+
+                if (!layout_count) {
+                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                    return;
+                }
+
+                message = cursor;
+
+                memcpy(g_space_manager.space_layout, layout_list, sizeof(struct space_layout) * layout_count);
+                g_space_manager.space_layout_count = layout_count;
+                if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
+                g_space_manager.space_layout_spec = string_copy(spec);
+                space_layout_schedule(0.0, true);
             }
         } else if (token_equals(command, COMMAND_CONFIG_OPACITY)) {
             struct token value = get_token(&message);

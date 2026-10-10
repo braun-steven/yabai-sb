@@ -160,6 +160,19 @@ Global Settings
     'vertical': Order by y-coordinate (followed by x-coordinate when equal). +
     'horizontal': Order by x-coordinate (followed by y-coordinate when equal).
 
+*space_layout* ['<LAYOUT> [<LAYOUT> ...]|off']::
+    Keep a fixed number of spaces on each display. +
+    '<LAYOUT>' is a colon-separated list of space counts, one entry per display in arrangement order, e.g. '10:5'. +
+    Give one '<LAYOUT>' per number of connected displays; the layout whose entry count matches the number of active displays is used, e.g. '15 10:5 10:5:1b'. +
+    An entry suffixed with 'b' belongs to the built-in display, and the remaining entries apply to the other displays in order. +
+    After displays are added, removed or moved, and after spaces are created or destroyed, spaces are moved between displays, created or destroyed until every display matches its target. +
+    Spaces that contain windows are never destroyed. +
+    System Integrity Protection must be partially disabled.
+
+*builtin_display_last* ['<BOOL_SEL>']::
+    Order the built-in display after all other displays. +
+    This affects both display indices and space indices, e.g. with two external displays holding 15 spaces, the space of the built-in display becomes space 16.
+
 *window_origin_display* ['default|focused|cursor']::
     Specify which display a newly created window should be managed in. +
     'default': The display in which the window is created (standard macOS behaviour). +

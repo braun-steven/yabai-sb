@@ -7,6 +7,22 @@ struct space_label
     char *label;
 };
 
+#define SPACE_LAYOUT_MAX 8
+
+struct space_layout
+{
+    int count;
+    int target[SPACE_LAYOUT_MAX];
+    int builtin_index;
+};
+
+enum space_layout_result
+{
+    SPACE_LAYOUT_RESULT_DONE,
+    SPACE_LAYOUT_RESULT_PERFORMED,
+    SPACE_LAYOUT_RESULT_FAILED,
+};
+
 struct space_manager
 {
     struct table view;
@@ -27,6 +43,11 @@ struct space_manager
     uint32_t auto_balance;
     struct space_label *labels;
     bool skip_window_focus_animation;
+    struct space_layout space_layout[SPACE_LAYOUT_MAX];
+    int space_layout_count;
+    char *space_layout_spec;
+    uint32_t space_layout_gen;
+    int space_layout_passes;
 };
 
 enum space_op_error
@@ -98,6 +119,9 @@ enum space_op_error space_manager_move_space_to_space(uint64_t acting_sid, uint6
 enum space_op_error space_manager_move_space_to_display(struct space_manager *sm, uint64_t sid, uint32_t did);
 enum space_op_error space_manager_destroy_space(uint64_t sid);
 enum space_op_error space_manager_add_space(uint64_t sid);
+bool space_manager_parse_space_layout(char *text, int length, struct space_layout *layout);
+void space_manager_space_layout_targets(struct space_layout *layout, int builtin, int *target);
+enum space_layout_result space_manager_reconcile_space_layout(struct space_manager *sm);
 void space_manager_assign_process_to_space(pid_t pid, uint64_t sid);
 void space_manager_assign_process_to_all_spaces(pid_t pid);
 bool space_manager_is_window_on_active_space(struct window *window);

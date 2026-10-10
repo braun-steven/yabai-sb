@@ -974,6 +974,7 @@ static EVENT_HANDLER(SLS_SPACE_CREATED)
         debug("%s: %lld, %d\n", __FUNCTION__, sid, type);
         space_manager_find_view(&g_space_manager, sid);
         event_signal_push(SIGNAL_SPACE_CREATED, context);
+        space_layout_schedule(1.0, false);
     }
 }
 
@@ -988,6 +989,7 @@ static EVENT_HANDLER(SLS_SPACE_DESTROYED)
         view_destroy(view);
         free(view);
         event_signal_push(SIGNAL_SPACE_DESTROYED, context);
+        space_layout_schedule(1.0, false);
     }
 }
 
@@ -1086,6 +1088,7 @@ static EVENT_HANDLER(DISPLAY_ADDED)
     debug("%s: %d\n", __FUNCTION__, did);
     space_manager_handle_display_add(&g_space_manager, did);
     window_manager_handle_display_add_and_remove(&g_space_manager, &g_window_manager, did);
+    space_layout_schedule(1.0, true);
     event_signal_push(SIGNAL_DISPLAY_ADDED, context);
 }
 
@@ -1095,6 +1098,7 @@ static EVENT_HANDLER(DISPLAY_REMOVED)
     debug("%s: %d\n", __FUNCTION__, did);
     display_manager_remove_label_for_display(&g_display_manager, did);
     window_manager_handle_display_add_and_remove(&g_space_manager, &g_window_manager, display_manager_main_display_id());
+    space_layout_schedule(1.0, true);
     event_signal_push(SIGNAL_DISPLAY_REMOVED, context);
 }
 
@@ -1103,6 +1107,7 @@ static EVENT_HANDLER(DISPLAY_MOVED)
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);
     space_manager_mark_spaces_invalid(&g_space_manager);
+    space_layout_schedule(1.0, true);
     event_signal_push(SIGNAL_DISPLAY_MOVED, context);
 }
 
@@ -1608,7 +1613,44 @@ static EVENT_HANDLER(SYSTEM_WOKE)
         window_manager_center_mouse(&g_window_manager, focused_window);
     }
 
+    space_layout_schedule(1.0, true);
     event_signal_push(SIGNAL_SYSTEM_WOKE, NULL);
+}
+
+void space_layout_schedule(double delay, bool reset_passes)
+{
+    if (!g_space_manager.space_layout_count) return;
+    if (reset_passes) g_space_manager.space_layout_passes = 0;
+
+    uint32_t gen = ++g_space_manager.space_layout_gen;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        event_loop_post(&g_event_loop, SPACE_LAYOUT_RECONCILE, NULL, (int) gen);
+    });
+}
+
+static EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
+{
+    if ((uint32_t) param1 != g_space_manager.space_layout_gen) return;
+    if (!g_space_manager.space_layout_count) return;
+
+    if (mission_control_is_active()) {
+        space_layout_schedule(0.5, false);
+        return;
+    }
+
+    if (++g_space_manager.space_layout_passes > 40) {
+        debug("%s: giving up, layout did not converge\n", __FUNCTION__);
+        return;
+    }
+
+    enum space_layout_result result = space_manager_reconcile_space_layout(&g_space_manager);
+    if (result == SPACE_LAYOUT_RESULT_PERFORMED) {
+        space_layout_schedule(0.5, false);
+    } else if (result == SPACE_LAYOUT_RESULT_FAILED) {
+        space_layout_schedule(1.0, false);
+    } else {
+        g_space_manager.space_layout_passes = 0;
+    }
 }
 
 static EVENT_HANDLER(DAEMON_MESSAGE)

@@ -43,6 +43,7 @@
     EVENT_TYPE_ENTRY(MENU_BAR_HIDDEN_CHANGED) \
     EVENT_TYPE_ENTRY(DOCK_DID_CHANGE_PREF) \
     EVENT_TYPE_ENTRY(SYSTEM_WOKE) \
+    EVENT_TYPE_ENTRY(SPACE_LAYOUT_RECONCILE) \
     EVENT_TYPE_ENTRY(DAEMON_MESSAGE)
 
 enum event_type
@@ -72,5 +73,6 @@ struct event_loop
 
 bool event_loop_begin(struct event_loop *event_loop);
 void event_loop_post(struct event_loop *event_loop, enum event_type type, void *context, int param1);
+void space_layout_schedule(double delay, bool reset_passes);
 
 #endif

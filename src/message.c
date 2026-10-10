@@ -55,6 +55,9 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_EXTERNAL_BAR          "external_bar"
 #define COMMAND_CONFIG_SKIP_SPACE_ANIMATION  "skip_window_focus_animation"
 #define COMMAND_CONFIG_SPACE_LAYOUT          "space_layout"
+#define COMMAND_CONFIG_SCRATCHPAD_EXCLUSIVE  "scratchpad_exclusive"
+#define COMMAND_CONFIG_SCRATCHPAD_RAISE      "scratchpad_raise"
+#define COMMAND_CONFIG_SCRATCHPAD_GRID       "scratchpad_grid"
 
 #define SELECTOR_CONFIG_SPACE                "--space"
 
@@ -1276,6 +1279,45 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 g_space_manager.window_zoom_persist = false;
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
                 g_space_manager.window_zoom_persist = true;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_EXCLUSIVE)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_window_manager.scratchpad_exclusive]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_window_manager.scratchpad_exclusive = false;
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_window_manager.scratchpad_exclusive = true;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_RAISE)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_window_manager.scratchpad_raise]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_window_manager.scratchpad_raise = false;
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_window_manager.scratchpad_raise = true;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_GRID)) {
+            unsigned *grid = g_window_manager.scratchpad_grid;
+            unsigned r, c, x, y, w, h;
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                if (grid[0] == 0 || grid[1] == 0) {
+                    fprintf(rsp, "%s\n", ARGUMENT_COMMON_VAL_OFF);
+                } else {
+                    fprintf(rsp, "%u:%u:%u:%u:%u:%u\n", grid[0], grid[1], grid[2], grid[3], grid[4], grid[5]);
+                }
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                memset(grid, 0, sizeof(g_window_manager.scratchpad_grid));
+            } else if ((sscanf(value.text, ARGUMENT_WINDOW_GRID, &r, &c, &x, &y, &w, &h) == 6) && r > 0 && c > 0) {
+                grid[0] = r; grid[1] = c; grid[2] = x; grid[3] = y; grid[4] = w; grid[5] = h;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }

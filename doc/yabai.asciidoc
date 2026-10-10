@@ -227,6 +227,20 @@ Global Settings
     Color of the *window --insert* message and mouse_drag selection. +
     The purpose is to provide a visual preview of the new window frame.
 
+*scratchpad_exclusive* ['<BOOL_SEL>']::
+    Keep at most one scratchpad window shown. +
+    When *window --toggle* '<LABEL>' shows or focuses a scratchpad, every other scratchpad window that is shown, on any space or display, is hidden. +
+    Hiding a scratchpad does not show the one that was hidden before it. +
+    System Integrity Protection must be partially disabled.
+
+*scratchpad_raise* ['<BOOL_SEL>']::
+    When *window --toggle* '<LABEL>' acts on a scratchpad that is shown on the active space but does not have focus, focus and raise it instead of hiding it. +
+    The scratchpad is only hidden if it already has focus.
+
+*scratchpad_grid* ['<rows>:<cols>:<start-x>:<start-y>:<width>:<height>|off']::
+    Set the frame of a scratchpad window, as with *window --grid*, each time *window --toggle* '<LABEL>' shows it while it was hidden. +
+    A scratchpad that is already shown, on this or another space, keeps its frame when it is focused or moved to the active space.
+
 *split_ratio* ['<FLOAT_SEL>']::
     Specify the size distribution when a window is split.
 
@@ -446,7 +460,8 @@ COMMAND
 
 *--toggle* 'float|sticky|pip|shadow|split|zoom-parent|zoom-fullscreen|windowed-fullscreen|native-fullscreen|expose|<LABEL>'::
     Toggle the given property of the selected window. +
-    The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) .
+    The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) . +
+    Toggling a scratchpad by 'LABEL' shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options *scratchpad_exclusive*, *scratchpad_raise* and *scratchpad_grid*.
 
 *--sub-layer* '<LAYER>'::
     Set the stacking sub-layer of the selected window. +

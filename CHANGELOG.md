@@ -9,8 +9,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
 - Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices
 - Config *auto_padding* removes padding and window gap on bsp spaces with at most one tiled window, globally or per space, e.g. `yabai -m config auto_padding on`
+- Config *scratchpad_exclusive* keeps at most one scratchpad shown: toggling a scratchpad hides every other shown scratchpad
+- Config *scratchpad_raise* makes toggling a shown but unfocused scratchpad focus it instead of hiding it
+- Config *scratchpad_grid* sets the frame of a scratchpad each time it is shown from hidden, e.g. `yabai -m config scratchpad_grid 40:40:1:1:38:38`
 
 ### Changed
+- Toggling a scratchpad that is on another space waits for it to arrive on the active space before focusing it, so macOS no longer switches back to the space it came from
 - Fixed scripting-addition *add_space* pattern for macOS 26.6 Apple Silicon arm64 [#2799](https://github.com/asmvik/yabai/issues/2799)
 - Fixed minor memory leak on space destruction, and added a few missing null checks to SkyLight API calls [#2791](https://github.com/asmvik/yabai/issues/2791)
 

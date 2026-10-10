@@ -100,6 +100,9 @@ struct window_manager
     int window_animation_easing;
     struct rgba_color insert_feedback_color;
     struct scratchpad *scratchpad_window;
+    bool scratchpad_exclusive;
+    bool scratchpad_raise;
+    unsigned scratchpad_grid[6];
 };
 
 void window_manager_query_window_rules(FILE *rsp);

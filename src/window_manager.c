@@ -2460,6 +2460,34 @@ bool window_manager_toggle_scratchpad_window_by_label(struct window_manager *wm,
     return window ? window_manager_toggle_scratchpad_window(wm, window, 0) : false;
 }
 
+static void window_manager_hide_other_scratchpad_windows(struct window_manager *wm, struct window *window)
+{
+    for (int i = 0; i < buf_len(wm->scratchpad_window); ++i) {
+        struct window *other = wm->scratchpad_window[i].window;
+        if (other == window) continue;
+
+        uint8_t ordered_in = 0;
+        SLSWindowIsOrderedIn(g_connection, other->id, &ordered_in);
+        if (ordered_in) scripting_addition_order_window(other->id, 0, 0);
+    }
+}
+
+static void window_manager_apply_scratchpad_grid(struct window_manager *wm, struct window *window)
+{
+    unsigned *grid = wm->scratchpad_grid;
+    if (grid[0] == 0 || grid[1] == 0) return;
+
+    //
+    // NOTE: The window is still ordered out, so an animation
+    // would capture a stale image; set the frame directly instead.
+    //
+
+    float animation_duration = wm->window_animation_duration;
+    wm->window_animation_duration = 0.0f;
+    window_manager_apply_grid(&g_space_manager, wm, window, grid[0], grid[1], grid[2], grid[3], grid[4], grid[5]);
+    wm->window_animation_duration = animation_duration;
+}
+
 bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct window *window, int forced_mode)
 {
     TIME_FUNCTION;
@@ -2473,6 +2501,14 @@ bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct w
     uint8_t ordered_in = 0;
     SLSWindowIsOrderedIn(g_connection, window->id, &ordered_in);
 
+    //
+    // NOTE: The scratchpad_* config options only apply when toggling
+    // by label (forced_mode 0), not when a window stops being a scratchpad.
+    //
+
+    bool by_label = forced_mode == 0;
+    bool shown = true;
+
     switch (forced_mode) {
     case 0: goto mode_0;
     case 1: goto mode_1;
@@ -2482,7 +2518,12 @@ bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct w
 
 mode_0:;
     if (visible_space && ordered_in) {
+        if (wm->scratchpad_raise && wm->focused_window_id != window->id && !window_check_flag(window, WINDOW_MINIMIZE) && !window->application->is_hidden) {
+            window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+            goto out;
+        }
 mode_1:;
+        shown = false;
         struct window *next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, window->id);
         if (next) {
             window_manager_focus_window_with_raise(&next->application->psn, next->id, next->ref);
@@ -2492,13 +2533,28 @@ mode_1:;
         scripting_addition_order_window(window->id, 0, 0);
     } else if (visible_space && !ordered_in) {
 mode_2:;
+        if (by_label) window_manager_apply_scratchpad_grid(wm, window);
         scripting_addition_order_window(window->id, 1, 0);
         window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
     } else {
 mode_3:;
         space_manager_move_window_to_space(sid, window);
+
+        //
+        // NOTE: The move can complete asynchronously. Focusing the window
+        // before it has arrived makes macOS switch to the space it came from.
+        //
+
+        for (int i = 0; i < 20 && window_space(window->id) != sid; ++i) usleep(10000);
+
+        if (by_label && !ordered_in) window_manager_apply_scratchpad_grid(wm, window);
         scripting_addition_order_window(window->id, 1, 0);
         window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+    }
+
+out:
+    if (by_label && shown && wm->scratchpad_exclusive) {
+        window_manager_hide_other_scratchpad_windows(wm, window);
     }
 
     return true;
@@ -2738,6 +2794,9 @@ void window_manager_init(struct window_manager *wm)
     wm->window_animation_duration = 0.0f;
     wm->window_animation_easing = ease_out_circ_type;
     wm->insert_feedback_color = rgba_color_from_hex(0xffd75f5f);
+    wm->scratchpad_exclusive = false;
+    wm->scratchpad_raise = false;
+    memset(wm->scratchpad_grid, 0, sizeof(wm->scratchpad_grid));
 
     table_init(&wm->application, 150, hash_wm, compare_wm);
     table_init(&wm->window, 150, hash_wm, compare_wm);

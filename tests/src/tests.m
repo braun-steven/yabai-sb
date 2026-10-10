@@ -14,6 +14,7 @@ typedef TEST_SIG(function);
 #include "area.c"
 #include "space_layout.c"
 #include "auto_padding.c"
+#include "tab_bar.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -24,7 +25,11 @@ typedef TEST_SIG(function);
     TEST_ENTRY(auto_padding_applies)                           \
     TEST_ENTRY(auto_padding_tiled_window_count)                \
     TEST_ENTRY(auto_padding_root_area)                         \
-    TEST_ENTRY(auto_padding_gap)
+    TEST_ENTRY(auto_padding_gap)                               \
+    TEST_ENTRY(tab_bar_window_area)                            \
+    TEST_ENTRY(tab_bar_make_tabbed)                            \
+    TEST_ENTRY(tab_bar_make_tabbed_max)                        \
+    TEST_ENTRY(tab_bar_make_split)
 
 static struct {
     char *name;

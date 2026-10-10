@@ -38,6 +38,15 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY "active_window_opacity"
 #define COMMAND_CONFIG_NORMAL_WINDOW_OPACITY "normal_window_opacity"
 #define COMMAND_CONFIG_INSERT_FEEDBACK_COLOR "insert_feedback_color"
+#define COMMAND_CONFIG_TAB_BAR               "tab_bar"
+#define COMMAND_CONFIG_TAB_BAR_HEIGHT        "tab_bar_height"
+#define COMMAND_CONFIG_TAB_BAR_FONT          "tab_bar_font"
+#define COMMAND_CONFIG_TAB_BAR_FOCUSED_COLOR          "tab_bar_focused_color"
+#define COMMAND_CONFIG_TAB_BAR_FOCUSED_TEXT_COLOR     "tab_bar_focused_text_color"
+#define COMMAND_CONFIG_TAB_BAR_INACTIVE_COLOR         "tab_bar_inactive_color"
+#define COMMAND_CONFIG_TAB_BAR_INACTIVE_TEXT_COLOR    "tab_bar_inactive_text_color"
+#define COMMAND_CONFIG_TAB_BAR_UNFOCUSED_COLOR        "tab_bar_unfocused_color"
+#define COMMAND_CONFIG_TAB_BAR_UNFOCUSED_TEXT_COLOR   "tab_bar_unfocused_text_color"
 #define COMMAND_CONFIG_TOP_PADDING           "top_padding"
 #define COMMAND_CONFIG_BOTTOM_PADDING        "bottom_padding"
 #define COMMAND_CONFIG_LEFT_PADDING          "left_padding"
@@ -155,6 +164,7 @@ extern bool g_verbose;
 #define COMMAND_WINDOW_LOWER      "--lower"
 #define COMMAND_WINDOW_TOGGLE     "--toggle"
 #define COMMAND_WINDOW_SCRATCHPAD "--scratchpad"
+#define COMMAND_WINDOW_LAYOUT     "--layout"
 
 #define ARGUMENT_WINDOW_SEL_LARGEST     "largest"
 #define ARGUMENT_WINDOW_SEL_SMALLEST    "smallest"
@@ -182,6 +192,9 @@ extern bool g_verbose;
 #define ARGUMENT_WINDOW_TOGGLE_NATIVE   "native-fullscreen"
 #define ARGUMENT_WINDOW_TOGGLE_EXPOSE   "expose"
 #define ARGUMENT_WINDOW_TOGGLE_PIP      "pip"
+#define ARGUMENT_WINDOW_LAYOUT_TABBED   "tabbed"
+#define ARGUMENT_WINDOW_LAYOUT_SPLIT    "split"
+#define ARGUMENT_WINDOW_LAYOUT_TOGGLE   "toggle"
 
 #define ARGUMENT_WINDOW_SCRATCHPAD_RECOVER "recover"
 /* ----------------------------------------------------------------------------- */
@@ -1156,6 +1169,25 @@ static struct selector parse_insert_selector(FILE *rsp, char **message)
     return result;
 }
 
+static int peek_tab_direction(char *message)
+{
+    struct token token = get_token(&message);
+    if (token_equals(token, ARGUMENT_COMMON_SEL_EAST)) return DIR_EAST;
+    if (token_equals(token, ARGUMENT_COMMON_SEL_WEST)) return DIR_WEST;
+    return 0;
+}
+
+static struct rgba_color *tab_bar_color_for_command(struct token command)
+{
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FOCUSED_COLOR))        return &g_window_manager.tab_bar_focused_color;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FOCUSED_TEXT_COLOR))   return &g_window_manager.tab_bar_focused_text_color;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_INACTIVE_COLOR))       return &g_window_manager.tab_bar_inactive_color;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_INACTIVE_TEXT_COLOR))  return &g_window_manager.tab_bar_inactive_text_color;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_UNFOCUSED_COLOR))      return &g_window_manager.tab_bar_unfocused_color;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_UNFOCUSED_TEXT_COLOR)) return &g_window_manager.tab_bar_unfocused_text_color;
+    return NULL;
+}
+
 static void handle_domain_config(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
@@ -1502,6 +1534,49 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "0x%x\n", g_window_manager.insert_feedback_color.p);
             } else if (value.type == TOKEN_TYPE_U32 && value.u32_value) {
                 g_window_manager.insert_feedback_color = rgba_color_from_hex(value.u32_value);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_window_manager.enable_tab_bar]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_window_manager.enable_tab_bar = false;
+                tab_bar_refresh_all();
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_window_manager.enable_tab_bar = true;
+                tab_bar_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_HEIGHT)) {
+            struct token_value value = token_to_value(get_token(&message));
+            if (value.type == TOKEN_TYPE_INVALID) {
+                fprintf(rsp, "%d\n", g_window_manager.tab_bar_height);
+            } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
+                g_window_manager.tab_bar_height = value.int_value;
+                tab_bar_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FONT)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", g_window_manager.tab_bar_font_name ? g_window_manager.tab_bar_font_name : "");
+            } else if (tab_bar_set_font(value.text)) {
+                tab_bar_redraw_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (tab_bar_color_for_command(command)) {
+            struct rgba_color *color = tab_bar_color_for_command(command);
+            struct token_value value = token_to_value(get_token(&message));
+            if (value.type == TOKEN_TYPE_INVALID) {
+                fprintf(rsp, "0x%x\n", color->p);
+            } else if (value.type == TOKEN_TYPE_U32) {
+                *color = rgba_color_from_hex(value.u32_value);
+                tab_bar_redraw_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
             }
@@ -2224,6 +2299,13 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
         }
 
         if (token_equals(command, COMMAND_WINDOW_FOCUS)) {
+            struct window *tab_window = acting_window ? window_manager_find_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message)) : NULL;
+            if (tab_window) {
+                get_token(&message);
+                window_manager_focus_window_with_raise(&tab_window->application->psn, tab_window->id, tab_window->ref);
+                continue;
+            }
+
             struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
 
             if (token_is_valid(selector.token)) {
@@ -2328,6 +2410,11 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 }
             }
         } else if (token_equals(command, COMMAND_WINDOW_WARP)) {
+            if (window_manager_move_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message))) {
+                get_token(&message);
+                continue;
+            }
+
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
                 enum window_op_error result = window_manager_warp_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
@@ -2356,6 +2443,29 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot stack a window onto itself.\n");
                 }
+            }
+        } else if (token_equals(command, COMMAND_WINDOW_LAYOUT)) {
+            struct token value = get_token(&message);
+            enum window_layout layout;
+
+            if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TABBED)) {
+                layout = WINDOW_LAYOUT_TABBED;
+            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLIT)) {
+                layout = WINDOW_LAYOUT_SPLIT;
+            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TOGGLE)) {
+                layout = WINDOW_LAYOUT_TOGGLE;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                return;
+            }
+
+            enum window_op_error result = window_manager_set_window_layout(&g_window_manager, acting_window, layout);
+            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
+                daemon_fail(rsp, "the acting window is not within a bsp space.\n");
+            } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
+                daemon_fail(rsp, "the acting window is not managed.\n");
+            } else if (result == WINDOW_OP_ERROR_MAX_STACK) {
+                daemon_fail(rsp, "cannot make tabbed, max capacity of %d reached.\n", NODE_MAX_WINDOW_COUNT);
             }
         } else if (token_equals(command, COMMAND_WINDOW_INSERT)) {
             struct selector selector = parse_insert_selector(rsp, &message);

@@ -5,6 +5,13 @@
 #define kCPSUserGenerated 0x200
 #define kCPSNoWindows     0x400
 
+enum window_layout
+{
+    WINDOW_LAYOUT_TABBED,
+    WINDOW_LAYOUT_SPLIT,
+    WINDOW_LAYOUT_TOGGLE
+};
+
 enum window_op_error
 {
     WINDOW_OP_ERROR_SUCCESS,
@@ -99,6 +106,16 @@ struct window_manager
     float window_animation_duration;
     int window_animation_easing;
     struct rgba_color insert_feedback_color;
+    bool enable_tab_bar;
+    int tab_bar_height;
+    char *tab_bar_font_name;
+    CTFontRef tab_bar_font;
+    struct rgba_color tab_bar_focused_color;
+    struct rgba_color tab_bar_focused_text_color;
+    struct rgba_color tab_bar_inactive_color;
+    struct rgba_color tab_bar_inactive_text_color;
+    struct rgba_color tab_bar_unfocused_color;
+    struct rgba_color tab_bar_unfocused_text_color;
     struct scratchpad *scratchpad_window;
     bool scratchpad_exclusive;
     bool scratchpad_raise;
@@ -142,6 +159,9 @@ struct window *window_manager_find_first_window_in_stack(struct space_manager *s
 struct window *window_manager_find_last_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window);
 struct window *window_manager_find_recent_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window);
 struct window *window_manager_find_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window, int index);
+struct window *window_manager_find_tab_in_direction(struct window_manager *wm, struct window *window, int direction);
+bool window_manager_move_tab_in_direction(struct window_manager *wm, struct window *window, int direction);
+enum window_op_error window_manager_set_window_layout(struct window_manager *wm, struct window *window, enum window_layout layout);
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_smallest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_sibling_for_managed_window(struct window_manager *wm, struct window *window);

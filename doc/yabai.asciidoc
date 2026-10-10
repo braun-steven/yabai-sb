@@ -227,6 +227,28 @@ Global Settings
     Color of the *window --insert* message and mouse_drag selection. +
     The purpose is to provide a visual preview of the new window frame.
 
+*tab_bar* ['<BOOL_SEL>']::
+    Draw a tab bar on top of every stack, like the tabbed layout of i3. Enabled by default. +
+    Each tab shows the title of a window in the stack, and clicking a tab focuses that window. +
+    The windows of the stack are shrunk by *tab_bar_height* to make room for the bar. +
+    While enabled, *window --focus* 'east|west' and *window --warp* 'east|west' move between the tabs of a stack before leaving it. +
+    When disabled, stacks behave as they did before tab bars existed.
+
+*tab_bar_height* ['<integer number>']::
+    Height of the tab bar in points. Default is 24.
+
+*tab_bar_font* ['<family>:<size>']::
+    Font of the tab titles, e.g. 'Menlo:12'. Default is 'Helvetica Neue:12'.
+
+*tab_bar_focused_color* ['0xAARRGGBB'], *tab_bar_focused_text_color* ['0xAARRGGBB']::
+    Background and text color of the active tab of the stack that holds the focused window.
+
+*tab_bar_inactive_color* ['0xAARRGGBB'], *tab_bar_inactive_text_color* ['0xAARRGGBB']::
+    Background and text color of the active tab of every other stack.
+
+*tab_bar_unfocused_color* ['0xAARRGGBB'], *tab_bar_unfocused_text_color* ['0xAARRGGBB']::
+    Background and text color of the tabs that are not active.
+
 *scratchpad_exclusive* ['<BOOL_SEL>']::
     Keep at most one scratchpad window shown. +
     When *window --toggle* '<LABEL>' shows or focuses a scratchpad, every other scratchpad window that is shown, on any space or display, is hidden. +
@@ -410,7 +432,8 @@ COMMAND
 
 *--focus* ['<WINDOW_SEL>']::
     Focus the given window. +
-    If none specified, focus the selected window instead.
+    If none specified, focus the selected window instead. +
+    With *tab_bar* enabled, 'east' and 'west' focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab.
 
 *--close* ['<WINDOW_SEL>']::
     Close the given window. +
@@ -437,11 +460,19 @@ COMMAND
     Swap position of the selected window and the given window.
 
 *--warp* '<WINDOW_SEL>'::
-    Re-insert the selected window, splitting the given window.
+    Re-insert the selected window, splitting the given window. +
+    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left, and only take it out of the stack from its last or first tab.
 
 *--stack* '<WINDOW_SEL>'::
     Stack the given window on top of the selected window. +
     Any kind of warp operation performed on a stacked window will unstack it.
+
+*--layout* 'tabbed|split|toggle'::
+    Change the layout around the selected window, like the *layout* command of i3. +
+    'tabbed': turn the selected window and everything it was split with (the subtree of its parent node) into a single stack, with the selected window as the active tab. +
+    'split': tile the windows of the stack that holds the selected window again, in tab order. +
+    'toggle': 'split' if the selected window is stacked, 'tabbed' otherwise. +
+    Only works on bsp spaces.
 
 *--insert* '<DIR_SEL>|stack'::
     Set the splitting mode of the selected window. +

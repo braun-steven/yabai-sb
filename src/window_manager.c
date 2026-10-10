@@ -1136,6 +1136,51 @@ struct window *window_manager_find_window_in_stack(struct space_manager *sm, str
     return node->window_count > 1 && in_range_ii(index, 1, node->window_count) ? window_manager_find_window(wm, node->window_list[index-1]) : NULL;
 }
 
+static struct window_node *window_manager_find_tab_node(struct window_manager *wm, struct window *window, int direction, int *index)
+{
+    if (!tab_bar_is_enabled()) return NULL;
+    if (direction != DIR_EAST && direction != DIR_WEST) return NULL;
+
+    struct view *view = window_manager_find_managed_window(wm, window);
+    if (!view || view->layout == VIEW_FLOAT) return NULL;
+
+    struct window_node *node = view_find_window_node(view, window->id);
+    if (!node || node->window_count < 2) return NULL;
+
+    int target = window_node_index_of_window(node, window->id) + (direction == DIR_EAST ? 1 : -1);
+    if (target < 0 || target >= node->window_count) return NULL;
+
+    *index = target;
+    return node;
+}
+
+//
+// NOTE: Tabs of a stack are laid out horizontally, so moving east/west inside a stack
+// walks the tabs first, like i3 does for tabbed containers. NULL means the window is
+// on the edge tab (or not stacked) and the regular directional lookup applies.
+//
+
+struct window *window_manager_find_tab_in_direction(struct window_manager *wm, struct window *window, int direction)
+{
+    int index;
+    struct window_node *node = window_manager_find_tab_node(wm, window, direction, &index);
+    return node ? window_manager_find_window(wm, node->window_list[index]) : NULL;
+}
+
+bool window_manager_move_tab_in_direction(struct window_manager *wm, struct window *window, int direction)
+{
+    int index;
+    struct window_node *node = window_manager_find_tab_node(wm, window, direction, &index);
+    if (!node) return false;
+
+    int source = window_node_index_of_window(node, window->id);
+    node->window_list[source] = node->window_list[index];
+    node->window_list[index] = window->id;
+
+    if (node->tab_bar.id) tab_bar_update(node);
+    return true;
+}
+
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm)
 {
     struct view *view = space_manager_find_view(sm, space_manager_active_space());
@@ -1830,8 +1875,50 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
         return WINDOW_OP_ERROR_SUCCESS;
     }
 
+    if (tab_bar_is_enabled()) {
+        window_node_flush(a_node);
+        return WINDOW_OP_ERROR_SUCCESS;
+    }
+
     struct area area = a_node->zoom ? a_node->zoom->area : a_node->area;
     window_manager_animate_window((struct window_capture) { b, area.x, area.y, area.w, area.h });
+    return WINDOW_OP_ERROR_SUCCESS;
+}
+
+enum window_op_error window_manager_set_window_layout(struct window_manager *wm, struct window *window, enum window_layout layout)
+{
+    TIME_FUNCTION;
+
+    struct view *view = window_manager_find_managed_window(wm, window);
+    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    if (view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+
+    struct window_node *node = view_find_window_node(view, window->id);
+    if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    if (layout == WINDOW_LAYOUT_TOGGLE) {
+        layout = node->window_count > 1 ? WINDOW_LAYOUT_SPLIT : WINDOW_LAYOUT_TABBED;
+    }
+
+    if (layout == WINDOW_LAYOUT_TABBED) {
+        node = view_make_tabbed(view, window->id);
+        if (!node) return WINDOW_OP_ERROR_MAX_STACK;
+    } else {
+        node = view_make_split(view, window->id);
+    }
+
+    if (view_update_auto_padding(view)) node = view->root;
+
+    if (space_is_visible(view->sid)) {
+        window_node_flush(node);
+    } else {
+        view_set_flag(view, VIEW_IS_DIRTY);
+    }
+
+    if (layout == WINDOW_LAYOUT_TABBED && wm->focused_window_id == window->id) {
+        window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+    }
+
     return WINDOW_OP_ERROR_SUCCESS;
 }
 
@@ -2810,6 +2897,15 @@ void window_manager_init(struct window_manager *wm)
     wm->window_animation_duration = 0.0f;
     wm->window_animation_easing = ease_out_circ_type;
     wm->insert_feedback_color = rgba_color_from_hex(0xffd75f5f);
+    wm->enable_tab_bar = true;
+    wm->tab_bar_height = 24;
+    wm->tab_bar_focused_color = rgba_color_from_hex(0xff285577);
+    wm->tab_bar_focused_text_color = rgba_color_from_hex(0xffffffff);
+    wm->tab_bar_inactive_color = rgba_color_from_hex(0xff5f676a);
+    wm->tab_bar_inactive_text_color = rgba_color_from_hex(0xffffffff);
+    wm->tab_bar_unfocused_color = rgba_color_from_hex(0xff222222);
+    wm->tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888);
+    tab_bar_set_font(TAB_BAR_DEFAULT_FONT);
     wm->scratchpad_exclusive = false;
     wm->scratchpad_raise = false;
     wm->scratchpad_below = false;

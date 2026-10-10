@@ -61,6 +61,7 @@
 #include "osax/common.h"
 
 #include "view.h"
+#include "tab_bar.h"
 #include "sa.h"
 #include "event_loop.h"
 #include "event_signal.h"
@@ -87,6 +88,7 @@
 #include "display.c"
 #include "space.c"
 #include "view.c"
+#include "tab_bar.c"
 #include "window.c"
 #include "process_manager.c"
 #include "application.c"

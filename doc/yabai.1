@@ -338,6 +338,44 @@ Color of the \fBwindow \-\-insert\fP message and mouse_drag selection.
 The purpose is to provide a visual preview of the new window frame.
 .RE
 .sp
+\fBtab_bar\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Draw a tab bar on top of every stack, like the tabbed layout of i3. Enabled by default.
+.br
+Each tab shows the title of a window in the stack, and clicking a tab focuses that window.
+.br
+The windows of the stack are shrunk by \fBtab_bar_height\fP to make room for the bar.
+.br
+While enabled, \fBwindow \-\-focus\fP \fIeast|west\fP and \fBwindow \-\-warp\fP \fIeast|west\fP move between the tabs of a stack before leaving it.
+.br
+When disabled, stacks behave as they did before tab bars existed.
+.RE
+.sp
+\fBtab_bar_height\fP [\fI<integer number>\fP]
+.RS 4
+Height of the tab bar in points. Default is 24.
+.RE
+.sp
+\fBtab_bar_font\fP [\fI<family>:<size>\fP]
+.RS 4
+Font of the tab titles, e.g. \fIMenlo:12\fP. Default is \fIHelvetica Neue:12\fP.
+.RE
+.sp
+\fBtab_bar_focused_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_focused_text_color\fP [\fI0xAARRGGBB\fP]
+.RS 4
+Background and text color of the active tab of the stack that holds the focused window.
+.RE
+.sp
+\fBtab_bar_inactive_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_inactive_text_color\fP [\fI0xAARRGGBB\fP]
+.RS 4
+Background and text color of the active tab of every other stack.
+.RE
+.sp
+\fBtab_bar_unfocused_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_unfocused_text_color\fP [\fI0xAARRGGBB\fP]
+.RS 4
+Background and text color of the tabs that are not active.
+.RE
+.sp
 \fBscratchpad_exclusive\fP [\fI<BOOL_SEL>\fP]
 .RS 4
 Keep at most one scratchpad window shown.
@@ -612,6 +650,8 @@ yabai \-m window [\fI<WINDOW_SEL>\fP] \fI<COMMAND>\fP
 Focus the given window.
 .br
 If none specified, focus the selected window instead.
+.br
+With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab.
 .RE
 .sp
 \fB\-\-close\fP [\fI<WINDOW_SEL>\fP]
@@ -659,6 +699,8 @@ Swap position of the selected window and the given window.
 \fB\-\-warp\fP \fI<WINDOW_SEL>\fP
 .RS 4
 Re\-insert the selected window, splitting the given window.
+.br
+With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP move a stacked window one tab to the right or left, and only take it out of the stack from its last or first tab.
 .RE
 .sp
 \fB\-\-stack\fP \fI<WINDOW_SEL>\fP
@@ -666,6 +708,19 @@ Re\-insert the selected window, splitting the given window.
 Stack the given window on top of the selected window.
 .br
 Any kind of warp operation performed on a stacked window will unstack it.
+.RE
+.sp
+\fB\-\-layout\fP \fItabbed|split|toggle\fP
+.RS 4
+Change the layout around the selected window, like the \fBlayout\fP command of i3.
+.br
+\fItabbed\fP: turn the selected window and everything it was split with (the subtree of its parent node) into a single stack, with the selected window as the active tab.
+.br
+\fIsplit\fP: tile the windows of the stack that holds the selected window again, in tab order.
+.br
+\fItoggle\fP: \fIsplit\fP if the selected window is stacked, \fItabbed\fP otherwise.
+.br
+Only works on bsp spaces.
 .RE
 .sp
 \fB\-\-insert\fP \fI<DIR_SEL>|stack\fP

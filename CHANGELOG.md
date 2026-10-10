@@ -13,6 +13,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *scratchpad_raise* makes toggling a shown but unfocused scratchpad focus it instead of hiding it
 - Config *scratchpad_below* puts scratchpads on the same stacking sub-layer as tiled windows, so focusing a tiled window brings it in front of a shown scratchpad
 - Config *scratchpad_grid* sets the frame of a scratchpad each time it is shown from hidden, e.g. `yabai -m config scratchpad_grid 40:40:1:1:38:38`
+- Stacks get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
+- Command *window --layout tabbed|split|toggle* collapses a window's parent subtree into a stack, or tiles a stack again
+- With *tab_bar* enabled, *window --focus east|west* and *window --warp east|west* move between the tabs of a stack before leaving it
 
 ### Changed
 - Toggling a scratchpad that is on another space waits for it to arrive on the active space before focusing it, so macOS no longer switches back to the space it came from

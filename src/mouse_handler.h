@@ -64,6 +64,7 @@ struct mouse_state
     CFMachPortRef handle;
     CFRunLoopSourceRef runloop_source;
     bool consume_mouse_click;
+    bool consume_tab_click;
     bool drag_detected;
     CGEventRef consumed_event;
     enum mouse_mode action1;

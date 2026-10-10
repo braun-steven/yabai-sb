@@ -275,7 +275,7 @@ static struct balance_node window_node_balance(struct window_node *node, uint32_
     return total_leafs;
 }
 
-static void window_node_split(struct view *view, struct window_node *node, struct window *window)
+static void window_node_split(struct view *view, struct window_node *node, uint32_t window_id)
 {
     struct window_node *left = malloc(sizeof(struct window_node));
     memset(left, 0, sizeof(struct window_node));
@@ -297,8 +297,8 @@ static void window_node_split(struct view *view, struct window_node *node, struc
         left->window_count = node->window_count;
         left->zoom = zoom;
 
-        right->window_list[0] = window->id;
-        right->window_order[0] = window->id;
+        right->window_list[0] = window_id;
+        right->window_order[0] = window_id;
         right->window_count = 1;
     } else {
         memcpy(right->window_list, node->window_list, sizeof(uint32_t) * node->window_count);
@@ -306,14 +306,15 @@ static void window_node_split(struct view *view, struct window_node *node, struc
         right->window_count = node->window_count;
         right->zoom = zoom;
 
-        left->window_list[0] = window->id;
-        left->window_order[0] = window->id;
+        left->window_list[0] = window_id;
+        left->window_order[0] = window_id;
         left->window_count = 1;
     }
 
     left->parent  = node;
     right->parent = node;
 
+    tab_bar_destroy(node);
     node->window_count = 0;
     node->left  = left;
     node->right = right;
@@ -343,6 +344,7 @@ static void window_node_destroy(struct window_node *node)
     }
 
     insert_feedback_destroy(node);
+    tab_bar_destroy(node);
     free(node);
 }
 
@@ -362,10 +364,12 @@ void window_node_capture_windows(struct window_node *node, struct window_capture
         for (int i = 0; i < node->window_count; ++i) {
             struct window *window = window_manager_find_window(&g_window_manager, node->window_list[i]);
             if (window) {
-                struct area area = node->zoom ? node->zoom->area : node->area;
+                struct area area = tab_bar_window_area(node, node->zoom ? node->zoom->area : node->area);
                 ts_buf_push(*window_list, ((struct window_capture) { .window = window, .x = area.x, .y = area.y, .w = area.w, .h = area.h }));
             }
         }
+
+        tab_bar_update(node);
     } else {
         window_node_capture_windows(node->left, window_list);
         window_node_capture_windows(node->right, window_list);
@@ -648,12 +652,23 @@ static struct window_node *view_detach_window_node(struct view *view, struct win
             view->insertion_point = node->window_order[0];
         }
 
-        return NULL;
+        //
+        // NOTE: The remaining windows only need a new frame when the tab bar changed,
+        // so the node is returned for the caller to flush only when tab bars are enabled.
+        //
+
+        if (!tab_bar_is_enabled()) {
+            tab_bar_destroy(node);
+            return NULL;
+        }
+
+        return node;
     }
 
     if (node == view->root) {
         view->insertion_point = 0;
         insert_feedback_destroy(node);
+        tab_bar_destroy(node);
         memset(node, 0, sizeof(struct window_node));
         view_update(view);
         return NULL;
@@ -716,6 +731,8 @@ static struct window_node *view_detach_window_node(struct view *view, struct win
     }
 
     insert_feedback_destroy(node);
+    tab_bar_destroy(node);
+    tab_bar_destroy(child);
     free(child);
     free(node);
 
@@ -726,6 +743,102 @@ static struct window_node *view_detach_window_node(struct view *view, struct win
     }
 
     return parent;
+}
+
+static void window_node_free_subtree(struct window_node *node)
+{
+    if (node->left)  window_node_free_subtree(node->left);
+    if (node->right) window_node_free_subtree(node->right);
+
+    insert_feedback_destroy(node);
+    tab_bar_destroy(node);
+    free(node);
+}
+
+static struct window_node *view_balance_or_node(struct view *view, struct window_node *node)
+{
+    if (view->auto_balance == SPLIT_NONE) return node;
+
+    window_node_balance(view->root, view->auto_balance);
+    view_update(view);
+    return view->root;
+}
+
+//
+// NOTE: i3 'layout tabbed'. Collapses the subtree of the window's parent, so the window and
+// everything it was split with, into a single stack. The acting window becomes the active tab.
+// Returns the node to flush, or NULL if the stack would exceed NODE_MAX_WINDOW_COUNT.
+//
+
+struct window_node *view_make_tabbed(struct view *view, uint32_t window_id)
+{
+    struct window_node *node = view_find_window_node(view, window_id);
+    if (!node) return NULL;
+
+    struct window_node *parent = node->parent;
+    if (!parent) return node;
+
+    uint32_t window_list[NODE_MAX_WINDOW_COUNT];
+    int window_count = 0;
+
+    struct window_node *last = window_node_find_last_leaf(parent);
+    for (struct window_node *leaf = window_node_find_first_leaf(parent); leaf; leaf = window_node_find_next_leaf(leaf)) {
+        if (window_count + leaf->window_count >= NODE_MAX_WINDOW_COUNT) return NULL;
+
+        memcpy(window_list + window_count, leaf->window_list, sizeof(uint32_t) * leaf->window_count);
+        window_count += leaf->window_count;
+
+        if (leaf == last) break;
+    }
+
+    window_node_free_subtree(parent->left);
+    window_node_free_subtree(parent->right);
+
+    parent->left = NULL;
+    parent->right = NULL;
+    parent->insert_dir = 0;
+    parent->zoom = NULL;
+
+    memcpy(parent->window_list, window_list, sizeof(uint32_t) * window_count);
+    parent->window_count = window_count;
+
+    parent->window_order[0] = window_id;
+    for (int i = 0, j = 1; i < window_count; ++i) {
+        if (window_list[i] != window_id) parent->window_order[j++] = window_list[i];
+    }
+
+    return view_balance_or_node(view, parent);
+}
+
+//
+// NOTE: i3 'layout split'. Turns a stack back into tiled windows by splitting its area once
+// for each window, keeping the tab order from left to right.
+//
+
+struct window_node *view_make_split(struct view *view, uint32_t window_id)
+{
+    struct window_node *node = view_find_window_node(view, window_id);
+    if (!node || node->window_count < 2) return node;
+
+    uint32_t window_list[NODE_MAX_WINDOW_COUNT];
+    int window_count = node->window_count;
+    memcpy(window_list, node->window_list, sizeof(uint32_t) * window_count);
+
+    tab_bar_destroy(node);
+    node->window_list[0] = window_list[0];
+    node->window_order[0] = window_list[0];
+    node->window_count = 1;
+
+    struct window_node *leaf = node;
+    for (int i = 1; i < window_count; ++i) {
+        enum window_node_child child = leaf->child;
+        leaf->child = CHILD_SECOND;
+        window_node_split(view, leaf, window_list[i]);
+        leaf->child = child;
+        leaf = leaf->right;
+    }
+
+    return view_balance_or_node(view, node);
 }
 
 struct window_node *view_remove_window_node(struct view *view, struct window *window)
@@ -809,7 +922,7 @@ static struct window_node *view_insert_window_node(struct view *view, struct win
         //
 
         bool did_relayout = view_update_auto_padding_for_window_count(view, 1);
-        window_node_split(view, leaf, window);
+        window_node_split(view, leaf, window->id);
 
         if (view->auto_balance != SPLIT_NONE) {
             window_node_balance(view->root, view->auto_balance);
@@ -1108,6 +1221,7 @@ void view_clear(struct view *view)
         }
 
         insert_feedback_destroy(view->root);
+        tab_bar_destroy(view->root);
         memset(view->root, 0, sizeof(struct window_node));
         view_update(view);
     }

@@ -148,6 +148,14 @@ struct feedback_window
     CGContextRef context;
 };
 
+struct tab_bar
+{
+    uint32_t id;
+    CGContextRef context;
+    CGRect frame;
+    uint64_t sid;
+};
+
 #define NODE_MAX_WINDOW_COUNT 32
 struct window_node
 {
@@ -164,6 +172,7 @@ struct window_node
     enum window_node_child child;
     int insert_dir;
     struct feedback_window feedback_window;
+    struct tab_bar tab_bar;
 };
 
 enum view_type
@@ -242,6 +251,8 @@ void view_stack_window_node(struct window_node *node, struct window *window);
 struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point);
 struct window_node *view_add_window_node(struct view *view, struct window *window);
 struct window_node *view_remove_window_node(struct view *view, struct window *window);
+struct window_node *view_make_tabbed(struct view *view, uint32_t window_id);
+struct window_node *view_make_split(struct view *view, uint32_t window_id);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
 
 bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count);

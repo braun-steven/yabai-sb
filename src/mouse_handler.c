@@ -31,6 +31,14 @@ static MOUSE_HANDLER(mouse_handler)
     case kCGEventLeftMouseDown:
     case kCGEventRightMouseDown: {
         uint8_t mod = mouse_mod_from_cgflags(CGEventGetFlags(event));
+
+        uint32_t tab_wid;
+        if (type == kCGEventLeftMouseDown && mod != mouse_state->modifier && tab_bar_hit_test(CGEventGetLocation(event), &tab_wid)) {
+            mouse_state->consume_tab_click = true;
+            event_loop_post(&g_event_loop, TAB_BAR_CLICKED, (void *)(intptr_t) tab_wid, 0);
+            return NULL;
+        }
+
         event_loop_post(&g_event_loop, MOUSE_DOWN, (void *) CFRetain(event), mod);
 
         if (mod == mouse_state->modifier) {
@@ -41,6 +49,11 @@ static MOUSE_HANDLER(mouse_handler)
     } break;
     case kCGEventLeftMouseUp:
     case kCGEventRightMouseUp: {
+        if (type == kCGEventLeftMouseUp && mouse_state->consume_tab_click) {
+            mouse_state->consume_tab_click = false;
+            return NULL;
+        }
+
         event_loop_post(&g_event_loop, MOUSE_UP, (void *) CFRetain(event), 0);
 
         if (mouse_state->consume_mouse_click) {
@@ -57,6 +70,8 @@ static MOUSE_HANDLER(mouse_handler)
     } break;
     case kCGEventLeftMouseDragged:
     case kCGEventRightMouseDragged: {
+        if (type == kCGEventLeftMouseDragged && mouse_state->consume_tab_click) return NULL;
+
         mouse_state->drag_detected = true;
         event_loop_post(&g_event_loop, MOUSE_DRAGGED, (void *) CFRetain(event), 0);
     } break;
@@ -144,6 +159,8 @@ void mouse_drop_action_stack(struct window_manager *wm, struct view *src_view, s
 
         if (view_update_auto_padding(dst_view)) {
             window_node_flush(dst_view->root);
+        } else if (tab_bar_is_enabled()) {
+            window_node_flush(dst_node);
         } else if (dst_node->zoom) {
             window_manager_animate_window((struct window_capture) { src_window, dst_node->zoom->area.x, dst_node->zoom->area.y, dst_node->zoom->area.w, dst_node->zoom->area.h });
         } else {

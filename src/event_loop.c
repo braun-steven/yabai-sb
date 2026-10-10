@@ -28,6 +28,8 @@ static void update_window_notifications(void)
         table_for (struct window_node *node, g_window_manager.insert_feedback, {
             window_list[window_count++] = node->window_order[0];
         })
+
+        window_count += tab_bar_window_list(window_list + window_count, array_count(window_list) - window_count);
     }
 
     SLSRequestNotificationsForWindows(g_connection, window_list, window_count);
@@ -50,24 +52,27 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
         wm->last_window_id = wm->focused_window_id;
     }
 
+    uint32_t prev_focused_window_id = wm->focused_window_id;
     wm->focused_window_id = window->id;
     wm->focused_window_psn = window->application->psn;
     ms->ffm_window_id = 0;
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-    if (!view) return;
+    struct window_node *node = view ? view_find_window_node(view, window->id) : NULL;
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (node->window_count <= 1) return;
+    if (node && node->window_count > 1) {
+        for (int i = 0; i < node->window_count; ++i) {
+            if (node->window_order[i] != window->id) continue;
 
-    for (int i = 0; i < node->window_count; ++i) {
-        if (node->window_order[i] != window->id) continue;
+            memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * i);
+            node->window_order[0] = window->id;
 
-        memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * i);
-        node->window_order[0] = window->id;
-
-        break;
+            break;
+        }
     }
+
+    if (prev_focused_window_id != window->id) tab_bar_refresh_for_window(prev_focused_window_id);
+    if (node && node->tab_bar.id) tab_bar_update(node);
 }
 
 #pragma clang diagnostic push
@@ -937,6 +942,7 @@ static EVENT_HANDLER(WINDOW_TITLE_CHANGED)
     if (window->title) CFRelease(window->title);
 
     window->title = window_title(window);
+    tab_bar_refresh_for_window(window->id);
 
     event_signal_push(SIGNAL_WINDOW_TITLE_CHANGED, window);
 }
@@ -947,6 +953,7 @@ static EVENT_HANDLER(SLS_WINDOW_ORDERED)
     debug("%s: %d\n", __FUNCTION__, wid);
     struct window_node *node = table_find(&g_window_manager.insert_feedback, &wid);
     if (node) SLSOrderWindow(g_connection, node->feedback_window.id, 1, node->window_order[0]);
+    tab_bar_order(wid);
 }
 
 static EVENT_HANDLER(SLS_WINDOW_DESTROYED)
@@ -1154,6 +1161,17 @@ static EVENT_HANDLER(MOUSE_DOWN)
 
 out:
     CFRelease(context);
+}
+
+static EVENT_HANDLER(TAB_BAR_CLICKED)
+{
+    uint32_t wid = (uint32_t)(intptr_t) context;
+    debug("%s: %d\n", __FUNCTION__, wid);
+
+    struct window *window = window_manager_find_window(&g_window_manager, wid);
+    if (!window) return;
+
+    window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
 }
 
 static EVENT_HANDLER(MOUSE_UP)

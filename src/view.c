@@ -863,9 +863,32 @@ void view_stack_window_node(struct window_node *node, struct window *window)
     }
 
     node->window_list[insert_index] = window->id;
-    memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * node->window_count);
-    node->window_order[0] = window->id;
+
+    //
+    // NOTE: The focused window stays the active (visible) one when another window joins its
+    // stack, otherwise the window that receives keyboard input would be hidden behind the new one.
+    //
+
+    if (node->window_count > 0 &&
+        node->window_order[0] == g_window_manager.focused_window_id &&
+        window->id != g_window_manager.focused_window_id) {
+        memmove(node->window_order + 2, node->window_order + 1, sizeof(uint32_t) * (node->window_count - 1));
+        node->window_order[1] = window->id;
+    } else {
+        memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * node->window_count);
+        node->window_order[0] = window->id;
+    }
+
     ++node->window_count;
+}
+
+void view_stack_order_window(struct window_node *node, uint32_t window_id)
+{
+    if (node->window_order[0] == window_id) {
+        scripting_addition_order_window(window_id, 1, node->window_order[1]);
+    } else {
+        scripting_addition_order_window(window_id, -1, node->window_order[0]);
+    }
 }
 
 static bool view_update_auto_padding_for_window_count(struct view *view, int added_window_count);

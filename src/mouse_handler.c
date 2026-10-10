@@ -155,7 +155,7 @@ void mouse_drop_action_stack(struct window_manager *wm, struct view *src_view, s
         view_stack_window_node(dst_node, src_window);
         window_manager_add_managed_window(wm, src_window, dst_view);
         window_manager_adjust_layer(src_window, LAYER_BELOW);
-        scripting_addition_order_window(src_window->id, 1, dst_node->window_order[1]);
+        view_stack_order_window(dst_node, src_window->id);
 
         if (view_update_auto_padding(dst_view)) {
             window_node_flush(dst_view->root);

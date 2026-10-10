@@ -1868,7 +1868,7 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
     view_stack_window_node(a_node, b);
     window_manager_add_managed_window(wm, b, a_view);
     window_manager_adjust_layer(b, LAYER_BELOW);
-    scripting_addition_order_window(b->id, 1, a_node->window_order[1]);
+    view_stack_order_window(a_node, b->id);
 
     if (view_update_auto_padding(a_view)) {
         window_node_flush(a_view->root);

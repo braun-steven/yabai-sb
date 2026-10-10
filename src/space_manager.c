@@ -353,6 +353,34 @@ void space_manager_set_auto_balance_for_all_spaces(struct space_manager *sm, uin
     })
 }
 
+static void space_manager_apply_auto_padding(struct view *view, bool auto_padding)
+{
+    if (view->auto_padding == auto_padding) return;
+
+    view->auto_padding = auto_padding;
+    if (view->layout == VIEW_FLOAT) return;
+
+    view_update(view);
+    view_flush(view);
+}
+
+void space_manager_set_auto_padding_for_all_spaces(struct space_manager *sm, bool auto_padding)
+{
+    sm->auto_padding = auto_padding;
+    table_for (struct view *view, sm->view, {
+        if (!view_check_flag(view, VIEW_AUTO_PADDING)) {
+            space_manager_apply_auto_padding(view, auto_padding);
+        }
+    })
+}
+
+void space_manager_set_auto_padding_for_space(struct space_manager *sm, uint64_t sid, bool auto_padding)
+{
+    struct view *view = space_manager_find_view(sm, sid);
+    view_set_flag(view, VIEW_AUTO_PADDING);
+    space_manager_apply_auto_padding(view, auto_padding);
+}
+
 bool space_manager_set_padding_for_space(struct space_manager *sm, uint64_t sid, int type, int top, int bottom, int left, int right)
 {
     struct view *view = space_manager_find_view(sm, sid);
@@ -1372,6 +1400,7 @@ void space_manager_begin(struct space_manager *sm)
     sm->layout = VIEW_FLOAT;
     sm->split_ratio = 0.5f;
     sm->auto_balance = SPLIT_NONE;
+    sm->auto_padding = false;
     sm->split_type = SPLIT_AUTO;
     sm->window_placement = CHILD_SECOND;
     sm->window_insertion_point = INSERT_FOCUSED;

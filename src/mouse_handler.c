@@ -142,7 +142,9 @@ void mouse_drop_action_stack(struct window_manager *wm, struct view *src_view, s
         window_manager_adjust_layer(src_window, LAYER_BELOW);
         scripting_addition_order_window(src_window->id, 1, dst_node->window_order[1]);
 
-        if (dst_node->zoom) {
+        if (view_update_auto_padding(dst_view)) {
+            window_node_flush(dst_view->root);
+        } else if (dst_node->zoom) {
             window_manager_animate_window((struct window_capture) { src_window, dst_node->zoom->area.x, dst_node->zoom->area.y, dst_node->zoom->area.w, dst_node->zoom->area.h });
         } else {
             window_manager_animate_window((struct window_capture) { src_window, dst_node->area.x, dst_node->area.y, dst_node->area.w, dst_node->area.h });
@@ -172,9 +174,13 @@ void mouse_drop_action_swap(struct window_manager *wm, struct view *src_view, st
         }
     }
 
+    if (view_update_auto_padding(src_view)) src_node = src_view->root;
+    if (view_update_auto_padding(dst_view)) dst_node = dst_view->root;
+    if (src_view == dst_view && src_node == src_view->root) dst_node = src_node;
+
     struct window_capture *window_list = NULL;
     window_node_capture_windows(src_node, &window_list);
-    window_node_capture_windows(dst_node, &window_list);
+    if (dst_node != src_node) window_node_capture_windows(dst_node, &window_list);
     window_manager_animate_window_list(window_list, ts_buf_len(window_list));
 }
 

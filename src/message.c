@@ -47,6 +47,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_SPLIT_RATIO           "split_ratio"
 #define COMMAND_CONFIG_SPLIT_TYPE            "split_type"
 #define COMMAND_CONFIG_AUTO_BALANCE          "auto_balance"
+#define COMMAND_CONFIG_AUTO_PADDING          "auto_padding"
 #define COMMAND_CONFIG_MOUSE_MOD             "mouse_modifier"
 #define COMMAND_CONFIG_MOUSE_ACTION1         "mouse_action1"
 #define COMMAND_CONFIG_MOUSE_ACTION2         "mouse_action2"
@@ -1683,6 +1684,30 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                     space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_X);
                 } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
                     space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_Y);
+                } else {
+                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                }
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_AUTO_PADDING)) {
+            struct token value = get_token(&message);
+            if (sel_sid) {
+                struct view *view = space_manager_find_view(&g_space_manager, sel_sid);
+                if (!token_is_valid(value)) {
+                    fprintf(rsp, "%s\n", bool_str[view->auto_padding]);
+                } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                    space_manager_set_auto_padding_for_space(&g_space_manager, sel_sid, false);
+                } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                    space_manager_set_auto_padding_for_space(&g_space_manager, sel_sid, true);
+                } else {
+                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                }
+            } else {
+                if (!token_is_valid(value)) {
+                    fprintf(rsp, "%s\n", bool_str[g_space_manager.auto_padding]);
+                } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                    space_manager_set_auto_padding_for_all_spaces(&g_space_manager, false);
+                } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                    space_manager_set_auto_padding_for_all_spaces(&g_space_manager, true);
                 } else {
                     daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
                 }

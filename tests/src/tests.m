@@ -13,13 +13,18 @@ typedef TEST_SIG(function);
 
 #include "area.c"
 #include "space_layout.c"
+#include "auto_padding.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
     TEST_ENTRY(display_area_is_in_direction)                   \
     TEST_ENTRY(closest_display_in_direction)                   \
     TEST_ENTRY(space_layout_parse)                             \
-    TEST_ENTRY(space_layout_targets)
+    TEST_ENTRY(space_layout_targets)                           \
+    TEST_ENTRY(auto_padding_applies)                           \
+    TEST_ENTRY(auto_padding_tiled_window_count)                \
+    TEST_ENTRY(auto_padding_root_area)                         \
+    TEST_ENTRY(auto_padding_gap)
 
 static struct {
     char *name;

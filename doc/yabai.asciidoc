@@ -269,6 +269,13 @@ Space Settings
 *window_gap* ['<integer number>']::
     Size of the gap that separates windows for the selected space.
 
+*auto_padding* ['<BOOL_SEL>']::
+    Remove padding and window gap on 'bsp' spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and 'external_bar' are still respected). +
+    The configured padding and gap apply again as soon as the space holds two or more tiled windows, and are always reported unchanged. +
+    A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom-fullscreen. Floating windows, including scratchpad windows and windows with the rule 'manage=off', never count. Windows stacked in the same node count individually. +
+    Has no effect on spaces with layout 'stack' or 'float'. Padding or gap toggled off with 'space --toggle' stays off regardless of the number of windows. +
+    Windows placed with '--grid' always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
+
 *auto_balance* ['<BOOL_SEL>|x-axis|y-axis']::
     Balance the window tree upon change, so that all windows occupy an equally sized area.
 
@@ -422,7 +429,8 @@ COMMAND
     If the current splitting mode matches the selected mode, the action will be undone.
 
 *--grid* '<rows>:<cols>:<start-x>:<start-y>:<width>:<height>'::
-    Set the frame of the selected window based on a self-defined grid.
+    Set the frame of the selected window based on a self-defined grid. +
+    The grid covers the area of the display inside the configured padding and gap of its visible space, regardless of 'auto_padding'.
 
 *--move* 'abs|rel:<dx>:<dy>'::
     If type is 'rel' the selected window is moved by 'dx' pixels horizontally and 'dy' pixels vertically. +

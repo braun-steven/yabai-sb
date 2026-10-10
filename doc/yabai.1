@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-05-08
+.\"      Date: 2026-10-05
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-05-08" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-05" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -217,6 +217,30 @@ Specify how displays are ordered (determined by center point).
 \fIhorizontal\fP: Order by x\-coordinate (followed by y\-coordinate when equal).
 .RE
 .sp
+\fBspace_layout\fP [\fI<LAYOUT> [<LAYOUT> .\|.\|.]|off\fP]
+.RS 4
+Keep a fixed number of spaces on each display.
+.br
+\fI<LAYOUT>\fP is a colon\-separated list of space counts, one entry per display in arrangement order, e.g. \fI10:5\fP.
+.br
+Give one \fI<LAYOUT>\fP per number of connected displays; the layout whose entry count matches the number of active displays is used, e.g. \fI15 10:5 10:5:1b\fP.
+.br
+An entry suffixed with \fIb\fP belongs to the built\-in display, and the remaining entries apply to the other displays in order.
+.br
+After displays are added, removed or moved, and after spaces are created or destroyed, spaces are moved between displays, created or destroyed until every display matches its target.
+.br
+Spaces that contain windows are never destroyed.
+.br
+System Integrity Protection must be partially disabled.
+.RE
+.sp
+\fBbuiltin_display_last\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Order the built\-in display after all other displays.
+.br
+This affects both display indices and space indices, e.g. with two external displays holding 15 spaces, the space of the built\-in display becomes space 16.
+.RE
+.sp
 \fBwindow_origin_display\fP [\fIdefault|focused|cursor\fP]
 .RS 4
 Specify which display a newly created window should be managed in.
@@ -379,6 +403,19 @@ Padding added at the right side of the selected space.
 \fBwindow_gap\fP [\fI<integer number>\fP]
 .RS 4
 Size of the gap that separates windows for the selected space.
+.RE
+.sp
+\fBauto_padding\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Remove padding and window gap on \fIbsp\fP spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and \fIexternal_bar\fP are still respected).
+.br
+The configured padding and gap apply again as soon as the space holds two or more tiled windows, and are always reported unchanged.
+.br
+A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom\-fullscreen. Floating windows, including scratchpad windows and windows with the rule \fImanage=off\fP, never count. Windows stacked in the same node count individually.
+.br
+Has no effect on spaces with layout \fIstack\fP or \fIfloat\fP. Padding or gap toggled off with \fIspace \-\-toggle\fP stays off regardless of the number of windows.
+.br
+Windows placed with \fI\-\-grid\fP always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
 .RE
 .sp
 \fBauto_balance\fP [\fI<BOOL_SEL>|x\-axis|y\-axis\fP]
@@ -607,6 +644,8 @@ If the current splitting mode matches the selected mode, the action will be undo
 \fB\-\-grid\fP \fI<rows>:<cols>:<start\-x>:<start\-y>:<width>:<height>\fP
 .RS 4
 Set the frame of the selected window based on a self\-defined grid.
+.br
+The grid covers the area of the display inside the configured padding and gap of its visible space, regardless of \fIauto_padding\fP.
 .RE
 .sp
 \fB\-\-move\fP \fIabs|rel:<dx>:<dy>\fP

@@ -196,6 +196,8 @@ enum view_flag
     VIEW_IS_VALID       = 0x200,
     VIEW_IS_DIRTY       = 0x400,
     VIEW_SPLIT_TYPE     = 0x800,
+    VIEW_AUTO_PADDING   = 0x1000,
+    VIEW_IS_UNPADDED    = 0x2000,
 };
 
 struct view
@@ -212,6 +214,7 @@ struct view
     int right_padding;
     int window_gap;
     uint32_t auto_balance;
+    bool auto_padding;
     uint64_t flags;
 };
 
@@ -240,6 +243,10 @@ struct window_node *view_add_window_node_with_insertion_point(struct view *view,
 struct window_node *view_add_window_node(struct view *view, struct window *window);
 struct window_node *view_remove_window_node(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
+
+bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count);
+int view_tiled_window_count(struct view *view);
+bool view_update_auto_padding(struct view *view);
 
 void view_serialize(FILE *rsp, struct view *view, uint64_t flags);
 bool view_is_invalid(struct view *view);

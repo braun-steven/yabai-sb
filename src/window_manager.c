@@ -1824,6 +1824,11 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
     window_manager_adjust_layer(b, LAYER_BELOW);
     scripting_addition_order_window(b->id, 1, a_node->window_order[1]);
 
+    if (view_update_auto_padding(a_view)) {
+        window_node_flush(a_view->root);
+        return WINDOW_OP_ERROR_SUCCESS;
+    }
+
     struct area area = a_node->zoom ? a_node->zoom->area : a_node->area;
     window_manager_animate_window((struct window_capture) { b, area.x, area.y, area.w, area.h });
     return WINDOW_OP_ERROR_SUCCESS;
@@ -1872,10 +1877,11 @@ enum window_op_error window_manager_warp_window(struct space_manager *sm, struct
             }
 
             window_node_swap_window_list(a_node, b_node);
+            if (view_update_auto_padding(a_view)) a_node = b_node = a_view->root;
 
             struct window_capture *window_list = NULL;
             window_node_capture_windows(a_node, &window_list);
-            window_node_capture_windows(b_node, &window_list);
+            if (b_node != a_node) window_node_capture_windows(b_node, &window_list);
             window_manager_animate_window_list(window_list, ts_buf_len(window_list));
         }
     } else {
@@ -2036,6 +2042,9 @@ enum window_op_error window_manager_swap_window(struct space_manager *sm, struct
     }
 
     window_node_swap_window_list(a_node, b_node);
+    if (view_update_auto_padding(a_view)) a_node = a_view->root;
+    if (view_update_auto_padding(b_view)) b_node = b_view->root;
+    if (a_view == b_view && a_node == a_view->root) b_node = a_node;
     struct window_capture *window_list = NULL;
 
     if (a_visible) {
@@ -2044,10 +2053,12 @@ enum window_op_error window_manager_swap_window(struct space_manager *sm, struct
         view_set_flag(a_view, VIEW_IS_DIRTY);
     }
 
-    if (b_visible) {
-        window_node_capture_windows(b_node, &window_list);
-    } else {
-        view_set_flag(b_view, VIEW_IS_DIRTY);
+    if (b_node != a_node) {
+        if (b_visible) {
+            window_node_capture_windows(b_node, &window_list);
+        } else {
+            view_set_flag(b_view, VIEW_IS_DIRTY);
+        }
     }
 
     window_manager_animate_window_list(window_list, ts_buf_len(window_list));
@@ -2150,7 +2161,7 @@ enum window_op_error window_manager_apply_grid(struct space_manager *sm, struct 
         }
 
         if (view_check_flag(dview, VIEW_ENABLE_GAP)) {
-            int gap = window_node_get_gap(dview);
+            int gap = dview->window_gap;
 
             if (x > 0) {
                 bounds.origin.x   += gap;
@@ -2337,6 +2348,7 @@ void window_manager_toggle_window_zoom_parent(struct window_manager *wm, struct 
 
     if (node->zoom == node->parent) {
         node->zoom = NULL;
+        if (view_update_auto_padding(view)) node = view->root;
         if (space_is_visible(view->sid)) {
             window_node_flush(node);
         } else {
@@ -2344,6 +2356,7 @@ void window_manager_toggle_window_zoom_parent(struct window_manager *wm, struct 
         }
     } else {
         node->zoom = node->parent;
+        if (view_update_auto_padding(view)) node = view->root;
         if (space_is_visible(view->sid)) {
             window_node_flush(node);
         } else {
@@ -2366,6 +2379,7 @@ void window_manager_toggle_window_zoom_fullscreen(struct window_manager *wm, str
 
     if (node->zoom == view->root) {
         node->zoom = NULL;
+        if (view_update_auto_padding(view)) node = view->root;
         if (space_is_visible(view->sid)) {
             window_node_flush(node);
         } else {
@@ -2373,6 +2387,7 @@ void window_manager_toggle_window_zoom_fullscreen(struct window_manager *wm, str
         }
     } else {
         node->zoom = view->root;
+        if (view_update_auto_padding(view)) node = view->root;
         if (space_is_visible(view->sid)) {
             window_node_flush(node);
         } else {

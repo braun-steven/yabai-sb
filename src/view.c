@@ -155,6 +155,7 @@ static inline float window_node_get_ratio(struct window_node *node)
 
 static inline int window_node_get_gap(struct view *view)
 {
+    if (view_check_flag(view, VIEW_IS_UNPADDED)) return 0;
     return view_check_flag(view, VIEW_ENABLE_GAP) ? view->window_gap : 0;
 }
 
@@ -618,7 +619,7 @@ struct window_node *view_find_window_node(struct view *view, uint32_t window_id)
     return NULL;
 }
 
-struct window_node *view_remove_window_node(struct view *view, struct window *window)
+static struct window_node *view_detach_window_node(struct view *view, struct window *window)
 {
     struct window_node *node = view_find_window_node(view, window->id);
     if (!node) return NULL;
@@ -727,6 +728,12 @@ struct window_node *view_remove_window_node(struct view *view, struct window *wi
     return parent;
 }
 
+struct window_node *view_remove_window_node(struct view *view, struct window *window)
+{
+    struct window_node *node = view_detach_window_node(view, window);
+    return view_update_auto_padding(view) ? view->root : node;
+}
+
 void view_stack_window_node(struct window_node *node, struct window *window)
 {
     int insert_index = node->window_count;
@@ -748,7 +755,9 @@ void view_stack_window_node(struct window_node *node, struct window *window)
     ++node->window_count;
 }
 
-struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point)
+static bool view_update_auto_padding_for_window_count(struct view *view, int added_window_count);
+
+static struct window_node *view_insert_window_node(struct view *view, struct window *window, uint32_t insertion_point)
 {
     if (!window_node_is_occupied(view->root) &&
         window_node_is_leaf(view->root)) {
@@ -794,6 +803,12 @@ struct window_node *view_add_window_node_with_insertion_point(struct view *view,
             if (!leaf) leaf = view_find_min_depth_leaf_node(view->root);
         }
 
+        //
+        // NOTE: Apply the padding that the tree will have once the window is added, so that the split
+        // is computed from the final area. view_add_window_node_with_insertion_point verifies the result.
+        //
+
+        bool did_relayout = view_update_auto_padding_for_window_count(view, 1);
         window_node_split(view, leaf, window);
 
         if (view->auto_balance != SPLIT_NONE) {
@@ -802,13 +817,19 @@ struct window_node *view_add_window_node_with_insertion_point(struct view *view,
             return view->root;
         }
 
-        return leaf;
+        return did_relayout ? view->root : leaf;
     } else if (view->layout == VIEW_STACK) {
         view_stack_window_node(view->root, window);
         return view->root;
     }
 
     return NULL;
+}
+
+struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point)
+{
+    struct window_node *node = view_insert_window_node(view, window, insertion_point);
+    return node && view_update_auto_padding(view) ? view->root : node;
 }
 
 struct window_node *view_add_window_node(struct view *view, struct window *window)
@@ -965,22 +986,83 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
     fprintf(rsp, "\n}");
 }
 
-void view_update(struct view *view)
+bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count)
 {
+    return auto_padding && layout == VIEW_BSP && tiled_window_count <= 1;
+}
+
+static int window_node_tiled_window_count(struct view *view, struct window_node *node)
+{
+    if (!window_node_is_leaf(node)) {
+        return window_node_tiled_window_count(view, node->left) + window_node_tiled_window_count(view, node->right);
+    }
+
+    //
+    // NOTE: Windows in zoom-fullscreen remain in the tree, but cover the whole layout area
+    // instead of their own leaf, so they do not count as tiled (matches has-fullscreen-zoom).
+    //
+
+    return node->zoom == view->root ? 0 : node->window_count;
+}
+
+int view_tiled_window_count(struct view *view)
+{
+    return window_node_tiled_window_count(view, view->root);
+}
+
+static struct area view_root_area(struct view *view, CGRect frame)
+{
+    struct area area = area_from_cgrect(frame);
+
+    if (view_check_flag(view, VIEW_ENABLE_PADDING) && !view_check_flag(view, VIEW_IS_UNPADDED)) {
+        area.x += view->left_padding;
+        area.w -= (view->left_padding + view->right_padding);
+        area.y += view->top_padding;
+        area.h -= (view->top_padding + view->bottom_padding);
+    }
+
+    return area;
+}
+
+static void view_update_with_auto_padding(struct view *view, bool unpadded)
+{
+    if (unpadded) {
+        view_set_flag(view, VIEW_IS_UNPADDED);
+    } else {
+        view_clear_flag(view, VIEW_IS_UNPADDED);
+    }
+
     uint32_t did = space_display_id(view->sid);
     CGRect frame = display_bounds_constrained(did, false);
-    view->root->area = area_from_cgrect(frame);
-
-    if (view_check_flag(view, VIEW_ENABLE_PADDING)) {
-        view->root->area.x += view->left_padding;
-        view->root->area.w -= (view->left_padding + view->right_padding);
-        view->root->area.y += view->top_padding;
-        view->root->area.h -= (view->top_padding + view->bottom_padding);
-    }
+    view->root->area = view_root_area(view, frame);
 
     window_node_update(view, view->root);
     view_set_flag(view, VIEW_IS_VALID);
     view_set_flag(view, VIEW_IS_DIRTY);
+}
+
+static bool view_update_auto_padding_for_window_count(struct view *view, int added_window_count)
+{
+    bool unpadded = view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view) + added_window_count);
+    if (unpadded == (view_check_flag(view, VIEW_IS_UNPADDED) != 0)) return false;
+
+    view_update_with_auto_padding(view, unpadded);
+    return true;
+}
+
+//
+// NOTE: Re-layout the view if the tiled window count crossed the auto_padding threshold.
+// Returns true if it did, in which case the whole tree must be flushed.
+//
+
+bool view_update_auto_padding(struct view *view)
+{
+    return view_update_auto_padding_for_window_count(view, 0);
+}
+
+void view_update(struct view *view)
+{
+    view_update_with_auto_padding(view, view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view)));
 }
 
 struct view *view_create(uint64_t sid)
@@ -1006,6 +1088,7 @@ struct view *view_create(uint64_t sid)
         if (!view_check_flag(view, VIEW_WINDOW_GAP))     view->window_gap     = g_space_manager.window_gap;
         if (!view_check_flag(view, VIEW_AUTO_BALANCE))   view->auto_balance   = g_space_manager.auto_balance;
         if (!view_check_flag(view, VIEW_SPLIT_TYPE))     view->split_type     = g_space_manager.split_type;
+        if (!view_check_flag(view, VIEW_AUTO_PADDING))   view->auto_padding   = g_space_manager.auto_padding;
         view_update(view);
     } else {
         view->layout = VIEW_FLOAT;

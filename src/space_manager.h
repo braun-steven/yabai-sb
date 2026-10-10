@@ -41,6 +41,7 @@ struct space_manager
     enum window_insertion_point window_insertion_point;
     bool window_zoom_persist;
     uint32_t auto_balance;
+    bool auto_padding;
     struct space_label *labels;
     bool skip_window_focus_animation;
     struct space_layout space_layout[SPACE_LAYOUT_MAX];
@@ -105,6 +106,8 @@ void space_manager_set_left_padding_for_all_spaces(struct space_manager *sm, int
 void space_manager_set_right_padding_for_all_spaces(struct space_manager *sm, int right_padding);
 void space_manager_set_split_type_for_all_spaces(struct space_manager *sm, enum window_node_split split_type);
 void space_manager_set_auto_balance_for_all_spaces(struct space_manager *sm, uint32_t auto_balance);
+void space_manager_set_auto_padding_for_all_spaces(struct space_manager *sm, bool auto_padding);
+void space_manager_set_auto_padding_for_space(struct space_manager *sm, uint64_t sid, bool auto_padding);
 bool space_manager_set_padding_for_space(struct space_manager *sm, uint64_t sid, int type, int top, int bottom, int left, int right);
 bool space_manager_toggle_padding_for_space(struct space_manager *sm, uint64_t sid);
 bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degrees);

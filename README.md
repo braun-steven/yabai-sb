@@ -1,3 +1,15 @@
+# Personal fork
+
+This is my personal fork of yabai, where I (and AI) implement features and bug fixes that I need.
+
+## Fork changes
+
+- **`space_layout` config**: keeps a fixed number of spaces on each display, with one layout per display count, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`. Spaces are moved, created, or destroyed (only empty ones) after display or space changes.
+- **`builtin_display_last` config**: orders the built-in display after all other displays, for both display and space indices.
+- **`auto_padding` config**: removes padding and window gap on bsp spaces with at most one tiled window, globally or per space (`yabai -m config [--space <SPACE_SEL>] auto_padding on`). The configured padding is never changed, so `--grid` gives the same frame on every space.
+
+---
+
 <!-- Please be careful editing the below HTML, as GitHub is quite finicky with anything that looks like an HTML tag in GitHub Flavored Markdown. -->
 <p align="center">
   <img width="75%" src="assets/banner/banner.svg" alt="Banner">

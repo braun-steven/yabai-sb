@@ -169,3 +169,42 @@ TEST_FUNC(tab_bar_make_split,
 
     window_node_free_subtree(view.root);
 });
+
+TEST_FUNC(tab_bar_unstack,
+{
+    struct view view;
+    tab_bar_test_view_init(&view);
+
+    struct window_node *root = view.root;
+    memcpy(root->window_list, ((uint32_t[]) { 1, 2, 3 }), sizeof(uint32_t) * 3);
+    memcpy(root->window_order, ((uint32_t[]) { 1, 2, 3 }), sizeof(uint32_t) * 3);
+    root->window_count = 3;
+
+    struct window window;
+    memset(&window, 0, sizeof(struct window));
+
+    // the first tab leaves westward, to the left of the remaining stack
+    window.id = 1;
+    struct window_node *node = view_unstack_window_node(&view, &window, DIR_WEST);
+    TEST_CHECK(node == root, true);
+    TEST_CHECK(root->left->window_count, 1);
+    TEST_CHECK(root->left->window_list[0], 1);
+    TEST_CHECK(root->right->window_count, 2);
+    TEST_CHECK(root->right->window_list[0], 2);
+    TEST_CHECK(root->right->window_list[1], 3);
+    TEST_CHECK((int) root->left->area.w, 500);
+    TEST_CHECK((int) root->right->area.x, 500);
+
+    // the last tab leaves eastward, to the right of the remaining window
+    window.id = 3;
+    node = view_unstack_window_node(&view, &window, DIR_EAST);
+    TEST_CHECK(node == root->right, true);
+    TEST_CHECK(node->left->window_count, 1);
+    TEST_CHECK(node->left->window_list[0], 2);
+    TEST_CHECK(node->right->window_list[0], 3);
+
+    // a window that is not stacked is left alone
+    TEST_CHECK(view_unstack_window_node(&view, &window, DIR_EAST) == NULL, true);
+
+    window_node_free_subtree(view.root);
+});

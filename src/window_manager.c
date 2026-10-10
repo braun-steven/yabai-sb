@@ -1167,11 +1167,36 @@ struct window *window_manager_find_tab_in_direction(struct window_manager *wm, s
     return node ? window_manager_find_window(wm, node->window_list[index]) : NULL;
 }
 
+//
+// NOTE: Warping east/west inside a stack moves the window one tab over. From the first or last
+// tab it leaves the stack and is placed next to it, like i3 does for tabbed containers, even
+// when there is no other window in that direction.
+//
+
 bool window_manager_move_tab_in_direction(struct window_manager *wm, struct window *window, int direction)
 {
     int index;
     struct window_node *node = window_manager_find_tab_node(wm, window, direction, &index);
-    if (!node) return false;
+
+    if (!node) {
+        if (!tab_bar_is_enabled() || (direction != DIR_EAST && direction != DIR_WEST)) return false;
+
+        struct view *view = window_manager_find_managed_window(wm, window);
+        if (!view || view->layout != VIEW_BSP) return false;
+
+        node = view_unstack_window_node(view, window, direction);
+        if (!node) return false;
+
+        if (view_update_auto_padding(view)) node = view->root;
+
+        if (space_is_visible(view->sid)) {
+            window_node_flush(node);
+        } else {
+            view_set_flag(view, VIEW_IS_DIRTY);
+        }
+
+        return true;
+    }
 
     int source = window_node_index_of_window(node, window->id);
     node->window_list[source] = node->window_list[index];

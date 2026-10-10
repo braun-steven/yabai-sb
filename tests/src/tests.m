@@ -29,7 +29,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tab_bar_window_area)                            \
     TEST_ENTRY(tab_bar_make_tabbed)                            \
     TEST_ENTRY(tab_bar_make_tabbed_max)                        \
-    TEST_ENTRY(tab_bar_make_split)
+    TEST_ENTRY(tab_bar_make_split)                             \
+    TEST_ENTRY(tab_bar_unstack)
 
 static struct {
     char *name;

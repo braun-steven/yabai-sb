@@ -461,7 +461,7 @@ COMMAND
 
 *--warp* '<WINDOW_SEL>'::
     Re-insert the selected window, splitting the given window. +
-    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left, and only take it out of the stack from its last or first tab.
+    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction.
 
 *--stack* '<WINDOW_SEL>'::
     Stack the given window on top of the selected window. +

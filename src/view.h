@@ -254,6 +254,7 @@ struct window_node *view_add_window_node(struct view *view, struct window *windo
 struct window_node *view_remove_window_node(struct view *view, struct window *window);
 struct window_node *view_make_tabbed(struct view *view, uint32_t window_id);
 struct window_node *view_make_split(struct view *view, uint32_t window_id);
+struct window_node *view_unstack_window_node(struct view *view, struct window *window, int direction);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
 
 bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count);

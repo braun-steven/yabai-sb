@@ -841,6 +841,25 @@ struct window_node *view_make_split(struct view *view, uint32_t window_id)
     return view_balance_or_node(view, node);
 }
 
+//
+// NOTE: i3 'move left/right' out of a tabbed container. Takes the window out of its stack and
+// splits the area of the stack, placing the window on the west or east side of it.
+//
+
+struct window_node *view_unstack_window_node(struct view *view, struct window *window, int direction)
+{
+    struct window_node *node = view_find_window_node(view, window->id);
+    if (!node || node->window_count < 2) return NULL;
+
+    view_detach_window_node(view, window);
+
+    node->split = SPLIT_Y;
+    node->child = direction == DIR_WEST ? CHILD_FIRST : CHILD_SECOND;
+    window_node_split(view, node, window->id);
+
+    return view_balance_or_node(view, node);
+}
+
 struct window_node *view_remove_window_node(struct view *view, struct window *window)
 {
     struct window_node *node = view_detach_window_node(view, window);

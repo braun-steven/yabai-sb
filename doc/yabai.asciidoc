@@ -237,6 +237,11 @@ Global Settings
     When *window --toggle* '<LABEL>' acts on a scratchpad that is shown on the active space but does not have focus, focus and raise it instead of hiding it. +
     The scratchpad is only hidden if it already has focus.
 
+*scratchpad_below* ['<BOOL_SEL>']::
+    Put scratchpad windows on the same stacking sub-layer as tiled windows instead of above them, so focusing a tiled window brings it in front of a shown scratchpad. +
+    Does not affect a scratchpad whose sub-layer was set with *window --sub-layer*. +
+    System Integrity Protection must be partially disabled.
+
 *scratchpad_grid* ['<rows>:<cols>:<start-x>:<start-y>:<width>:<height>|off']::
     Set the frame of a scratchpad window, as with *window --grid*, each time *window --toggle* '<LABEL>' shows it while it was hidden. +
     A scratchpad that is already shown, on this or another space, keeps its frame when it is focused or moved to the active space.
@@ -461,7 +466,7 @@ COMMAND
 *--toggle* 'float|sticky|pip|shadow|split|zoom-parent|zoom-fullscreen|windowed-fullscreen|native-fullscreen|expose|<LABEL>'::
     Toggle the given property of the selected window. +
     The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) . +
-    Toggling a scratchpad by 'LABEL' shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options *scratchpad_exclusive*, *scratchpad_raise* and *scratchpad_grid*.
+    Toggling a scratchpad by 'LABEL' shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options *scratchpad_exclusive*, *scratchpad_raise*, *scratchpad_below* and *scratchpad_grid*.
 
 *--sub-layer* '<LAYER>'::
     Set the stacking sub-layer of the selected window. +

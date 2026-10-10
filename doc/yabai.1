@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-05
+.\"      Date: 2026-10-07
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-05" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-07" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -356,6 +356,15 @@ When \fBwindow \-\-toggle\fP \fI<LABEL>\fP acts on a scratchpad that is shown on
 The scratchpad is only hidden if it already has focus.
 .RE
 .sp
+\fBscratchpad_below\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Put scratchpad windows on the same stacking sub\-layer as tiled windows instead of above them, so focusing a tiled window brings it in front of a shown scratchpad.
+.br
+Does not affect a scratchpad whose sub\-layer was set with \fBwindow \-\-sub\-layer\fP.
+.br
+System Integrity Protection must be partially disabled.
+.RE
+.sp
 \fBscratchpad_grid\fP [\fI<rows>:<cols>:<start\-x>:<start\-y>:<width>:<height>|off\fP]
 .RS 4
 Set the frame of a scratchpad window, as with \fBwindow \-\-grid\fP, each time \fBwindow \-\-toggle\fP \fI<LABEL>\fP shows it while it was hidden.
@@ -700,7 +709,7 @@ Toggle the given property of the selected window.
 .br
 The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) .
 .br
-Toggling a scratchpad by \fILABEL\fP shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options \fBscratchpad_exclusive\fP, \fBscratchpad_raise\fP and \fBscratchpad_grid\fP.
+Toggling a scratchpad by \fILABEL\fP shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options \fBscratchpad_exclusive\fP, \fBscratchpad_raise\fP, \fBscratchpad_below\fP and \fBscratchpad_grid\fP.
 .RE
 .sp
 \fB\-\-sub\-layer\fP \fI<LAYER>\fP

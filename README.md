@@ -7,7 +7,7 @@ This is my personal fork of yabai, where I (and AI) implement features and bug f
 - **`space_layout` config**: keeps a fixed number of spaces on each display, with one layout per display count, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`. Spaces are moved, created, or destroyed (only empty ones) after display or space changes.
 - **`builtin_display_last` config**: orders the built-in display after all other displays, for both display and space indices.
 - **`auto_padding` config**: removes padding and window gap on bsp spaces with at most one tiled window, globally or per space (`yabai -m config [--space <SPACE_SEL>] auto_padding on`). The configured padding is never changed, so `--grid` gives the same frame on every space.
-- **Exclusive scratchpads**: `scratchpad_exclusive on` keeps at most one scratchpad shown, so toggling one hides the others. `scratchpad_raise on` focuses a covered scratchpad instead of hiding it, and `scratchpad_grid <grid>` re-centers a scratchpad each time it is shown. Toggling a scratchpad on another space no longer makes macOS switch back to that space.
+- **Exclusive scratchpads**: `scratchpad_exclusive on` keeps at most one scratchpad shown, so toggling one hides the others. `scratchpad_raise on` focuses a covered scratchpad instead of hiding it, `scratchpad_below on` lets a focused tiled window cover a shown scratchpad instead of the scratchpad always floating above, and `scratchpad_grid <grid>` re-centers a scratchpad each time it is shown. Toggling a scratchpad on another space no longer makes macOS switch back to that space.
 
 ---
 

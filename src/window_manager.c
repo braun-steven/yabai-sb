@@ -830,7 +830,8 @@ bool window_manager_set_window_layer(struct window *window, int layer)
     int child_layer = layer;
 
     if (layer == LAYER_AUTO) {
-        parent_layer = window_manager_find_managed_window(&g_window_manager, window) ? LAYER_BELOW : LAYER_NORMAL;
+        bool below = window_manager_find_managed_window(&g_window_manager, window) || (g_window_manager.scratchpad_below && window->scratchpad);
+        parent_layer = below ? LAYER_BELOW : LAYER_NORMAL;
         child_layer = LAYER_NORMAL;
     }
 
@@ -2460,6 +2461,13 @@ bool window_manager_toggle_scratchpad_window_by_label(struct window_manager *wm,
     return window ? window_manager_toggle_scratchpad_window(wm, window, 0) : false;
 }
 
+void window_manager_set_scratchpad_layers(struct window_manager *wm)
+{
+    for (int i = 0; i < buf_len(wm->scratchpad_window); ++i) {
+        window_manager_adjust_layer(wm->scratchpad_window[i].window, wm->scratchpad_below ? LAYER_BELOW : LAYER_NORMAL);
+    }
+}
+
 static void window_manager_hide_other_scratchpad_windows(struct window_manager *wm, struct window *window)
 {
     for (int i = 0; i < buf_len(wm->scratchpad_window); ++i) {
@@ -2573,6 +2581,13 @@ bool window_manager_set_scratchpad_for_window(struct window_manager *wm, struct 
     window->scratchpad = label;
     window_manager_make_window_floating(&g_space_manager, wm, window, true, false);
 
+    //
+    // NOTE: Floating puts the window on the normal sub-layer, above
+    // tiled windows; scratchpad_below moves it to their sub-layer.
+    //
+
+    if (wm->scratchpad_below) window_manager_adjust_layer(window, LAYER_BELOW);
+
     return true;
 }
 
@@ -2587,6 +2602,7 @@ bool window_manager_remove_scratchpad_for_window(struct window_manager *wm, stru
 
             if (unfloat) {
                 window_manager_toggle_scratchpad_window(wm, window, 3);
+                if (wm->scratchpad_below) window_manager_adjust_layer(window, LAYER_NORMAL);
                 window_manager_make_window_floating(&g_space_manager, wm, window, false, false);
             }
 
@@ -2796,6 +2812,7 @@ void window_manager_init(struct window_manager *wm)
     wm->insert_feedback_color = rgba_color_from_hex(0xffd75f5f);
     wm->scratchpad_exclusive = false;
     wm->scratchpad_raise = false;
+    wm->scratchpad_below = false;
     memset(wm->scratchpad_grid, 0, sizeof(wm->scratchpad_grid));
 
     table_init(&wm->application, 150, hash_wm, compare_wm);

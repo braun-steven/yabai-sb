@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *auto_padding* removes padding and window gap on bsp spaces with at most one tiled window, globally or per space, e.g. `yabai -m config auto_padding on`
 - Config *scratchpad_exclusive* keeps at most one scratchpad shown: toggling a scratchpad hides every other shown scratchpad
 - Config *scratchpad_raise* makes toggling a shown but unfocused scratchpad focus it instead of hiding it
+- Config *scratchpad_below* puts scratchpads on the same stacking sub-layer as tiled windows, so focusing a tiled window brings it in front of a shown scratchpad
 - Config *scratchpad_grid* sets the frame of a scratchpad each time it is shown from hidden, e.g. `yabai -m config scratchpad_grid 40:40:1:1:38:38`
 
 ### Changed

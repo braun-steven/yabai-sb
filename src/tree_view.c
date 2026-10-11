@@ -390,20 +390,20 @@ void tree_release_bars(struct con *con)
     }
 }
 
-static void tree_order_windows(struct con *con, int order, uint32_t relative)
+static void tree_collect_window_order(struct con *con, int order, uint32_t relative, struct sa_window_order **list)
 {
     if (con_is_leaf(con)) {
-        if (con->window_id != relative) scripting_addition_order_window(con->window_id, order, relative);
+        if (con->window_id != relative) ts_buf_push(*list, ((struct sa_window_order) { con->window_id, order, relative }));
         return;
     }
 
     if (order == 1 && con->layout == CON_TABBED) {
-        if (con->child_count) tree_order_windows(con->focus[0], order, relative);
+        if (con->child_count) tree_collect_window_order(con->focus[0], order, relative, list);
         return;
     }
 
     for (int i = 0; i < con->child_count; ++i) {
-        tree_order_windows(con->children[i], order, relative);
+        tree_collect_window_order(con->children[i], order, relative, list);
     }
 }
 
@@ -415,10 +415,11 @@ static void tree_order_windows(struct con *con, int order, uint32_t relative)
 // itself sits right below the focused window, so this is redone when either of them changes.
 // The focused window is also ordered right above the card: the card does not reliably follow
 // its own ordering, and a new window was ordered below the card as a hidden tab before it got
-// focus, which the application then does not raise again.
+// focus, which the application then does not raise again. The orderings of the whole tree are
+// collected first and sent to the scripting addition in one message.
 //
 
-void tree_raise_tabs(struct con *con, bool force)
+static void tree_collect_tab_order(struct con *con, bool force, struct sa_window_order **list)
 {
     if (con_is_leaf(con)) return;
 
@@ -435,24 +436,32 @@ void tree_raise_tabs(struct con *con, bool force)
             con->render.raised_card = card_wid;
 
             if (anchor && card_wid) {
-                scripting_addition_order_window(anchor_wid, 1, card_wid);
+                ts_buf_push(*list, ((struct sa_window_order) { anchor_wid, 1, card_wid }));
             }
 
             if (anchor && con->child_count > 1) {
                 for (int i = 0; i < con->child_count; ++i) {
-                    if (con->children[i] != active) tree_order_windows(con->children[i], -1, card_wid ? card_wid : anchor_wid);
+                    if (con->children[i] != active) tree_collect_window_order(con->children[i], -1, card_wid ? card_wid : anchor_wid, list);
                 }
             }
 
             if (anchor && !con_is_leaf(active)) {
-                tree_order_windows(active, 1, anchor->window_id);
+                tree_collect_window_order(active, 1, anchor->window_id, list);
             }
         }
     }
 
     for (int i = 0; i < con->child_count; ++i) {
-        tree_raise_tabs(con->children[i], force);
+        tree_collect_tab_order(con->children[i], force, list);
     }
+}
+
+void tree_raise_tabs(struct con *con, bool force)
+{
+    struct sa_window_order *list = NULL;
+    tree_collect_tab_order(con, force, &list);
+
+    if (list) scripting_addition_order_window_list(list, ts_buf_len(list));
 }
 
 void tree_flush(struct view *view)

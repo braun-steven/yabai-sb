@@ -641,3 +641,80 @@ TEST_FUNC(tree_attach_from_direction,
     con_free(empty);
     con_free(root);
 });
+
+static uint32_t tree_test_order_wid(struct sa_window_order *list, int index)
+{
+    return index < ts_buf_len(list) ? list[index].a_wid : 0;
+}
+
+static bool tree_test_order_is(struct sa_window_order *list, int index, uint32_t a_wid, int order, uint32_t b_wid)
+{
+    if (index >= ts_buf_len(list)) return false;
+    return list[index].a_wid == a_wid && list[index].order == order && list[index].b_wid == b_wid;
+}
+
+TEST_FUNC(tree_window_order_collect,
+{
+    // H[ 1 T[ 2 V[ 3 4 ] T[ 5 6 ] ] ] with 3 focused and 5 the active tab of the hidden tabbed container
+    struct con *root = con_create(CON_SPLITH);
+    tree_test_leaf(root, 1);
+    struct con *t = tree_test_split(root, CON_TABBED);
+    tree_test_leaf(t, 2);
+    struct con *v = tree_test_split(t, CON_SPLITV);
+    struct con *c3 = tree_test_leaf(v, 3);
+    tree_test_leaf(v, 4);
+    struct con *t2 = tree_test_split(t, CON_TABBED);
+    struct con *c5 = tree_test_leaf(t2, 5);
+    struct con *c6 = tree_test_leaf(t2, 6);
+    tree_focus(c6);
+    tree_focus(c5);
+    tree_focus(c3);
+
+    // ordering below collects every window, hidden tabs included
+    struct sa_window_order *list = NULL;
+    tree_collect_window_order(t, -1, 99, &list);
+    TEST_CHECK(ts_buf_len(list), 5);
+    TEST_CHECK(tree_test_order_is(list, 0, 2, -1, 99), true);
+    TEST_CHECK(tree_test_order_wid(list, 1), 3);
+    TEST_CHECK(tree_test_order_wid(list, 2), 4);
+    TEST_CHECK(tree_test_order_wid(list, 3), 5);
+    TEST_CHECK(tree_test_order_is(list, 4, 6, -1, 99), true);
+
+    // ordering above skips hidden tabs and the relative window itself
+    list = NULL;
+    tree_collect_window_order(root, 1, 3, &list);
+    TEST_CHECK(ts_buf_len(list), 2);
+    TEST_CHECK(tree_test_order_is(list, 0, 1, 1, 3), true);
+    TEST_CHECK(tree_test_order_is(list, 1, 4, 1, 3), true);
+
+    list = NULL;
+    tree_collect_window_order(v, -1, 4, &list);
+    TEST_CHECK(ts_buf_len(list), 1);
+    TEST_CHECK(tree_test_order_wid(list, 0), 3);
+
+    // a tab change orders the other tabs below the focused window, then the rest of the active tab above it
+    list = NULL;
+    tree_collect_tab_order(root, false, &list);
+    TEST_CHECK(ts_buf_len(list), 4);
+    TEST_CHECK(tree_test_order_is(list, 0, 2, -1, 3), true);
+    TEST_CHECK(tree_test_order_is(list, 1, 5, -1, 3), true);
+    TEST_CHECK(tree_test_order_is(list, 2, 6, -1, 3), true);
+    TEST_CHECK(tree_test_order_is(list, 3, 4, 1, 3), true);
+
+    // nothing to do until the active tab changes, unless forced
+    list = NULL;
+    tree_collect_tab_order(root, false, &list);
+    TEST_CHECK(ts_buf_len(list), 0);
+    tree_collect_tab_order(root, true, &list);
+    TEST_CHECK(ts_buf_len(list), 4);
+
+    // switching to the tab that holds 2 orders every other window of the container below it
+    list = NULL;
+    tree_focus(t->children[0]);
+    tree_collect_tab_order(root, false, &list);
+    TEST_CHECK(ts_buf_len(list), 4);
+    TEST_CHECK(tree_test_order_is(list, 0, 3, -1, 2), true);
+    TEST_CHECK(tree_test_order_is(list, 3, 6, -1, 2), true);
+
+    con_free(root);
+});

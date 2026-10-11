@@ -1493,6 +1493,8 @@ static EVENT_HANDLER(DOCK_DID_RESTART)
 {
     debug("%s:\n", __FUNCTION__);
 
+    scripting_addition_payload_changed();
+
     if (workspace_is_macos_monterey() ||
         workspace_is_macos_ventura() ||
         workspace_is_macos_sonoma() ||

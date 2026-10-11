@@ -587,6 +587,62 @@ bool scripting_addition_order_window(uint32_t a_wid, int order, uint32_t b_wid)
     return sa_payload_send(SA_OPCODE_WINDOW_ORDER);
 }
 
+//
+// NOTE: A daemon can talk to the payload of an older yabai until Dock is restarted, and an older
+// payload ignores opcodes it does not know. Whether the payload is current is asked once with a
+// handshake and remembered until Dock restarts. An outdated payload gets one message per window.
+//
+
+static int g_sa_payload_current = -1;
+
+void scripting_addition_payload_changed(void)
+{
+    g_sa_payload_current = -1;
+}
+
+static bool scripting_addition_payload_is_current(void)
+{
+    if (g_sa_payload_current == -1) {
+        uint32_t attrib = 0;
+        char version[SA_SOCKET_BUFF_LEN] = {0};
+        if (scripting_addition_request_handshake(version, &attrib)) {
+            g_sa_payload_current = string_equals(version, OSAX_VERSION);
+        }
+    }
+
+    return g_sa_payload_current == 1;
+}
+
+#define SA_WINDOW_ORDER_CHUNK 256
+bool scripting_addition_order_window_list(struct sa_window_order *list, int count)
+{
+    if (count <= 0) return true;
+
+    if (!scripting_addition_payload_is_current()) {
+        bool result = true;
+        for (int i = 0; i < count; ++i) {
+            result &= scripting_addition_order_window(list[i].a_wid, list[i].order, list[i].b_wid);
+        }
+        return result;
+    }
+
+    bool result = true;
+    for (int offset = 0; offset < count; offset += SA_WINDOW_ORDER_CHUNK) {
+        int chunk = min(count - offset, SA_WINDOW_ORDER_CHUNK);
+
+        sa_payload_init();
+        pack(chunk);
+        for (int i = offset; i < offset + chunk; ++i) {
+            pack(list[i].a_wid);
+            pack(list[i].order);
+            pack(list[i].b_wid);
+        }
+        result &= sa_payload_send(SA_OPCODE_WINDOW_ORDER_LIST);
+    }
+    return result;
+}
+#undef SA_WINDOW_ORDER_CHUNK
+
 extern int g_connection;
 bool scripting_addition_order_window_in(uint32_t *window_list, int window_count)
 {

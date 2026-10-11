@@ -6,7 +6,15 @@ extern unsigned int __src_osax_payload_len;
 extern unsigned char __src_osax_loader[];
 extern unsigned int __src_osax_loader_len;
 
+struct sa_window_order
+{
+    uint32_t a_wid;
+    int order;
+    uint32_t b_wid;
+};
+
 int scripting_addition_load(void);
+void scripting_addition_payload_changed(void);
 int scripting_addition_uninstall(void);
 
 bool scripting_addition_create_space(uint64_t sid);
@@ -24,6 +32,7 @@ bool scripting_addition_scale_window(uint32_t wid, float x, float y, float w, fl
 bool scripting_addition_swap_window_proxy_in(struct window_animation *animation_list, int animation_count);
 bool scripting_addition_swap_window_proxy_out(struct window_animation *animation_list, int animation_count);
 bool scripting_addition_order_window(uint32_t a_wid, int order, uint32_t b_wid);
+bool scripting_addition_order_window_list(struct sa_window_order *list, int count);
 bool scripting_addition_order_window_in(uint32_t *window_list, int window_count);
 bool scripting_addition_move_window_list_to_space(uint64_t sid, uint32_t *window_list, int window_count);
 bool scripting_addition_move_window_to_space(uint64_t sid, uint32_t wid);

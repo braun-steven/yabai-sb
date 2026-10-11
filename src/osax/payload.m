@@ -896,6 +896,35 @@ static void do_window_order(char *message)
     SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid);
 }
 
+//
+// NOTE: The entries are ordered one after another, exactly like a sequence of SA_OPCODE_WINDOW_ORDER
+// messages. A transaction would not do: its ordering does not follow the sequence, and the order of
+// the windows of a tabbed container depends on it.
+//
+
+static void do_window_order_list(char *message, int length)
+{
+    int count = 0;
+    unpack(count);
+
+    int entry_size = 2*sizeof(uint32_t) + sizeof(int);
+    int max_count = (length - (int)sizeof(int)) / entry_size;
+    if (count > max_count) count = max_count;
+
+    for (int i = 0; i < count; ++i) {
+        uint32_t a_wid;
+        unpack(a_wid);
+
+        int order;
+        unpack(order);
+
+        uint32_t b_wid;
+        unpack(b_wid);
+
+        if (a_wid) SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid);
+    }
+}
+
 static void do_window_order_in(char *message)
 {
     int count = 0;
@@ -982,9 +1011,11 @@ static void do_handshake(int sockfd)
     send(sockfd, bytes, bytes_length+1, 0);
 }
 
-static void handle_message(int sockfd, char *message)
+static void handle_message(int sockfd, char *message, int length)
 {
     enum sa_opcode op = *message++;
+    --length;
+
     switch (op) {
     case SA_OPCODE_HANDSHAKE: {
         do_handshake(sockfd);
@@ -1034,6 +1065,9 @@ static void handle_message(int sockfd, char *message)
     case SA_OPCODE_WINDOW_ORDER: {
         do_window_order(message);
     } break;
+    case SA_OPCODE_WINDOW_ORDER_LIST: {
+        do_window_order_list(message, length);
+    } break;
     case SA_OPCODE_WINDOW_ORDER_IN: {
         do_window_order_in(message);
     } break;
@@ -1046,7 +1080,7 @@ static void handle_message(int sockfd, char *message)
     }
 }
 
-static inline bool read_message(int sockfd, char *message)
+static inline bool read_message(int sockfd, char *message, int *length)
 {
     int bytes_read    = 0;
     int bytes_to_read = 0;
@@ -1062,6 +1096,7 @@ static inline bool read_message(int sockfd, char *message)
             bytes_read += cur_read;
         } while (bytes_read < bytes_to_read);
 
+        *length = bytes_read;
         return bytes_read == bytes_to_read;
     }
 
@@ -1080,9 +1115,10 @@ static void *handle_connection(void *unused)
         //
 
         @autoreleasepool {
+            int length;
             char message[SA_SOCKET_BUFF_LEN];
-            if (read_message(sockfd, message)) {
-                handle_message(sockfd, message);
+            if (read_message(sockfd, message, &length)) {
+                handle_message(sockfd, message, length);
             }
         }
 

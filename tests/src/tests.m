@@ -71,7 +71,7 @@ static struct {
     TEST_LIST
 };
 
-int main(int argc, char **argv)
+int main(void)
 {
     int succeeded = 0;
     int failed = 0;

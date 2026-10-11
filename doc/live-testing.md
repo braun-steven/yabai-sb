@@ -7,8 +7,8 @@ point below was learned the hard way; read it before running anything live.
 ## Unit tests
 
 - `make -C tests` builds `src/manifest.m` with `-DTESTS` and runs every entry of `TEST_LIST` in
-  `tests/src/tests.m`. The test build prints 5 `CVDisplayLink` deprecation warnings that already exist;
-  any other warning is new. Check with `make -C tests 2>&1 | grep "warning:" | grep -vc CVDisplayLink`.
+  `tests/src/tests.m`, under ASan/UBSan. The test build is warning-free; any warning is new. Check with
+  `make -C tests 2>&1 | grep -c "warning:"`.
 - `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
   (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
   with "too many arguments provided to function-like macro invocation". Build fixtures in a static
@@ -22,7 +22,6 @@ point below was learned the hard way; read it before running anything live.
 - Tree tests build containers with `con_create`, `tree_test_leaf` and `tree_test_split`
   (`tests/src/tree.c`) and set focus with `tree_focus`. In tests a tab bar has no glass panel, so
   `tab_bar_card_id` returns 0; `tree_con_is_visible` works.
-- `make asan` prints a `sprintf` deprecation warning from `src/misc/helpers.h` that already exists.
 
 ## The live harness
 

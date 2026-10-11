@@ -308,7 +308,7 @@ static inline char *ts_string_escape(char *s)
         } else if (*cursor >= 0x00 && *cursor <= 0x1f) {
             *dst++ = '\\';
             *dst++ = 'u';
-            sprintf(dst, "%04x", (int)*cursor);
+            snprintf(dst, 5, "%04x", (int)*cursor);
             dst += 4;
         } else {
             *dst++ = *cursor;

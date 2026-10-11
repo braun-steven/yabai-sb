@@ -15,17 +15,17 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `scripts/`: maintenance tooling (codesigning helper, `install.sh`, `payload-history.sh`, and the live test harness in `scripts/live-tests/`).
 
 ## Build, Test, and Development Commands
-- `make`: debug build, a universal (x86_64 + arm64) binary at `bin/yabai`. It always runs `clean-build` first.
+- `make`: debug build, a universal (x86_64 + arm64) binary at `bin/yabai`. Every build target deletes `bin/` and relinks from scratch (the unity build takes seconds).
 - `make install`: optimized release build (`-O3 -DNDEBUG`) at the same path.
 - `make asan` / `make tsan`: builds with Address/Thread sanitizers.
-- `make clean`: removes `bin/` and the generated `src/osax/payload_bin.c` / `loader_bin.c`, which are rebuilt on the next `make`.
+- `make clean`: removes `bin/` and the generated `src/osax/payload_bin.c` / `loader_bin.c`. These are rebuilt on the next `make`, and also whenever `payload.m`, `loader.m` or a file they include (`common.h`, `*_payload.m`) changes.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` (needs `asciidoctor`). Edit the asciidoc, not the manpage.
-- `make -C tests`: builds and runs all tests (`tests/bin/tests`). There is no single-test runner. To run one test, temporarily trim `TEST_LIST` in `tests/src/tests.m`.
+- `make test` (or `make -C tests`): builds and runs all tests (`tests/bin/tests`) under ASan/UBSan; undefined behavior aborts the run. There is no single-test runner. To run one test, temporarily trim `TEST_LIST` in `tests/src/tests.m`.
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding, otherwise macOS drops the Accessibility permission.
 - `update-yabai-fork` (in `~/.local/bin`, outside the repo): deploys the local build. It runs `make install`, signs the binary with the `yabai-cert` identity, installs it to `~/.local/bin/yabai`, updates the `--load-sa` sudoers rule, and restarts the service. It refuses to build when tracked files have uncommitted changes, so commit first. It also prompts for sudo, so the user runs it themselves (`! update-yabai-fork`). With a full commit SHA it checks out that commit from `origin/master` first.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: lists or inspects past scripting-addition pattern/offset updates.
 
-There is no linter. The build uses `-Wall -Wextra`, so keep it warning-free.
+There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`WARN_FLAGS` in `makefile`, mirrored in `tests/makefile`), so keep it warning-free. The OSAX payload/loader are built without these warnings.
 
 ## Coding Style & Naming
 - Language: C11 + Objective-C (`.c`, `.h`, `.m`); compile with `clang` via `xcrun`.

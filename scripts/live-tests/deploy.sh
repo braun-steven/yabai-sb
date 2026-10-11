@@ -6,7 +6,7 @@ set -e
 S=${TMPDIR:-/tmp}/yabai-live-build; mkdir -p $S
 cd "$(dirname "$0")/../.."
 make ${1:-install} > $S/build.log 2>&1 || { tail -30 $S/build.log; exit 1; }
-grep "warning:" $S/build.log | grep -v "sprintf' is deprecated" | head || true
+grep "warning:" $S/build.log | head || true
 cp bin/yabai $S/yabai.new
 codesign --force --sign 3A6E8695062DDC7C02B02042FB3DB70B41E75409 $S/yabai.new
 codesign -d -r- $S/yabai.new 2>&1 | grep designated

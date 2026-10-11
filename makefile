@@ -1,7 +1,11 @@
+MACOS_MIN      = 11.0
 FRAMEWORK_PATH = -F/System/Library/PrivateFrameworks
 FRAMEWORK      = -framework Carbon -framework Cocoa -framework CoreServices -framework CoreVideo -framework SkyLight
+WARN_FLAGS     = -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference
+COMMON_FLAGS   = -std=c11 $(WARN_FLAGS) -fvisibility=hidden -mmacosx-version-min=$(MACOS_MIN) -fno-objc-arc
 CLI_FLAGS      =
-BUILD_FLAGS    = -std=c11 -Wall -Wextra -g -O0 -fvisibility=hidden -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
+VARIANT_FLAGS  = -g -O0
+BUILD_FLAGS    = $(COMMON_FLAGS) $(VARIANT_FLAGS) -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
 BUILD_PATH     = ./bin
 DOC_PATH       = ./doc
 SCRIPT_PATH    = ./scripts
@@ -11,28 +15,35 @@ ARCH_PATH      = ./archive
 OSAX_SRC       = ./src/osax/payload_bin.c ./src/osax/loader_bin.c
 YABAI_SRC      = ./src/manifest.m $(OSAX_SRC)
 OSAX_PATH      = ./src/osax
+OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch x86_64 -arch arm64e
 INFO_PLIST     = $(ASSET_PATH)/Info.plist
 BINS           = $(BUILD_PATH)/yabai
 
-.PHONY: all asan tsan install man icon archive publish sign clean-build clean
+.PHONY: all asan tsan install test man icon archive publish sign clean-build clean FORCE
 
-all: clean-build $(BINS)
+all: $(BINS)
 
-asan: BUILD_FLAGS=-std=c11 -Wall -Wextra -g -O0 -fvisibility=hidden -fsanitize=address,undefined -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-asan: clean-build $(BINS)
+asan: VARIANT_FLAGS = -g -O0 -fsanitize=address,undefined
+asan: $(BINS)
 
-tsan: BUILD_FLAGS=-std=c11 -Wall -Wextra -g -O0 -fvisibility=hidden -fsanitize=thread,undefined -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-tsan: clean-build $(BINS)
+tsan: VARIANT_FLAGS = -g -O0 -fsanitize=thread,undefined
+tsan: $(BINS)
 
-install: BUILD_FLAGS=-std=c11 -Wall -Wextra -DNDEBUG -O3 -fvisibility=hidden -mmacosx-version-min=11.0 -fno-objc-arc -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
-install: clean-build $(BINS)
+install: VARIANT_FLAGS = -DNDEBUG -O3
+install: $(BINS)
 
-$(OSAX_SRC): $(OSAX_PATH)/loader.m $(OSAX_PATH)/payload.m
-	xcrun clang $(OSAX_PATH)/payload.m -shared -fPIC -O3 -mmacosx-version-min=11.0 -arch x86_64 -arch arm64e -o $(OSAX_PATH)/payload $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
-	xcrun clang $(OSAX_PATH)/loader.m -O3 -mmacosx-version-min=11.0 -arch x86_64 -arch arm64e -o $(OSAX_PATH)/loader -framework Cocoa
-	xxd -i -a $(OSAX_PATH)/payload $(OSAX_PATH)/payload_bin.c
-	xxd -i -a $(OSAX_PATH)/loader $(OSAX_PATH)/loader_bin.c
+test:
+	$(MAKE) -C tests
+
+# payload.m #includes these, so a pattern/offset update must rebuild the payload
+$(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/x64_payload.m $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h
+	xcrun clang $(OSAX_PATH)/payload.m -shared -fPIC $(OSAX_FLAGS) -o $(OSAX_PATH)/payload $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
+	xxd -i -a $(OSAX_PATH)/payload $@
 	rm -f $(OSAX_PATH)/payload
+
+$(OSAX_PATH)/loader_bin.c: $(OSAX_PATH)/loader.m
+	xcrun clang $(OSAX_PATH)/loader.m $(OSAX_FLAGS) -o $(OSAX_PATH)/loader -framework Cocoa
+	xxd -i -a $(OSAX_PATH)/loader $@
 	rm -f $(OSAX_PATH)/loader
 
 man:
@@ -63,6 +74,12 @@ clean-build:
 clean: clean-build
 	rm -f $(OSAX_SRC)
 
-$(BUILD_PATH)/yabai: $(YABAI_SRC)
+# always relink from scratch: the variants share one output path, and the unity build takes seconds.
+# The old bin/ (incl. a stale yabai.dSYM) is removed here instead of by a clean-build prerequisite,
+# which would race with the compile under make -j.
+$(BUILD_PATH)/yabai: $(YABAI_SRC) FORCE
+	rm -rf $(BUILD_PATH)
 	mkdir -p $(BUILD_PATH)
-	xcrun clang $^ $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) -o $@
+	xcrun clang $(YABAI_SRC) $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) -o $@
+
+FORCE:

@@ -176,8 +176,8 @@ bool view_remove_window(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
 
 int view_window_gap(struct view *view);
-bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count);
-int view_tiled_window_count(struct view *view);
+bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_count);
+int view_tiled_count(struct view *view);
 bool view_update_auto_padding(struct view *view);
 
 void view_serialize(FILE *rsp, struct view *view, uint64_t flags);

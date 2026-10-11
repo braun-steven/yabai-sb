@@ -23,7 +23,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(space_layout_parse)                             \
     TEST_ENTRY(space_layout_targets)                           \
     TEST_ENTRY(auto_padding_applies)                           \
-    TEST_ENTRY(auto_padding_tiled_window_count)                \
+    TEST_ENTRY(auto_padding_tiled_count)                \
     TEST_ENTRY(auto_padding_root_area)                         \
     TEST_ENTRY(auto_padding_gap)                               \
     TEST_ENTRY(tree_attach_detach)                             \

@@ -8,7 +8,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
 - Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices
-- Config *auto_padding* removes padding and window gap on tiled spaces with at most one tiled window, globally or per space, e.g. `yabai -m config auto_padding on`
+- Config *auto_padding* removes padding and window gap on tiled spaces with at most one tiled window or tabbed container, globally or per space, e.g. `yabai -m config auto_padding on`
 - Config *scratchpad_exclusive* keeps at most one scratchpad shown: toggling a scratchpad hides every other shown scratchpad
 - Config *scratchpad_raise* makes toggling a shown but unfocused scratchpad focus it instead of hiding it
 - Config *scratchpad_below* puts scratchpads on the same stacking sub-layer as tiled windows, so focusing a tiled window brings it in front of a shown scratchpad

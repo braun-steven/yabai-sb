@@ -36,34 +36,46 @@ TEST_FUNC(auto_padding_applies,
     TEST_CHECK(view_auto_padding_applies(VIEW_DEFAULT, true, 1), false);
 });
 
-TEST_FUNC(auto_padding_tiled_window_count,
+TEST_FUNC(auto_padding_tiled_count,
 {
     struct view view;
     auto_padding_view_init(&view);
 
-    TEST_CHECK(view_tiled_window_count(&view), 0);
+    TEST_CHECK(view_tiled_count(&view), 0);
 
     struct con *a = auto_padding_leaf(view.tree, 1);
-    TEST_CHECK(view_tiled_window_count(&view), 1);
+    TEST_CHECK(view_tiled_count(&view), 1);
 
-    // tabs count individually
+    // a tabbed container counts once, however many tabs it holds
     struct con *tabbed = con_create(CON_TABBED);
     tree_attach(view.tree, tabbed, -1);
     struct con *b = auto_padding_leaf(tabbed, 2);
-    auto_padding_leaf(tabbed, 3);
-    TEST_CHECK(view_tiled_window_count(&view), 3);
+    struct con *c = auto_padding_leaf(tabbed, 3);
+    TEST_CHECK(view_tiled_count(&view), 2);
+
+    // a split inside a tab is still part of that one container
+    tree_split(c, CON_VERTICAL);
+    auto_padding_leaf(c->parent, 4);
+    TEST_CHECK(view_tiled_count(&view), 2);
 
     // a window in zoom-fullscreen does not count
     a->zoom = CON_ZOOM_FULLSCREEN;
-    TEST_CHECK(view_tiled_window_count(&view), 2);
+    TEST_CHECK(view_tiled_count(&view), 1);
 
     // zoom-parent still counts
     b->zoom = CON_ZOOM_PARENT;
-    TEST_CHECK(view_tiled_window_count(&view), 2);
+    TEST_CHECK(view_tiled_count(&view), 1);
+
+    // a tabbed container as the only container: no padding
+    TEST_CHECK(view_auto_padding_applies(view.layout, view.auto_padding, view_tiled_count(&view)), true);
+
+    // tabs turned into a split count individually again
+    tabbed->layout = CON_SPLITH;
+    TEST_CHECK(view_tiled_count(&view), 3);
 
     con_free(view.tree);
     view.tree = NULL;
-    TEST_CHECK(view_tiled_window_count(&view), 0);
+    TEST_CHECK(view_tiled_count(&view), 0);
 });
 
 TEST_FUNC(auto_padding_root_area,

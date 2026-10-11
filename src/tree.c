@@ -1210,21 +1210,26 @@ uint32_t *tree_view_window_list(struct view *view, int *window_count)
     return window_list;
 }
 
-static int tree_tiled_window_count(struct con *con)
+//
+// NOTE: Counts the areas auto_padding cares about. A tabbed container shows one tab at a time,
+// so it is a single area no matter how many tabs it holds.
+//
+
+static int tree_tiled_count(struct con *con)
 {
     if (con_is_leaf(con)) return con->zoom == CON_ZOOM_FULLSCREEN ? 0 : 1;
 
     int count = 0;
     for (int i = 0; i < con->child_count; ++i) {
-        count += tree_tiled_window_count(con->children[i]);
+        count += tree_tiled_count(con->children[i]);
     }
 
-    return count;
+    return con->layout == CON_TABBED && count > 1 ? 1 : count;
 }
 
-int tree_view_tiled_window_count(struct view *view)
+int tree_view_tiled_count(struct view *view)
 {
-    return view->tree ? tree_tiled_window_count(view->tree) : 0;
+    return view->tree ? tree_tiled_count(view->tree) : 0;
 }
 
 struct area tree_con_frame(struct view *view, struct con *con)

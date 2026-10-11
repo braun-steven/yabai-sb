@@ -146,7 +146,7 @@ struct con *tree_view_find_window(struct view *view, uint32_t window_id);
 void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point);
 bool tree_remove_window(struct view *view, struct window *window);
 uint32_t *tree_view_window_list(struct view *view, int *window_count);
-int tree_view_tiled_window_count(struct view *view);
+int tree_view_tiled_count(struct view *view);
 struct area tree_con_frame(struct view *view, struct con *con);
 bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame);
 void tree_flush(struct view *view);

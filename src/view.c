@@ -209,14 +209,14 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
     fprintf(rsp, "\n}");
 }
 
-bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count)
+bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_count)
 {
-    return auto_padding && layout == VIEW_TREE && tiled_window_count <= 1;
+    return auto_padding && layout == VIEW_TREE && tiled_count <= 1;
 }
 
-int view_tiled_window_count(struct view *view)
+int view_tiled_count(struct view *view)
 {
-    return tree_view_tiled_window_count(view);
+    return tree_view_tiled_count(view);
 }
 
 static struct area view_root_area(struct view *view, CGRect frame)
@@ -257,7 +257,7 @@ static void view_update_with_auto_padding(struct view *view, bool unpadded)
 
 bool view_update_auto_padding(struct view *view)
 {
-    bool unpadded = view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view));
+    bool unpadded = view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_count(view));
     if (unpadded == (view_check_flag(view, VIEW_IS_UNPADDED) != 0)) return false;
 
     view_update_with_auto_padding(view, unpadded);
@@ -266,7 +266,7 @@ bool view_update_auto_padding(struct view *view)
 
 void view_update(struct view *view)
 {
-    view_update_with_auto_padding(view, view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view)));
+    view_update_with_auto_padding(view, view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_count(view)));
 }
 
 struct view *view_create(uint64_t sid)

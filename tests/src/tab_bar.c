@@ -27,3 +27,16 @@ TEST_FUNC(tab_bar_font_parse,
     TEST_CHECK(tab_bar_set_font(":12"), false);
     TEST_CHECK(string_equals(g_window_manager.tab_bar_font_name, "Menlo:11"), true);
 });
+
+TEST_FUNC(tab_bar_glass_tint_default,
+{
+    struct rgba_color color = rgba_color_from_hex(0xff285577);
+
+    struct rgba_color tint = tab_bar_glass_tint(color, false, 0.4f);
+    TEST_CHECK((int)(tint.a * 100.0f + 0.5f), 40);
+    TEST_CHECK(tint.r == color.r && tint.g == color.g && tint.b == color.b, true);
+
+    struct rgba_color custom = tab_bar_glass_tint(color, true, 0.4f);
+    TEST_CHECK(custom.a == color.a, true);
+    TEST_CHECK(custom.p, color.p);
+});

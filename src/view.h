@@ -116,6 +116,7 @@ struct tab_bar
     bool hidden;
     int entry_count;
     uint32_t entry_list[TAB_BAR_MAX_ENTRY_COUNT];
+    id glass;
     void *owner;
     void (*redraw)(void *owner);
 };

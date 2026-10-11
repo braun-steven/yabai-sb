@@ -11,7 +11,9 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_GLASS_ICON_SPACING 6.0f
 #define TAB_BAR_GLASS_TRACK_MARGIN 2.0f
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
-#define TAB_BAR_GLASS_SHADOW_ALPHA 0.3f
+#define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
+#define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
+#define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
 
 //
 // NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
@@ -139,12 +141,11 @@ static CTLineRef tab_bar_create_line(CFStringRef text, CFDictionaryRef attribute
 // The title is truncated first; the icon is dropped only when the tab is too narrow for it.
 //
 
-static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageRef icon, CGRect rect, struct rgba_color color)
+static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass, CFStringRef title, CGImageRef icon, CGRect rect, struct rgba_color color)
 {
     double max_width = rect.size.width - 2.0f * TAB_BAR_TITLE_PADDING;
     if (max_width <= 0) return;
 
-    bool glass = g_window_manager.tab_bar_style == TAB_BAR_STYLE_GLASS;
     CGFloat icon_spacing = glass ? TAB_BAR_GLASS_ICON_SPACING : TAB_BAR_ICON_SPACING;
     CGFloat icon_size = glass
                       ? (int) min(TAB_BAR_GLASS_ICON_SIZE, rect.size.height - 4.0f)
@@ -152,7 +153,7 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageR
     if (!icon || icon_size <= 0 || icon_size > max_width) icon = NULL;
 
     double text_max_width = icon ? max_width - icon_size - icon_spacing : max_width;
-    if (!g_window_manager.tab_bar_font || text_max_width <= 0) title = NULL;
+    if (!font || text_max_width <= 0) title = NULL;
 
     CTLineRef line = NULL;
     CFDictionaryRef attributes = NULL;
@@ -163,7 +164,7 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageR
     if (title) {
         text_color = tab_bar_cgcolor(color);
         const void *keys[] = { kCTFontAttributeName, kCTForegroundColorAttributeName };
-        const void *values[] = { g_window_manager.tab_bar_font, text_color };
+        const void *values[] = { font, text_color };
         attributes = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
         line = tab_bar_create_line(title, attributes);
@@ -203,7 +204,7 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageR
         //
 
         CGFloat y = glass
-                  ? rect.origin.y + (rect.size.height - CTFontGetCapHeight(g_window_manager.tab_bar_font)) * 0.5f
+                  ? rect.origin.y + (rect.size.height - CTFontGetCapHeight(font)) * 0.5f
                   : rect.origin.y + (rect.size.height - (ascent + descent)) * 0.5f + descent;
 
         CGContextSetTextMatrix(context, CGAffineTransformIdentity);
@@ -265,18 +266,6 @@ static inline void tab_bar_fill(CGContextRef context, CGRect rect, struct rgba_c
     CGContextFillRect(context, rect);
 }
 
-static void tab_bar_fill_rounded(CGContextRef context, CGRect rect, CGFloat radius, struct rgba_color color)
-{
-    radius = min(radius, min(rect.size.width, rect.size.height) * 0.5f);
-    CGPathRef path = CGPathCreateWithRoundedRect(rect, radius, radius, NULL);
-
-    CGContextAddPath(context, path);
-    CGContextSetRGBFillColor(context, color.r, color.g, color.b, color.a);
-    CGContextFillPath(context);
-
-    CGPathRelease(path);
-}
-
 static inline CGRect tab_bar_slot(CGRect area, int index, int count)
 {
     float width = area.size.width / count;
@@ -324,54 +313,7 @@ static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_
         }
 
         if (entry_list[i].title || entry_list[i].icon) {
-            tab_bar_draw_title(context, entry_list[i].title, entry_list[i].icon, tab, text);
-        }
-    }
-}
-
-//
-// NOTE: The Liquid Glass window tabs of macOS Tahoe: a capsule in the unfocused color holds the tabs, the
-// active tab is a pill in the focused or inactive color, raised by a soft shadow while its container holds
-// the focused window, and short separators divide the tabs that are not active.
-//
-
-static void tab_bar_draw_glass(CGContextRef context, CGRect bounds, struct tab_bar_entry *entry_list, int entry_count)
-{
-    CGRect track = bounds;
-    track.origin.y += TAB_BAR_GLASS_TRACK_MARGIN;
-    track.size.height -= TAB_BAR_GLASS_TRACK_MARGIN;
-    if (track.size.height <= 2.0f * TAB_BAR_GLASS_PILL_INSET) track = bounds;
-
-    tab_bar_fill_rounded(context, track, track.size.height * 0.5f, g_window_manager.tab_bar_unfocused_color);
-
-    CGRect inner = CGRectInset(track, TAB_BAR_GLASS_PILL_INSET, TAB_BAR_GLASS_PILL_INSET);
-    CGFloat separator_height = (int)(inner.size.height * 0.5f);
-    struct rgba_color separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
-
-    for (int i = 0; i < entry_count; ++i) {
-        struct tab_bar_entry *entry = &entry_list[i];
-        CGRect tab = tab_bar_slot(inner, i, entry_count);
-
-        struct rgba_color background;
-        struct rgba_color text;
-        tab_bar_state_colors(entry->state, &background, &text);
-
-        if (entry->state != TAB_BAR_UNFOCUSED) {
-            CGColorRef shadow = CGColorCreateSRGB(0.0f, 0.0f, 0.0f, TAB_BAR_GLASS_SHADOW_ALPHA);
-            CGContextSaveGState(context);
-            CGContextSetShadowWithColor(context, CGSizeMake(0.0f, -1.0f), 3.0f, entry->state == TAB_BAR_FOCUSED ? shadow : NULL);
-            tab_bar_fill_rounded(context, tab, tab.size.height * 0.5f, background);
-            CGContextRestoreGState(context);
-            CGColorRelease(shadow);
-        }
-
-        if (i > 0 && entry->state == TAB_BAR_UNFOCUSED && entry_list[i - 1].state == TAB_BAR_UNFOCUSED) {
-            CGFloat y = (int)(inner.origin.y + (inner.size.height - separator_height) * 0.5f);
-            tab_bar_fill(context, (CGRect) {{tab.origin.x, y}, {1, separator_height}}, separator);
-        }
-
-        if (entry->title || entry->icon) {
-            tab_bar_draw_title(context, entry->title, entry->icon, tab, text);
+            tab_bar_draw_title(context, g_window_manager.tab_bar_font, false, entry_list[i].title, entry_list[i].icon, tab, text);
         }
     }
 }
@@ -384,18 +326,373 @@ static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, 
     SLSDisableUpdate(g_connection);
     CGContextClearRect(context, bounds);
 
-    switch (g_window_manager.tab_bar_style) {
-    case TAB_BAR_STYLE_GLASS: tab_bar_draw_glass(context, bounds, entry_list, entry_count); break;
-    case TAB_BAR_STYLE_I3:
-    case TAB_BAR_STYLE_COUNT: tab_bar_draw_i3(context, bounds, entry_list, entry_count); break;
-    }
+    tab_bar_draw_i3(context, bounds, entry_list, entry_count);
 
     CGContextFlush(context);
     SLSReenableUpdate(g_connection);
 }
 
+//
+// NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
+// AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window. AppKit
+// must be used from the main thread, so the event loop hands a snapshot of the bar to the main queue, and the
+// panel is retained by every pending block so that releasing a bar never frees a panel that is still in use.
+//
+
+struct tab_bar_glass_entry
+{
+    CFStringRef title;
+    CGImageRef icon;
+    struct rgba_color text;
+    bool active;
+};
+
+struct tab_bar_glass_snapshot
+{
+    CGRect frame;
+    uint64_t sid;
+    uint32_t above_wid;
+    int level;
+    int sub_level;
+    CTFontRef font;
+    struct rgba_color track_tint;
+    struct rgba_color pill_tint;
+    struct rgba_color separator;
+    int entry_count;
+    struct tab_bar_glass_entry entry_list[TAB_BAR_MAX_ENTRY_COUNT];
+};
+
+static void tab_bar_glass_snapshot_free(struct tab_bar_glass_snapshot *snapshot)
+{
+    if (!snapshot) return;
+
+    for (int i = 0; i < snapshot->entry_count; ++i) {
+        if (snapshot->entry_list[i].title) CFRelease(snapshot->entry_list[i].title);
+        if (snapshot->entry_list[i].icon) CGImageRelease(snapshot->entry_list[i].icon);
+    }
+
+    if (snapshot->font) CFRelease(snapshot->font);
+    free(snapshot);
+}
+
+//
+// NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
+// with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
+//
+
+struct rgba_color tab_bar_glass_tint(struct rgba_color color, bool custom, float alpha)
+{
+    if (!custom) color.a = alpha;
+    return color;
+}
+
+static inline CGRect tab_bar_glass_track(CGRect bounds)
+{
+    CGRect track = bounds;
+    track.origin.y += TAB_BAR_GLASS_TRACK_MARGIN;
+    track.size.height -= TAB_BAR_GLASS_TRACK_MARGIN;
+    return track.size.height <= 2.0f * TAB_BAR_GLASS_PILL_INSET ? bounds : track;
+}
+
+static inline CGRect tab_bar_glass_inner(CGRect bounds)
+{
+    return CGRectInset(tab_bar_glass_track(bounds), TAB_BAR_GLASS_PILL_INSET, TAB_BAR_GLASS_PILL_INSET);
+}
+
+@interface tab_bar_glass_content : NSView
+{
+@public
+    struct tab_bar_glass_snapshot *snapshot;
+}
+@end
+
+@implementation tab_bar_glass_content
+- (BOOL)isOpaque
+{
+    return NO;
+}
+
+- (void)drawRect:(NSRect)dirty
+{
+    if (!snapshot || !snapshot->entry_count) return;
+
+    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
+    CGRect inner = tab_bar_glass_inner(NSRectToCGRect(self.bounds));
+    CGFloat separator_height = (int)(inner.size.height * 0.5f);
+
+    for (int i = 0; i < snapshot->entry_count; ++i) {
+        struct tab_bar_glass_entry *entry = &snapshot->entry_list[i];
+        CGRect tab = tab_bar_slot(inner, i, snapshot->entry_count);
+
+        if (i > 0 && !entry->active && !snapshot->entry_list[i - 1].active) {
+            CGFloat y = (int)(inner.origin.y + (inner.size.height - separator_height) * 0.5f);
+            tab_bar_fill(context, (CGRect) {{tab.origin.x, y}, {1, separator_height}}, snapshot->separator);
+        }
+
+        if (entry->title || entry->icon) {
+            tab_bar_draw_title(context, snapshot->font, true, entry->title, entry->icon, tab, entry->text);
+        }
+    }
+}
+
+- (void)dealloc
+{
+    tab_bar_glass_snapshot_free(snapshot);
+    [super dealloc];
+}
+@end
+
+//
+// NOTE: The tint is a layer inside the glass instead of NSGlassEffectView.tintColor, because AppKit draws glass in its
+// desaturated inactive look in an app that is never active, which hides most of the tint color. The layer sits on
+// the glass, keeps its rounded shape and moves with it, so the pill keeps its color while it animates.
+//
+
+API_AVAILABLE(macos(26.0))
+static void tab_bar_glass_add_tint(NSGlassEffectView *glass)
+{
+    NSView *tint = [[NSView alloc] initWithFrame:NSZeroRect];
+    tint.wantsLayer = YES;
+    tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    glass.contentView = tint;
+    [tint release];
+}
+
+API_AVAILABLE(macos(26.0))
+static void tab_bar_glass_set_tint(NSGlassEffectView *glass, struct rgba_color color)
+{
+    CALayer *layer = glass.contentView.layer;
+    CGColorRef cg_color = tab_bar_cgcolor(color);
+    layer.backgroundColor = cg_color;
+    layer.cornerRadius = glass.cornerRadius;
+    CGColorRelease(cg_color);
+}
+
+API_AVAILABLE(macos(26.0))
+@interface tab_bar_glass : NSObject
+{
+    NSPanel *panel;
+    NSView *root;
+    NSGlassEffectView *track;
+    NSGlassEffectView *pill;
+    tab_bar_glass_content *content;
+}
+- (void)apply:(struct tab_bar_glass_snapshot *)snapshot;
+- (void)hide;
+- (void)orderAbove:(uint32_t)wid;
+@end
+
+@implementation tab_bar_glass
+- (id)init
+{
+    if ((self = [super init])) {
+        panel = [[NSPanel alloc] initWithContentRect:NSZeroRect
+                                           styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+                                             backing:NSBackingStoreBuffered
+                                               defer:NO];
+        panel.releasedWhenClosed = NO;
+        panel.opaque = NO;
+        panel.backgroundColor = [NSColor clearColor];
+        panel.hasShadow = NO;
+        panel.ignoresMouseEvents = YES;
+        panel.animationBehavior = NSWindowAnimationBehaviorNone;
+        panel.collectionBehavior = NSWindowCollectionBehaviorManaged |
+                                   NSWindowCollectionBehaviorIgnoresCycle |
+                                   NSWindowCollectionBehaviorFullScreenAuxiliary;
+
+        root = [[NSView alloc] initWithFrame:NSZeroRect];
+        track = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+        pill = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+        tab_bar_glass_add_tint(track);
+        tab_bar_glass_add_tint(pill);
+        content = [[tab_bar_glass_content alloc] initWithFrame:NSZeroRect];
+
+        [root addSubview:track];
+        [root addSubview:pill];
+        [root addSubview:content];
+        panel.contentView = root;
+    }
+
+    return self;
+}
+
+- (void)layout:(struct tab_bar_glass_snapshot *)snapshot animate:(bool)animate
+{
+    NSRect bounds = NSMakeRect(0, 0, snapshot->frame.size.width, snapshot->frame.size.height);
+    NSRect track_frame = NSRectFromCGRect(tab_bar_glass_track(NSRectToCGRect(bounds)));
+    CGRect inner = tab_bar_glass_inner(NSRectToCGRect(bounds));
+
+    int active = -1;
+    for (int i = 0; i < snapshot->entry_count; ++i) {
+        if (snapshot->entry_list[i].active) { active = i; break; }
+    }
+
+    root.frame = bounds;
+    track.frame = track_frame;
+    track.cornerRadius = track_frame.size.height * 0.5f;
+    tab_bar_glass_set_tint(track, snapshot->track_tint);
+    content.frame = bounds;
+
+    pill.hidden = active < 0;
+    if (active < 0) return;
+
+    NSRect pill_frame = NSRectFromCGRect(tab_bar_slot(inner, active, snapshot->entry_count));
+    pill.cornerRadius = pill_frame.size.height * 0.5f;
+    tab_bar_glass_set_tint(pill, snapshot->pill_tint);
+
+    if (animate && !NSEqualRects(pill.frame, pill_frame)) {
+        [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
+            context.duration = TAB_BAR_GLASS_ANIMATION_DURATION;
+            context.allowsImplicitAnimation = YES;
+            pill.animator.frame = pill_frame;
+        }];
+    } else {
+        pill.frame = pill_frame;
+    }
+}
+
+- (void)apply:(struct tab_bar_glass_snapshot *)snapshot
+{
+    CGRect frame = snapshot->frame;
+    CGFloat primary_height = CGDisplayBounds(CGMainDisplayID()).size.height;
+    NSRect cocoa_frame = NSMakeRect(frame.origin.x, primary_height - frame.origin.y - frame.size.height, frame.size.width, frame.size.height);
+
+    bool visible = panel.isVisible;
+    bool resized = !NSEqualSizes(panel.frame.size, cocoa_frame.size);
+
+    [NSAnimationContext beginGrouping];
+    [NSAnimationContext currentContext].duration = 0;
+    [panel setFrame:cocoa_frame display:NO];
+    [self layout:snapshot animate:visible && !resized];
+    [NSAnimationContext endGrouping];
+
+    tab_bar_glass_snapshot_free(content->snapshot);
+    content->snapshot = snapshot;
+    [content setNeedsDisplay:YES];
+
+    uint32_t wid = (uint32_t) panel.windowNumber;
+    CFArrayRef window_list_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+    SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, snapshot->sid);
+
+    if (!visible) [panel orderWindow:NSWindowAbove relativeTo:snapshot->above_wid];
+
+    SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, snapshot->sid);
+    CFRelease(window_list_ref);
+
+    SLSSetWindowLevel(g_connection, wid, snapshot->level);
+    SLSSetWindowSubLevel(g_connection, wid, snapshot->sub_level);
+    SLSOrderWindow(g_connection, wid, 1, snapshot->above_wid);
+}
+
+- (void)hide
+{
+    [panel orderOut:nil];
+}
+
+- (void)orderAbove:(uint32_t)wid
+{
+    if (panel.isVisible) SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, 1, wid);
+}
+
+- (void)dealloc
+{
+    [panel orderOut:nil];
+    [panel close];
+    [panel release];
+    [root release];
+    [track release];
+    [pill release];
+    [content release];
+    [super dealloc];
+}
+@end
+
+static inline bool tab_bar_uses_glass(void)
+{
+    if (@available(macOS 26.0, *)) return g_window_manager.tab_bar_style == TAB_BAR_STYLE_GLASS;
+    return false;
+}
+
+static inline bool tab_bar_exists(struct tab_bar *bar)
+{
+    return bar->id || bar->glass;
+}
+
+static void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
+{
+    if (@available(macOS 26.0, *)) {
+        struct tab_bar_glass_snapshot *snapshot = malloc(sizeof(struct tab_bar_glass_snapshot));
+        snapshot->frame = bar->frame;
+        snapshot->sid = bar->sid;
+        snapshot->above_wid = above_wid;
+        snapshot->level = window_level(above_wid);
+        snapshot->sub_level = window_sub_level(above_wid);
+        snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
+        snapshot->track_tint = tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
+        snapshot->pill_tint = snapshot->track_tint;
+        snapshot->separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
+        snapshot->entry_count = entry_count;
+
+        for (int i = 0; i < entry_count; ++i) {
+            struct rgba_color background;
+            struct tab_bar_glass_entry *entry = &snapshot->entry_list[i];
+            tab_bar_state_colors(entry_list[i].state, &background, &entry->text);
+
+            entry->title = entry_list[i].title ? CFRetain(entry_list[i].title) : NULL;
+            entry->icon = entry_list[i].icon ? CGImageRetain(entry_list[i].icon) : NULL;
+            entry->active = entry_list[i].state != TAB_BAR_UNFOCUSED;
+
+            if (entry_list[i].state == TAB_BAR_FOCUSED) {
+                snapshot->pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_focused_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
+            } else if (entry_list[i].state == TAB_BAR_INACTIVE) {
+                snapshot->pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_inactive_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
+            }
+        }
+
+        if (!bar->glass) bar->glass = [[tab_bar_glass alloc] init];
+        tab_bar_glass *glass = bar->glass;
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [glass apply:snapshot];
+        });
+    }
+}
+
+static void tab_bar_glass_hide(struct tab_bar *bar)
+{
+    if (@available(macOS 26.0, *)) {
+        tab_bar_glass *glass = bar->glass;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [glass hide];
+        });
+    }
+}
+
+static void tab_bar_glass_order(struct tab_bar *bar, uint32_t wid)
+{
+    if (@available(macOS 26.0, *)) {
+        tab_bar_glass *glass = bar->glass;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [glass orderAbove:wid];
+        });
+    }
+}
+
+static void tab_bar_glass_release(struct tab_bar *bar)
+{
+    id glass = bar->glass;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [glass release];
+    });
+}
+
 static void tab_bar_create(struct tab_bar *bar, CGRect frame)
 {
+    bar->frame = frame;
+    buf_push(tab_bar_list, bar);
+
+    if (tab_bar_uses_glass()) return;
+
     CFTypeRef frame_region;
     CGSNewRegionWithRect(&frame, &frame_region);
 
@@ -409,9 +706,6 @@ static void tab_bar_create(struct tab_bar *bar, CGRect frame)
     SLSSetWindowResolution(g_connection, bar->id, 2.0f);
     SLSSetWindowOpacity(g_connection, bar->id, 0);
     bar->context = SLWindowContextCreate(g_connection, bar->id, 0);
-    bar->frame = frame;
-
-    buf_push(tab_bar_list, bar);
 }
 
 //
@@ -423,23 +717,27 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struc
 {
     if (entry_count > TAB_BAR_MAX_ENTRY_COUNT) entry_count = TAB_BAR_MAX_ENTRY_COUNT;
 
-    if (!bar->id) {
+    if (!tab_bar_exists(bar)) {
         tab_bar_create(bar, frame);
     } else if (!CGRectEqualToRect(frame, bar->frame)) {
-        CFTypeRef frame_region;
-        CGSNewRegionWithRect(&frame, &frame_region);
-        SLSDisableUpdate(g_connection);
-        SLSSetWindowShape(g_connection, bar->id, 0.0f, 0.0f, frame_region);
-        SLSReenableUpdate(g_connection);
-        CFRelease(frame_region);
+        if (bar->id) {
+            CFTypeRef frame_region;
+            CGSNewRegionWithRect(&frame, &frame_region);
+            SLSDisableUpdate(g_connection);
+            SLSSetWindowShape(g_connection, bar->id, 0.0f, 0.0f, frame_region);
+            SLSReenableUpdate(g_connection);
+            CFRelease(frame_region);
+        }
         bar->frame = frame;
     }
 
     uint64_t sid = window_space(above_wid);
     if (sid && sid != bar->sid) {
-        CFArrayRef window_list_ref = cfarray_of_cfnumbers(&bar->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
-        SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
-        CFRelease(window_list_ref);
+        if (bar->id) {
+            CFArrayRef window_list_ref = cfarray_of_cfnumbers(&bar->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+            SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
+            CFRelease(window_list_ref);
+        }
         bar->sid = sid;
     }
 
@@ -451,11 +749,15 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struc
         bar->entry_list[i] = entry_list[i].focus_wid;
     }
 
-    tab_bar_draw(bar, entry_list, entry_count);
+    if (bar->id) {
+        tab_bar_draw(bar, entry_list, entry_count);
 
-    SLSSetWindowLevel(g_connection, bar->id, window_level(above_wid));
-    SLSSetWindowSubLevel(g_connection, bar->id, window_sub_level(above_wid));
-    SLSOrderWindow(g_connection, bar->id, 1, above_wid);
+        SLSSetWindowLevel(g_connection, bar->id, window_level(above_wid));
+        SLSSetWindowSubLevel(g_connection, bar->id, window_sub_level(above_wid));
+        SLSOrderWindow(g_connection, bar->id, 1, above_wid);
+    } else {
+        tab_bar_glass_render(bar, above_wid, entry_list, entry_count);
+    }
 
     if (above_changed && !workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
         update_window_notifications();
@@ -466,9 +768,14 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struc
 
 void tab_bar_hide(struct tab_bar *bar)
 {
-    if (!bar->id || bar->hidden) return;
+    if (!tab_bar_exists(bar) || bar->hidden) return;
 
-    SLSOrderWindow(g_connection, bar->id, 0, 0);
+    if (bar->id) {
+        SLSOrderWindow(g_connection, bar->id, 0, 0);
+    } else {
+        tab_bar_glass_hide(bar);
+    }
+
     bar->hidden = true;
 
     tab_bar_publish_hits();
@@ -476,7 +783,7 @@ void tab_bar_hide(struct tab_bar *bar)
 
 void tab_bar_release(struct tab_bar *bar)
 {
-    if (!bar->id) return;
+    if (!tab_bar_exists(bar)) return;
 
     for (int i = 0; i < buf_len(tab_bar_list); ++i) {
         if (tab_bar_list[i] == bar) {
@@ -485,9 +792,13 @@ void tab_bar_release(struct tab_bar *bar)
         }
     }
 
-    SLSOrderWindow(g_connection, bar->id, 0, 0);
-    CGContextRelease(bar->context);
-    SLSReleaseWindow(g_connection, bar->id);
+    if (bar->id) {
+        SLSOrderWindow(g_connection, bar->id, 0, 0);
+        CGContextRelease(bar->context);
+        SLSReleaseWindow(g_connection, bar->id);
+    } else {
+        tab_bar_glass_release(bar);
+    }
 
     void *owner = bar->owner;
     void (*redraw)(void *owner) = bar->redraw;
@@ -506,8 +817,12 @@ void tab_bar_order(uint32_t wid)
 {
     for (int i = 0; i < buf_len(tab_bar_list); ++i) {
         struct tab_bar *bar = tab_bar_list[i];
-        if (!bar->hidden && bar->above_wid == wid) {
+        if (bar->hidden || bar->above_wid != wid) continue;
+
+        if (bar->id) {
             SLSOrderWindow(g_connection, bar->id, 1, wid);
+        } else {
+            tab_bar_glass_order(bar, wid);
         }
     }
 }

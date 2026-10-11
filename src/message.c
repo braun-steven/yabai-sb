@@ -1129,6 +1129,14 @@ static struct rgba_color *tab_bar_color_for_command(struct token command)
     return NULL;
 }
 
+static bool *tab_bar_color_custom_for_command(struct token command)
+{
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FOCUSED_COLOR))   return &g_window_manager.tab_bar_focused_color_custom;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_INACTIVE_COLOR))  return &g_window_manager.tab_bar_inactive_color_custom;
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR_UNFOCUSED_COLOR)) return &g_window_manager.tab_bar_unfocused_color_custom;
+    return NULL;
+}
+
 static void handle_domain_config(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
@@ -1486,7 +1494,7 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "%s\n", tab_bar_style_str[g_window_manager.tab_bar_style]);
             } else if (tab_bar_parse_style(value.text, &style)) {
                 g_window_manager.tab_bar_style = style;
-                tab_bar_redraw_all();
+                tab_bar_refresh_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }
@@ -1506,6 +1514,8 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "0x%x\n", color->p);
             } else if (value.type == TOKEN_TYPE_U32) {
                 *color = rgba_color_from_hex(value.u32_value);
+                bool *custom = tab_bar_color_custom_for_command(command);
+                if (custom) *custom = true;
                 tab_bar_redraw_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);

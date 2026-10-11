@@ -228,9 +228,9 @@ Global Settings
 
 *tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +
-    'glass' draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track in the unfocused color, and the active tab is a pill in the focused or inactive color. +
-    'i3' draws flat tabs side by side. +
-    Both styles use the *tab_bar_\*_color* colors.
+    'glass' draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch. +
+    A *tab_bar_\*_color* background color that was not configured is applied with reduced opacity in 'glass' (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given. +
+    'i3' draws flat tabs side by side in the *tab_bar_\*_color* colors.
 
 *tab_bar_font* ['<family>:<size>']::
     Font of the tab titles, e.g. 'Menlo:12'. The family 'system' selects the macOS system font. Default is 'system:12'.

@@ -341,11 +341,11 @@ Height of the tab bar in points. Default is 24.
 .RS 4
 Look of the tab bar. Default is \fIglass\fP.
 .br
-\fIglass\fP draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track in the unfocused color, and the active tab is a pill in the focused or inactive color.
+\fIglass\fP draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch.
 .br
-\fIi3\fP draws flat tabs side by side.
+A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given.
 .br
-Both styles use the \fBtab_bar_\(rs*_color\fP colors.
+\fIi3\fP draws flat tabs side by side in the \fBtab_bar\fP\(rs*_color\fP colors.
 .RE
 .sp
 \fBtab_bar_font\fP [\fI<family>:<size>\fP]

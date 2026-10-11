@@ -2553,6 +2553,7 @@ void window_manager_init(struct window_manager *wm)
     wm->tab_bar_inactive_text_color = rgba_color_from_hex(0xffffffff);
     wm->tab_bar_unfocused_color = rgba_color_from_hex(0xff222222);
     wm->tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888);
+    wm->tab_bar_backdrop_color = rgba_color_from_hex(0xff48484a);
     tab_bar_set_font(TAB_BAR_DEFAULT_FONT);
     wm->scratchpad_exclusive = false;
     wm->scratchpad_raise = false;

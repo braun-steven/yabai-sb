@@ -13,6 +13,7 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
 #define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
 #define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
+#define TAB_BAR_GLASS_BACKDROP_TINT_ALPHA 0.4f
 #define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
 
 //
@@ -371,6 +372,7 @@ struct tab_bar_glass_snapshot
     int sub_level;
     CTFontRef font;
     struct rgba_color track_tint;
+    struct rgba_color backdrop_tint;
     struct rgba_color pill_tint;
     struct rgba_color separator;
     int entry_count;
@@ -568,7 +570,7 @@ API_AVAILABLE(macos(26.0))
 //
 // NOTE: The backdrop is a rounded card behind the whole tabbed container. The panel covers the card and is ordered
 // below the active window, so the window sits inside the card with the bar above it, and the card hides the other
-// tabs of the container. The card is the track of the bar, so the track glass is hidden while there is a backdrop.
+// tabs of the container. The card has its own tint, so the track of the bar stays visible on top of it.
 //
 
 - (void)setBackdrop:(enum tab_bar_backdrop)kind
@@ -611,7 +613,7 @@ API_AVAILABLE(macos(26.0))
 
     backdrop.frame = bounds;
     backdrop_tint.frame = backdrop.bounds;
-    tab_bar_glass_set_tint(backdrop_tint, snapshot->card_radius, snapshot->track_tint);
+    tab_bar_glass_set_tint(backdrop_tint, snapshot->card_radius, snapshot->backdrop_tint);
 
     if (backdrop_radius == snapshot->card_radius) return;
     backdrop_radius = snapshot->card_radius;
@@ -645,7 +647,6 @@ API_AVAILABLE(macos(26.0))
     root.frame = bounds;
     [self layoutBackdrop:snapshot bounds:bounds];
 
-    track.hidden = backdrop != nil;
     track.frame = track_frame;
     track.cornerRadius = track_frame.size.height * 0.5f;
     tab_bar_glass_set_tint(track_tint, track_frame.size.height * 0.5f, snapshot->track_tint);
@@ -767,6 +768,7 @@ static void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct
         snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
         snapshot->track_tint = tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
         snapshot->pill_tint = snapshot->track_tint;
+        snapshot->backdrop_tint = tab_bar_glass_tint(g_window_manager.tab_bar_backdrop_color, g_window_manager.tab_bar_backdrop_color_custom, TAB_BAR_GLASS_BACKDROP_TINT_ALPHA);
         snapshot->separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
         snapshot->entry_count = entry_count;
 

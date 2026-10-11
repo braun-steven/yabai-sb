@@ -122,10 +122,12 @@ struct window_manager
     struct rgba_color tab_bar_inactive_color;
     struct rgba_color tab_bar_inactive_text_color;
     struct rgba_color tab_bar_unfocused_color;
+    struct rgba_color tab_bar_backdrop_color;
     struct rgba_color tab_bar_unfocused_text_color;
     bool tab_bar_focused_color_custom;
     bool tab_bar_inactive_color_custom;
     bool tab_bar_unfocused_color_custom;
+    bool tab_bar_backdrop_color_custom;
     struct scratchpad *scratchpad_window;
     bool scratchpad_exclusive;
     bool scratchpad_raise;

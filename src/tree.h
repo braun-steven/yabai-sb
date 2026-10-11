@@ -108,6 +108,7 @@ void tree_flatten(struct con *con);
 struct con *tree_find_window(struct con *root, uint32_t window_id);
 struct con *tree_find_selected(struct con *root);
 void tree_select(struct con *root, struct con *con);
+struct con *tree_focus_candidate(struct con *con);
 int tree_window_count(struct con *con);
 
 struct con *tree_first_leaf(struct con *con);
@@ -153,5 +154,7 @@ void tree_release_bars(struct con *con);
 void tree_raise_tabs(struct con *con, bool force);
 void tree_window_did_receive_focus(struct view *view, uint32_t window_id);
 void tree_refresh_for_window(uint32_t window_id);
+void tree_selection_show(struct con *con);
+bool tree_serialize(FILE *rsp, struct view *view);
 
 #endif

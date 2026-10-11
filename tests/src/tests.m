@@ -42,7 +42,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_split_layout)                              \
     TEST_ENTRY(tree_insert_relative)                           \
     TEST_ENTRY(tree_resize_update)                             \
-    TEST_ENTRY(tree_rotate_mirror_swap)
+    TEST_ENTRY(tree_rotate_mirror_swap)                        \
+    TEST_ENTRY(tree_focus_candidate)
 
 static struct {
     char *name;

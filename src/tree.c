@@ -279,8 +279,29 @@ struct con *tree_find_selected(struct con *root)
 void tree_select(struct con *root, struct con *con)
 {
     struct con *selected = tree_find_selected(root);
-    if (selected) selected->selected = false;
+    if (selected) {
+        selected->selected = false;
+        tree_feedback_destroy(selected);
+    }
+
     if (con) con->selected = true;
+}
+
+//
+// NOTE: The window that i3 focuses when this container goes away: the most recently focused
+// sibling, or the closest ancestor's next most recently focused child.
+//
+
+struct con *tree_focus_candidate(struct con *con)
+{
+    for (; con->parent; con = con->parent) {
+        struct con *parent = con->parent;
+        for (int i = 0; i < parent->child_count; ++i) {
+            if (parent->focus[i] != con) return tree_descend_focused(parent->focus[i]);
+        }
+    }
+
+    return NULL;
 }
 
 int tree_window_count(struct con *con)
@@ -1343,6 +1364,9 @@ void tree_flush(struct view *view)
 
     tree_render_bars(view->tree);
     tree_raise_tabs(view->tree, false);
+
+    struct con *selected = tree_find_selected(view->tree);
+    if (selected) tree_selection_show(selected);
 }
 
 void tree_window_did_receive_focus(struct view *view, uint32_t window_id)
@@ -1370,4 +1394,95 @@ void tree_refresh_for_window(uint32_t window_id)
     if (!view || view->layout != VIEW_TREE || !view->tree) return;
 
     if (space_is_visible(view->sid)) tree_render_bars(view->tree);
+}
+
+//
+// NOTE: Outline of the container selected with 'window --focus parent', drawn like the insertion
+// feedback. It is removed when the selection is cleared, which happens on the next focus change.
+//
+
+void tree_selection_show(struct con *con)
+{
+    struct con *leaf = tree_descend_focused(con);
+    if (!leaf || !con_is_leaf(leaf)) return;
+
+    CFTypeRef frame_region;
+    CGRect frame = {{con->area.x, con->area.y},{con->area.w, con->area.h}};
+    CGSNewRegionWithRect(&frame, &frame_region);
+    frame.origin.x = 0; frame.origin.y = 0;
+
+    if (!con->feedback_window.id) {
+        uint64_t tags = (1ULL << 1) | (1ULL << 9);
+        CFTypeRef empty_region = CGRegionCreateEmptyRegion();
+        SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &con->feedback_window.id, NULL);
+        CFRelease(empty_region);
+
+        sls_window_disable_shadow(con->feedback_window.id);
+        SLSSetWindowResolution(g_connection, con->feedback_window.id, 1.0f);
+        SLSSetWindowOpacity(g_connection, con->feedback_window.id, 0);
+        con->feedback_window.context = SLWindowContextCreate(g_connection, con->feedback_window.id, 0);
+        CGContextSetLineWidth(con->feedback_window.context, INSERT_FEEDBACK_WIDTH);
+    }
+
+    struct rgba_color color = g_window_manager.insert_feedback_color;
+    CGContextSetRGBFillColor(con->feedback_window.context, color.r, color.g, color.b, color.a * 0.15f);
+    CGContextSetRGBStrokeColor(con->feedback_window.context, color.r, color.g, color.b, color.a);
+
+    CGRect rect = (CGRect) {{ 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH }, { frame.size.width - INSERT_FEEDBACK_WIDTH, frame.size.height - INSERT_FEEDBACK_WIDTH }};
+    CGPathRef path = CGPathCreateWithRoundedRect(rect, cgrect_clamp_x_radius(rect, INSERT_FEEDBACK_RADIUS), cgrect_clamp_y_radius(rect, INSERT_FEEDBACK_RADIUS), NULL);
+
+    SLSDisableUpdate(g_connection);
+    SLSSetWindowShape(g_connection, con->feedback_window.id, 0.0f, 0.0f, frame_region);
+    CGContextClearRect(con->feedback_window.context, frame);
+    CGContextAddPath(con->feedback_window.context, path);
+    CGContextFillPath(con->feedback_window.context);
+    CGContextAddPath(con->feedback_window.context, path);
+    CGContextStrokePath(con->feedback_window.context);
+    CGContextFlush(con->feedback_window.context);
+    SLSReenableUpdate(g_connection);
+    CGPathRelease(path);
+    CFRelease(frame_region);
+
+    SLSSetWindowLevel(g_connection, con->feedback_window.id, window_level(leaf->window_id));
+    SLSSetWindowSubLevel(g_connection, con->feedback_window.id, window_sub_level(leaf->window_id));
+    SLSOrderWindow(g_connection, con->feedback_window.id, 1, leaf->window_id);
+}
+
+static void tree_serialize_con(FILE *rsp, struct view *view, struct con *con, int depth)
+{
+    struct area frame = con_is_leaf(con) ? tree_con_frame(view, con) : con->area;
+    bool visible = tree_con_is_visible(con);
+
+    fprintf(rsp, "%*s{\"type\":\"%s\",\"layout\":%s%s%s,\"percent\":%.4f,\"window\":%d,\"frame\":{\"x\":%.4f,\"y\":%.4f,\"w\":%.4f,\"h\":%.4f},\"focused\":%s,\"selected\":%s,\"visible\":%s,\"nodes\":[",
+            depth, "",
+            !con->parent ? "workspace" : con_is_leaf(con) ? "window" : "container",
+            con_is_leaf(con) ? "" : "\"", con_is_leaf(con) ? "null" : con_layout_str[con->layout], con_is_leaf(con) ? "" : "\"",
+            con->parent ? con->percent : 1.0f,
+            con->window_id,
+            frame.x, frame.y, frame.w, frame.h,
+            json_bool(con_is_leaf(con) && con->window_id == g_window_manager.focused_window_id),
+            json_bool(con->selected),
+            json_bool(visible));
+
+    for (int i = 0; i < con->child_count; ++i) {
+        fprintf(rsp, "%s\n", i ? "," : "");
+        tree_serialize_con(rsp, view, con->children[i], depth + 1);
+    }
+
+    fprintf(rsp, "%s]}", con->child_count ? "\n" : "");
+}
+
+//
+// NOTE: The container tree of a space, similar to i3's get_tree. Containers list their children
+// in tab or split order. Spaces without the tree layout have no tree.
+//
+
+bool tree_serialize(FILE *rsp, struct view *view)
+{
+    if (view->layout != VIEW_TREE) return false;
+
+    struct con *root = tree_view_root(view);
+    tree_serialize_con(rsp, view, root, 0);
+    fprintf(rsp, "\n");
+    return true;
 }

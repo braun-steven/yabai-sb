@@ -211,6 +211,7 @@ extern bool g_verbose;
 #define COMMAND_QUERY_DISPLAYS "--displays"
 #define COMMAND_QUERY_SPACES   "--spaces"
 #define COMMAND_QUERY_WINDOWS  "--windows"
+#define COMMAND_QUERY_TREE     "--tree"
 
 #define ARGUMENT_QUERY_DISPLAY "--display"
 #define ARGUMENT_QUERY_SPACE   "--space"
@@ -272,6 +273,8 @@ extern bool g_verbose;
 #define ARGUMENT_COMMON_SEL_EAST         "east"
 #define ARGUMENT_COMMON_SEL_SOUTH        "south"
 #define ARGUMENT_COMMON_SEL_WEST         "west"
+#define ARGUMENT_WINDOW_SEL_PARENT       "parent"
+#define ARGUMENT_WINDOW_SEL_CHILD        "child"
 #define ARGUMENT_COMMON_SEL_MOUSE        "mouse"
 #define ARGUMENT_COMMON_SEL_STACK        "stack"
 #define ARGUMENT_COMMON_SEL_STACK_PREFIX "stack."
@@ -1182,6 +1185,21 @@ static int peek_tab_direction(char *message)
     struct token token = get_token(&message);
     if (token_equals(token, ARGUMENT_COMMON_SEL_EAST)) return DIR_EAST;
     if (token_equals(token, ARGUMENT_COMMON_SEL_WEST)) return DIR_WEST;
+    return 0;
+}
+
+#define TREE_FOCUS_PARENT 1
+#define TREE_FOCUS_CHILD  2
+
+static int peek_tree_direction(char *message)
+{
+    struct token token = get_token(&message);
+    if (token_equals(token, ARGUMENT_COMMON_SEL_NORTH)) return DIR_NORTH;
+    if (token_equals(token, ARGUMENT_COMMON_SEL_EAST))  return DIR_EAST;
+    if (token_equals(token, ARGUMENT_COMMON_SEL_SOUTH)) return DIR_SOUTH;
+    if (token_equals(token, ARGUMENT_COMMON_SEL_WEST))  return DIR_WEST;
+    if (token_equals(token, ARGUMENT_WINDOW_SEL_PARENT)) return TREE_FOCUS_PARENT;
+    if (token_equals(token, ARGUMENT_WINDOW_SEL_CHILD))  return TREE_FOCUS_CHILD;
     return 0;
 }
 
@@ -2361,6 +2379,27 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
         }
 
         if (token_equals(command, COMMAND_WINDOW_FOCUS)) {
+            int tree_direction = window_manager_find_tree_view(&g_window_manager, acting_window) ? peek_tree_direction(message) : 0;
+            if (tree_direction) {
+                get_token(&message);
+
+                enum window_op_error result;
+                if (tree_direction == TREE_FOCUS_PARENT) {
+                    result = window_manager_tree_focus_parent(&g_window_manager, acting_window);
+                } else if (tree_direction == TREE_FOCUS_CHILD) {
+                    result = window_manager_tree_focus_child(&g_window_manager, acting_window);
+                } else {
+                    result = window_manager_tree_focus_direction(&g_window_manager, acting_window, tree_direction);
+                }
+
+                if (result != WINDOW_OP_ERROR_SUCCESS) {
+                    daemon_fail(rsp, "could not locate a container to focus.\n");
+                    return;
+                }
+
+                continue;
+            }
+
             struct window *tab_window = acting_window ? window_manager_find_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message)) : NULL;
             if (tab_window) {
                 get_token(&message);
@@ -2472,6 +2511,18 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 }
             }
         } else if (token_equals(command, COMMAND_WINDOW_WARP)) {
+            int tree_direction = window_manager_find_tree_view(&g_window_manager, acting_window) ? peek_tree_direction(message) : 0;
+            if (tree_direction > TREE_FOCUS_CHILD) {
+                get_token(&message);
+
+                if (window_manager_tree_move_direction(&g_space_manager, &g_window_manager, acting_window, tree_direction) != WINDOW_OP_ERROR_SUCCESS) {
+                    daemon_fail(rsp, "could not move the container in that direction.\n");
+                    return;
+                }
+
+                continue;
+            }
+
             if (window_manager_move_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message))) {
                 get_token(&message);
                 continue;
@@ -2912,6 +2963,29 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
             daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
         } else {
             window_manager_query_windows_for_displays(rsp, properties.flags);
+        }
+    } else if (token_equals(command, COMMAND_QUERY_TREE)) {
+        uint64_t acting_sid = space_manager_active_space();
+        struct token option = get_token(&message);
+
+        if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
+            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
+
+            if (token_is_valid(selector.token)) {
+                if (selector.did_parse && selector.sid) {
+                    acting_sid = selector.sid;
+                } else {
+                    return;
+                }
+            }
+        } else if (token_is_valid(option)) {
+            daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+            return;
+        }
+
+        struct view *view = space_manager_find_view(&g_space_manager, acting_sid);
+        if (!view || !tree_serialize(rsp, view)) {
+            daemon_fail(rsp, "the selected space does not use the tree layout.\n");
         }
     } else {
         daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);

@@ -377,3 +377,26 @@ TEST_FUNC(tree_rotate_mirror_swap,
 
     con_free(root);
 });
+
+TEST_FUNC(tree_focus_candidate,
+{
+    // H[ 1 T[ 2 3 ] ]: closing the active tab focuses the tab focused before it
+    struct con *root = con_create(CON_SPLITH);
+    struct con *a = tree_test_leaf(root, 1);
+    struct con *t = tree_test_split(root, CON_TABBED);
+    struct con *b = tree_test_leaf(t, 2);
+    struct con *c = tree_test_leaf(t, 3);
+
+    tree_focus(b);
+    tree_focus(c);
+    tree_focus(a);
+    tree_focus(c);
+    TEST_CHECK(tree_test_window(tree_focus_candidate(c)), 2);
+
+    // the last window of a container hands focus to the previously focused sibling of the container
+    tree_detach(b);
+    con_free(b);
+    TEST_CHECK(tree_test_window(tree_focus_candidate(c)), 1);
+
+    con_free(root);
+});

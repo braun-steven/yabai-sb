@@ -615,8 +615,10 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view) {
+        uint32_t next_focus = window_manager_tree_focus_candidate(&g_window_manager, view, window);
         space_manager_untile_window(view, window);
         window_manager_remove_managed_window(&g_window_manager, window->id);
+        window_manager_tree_focus_after_close(&g_window_manager, view, next_focus);
     }
 
     if (g_mouse_state.window == window) g_mouse_state.window = NULL;
@@ -869,9 +871,11 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view) {
+        uint32_t next_focus = window_manager_tree_focus_candidate(&g_window_manager, view, window);
         space_manager_untile_window(view, window);
         window_manager_remove_managed_window(&g_window_manager, window->id);
         window_manager_purify_window(&g_window_manager, window);
+        window_manager_tree_focus_after_close(&g_window_manager, view, next_focus);
     }
 
     event_signal_push(SIGNAL_WINDOW_MINIMIZED, window);

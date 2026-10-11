@@ -447,7 +447,9 @@ COMMAND
 *--focus* ['<WINDOW_SEL>']::
     Focus the given window. +
     If none specified, focus the selected window instead. +
-    With *tab_bar* enabled, 'east' and 'west' focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab.
+    With *tab_bar* enabled, 'east' and 'west' focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab. +
+    On 'tree' spaces, a direction moves focus like i3's 'focus left|right|up|down': it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise *focus_wrapping* applies. +
+    'parent' and 'child' select the container around the focused window, or go back down, like i3's 'focus parent|child'. The selected container is outlined, and *--warp* and *--layout* act on it until focus changes.
 
 *--close* ['<WINDOW_SEL>']::
     Close the given window. +
@@ -475,11 +477,14 @@ COMMAND
 
 *--warp* '<WINDOW_SEL>'::
     Re-insert the selected window, splitting the given window. +
-    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction.
+    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction. +
+    On 'tree' spaces, a direction moves the window (or the selected container) like i3's 'move left|right|up|down': it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re-oriented. At the edge of the space it moves to the display in that direction. +
+    A window selector places the window right after that window, in its container.
 
 *--stack* '<WINDOW_SEL>'::
     Stack the given window on top of the selected window. +
-    Any kind of warp operation performed on a stacked window will unstack it.
+    Any kind of warp operation performed on a stacked window will unstack it. +
+    On 'tree' spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 
 *--layout* 'tabbed|split|toggle'::
     Change the layout around the selected window, like the *layout* command of i3. +
@@ -563,6 +568,10 @@ COMMAND
 
 *--windows*::
     Retrieve information about windows.
+
+*--tree*::
+    Retrieve the container tree of a 'tree' space, like i3's 'get_tree'. Only supports the *--space* argument. +
+    Each node has a 'type' ('workspace', 'container' or 'window'), its 'layout', its 'percent' share of the parent, the 'window' id of a window, its 'frame', whether it is 'focused', 'selected' or 'visible' (not in a hidden tab), and its child 'nodes'.
 
 ARGUMENT
 ^^^^^^^^
@@ -999,6 +1008,9 @@ Containers that would only nest a split inside a split of the other orientation 
 Tabbed containers draw a tab bar with the *tab_bar_\** settings, also when they hold a single tab. +
 A tab that holds a container is titled with its layout and applications, e.g. 'H[iTerm2 Safari]'. +
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
+
+When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +
+The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree. The 'sibling', 'nephew', 'uncle' and 'cousin' selectors do not match on 'tree' spaces.
 
 Exit Codes
 ----------

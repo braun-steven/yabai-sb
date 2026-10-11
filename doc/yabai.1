@@ -677,6 +677,10 @@ Focus the given window.
 If none specified, focus the selected window instead.
 .br
 With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab.
+.br
+On \fItree\fP spaces, a direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies.
+.br
+\fIparent\fP and \fIchild\fP select the container around the focused window, or go back down, like i3\(cqs \fIfocus parent|child\fP. The selected container is outlined, and \fB\-\-warp\fP and \fB\-\-layout\fP act on it until focus changes.
 .RE
 .sp
 \fB\-\-close\fP [\fI<WINDOW_SEL>\fP]
@@ -726,6 +730,10 @@ Swap position of the selected window and the given window.
 Re\-insert the selected window, splitting the given window.
 .br
 With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction.
+.br
+On \fItree\fP spaces, a direction moves the window (or the selected container) like i3\(cqs \fImove left|right|up|down\fP: it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re\-oriented. At the edge of the space it moves to the display in that direction.
+.br
+A window selector places the window right after that window, in its container.
 .RE
 .sp
 \fB\-\-stack\fP \fI<WINDOW_SEL>\fP
@@ -733,6 +741,8 @@ With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP move a stacked window one 
 Stack the given window on top of the selected window.
 .br
 Any kind of warp operation performed on a stacked window will unstack it.
+.br
+On \fItree\fP spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 .RE
 .sp
 \fB\-\-layout\fP \fItabbed|split|toggle\fP
@@ -867,6 +877,13 @@ Retrieve information about spaces.
 \fB\-\-windows\fP
 .RS 4
 Retrieve information about windows.
+.RE
+.sp
+\fB\-\-tree\fP
+.RS 4
+Retrieve the container tree of a \fItree\fP space, like i3\(cqs \fIget_tree\fP. Only supports the \fB\-\-space\fP argument.
+.br
+Each node has a \fItype\fP (\fIworkspace\fP, \fIcontainer\fP or \fIwindow\fP), its \fIlayout\fP, its \fIpercent\fP share of the parent, the \fIwindow\fP id of a window, its \fIframe\fP, whether it is \fIfocused\fP, \fIselected\fP or \fIvisible\fP (not in a hidden tab), and its child \fInodes\fP.
 .RE
 .SS "ARGUMENT"
 .sp
@@ -1485,6 +1502,10 @@ Tabbed containers draw a tab bar with the \fBtab_bar_\(rs\fP* settings, also whe
 A tab that holds a container is titled with its layout and applications, e.g. \fIH[iTerm2 Safari]\fP.
 .br
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
+.sp
+When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.
+.br
+The \fIstack.prev\fP, \fIstack.next\fP, \fIstack.first\fP, \fIstack.last\fP, \fIstack.recent\fP and \fIstack.<index>\fP selectors pick tabs of the closest tabbed container, and \fIprev\fP, \fInext\fP, \fIfirst\fP and \fIlast\fP follow the order of the tree. The \fIsibling\fP, \fInephew\fP, \fIuncle\fP and \fIcousin\fP selectors do not match on \fItree\fP spaces.
 .SH "EXIT CODES"
 .sp
 If \fByabai\fP can\(cqt handle a message, it will return a non\-zero exit code.

@@ -1504,6 +1504,13 @@ static EVENT_HANDLER(SYSTEM_WOKE)
     event_signal_push(SIGNAL_SYSTEM_WOKE, NULL);
 }
 
+static EVENT_HANDLER(SYSTEM_APPEARANCE_CHANGED)
+{
+    debug("%s:\n", __FUNCTION__);
+    tab_bar_update_appearance();
+    tab_bar_redraw_all();
+}
+
 void space_layout_schedule(double delay, bool reset_passes)
 {
     if (!g_space_manager.space_layout_count) return;

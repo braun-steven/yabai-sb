@@ -40,3 +40,19 @@ TEST_FUNC(tab_bar_glass_tint_default,
     TEST_CHECK(custom.a == color.a, true);
     TEST_CHECK(custom.p, color.p);
 });
+
+TEST_FUNC(tab_bar_glass_track_tint_light,
+{
+    struct rgba_color color = rgba_color_from_hex(0xff222222);
+
+    struct rgba_color dark = tab_bar_glass_track_tint(color, false, false);
+    TEST_CHECK(dark.r == color.r && dark.g == color.g && dark.b == color.b, true);
+    TEST_CHECK((int)(dark.a * 100.0f + 0.5f), 40);
+
+    struct rgba_color light = tab_bar_glass_track_tint(color, false, true);
+    TEST_CHECK((int)(light.r * 255.0f + 0.5f), 0xf1);
+    TEST_CHECK((int)(light.a * 100.0f + 0.5f), 90);
+
+    struct rgba_color custom = tab_bar_glass_track_tint(color, true, true);
+    TEST_CHECK(custom.p, color.p);
+});

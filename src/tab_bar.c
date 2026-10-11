@@ -12,6 +12,8 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_GLASS_TRACK_MARGIN 2.0f
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
 #define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
+#define TAB_BAR_GLASS_LIGHT_TRACK_COLOR 0xfff1f1f1
+#define TAB_BAR_GLASS_LIGHT_TRACK_TINT_ALPHA 0.9f
 #define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
 #define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
 
@@ -27,6 +29,14 @@ static struct tab_bar **tab_bar_list;
 // NOTE: Snapshot of the visible tab layout, read by the mouse event tap to resolve clicks on a
 // tab bar without touching the window tree from another thread.
 //
+
+//
+// NOTE: Whether the system uses the light appearance, which the glass track follows. Read on the event loop thread
+// when the first bar is drawn and again whenever the appearance changes.
+//
+
+static bool tab_bar_appearance_valid;
+static bool tab_bar_light_appearance;
 
 static pthread_mutex_t tab_bar_hit_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct tab_bar_hit tab_bar_hit_list[TAB_BAR_MAX_HIT_COUNT];
@@ -74,6 +84,23 @@ bool tab_bar_parse_style(char *name, enum tab_bar_style *style)
     }
 
     return false;
+}
+
+//
+// NOTE: The appearance is read from the global defaults instead of NSApp, because NSApp lives on the main thread and
+// may still report the old appearance when the change notification arrives.
+//
+
+void tab_bar_update_appearance(void)
+{
+    CFPreferencesAppSynchronize(kCFPreferencesAnyApplication);
+    CFStringRef style = CFPreferencesCopyAppValue(CFSTR("AppleInterfaceStyle"), kCFPreferencesAnyApplication);
+
+    bool dark = style && CFGetTypeID(style) == CFStringGetTypeID() && CFStringCompare(style, CFSTR("Dark"), kCFCompareCaseInsensitive) == kCFCompareEqualTo;
+    if (style) CFRelease(style);
+
+    tab_bar_light_appearance = !dark;
+    tab_bar_appearance_valid = true;
 }
 
 bool tab_bar_is_enabled(void)
@@ -355,6 +382,7 @@ struct tab_bar_glass_snapshot
     int level;
     int sub_level;
     CTFontRef font;
+    bool light;
     struct rgba_color track_tint;
     struct rgba_color pill_tint;
     struct rgba_color separator;
@@ -384,6 +412,17 @@ struct rgba_color tab_bar_glass_tint(struct rgba_color color, bool custom, float
 {
     if (!custom) color.a = alpha;
     return color;
+}
+
+//
+// NOTE: In light mode the track uses a light gray instead of the dark i3 color, unless the unfocused color was
+// configured. The pill and the text keep their colors in both appearances.
+//
+
+struct rgba_color tab_bar_glass_track_tint(struct rgba_color color, bool custom, bool light)
+{
+    if (light && !custom) return tab_bar_glass_tint(rgba_color_from_hex(TAB_BAR_GLASS_LIGHT_TRACK_COLOR), false, TAB_BAR_GLASS_LIGHT_TRACK_TINT_ALPHA);
+    return tab_bar_glass_tint(color, custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
 }
 
 static inline CGRect tab_bar_glass_track(CGRect bounds)
@@ -501,8 +540,8 @@ API_AVAILABLE(macos(26.0))
     panel.animationBehavior = NSWindowAnimationBehaviorNone;
 
     //
-    // NOTE: Glass follows the appearance of its window and turns whiter in light mode, which would wash out the tints.
-    // The panel is pinned to the dark appearance so the bar looks the same in light and dark mode.
+    // NOTE: Glass follows the appearance of its window and turns whiter in light mode, which would wash out the pill tint.
+    // The panel is pinned to the dark appearance, and only the track switches to the light appearance in light mode.
     //
 
     panel.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
@@ -541,6 +580,7 @@ API_AVAILABLE(macos(26.0))
     root.frame = bounds;
     track.frame = track_frame;
     track.cornerRadius = track_frame.size.height * 0.5f;
+    track.appearance = snapshot->light ? [NSAppearance appearanceNamed:NSAppearanceNameAqua] : nil;
     tab_bar_glass_set_tint(track_tint, track_frame, snapshot->track_tint);
     content.frame = bounds;
 
@@ -646,7 +686,9 @@ static void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct
         snapshot->level = window_level(above_wid);
         snapshot->sub_level = window_sub_level(above_wid);
         snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
-        snapshot->track_tint = tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
+        if (!tab_bar_appearance_valid) tab_bar_update_appearance();
+        snapshot->light = tab_bar_light_appearance;
+        snapshot->track_tint = tab_bar_glass_track_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, snapshot->light);
         snapshot->pill_tint = snapshot->track_tint;
         snapshot->separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
         snapshot->entry_count = entry_count;

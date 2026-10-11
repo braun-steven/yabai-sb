@@ -233,7 +233,7 @@ Global Settings
 *tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +
     'glass' draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch. +
-    The bar always uses the dark glass, also in light mode, so the colors look the same in both. A *tab_bar_\*_color* background color that was not configured is applied with reduced opacity in 'glass' (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given. +
+    In light mode the track is light gray (0xF1F1F1 at 90%) unless *tab_bar_unfocused_color* is configured, while the pill keeps its color. A *tab_bar_\*_color* background color that was not configured is applied with reduced opacity in 'glass' (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given. +
     'i3' draws flat tabs side by side in the *tab_bar_\*_color* colors.
 
 *tab_bar_font* ['<family>:<size>']::

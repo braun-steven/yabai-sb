@@ -43,6 +43,8 @@ struct tab_bar_hit
 bool tab_bar_set_font(char *font);
 bool tab_bar_parse_style(char *name, enum tab_bar_style *style);
 struct rgba_color tab_bar_glass_tint(struct rgba_color color, bool custom, float alpha);
+struct rgba_color tab_bar_glass_track_tint(struct rgba_color color, bool custom, bool light);
+void tab_bar_update_appearance(void);
 bool tab_bar_is_enabled(void);
 CFStringRef tab_bar_copy_title(uint32_t wid);
 CGImageRef tab_bar_icon(uint32_t wid);

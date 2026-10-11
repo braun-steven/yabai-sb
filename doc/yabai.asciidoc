@@ -320,7 +320,7 @@ Space Settings
     'horizontal' places windows side by side, 'vertical' places them on top of each other, and 'auto' (the default) picks 'horizontal' when the display is wider than it is tall.
 
 *tree_workspace_layout* ['default|tabbed']::
-    Like i3's 'workspace_layout'. With 'tabbed', the first window of an empty 'tree' space opens inside a tabbed container, so later windows become tabs. Default is 'default'.
+    Like i3's 'workspace_layout'. With 'tabbed', a window or container that is placed directly on a 'tree' space opens inside a new tabbed container, so later windows next to it become tabs. This applies to the first window of an empty space, to a window that opens while the space itself is selected, and to a window that moves out of its container onto the space. Default is 'default'.
 
 *tree_autotiling* ['<BOOL_SEL>']::
     Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree. +
@@ -485,7 +485,7 @@ COMMAND
     Swap position of the selected window and the given window.
 
 *--warp* '<WINDOW_SEL>'::
-    A direction moves the window (or the selected container) like i3's 'move left|right|up|down': it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re-oriented. At the edge of the space it moves to the display in that direction. +
+    A direction moves the window (or the selected container) like i3's 'move left|right|up|down': it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re-oriented. At the edge of the space it moves to the display in that direction, as a whole: a container keeps its structure and arrives on the side it comes from (first or last when that space is laid out in the direction, otherwise next to the window focused there), like sway. +
     A window selector places the window right after that window, in its container.
 
 *--stack* '<WINDOW_SEL>'::
@@ -493,7 +493,7 @@ COMMAND
 
 *--layout* 'tabbed|split|toggle|splith|splitv|toggle-split'::
     Change the layout around the selected window, like the *layout* command of i3. +
-    The layout of the container that holds the selected window (or the selected container) changes: 'tabbed', 'splith' and 'splitv' set it, 'split' returns to its last split layout, 'toggle' switches between tabbed and the last split layout, and 'toggle-split' switches between 'splith' and 'splitv'. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+    The layout of the container that holds the selected window (or the selected container) changes: 'tabbed', 'splith' and 'splitv' set it, 'split' returns to its last split layout, 'toggle' switches between tabbed and the last split layout, and 'toggle-split' switches between 'splith' and 'splitv'. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split. A container that holds nothing but the selected window, inside a container that holds nothing else, is closed first, like i3, so that switching a single tab between split and tabbed does not nest containers.
 
 *--split* 'horizontal|vertical|toggle'::
     Like i3's 'split h|v|toggle'. Wraps the selected window in a new container laid out side by side ('horizontal') or on top of each other ('vertical'), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. 'toggle' picks the orientation that the container of the window does not have.
@@ -1006,7 +1006,7 @@ Tree Layout
 A container lays out any number of children in one of three ways: 'splith' (side by side), 'splitv' (on top of each other) or 'tabbed' (one child visible at a time, with a row of tabs on top). +
 Each container remembers which of its children was focused last.
 
-A new window opens right after the focused window, inside the same container. With *tree_autotiling*, the focused window is first split along its longer side. +
+A new window opens right after the focused window, inside the same container. While a container is selected with *window --focus parent*, it opens right after that container instead, like i3 and sway. With *tree_autotiling*, the focused window is first split along its longer side. +
 When the last window of a container closes, the container is removed as well. +
 Containers that would only nest a split inside a split of the other orientation are flattened again.
 

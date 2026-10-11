@@ -137,11 +137,15 @@ void tree_fix_percent(struct con *con)
 }
 
 //
-// NOTE: Inserts the container among the children of the parent at the index (at the end when it is
-// out of range), and at the front or the back of its focus order. The share of space is left alone.
+// NOTE: Inserts the container among the children of the parent at the index, and at the focus index
+// in their focus order (0 is the most recently focused child). Either goes to the end when it is
+// out of range. The share of space is left alone.
 //
 
-static void con_insert(struct con *parent, struct con *con, int index, bool focus_head)
+#define CON_FOCUS_HEAD 0
+#define CON_FOCUS_TAIL -1
+
+static void con_insert(struct con *parent, struct con *con, int index, int focus_index)
 {
     con_reserve(parent, parent->child_count + 1);
 
@@ -149,12 +153,9 @@ static void con_insert(struct con *parent, struct con *con, int index, bool focu
     memmove(parent->children + index + 1, parent->children + index, sizeof(struct con *) * (parent->child_count - index));
     parent->children[index] = con;
 
-    if (focus_head) {
-        memmove(parent->focus + 1, parent->focus, sizeof(struct con *) * parent->child_count);
-        parent->focus[0] = con;
-    } else {
-        parent->focus[parent->child_count] = con;
-    }
+    if (focus_index < 0 || focus_index > parent->child_count) focus_index = parent->child_count;
+    memmove(parent->focus + focus_index + 1, parent->focus + focus_index, sizeof(struct con *) * (parent->child_count - focus_index));
+    parent->focus[focus_index] = con;
 
     ++parent->child_count;
     con->parent = parent;
@@ -212,7 +213,7 @@ static struct con *con_wrap(struct con *con, enum con_layout layout)
 {
     struct con *wrap = con_create(layout);
     con_replace(con, wrap);
-    con_insert(wrap, con, 0, true);
+    con_insert(wrap, con, 0, CON_FOCUS_HEAD);
     con->percent = 1.0f;
     return wrap;
 }
@@ -237,7 +238,7 @@ static void con_reparent_children(struct con *from, struct con *to, int index, i
     for (int i = 0; i < count; ++i) {
         struct con *child = from->children[0];
         con_unlink(child);
-        con_insert(to, child, index + i, false);
+        con_insert(to, child, index + i, CON_FOCUS_TAIL);
     }
 
     memmove(to->focus + focus_index + count, to->focus + focus_index, sizeof(struct con *) * (to->child_count - count - focus_index));
@@ -255,7 +256,7 @@ static struct con *con_wrap_children(struct con *con)
     struct con *wrap = con_create(con->layout);
     wrap->last_split = con->last_split;
     con_reparent_children(con, wrap, 0, 0);
-    con_insert(con, wrap, 0, true);
+    con_insert(con, wrap, 0, CON_FOCUS_HEAD);
     wrap->percent = 1.0f;
     return wrap;
 }
@@ -279,10 +280,27 @@ static struct con *tree_reap_empty(struct con *con)
     return con;
 }
 
+//
+// NOTE: i3 workspace_attach_to. With tree_workspace_layout tabbed, a container that is attached to
+// the workspace itself is put into a new tabbed container, so that the windows opened next to it
+// become tabs. A tabbed container is not nested into another one.
+//
+
+static void con_apply_workspace_layout(struct con *con)
+{
+    if (!g_space_manager.tree_workspace_tabbed) return;
+
+    struct con *root = con->parent;
+    if (!root || root->parent) return;
+    if (!con_is_leaf(con) && con->layout == CON_TABBED) return;
+
+    con_wrap(con, CON_TABBED)->last_split = root->layout;
+}
+
 void tree_attach(struct con *parent, struct con *con, int index)
 {
     con->percent = 0.0f;
-    con_insert(parent, con, index, false);
+    con_insert(parent, con, index, CON_FOCUS_TAIL);
     tree_fix_percent(parent);
 }
 
@@ -573,20 +591,87 @@ struct con *tree_force_orientation(struct con *root, enum con_orientation orient
     return split;
 }
 
+static struct con *con_lowest_common_ancestor(struct con *a, struct con *b)
+{
+    for (struct con *x = a; x; x = x->parent) {
+        for (struct con *y = b; y; y = y->parent) {
+            if (x == y) return x;
+        }
+    }
+
+    return NULL;
+}
+
+static struct con *con_child_containing(struct con *ancestor, struct con *con)
+{
+    while (con->parent != ancestor) con = con->parent;
+    return con;
+}
+
+static bool con_is_focused_descendant(struct con *con, struct con *ancestor)
+{
+    for (; con != ancestor; con = con->parent) {
+        if (con->parent->focus[0] != con) return false;
+    }
+
+    return true;
+}
+
 //
-// NOTE: i3 insert_con_into. Places the container next to the target. It keeps the focus within
-// its new parent and gets an average share of the space there.
+// NOTE: i3 insert_con_into. Places the container next to the target, where it gets an average share
+// of the space. Its place in the focus order of the new parent follows the focus order of the lowest
+// common ancestor: when it was focused more recently than the target, it goes before the target.
+// So a container that was not focused does not become the active tab of a tabbed container, and
+// one that was focused keeps the focus. A container that is not part of a tree goes first.
 //
 
 void tree_insert_con(struct con *con, struct con *target, enum tree_position position)
 {
-    struct con *old_parent = con->parent;
-    con_unlink(con);
-
     struct con *parent = target->parent;
+    struct con *old_parent = con->parent;
+    bool focus_before = true;
+    struct con *lca = NULL;
+
+    if (old_parent) {
+        lca = con_lowest_common_ancestor(con, parent);
+        if (!lca || lca == con) return;
+
+        struct con *con_ancestor = con_child_containing(lca, con);
+        struct con *target_ancestor = con_child_containing(lca, target);
+        bool moves_focus = con_is_focused_descendant(con, con_ancestor);
+
+        if (con_ancestor == target_ancestor) {
+            focus_before = moves_focus;
+        } else {
+            focus_before = con_focus_index(con_ancestor) < con_focus_index(target_ancestor);
+
+            //
+            // NOTE: The focused container takes the focus with it to the ancestor it moves into,
+            // so that it stays focused when the workspace is focused again later.
+            //
+
+            if (moves_focus && focus_before) {
+                int con_focus = con_focus_index(con_ancestor);
+                int target_focus = con_focus_index(target_ancestor);
+                memmove(lca->focus + con_focus + 1, lca->focus + con_focus, sizeof(struct con *) * (target_focus - con_focus));
+                lca->focus[con_focus] = target_ancestor;
+            }
+        }
+
+        con_unlink(con);
+    }
+
+    int focus_index;
+    if (parent == lca) {
+        focus_index = con_focus_index(target) + (focus_before ? 0 : 1);
+    } else {
+        focus_index = focus_before ? CON_FOCUS_HEAD : CON_FOCUS_TAIL;
+    }
+
     con->percent = 0.0f;
-    con_insert(parent, con, con_index(target) + (position == TREE_AFTER ? 1 : 0), true);
+    con_insert(parent, con, con_index(target) + (position == TREE_AFTER ? 1 : 0), focus_index);
     tree_fix_percent(parent);
+    con_apply_workspace_layout(con);
 
     if (old_parent) tree_reap_empty(old_parent);
 }
@@ -720,6 +805,7 @@ void tree_insert_relative(struct con *target, struct con *con, int direction)
     }
 
     tree_attach(target->parent, con, con_index(target) + (direction_is_backward(direction) ? 0 : 1));
+    con_apply_workspace_layout(con);
 }
 
 //
@@ -763,14 +849,69 @@ void tree_autotile(struct con *target)
 }
 
 //
+// NOTE: i3 tree_open_con. A new window opens right after the target, inside the same container:
+// after the focused window, or after the selected container like i3 and sway do it. On an empty
+// workspace, or when the workspace itself is the target, it opens after the most recently focused
+// child of the workspace. With autotile, a target window is split along its longer side first.
+//
+
+void tree_open_con(struct con *root, struct con *con, struct con *target, bool autotile)
+{
+    if (!target || target == root) {
+        tree_attach(root, con, root->child_count ? con_index(root->focus[0]) + 1 : -1);
+    } else {
+        if (autotile && con_is_leaf(target)) tree_autotile(target);
+        tree_attach(target->parent, con, con_index(target) + 1);
+    }
+
+    con_apply_workspace_layout(con);
+}
+
+//
+// NOTE: sway container_move_to_workspace_from_direction. A container that moves here from the display
+// in the opposite direction keeps its structure and arrives on the near side: first or last on a
+// workspace laid out in the direction, and otherwise next to the window focused there, entered
+// from that side like a neighbouring container in tree_move.
+//
+
+void tree_attach_from_direction(struct con *root, struct con *con, int direction)
+{
+    if (!root->child_count || con_orientation(root) == direction_orientation(direction)) {
+        con->percent = 0.0f;
+        con_insert(root, con, direction_is_backward(direction) ? -1 : 0, CON_FOCUS_HEAD);
+        tree_fix_percent(root);
+        con_apply_workspace_layout(con);
+        return;
+    }
+
+    struct con *target = tree_descend_direction(root, direction);
+    bool after = con_orientation(target->parent) != direction_orientation(direction) || direction_is_backward(direction);
+    tree_insert_con(con, target, after ? TREE_AFTER : TREE_BEFORE);
+}
+
+//
 // NOTE: i3 con_set_layout. The layout of the parent changes, unless the container is the workspace.
 // The workspace itself is always a split, so a tabbed layout wraps its contents in a new container.
+// A container that is the only child of a container that holds nothing else is closed first and
+// the layout of its parent changes instead (i3 #3001), so that switching a single tab between split
+// and tabbed does not nest one more container each time.
 //
 
 void tree_set_layout(struct con *con, enum con_layout layout)
 {
     if (con->parent) con = con->parent;
     if (con->layout != CON_TABBED) con->last_split = con->layout;
+
+    if (con->parent && con->parent->parent && con->child_count == 1 && con->parent->child_count == 1) {
+        struct con *parent = con->parent;
+        struct con *child = con->children[0];
+
+        con_unlink(child);
+        con_replace(con, child);
+        parent->last_split = con->last_split;
+        con_free(con);
+        con = parent;
+    }
 
     if (!con->parent) {
         if (layout != CON_TABBED) {

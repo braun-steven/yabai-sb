@@ -487,3 +487,157 @@ TEST_FUNC(tree_autotiling,
     TEST_CHECK(tabbed->layout, CON_TABBED);
     con_free(root);
 });
+
+TEST_FUNC(tree_set_layout_single_tab,
+{
+    // H[ 1 T[ V[ 2 ] ] ]: splitting a single tab nests a split inside the tabbed container
+    struct con *root = con_create(CON_SPLITH);
+    tree_test_leaf(root, 1);
+    struct con *t = tree_test_split(root, CON_TABBED);
+    struct con *a = tree_test_leaf(t, 2);
+    tree_split(a, CON_VERTICAL);
+    TEST_CHECK(a->parent->parent == t, true);
+    TEST_CHECK(a->parent->layout, CON_SPLITV);
+
+    // switching it to tabbed closes the redundant split instead of nesting a tabbed container, like i3
+    tree_set_layout(a, CON_TABBED);
+    TEST_CHECK(a->parent == t, true);
+    TEST_CHECK(t->layout, CON_TABBED);
+    TEST_CHECK(root->children[1] == t, true);
+
+    // and toggling back and forth keeps a single container
+    tree_toggle_layout(a, false);
+    TEST_CHECK(t->layout, CON_SPLITV);
+    tree_toggle_layout(a, false);
+    TEST_CHECK(t->layout, CON_TABBED);
+    TEST_CHECK(a->parent == t, true);
+    TEST_CHECK(t->parent == root, true);
+
+    con_free(root);
+});
+
+TEST_FUNC(tree_workspace_layout_tabbed,
+{
+    bool workspace_tabbed = g_space_manager.tree_workspace_tabbed;
+    g_space_manager.tree_workspace_tabbed = true;
+
+    // the first window of an empty workspace opens in a tabbed container
+    struct con *root = con_create(CON_SPLITH);
+    struct con *a = con_create(CON_SPLITH);
+    a->window_id = 1;
+    tree_open_con(root, a, NULL, false);
+    TEST_CHECK(root->child_count, 1);
+    TEST_CHECK(root->children[0]->layout, CON_TABBED);
+    struct con *t = a->parent;
+
+    struct con *b = con_create(CON_SPLITH);
+    b->window_id = 2;
+    tree_open_con(root, b, a, false);
+    TEST_CHECK(b->parent == t, true);
+    tree_focus(b);
+
+    // a tab that moves out to the workspace gets its own tabbed container, like i3 workspace_layout
+    TEST_CHECK(tree_move(root, a, DIR_WEST, false), TREE_RESULT_DONE);
+    TEST_CHECK(root->child_count, 2);
+    TEST_CHECK(root->children[0]->layout, CON_TABBED);
+    TEST_CHECK(tree_test_child(root->children[0], 0), 1);
+    TEST_CHECK(root->children[1] == t, true);
+
+    con_free(root);
+    g_space_manager.tree_workspace_tabbed = workspace_tabbed;
+});
+
+TEST_FUNC(tree_insert_focus_order,
+{
+    // H[ V[ 1 2 ] T[ 3 4 ] 5 ], with 5 focused and tab 3 active
+    struct con *root = con_create(CON_SPLITH);
+    struct con *v = tree_test_split(root, CON_SPLITV);
+    struct con *a = tree_test_leaf(v, 1);
+    struct con *b = tree_test_leaf(v, 2);
+    struct con *t = tree_test_split(root, CON_TABBED);
+    struct con *c = tree_test_leaf(t, 3);
+    struct con *d = tree_test_leaf(t, 4);
+    struct con *e = tree_test_leaf(root, 5);
+    tree_focus(c);
+    tree_focus(e);
+
+    // a window that was focused less recently than the tabs does not become the active tab
+    tree_insert_con(b, c, TREE_AFTER);
+    TEST_CHECK(t->children[1] == b, true);
+    TEST_CHECK(t->focus[0] == c, true);
+
+    // the focused window takes the focus with it
+    tree_focus(a);
+    tree_insert_con(a, d, TREE_AFTER);
+    TEST_CHECK(t->focus[0] == a, true);
+    TEST_CHECK(root->focus[0] == t, true);
+    TEST_CHECK(root->child_count, 2);
+    TEST_CHECK(tree_descend_focused(root) == a, true);
+
+    con_free(root);
+});
+
+TEST_FUNC(tree_open_con_selected,
+{
+    // H[ 1 V[ 2 3 ] 4 ]
+    struct con *root = con_create(CON_SPLITH);
+    struct con *a = tree_test_leaf(root, 1);
+    struct con *v = tree_test_split(root, CON_SPLITV);
+    tree_test_leaf(v, 2);
+    tree_test_leaf(v, 3);
+    tree_test_leaf(root, 4);
+
+    // a window opens after the selected container, not inside of it, like i3 and sway
+    struct con *e = con_create(CON_SPLITH);
+    e->window_id = 5;
+    tree_open_con(root, e, v, false);
+    TEST_CHECK(v->child_count, 2);
+    TEST_CHECK(root->children[2] == e, true);
+
+    // with the workspace selected it opens after its most recently focused child
+    tree_focus(a);
+    struct con *f = con_create(CON_SPLITH);
+    f->window_id = 6;
+    tree_open_con(root, f, root, false);
+    TEST_CHECK(root->children[1] == f, true);
+
+    con_free(root);
+});
+
+TEST_FUNC(tree_attach_from_direction,
+{
+    // H[ 1 2 ] receives T[ 3 4 ] from another display
+    struct con *root = con_create(CON_SPLITH);
+    struct con *x = tree_test_leaf(root, 1);
+    tree_test_leaf(root, 2);
+    struct con *t = con_create(CON_TABBED);
+    tree_test_leaf(t, 3);
+    tree_test_leaf(t, 4);
+
+    // along the layout of the workspace it arrives on the near side, with its structure
+    tree_attach_from_direction(root, t, DIR_EAST);
+    TEST_CHECK(root->children[0] == t, true);
+    TEST_CHECK(t->child_count, 2);
+    TEST_CHECK(root->focus[0] == t, true);
+
+    tree_detach(t);
+    tree_attach_from_direction(root, t, DIR_WEST);
+    TEST_CHECK(root->children[2] == t, true);
+
+    // across it, it arrives next to the window focused there
+    tree_detach(t);
+    tree_focus(x);
+    tree_attach_from_direction(root, t, DIR_SOUTH);
+    TEST_CHECK(root->child_count, 3);
+    TEST_CHECK(root->children[1] == t, true);
+
+    // an empty workspace takes it as it is
+    struct con *empty = con_create(CON_SPLITH);
+    tree_detach(t);
+    tree_attach_from_direction(empty, t, DIR_NORTH);
+    TEST_CHECK(empty->children[0] == t, true);
+    TEST_CHECK((int)(t->percent * 100 + 0.5f), 100);
+
+    con_free(empty);
+    con_free(root);
+});

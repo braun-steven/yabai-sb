@@ -116,12 +116,6 @@ struct con *tree_view_find_window(struct view *view, uint32_t window_id)
 }
 
 //
-// NOTE: i3 places a new window right after the focused container, inside the same parent. When a
-// container is selected (focus parent) the window is appended to it instead. The insertion point
-// is used for windows that are restored or moved here, so they open next to that window.
-//
-
-//
 // NOTE: A new window becomes the focused child of its containers, as i3 focuses new windows, unless
 // the focused window is on this space: a window that is moved here or stops floating then stays
 // behind it, so that the focused window is not hidden in another tab.
@@ -137,6 +131,21 @@ static void tree_focus_new_window(struct con *root, struct con *con, uint32_t wi
     }
 }
 
+static inline void tree_view_reset_empty_root(struct view *view, struct con *root)
+{
+    if (root->child_count) return;
+
+    root->layout = tree_default_layout(view);
+    root->last_split = root->layout;
+}
+
+//
+// NOTE: A new window opens where tree_open_con puts it: next to the focused window, or next to
+// the selected container (focus parent). An insertion point set with 'window --insert' or by a
+// mouse drop places it on that side of its window instead, and the insertion point passed in is
+// used for windows that are restored or moved here, so they open next to that window.
+//
+
 void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point)
 {
     struct con *root = tree_view_root(view);
@@ -145,60 +154,44 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
     struct con *con = con_create(CON_SPLITH);
     con->window_id = window->id;
 
-    if (root->child_count == 0) {
-        root->layout = tree_default_layout(view);
-        root->last_split = root->layout;
+    tree_view_reset_empty_root(view, root);
 
-        if (g_space_manager.tree_workspace_tabbed) {
-            struct con *tabbed = con_create(CON_TABBED);
-            tabbed->last_split = root->layout;
-            tree_attach(root, tabbed, -1);
-            tree_attach(tabbed, con, -1);
-        } else {
-            tree_attach(root, con, -1);
-        }
+    struct con *target = view->insertion_point ? tree_find_window(root, view->insertion_point) : NULL;
+    if (target && target->insert_dir) {
+        int direction = target->insert_dir;
+        target->insert_dir = 0;
+        tree_feedback_destroy(target);
+        view->insertion_point = 0;
 
+        tree_insert_relative(target, con, direction);
         tree_focus_new_window(root, con, window->id);
         return;
-    }
-
-    struct con *target = NULL;
-    if (view->insertion_point) {
-        target = tree_find_window(root, view->insertion_point);
-        if (target && target->insert_dir) {
-            int direction = target->insert_dir;
-            target->insert_dir = 0;
-            tree_feedback_destroy(target);
-            view->insertion_point = 0;
-
-            tree_insert_relative(target, con, direction);
-            tree_focus_new_window(root, con, window->id);
-            return;
-        }
     }
 
     target = insertion_point ? tree_find_window(root, insertion_point) : NULL;
 
     if (!target) {
         struct con *selected = tree_find_selected(root);
-        if (selected && !con_is_leaf(selected)) {
-            tree_attach(selected, con, -1);
-            tree_focus_new_window(root, con, window->id);
-            return;
-        }
-
-        target = tree_find_window(root, g_window_manager.focused_window_id);
-        if (!target) target = tree_descend_focused(root);
+        if (selected && !con_is_leaf(selected)) target = selected;
     }
 
-    if (!target || target == root) {
-        tree_attach(root, con, -1);
-    } else {
-        if (g_space_manager.tree_autotiling && con_is_leaf(target)) tree_autotile(target);
-        tree_attach(target->parent, con, con_index(target) + 1);
-    }
+    if (!target) target = tree_find_window(root, g_window_manager.focused_window_id);
+    if (!target) target = tree_descend_focused(root);
 
+    tree_open_con(root, con, target, g_space_manager.tree_autotiling);
     tree_focus_new_window(root, con, window->id);
+}
+
+//
+// NOTE: A container that moves here from another display, with its windows already moved to the
+// space of this view. It keeps its structure and arrives on the side it comes from.
+//
+
+void tree_view_attach_from_direction(struct view *view, struct con *con, int direction)
+{
+    struct con *root = tree_view_root(view);
+    tree_view_reset_empty_root(view, root);
+    tree_attach_from_direction(root, con, direction);
 }
 
 bool tree_remove_window(struct view *view, struct window *window)

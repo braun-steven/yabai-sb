@@ -43,6 +43,11 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_focus_candidate)                           \
     TEST_ENTRY(tree_flatten_same_orientation)                  \
     TEST_ENTRY(tree_autotiling)                                \
+    TEST_ENTRY(tree_set_layout_single_tab)                     \
+    TEST_ENTRY(tree_workspace_layout_tabbed)                   \
+    TEST_ENTRY(tree_insert_focus_order)                        \
+    TEST_ENTRY(tree_open_con_selected)                         \
+    TEST_ENTRY(tree_attach_from_direction)                     \
     TEST_ENTRY(tab_bar_style_parse)                            \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \

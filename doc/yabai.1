@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-07
+.\"      Date: 2026-10-08
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-07" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-08" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -498,7 +498,7 @@ Orientation of an empty \fItree\fP space when its first window opens, like i3\(c
 .sp
 \fBtree_workspace_layout\fP [\fIdefault|tabbed\fP]
 .RS 4
-Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, the first window of an empty \fItree\fP space opens inside a tabbed container, so later windows become tabs. Default is \fIdefault\fP.
+Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, a window or container that is placed directly on a \fItree\fP space opens inside a new tabbed container, so later windows next to it become tabs. This applies to the first window of an empty space, to a window that opens while the space itself is selected, and to a window that moves out of its container onto the space. Default is \fIdefault\fP.
 .RE
 .sp
 \fBtree_autotiling\fP [\fI<BOOL_SEL>\fP]
@@ -744,7 +744,7 @@ Swap position of the selected window and the given window.
 .sp
 \fB\-\-warp\fP \fI<WINDOW_SEL>\fP
 .RS 4
-A direction moves the window (or the selected container) like i3\(cqs \fImove left|right|up|down\fP: it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re\-oriented. At the edge of the space it moves to the display in that direction.
+A direction moves the window (or the selected container) like i3\(cqs \fImove left|right|up|down\fP: it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re\-oriented. At the edge of the space it moves to the display in that direction, as a whole: a container keeps its structure and arrives on the side it comes from (first or last when that space is laid out in the direction, otherwise next to the window focused there), like sway.
 .br
 A window selector places the window right after that window, in its container.
 .RE
@@ -758,7 +758,7 @@ The given window becomes a tab next to the selected window, which is wrapped in 
 .RS 4
 Change the layout around the selected window, like the \fBlayout\fP command of i3.
 .br
-The layout of the container that holds the selected window (or the selected container) changes: \fItabbed\fP, \fIsplith\fP and \fIsplitv\fP set it, \fIsplit\fP returns to its last split layout, \fItoggle\fP switches between tabbed and the last split layout, and \fItoggle\-split\fP switches between \fIsplith\fP and \fIsplitv\fP. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+The layout of the container that holds the selected window (or the selected container) changes: \fItabbed\fP, \fIsplith\fP and \fIsplitv\fP set it, \fIsplit\fP returns to its last split layout, \fItoggle\fP switches between tabbed and the last split layout, and \fItoggle\-split\fP switches between \fIsplith\fP and \fIsplitv\fP. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split. A container that holds nothing but the selected window, inside a container that holds nothing else, is closed first, like i3, so that switching a single tab between split and tabbed does not nest containers.
 .RE
 .sp
 \fB\-\-split\fP \fIhorizontal|vertical|toggle\fP
@@ -1500,7 +1500,7 @@ A container lays out any number of children in one of three ways: \fIsplith\fP (
 .br
 Each container remembers which of its children was focused last.
 .sp
-A new window opens right after the focused window, inside the same container. With \fBtree_autotiling\fP, the focused window is first split along its longer side.
+A new window opens right after the focused window, inside the same container. While a container is selected with \fBwindow \-\-focus parent\fP, it opens right after that container instead, like i3 and sway. With \fBtree_autotiling\fP, the focused window is first split along its longer side.
 .br
 When the last window of a container closes, the container is removed as well.
 .br

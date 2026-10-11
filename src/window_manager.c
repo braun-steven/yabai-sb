@@ -363,8 +363,14 @@ enum window_op_error window_manager_adjust_window_ratio(struct window_manager *w
     struct view *view = window_manager_find_tree_view(wm, window);
     if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
 
+    //
+    // NOTE: Tabs share the area of their container, so the ratio of a tab is the one of its tabbed
+    // container, like i3 skips tabbed containers when it looks for the containers to resize.
+    //
+
     struct con *con = window_manager_tree_acting_con(view, window);
-    if (!con || !con->parent || con->parent->layout == CON_TABBED) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    while (con && con->parent && con->parent->layout == CON_TABBED) con = con->parent;
+    if (!con || !con->parent) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
     struct con *parent = con->parent;
     bool horizontal = parent->layout == CON_SPLITH;
@@ -2690,12 +2696,37 @@ enum window_op_error window_manager_tree_focus_child(struct window_manager *wm, 
 }
 
 //
-// NOTE: Moves every window of the container to the space on the display in the direction, like i3
-// moves a container to the next output. The windows open next to the window focused there last.
+// NOTE: Moves the container to the space on the display in the direction, like i3 and sway move a
+// container to the next output. On a tree space it keeps its structure and arrives on the side it
+// comes from (tree_attach_from_direction). On other spaces every window is sent there on its own.
 //
 
-static void window_manager_tree_move_to_display(struct space_manager *sm, struct window_manager *wm, struct view *view, struct con *con, uint32_t did)
+static void window_manager_tree_move_to_display(struct space_manager *sm, struct window_manager *wm, struct view *view, struct con *con, uint32_t did, int direction)
 {
+    tree_select(view->tree, NULL);
+
+    uint64_t sid = display_space_id(did);
+    struct view *dst_view = space_manager_find_view(sm, sid);
+
+    if (dst_view->layout == VIEW_TREE) {
+        struct con *focus = tree_descend_focused(con);
+
+        tree_detach(con);
+        tree_flatten(view->tree);
+
+        if (view_is_invalid(dst_view)) view_update(dst_view);
+        tree_view_attach_from_direction(dst_view, con, direction);
+        window_manager_tree_set_view(wm, con, dst_view);
+        tree_flatten(dst_view->tree);
+
+        if (focus) tree_focus(focus);
+        window_manager_tree_apply(view);
+        window_manager_tree_apply(dst_view);
+
+        if (focus && con_is_leaf(focus)) window_manager_focus_window_id(wm, focus->window_id);
+        return;
+    }
+
     int window_count = 0;
     uint32_t window_list[256];
 
@@ -2703,9 +2734,6 @@ static void window_manager_tree_move_to_display(struct space_manager *sm, struct
         window_list[window_count++] = leaf->window_id;
         if (leaf == tree_last_leaf(con)) break;
     }
-
-    tree_select(view->tree, NULL);
-    uint64_t sid = display_space_id(did);
 
     for (int i = 0; i < window_count; ++i) {
         struct window *window = window_manager_find_window(wm, window_list[i]);
@@ -2731,7 +2759,7 @@ enum window_op_error window_manager_tree_move_direction(struct space_manager *sm
         window_manager_tree_apply(view);
     } break;
     case TREE_RESULT_OUTPUT: {
-        window_manager_tree_move_to_display(sm, wm, view, con, did);
+        window_manager_tree_move_to_display(sm, wm, view, con, did, direction);
     } break;
     case TREE_RESULT_NONE: {
         return WINDOW_OP_ERROR_INVALID_DST_NODE;

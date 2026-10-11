@@ -142,6 +142,8 @@ enum tree_result tree_move(struct con *root, struct con *con, int direction, boo
 void tree_insert_relative(struct con *target, struct con *con, int direction);
 void tree_split(struct con *con, enum con_orientation orientation);
 void tree_autotile(struct con *target);
+void tree_open_con(struct con *root, struct con *con, struct con *target, bool autotile);
+void tree_attach_from_direction(struct con *root, struct con *con, int direction);
 void tree_set_layout(struct con *con, enum con_layout layout);
 enum con_layout tree_toggle_layout(struct con *con, bool split_only);
 bool tree_resize(struct con *con, int direction, float delta);
@@ -158,6 +160,7 @@ void tree_view_update(struct view *view);
 void tree_view_clear(struct view *view);
 struct con *tree_view_find_window(struct view *view, uint32_t window_id);
 void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point);
+void tree_view_attach_from_direction(struct view *view, struct con *con, int direction);
 bool tree_remove_window(struct view *view, struct window *window);
 uint32_t *tree_view_window_list(struct view *view, int *window_count);
 int tree_view_tiled_count(struct view *view);

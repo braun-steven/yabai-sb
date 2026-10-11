@@ -350,7 +350,7 @@ Look of the tab bar. Default is \fIglass\fP.
 .br
 \fIglass\fP draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch.
 .br
-In light mode the track is light gray (0xF1F1F1 at 90%) unless \fBtab_bar_unfocused_color\fP is configured, while the pill keeps its color. A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given.
+The bar always uses the dark glass, also in light mode, so the colors look the same in both. A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given.
 .br
 \fIi3\fP draws flat tabs side by side in the \fBtab_bar\fP\(rs*_color\fP colors.
 .RE

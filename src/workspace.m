@@ -5,6 +5,13 @@ bool workspace_event_handler_begin(void **context)
     SUPPORTED_MACOS_VERSION_LIST
 #undef SUPPORT_MACOS_VERSION
 
+    //
+    // NOTE: Releases after Tahoe keep its window server and Dock interfaces, so they take the Tahoe code paths.
+    // Without this, macOS 27 fell back to pre-Sequoia behavior, e.g. a window sub-level query that always returned 0.
+    //
+
+    _workspace_is_macos_version_tahoe = version.majorVersion >= 26;
+
     workspace_context *ws_context = [workspace_context alloc];
     if (!ws_context) return false;
 

@@ -14,6 +14,7 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
 #define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
 #define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
+#define TAB_BAR_GLASS_RESTACK_DELAY (50 * NSEC_PER_MSEC)
 
 //
 // NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
@@ -507,6 +508,9 @@ API_AVAILABLE(macos(26.0))
     enum tab_bar_backdrop backdrop_kind;
     CGFloat backdrop_radius;
     bool below;
+    uint32_t above;
+    int level;
+    int sub_level;
     NSView *track_tint;
     NSGlassEffectView *track;
     NSView *pill_tint;
@@ -703,9 +707,33 @@ API_AVAILABLE(macos(26.0))
     SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, snapshot->sid);
     CFRelease(window_list_ref);
 
-    SLSSetWindowLevel(g_connection, wid, snapshot->level);
-    SLSSetWindowSubLevel(g_connection, wid, snapshot->sub_level);
-    SLSOrderWindow(g_connection, wid, below ? -1 : 1, snapshot->above_wid);
+    above = snapshot->above_wid;
+    level = snapshot->level;
+    sub_level = snapshot->sub_level;
+    [self restack];
+
+    //
+    // NOTE: AppKit commits its own window changes (the order of a panel that was just shown, its frame) to the window
+    // server at the end of the run loop pass, after the stacking above was applied, and that put a backdrop card in
+    // front of the window it belongs below. The stacking is therefore applied again once AppKit has committed.
+    //
+
+    [CATransaction flush];
+    [self retain];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, TAB_BAR_GLASS_RESTACK_DELAY), dispatch_get_main_queue(), ^{
+        [self restack];
+        [self release];
+    });
+}
+
+- (void)restack
+{
+    if (!panel.isVisible) return;
+
+    uint32_t wid = (uint32_t) panel.windowNumber;
+    SLSSetWindowLevel(g_connection, wid, level);
+    SLSSetWindowSubLevel(g_connection, wid, sub_level);
+    SLSOrderWindow(g_connection, wid, below ? -1 : 1, above);
 }
 
 - (void)hide
@@ -715,7 +743,8 @@ API_AVAILABLE(macos(26.0))
 
 - (void)order:(uint32_t)wid
 {
-    if (panel.isVisible) SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, below ? -1 : 1, wid);
+    above = wid;
+    [self restack];
 }
 
 - (void)dealloc

@@ -43,16 +43,32 @@ TEST_FUNC(tab_bar_glass_tint_default,
 
 TEST_FUNC(tab_bar_glass_track_tint_light,
 {
-    struct rgba_color color = rgba_color_from_hex(0xff222222);
+    struct window_manager saved = g_window_manager;
 
-    struct rgba_color dark = tab_bar_glass_track_tint(color, false, false);
-    TEST_CHECK(dark.r == color.r && dark.g == color.g && dark.b == color.b, true);
+    g_window_manager.tab_bar_unfocused_color = rgba_color_from_hex(0xff222222);
+    g_window_manager.tab_bar_unfocused_color_light = rgba_color_from_hex(TAB_BAR_GLASS_LIGHT_TRACK_COLOR);
+    g_window_manager.tab_bar_unfocused_color_custom = false;
+    g_window_manager.tab_bar_unfocused_color_light_custom = false;
+
+    struct rgba_color dark = tab_bar_glass_track_tint(false);
+    TEST_CHECK((int)(dark.r * 255.0f + 0.5f), 0x22);
     TEST_CHECK((int)(dark.a * 100.0f + 0.5f), 40);
 
-    struct rgba_color light = tab_bar_glass_track_tint(color, false, true);
+    struct rgba_color light = tab_bar_glass_track_tint(true);
     TEST_CHECK((int)(light.r * 255.0f + 0.5f), 0xf1);
     TEST_CHECK((int)(light.a * 100.0f + 0.5f), 90);
 
-    struct rgba_color custom = tab_bar_glass_track_tint(color, true, true);
-    TEST_CHECK(custom.p, color.p);
+    g_window_manager.tab_bar_unfocused_color_custom = true;
+    light = tab_bar_glass_track_tint(true);
+    TEST_CHECK((int)(light.r * 255.0f + 0.5f), 0xf1);
+    dark = tab_bar_glass_track_tint(false);
+    TEST_CHECK(dark.p, 0xff222222);
+
+    g_window_manager.tab_bar_unfocused_color_light = rgba_color_from_hex(0xffe0e0e0);
+    g_window_manager.tab_bar_unfocused_color_light_custom = true;
+    light = tab_bar_glass_track_tint(true);
+    TEST_CHECK(light.p, 0xffe0e0e0);
+    TEST_CHECK(light.a == 1.0f, true);
+
+    g_window_manager = saved;
 });

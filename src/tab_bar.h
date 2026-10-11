@@ -3,6 +3,7 @@
 
 #define TAB_BAR_DEFAULT_FONT "system:12"
 #define TAB_BAR_SYSTEM_FONT  "system"
+#define TAB_BAR_GLASS_LIGHT_TRACK_COLOR 0xfff1f1f1
 
 enum tab_bar_style
 {
@@ -43,7 +44,7 @@ struct tab_bar_hit
 bool tab_bar_set_font(char *font);
 bool tab_bar_parse_style(char *name, enum tab_bar_style *style);
 struct rgba_color tab_bar_glass_tint(struct rgba_color color, bool custom, float alpha);
-struct rgba_color tab_bar_glass_track_tint(struct rgba_color color, bool custom, bool light);
+struct rgba_color tab_bar_glass_track_tint(bool light);
 void tab_bar_update_appearance(void);
 bool tab_bar_is_enabled(void);
 CFStringRef tab_bar_copy_title(uint32_t wid);

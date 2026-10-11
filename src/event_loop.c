@@ -12,6 +12,8 @@ volatile bool __pending_window_focus;
 volatile bool __pending_gesture;
 volatile uint64_t __last_gesture_time;
 volatile uint64_t __last_cmd_tab_time;
+volatile uint32_t __pending_mouse_moved;
+volatile uint32_t __pending_mouse_dragged;
 
 static void update_window_notifications(void)
 {
@@ -1186,6 +1188,13 @@ out:
 
 static EVENT_HANDLER(MOUSE_DRAGGED)
 {
+    //
+    // NOTE: Only the most recent drag event matters, because the new frame is computed from the
+    // location where the drag started. Skip this one if a newer one is already queued.
+    //
+
+    if (__atomic_sub_fetch(&__pending_mouse_dragged, 1, __ATOMIC_ACQ_REL) > 0) goto out;
+
     if (mission_control_is_active()) goto out;
     if (!g_mouse_state.window)       goto out;
 
@@ -1250,6 +1259,8 @@ out:
 
 static EVENT_HANDLER(MOUSE_MOVED)
 {
+    if (__atomic_sub_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL) > 0) goto out;
+
     if (g_window_manager.ffm_mode == FFM_DISABLED) goto out;
     if (mission_control_is_active())               goto out;
     if (g_mouse_state.ffm_window_id)               goto out;

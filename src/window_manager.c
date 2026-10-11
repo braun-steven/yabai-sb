@@ -464,6 +464,8 @@ enum window_op_error window_manager_resize_window_relative(struct window_manager
 
 void window_manager_move_window(struct window *window, float x, float y)
 {
+    window->frame_request.origin = CGPointMake(x, y);
+
     CGPoint position = CGPointMake(x, y);
     CFTypeRef position_ref = AXValueCreate(kAXValueTypeCGPoint, (void *) &position);
     if (!position_ref) return;
@@ -474,6 +476,8 @@ void window_manager_move_window(struct window *window, float x, float y)
 
 void window_manager_resize_window(struct window *window, float width, float height)
 {
+    window->frame_request.size = CGSizeMake(width, height);
+
     CGSize size = CGSizeMake(width, height);
     CFTypeRef size_ref = AXValueCreate(kAXValueTypeCGSize, (void *) &size);
     if (!size_ref) return;
@@ -748,9 +752,7 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
     });
 
     TIME_BODY(window_manager_animate_window_list_async___set_frame, {
-    for (int i = 0; i < window_count; ++i) {
-        window_manager_set_window_frame(context->animation_list[i].window, context->animation_list[i].x, context->animation_list[i].y, context->animation_list[i].w, context->animation_list[i].h);
-    }
+    window_manager_set_window_frames(window_list, window_count);
     });
 
     CVDisplayLinkRef link;
@@ -760,22 +762,71 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
     CVDisplayLinkStart(link);
 }
 
+//
+// NOTE(asmvik): Attempting to check the window frame cache to prevent unnecessary movement and resize calls to the AX API
+// is not reliable because it is possible to perform operations that should be applied, at a higher rate than the AX API events
+// are received, causing our cache to become out of date and incorrectly guard against some changes that **should** be applied.
+// This causes the window layout to **not** be modified the way we expect.
+//
+// A possible solution is to use the faster CG window notifications, as they are **a lot** more responsive, and can be used to
+// track changes to the window frame in real-time without delay.
+//
+// NOTE: We therefore compare against the bounds of the window server instead, which change as soon as the window is moved,
+// and against the frame we requested last. The window is only skipped when both match the target. If an application has not
+// yet applied a previous request, the request differs from the target and the frame is set again.
+//
+
+static inline bool window_frame_is_close(CGRect frame, float x, float y, float w, float h)
+{
+    return fabsf((float) frame.origin.x    - x) < 1.0f &&
+           fabsf((float) frame.origin.y    - y) < 1.0f &&
+           fabsf((float) frame.size.width  - w) < 1.0f &&
+           fabsf((float) frame.size.height - h) < 1.0f;
+}
+
+static bool window_manager_window_frame_needs_update(struct window *window, float x, float y, float w, float h)
+{
+    if (!window_frame_is_close(window->frame_request, x, y, w, h)) return true;
+
+    CGRect bounds;
+    if (SLSGetWindowBounds(g_connection, window->id, &bounds) != kCGErrorSuccess) return true;
+
+    return !window_frame_is_close(bounds, x, y, w, h);
+}
+
+static int window_manager_filter_window_frames(struct window_capture *window_list, int window_count)
+{
+    int update_count = 0;
+
+    for (int i = 0; i < window_count; ++i) {
+        struct window_capture capture = window_list[i];
+        if (window_manager_window_frame_needs_update(capture.window, capture.x, capture.y, capture.w, capture.h)) {
+            window_list[update_count++] = capture;
+        }
+    }
+
+    return update_count;
+}
+
 void window_manager_animate_window_list(struct window_capture *window_list, int window_count)
 {
     TIME_FUNCTION;
 
+    window_count = window_manager_filter_window_frames(window_list, window_count);
+    if (!window_count) return;
+
     if (g_window_manager.window_animation_duration) {
         window_manager_animate_window_list_async(window_list, window_count);
     } else {
-        for (int i = 0; i < window_count; ++i) {
-            window_manager_set_window_frame(window_list[i].window, window_list[i].x, window_list[i].y, window_list[i].w, window_list[i].h);
-        }
+        window_manager_set_window_frames(window_list, window_count);
     }
 }
 
 void window_manager_animate_window(struct window_capture capture)
 {
     TIME_FUNCTION;
+
+    if (!window_manager_window_frame_needs_update(capture.window, capture.x, capture.y, capture.w, capture.h)) return;
 
     if (g_window_manager.window_animation_duration) {
         window_manager_animate_window_list_async(&capture, 1);
@@ -784,39 +835,148 @@ void window_manager_animate_window(struct window_capture capture)
     }
 }
 
+static AXError window_manager_set_window_frame_ax(AXUIElementRef ref, CGPoint position, CGSize size)
+{
+    AXError result = kAXErrorSuccess;
+
+    CFTypeRef position_ref = AXValueCreate(kAXValueTypeCGPoint, (void *) &position);
+    CFTypeRef size_ref = AXValueCreate(kAXValueTypeCGSize, (void *) &size);
+
+    //
+    // NOTE: An application that does not respond makes every call wait for the messaging timeout,
+    // so the remaining calls are skipped once one of them could not complete.
+    //
+
+    // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
+    if (size_ref) result = AXUIElementSetAttributeValue(ref, kAXSizeAttribute, size_ref);
+
+    if (position_ref && result != kAXErrorCannotComplete) {
+        result = AXUIElementSetAttributeValue(ref, kAXPositionAttribute, position_ref);
+    }
+
+    // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
+    if (size_ref && result != kAXErrorCannotComplete) {
+        result = AXUIElementSetAttributeValue(ref, kAXSizeAttribute, size_ref);
+    }
+
+    if (position_ref) CFRelease(position_ref);
+    if (size_ref) CFRelease(size_ref);
+
+    return result;
+}
+
 void window_manager_set_window_frame(struct window *window, float x, float y, float width, float height)
 {
-    //
-    // NOTE(asmvik): Attempting to check the window frame cache to prevent unnecessary movement and resize calls to the AX API
-    // is not reliable because it is possible to perform operations that should be applied, at a higher rate than the AX API events
-    // are received, causing our cache to become out of date and incorrectly guard against some changes that **should** be applied.
-    // This causes the window layout to **not** be modified the way we expect.
-    //
-    // A possible solution is to use the faster CG window notifications, as they are **a lot** more responsive, and can be used to
-    // track changes to the window frame in real-time without delay.
-    //
+    window->frame_request = CGRectMake(x, y, width, height);
 
     AX_ENHANCED_UI_WORKAROUND(window->application->ref, {
-        CGPoint position = CGPointMake(x, y);
-        CFTypeRef position_ref = AXValueCreate(kAXValueTypeCGPoint, (void *) &position);
-
-        CGSize size = CGSizeMake(width, height);
-        CFTypeRef size_ref = AXValueCreate(kAXValueTypeCGSize, (void *) &size);
-
-        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
-        if (size_ref) AXUIElementSetAttributeValue(window->ref, kAXSizeAttribute, size_ref);
-
-        if (position_ref) {
-            AXUIElementSetAttributeValue(window->ref, kAXPositionAttribute, position_ref);
-            CFRelease(position_ref);
-        }
-
-        // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
-        if (size_ref) {
-            AXUIElementSetAttributeValue(window->ref, kAXSizeAttribute, size_ref);
-            CFRelease(size_ref);
-        }
+        window_manager_set_window_frame_ax(window->ref, CGPointMake(x, y), CGSizeMake(width, height));
     });
+}
+
+//
+// NOTE: The frames of a batch are set per application. AXEnhancedUserInterface is turned off once for
+// each application instead of once for each window, and the applications are handled concurrently, so
+// that an application that is slow to respond does not delay the windows of all other applications.
+// The groups are built on the event loop thread; the worker threads only read the AX references of their
+// own group and write its result, and must not touch the ts arena, tables or other global state.
+//
+
+int window_manager_group_window_frames(struct window_capture *window_list, int window_count, struct window_frame_group *group_list, struct window_frame_request *request_list)
+{
+    int group_count = 0;
+    int *group_index = ts_alloc_list(int, window_count);
+
+    for (int i = 0; i < window_count; ++i) {
+        struct application *application = window_list[i].window->application;
+
+        int group = 0;
+        while (group < group_count && group_list[group].application != application) ++group;
+
+        if (group == group_count) {
+            group_list[group_count++] = (struct window_frame_group) { .application = application, .error = kAXErrorSuccess };
+        }
+
+        group_index[i] = group;
+        ++group_list[group].count;
+    }
+
+    int offset = 0;
+    for (int i = 0; i < group_count; ++i) {
+        group_list[i].list = request_list + offset;
+        offset += group_list[i].count;
+        group_list[i].count = 0;
+    }
+
+    for (int i = 0; i < window_count; ++i) {
+        struct window_frame_group *group = &group_list[group_index[i]];
+        group->list[group->count++] = (struct window_frame_request) {
+            .ref = window_list[i].window->ref,
+            .position = CGPointMake(window_list[i].x, window_list[i].y),
+            .size = CGSizeMake(window_list[i].w, window_list[i].h)
+        };
+    }
+
+    return group_count;
+}
+
+static void window_manager_apply_window_frame_group(struct window_frame_group *group)
+{
+    AXUIElementRef application_ref = group->application->ref;
+
+    CFTypeRef value = NULL;
+    AXError result = AXUIElementCopyAttributeValue(application_ref, kAXEnhancedUserInterface, &value);
+    if (result == kAXErrorCannotComplete) {
+        group->error = result;
+        return;
+    }
+
+    bool eui = false;
+    if (value) {
+        eui = CFBooleanGetValue(value);
+        CFRelease(value);
+    }
+
+    if (eui) AXUIElementSetAttributeValue(application_ref, kAXEnhancedUserInterface, kCFBooleanFalse);
+
+    for (int i = 0; i < group->count; ++i) {
+        result = window_manager_set_window_frame_ax(group->list[i].ref, group->list[i].position, group->list[i].size);
+        if (result == kAXErrorCannotComplete) {
+            group->error = result;
+            break;
+        }
+    }
+
+    if (eui) AXUIElementSetAttributeValue(application_ref, kAXEnhancedUserInterface, kCFBooleanTrue);
+}
+
+void window_manager_set_window_frames(struct window_capture *window_list, int window_count)
+{
+    TIME_FUNCTION;
+
+    if (window_count <= 0) return;
+
+    for (int i = 0; i < window_count; ++i) {
+        window_list[i].window->frame_request = CGRectMake(window_list[i].x, window_list[i].y, window_list[i].w, window_list[i].h);
+    }
+
+    struct window_frame_group *group_list = ts_alloc_list(struct window_frame_group, window_count);
+    struct window_frame_request *request_list = ts_alloc_list(struct window_frame_request, window_count);
+    int group_count = window_manager_group_window_frames(window_list, window_count, group_list, request_list);
+
+    if (group_count == 1) {
+        window_manager_apply_window_frame_group(&group_list[0]);
+    } else {
+        dispatch_apply(group_count, DISPATCH_APPLY_AUTO, ^(size_t i) {
+            window_manager_apply_window_frame_group(&group_list[i]);
+        });
+    }
+
+    for (int i = 0; i < group_count; ++i) {
+        if (group_list[i].error == kAXErrorCannotComplete) {
+            debug("%s: %s did not respond, %d window(s) may not have been moved\n", __FUNCTION__, group_list[i].application->name, group_list[i].count);
+        }
+    }
 }
 
 void window_manager_set_purify_mode(struct window_manager *wm, enum purify_mode mode)

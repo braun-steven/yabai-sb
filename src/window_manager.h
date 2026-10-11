@@ -79,6 +79,21 @@ struct scratchpad
     struct window *window;
 };
 
+struct window_frame_request
+{
+    AXUIElementRef ref;
+    CGPoint position;
+    CGSize size;
+};
+
+struct window_frame_group
+{
+    struct application *application;
+    struct window_frame_request *list;
+    int count;
+    AXError error;
+};
+
 struct window_manager
 {
     AXUIElementRef system_element;
@@ -154,6 +169,8 @@ enum window_op_error window_manager_adjust_window_ratio(struct window_manager *w
 void window_manager_animate_window(struct window_capture capture);
 void window_manager_animate_window_list(struct window_capture *window_list, int window_count);
 void window_manager_set_window_frame(struct window *window, float x, float y, float width, float height);
+int window_manager_group_window_frames(struct window_capture *window_list, int window_count, struct window_frame_group *group_list, struct window_frame_request *request_list);
+void window_manager_set_window_frames(struct window_capture *window_list, int window_count);
 int window_manager_find_rank_of_window_in_list(uint32_t wid, uint32_t *window_list, int window_count);
 struct window *window_manager_find_window_on_space_by_rank_filtering_window(struct window_manager *wm, uint64_t sid, int rank, uint32_t filter_wid);
 struct window *window_manager_find_window_at_point_filtering_window(struct window_manager *wm, CGPoint point, uint32_t filter_wid);

@@ -16,6 +16,7 @@ typedef TEST_SIG(function);
 #include "auto_padding.c"
 #include "tree.c"
 #include "tab_bar.c"
+#include "window_frame.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -51,7 +52,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tab_bar_style_parse)                            \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \
-    TEST_ENTRY(tab_bar_glass_tint_default)
+    TEST_ENTRY(tab_bar_glass_tint_default)                     \
+    TEST_ENTRY(window_frame_close)                             \
+    TEST_ENTRY(window_frame_group_by_application)
 
 static struct {
     char *name;
@@ -65,6 +68,8 @@ int main(int argc, char **argv)
     int succeeded = 0;
     int failed = 0;
     int total = array_count(tests);
+    if (!ts_init(MEGABYTES(1))) return EXIT_FAILURE;
+
     printf("\e[1;34m -- Running %d tests\e[m\n\n", total);
 
     uint64_t cpu_freq  = read_cpu_freq();

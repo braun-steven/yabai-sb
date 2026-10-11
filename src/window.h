@@ -93,6 +93,7 @@ struct window
     CFStringRef subrole;
     CFStringRef title;
     CGRect frame;
+    CGRect frame_request;
     CGRect windowed_frame;
     bool is_root;
     bool is_eligible;

@@ -1,6 +1,8 @@
 extern struct event_loop g_event_loop;
 extern volatile bool __pending_gesture;
 extern volatile uint64_t __last_gesture_time;
+extern volatile uint32_t __pending_mouse_moved;
+extern volatile uint32_t __pending_mouse_dragged;
 
 static inline uint8_t mouse_mod_from_cgflags(uint32_t cgflags)
 {
@@ -73,12 +75,14 @@ static MOUSE_HANDLER(mouse_handler)
         if (type == kCGEventLeftMouseDragged && mouse_state->consume_tab_click) return NULL;
 
         mouse_state->drag_detected = true;
+        __atomic_add_fetch(&__pending_mouse_dragged, 1, __ATOMIC_ACQ_REL);
         event_loop_post(&g_event_loop, MOUSE_DRAGGED, (void *) CFRetain(event), 0);
     } break;
     case kCGEventMouseMoved: {
         uint8_t mod = mouse_mod_from_cgflags(CGEventGetFlags(event));
         if (mod == mouse_state->modifier) return event;
 
+        __atomic_add_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL);
         event_loop_post(&g_event_loop, MOUSE_MOVED, (void *) CFRetain(event), mod);
     } break;
     case /* kCGSEventDockControl */ 30: {

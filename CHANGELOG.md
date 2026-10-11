@@ -28,6 +28,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - *space --equalize* is the same as *space --balance*
 - Toggling a scratchpad that is on another space waits for it to arrive on the active space before focusing it, so macOS no longer switches back to the space it came from
 - Fixed scripting-addition *add_space* pattern for macOS 26.6 Apple Silicon arm64 [#2799](https://github.com/asmvik/yabai/issues/2799)
+- Layout changes only move and resize windows whose frame differs from the target (checked against the window server), turn off *AXEnhancedUserInterface* once per application instead of once per window, and set the frames of different applications concurrently, so an application that is slow to respond no longer delays the others
+- Queued mouse-moved and mouse-dragged events are coalesced, so only the most recent one is handled
 - Fixed a possible double free when macOS 15+ and the accessibility API both report that a window was destroyed, and a stack overflow with more than 1024 windows
 - Waiting for native-fullscreen transitions, window sub-level queries and reading `yabai -m` messages are bounded, so they can no longer hang the window manager
 - Fixed a leak and a long stall in the window discovery fallback for applications that do not respond, and overflows of the scripting-addition and JankyBorders message buffers with very many windows

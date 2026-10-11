@@ -48,8 +48,17 @@ bool application_observe(struct application *application)
             if (result == kAXErrorSuccess || result == kAXErrorNotificationAlreadyRegistered) {
                 application->notification |= 1 << i;
             } else {
-                if (result == kAXErrorCannotComplete) application->ax_retry = true;
                 debug("%s: error '%s' for application '%s' and notification '%s'\n", __FUNCTION__, ax_error_str[-result], application->name, ax_application_notification_str[i]);
+
+                //
+                // NOTE: The application did not respond within the accessibility timeout. Every other
+                // notification would wait for the timeout as well, and the attempt has failed already.
+                //
+
+                if (result == kAXErrorCannotComplete) {
+                    application->ax_retry = true;
+                    break;
+                }
             }
         }
 

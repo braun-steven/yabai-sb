@@ -341,11 +341,11 @@ Height of the tab bar in points. Default is 24.
 .RS 4
 Look of the tab bar. Default is \fIglass\fP.
 .br
-\fIglass\fP draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track, and the active tab is a raised pill.
+\fIglass\fP draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track in the unfocused color, and the active tab is a pill in the focused or inactive color.
 .br
-It follows the system appearance (light, dark and increased contrast) and dims the tabs of containers that do not hold the focused window.
+\fIi3\fP draws flat tabs side by side.
 .br
-\fIi3\fP draws flat tabs in the \fBtab_bar_\(rs*_color\fP colors.
+Both styles use the \fBtab_bar_\(rs*_color\fP colors.
 .RE
 .sp
 \fBtab_bar_font\fP [\fI<family>:<size>\fP]
@@ -363,8 +363,6 @@ Tabs that hold a nested container show only the title.
 \fBtab_bar_focused_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_focused_text_color\fP [\fI0xAARRGGBB\fP]
 .RS 4
 Background and text color of the active tab of the tabbed container that holds the focused window.
-.br
-The \fBtab_bar_\(rs*_color\fP options only apply to \fBtab_bar_style\fP \fIi3\fP.
 .RE
 .sp
 \fBtab_bar_inactive_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_inactive_text_color\fP [\fI0xAARRGGBB\fP]

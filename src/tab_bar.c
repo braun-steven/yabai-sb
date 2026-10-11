@@ -7,10 +7,11 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_ICON_SCALE 0.7f
 #define TAB_BAR_ICON_SPACING 5.0f
 #define TAB_BAR_ICON_PIXEL_SIZE 64.0f
-#define TAB_BAR_NATIVE_ICON_SIZE 16.0f
-#define TAB_BAR_NATIVE_ICON_SPACING 6.0f
+#define TAB_BAR_GLASS_ICON_SIZE 16.0f
+#define TAB_BAR_GLASS_ICON_SPACING 6.0f
 #define TAB_BAR_GLASS_TRACK_MARGIN 2.0f
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
+#define TAB_BAR_GLASS_SHADOW_ALPHA 0.3f
 
 //
 // NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
@@ -28,29 +29,6 @@ static struct tab_bar **tab_bar_list;
 static pthread_mutex_t tab_bar_hit_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct tab_bar_hit tab_bar_hit_list[TAB_BAR_MAX_HIT_COUNT];
 static int tab_bar_hit_count;
-
-//
-// NOTE: System colors for the native styles, resolved for the current appearance (light, dark,
-// increased contrast) and rebuilt when it changes. Only touched from the event loop thread.
-//
-
-struct tab_bar_palette
-{
-    bool valid;
-    bool dark;
-    bool high_contrast;
-    struct rgba_color track;
-    struct rgba_color selected;
-    struct rgba_color selected_dim;
-    struct rgba_color separator;
-    struct rgba_color outline;
-    struct rgba_color shadow;
-    struct rgba_color text;
-    struct rgba_color text_secondary;
-    struct rgba_color text_dim;
-};
-
-static struct tab_bar_palette tab_bar_palette;
 
 bool tab_bar_set_font(char *font)
 {
@@ -148,92 +126,6 @@ static inline CGColorRef tab_bar_cgcolor(struct rgba_color color)
     return CGColorCreateSRGB(color.r, color.g, color.b, color.a);
 }
 
-static inline struct rgba_color tab_bar_rgba(float r, float g, float b, float a)
-{
-    return (struct rgba_color) { .r = r, .g = g, .b = b, .a = a };
-}
-
-static inline struct rgba_color tab_bar_mix(struct rgba_color a, struct rgba_color b, float t)
-{
-    return tab_bar_rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, a.a + (b.a - a.a) * t);
-}
-
-static struct rgba_color tab_bar_resolve_color(NSColor *color)
-{
-    NSColor *srgb = [color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-    if (!srgb) return tab_bar_rgba(0.0f, 0.0f, 0.0f, 1.0f);
-    return tab_bar_rgba([srgb redComponent], [srgb greenComponent], [srgb blueComponent], [srgb alphaComponent]);
-}
-
-static bool tab_bar_system_is_dark(void)
-{
-    CFPreferencesAppSynchronize(kCFPreferencesAnyApplication);
-    CFStringRef style = CFPreferencesCopyAppValue(CFSTR("AppleInterfaceStyle"), kCFPreferencesAnyApplication);
-    if (!style) return false;
-
-    bool result = CFGetTypeID(style) == CFStringGetTypeID() && CFStringCompare(style, CFSTR("Dark"), kCFCompareCaseInsensitive) == kCFCompareEqualTo;
-    CFRelease(style);
-    return result;
-}
-
-//
-// NOTE: The colors are derived from the semantic system colors, the same ones AppKit uses for window tabs.
-// The appearance is read from the global defaults instead of NSApp, because NSApp updates its effective
-// appearance asynchronously and may still report the old one when the change notification arrives.
-//
-
-static void tab_bar_build_palette(struct tab_bar_palette *palette, bool dark, bool high_contrast)
-{
-    @autoreleasepool {
-        palette->dark = dark;
-        palette->high_contrast = high_contrast;
-
-        NSAppearanceName name = palette->dark
-                              ? (palette->high_contrast ? NSAppearanceNameAccessibilityHighContrastDarkAqua : NSAppearanceNameDarkAqua)
-                              : (palette->high_contrast ? NSAppearanceNameAccessibilityHighContrastAqua : NSAppearanceNameAqua);
-
-        __block struct rgba_color window, control, separator, label, secondary, tertiary;
-        [[NSAppearance appearanceNamed:name] performAsCurrentDrawingAppearance:^{
-            window    = tab_bar_resolve_color([NSColor windowBackgroundColor]);
-            control   = tab_bar_resolve_color([NSColor controlBackgroundColor]);
-            separator = tab_bar_resolve_color([NSColor separatorColor]);
-            label     = tab_bar_resolve_color([NSColor labelColor]);
-            secondary = tab_bar_resolve_color([NSColor secondaryLabelColor]);
-            tertiary  = tab_bar_resolve_color([NSColor tertiaryLabelColor]);
-        }];
-
-        struct rgba_color black = tab_bar_rgba(0.0f, 0.0f, 0.0f, 1.0f);
-        struct rgba_color white = tab_bar_rgba(1.0f, 1.0f, 1.0f, 1.0f);
-
-        if (palette->dark) {
-            palette->track    = tab_bar_mix(window, black, 0.30f);
-            palette->selected = tab_bar_mix(window, white, 0.12f);
-            palette->shadow   = tab_bar_rgba(0.0f, 0.0f, 0.0f, 0.40f);
-        } else {
-            palette->track    = tab_bar_mix(window, black, 0.07f);
-            palette->selected = control;
-            palette->shadow   = tab_bar_rgba(0.0f, 0.0f, 0.0f, 0.15f);
-        }
-
-        palette->track.a = 1.0f;
-        palette->selected.a = 1.0f;
-        palette->selected_dim = tab_bar_mix(palette->selected, palette->track, 0.5f);
-        palette->separator = separator;
-        palette->outline = palette->high_contrast ? label : separator;
-        palette->text = label;
-        palette->text_secondary = secondary;
-        palette->text_dim = tertiary;
-        palette->valid = true;
-    }
-}
-
-void tab_bar_update_palette(void)
-{
-    @autoreleasepool {
-        tab_bar_build_palette(&tab_bar_palette, tab_bar_system_is_dark(), [[NSWorkspace sharedWorkspace] accessibilityDisplayShouldIncreaseContrast]);
-    }
-}
-
 static CTLineRef tab_bar_create_line(CFStringRef text, CFDictionaryRef attributes)
 {
     CFAttributedStringRef string = CFAttributedStringCreate(NULL, text, attributes);
@@ -252,10 +144,10 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageR
     double max_width = rect.size.width - 2.0f * TAB_BAR_TITLE_PADDING;
     if (max_width <= 0) return;
 
-    bool native = g_window_manager.tab_bar_style != TAB_BAR_STYLE_I3;
-    CGFloat icon_spacing = native ? TAB_BAR_NATIVE_ICON_SPACING : TAB_BAR_ICON_SPACING;
-    CGFloat icon_size = native
-                      ? (int) min(TAB_BAR_NATIVE_ICON_SIZE, rect.size.height - 4.0f)
+    bool glass = g_window_manager.tab_bar_style == TAB_BAR_STYLE_GLASS;
+    CGFloat icon_spacing = glass ? TAB_BAR_GLASS_ICON_SPACING : TAB_BAR_ICON_SPACING;
+    CGFloat icon_size = glass
+                      ? (int) min(TAB_BAR_GLASS_ICON_SIZE, rect.size.height - 4.0f)
                       : (int)(rect.size.height * TAB_BAR_ICON_SCALE);
     if (!icon || icon_size <= 0 || icon_size > max_width) icon = NULL;
 
@@ -306,11 +198,11 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageR
 
     if (line) {
         //
-        // NOTE: The native styles center the cap height like AppKit controls do, which puts the
+        // NOTE: The glass style centers the cap height like AppKit controls do, which puts the
         // title on the optical center of the tab instead of the center of ascent and descent.
         //
 
-        CGFloat y = native
+        CGFloat y = glass
                   ? rect.origin.y + (rect.size.height - CTFontGetCapHeight(g_window_manager.tab_bar_font)) * 0.5f
                   : rect.origin.y + (rect.size.height - (ascent + descent)) * 0.5f + descent;
 
@@ -373,23 +265,14 @@ static inline void tab_bar_fill(CGContextRef context, CGRect rect, struct rgba_c
     CGContextFillRect(context, rect);
 }
 
-static void tab_bar_fill_rounded(CGContextRef context, CGRect rect, CGFloat radius, struct rgba_color fill, struct rgba_color *stroke)
+static void tab_bar_fill_rounded(CGContextRef context, CGRect rect, CGFloat radius, struct rgba_color color)
 {
     radius = min(radius, min(rect.size.width, rect.size.height) * 0.5f);
     CGPathRef path = CGPathCreateWithRoundedRect(rect, radius, radius, NULL);
 
     CGContextAddPath(context, path);
-    CGContextSetRGBFillColor(context, fill.r, fill.g, fill.b, fill.a);
+    CGContextSetRGBFillColor(context, color.r, color.g, color.b, color.a);
     CGContextFillPath(context);
-
-    if (stroke) {
-        CGPathRef inset = CGPathCreateWithRoundedRect(CGRectInset(rect, 0.5f, 0.5f), radius - 0.5f, radius - 0.5f, NULL);
-        CGContextAddPath(context, inset);
-        CGContextSetRGBStrokeColor(context, stroke->r, stroke->g, stroke->b, stroke->a);
-        CGContextSetLineWidth(context, 1.0f);
-        CGContextStrokePath(context);
-        CGPathRelease(inset);
-    }
 
     CGPathRelease(path);
 }
@@ -402,16 +285,28 @@ static inline CGRect tab_bar_slot(CGRect area, int index, int count)
     return (CGRect) {{x0, area.origin.y}, {x1 - x0, area.size.height}};
 }
 
-static inline bool tab_bar_entry_is_selected(struct tab_bar_entry *entry)
+static void tab_bar_state_colors(enum tab_bar_state state, struct rgba_color *background, struct rgba_color *text)
 {
-    return entry->state != TAB_BAR_UNFOCUSED;
+    switch (state) {
+    case TAB_BAR_FOCUSED: {
+        *background = g_window_manager.tab_bar_focused_color;
+        *text = g_window_manager.tab_bar_focused_text_color;
+    } break;
+    case TAB_BAR_INACTIVE: {
+        *background = g_window_manager.tab_bar_inactive_color;
+        *text = g_window_manager.tab_bar_inactive_text_color;
+    } break;
+    case TAB_BAR_UNFOCUSED: {
+        *background = g_window_manager.tab_bar_unfocused_color;
+        *text = g_window_manager.tab_bar_unfocused_text_color;
+    } break;
+    }
 }
 
-static struct rgba_color tab_bar_native_text_color(struct tab_bar_entry *entry, bool has_focus)
+static inline struct rgba_color tab_bar_separator_color(struct rgba_color text)
 {
-    struct tab_bar_palette *palette = &tab_bar_palette;
-    if (!has_focus) return tab_bar_entry_is_selected(entry) ? palette->text_secondary : palette->text_dim;
-    return tab_bar_entry_is_selected(entry) ? palette->text : palette->text_secondary;
+    text.a *= 0.25f;
+    return text;
 }
 
 static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_entry *entry_list, int entry_count)
@@ -419,28 +314,13 @@ static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_
     for (int i = 0; i < entry_count; ++i) {
         struct rgba_color background;
         struct rgba_color text;
-
-        switch (entry_list[i].state) {
-        case TAB_BAR_FOCUSED: {
-            background = g_window_manager.tab_bar_focused_color;
-            text = g_window_manager.tab_bar_focused_text_color;
-        } break;
-        case TAB_BAR_INACTIVE: {
-            background = g_window_manager.tab_bar_inactive_color;
-            text = g_window_manager.tab_bar_inactive_text_color;
-        } break;
-        case TAB_BAR_UNFOCUSED: {
-            background = g_window_manager.tab_bar_unfocused_color;
-            text = g_window_manager.tab_bar_unfocused_text_color;
-        } break;
-        }
+        tab_bar_state_colors(entry_list[i].state, &background, &text);
 
         CGRect tab = tab_bar_slot(bounds, i, entry_count);
         tab_bar_fill(context, tab, background);
 
         if (i > 0) {
-            CGContextSetRGBFillColor(context, text.r, text.g, text.b, text.a * 0.25f);
-            CGContextFillRect(context, (CGRect) {{tab.origin.x, 0}, {1, bounds.size.height}});
+            tab_bar_fill(context, (CGRect) {{tab.origin.x, 0}, {1, bounds.size.height}}, tab_bar_separator_color(text));
         }
 
         if (entry_list[i].title || entry_list[i].icon) {
@@ -450,61 +330,62 @@ static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_
 }
 
 //
-// NOTE: The Liquid Glass window tabs of macOS Tahoe: a recessed capsule holds the tabs, the selected
-// tab is a raised pill with a soft shadow, and short separators divide the tabs that are not selected.
+// NOTE: The Liquid Glass window tabs of macOS Tahoe: a capsule in the unfocused color holds the tabs, the
+// active tab is a pill in the focused or inactive color, raised by a soft shadow while its container holds
+// the focused window, and short separators divide the tabs that are not active.
 //
 
-static void tab_bar_draw_glass(CGContextRef context, CGRect bounds, bool has_focus, struct tab_bar_entry *entry_list, int entry_count)
+static void tab_bar_draw_glass(CGContextRef context, CGRect bounds, struct tab_bar_entry *entry_list, int entry_count)
 {
-    struct tab_bar_palette *palette = &tab_bar_palette;
-    struct rgba_color *outline = palette->high_contrast ? &palette->outline : NULL;
-
     CGRect track = bounds;
     track.origin.y += TAB_BAR_GLASS_TRACK_MARGIN;
     track.size.height -= TAB_BAR_GLASS_TRACK_MARGIN;
     if (track.size.height <= 2.0f * TAB_BAR_GLASS_PILL_INSET) track = bounds;
 
-    tab_bar_fill_rounded(context, track, track.size.height * 0.5f, palette->track, outline);
+    tab_bar_fill_rounded(context, track, track.size.height * 0.5f, g_window_manager.tab_bar_unfocused_color);
 
     CGRect inner = CGRectInset(track, TAB_BAR_GLASS_PILL_INSET, TAB_BAR_GLASS_PILL_INSET);
     CGFloat separator_height = (int)(inner.size.height * 0.5f);
+    struct rgba_color separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
 
     for (int i = 0; i < entry_count; ++i) {
         struct tab_bar_entry *entry = &entry_list[i];
         CGRect tab = tab_bar_slot(inner, i, entry_count);
 
-        if (tab_bar_entry_is_selected(entry)) {
-            CGColorRef shadow = tab_bar_cgcolor(palette->shadow);
+        struct rgba_color background;
+        struct rgba_color text;
+        tab_bar_state_colors(entry->state, &background, &text);
+
+        if (entry->state != TAB_BAR_UNFOCUSED) {
+            CGColorRef shadow = CGColorCreateSRGB(0.0f, 0.0f, 0.0f, TAB_BAR_GLASS_SHADOW_ALPHA);
             CGContextSaveGState(context);
-            CGContextSetShadowWithColor(context, CGSizeMake(0.0f, -1.0f), 3.0f, has_focus ? shadow : NULL);
-            tab_bar_fill_rounded(context, tab, tab.size.height * 0.5f, has_focus ? palette->selected : palette->selected_dim, outline);
+            CGContextSetShadowWithColor(context, CGSizeMake(0.0f, -1.0f), 3.0f, entry->state == TAB_BAR_FOCUSED ? shadow : NULL);
+            tab_bar_fill_rounded(context, tab, tab.size.height * 0.5f, background);
             CGContextRestoreGState(context);
             CGColorRelease(shadow);
         }
 
-        if (i > 0 && !tab_bar_entry_is_selected(entry) && !tab_bar_entry_is_selected(&entry_list[i - 1])) {
+        if (i > 0 && entry->state == TAB_BAR_UNFOCUSED && entry_list[i - 1].state == TAB_BAR_UNFOCUSED) {
             CGFloat y = (int)(inner.origin.y + (inner.size.height - separator_height) * 0.5f);
-            tab_bar_fill(context, (CGRect) {{tab.origin.x, y}, {1, separator_height}}, palette->separator);
+            tab_bar_fill(context, (CGRect) {{tab.origin.x, y}, {1, separator_height}}, separator);
         }
 
         if (entry->title || entry->icon) {
-            tab_bar_draw_title(context, entry->title, entry->icon, tab, tab_bar_native_text_color(entry, has_focus));
+            tab_bar_draw_title(context, entry->title, entry->icon, tab, text);
         }
     }
 }
 
-static void tab_bar_draw(struct tab_bar *bar, bool has_focus, struct tab_bar_entry *entry_list, int entry_count)
+static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, int entry_count)
 {
     CGContextRef context = bar->context;
     CGRect bounds = {{0, 0}, bar->frame.size};
-
-    if (!tab_bar_palette.valid) tab_bar_update_palette();
 
     SLSDisableUpdate(g_connection);
     CGContextClearRect(context, bounds);
 
     switch (g_window_manager.tab_bar_style) {
-    case TAB_BAR_STYLE_GLASS: tab_bar_draw_glass(context, bounds, has_focus, entry_list, entry_count); break;
+    case TAB_BAR_STYLE_GLASS: tab_bar_draw_glass(context, bounds, entry_list, entry_count); break;
     case TAB_BAR_STYLE_I3:
     case TAB_BAR_STYLE_COUNT: tab_bar_draw_i3(context, bounds, entry_list, entry_count); break;
     }
@@ -538,7 +419,7 @@ static void tab_bar_create(struct tab_bar *bar, CGRect frame)
 // sits above, draws the entries and orders it right above that window. Titles stay owned by the caller.
 //
 
-void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, bool has_focus, struct tab_bar_entry *entry_list, int entry_count)
+void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
 {
     if (entry_count > TAB_BAR_MAX_ENTRY_COUNT) entry_count = TAB_BAR_MAX_ENTRY_COUNT;
 
@@ -570,7 +451,7 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, bool 
         bar->entry_list[i] = entry_list[i].focus_wid;
     }
 
-    tab_bar_draw(bar, has_focus, entry_list, entry_count);
+    tab_bar_draw(bar, entry_list, entry_count);
 
     SLSSetWindowLevel(g_connection, bar->id, window_level(above_wid));
     SLSSetWindowSubLevel(g_connection, bar->id, window_sub_level(above_wid));

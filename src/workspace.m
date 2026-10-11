@@ -193,21 +193,6 @@ extern struct event_loop g_event_loop;
                 selector:@selector(didChangeDockPref:)
                 name:@"com.apple.dock.prefchanged"
                 object:nil];
-
-       [[NSDistributedNotificationCenter defaultCenter] addObserver:self
-                selector:@selector(didChangeAppearance:)
-                name:@"AppleInterfaceThemeChangedNotification"
-                object:nil];
-
-       [[NSDistributedNotificationCenter defaultCenter] addObserver:self
-                selector:@selector(didChangeAppearance:)
-                name:@"AppleColorPreferencesChangedNotification"
-                object:nil];
-
-       [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
-                selector:@selector(didChangeAppearance:)
-                name:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification
-                object:nil];
     }
 
     return self;
@@ -276,11 +261,6 @@ extern struct event_loop g_event_loop;
 - (void)didWake:(NSNotification *)notification
 {
     event_loop_post(&g_event_loop, SYSTEM_WOKE, NULL, 0);
-}
-
-- (void)didChangeAppearance:(NSNotification *)notification
-{
-    event_loop_post(&g_event_loop, SYSTEM_APPEARANCE_CHANGED, NULL, 0);
 }
 
 - (void)didChangeMenuBarHiding:(NSNotification *)notification

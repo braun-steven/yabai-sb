@@ -228,9 +228,9 @@ Global Settings
 
 *tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +
-    'glass' draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track, and the active tab is a raised pill. +
-    It follows the system appearance (light, dark and increased contrast) and dims the tabs of containers that do not hold the focused window. +
-    'i3' draws flat tabs in the *tab_bar_\*_color* colors.
+    'glass' draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track in the unfocused color, and the active tab is a pill in the focused or inactive color. +
+    'i3' draws flat tabs side by side. +
+    Both styles use the *tab_bar_\*_color* colors.
 
 *tab_bar_font* ['<family>:<size>']::
     Font of the tab titles, e.g. 'Menlo:12'. The family 'system' selects the macOS system font. Default is 'system:12'.
@@ -240,8 +240,7 @@ Global Settings
     Tabs that hold a nested container show only the title.
 
 *tab_bar_focused_color* ['0xAARRGGBB'], *tab_bar_focused_text_color* ['0xAARRGGBB']::
-    Background and text color of the active tab of the tabbed container that holds the focused window. +
-    The *tab_bar_\*_color* options only apply to *tab_bar_style* 'i3'.
+    Background and text color of the active tab of the tabbed container that holds the focused window.
 
 *tab_bar_inactive_color* ['0xAARRGGBB'], *tab_bar_inactive_text_color* ['0xAARRGGBB']::
     Background and text color of the active tab of every other tabbed container.

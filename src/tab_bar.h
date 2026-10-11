@@ -42,11 +42,10 @@ struct tab_bar_hit
 
 bool tab_bar_set_font(char *font);
 bool tab_bar_parse_style(char *name, enum tab_bar_style *style);
-void tab_bar_update_palette(void);
 bool tab_bar_is_enabled(void);
 CFStringRef tab_bar_copy_title(uint32_t wid);
 CGImageRef tab_bar_icon(uint32_t wid);
-void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, bool has_focus, struct tab_bar_entry *entry_list, int entry_count);
+void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
 void tab_bar_hide(struct tab_bar *bar);
 void tab_bar_release(struct tab_bar *bar);
 

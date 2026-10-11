@@ -1331,7 +1331,7 @@ static void tree_render_bar(void *owner)
 
     struct con *above = tree_descend_focused(con);
     CGRect frame = {{con->area.x, con->area.y}, {con->area.w, g_window_manager.tab_bar_height}};
-    tab_bar_render(&con->tab_bar, frame, above ? above->window_id : 0, has_focus, entry_list, entry_count);
+    tab_bar_render(&con->tab_bar, frame, above ? above->window_id : 0, entry_list, entry_count);
 
     for (int i = 0; i < entry_count; ++i) {
         if (entry_list[i].title) CFRelease(entry_list[i].title);

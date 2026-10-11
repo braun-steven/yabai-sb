@@ -136,7 +136,7 @@ void tree_balance(struct con *con);
 void tree_rotate(struct con *con, int degrees);
 void tree_mirror(struct con *con, enum con_orientation orientation);
 void tree_swap(struct con *a, struct con *b);
-void tree_update(struct con *con, struct area area, int gap, int bar_height);
+void tree_update(struct con *con, struct area area, int gap, int bar_height, int bar_offset);
 CFStringRef tree_copy_title(struct con *con);
 
 struct con *tree_view_root(struct view *view);

@@ -37,6 +37,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_INSERT_FEEDBACK_COLOR "insert_feedback_color"
 #define COMMAND_CONFIG_TAB_BAR               "tab_bar"
 #define COMMAND_CONFIG_TAB_BAR_HEIGHT        "tab_bar_height"
+#define COMMAND_CONFIG_TAB_BAR_OFFSET        "tab_bar_offset"
 #define COMMAND_CONFIG_TAB_BAR_FONT          "tab_bar_font"
 #define COMMAND_CONFIG_TAB_BAR_ICONS         "tab_bar_icons"
 #define COMMAND_CONFIG_TAB_BAR_STYLE         "tab_bar_style"
@@ -1470,6 +1471,19 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "%d\n", g_window_manager.tab_bar_height);
             } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
                 g_window_manager.tab_bar_height = value.int_value;
+                tab_bar_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_OFFSET)) {
+            struct token_value value = token_to_value(get_token(&message));
+            if (value.type == TOKEN_TYPE_INVALID) {
+                fprintf(rsp, "%d\n", g_window_manager.tab_bar_offset);
+            } else if (value.type == TOKEN_TYPE_INT) {
+                g_window_manager.tab_bar_offset = value.int_value;
+                tab_bar_refresh_all();
+            } else if (value.type == TOKEN_TYPE_FLOAT && value.float_value == (int) value.float_value) {
+                g_window_manager.tab_bar_offset = (int) value.float_value;
                 tab_bar_refresh_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);

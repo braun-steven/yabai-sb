@@ -930,10 +930,11 @@ void tree_swap(struct con *a, struct con *b)
 //
 // NOTE: Computes the area of every container. Splits divide the area along their orientation by
 // the share of each child, with the window gap in between. The children of a tabbed container
-// share its area below the tab bar.
+// share its area below the tab bar, moved down by the bar offset (a negative offset lets them
+// reach under the bar). They always keep at least the height of the bar.
 //
 
-void tree_update(struct con *con, struct area area, int gap, int bar_height)
+void tree_update(struct con *con, struct area area, int gap, int bar_height, int bar_offset)
 {
     con->area = area;
     if (con_is_leaf(con) || !con->child_count) return;
@@ -941,12 +942,13 @@ void tree_update(struct con *con, struct area area, int gap, int bar_height)
     if (con->layout == CON_TABBED) {
         struct area child_area = area;
         if (bar_height > 0 && area.h > 2 * bar_height) {
-            child_area.y += bar_height;
-            child_area.h -= bar_height;
+            int reserve = max(0, min(bar_height + bar_offset, (int) area.h - bar_height));
+            child_area.y += reserve;
+            child_area.h -= reserve;
         }
 
         for (int i = 0; i < con->child_count; ++i) {
-            tree_update(con->children[i], child_area, gap, bar_height);
+            tree_update(con->children[i], child_area, gap, bar_height, bar_offset);
         }
 
         return;
@@ -970,7 +972,7 @@ void tree_update(struct con *con, struct area area, int gap, int bar_height)
             child_area.h = size;
         }
 
-        tree_update(child, child_area, gap, bar_height);
+        tree_update(child, child_area, gap, bar_height, bar_offset);
         offset += size + gap;
     }
 }
@@ -1053,7 +1055,7 @@ struct con *tree_view_root(struct view *view)
 void tree_view_update(struct view *view)
 {
     if (!view->tree) return;
-    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height());
+    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height(), g_window_manager.tab_bar_offset);
 }
 
 static void tree_unmanage_windows(struct con *con)

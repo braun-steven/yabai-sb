@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Layout *tree* arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
 - Config *tree_autotiling* splits the focused window along its longer side when a new window opens next to it, like the i3 autotiling script
 - Tabbed containers get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
+- Config *tab_bar_offset* sets the space between a tab bar and the windows of its container; a negative value lets the windows reach under the bar
 - Config *tab_bar_icons* draws the application icon left of the title in each window tab
 - Config *tab_bar_style* draws tab bars in the Liquid Glass material of macOS 26 (`glass`, default), tinted with the *tab_bar_\*_color* colors, or as flat i3 tabs (`i3`). *tab_bar_font* accepts `system:<size>`, which is the new default
 - Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container

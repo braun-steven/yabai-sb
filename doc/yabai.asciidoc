@@ -226,6 +226,10 @@ Global Settings
 *tab_bar_height* ['<integer number>']::
     Height of the tab bar in points. Default is 24.
 
+*tab_bar_offset* ['<integer number>']::
+    Space in points between the bottom of the tab bar and the windows of the container. Default is 0. +
+    A negative value moves the windows up under the bar. The windows always keep at least *tab_bar_height* of height.
+
 *tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +
     'glass' draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch. +

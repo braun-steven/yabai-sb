@@ -109,6 +109,7 @@ struct window_manager
     enum focus_wrapping focus_wrapping;
     bool enable_tab_bar;
     int tab_bar_height;
+    int tab_bar_offset;
     bool tab_bar_icons;
     enum tab_bar_style tab_bar_style;
     char *tab_bar_font_name;

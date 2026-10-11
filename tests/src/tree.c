@@ -326,7 +326,7 @@ TEST_FUNC(tree_resize_update,
     struct con *b = tree_test_leaf(v, 2);
     struct con *c = tree_test_leaf(v, 3);
 
-    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24);
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, 0);
     TEST_CHECK((int) a->area.w, 500);
     TEST_CHECK((int) v->area.x, 510);
     TEST_CHECK((int) b->area.h, 400);
@@ -334,16 +334,25 @@ TEST_FUNC(tree_resize_update,
 
     // growing the right edge of window 2 searches up to the horizontal split
     TEST_CHECK(tree_resize(b, DIR_WEST, -100), true);
-    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24);
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, 0);
     TEST_CHECK((int) a->area.w, 401);
     TEST_CHECK(tree_resize(a, DIR_WEST, 10), false);
 
     // the children of a tabbed container share its area below the bar
     tree_set_layout(b, CON_TABBED);
-    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24);
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, 0);
     TEST_CHECK((int) b->area.y, 24);
     TEST_CHECK((int) c->area.y, 24);
     TEST_CHECK((int) c->area.h, 786);
+
+    // the bar offset moves them further down, or up under the bar when negative
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, 6);
+    TEST_CHECK((int) c->area.y, 30);
+    TEST_CHECK((int) c->area.h, 780);
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, -30);
+    TEST_CHECK((int) c->area.y, 0);
+    TEST_CHECK((int) c->area.h, 810);
+    tree_update(root, ((struct area) { 0, 0, 1010, 810 }), 10, 24, 0);
 
     // and resizing a tab skips the tabbed container
     TEST_CHECK(tree_resize(c, DIR_SOUTH, 10), false);

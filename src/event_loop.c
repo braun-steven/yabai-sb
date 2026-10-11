@@ -1210,6 +1210,11 @@ static EVENT_HANDLER(MOUSE_UP)
         if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
         if (window == g_mouse_state.window) window = NULL;
 
+        if (src_view->layout == VIEW_TREE || dst_view->layout == VIEW_TREE) {
+            mouse_tree_drop(&g_space_manager, &g_window_manager, &g_mouse_state, src_view, dst_view, g_mouse_state.window, window, point);
+            goto err;
+        }
+
         struct window_node *a_node = view_find_window_node(src_view, g_mouse_state.window->id);
         struct window_node *b_node = window ? view_find_window_node(dst_view, window->id) : NULL;
 
@@ -1220,7 +1225,7 @@ static EVENT_HANDLER(MOUSE_UP)
                 g_mouse_state.feedback_node = NULL;
             }
 
-            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node, window, point);
+            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node->window_count == 1, window, point);
             switch (drop_action) {
             case MOUSE_DROP_ACTION_STACK: {
                 mouse_drop_action_stack(&g_window_manager, src_view, g_mouse_state.window, dst_view, window);
@@ -1316,6 +1321,11 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
         if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
         if (window == g_mouse_state.window) window = NULL;
 
+        if (src_view->layout == VIEW_TREE || dst_view->layout == VIEW_TREE) {
+            mouse_tree_drag(&g_mouse_state, dst_view, window, point);
+            goto out;
+        }
+
         struct window_node *a_node = view_find_window_node(src_view, g_mouse_state.window->id);
         struct window_node *b_node = window ? view_find_window_node(dst_view, window->id) : NULL;
 
@@ -1326,7 +1336,7 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
             }
 
             int insert_dir = 0;
-            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node, window, point);
+            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node->window_count == 1, window, point);
             switch (drop_action) {
             case MOUSE_DROP_ACTION_STACK: {
                 insert_dir = STACK;

@@ -120,7 +120,7 @@ void mouse_window_info_populate(struct mouse_state *ms, struct mouse_window_info
     info->changed_size     = info->changed_w || info->changed_h;
 }
 
-enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, struct window_node *src_node, struct window *dst_window, CGPoint point)
+enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, bool allow_center, struct window *dst_window, CGPoint point)
 {
     CGRect  f    = dst_window->frame;
     CGPoint wp   = { point.x - f.origin.x, point.y - f.origin.y };
@@ -130,7 +130,7 @@ enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, struc
     CGPoint b[3] = {{ f.size.width, f.size.height }, { 0.5f * f.size.width, 0.5f * f.size.height }, { 0.0f, f.size.height }};
     CGPoint l[3] = {{ 0.0f, f.size.height }, { 0.5f * f.size.width, 0.5f * f.size.height }, { 0.0f, 0.0f }};
 
-    if ((CGRectContainsPoint(c, wp)) && (src_node->window_count == 1)) {
+    if ((CGRectContainsPoint(c, wp)) && allow_center) {
         return ms->drop_action == MOUSE_MODE_STACK ? MOUSE_DROP_ACTION_STACK : MOUSE_DROP_ACTION_SWAP;
     } else if (triangle_contains_point(t, wp)) {
         return MOUSE_DROP_ACTION_WARP_TOP;
@@ -256,7 +256,7 @@ void mouse_drop_try_adjust_bsp_grid(struct window_manager *wm, struct view *view
 {
     bool success = true;
 
-    if (view->layout != VIEW_BSP) {
+    if (view->layout != VIEW_BSP && view->layout != VIEW_TREE) {
         success = false;
         goto end;
     }
@@ -281,8 +281,134 @@ void mouse_drop_try_adjust_bsp_grid(struct window_manager *wm, struct view *view
 
 end:
     if (!success) {
-        struct window_node *node = view_find_window_node(view, window->id);
-        if (node) window_node_flush(node);
+        if (view->layout == VIEW_TREE) {
+            view_flush(view);
+        } else {
+            struct window_node *node = view_find_window_node(view, window->id);
+            if (node) window_node_flush(node);
+        }
+    }
+}
+
+static int mouse_drop_action_direction(enum mouse_drop_action drop_action)
+{
+    switch (drop_action) {
+    case MOUSE_DROP_ACTION_STACK:       return STACK;
+    case MOUSE_DROP_ACTION_SWAP:        return STACK;
+    case MOUSE_DROP_ACTION_WARP_TOP:    return DIR_NORTH;
+    case MOUSE_DROP_ACTION_WARP_RIGHT:  return DIR_EAST;
+    case MOUSE_DROP_ACTION_WARP_BOTTOM: return DIR_SOUTH;
+    case MOUSE_DROP_ACTION_WARP_LEFT:   return DIR_WEST;
+    case MOUSE_DROP_ACTION_NONE:        return 0;
+    }
+
+    return 0;
+}
+
+static struct con *mouse_tree_find_con(struct view *view, struct window *window)
+{
+    return view && window && view->layout == VIEW_TREE ? tree_find_window(view->tree, window->id) : NULL;
+}
+
+void mouse_tree_feedback_clear(struct mouse_state *ms)
+{
+    if (!ms->tree_feedback_wid) return;
+
+    struct window *window = window_manager_find_window(&g_window_manager, ms->tree_feedback_wid);
+    struct view *view = window ? window_manager_find_managed_window(&g_window_manager, window) : NULL;
+    struct con *con = mouse_tree_find_con(view, window);
+    if (con && con->insert_dir == 0) tree_feedback_hide(con);
+
+    ms->tree_feedback_wid = 0;
+    ms->tree_feedback_dir = 0;
+}
+
+//
+// NOTE: While a window is dragged over a window on a tree space, the half where it would be placed
+// is outlined, or the whole window when dropping would swap or stack them.
+//
+
+void mouse_tree_drag(struct mouse_state *ms, struct view *dst_view, struct window *dst_window, CGPoint point)
+{
+    struct con *con = mouse_tree_find_con(dst_view, dst_window);
+    if (!con) {
+        mouse_tree_feedback_clear(ms);
+        return;
+    }
+
+    int direction = mouse_drop_action_direction(mouse_determine_drop_action(ms, true, dst_window, point));
+    if (ms->tree_feedback_wid == dst_window->id && ms->tree_feedback_dir == direction) return;
+
+    mouse_tree_feedback_clear(ms);
+    if (!direction) return;
+
+    tree_feedback_show(con, direction);
+    ms->tree_feedback_wid = dst_window->id;
+    ms->tree_feedback_dir = direction;
+}
+
+static void mouse_tree_drop_no_target(struct space_manager *sm, struct window_manager *wm, struct view *src_view, struct view *dst_view, struct window *window)
+{
+    if (src_view->sid == dst_view->sid || dst_view->layout == VIEW_FLOAT) {
+        view_flush(src_view);
+        return;
+    }
+
+    space_manager_untile_window(src_view, window);
+    window_manager_remove_managed_window(wm, window->id);
+    window_manager_purify_window(wm, window);
+
+    struct view *view = space_manager_tile_window_on_space(sm, window, dst_view->sid);
+    window_manager_add_managed_window(wm, window, view);
+}
+
+//
+// NOTE: Dropping a window on a window of a tree space: the center swaps the two windows, or makes
+// the dropped window a tab of the other one with mouse_drop_action stack. The edges place the dropped
+// window on that side of the other window.
+//
+
+void mouse_tree_drop(struct space_manager *sm, struct window_manager *wm, struct mouse_state *ms, struct view *src_view, struct view *dst_view, struct window *src_window, struct window *dst_window, CGPoint point)
+{
+    mouse_tree_feedback_clear(ms);
+
+    struct con *dst_con = mouse_tree_find_con(dst_view, dst_window);
+    if (!dst_con) {
+        mouse_tree_drop_no_target(sm, wm, src_view, dst_view, src_window);
+        return;
+    }
+
+    enum mouse_drop_action drop_action = mouse_determine_drop_action(ms, true, dst_window, point);
+    int direction = mouse_drop_action_direction(drop_action);
+
+    if (drop_action == MOUSE_DROP_ACTION_NONE) {
+        view_flush(src_view);
+    } else if (drop_action == MOUSE_DROP_ACTION_SWAP && src_view->layout == VIEW_TREE) {
+        window_manager_tree_swap_window(wm, src_window, dst_window);
+    } else if (direction == STACK) {
+        window_manager_tree_stack_window(sm, wm, dst_view, dst_window, src_window);
+        if (src_view != dst_view) view_flush(src_view);
+    } else if (src_view == dst_view) {
+        struct con *con = tree_find_window(src_view->tree, src_window->id);
+        if (!con) return;
+
+        tree_detach(con);
+        tree_insert_relative(dst_con, con, direction);
+        tree_focus(con);
+        tree_flatten(src_view->tree);
+
+        if (!view_update_auto_padding(src_view)) tree_view_update(src_view);
+        view_flush(src_view);
+    } else {
+        dst_con->insert_dir = direction;
+        dst_view->insertion_point = dst_window->id;
+
+        space_manager_untile_window(src_view, src_window);
+        window_manager_remove_managed_window(wm, src_window->id);
+        window_manager_purify_window(wm, src_window);
+
+        struct view *view = space_manager_tile_window_on_space(sm, src_window, dst_view->sid);
+        window_manager_add_managed_window(wm, src_window, view);
     }
 }
 

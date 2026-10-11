@@ -745,7 +745,7 @@ Any kind of warp operation performed on a stacked window will unstack it.
 On \fItree\fP spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 .RE
 .sp
-\fB\-\-layout\fP \fItabbed|split|toggle\fP
+\fB\-\-layout\fP \fItabbed|split|toggle|splith|splitv|toggle\-split\fP
 .RS 4
 Change the layout around the selected window, like the \fBlayout\fP command of i3.
 .br
@@ -755,7 +755,14 @@ Change the layout around the selected window, like the \fBlayout\fP command of i
 .br
 \fItoggle\fP: \fIsplit\fP if the selected window is stacked, \fItabbed\fP otherwise.
 .br
-Only works on bsp spaces.
+On bsp spaces, only \fItabbed\fP, \fIsplit\fP and \fItoggle\fP are supported.
+.br
+On \fItree\fP spaces, the layout of the container that holds the selected window (or the selected container) changes: \fItabbed\fP, \fIsplith\fP and \fIsplitv\fP set it, \fIsplit\fP returns to its last split layout, \fItoggle\fP switches between tabbed and the last split layout, and \fItoggle\-split\fP switches between \fIsplith\fP and \fIsplitv\fP. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+.RE
+.sp
+\fB\-\-split\fP \fIhorizontal|vertical|toggle\fP
+.RS 4
+Only on \fItree\fP spaces, like i3\(cqs \fIsplit h|v|toggle\fP. Wraps the selected window in a new container laid out side by side (\fIhorizontal\fP) or on top of each other (\fIvertical\fP), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. \fItoggle\fP picks the orientation that the container of the window does not have.
 .RE
 .sp
 \fB\-\-insert\fP \fI<DIR_SEL>|stack\fP
@@ -763,6 +770,8 @@ Only works on bsp spaces.
 Set the splitting mode of the selected window.
 .br
 If the current splitting mode matches the selected mode, the action will be undone.
+.br
+On \fItree\fP spaces, the next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with \fIstack\fP.
 .RE
 .sp
 \fB\-\-grid\fP \fI<rows>:<cols>:<start\-x>:<start\-y>:<width>:<height>\fP
@@ -1502,6 +1511,10 @@ Tabbed containers draw a tab bar with the \fBtab_bar_\(rs\fP* settings, also whe
 A tab that holds a container is titled with its layout and applications, e.g. \fIH[iTerm2 Safari]\fP.
 .br
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
+.sp
+Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
+.br
+Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP.
 .sp
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.
 .br

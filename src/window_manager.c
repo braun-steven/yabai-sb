@@ -303,6 +303,7 @@ enum window_op_error window_manager_adjust_window_ratio(struct window_manager *w
 
     struct view *view = window_manager_find_managed_window(wm, window);
     if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    if (view->layout == VIEW_TREE) return window_manager_tree_adjust_ratio(view, window, type, ratio);
 
     struct window_node *node = view_find_window_node(view, window->id);
     if (!node || !node->parent) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
@@ -372,6 +373,7 @@ enum window_op_error window_manager_resize_window_relative(struct window_manager
     struct view *view = window_manager_find_managed_window(wm, window);
     if (view) {
         if (direction == HANDLE_ABS) return WINDOW_OP_ERROR_INVALID_OPERATION;
+        if (view->layout == VIEW_TREE) return window_manager_tree_resize(view, window, direction, dx, dy);
 
         struct window_node *node = view_find_window_node(view, window->id);
         if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
@@ -1833,6 +1835,7 @@ enum window_op_error window_manager_set_window_insertion(struct space_manager *s
 
     uint64_t sid = window_space(window->id);
     struct view *view = space_manager_find_view(sm, sid);
+    if (view->layout == VIEW_TREE && view->tree) return window_manager_tree_set_insertion(view, window, direction);
     if (view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
 
     struct window_node *node = view_find_window_node(view, window->id);
@@ -1928,7 +1931,9 @@ enum window_op_error window_manager_set_window_layout(struct window_manager *wm,
 
     struct view *view = window_manager_find_managed_window(wm, window);
     if (!view) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    if (view->layout == VIEW_TREE) return window_manager_tree_set_layout(wm, window, layout);
     if (view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    if (layout == WINDOW_LAYOUT_SPLITH || layout == WINDOW_LAYOUT_SPLITV || layout == WINDOW_LAYOUT_TOGGLE_SPLIT) return WINDOW_OP_ERROR_INVALID_OPERATION;
 
     struct window_node *node = view_find_window_node(view, window->id);
     if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
@@ -2466,6 +2471,11 @@ void window_manager_toggle_window_zoom_parent(struct window_manager *wm, struct 
     TIME_FUNCTION;
 
     struct view *view = window_manager_find_managed_window(wm, window);
+    if (view && view->layout == VIEW_TREE) {
+        window_manager_tree_toggle_zoom(wm, window, CON_ZOOM_PARENT);
+        return;
+    }
+
     if (!view || view->layout != VIEW_BSP) return;
 
     struct window_node *node = view_find_window_node(view, window->id);
@@ -2497,6 +2507,11 @@ void window_manager_toggle_window_zoom_fullscreen(struct window_manager *wm, str
     TIME_FUNCTION;
 
     struct view *view = window_manager_find_managed_window(wm, window);
+    if (view && view->layout == VIEW_TREE) {
+        window_manager_tree_toggle_zoom(wm, window, CON_ZOOM_FULLSCREEN);
+        return;
+    }
+
     if (!view || view->layout != VIEW_BSP) return;
 
     struct window_node *node = view_find_window_node(view, window->id);
@@ -3376,4 +3391,132 @@ void window_manager_tree_focus_after_close(struct window_manager *wm, struct vie
 {
     if (!window_id || !space_is_visible(view->sid)) return;
     window_manager_focus_window_id(wm, window_id);
+}
+
+enum window_op_error window_manager_tree_split(struct window_manager *wm, struct window *window, int orientation)
+{
+    struct view *view = window_manager_find_tree_view(wm, window);
+    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    if (orientation < 0) {
+        struct con *parent = con->parent ? con->parent : con;
+        orientation = parent->layout == CON_SPLITH ? CON_VERTICAL : CON_HORIZONTAL;
+    }
+
+    tree_split(con, orientation);
+    window_manager_tree_apply(view);
+
+    return WINDOW_OP_ERROR_SUCCESS;
+}
+
+enum window_op_error window_manager_tree_set_layout(struct window_manager *wm, struct window *window, enum window_layout layout)
+{
+    struct view *view = window_manager_find_tree_view(wm, window);
+    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    struct con *parent = con->parent ? con->parent : con;
+
+    switch (layout) {
+    case WINDOW_LAYOUT_TABBED:       { tree_set_layout(con, CON_TABBED); } break;
+    case WINDOW_LAYOUT_SPLITH:       { tree_set_layout(con, CON_SPLITH); } break;
+    case WINDOW_LAYOUT_SPLITV:       { tree_set_layout(con, CON_SPLITV); } break;
+    case WINDOW_LAYOUT_SPLIT:        { tree_set_layout(con, parent->layout == CON_TABBED ? parent->last_split : parent->layout); } break;
+    case WINDOW_LAYOUT_TOGGLE:       { tree_toggle_layout(con, false); } break;
+    case WINDOW_LAYOUT_TOGGLE_SPLIT: { tree_toggle_layout(con, true); } break;
+    }
+
+    tree_flatten(view->tree);
+    window_manager_tree_apply(view);
+    return WINDOW_OP_ERROR_SUCCESS;
+}
+
+void window_manager_tree_toggle_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom)
+{
+    struct view *view = window_manager_find_tree_view(wm, window);
+    if (!view) return;
+
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con || con == view->tree) return;
+    if (zoom == CON_ZOOM_PARENT && con->parent == view->tree) zoom = CON_ZOOM_FULLSCREEN;
+
+    con->zoom = con->zoom == zoom ? CON_ZOOM_NONE : zoom;
+    window_manager_tree_apply(view);
+}
+
+enum window_op_error window_manager_tree_resize(struct view *view, struct window *window, int direction, float dx, float dy)
+{
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    bool did_resize = false;
+    if (direction & HANDLE_TOP)    did_resize |= tree_resize(con, DIR_NORTH, dy);
+    if (direction & HANDLE_BOTTOM) did_resize |= tree_resize(con, DIR_SOUTH, dy);
+    if (direction & HANDLE_LEFT)   did_resize |= tree_resize(con, DIR_WEST, dx);
+    if (direction & HANDLE_RIGHT)  did_resize |= tree_resize(con, DIR_EAST, dx);
+    if (!did_resize) return WINDOW_OP_ERROR_INVALID_DST_NODE;
+
+    tree_view_update(view);
+    view_flush(view);
+
+    return WINDOW_OP_ERROR_SUCCESS;
+}
+
+//
+// NOTE: The ratio of a window on a tree space is its share of its container. The space is taken from
+// or given to the next container, or the previous one for the last container.
+//
+
+enum window_op_error window_manager_tree_adjust_ratio(struct view *view, struct window *window, int type, float ratio)
+{
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con || !con->parent || con->parent->layout == CON_TABBED) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    struct con *parent = con->parent;
+    bool horizontal = parent->layout == CON_SPLITH;
+    float size = horizontal ? parent->area.w : parent->area.h;
+    float percent = type == TYPE_REL ? con->percent + ratio : ratio;
+    float delta = (clampf_range(percent, 0.05f, 0.95f) - con->percent) * size;
+
+    if (!tree_resize(con, horizontal ? DIR_EAST : DIR_SOUTH, delta) &&
+        !tree_resize(con, horizontal ? DIR_WEST : DIR_NORTH, -delta)) {
+        return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    }
+
+    tree_view_update(view);
+    view_flush(view);
+
+    return WINDOW_OP_ERROR_SUCCESS;
+}
+
+enum window_op_error window_manager_tree_set_insertion(struct view *view, struct window *window, int direction)
+{
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+
+    if (view->insertion_point && view->insertion_point != window->id) {
+        struct con *insert = tree_find_window(view->tree, view->insertion_point);
+        if (insert) {
+            insert->insert_dir = 0;
+            tree_feedback_hide(insert);
+        }
+    }
+
+    if (direction == con->insert_dir) {
+        con->insert_dir = 0;
+        tree_feedback_hide(con);
+        view->insertion_point = 0;
+        return WINDOW_OP_ERROR_SUCCESS;
+    }
+
+    con->insert_dir = direction;
+    view->insertion_point = window->id;
+    if (space_is_visible(view->sid)) tree_feedback_show(con, direction);
+
+    return WINDOW_OP_ERROR_SUCCESS;
 }

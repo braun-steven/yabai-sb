@@ -9,7 +9,10 @@ enum window_layout
 {
     WINDOW_LAYOUT_TABBED,
     WINDOW_LAYOUT_SPLIT,
-    WINDOW_LAYOUT_TOGGLE
+    WINDOW_LAYOUT_TOGGLE,
+    WINDOW_LAYOUT_SPLITH,
+    WINDOW_LAYOUT_SPLITV,
+    WINDOW_LAYOUT_TOGGLE_SPLIT
 };
 
 enum window_op_error
@@ -177,6 +180,12 @@ struct window *window_manager_tree_find_recent_window_in_stack(struct window_man
 struct window *window_manager_tree_find_window_in_order(struct window_manager *wm, struct view *view, struct window *window, int which);
 uint32_t window_manager_tree_focus_candidate(struct window_manager *wm, struct view *view, struct window *window);
 void window_manager_tree_focus_after_close(struct window_manager *wm, struct view *view, uint32_t window_id);
+enum window_op_error window_manager_tree_split(struct window_manager *wm, struct window *window, int orientation);
+enum window_op_error window_manager_tree_set_layout(struct window_manager *wm, struct window *window, enum window_layout layout);
+void window_manager_tree_toggle_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom);
+enum window_op_error window_manager_tree_resize(struct view *view, struct window *window, int direction, float dx, float dy);
+enum window_op_error window_manager_tree_adjust_ratio(struct view *view, struct window *window, int type, float ratio);
+enum window_op_error window_manager_tree_set_insertion(struct view *view, struct window *window, int direction);
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_smallest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_sibling_for_managed_window(struct window_manager *wm, struct window *window);

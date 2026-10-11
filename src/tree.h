@@ -155,6 +155,8 @@ void tree_raise_tabs(struct con *con, bool force);
 void tree_window_did_receive_focus(struct view *view, uint32_t window_id);
 void tree_refresh_for_window(uint32_t window_id);
 void tree_selection_show(struct con *con);
+void tree_feedback_show(struct con *con, int insert_dir);
+void tree_feedback_hide(struct con *con);
 bool tree_serialize(FILE *rsp, struct view *view);
 
 #endif

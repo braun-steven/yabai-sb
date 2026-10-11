@@ -173,6 +173,7 @@ extern bool g_verbose;
 #define COMMAND_WINDOW_TOGGLE     "--toggle"
 #define COMMAND_WINDOW_SCRATCHPAD "--scratchpad"
 #define COMMAND_WINDOW_LAYOUT     "--layout"
+#define COMMAND_WINDOW_SPLIT      "--split"
 
 #define ARGUMENT_WINDOW_SEL_LARGEST     "largest"
 #define ARGUMENT_WINDOW_SEL_SMALLEST    "smallest"
@@ -203,6 +204,12 @@ extern bool g_verbose;
 #define ARGUMENT_WINDOW_LAYOUT_TABBED   "tabbed"
 #define ARGUMENT_WINDOW_LAYOUT_SPLIT    "split"
 #define ARGUMENT_WINDOW_LAYOUT_TOGGLE   "toggle"
+#define ARGUMENT_WINDOW_LAYOUT_SPLITH   "splith"
+#define ARGUMENT_WINDOW_LAYOUT_SPLITV   "splitv"
+#define ARGUMENT_WINDOW_LAYOUT_TGL_SPLIT "toggle-split"
+#define ARGUMENT_WINDOW_SPLIT_H         "horizontal"
+#define ARGUMENT_WINDOW_SPLIT_V         "vertical"
+#define ARGUMENT_WINDOW_SPLIT_TOGGLE    "toggle"
 
 #define ARGUMENT_WINDOW_SCRATCHPAD_RECOVER "recover"
 /* ----------------------------------------------------------------------------- */
@@ -2567,6 +2574,12 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 layout = WINDOW_LAYOUT_SPLIT;
             } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TOGGLE)) {
                 layout = WINDOW_LAYOUT_TOGGLE;
+            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITH)) {
+                layout = WINDOW_LAYOUT_SPLITH;
+            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITV)) {
+                layout = WINDOW_LAYOUT_SPLITV;
+            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TGL_SPLIT)) {
+                layout = WINDOW_LAYOUT_TOGGLE_SPLIT;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
                 return;
@@ -2579,6 +2592,29 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "the acting window is not managed.\n");
             } else if (result == WINDOW_OP_ERROR_MAX_STACK) {
                 daemon_fail(rsp, "cannot make tabbed, max capacity of %d reached.\n", NODE_MAX_WINDOW_COUNT);
+            } else if (result == WINDOW_OP_ERROR_INVALID_OPERATION) {
+                daemon_fail(rsp, "layout '%.*s' only works on tree spaces.\n", value.length, value.text);
+            }
+        } else if (token_equals(command, COMMAND_WINDOW_SPLIT)) {
+            struct token value = get_token(&message);
+            int orientation;
+
+            if (token_equals(value, ARGUMENT_WINDOW_SPLIT_H)) {
+                orientation = CON_HORIZONTAL;
+            } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_V)) {
+                orientation = CON_VERTICAL;
+            } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_TOGGLE)) {
+                orientation = -1;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+                return;
+            }
+
+            enum window_op_error result = window_manager_tree_split(&g_window_manager, acting_window, orientation);
+            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
+                daemon_fail(rsp, "the acting window is not within a tree space.\n");
+            } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
+                daemon_fail(rsp, "the acting window is not managed.\n");
             }
         } else if (token_equals(command, COMMAND_WINDOW_INSERT)) {
             struct selector selector = parse_insert_selector(rsp, &message);

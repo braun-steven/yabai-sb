@@ -486,16 +486,21 @@ COMMAND
     Any kind of warp operation performed on a stacked window will unstack it. +
     On 'tree' spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 
-*--layout* 'tabbed|split|toggle'::
+*--layout* 'tabbed|split|toggle|splith|splitv|toggle-split'::
     Change the layout around the selected window, like the *layout* command of i3. +
     'tabbed': turn the selected window and everything it was split with (the subtree of its parent node) into a single stack, with the selected window as the active tab. +
     'split': tile the windows of the stack that holds the selected window again, in tab order. +
     'toggle': 'split' if the selected window is stacked, 'tabbed' otherwise. +
-    Only works on bsp spaces.
+    On bsp spaces, only 'tabbed', 'split' and 'toggle' are supported. +
+    On 'tree' spaces, the layout of the container that holds the selected window (or the selected container) changes: 'tabbed', 'splith' and 'splitv' set it, 'split' returns to its last split layout, 'toggle' switches between tabbed and the last split layout, and 'toggle-split' switches between 'splith' and 'splitv'. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+
+*--split* 'horizontal|vertical|toggle'::
+    Only on 'tree' spaces, like i3's 'split h|v|toggle'. Wraps the selected window in a new container laid out side by side ('horizontal') or on top of each other ('vertical'), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. 'toggle' picks the orientation that the container of the window does not have.
 
 *--insert* '<DIR_SEL>|stack'::
     Set the splitting mode of the selected window. +
-    If the current splitting mode matches the selected mode, the action will be undone.
+    If the current splitting mode matches the selected mode, the action will be undone. +
+    On 'tree' spaces, the next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with 'stack'.
 
 *--grid* '<rows>:<cols>:<start-x>:<start-y>:<width>:<height>'::
     Set the frame of the selected window based on a self-defined grid. +
@@ -1008,6 +1013,9 @@ Containers that would only nest a split inside a split of the other orientation 
 Tabbed containers draw a tab bar with the *tab_bar_\** settings, also when they hold a single tab. +
 A tab that holds a container is titled with its layout and applications, e.g. 'H[iTerm2 Safari]'. +
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
+
+Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
+Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'.
 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +
 The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree. The 'sibling', 'nephew', 'uncle' and 'cousin' selectors do not match on 'tree' spaces.

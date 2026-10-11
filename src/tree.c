@@ -213,7 +213,33 @@ void tree_flatten(struct con *con)
     }
 
     struct con *parent = con->parent;
-    if (!parent || con->child_count != 1) return;
+    if (!parent) return;
+
+    //
+    // NOTE: A split that is the only child of a split with the same orientation does not change
+    // the layout either, so its children take its place.
+    //
+
+    if (parent->child_count == 1 && con_is_split(con) && con->child_count > 0 &&
+        parent->layout != CON_TABBED && con_orientation(con) == con_orientation(parent)) {
+        int focus_count = con->child_count;
+        struct con **focus = malloc(sizeof(struct con *) * focus_count);
+        memcpy(focus, con->focus, sizeof(struct con *) * focus_count);
+
+        tree_unlink(con);
+        while (con->child_count) {
+            struct con *child = con->children[0];
+            tree_unlink(child);
+            tree_attach_internal(parent, child, parent->child_count, false);
+        }
+
+        memcpy(parent->focus, focus, sizeof(struct con *) * focus_count);
+        free(focus);
+        con_free(con);
+        return;
+    }
+
+    if (con->child_count != 1) return;
 
     struct con *child = con->children[0];
     if (!con_is_split(con) || !con_is_split(child)) return;
@@ -1367,6 +1393,9 @@ void tree_flush(struct view *view)
 
     struct con *selected = tree_find_selected(view->tree);
     if (selected) tree_selection_show(selected);
+
+    struct con *insert = view->insertion_point ? tree_find_window(view->tree, view->insertion_point) : NULL;
+    if (insert && insert->insert_dir) tree_feedback_show(insert, insert->insert_dir);
 }
 
 void tree_window_did_receive_focus(struct view *view, uint32_t window_id)
@@ -1397,11 +1426,13 @@ void tree_refresh_for_window(uint32_t window_id)
 }
 
 //
-// NOTE: Outline of the container selected with 'window --focus parent', drawn like the insertion
-// feedback. It is removed when the selection is cleared, which happens on the next focus change.
+// NOTE: Outline of a container, drawn like the insertion feedback of bsp spaces. Without a direction
+// it outlines the whole container, which marks the container selected with 'window --focus parent'.
+// With a direction it shows the half where a window will be inserted, as set by 'window --insert'
+// or while dragging a window with the mouse.
 //
 
-void tree_selection_show(struct con *con)
+void tree_feedback_show(struct con *con, int insert_dir)
 {
     struct con *leaf = tree_descend_focused(con);
     if (!leaf || !con_is_leaf(leaf)) return;
@@ -1425,19 +1456,36 @@ void tree_selection_show(struct con *con)
     }
 
     struct rgba_color color = g_window_manager.insert_feedback_color;
-    CGContextSetRGBFillColor(con->feedback_window.context, color.r, color.g, color.b, color.a * 0.15f);
+    CGContextSetRGBFillColor(con->feedback_window.context, color.r, color.g, color.b, color.a * (insert_dir ? 0.25f : 0.15f));
     CGContextSetRGBStrokeColor(con->feedback_window.context, color.r, color.g, color.b, color.a);
 
+    CGFloat clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
+    CGFloat clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
+    CGFloat clip_w = INSERT_FEEDBACK_WIDTH;
+    CGFloat clip_h = INSERT_FEEDBACK_WIDTH;
+    CGFloat midx = CGRectGetMidX(frame);
+    CGFloat midy = CGRectGetMidY(frame);
+
+    switch (insert_dir) {
+    case DIR_NORTH: { clip_y = midy - 0.5f * INSERT_FEEDBACK_WIDTH; } break;
+    case DIR_EAST:  { clip_x = midx - 0.5f * INSERT_FEEDBACK_WIDTH; } break;
+    case DIR_SOUTH: { clip_h = -midy + INSERT_FEEDBACK_WIDTH; } break;
+    case DIR_WEST:  { clip_w = -midx + INSERT_FEEDBACK_WIDTH; } break;
+    }
+
     CGRect rect = (CGRect) {{ 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH }, { frame.size.width - INSERT_FEEDBACK_WIDTH, frame.size.height - INSERT_FEEDBACK_WIDTH }};
+    CGRect fill = CGRectInset(rect, 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH);
+    CGRect clip = { { rect.origin.x + clip_x, rect.origin.y + clip_y }, { rect.size.width + clip_w, rect.size.height + clip_h } };
     CGPathRef path = CGPathCreateWithRoundedRect(rect, cgrect_clamp_x_radius(rect, INSERT_FEEDBACK_RADIUS), cgrect_clamp_y_radius(rect, INSERT_FEEDBACK_RADIUS), NULL);
 
     SLSDisableUpdate(g_connection);
     SLSSetWindowShape(g_connection, con->feedback_window.id, 0.0f, 0.0f, frame_region);
     CGContextClearRect(con->feedback_window.context, frame);
-    CGContextAddPath(con->feedback_window.context, path);
-    CGContextFillPath(con->feedback_window.context);
+    CGContextClipToRect(con->feedback_window.context, clip);
+    CGContextFillRect(con->feedback_window.context, fill);
     CGContextAddPath(con->feedback_window.context, path);
     CGContextStrokePath(con->feedback_window.context);
+    CGContextResetClip(con->feedback_window.context);
     CGContextFlush(con->feedback_window.context);
     SLSReenableUpdate(g_connection);
     CGPathRelease(path);
@@ -1446,6 +1494,16 @@ void tree_selection_show(struct con *con)
     SLSSetWindowLevel(g_connection, con->feedback_window.id, window_level(leaf->window_id));
     SLSSetWindowSubLevel(g_connection, con->feedback_window.id, window_sub_level(leaf->window_id));
     SLSOrderWindow(g_connection, con->feedback_window.id, 1, leaf->window_id);
+}
+
+void tree_feedback_hide(struct con *con)
+{
+    tree_feedback_destroy(con);
+}
+
+void tree_selection_show(struct con *con)
+{
+    tree_feedback_show(con, 0);
 }
 
 static void tree_serialize_con(FILE *rsp, struct view *view, struct con *con, int depth)

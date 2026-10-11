@@ -400,3 +400,23 @@ TEST_FUNC(tree_focus_candidate,
 
     con_free(root);
 });
+
+TEST_FUNC(tree_flatten_same_orientation,
+{
+    // H[ H[ 1 2 ] ] flattens to H[ 1 2 ], keeping the shares
+    struct con *root = con_create(CON_SPLITH);
+    struct con *h = tree_test_split(root, CON_SPLITH);
+    struct con *a = tree_test_leaf(h, 1);
+    tree_test_leaf(h, 2);
+    a->percent = 0.7f;
+    h->children[1]->percent = 0.3f;
+    tree_focus(a);
+
+    tree_flatten(root);
+    TEST_CHECK(root->child_count, 2);
+    TEST_CHECK(tree_test_child(root, 0), 1);
+    TEST_CHECK((int)(a->percent * 10 + 0.5f), 7);
+    TEST_CHECK(root->focus[0] == a, true);
+
+    con_free(root);
+});

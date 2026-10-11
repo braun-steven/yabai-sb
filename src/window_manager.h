@@ -205,6 +205,7 @@ void window_manager_focus_window_without_raise(ProcessSerialNumber *window_psn, 
 void window_manager_focus_window_without_raise_deferred(struct window *window);
 void window_manager_focus_window_with_raise(ProcessSerialNumber *window_psn, uint32_t window_id, AXUIElementRef window_ref);
 struct window *window_manager_focused_window(struct window_manager *wm);
+struct window *window_manager_pending_focus_window(struct window_manager *wm);
 struct window *window_manager_acting_window(struct window_manager *wm);
 void window_manager_set_pending_focus(struct window_manager *wm, uint32_t window_id);
 struct application *window_manager_focused_application(struct window_manager *wm);

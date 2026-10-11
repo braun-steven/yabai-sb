@@ -62,3 +62,83 @@ TEST_FUNC(window_frame_group_by_application,
     TEST_CHECK((int) groups[1].list[1].position.x, 3);
     TEST_CHECK((int) groups[1].list[1].size.height, 200);
 });
+
+TEST_FUNC(window_frame_needs_update_decision,
+{
+    CGRect target = CGRectMake(10, 20, 300, 400);
+    CGRect other = CGRectMake(10, 20, 500, 400);
+
+    //
+    // NOTE: A window is only skipped when both the last request and the window server bounds match.
+    //
+
+    TEST_CHECK(window_frame_needs_update(target, true, target, 10, 20, 300, 400), false);
+    TEST_CHECK(window_frame_needs_update(target, true, other,  10, 20, 300, 400), true);
+    TEST_CHECK(window_frame_needs_update(other,  true, target, 10, 20, 300, 400), true);
+    TEST_CHECK(window_frame_needs_update(target, false, target, 10, 20, 300, 400), true);
+    TEST_CHECK(window_frame_needs_update(CGRectZero, true, target, 10, 20, 300, 400), true);
+
+    //
+    // NOTE: An application that has not applied the previous request yet still reports the frame it had
+    // before. Going back to that frame must not be skipped, because the pending request would win.
+    //
+
+    TEST_CHECK(window_frame_needs_update(other, true, target, 10, 20, 300, 400), true);
+});
+
+static struct window_manager pending_focus_wm;
+static struct window pending_focus_window;
+
+static void pending_focus_init(void)
+{
+    memset(&pending_focus_wm, 0, sizeof(struct window_manager));
+    table_init(&pending_focus_wm.window, 16, hash_wm, compare_wm);
+
+    memset(&pending_focus_window, 0, sizeof(struct window));
+    pending_focus_window.id = 42;
+    pending_focus_window.id_ptr = &pending_focus_window.id;
+    window_manager_add_window(&pending_focus_wm, &pending_focus_window);
+}
+
+TEST_FUNC(window_pending_focus,
+{
+    pending_focus_init();
+
+    TEST_CHECK(window_manager_pending_focus_window(&pending_focus_wm) == NULL, true);
+
+    window_manager_set_pending_focus(&pending_focus_wm, 42);
+    TEST_CHECK(window_manager_pending_focus_window(&pending_focus_wm) == &pending_focus_window, true);
+    TEST_CHECK(pending_focus_wm.pending_focus_window_id, 42);
+
+    //
+    // NOTE: A pending focus expires, and is dropped for windows that no longer exist.
+    //
+
+    pending_focus_wm.pending_focus_time = read_os_timer() - (uint64_t)(read_os_freq() * 0.6);
+    TEST_CHECK(window_manager_pending_focus_window(&pending_focus_wm) == NULL, true);
+    TEST_CHECK(pending_focus_wm.pending_focus_window_id, 0);
+
+    window_manager_set_pending_focus(&pending_focus_wm, 7);
+    TEST_CHECK(window_manager_pending_focus_window(&pending_focus_wm) == NULL, true);
+    TEST_CHECK(pending_focus_wm.pending_focus_window_id, 0);
+
+    table_free(&pending_focus_wm.window);
+});
+
+TEST_FUNC(mouse_event_coalescing,
+{
+    volatile uint32_t pending = 0;
+
+    //
+    // NOTE: Three events were posted before the handler ran: only the last one is handled.
+    //
+
+    __atomic_add_fetch(&pending, 3, __ATOMIC_ACQ_REL);
+    TEST_CHECK(mouse_event_is_stale(&pending), true);
+    TEST_CHECK(mouse_event_is_stale(&pending), true);
+    TEST_CHECK(mouse_event_is_stale(&pending), false);
+
+    __atomic_add_fetch(&pending, 1, __ATOMIC_ACQ_REL);
+    TEST_CHECK(mouse_event_is_stale(&pending), false);
+    TEST_CHECK((int) pending, 0);
+});

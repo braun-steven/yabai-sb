@@ -15,6 +15,16 @@ volatile uint64_t __last_cmd_tab_time;
 volatile uint32_t __pending_mouse_moved;
 volatile uint32_t __pending_mouse_dragged;
 
+//
+// NOTE: The event tap counts the mouse events it posts. A handler that sees a newer event of the same
+// type still queued drops its own, so only the most recent one is handled.
+//
+
+static inline bool mouse_event_is_stale(volatile uint32_t *pending)
+{
+    return __atomic_sub_fetch(pending, 1, __ATOMIC_ACQ_REL) > 0;
+}
+
 static void update_window_notifications(void)
 {
     int window_count = 0;
@@ -1213,7 +1223,7 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
     // location where the drag started. Skip this one if a newer one is already queued.
     //
 
-    if (__atomic_sub_fetch(&__pending_mouse_dragged, 1, __ATOMIC_ACQ_REL) > 0) goto out;
+    if (mouse_event_is_stale(&__pending_mouse_dragged)) goto out;
 
     if (mission_control_is_active()) goto out;
     if (!g_mouse_state.window)       goto out;
@@ -1279,7 +1289,7 @@ out:
 
 static EVENT_HANDLER(MOUSE_MOVED)
 {
-    if (__atomic_sub_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL) > 0) goto out;
+    if (mouse_event_is_stale(&__pending_mouse_moved)) goto out;
 
     if (g_window_manager.ffm_mode == FFM_DISABLED) goto out;
     if (mission_control_is_active())               goto out;

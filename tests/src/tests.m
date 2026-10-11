@@ -54,7 +54,10 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tab_bar_font_parse)                             \
     TEST_ENTRY(tab_bar_glass_tint_default)                     \
     TEST_ENTRY(window_frame_close)                             \
-    TEST_ENTRY(window_frame_group_by_application)
+    TEST_ENTRY(window_frame_group_by_application)              \
+    TEST_ENTRY(window_frame_needs_update_decision)             \
+    TEST_ENTRY(window_pending_focus)                           \
+    TEST_ENTRY(mouse_event_coalescing)
 
 static struct {
     char *name;

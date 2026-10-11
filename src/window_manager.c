@@ -787,14 +787,22 @@ static inline bool window_frame_is_close(CGRect frame, float x, float y, float w
            fabsf((float) frame.size.height - h) < 1.0f;
 }
 
+static inline bool window_frame_needs_update(CGRect request, bool has_bounds, CGRect bounds, float x, float y, float w, float h)
+{
+    if (!window_frame_is_close(request, x, y, w, h)) return true;
+    if (!has_bounds) return true;
+
+    return !window_frame_is_close(bounds, x, y, w, h);
+}
+
 static bool window_manager_window_frame_needs_update(struct window *window, float x, float y, float w, float h)
 {
     if (!window_frame_is_close(window->frame_request, x, y, w, h)) return true;
 
     CGRect bounds;
-    if (SLSGetWindowBounds(g_connection, window->id, &bounds) != kCGErrorSuccess) return true;
+    bool has_bounds = SLSGetWindowBounds(g_connection, window->id, &bounds) == kCGErrorSuccess;
 
-    return !window_frame_is_close(bounds, x, y, w, h);
+    return window_frame_needs_update(window->frame_request, has_bounds, bounds, x, y, w, h);
 }
 
 static int window_manager_filter_window_frames(struct window_capture *window_list, int window_count)
@@ -1489,19 +1497,23 @@ void window_manager_set_pending_focus(struct window_manager *wm, uint32_t window
     wm->pending_focus_time = read_os_timer();
 }
 
+struct window *window_manager_pending_focus_window(struct window_manager *wm)
+{
+    if (!wm->pending_focus_window_id) return NULL;
+
+    float dt = ((float) read_os_timer() - wm->pending_focus_time) * (1000.0f / (float) read_os_freq());
+    struct window *window = dt < PENDING_FOCUS_TIMEOUT_MS ? window_manager_find_window(wm, wm->pending_focus_window_id) : NULL;
+    if (!window) wm->pending_focus_window_id = 0;
+
+    return window;
+}
+
 struct window *window_manager_acting_window(struct window_manager *wm)
 {
     TIME_FUNCTION;
 
-    if (wm->pending_focus_window_id) {
-        float dt = ((float) read_os_timer() - wm->pending_focus_time) * (1000.0f / (float) read_os_freq());
-        struct window *window = dt < PENDING_FOCUS_TIMEOUT_MS ? window_manager_find_window(wm, wm->pending_focus_window_id) : NULL;
-        if (window) return window;
-
-        wm->pending_focus_window_id = 0;
-    }
-
-    return window_manager_focused_window(wm);
+    struct window *window = window_manager_pending_focus_window(wm);
+    return window ? window : window_manager_focused_window(wm);
 }
 #pragma clang diagnostic pop
 

@@ -286,14 +286,7 @@ void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags)
     if (flags & WINDOW_PROPERTY_SPLIT_TYPE) {
         if (did_output) fprintf(rsp, ",\n");
 
-        fprintf(rsp, "\t\"split-type\":\"%s\"", window_node_split_str[0]);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPLIT_CHILD) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"split-child\":\"%s\"", window_node_child_str[CHILD_NONE]);
+        fprintf(rsp, "\t\"split-type\":\"%s\"", window_split_str[0]);
         did_output = true;
     }
 
@@ -437,7 +430,6 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     }
 
     if ((flags & WINDOW_PROPERTY_SPLIT_TYPE) ||
-        (flags & WINDOW_PROPERTY_SPLIT_CHILD) ||
         (flags & WINDOW_PROPERTY_STACK_INDEX) ||
         (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) ||
         (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM)) {
@@ -584,16 +576,9 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     if (flags & WINDOW_PROPERTY_SPLIT_TYPE) {
         if (did_output) fprintf(rsp, ",\n");
 
-        enum window_node_split split = SPLIT_NONE;
+        enum window_split split = SPLIT_NONE;
         if (con && con->parent) split = con->parent->layout == CON_SPLITH ? SPLIT_Y : con->parent->layout == CON_SPLITV ? SPLIT_X : SPLIT_NONE;
-        fprintf(rsp, "\t\"split-type\":\"%s\"", window_node_split_str[split]);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPLIT_CHILD) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"split-child\":\"%s\"", window_node_child_str[CHILD_NONE]);
+        fprintf(rsp, "\t\"split-type\":\"%s\"", window_split_str[split]);
         did_output = true;
     }
 

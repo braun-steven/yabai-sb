@@ -28,6 +28,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*
+- Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property
 
 ## [7.1.25] - 2026-05-08
 ### Changed

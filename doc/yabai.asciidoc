@@ -179,15 +179,6 @@ Global Settings
     'focused': The display that has focus when the window is created. +
     'cursor': The display that currently holds the mouse cursor.
 
-*window_placement* ['first_child|second_child']::
-    Specify whether managed windows should become the first or second leaf-node.
-
-*window_insertion_point* ['focused|first|last']::
-    Specify where new managed windows will be inserted.
-
-*window_zoom_persist* ['<BOOL_SEL>']::
-    Windows will keep their zoom-state through layout changes.
-
 *skip_window_focus_animation* ['<BOOL_SEL>']::
     Bypass macOS space animation when an application or window on an inactive space is focused. +
     You should only enable this if you do NOT use the scripting addition. +
@@ -266,9 +257,6 @@ Global Settings
     Set the frame of a scratchpad window, as with *window --grid*, each time *window --toggle* '<LABEL>' shows it while it was hidden. +
     A scratchpad that is already shown, on this or another space, keeps its frame when it is focused or moved to the active space.
 
-*split_ratio* ['<FLOAT_SEL>']::
-    Specify the size distribution when a window is split.
-
 *mouse_modifier* ['cmd|alt|shift|ctrl|fn']::
     Keyboard modifier used for moving and resizing windows.
 
@@ -301,12 +289,6 @@ Space Settings
 *tree_workspace_layout* ['default|tabbed']::
     Like i3's 'workspace_layout'. With 'tabbed', the first window of an empty 'tree' space opens inside a tabbed container, so later windows become tabs. Default is 'default'.
 
-*split_type* ['vertical|horizontal|auto']::
-    Specify how a window should be split. +
-    'vertical': The window is split along the y-axis. +
-    'horizontal': The window is split along the x-axis. +
-    'auto': The axis is determined based on width/height ratio.
-
 *top_padding* ['<integer number>']::
     Padding added at the upper side of the selected space.
 
@@ -328,9 +310,6 @@ Space Settings
     A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom-fullscreen. Floating windows, including scratchpad windows and windows with the rule 'manage=off', never count. Every tab of a tabbed container counts. +
     Has no effect on spaces with layout 'float'. Padding or gap toggled off with 'space --toggle' stays off regardless of the number of windows. +
     Windows placed with '--grid' always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
-
-*auto_balance* ['<BOOL_SEL>|x-axis|y-axis']::
-    Balance the window tree upon change, so that all windows occupy an equally sized area.
 
 Display
 ~~~~~~~
@@ -648,7 +627,6 @@ WINDOW
     "sub-layer": string,
     "opacity": number,
     "split-type": string,
-    "split-child": string,
     "stack-index": number,
     "can-move": bool,
     "can-resize": bool,
@@ -1000,7 +978,7 @@ A tab that holds a container is titled with its layout and applications, e.g. 'H
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 
 Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
-In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container, and 'split-child' is always 'none'. +
+In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container +
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'.
 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +

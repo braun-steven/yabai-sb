@@ -326,26 +326,6 @@ void space_manager_set_right_padding_for_all_spaces(struct space_manager *sm, in
     })
 }
 
-void space_manager_set_split_type_for_all_spaces(struct space_manager *sm, enum window_node_split split_type)
-{
-    sm->split_type = split_type;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_SPLIT_TYPE)) {
-            view->split_type = split_type;
-        }
-    })
-}
-
-void space_manager_set_auto_balance_for_all_spaces(struct space_manager *sm, uint32_t auto_balance)
-{
-    sm->auto_balance = auto_balance;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_AUTO_BALANCE)) {
-            view->auto_balance = auto_balance;
-        }
-    })
-}
-
 static void space_manager_apply_auto_padding(struct view *view, bool auto_padding)
 {
     if (view->auto_padding == auto_padding) return;
@@ -426,7 +406,7 @@ bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degr
     return true;
 }
 
-bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_node_split axis)
+bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_split axis)
 {
     struct view *view = space_manager_find_view(sm, sid);
     if (view->layout != VIEW_TREE || !view->tree) return false;
@@ -1357,15 +1337,9 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
 void space_manager_begin(struct space_manager *sm)
 {
     sm->layout = VIEW_TREE;
-    sm->split_ratio = 0.5f;
-    sm->auto_balance = SPLIT_NONE;
     sm->auto_padding = false;
-    sm->split_type = SPLIT_AUTO;
     sm->tree_default_orientation = TREE_ORIENTATION_AUTO;
     sm->tree_workspace_tabbed = false;
-    sm->window_placement = CHILD_SECOND;
-    sm->window_insertion_point = INSERT_FOCUSED;
-    sm->window_zoom_persist = true;
     sm->labels = NULL;
     sm->skip_window_focus_animation = false;
     table_init(&sm->view, 23, hash_view, compare_view);

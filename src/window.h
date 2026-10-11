@@ -46,7 +46,6 @@ static CFStringRef ax_window_notification[] =
     WINDOW_PROPERTY_ENTRY("sub-layer",            WINDOW_PROPERTY_SUB_LAYER,           0x000004000) \
     WINDOW_PROPERTY_ENTRY("opacity",              WINDOW_PROPERTY_OPACITY,             0x000008000) \
     WINDOW_PROPERTY_ENTRY("split-type",           WINDOW_PROPERTY_SPLIT_TYPE,          0x000010000) \
-    WINDOW_PROPERTY_ENTRY("split-child",          WINDOW_PROPERTY_SPLIT_CHILD,         0x000020000) \
     WINDOW_PROPERTY_ENTRY("stack-index",          WINDOW_PROPERTY_STACK_INDEX,         0x000040000) \
     WINDOW_PROPERTY_ENTRY("can-move",             WINDOW_PROPERTY_CAN_MOVE,            0x000080000) \
     WINDOW_PROPERTY_ENTRY("can-resize",           WINDOW_PROPERTY_CAN_RESIZE,          0x000100000) \

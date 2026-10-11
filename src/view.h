@@ -85,55 +85,18 @@ struct window_animation_context
     int animation_count;
 };
 
-enum window_insertion_point
-{
-    INSERT_FOCUSED,
-    INSERT_FIRST,
-    INSERT_LAST
-};
-
-static const char *window_insertion_point_str[] =
-{
-    "focused",
-    "first",
-    "last"
-};
-
-enum window_node_child
-{
-    CHILD_NONE,
-    CHILD_SECOND,
-    CHILD_FIRST,
-};
-
-static const char *window_node_child_str[] =
-{
-    "none",
-    "second_child",
-    "first_child"
-};
-
-enum window_node_split
+enum window_split
 {
     SPLIT_NONE,
     SPLIT_Y,
-    SPLIT_X,
-    SPLIT_AUTO
+    SPLIT_X
 };
 
-static const char *window_node_split_str[] =
+static const char *window_split_str[] =
 {
     "none",
     "vertical",
-    "horizontal",
-    "auto"
-};
-
-static const char *auto_balance_str[] = {
-    "off",
-    "vertical",
-    "horizontal",
-    "on"
+    "horizontal"
 };
 
 struct feedback_window
@@ -179,12 +142,10 @@ enum view_flag
     VIEW_LEFT_PADDING   = 0x008,
     VIEW_RIGHT_PADDING  = 0x010,
     VIEW_WINDOW_GAP     = 0x020,
-    VIEW_AUTO_BALANCE   = 0x040,
     VIEW_ENABLE_PADDING = 0x080,
     VIEW_ENABLE_GAP     = 0x100,
     VIEW_IS_VALID       = 0x200,
     VIEW_IS_DIRTY       = 0x400,
-    VIEW_SPLIT_TYPE     = 0x800,
     VIEW_AUTO_PADDING   = 0x1000,
     VIEW_IS_UNPADDED    = 0x2000,
 };
@@ -197,13 +158,11 @@ struct view
     struct con *tree;
     uint32_t insertion_point;
     enum view_type layout;
-    enum window_node_split split_type;
     int top_padding;
     int bottom_padding;
     int left_padding;
     int right_padding;
     int window_gap;
-    uint32_t auto_balance;
     bool auto_padding;
     uint64_t flags;
 };

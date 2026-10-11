@@ -26,9 +26,6 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_DISPLAY_ORDER         "display_arrangement_order"
 #define COMMAND_CONFIG_BUILTIN_LAST          "builtin_display_last"
 #define COMMAND_CONFIG_WINDOW_ORIGIN         "window_origin_display"
-#define COMMAND_CONFIG_WINDOW_PLACEMENT      "window_placement"
-#define COMMAND_CONFIG_WINDOW_INSERT_POINT   "window_insertion_point"
-#define COMMAND_CONFIG_WINDOW_ZOOM_PERSIST   "window_zoom_persist"
 #define COMMAND_CONFIG_OPACITY               "window_opacity"
 #define COMMAND_CONFIG_OPACITY_DURATION      "window_opacity_duration"
 #define COMMAND_CONFIG_ANIMATION_DURATION    "window_animation_duration"
@@ -53,9 +50,6 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_RIGHT_PADDING         "right_padding"
 #define COMMAND_CONFIG_LAYOUT                "layout"
 #define COMMAND_CONFIG_WINDOW_GAP            "window_gap"
-#define COMMAND_CONFIG_SPLIT_RATIO           "split_ratio"
-#define COMMAND_CONFIG_SPLIT_TYPE            "split_type"
-#define COMMAND_CONFIG_AUTO_BALANCE          "auto_balance"
 #define COMMAND_CONFIG_AUTO_PADDING          "auto_padding"
 #define COMMAND_CONFIG_TREE_ORIENTATION      "tree_default_orientation"
 #define COMMAND_CONFIG_TREE_WORKSPACE_LAYOUT "tree_workspace_layout"
@@ -82,20 +76,15 @@ extern bool g_verbose;
 #define ARGUMENT_CONFIG_WINDOW_ORIGIN_DEFAULT "default"
 #define ARGUMENT_CONFIG_WINDOW_ORIGIN_FOCUSED "focused"
 #define ARGUMENT_CONFIG_WINDOW_ORIGIN_CURSOR  "cursor"
-#define ARGUMENT_CONFIG_WINDOW_PLACEMENT_FST  "first_child"
-#define ARGUMENT_CONFIG_WINDOW_PLACEMENT_SND  "second_child"
-#define ARGUMENT_CONFIG_WINDOW_INSERT_FOCUSED "focused"
-#define ARGUMENT_CONFIG_WINDOW_INSERT_FIRST   "first"
-#define ARGUMENT_CONFIG_WINDOW_INSERT_LAST    "last"
 #define ARGUMENT_CONFIG_SHADOW_FLT            "float"
 #define ARGUMENT_CONFIG_LAYOUT_FLOAT          "float"
 #define ARGUMENT_CONFIG_LAYOUT_TREE           "tree"
 #define ARGUMENT_CONFIG_TREE_DEFAULT          "default"
 #define ARGUMENT_CONFIG_TREE_TABBED           "tabbed"
 #define ARGUMENT_CONFIG_FOCUS_WRAPPING_FORCE  "force"
-#define ARGUMENT_CONFIG_SPLIT_TYPE_Y          "vertical"
-#define ARGUMENT_CONFIG_SPLIT_TYPE_X          "horizontal"
-#define ARGUMENT_CONFIG_SPLIT_TYPE_AUTO       "auto"
+#define ARGUMENT_CONFIG_TREE_VERTICAL         "vertical"
+#define ARGUMENT_CONFIG_TREE_HORIZONTAL       "horizontal"
+#define ARGUMENT_CONFIG_TREE_AUTO             "auto"
 #define ARGUMENT_CONFIG_MOUSE_MOD_ALT         "alt"
 #define ARGUMENT_CONFIG_MOUSE_MOD_SHIFT       "shift"
 #define ARGUMENT_CONFIG_MOUSE_MOD_CMD         "cmd"
@@ -1229,41 +1218,6 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }
-        } else if (token_equals(command, COMMAND_CONFIG_WINDOW_PLACEMENT)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", window_node_child_str[g_space_manager.window_placement]);
-            } else if (token_equals(value, ARGUMENT_CONFIG_WINDOW_PLACEMENT_FST)) {
-                g_space_manager.window_placement = CHILD_FIRST;
-            } else if (token_equals(value, ARGUMENT_CONFIG_WINDOW_PLACEMENT_SND)) {
-                g_space_manager.window_placement = CHILD_SECOND;
-            } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_WINDOW_INSERT_POINT)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", window_insertion_point_str[g_space_manager.window_insertion_point]);
-            } else if (token_equals(value, ARGUMENT_CONFIG_WINDOW_INSERT_FOCUSED)) {
-                g_space_manager.window_insertion_point = INSERT_FOCUSED;
-            } else if (token_equals(value, ARGUMENT_CONFIG_WINDOW_INSERT_FIRST)) {
-                g_space_manager.window_insertion_point = INSERT_FIRST;
-            } else if (token_equals(value, ARGUMENT_CONFIG_WINDOW_INSERT_LAST)) {
-                g_space_manager.window_insertion_point = INSERT_LAST;
-            } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_WINDOW_ZOOM_PERSIST)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", bool_str[g_space_manager.window_zoom_persist]);
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                g_space_manager.window_zoom_persist = false;
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                g_space_manager.window_zoom_persist = true;
-            } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-            }
         } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_EXCLUSIVE)) {
             struct token value = get_token(&message);
             if (!token_is_valid(value)) {
@@ -1681,91 +1635,15 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                     daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
                 }
             }
-        } else if (token_equals(command, COMMAND_CONFIG_SPLIT_RATIO)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%.4f\n", g_space_manager.split_ratio);
-            } else if (value.type == TOKEN_TYPE_FLOAT && in_range_ii(value.float_value, 0.1f, 0.9f)) {
-                g_space_manager.split_ratio = value.float_value;
-            } else {
-                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_SPLIT_TYPE)) {
-            struct token value = get_token(&message);
-            if (sel_sid) {
-                struct view *view = space_manager_find_view(&g_space_manager, sel_sid);
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", window_node_split_str[view->split_type]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_Y)) {
-                    view_set_flag(view, VIEW_SPLIT_TYPE);
-                    view->split_type = SPLIT_Y;
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_X)) {
-                    view_set_flag(view, VIEW_SPLIT_TYPE);
-                    view->split_type = SPLIT_X;
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_AUTO)) {
-                    view_set_flag(view, VIEW_SPLIT_TYPE);
-                    view->split_type = SPLIT_AUTO;
-                } else {
-                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-                }
-            } else {
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", window_node_split_str[g_space_manager.split_type]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_Y)) {
-                    space_manager_set_split_type_for_all_spaces(&g_space_manager, SPLIT_Y);
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_X)) {
-                    space_manager_set_split_type_for_all_spaces(&g_space_manager, SPLIT_X);
-                } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_AUTO)) {
-                    space_manager_set_split_type_for_all_spaces(&g_space_manager, SPLIT_AUTO);
-                } else {
-                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-                }
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_AUTO_BALANCE)) {
-            struct token value = get_token(&message);
-            if (sel_sid) {
-                struct view *view = space_manager_find_view(&g_space_manager, sel_sid);
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", auto_balance_str[view->auto_balance]);
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                    view_set_flag(view, VIEW_AUTO_BALANCE);
-                    view->auto_balance = SPLIT_NONE;
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                    view_set_flag(view, VIEW_AUTO_BALANCE);
-                    view->auto_balance = SPLIT_X | SPLIT_Y;
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                    view_set_flag(view, VIEW_AUTO_BALANCE);
-                    view->auto_balance = SPLIT_X;
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                    view_set_flag(view, VIEW_AUTO_BALANCE);
-                    view->auto_balance = SPLIT_Y;
-                } else {
-                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-                }
-            } else {
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", auto_balance_str[g_space_manager.auto_balance]);
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                    space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_NONE);
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                    space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_X | SPLIT_Y);
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                    space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_X);
-                } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                    space_manager_set_auto_balance_for_all_spaces(&g_space_manager, SPLIT_Y);
-                } else {
-                    daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-                }
-            }
         } else if (token_equals(command, COMMAND_CONFIG_TREE_ORIENTATION)) {
             struct token value = get_token(&message);
             if (!token_is_valid(value)) {
                 fprintf(rsp, "%s\n", tree_orientation_str[g_space_manager.tree_default_orientation]);
-            } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_AUTO)) {
+            } else if (token_equals(value, ARGUMENT_CONFIG_TREE_AUTO)) {
                 g_space_manager.tree_default_orientation = TREE_ORIENTATION_AUTO;
-            } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_X)) {
+            } else if (token_equals(value, ARGUMENT_CONFIG_TREE_HORIZONTAL)) {
                 g_space_manager.tree_default_orientation = TREE_ORIENTATION_HORIZONTAL;
-            } else if (token_equals(value, ARGUMENT_CONFIG_SPLIT_TYPE_Y)) {
+            } else if (token_equals(value, ARGUMENT_CONFIG_TREE_VERTICAL)) {
                 g_space_manager.tree_default_orientation = TREE_ORIENTATION_VERTICAL;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);

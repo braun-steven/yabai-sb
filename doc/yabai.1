@@ -252,21 +252,6 @@ Specify which display a newly created window should be managed in.
 \fIcursor\fP: The display that currently holds the mouse cursor.
 .RE
 .sp
-\fBwindow_placement\fP [\fIfirst_child|second_child\fP]
-.RS 4
-Specify whether managed windows should become the first or second leaf\-node.
-.RE
-.sp
-\fBwindow_insertion_point\fP [\fIfocused|first|last\fP]
-.RS 4
-Specify where new managed windows will be inserted.
-.RE
-.sp
-\fBwindow_zoom_persist\fP [\fI<BOOL_SEL>\fP]
-.RS 4
-Windows will keep their zoom\-state through layout changes.
-.RE
-.sp
 \fBskip_window_focus_animation\fP [\fI<BOOL_SEL>\fP]
 .RS 4
 Bypass macOS space animation when an application or window on an inactive space is focused.
@@ -406,11 +391,6 @@ Set the frame of a scratchpad window, as with \fBwindow \-\-grid\fP, each time \
 A scratchpad that is already shown, on this or another space, keeps its frame when it is focused or moved to the active space.
 .RE
 .sp
-\fBsplit_ratio\fP [\fI<FLOAT_SEL>\fP]
-.RS 4
-Specify the size distribution when a window is split.
-.RE
-.sp
 \fBmouse_modifier\fP [\fIcmd|alt|shift|ctrl|fn\fP]
 .RS 4
 Keyboard modifier used for moving and resizing windows.
@@ -462,17 +442,6 @@ Orientation of an empty \fItree\fP space when its first window opens, like i3\(c
 Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, the first window of an empty \fItree\fP space opens inside a tabbed container, so later windows become tabs. Default is \fIdefault\fP.
 .RE
 .sp
-\fBsplit_type\fP [\fIvertical|horizontal|auto\fP]
-.RS 4
-Specify how a window should be split.
-.br
-\fIvertical\fP: The window is split along the y\-axis.
-.br
-\fIhorizontal\fP: The window is split along the x\-axis.
-.br
-\fIauto\fP: The axis is determined based on width/height ratio.
-.RE
-.sp
 \fBtop_padding\fP [\fI<integer number>\fP]
 .RS 4
 Padding added at the upper side of the selected space.
@@ -509,11 +478,6 @@ A tiled window is a managed window that is not floating, minimized or hidden, an
 Has no effect on spaces with layout \fIfloat\fP. Padding or gap toggled off with \fIspace \-\-toggle\fP stays off regardless of the number of windows.
 .br
 Windows placed with \fI\-\-grid\fP always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
-.RE
-.sp
-\fBauto_balance\fP [\fI<BOOL_SEL>|x\-axis|y\-axis\fP]
-.RS 4
-Balance the window tree upon change, so that all windows occupy an equally sized area.
 .RE
 .SS "Display"
 .SS "General Syntax"
@@ -962,7 +926,6 @@ WINDOW
     "sub\-layer": string,
     "opacity": number,
     "split\-type": string,
-    "split\-child": string,
     "stack\-index": number,
     "can\-move": bool,
     "can\-resize": bool,
@@ -1485,7 +1448,7 @@ The windows of hidden tabs keep the frame of the container and are ordered below
 .sp
 Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
 .br
-In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container, and \fIsplit\-child\fP is always \fInone\fP.
+In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container
 .br
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP.
 .sp

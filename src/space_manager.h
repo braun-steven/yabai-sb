@@ -35,12 +35,6 @@ struct space_manager
     int left_padding;
     int right_padding;
     int window_gap;
-    float split_ratio;
-    enum window_node_split split_type;
-    enum window_node_child window_placement;
-    enum window_insertion_point window_insertion_point;
-    bool window_zoom_persist;
-    uint32_t auto_balance;
     bool auto_padding;
     enum tree_orientation tree_default_orientation;
     bool tree_workspace_tabbed;
@@ -105,14 +99,12 @@ void space_manager_set_top_padding_for_all_spaces(struct space_manager *sm, int 
 void space_manager_set_bottom_padding_for_all_spaces(struct space_manager *sm, int bottom_padding);
 void space_manager_set_left_padding_for_all_spaces(struct space_manager *sm, int left_padding);
 void space_manager_set_right_padding_for_all_spaces(struct space_manager *sm, int right_padding);
-void space_manager_set_split_type_for_all_spaces(struct space_manager *sm, enum window_node_split split_type);
-void space_manager_set_auto_balance_for_all_spaces(struct space_manager *sm, uint32_t auto_balance);
 void space_manager_set_auto_padding_for_all_spaces(struct space_manager *sm, bool auto_padding);
 void space_manager_set_auto_padding_for_space(struct space_manager *sm, uint64_t sid, bool auto_padding);
 bool space_manager_set_padding_for_space(struct space_manager *sm, uint64_t sid, int type, int top, int bottom, int left, int right);
 bool space_manager_toggle_padding_for_space(struct space_manager *sm, uint64_t sid);
 bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degrees);
-bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_node_split axis);
+bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_split axis);
 void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list, int window_count);
 void space_manager_move_window_to_space(uint64_t sid, struct window *window);
 bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid);

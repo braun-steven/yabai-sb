@@ -1,5 +1,6 @@
 extern struct window_manager g_window_manager;
 extern int g_connection;
+extern volatile bool __pending_window_focus;
 
 static TABLE_HASH_FUNC(hash_view)
 {
@@ -617,10 +618,40 @@ uint64_t space_manager_last_space(void)
     return sid;
 }
 
+//
+// NOTE: Asking the frontmost application for its focused window is an accessibility round trip, which
+// blocks for up to the accessibility timeout when the application does not respond. When the front
+// process still owns the window that last received focus, and no focus change has been reported since,
+// that window is still the focused one and the question can be skipped. The display and space of the
+// window are always looked up again.
+//
+
+static inline bool space_manager_can_use_known_focus(ProcessSerialNumber *front, struct window_manager *wm, bool pending_focus)
+{
+    if (pending_focus)          return false;
+    if (!wm->focused_window_id) return false;
+
+    return psn_equals(front, &wm->focused_window_psn);
+}
+
+static struct window *space_manager_focused_window(void)
+{
+    ProcessSerialNumber front = {0};
+    _SLPSGetFrontProcess(&front);
+
+    bool pending_focus = __atomic_load_n(&__pending_window_focus, __ATOMIC_ACQUIRE);
+    if (space_manager_can_use_known_focus(&front, &g_window_manager, pending_focus)) {
+        struct window *window = window_manager_find_window(&g_window_manager, g_window_manager.focused_window_id);
+        if (window) return window;
+    }
+
+    return window_manager_focused_window(&g_window_manager);
+}
+
 uint64_t space_manager_active_space(void)
 {
     uint32_t did = 0;
-    struct window *window = window_manager_focused_window(&g_window_manager);
+    struct window *window = space_manager_focused_window();
 
     if (window) did = window_display_id(window->id);
     if (!did)   did = display_manager_active_display_id();

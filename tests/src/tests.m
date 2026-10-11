@@ -58,6 +58,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_frame_group_by_application)              \
     TEST_ENTRY(window_frame_needs_update_decision)             \
     TEST_ENTRY(window_pending_focus)                           \
+    TEST_ENTRY(space_known_focus)                              \
     TEST_ENTRY(mouse_event_coalescing)
 
 static struct {

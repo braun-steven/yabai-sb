@@ -499,6 +499,13 @@ API_AVAILABLE(macos(26.0))
     panel.hasShadow = NO;
     panel.ignoresMouseEvents = YES;
     panel.animationBehavior = NSWindowAnimationBehaviorNone;
+
+    //
+    // NOTE: Glass follows the appearance of its window and turns whiter in light mode, which would wash out the tints.
+    // The panel is pinned to the dark appearance so the bar looks the same in light and dark mode.
+    //
+
+    panel.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     panel.collectionBehavior = NSWindowCollectionBehaviorManaged |
                                NSWindowCollectionBehaviorIgnoresCycle |
                                NSWindowCollectionBehaviorFullScreenAuxiliary;

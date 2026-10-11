@@ -483,37 +483,39 @@ API_AVAILABLE(macos(26.0))
 @end
 
 @implementation tab_bar_glass
-- (id)init
+
+//
+// NOTE: The object is created on the event loop thread, but AppKit only allows windows and views on the main thread.
+// The panel is therefore created by the first update that reaches the main queue. Until then hide and order are no-ops.
+//
+
+- (void)setup
 {
-    if ((self = [super init])) {
-        panel = [[NSPanel alloc] initWithContentRect:NSZeroRect
-                                           styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
-                                             backing:NSBackingStoreBuffered
-                                               defer:NO];
-        panel.releasedWhenClosed = NO;
-        panel.opaque = NO;
-        panel.backgroundColor = [NSColor clearColor];
-        panel.hasShadow = NO;
-        panel.ignoresMouseEvents = YES;
-        panel.animationBehavior = NSWindowAnimationBehaviorNone;
-        panel.collectionBehavior = NSWindowCollectionBehaviorManaged |
-                                   NSWindowCollectionBehaviorIgnoresCycle |
-                                   NSWindowCollectionBehaviorFullScreenAuxiliary;
+    panel = [[NSPanel alloc] initWithContentRect:NSZeroRect
+                                       styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+                                         backing:NSBackingStoreBuffered
+                                           defer:NO];
+    panel.releasedWhenClosed = NO;
+    panel.opaque = NO;
+    panel.backgroundColor = [NSColor clearColor];
+    panel.hasShadow = NO;
+    panel.ignoresMouseEvents = YES;
+    panel.animationBehavior = NSWindowAnimationBehaviorNone;
+    panel.collectionBehavior = NSWindowCollectionBehaviorManaged |
+                               NSWindowCollectionBehaviorIgnoresCycle |
+                               NSWindowCollectionBehaviorFullScreenAuxiliary;
 
-        root = [[NSView alloc] initWithFrame:NSZeroRect];
-        track = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
-        pill = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
-        tab_bar_glass_add_tint(track);
-        tab_bar_glass_add_tint(pill);
-        content = [[tab_bar_glass_content alloc] initWithFrame:NSZeroRect];
+    root = [[NSView alloc] initWithFrame:NSZeroRect];
+    track = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+    pill = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+    tab_bar_glass_add_tint(track);
+    tab_bar_glass_add_tint(pill);
+    content = [[tab_bar_glass_content alloc] initWithFrame:NSZeroRect];
 
-        [root addSubview:track];
-        [root addSubview:pill];
-        [root addSubview:content];
-        panel.contentView = root;
-    }
-
-    return self;
+    [root addSubview:track];
+    [root addSubview:pill];
+    [root addSubview:content];
+    panel.contentView = root;
 }
 
 - (void)layout:(struct tab_bar_glass_snapshot *)snapshot animate:(bool)animate
@@ -553,6 +555,8 @@ API_AVAILABLE(macos(26.0))
 
 - (void)apply:(struct tab_bar_glass_snapshot *)snapshot
 {
+    if (!panel) [self setup];
+
     CGRect frame = snapshot->frame;
     CGFloat primary_height = CGDisplayBounds(CGMainDisplayID()).size.height;
     NSRect cocoa_frame = NSMakeRect(frame.origin.x, primary_height - frame.origin.y - frame.size.height, frame.size.width, frame.size.height);

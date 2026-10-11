@@ -11,6 +11,8 @@ struct process
     char *name;
     void *ns_application;
     int policy;
+    int launch_attempts;
+    bool launch_given_up;
     bool volatile terminated;
 };
 

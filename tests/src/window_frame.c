@@ -171,3 +171,23 @@ TEST_FUNC(space_known_focus,
     wm.focused_window_id = 0;
     TEST_CHECK(space_manager_can_use_known_focus(&owner, &wm, false), false);
 });
+
+TEST_FUNC(application_launch_retry_backoff,
+{
+    //
+    // NOTE: The delay doubles from 100ms and is capped at 5s; delays are compared in milliseconds.
+    //
+
+    TEST_CHECK((int)(application_launch_retry_delay(0) * 1000.0f + 0.5f), 100);
+    TEST_CHECK((int)(application_launch_retry_delay(1) * 1000.0f + 0.5f), 200);
+    TEST_CHECK((int)(application_launch_retry_delay(5) * 1000.0f + 0.5f), 3200);
+    TEST_CHECK((int)(application_launch_retry_delay(6) * 1000.0f + 0.5f), 5000);
+    TEST_CHECK((int)(application_launch_retry_delay(40) * 1000.0f + 0.5f), 5000);
+
+    float total = 0.0f;
+    int attempts = 0;
+    while (application_launch_can_retry(attempts)) total += application_launch_retry_delay(attempts++);
+
+    TEST_CHECK(attempts, APPLICATION_LAUNCH_MAX_ATTEMPTS);
+    TEST_CHECK(total > 30.0f && total < 40.0f, true);
+});

@@ -62,6 +62,8 @@ static struct process *process_create(ProcessSerialNumber psn, pid_t pid)
     process->psn = psn;
     process->pid = pid;
     process->name = process_name;
+    process->launch_attempts = 0;
+    process->launch_given_up = false;
     __atomic_store_n(&process->terminated, false, __ATOMIC_RELEASE);
     __atomic_store_n(&process->ns_application, workspace_application_create_running_ns_application(process), __ATOMIC_RELEASE);
     return process;

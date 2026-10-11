@@ -88,6 +88,42 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
+//
+// NOTE: An application that cannot be observed yet is tried again with a growing delay. After
+// APPLICATION_LAUNCH_MAX_ATTEMPTS attempts (about 36s) it is given up on, until the user
+// activates it, so that an application that never responds is not polled forever.
+//
+
+#define APPLICATION_LAUNCH_MAX_ATTEMPTS 12
+
+static inline float application_launch_retry_delay(int attempt)
+{
+    return min(0.1f * (float)(1 << min(attempt, 16)), 5.0f);
+}
+
+static inline bool application_launch_can_retry(int attempt)
+{
+    return attempt < APPLICATION_LAUNCH_MAX_ATTEMPTS;
+}
+
+static void application_launch_retry(struct process *process)
+{
+    if (!application_launch_can_retry(process->launch_attempts)) {
+        process->launch_given_up = true;
+        debug("%s: giving up on %s (%d) after %d attempts\n", __FUNCTION__, process->name, process->pid, process->launch_attempts);
+        return;
+    }
+
+    float delay = application_launch_retry_delay(process->launch_attempts++);
+    debug("%s: retrying %s (%d) in %.1fs (attempt %d)\n", __FUNCTION__, process->name, process->pid, delay, process->launch_attempts);
+
+    __block ProcessSerialNumber psn = process->psn;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+        struct process *_process = process_manager_find_process(&g_process_manager, &psn);
+        if (_process) event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, _process, 0);
+    });
+}
+
 static EVENT_HANDLER(APPLICATION_LAUNCHED)
 {
     struct process *process = context;
@@ -104,13 +140,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
 
         if (!__atomic_load_n(&process->ns_application, __ATOMIC_RELAXED)) {
             debug("%s: %s (%d) unable to fetch ns_application..\n", __FUNCTION__, process->name, process->pid);
-
-            __block ProcessSerialNumber psn = process->psn;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.1f * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                struct process *_process = process_manager_find_process(&g_process_manager, &psn);
-                if (_process) event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, _process, 0);
-            });
-
+            application_launch_retry(process);
             return;
         }
     }
@@ -168,14 +198,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         application_destroy(application);
         debug("%s: could not observe notifications for %s (%d) (%d)\n", __FUNCTION__, process->name, process->pid, ax_retry);
 
-        if (ax_retry) {
-            __block ProcessSerialNumber psn = process->psn;
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.1f * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-                struct process *_process = process_manager_find_process(&g_process_manager, &psn);
-                if (_process) event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, _process, 0);
-            });
-        }
-
+        if (ax_retry) application_launch_retry(process);
         return;
     }
 
@@ -187,6 +210,8 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
     debug("%s: %s (%d)\n", __FUNCTION__, process->name, process->pid);
     window_manager_add_application(&g_window_manager, application);
     event_signal_push(SIGNAL_APPLICATION_LAUNCHED, application);
+    process->launch_attempts = 0;
+    process->launch_given_up = false;
 
     int window_count;
     struct window **window_list = window_manager_add_application_windows(&g_space_manager, &g_window_manager, application, &window_count);
@@ -367,6 +392,14 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
 
     if (!application) {
         window_manager_add_lost_front_switched_event(&g_window_manager, process->pid);
+
+        if (process->launch_given_up) {
+            debug("%s: %s (%d) was activated, trying to observe it again\n", __FUNCTION__, process->name, process->pid);
+            process->launch_attempts = 0;
+            process->launch_given_up = false;
+            event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, process, 0);
+        }
+
         return;
     }
 

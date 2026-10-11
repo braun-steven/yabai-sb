@@ -1417,6 +1417,9 @@ static void tree_order_windows(struct con *con, int order, uint32_t relative)
 // below the backdrop card of the container (below its focused window without a card), and
 // the other visible windows of the tab (when it holds a split) are ordered above it. The card
 // itself sits right below the focused window, so this is redone when either of them changes.
+// The focused window is also ordered right above the card: the card does not reliably follow
+// its own ordering, and a new window was ordered below the card as a hidden tab before it got
+// focus, which the application then does not raise again.
 //
 
 void tree_raise_tabs(struct con *con, bool force)
@@ -1434,6 +1437,10 @@ void tree_raise_tabs(struct con *con, bool force)
             con->raised = active;
             con->raised_anchor = anchor_wid;
             con->raised_card = card_wid;
+
+            if (anchor && card_wid) {
+                scripting_addition_order_window(anchor_wid, 1, card_wid);
+            }
 
             if (anchor && con->child_count > 1) {
                 for (int i = 0; i < con->child_count; ++i) {

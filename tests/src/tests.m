@@ -23,6 +23,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(closest_display_in_direction)                   \
     TEST_ENTRY(space_layout_parse)                             \
     TEST_ENTRY(space_layout_targets)                           \
+    TEST_ENTRY(space_move_replacement)                         \
+    TEST_ENTRY(space_layout_move_candidate)                    \
     TEST_ENTRY(auto_padding_applies)                           \
     TEST_ENTRY(auto_padding_tiled_count)                \
     TEST_ENTRY(auto_padding_root_area)                         \

@@ -71,3 +71,64 @@ TEST_FUNC(space_layout_targets,
     TEST_CHECK(target[1], 5);
     TEST_CHECK(target[2], 1);
 });
+
+// NOTE: The display holds the spaces 1..n, one per character of the mask, and 'u' marks a user space.
+static int space_test_lists(char *mask, uint64_t *space_list, bool *user_list)
+{
+    int count = strlen(mask);
+    for (int i = 0; i < count; ++i) {
+        space_list[i] = i + 1;
+        user_list[i] = mask[i] == 'u';
+    }
+    return count;
+}
+
+static int move_replacement(char *mask, uint64_t sid, uint64_t visible_sid)
+{
+    uint64_t space_list[16];
+    bool user_list[16];
+    int count = space_test_lists(mask, space_list, user_list);
+    return (int) space_manager_move_space_replacement(space_list, user_list, count, sid, visible_sid);
+}
+
+static int move_candidate(char *mask, uint64_t visible_sid, bool from_end)
+{
+    uint64_t space_list[16];
+    bool user_list[16];
+    int count = space_test_lists(mask, space_list, user_list);
+    return (int) space_manager_space_layout_move_candidate(space_list, user_list, count, visible_sid, from_end);
+}
+
+TEST_FUNC(space_move_replacement,
+{
+    // NOTE: The regression: a visible space is replaced even when it is not the focused space,
+    // so the scripting addition hides it before the move and it never stays shown on the
+    // destination display as a second menubar.
+    TEST_CHECK(move_replacement("uuuu", 1, 1), 2);
+    TEST_CHECK(move_replacement("uuuu", 3, 3), 2);
+    TEST_CHECK(move_replacement("uuuu", 4, 4), 3);
+
+    // A hidden space needs no replacement.
+    TEST_CHECK(move_replacement("uuuu", 2, 1), 0);
+
+    // The replacement is always a user space on the same display.
+    TEST_CHECK(move_replacement("-u-u", 2, 2), 4);
+    TEST_CHECK(move_replacement("-u-u", 4, 4), 2);
+    TEST_CHECK(move_replacement("u", 1, 1), 0);
+});
+
+TEST_FUNC(space_layout_move_candidate,
+{
+    // The visible space is skipped, from either edge.
+    TEST_CHECK(move_candidate("uuuu", 3, false), 1);
+    TEST_CHECK(move_candidate("uuuu", 1, false), 2);
+    TEST_CHECK(move_candidate("uuuu", 3, true), 4);
+    TEST_CHECK(move_candidate("uuuu", 4, true), 3);
+
+    TEST_CHECK(move_candidate("-uu-", 2, false), 3);
+    TEST_CHECK(move_candidate("-uu-", 3, true), 2);
+
+    // The visible space is only moved when it is the only user space.
+    TEST_CHECK(move_candidate("-u--", 2, false), 2);
+    TEST_CHECK(move_candidate("----", 2, false), 0);
+});

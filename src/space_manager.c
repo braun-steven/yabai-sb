@@ -855,11 +855,9 @@ enum space_op_error space_manager_move_space_to_space(uint64_t acting_sid, uint6
     return success ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION;
 }
 
-static uint64_t space_manager_display_neighbor_space(uint64_t sid, uint32_t did)
+uint64_t space_manager_move_space_replacement(uint64_t *space_list, bool *user_list, int space_count, uint64_t sid, uint64_t visible_sid)
 {
-    int space_count;
-    uint64_t *space_list = display_space_list(did, &space_count);
-    if (!space_list) return 0;
+    if (sid != visible_sid) return 0;
 
     uint64_t prev_sid = 0;
     for (int i = 0; i < space_count; ++i) {
@@ -867,16 +865,39 @@ static uint64_t space_manager_display_neighbor_space(uint64_t sid, uint32_t did)
             if (prev_sid) return prev_sid;
 
             for (int j = i + 1; j < space_count; ++j) {
-                if (space_is_user(space_list[j])) return space_list[j];
+                if (user_list[j]) return space_list[j];
             }
 
             return 0;
         }
 
-        if (space_is_user(space_list[i])) prev_sid = space_list[i];
+        if (user_list[i]) prev_sid = space_list[i];
     }
 
     return 0;
+}
+
+uint64_t space_manager_space_layout_move_candidate(uint64_t *space_list, bool *user_list, int space_count, uint64_t visible_sid, bool from_end)
+{
+    for (int k = 0; k < space_count; ++k) {
+        int i = from_end ? space_count - 1 - k : k;
+        if (user_list[i] && space_list[i] != visible_sid) return space_list[i];
+    }
+
+    for (int i = 0; i < space_count; ++i) {
+        if (user_list[i] && space_list[i] == visible_sid) return visible_sid;
+    }
+
+    return 0;
+}
+
+static bool *space_manager_user_list(uint64_t *space_list, int space_count)
+{
+    bool *user_list = ts_alloc_list(bool, space_count);
+    for (int i = 0; i < space_count; ++i) {
+        user_list[i] = space_is_user(space_list[i]);
+    }
+    return user_list;
 }
 
 enum space_op_error space_manager_move_space_to_display(struct space_manager *sm, uint64_t sid, uint32_t did)
@@ -908,7 +929,12 @@ enum space_op_error space_manager_move_space_to_display(struct space_manager *sm
     // to that display's current space, and its menubar stays on screen above the real one.
     //
 
-    uint64_t replacement_sid = space_is_visible(sid) ? space_manager_display_neighbor_space(sid, s_did) : 0;
+    int space_count;
+    uint64_t *space_list = display_space_list(s_did, &space_count);
+    if (!space_list) return SPACE_OP_ERROR_MISSING_SRC;
+
+    bool *user_list = space_manager_user_list(space_list, space_count);
+    uint64_t replacement_sid = space_manager_move_space_replacement(space_list, user_list, space_count, sid, display_space_id(s_did));
 
     if (scripting_addition_move_space_to_display(sid, d_sid, replacement_sid, focus_space ? 1 : 0)) {
         space_manager_mark_view_invalid(sm, sid);
@@ -1212,14 +1238,8 @@ enum space_layout_result space_manager_reconcile_space_layout(struct space_manag
         uint64_t *space_list = display_space_list(did_list[surplus], &space_count);
         if (!space_list) return SPACE_LAYOUT_RESULT_FAILED;
 
-        uint64_t visible_sid = display_space_id(did_list[surplus]);
-        uint64_t sid = 0;
-        if (deficit > surplus) {
-            for (int i = space_count - 1; i >= 0 && !sid; --i) if (space_is_user(space_list[i]) && space_list[i] != visible_sid) sid = space_list[i];
-        } else {
-            for (int i = 0; i < space_count && !sid; ++i) if (space_is_user(space_list[i]) && space_list[i] != visible_sid) sid = space_list[i];
-        }
-        if (!sid && space_is_user(visible_sid)) sid = visible_sid;
+        bool *user_list = space_manager_user_list(space_list, space_count);
+        uint64_t sid = space_manager_space_layout_move_candidate(space_list, user_list, space_count, display_space_id(did_list[surplus]), deficit > surplus);
 
         debug("%s: move space %lld from display %d to display %d\n", __FUNCTION__, sid, surplus + 1, deficit + 1);
         result = space_manager_move_space_to_display(sm, sid, did_list[deficit]);

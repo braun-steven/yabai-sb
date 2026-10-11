@@ -3276,6 +3276,15 @@ static void *message_loop_run(void *context)
         int sockfd = accept(g_message_loop.sockfd, NULL, 0);
         if (sockfd == -1) continue;
 
+        //
+        // NOTE: The message is read and the response written on the event loop thread. A client that
+        // stalls must not be able to block it, so reads and writes on the socket time out.
+        //
+
+        struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
+        setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
         event_loop_post(&g_event_loop, DAEMON_MESSAGE, NULL, sockfd);
     }
 

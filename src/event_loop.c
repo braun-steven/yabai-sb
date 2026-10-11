@@ -16,19 +16,27 @@ volatile uint64_t __last_cmd_tab_time;
 static void update_window_notifications(void)
 {
     int window_count = 0;
-    uint32_t window_list[1024] = {0};
+    int window_capacity = 1024;
+
+    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+        if (g_window_manager.window.count > window_capacity) window_capacity = g_window_manager.window.count;
+    }
+
+    uint32_t *window_list = calloc(window_capacity, sizeof(uint32_t));
+    if (!window_list) return;
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
         table_for (struct window *window, g_window_manager.window, {
-            window_list[window_count++] = window->id;
+            if (window_count < window_capacity) window_list[window_count++] = window->id;
         })
     } else {
         // NOTE(asmvik): Subscribe to windows that have a tab bar because of window_ordered notifications
-        window_count += tab_bar_window_list(window_list + window_count, array_count(window_list) - window_count);
+        window_count += tab_bar_window_list(window_list + window_count, window_capacity - window_count);
     }
 
     SLSRequestNotificationsForWindows(g_connection, window_list, window_count);
+    free(window_list);
 }
 
 static void window_did_receive_focus(struct window_manager *wm, struct mouse_state *ms, struct window *window)
@@ -917,7 +925,13 @@ static EVENT_HANDLER(SLS_WINDOW_DESTROYED)
     struct window *window = window_manager_find_window(&g_window_manager, wid);
     if (!window) return;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    //
+    // NOTE: The AX destroyed notification for the same window can arrive on the main thread at any
+    // time. Claim the window like that callback does, so that it bails out instead of posting a second
+    // WINDOW_DESTROYED event for memory that we are about to free.
+    //
+
+    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, NULL)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, wid);
         return;
     }

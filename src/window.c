@@ -919,7 +919,7 @@ int window_level(uint32_t wid)
     return level;
 }
 
-static int SLSGetWindowSubLevel__Internal(int cid, uint32_t wid)
+static bool SLSGetWindowSubLevel__Internal(int cid, uint32_t wid, int *sub_level)
 {
     #pragma pack(push,4)
     struct {
@@ -938,18 +938,33 @@ static int SLSGetWindowSubLevel__Internal(int cid, uint32_t wid)
     msg.header.msgh_remote_port = CGSGetConnectionPortById(cid);
     msg.header.msgh_local_port = mig_get_special_reply_port();
     msg.header.msgh_id = workspace_is_macos_tahoe() ? 0x76E3 : 0x73C3;
-    mach_msg(&msg.header, MACH_SEND_MSG|MACH_RCV_MSG, 0x24, 0x30, msg.header.msgh_local_port, 0, 0);
 
-    return msg.sub_level;
+    //
+    // NOTE: Bound the wait for the reply, so that a message the window server does not answer (e.g. an
+    // unknown msgh_id on a new macOS release) can not block the event loop forever. Like MIG-generated
+    // code, the special reply port is destroyed on failure so that a late reply can not be received by
+    // the next call on this thread.
+    //
+
+    mach_port_t reply_port = msg.header.msgh_local_port;
+    kern_return_t kr = mach_msg(&msg.header, MACH_SEND_MSG|MACH_RCV_MSG|MACH_RCV_TIMEOUT, 0x24, 0x30, reply_port, 100, 0);
+    if (kr != MACH_MSG_SUCCESS) {
+        mig_dealloc_special_reply_port(reply_port);
+        return false;
+    }
+
+    *sub_level = msg.sub_level;
+    return true;
 }
 
 int window_sub_level(uint32_t wid)
 {
-    if (CGSGetConnectionPortById) {
-        return SLSGetWindowSubLevel__Internal(g_connection, wid);
-    } else {
-        return SLSGetWindowSubLevel(g_connection, wid);
+    int sub_level;
+    if (CGSGetConnectionPortById && SLSGetWindowSubLevel__Internal(g_connection, wid, &sub_level)) {
+        return sub_level;
     }
+
+    return SLSGetWindowSubLevel(g_connection, wid);
 }
 
 uint64_t window_tags(uint32_t wid)

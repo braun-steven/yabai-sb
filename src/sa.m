@@ -415,9 +415,14 @@ out:
     return result;
 }
 
-#define sa_payload_init() char bytes[SA_SOCKET_BUFF_LEN]; int16_t length = 1+sizeof(length)
-#define pack(v) memcpy(bytes+length, &v, sizeof(v)); length += sizeof(v)
-#define sa_payload_send(op) *(int16_t*)bytes = length-sizeof(length), bytes[sizeof(length)] = op, scripting_addition_send_bytes(bytes, length)
+//
+// NOTE: A payload that does not fit the buffer (e.g. a very long window list) is not sent, and the
+// operation reports failure so that the caller can fall back, instead of overflowing the stack buffer.
+//
+
+#define sa_payload_init() char bytes[SA_SOCKET_BUFF_LEN]; int16_t length = 1+sizeof(length); bool overflow = false
+#define pack(v) ((length + sizeof(v) <= SA_SOCKET_BUFF_LEN) ? (memcpy(bytes+length, &v, sizeof(v)), length += sizeof(v)) : (overflow = true))
+#define sa_payload_send(op) (overflow ? false : (*(int16_t*)bytes = length-sizeof(length), bytes[sizeof(length)] = op, scripting_addition_send_bytes(bytes, length)))
 
 static bool scripting_addition_send_bytes(char *bytes, int length)
 {

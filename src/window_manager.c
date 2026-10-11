@@ -495,7 +495,7 @@ static inline void window_manager_notify_jankyborders(struct window_animation *a
             uint32_t real_wid[512];
         } data = { event, 0 };
 
-        for (int i = 0; i < animation_count; ++i) {
+        for (int i = 0; i < animation_count && (int) data.count < array_count(data.proxy_wid); ++i) {
             if (skip && __atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED)) continue;
 
             data.proxy_wid[data.count] = animation_list[i].proxy.id;
@@ -603,6 +603,12 @@ static CVReturn window_manager_animate_window_list_thread_proc(CVDisplayLinkRef 
 #undef ANIMATION_EASING_TYPE_ENTRY
     }
 
+    //
+    // NOTE: A new animation of the same window marks this entry as skipped and destroys its proxy
+    // while holding the lock, so the proxy must not be used here without holding it as well.
+    //
+
+    pthread_mutex_lock(&g_window_manager.window_animations_lock);
     CFTypeRef transaction = SLSTransactionCreate(context->animation_connection);
     for (int i = 0; i < animation_count; ++i) {
         if (__atomic_load_n(&context->animation_list[i].skip, __ATOMIC_RELAXED)) continue;
@@ -622,9 +628,11 @@ static CVReturn window_manager_animate_window_list_thread_proc(CVDisplayLinkRef 
     }
     SLSTransactionCommit(transaction, 0);
     CFRelease(transaction);
-    if (t != 1.0f) goto out;
+    if (t != 1.0f) {
+        pthread_mutex_unlock(&g_window_manager.window_animations_lock);
+        goto out;
+    }
 
-    pthread_mutex_lock(&g_window_manager.window_animations_lock);
     SLSDisableUpdate(context->animation_connection);
     window_manager_notify_jankyborders(context->animation_list, context->animation_count, 1326, true, true);
     scripting_addition_swap_window_proxy_out(context->animation_list, context->animation_count);
@@ -1606,8 +1614,22 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                     memcpy(data+0xc, &element_id, sizeof(uint64_t));
                     AXUIElementRef element_ref = _AXUIElementCreateWithRemoteToken(data_ref);
 
+                    if (!element_ref) continue;
+
                     const void *role = NULL;
-                    AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
+                    AXError error = AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
+
+                    //
+                    // NOTE: An application that does not respond makes every attempt wait for the
+                    // messaging timeout, so give up on it instead of trying all element ids.
+                    //
+
+                    if (error == kAXErrorCannotComplete) {
+                        CFRelease(element_ref);
+                        break;
+                    }
+
+                    bool consumed = false;
 
                     if (role) {
                         if (CFEqual(role, kAXWindowRole)) {
@@ -1626,13 +1648,14 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
 
                             if (matched) {
                                 window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
-                            } else {
-                                CFRelease(element_ref);
+                                consumed = true;
                             }
                         }
 
                         CFRelease(role);
                     }
+
+                    if (!consumed) CFRelease(element_ref);
                 }
 
                 CFRelease(data_ref);
@@ -2039,6 +2062,8 @@ void window_manager_toggle_window_shadow(struct window *window)
     }
 }
 
+#define NATIVE_FULLSCREEN_WAIT_ITERATIONS 30
+
 void window_manager_wait_for_native_fullscreen_transition(struct window *window)
 {
     TIME_FUNCTION;
@@ -2048,7 +2073,7 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
         workspace_is_macos_sonoma() ||
         workspace_is_macos_sequoia() ||
         workspace_is_macos_tahoe()) {
-        while (!space_is_user(space_manager_active_space())) {
+        for (int i = 0; i < NATIVE_FULLSCREEN_WAIT_ITERATIONS && !space_is_user(space_manager_active_space()); ++i) {
 
             //
             // NOTE(asmvik): Window has exited native-fullscreen mode.
@@ -2057,11 +2082,15 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
             //
             // The display_manager API does not work on macOS Monterey.
             //
+            // NOTE: The wait is bounded, because the space we wait for may never become active
+            // (e.g. the transition was cancelled), and this blocks the event loop.
+            //
 
             usleep(100000);
         }
     } else {
         uint32_t did = window_display_id(window->id);
+        int i = 0;
 
         do {
 
@@ -2072,7 +2101,7 @@ void window_manager_wait_for_native_fullscreen_transition(struct window *window)
             //
 
             usleep(100000);
-        } while (display_manager_display_is_animating(did));
+        } while (display_manager_display_is_animating(did) && ++i < NATIVE_FULLSCREEN_WAIT_ITERATIONS);
     }
 }
 
@@ -2080,7 +2109,7 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
 {
     TIME_FUNCTION;
 
-    uint32_t sid = window_space(window->id);
+    uint64_t sid = window_space(window->id);
 
     //
     // NOTE(asmvik): The window must become the focused window
@@ -2089,7 +2118,7 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
     //
 
     window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
-    while (sid != space_manager_active_space()) { usleep(100000); }
+    for (int i = 0; i < NATIVE_FULLSCREEN_WAIT_ITERATIONS && sid != space_manager_active_space(); ++i) { usleep(100000); }
 
 
     if (!window_is_fullscreen(window)) {

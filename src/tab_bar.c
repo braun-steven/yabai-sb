@@ -6,10 +6,12 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_MAX_HIT_COUNT 256
 
 //
-// NOTE: Nodes that currently own a tab bar window. Only touched from the event loop thread.
+// NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
+// A bar is embedded in its owner (a stack leaf or a tabbed container), and the owner
+// redraws it through the callback when colors or fonts change.
 //
 
-static struct window_node **tab_bar_nodes;
+static struct tab_bar **tab_bar_list;
 
 //
 // NOTE: Snapshot of the visible tab layout, read by the mouse event tap to resolve clicks on a
@@ -49,39 +51,20 @@ bool tab_bar_is_enabled(void)
     return g_window_manager.enable_tab_bar && g_window_manager.tab_bar_height > 0;
 }
 
-bool tab_bar_node_has_bar(struct window_node *node)
-{
-    return tab_bar_is_enabled() &&
-           node->left == NULL &&
-           node->right == NULL &&
-           node->window_count > 1 &&
-           node->zoom == NULL &&
-           node->area.h > 2 * g_window_manager.tab_bar_height;
-}
-
-struct area tab_bar_window_area(struct window_node *node, struct area area)
-{
-    if (tab_bar_node_has_bar(node)) {
-        area.y += g_window_manager.tab_bar_height;
-        area.h -= g_window_manager.tab_bar_height;
-    }
-
-    return area;
-}
-
 static void tab_bar_publish_hits(void)
 {
     pthread_mutex_lock(&tab_bar_hit_lock);
 
     tab_bar_hit_count = 0;
-    for (int i = 0; i < buf_len(tab_bar_nodes) && tab_bar_hit_count < TAB_BAR_MAX_HIT_COUNT; ++i) {
-        struct window_node *node = tab_bar_nodes[i];
-        struct tab_bar_hit *hit = &tab_bar_hit_list[tab_bar_hit_count++];
+    for (int i = 0; i < buf_len(tab_bar_list) && tab_bar_hit_count < TAB_BAR_MAX_HIT_COUNT; ++i) {
+        struct tab_bar *bar = tab_bar_list[i];
+        if (bar->hidden || !bar->entry_count) continue;
 
-        hit->frame = node->tab_bar.frame;
-        hit->sid = node->tab_bar.sid;
-        hit->window_count = node->window_count;
-        memcpy(hit->window_list, node->window_list, sizeof(uint32_t) * node->window_count);
+        struct tab_bar_hit *hit = &tab_bar_hit_list[tab_bar_hit_count++];
+        hit->frame = bar->frame;
+        hit->sid = bar->sid;
+        hit->entry_count = bar->entry_count;
+        memcpy(hit->entry_list, bar->entry_list, sizeof(uint32_t) * bar->entry_count);
     }
 
     pthread_mutex_unlock(&tab_bar_hit_lock);
@@ -97,11 +80,11 @@ bool tab_bar_hit_test(CGPoint point, uint32_t *wid)
         if (!CGRectContainsPoint(hit->frame, point)) continue;
         if (!space_is_visible(hit->sid)) continue;
 
-        int index = (int)((point.x - hit->frame.origin.x) * hit->window_count / hit->frame.size.width);
+        int index = (int)((point.x - hit->frame.origin.x) * hit->entry_count / hit->frame.size.width);
         if (index < 0) index = 0;
-        if (index >= hit->window_count) index = hit->window_count - 1;
+        if (index >= hit->entry_count) index = hit->entry_count - 1;
 
-        *wid = hit->window_list[index];
+        *wid = hit->entry_list[index];
         result = true;
         break;
     }
@@ -163,7 +146,7 @@ static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGRect r
     CGColorRelease(text_color);
 }
 
-static CFStringRef tab_bar_copy_title(uint32_t wid)
+CFStringRef tab_bar_copy_title(uint32_t wid)
 {
     struct window *window = window_manager_find_window(&g_window_manager, wid);
     if (!window) return NULL;
@@ -179,32 +162,36 @@ static CFStringRef tab_bar_copy_title(uint32_t wid)
     return NULL;
 }
 
-static void tab_bar_draw(struct window_node *node)
+static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, int entry_count)
 {
-    CGContextRef context = node->tab_bar.context;
-    CGRect bounds = {{0, 0}, node->tab_bar.frame.size};
-    float tab_width = bounds.size.width / node->window_count;
-    bool node_has_focus = window_node_contains_window(node, g_window_manager.focused_window_id);
+    CGContextRef context = bar->context;
+    CGRect bounds = {{0, 0}, bar->frame.size};
+    float tab_width = bounds.size.width / entry_count;
 
     SLSDisableUpdate(g_connection);
     CGContextClearRect(context, bounds);
 
-    for (int i = 0; i < node->window_count; ++i) {
-        uint32_t wid = node->window_list[i];
-
+    for (int i = 0; i < entry_count; ++i) {
         struct rgba_color background;
         struct rgba_color text;
 
-        if (wid == node->window_order[0]) {
-            background = node_has_focus ? g_window_manager.tab_bar_focused_color : g_window_manager.tab_bar_inactive_color;
-            text = node_has_focus ? g_window_manager.tab_bar_focused_text_color : g_window_manager.tab_bar_inactive_text_color;
-        } else {
+        switch (entry_list[i].state) {
+        case TAB_BAR_FOCUSED: {
+            background = g_window_manager.tab_bar_focused_color;
+            text = g_window_manager.tab_bar_focused_text_color;
+        } break;
+        case TAB_BAR_INACTIVE: {
+            background = g_window_manager.tab_bar_inactive_color;
+            text = g_window_manager.tab_bar_inactive_text_color;
+        } break;
+        case TAB_BAR_UNFOCUSED: {
             background = g_window_manager.tab_bar_unfocused_color;
             text = g_window_manager.tab_bar_unfocused_text_color;
+        } break;
         }
 
         float x0 = (int)(i * tab_width);
-        float x1 = i == node->window_count - 1 ? bounds.size.width : (int)((i + 1) * tab_width);
+        float x1 = i == entry_count - 1 ? bounds.size.width : (int)((i + 1) * tab_width);
         CGRect tab = {{x0, 0}, {x1 - x0, bounds.size.height}};
 
         CGContextSetRGBFillColor(context, background.r, background.g, background.b, background.a);
@@ -215,10 +202,8 @@ static void tab_bar_draw(struct window_node *node)
             CGContextFillRect(context, (CGRect) {{x0, 0}, {1, bounds.size.height}});
         }
 
-        CFStringRef title = tab_bar_copy_title(wid);
-        if (title) {
-            tab_bar_draw_title(context, title, tab, text);
-            CFRelease(title);
+        if (entry_list[i].title) {
+            tab_bar_draw_title(context, entry_list[i].title, tab, text);
         }
     }
 
@@ -226,51 +211,170 @@ static void tab_bar_draw(struct window_node *node)
     SLSReenableUpdate(g_connection);
 }
 
-static void tab_bar_create(struct window_node *node, CGRect frame)
+static void tab_bar_create(struct tab_bar *bar, CGRect frame)
 {
     CFTypeRef frame_region;
     CGSNewRegionWithRect(&frame, &frame_region);
 
     uint64_t tags = (1ULL << 1) | (1ULL << 9);
     CFTypeRef empty_region = CGRegionCreateEmptyRegion();
-    SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &node->tab_bar.id, NULL);
+    SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &bar->id, NULL);
     CFRelease(empty_region);
     CFRelease(frame_region);
 
-    sls_window_disable_shadow(node->tab_bar.id);
-    SLSSetWindowResolution(g_connection, node->tab_bar.id, 2.0f);
-    SLSSetWindowOpacity(g_connection, node->tab_bar.id, 0);
-    node->tab_bar.context = SLWindowContextCreate(g_connection, node->tab_bar.id, 0);
-    node->tab_bar.frame = frame;
+    sls_window_disable_shadow(bar->id);
+    SLSSetWindowResolution(g_connection, bar->id, 2.0f);
+    SLSSetWindowOpacity(g_connection, bar->id, 0);
+    bar->context = SLWindowContextCreate(g_connection, bar->id, 0);
+    bar->frame = frame;
 
-    buf_push(tab_bar_nodes, node);
-
-    if (!workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
-        update_window_notifications();
-    }
+    buf_push(tab_bar_list, bar);
 }
 
-void tab_bar_destroy(struct window_node *node)
-{
-    if (!node->tab_bar.id) return;
+//
+// NOTE: Creates the bar window if needed, moves it to the frame and to the space of the window it
+// sits above, draws the entries and orders it right above that window. Titles stay owned by the caller.
+//
 
-    for (int i = 0; i < buf_len(tab_bar_nodes); ++i) {
-        if (tab_bar_nodes[i] == node) {
-            buf_del(tab_bar_nodes, i);
+void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
+{
+    if (entry_count > TAB_BAR_MAX_ENTRY_COUNT) entry_count = TAB_BAR_MAX_ENTRY_COUNT;
+
+    if (!bar->id) {
+        tab_bar_create(bar, frame);
+    } else if (!CGRectEqualToRect(frame, bar->frame)) {
+        CFTypeRef frame_region;
+        CGSNewRegionWithRect(&frame, &frame_region);
+        SLSDisableUpdate(g_connection);
+        SLSSetWindowShape(g_connection, bar->id, 0.0f, 0.0f, frame_region);
+        SLSReenableUpdate(g_connection);
+        CFRelease(frame_region);
+        bar->frame = frame;
+    }
+
+    uint64_t sid = window_space(above_wid);
+    if (sid && sid != bar->sid) {
+        CFArrayRef window_list_ref = cfarray_of_cfnumbers(&bar->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+        SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
+        CFRelease(window_list_ref);
+        bar->sid = sid;
+    }
+
+    bool above_changed = bar->above_wid != above_wid;
+    bar->above_wid = above_wid;
+    bar->hidden = false;
+    bar->entry_count = entry_count;
+    for (int i = 0; i < entry_count; ++i) {
+        bar->entry_list[i] = entry_list[i].focus_wid;
+    }
+
+    tab_bar_draw(bar, entry_list, entry_count);
+
+    SLSSetWindowLevel(g_connection, bar->id, window_level(above_wid));
+    SLSSetWindowSubLevel(g_connection, bar->id, window_sub_level(above_wid));
+    SLSOrderWindow(g_connection, bar->id, 1, above_wid);
+
+    if (above_changed && !workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
+        update_window_notifications();
+    }
+
+    tab_bar_publish_hits();
+}
+
+void tab_bar_hide(struct tab_bar *bar)
+{
+    if (!bar->id || bar->hidden) return;
+
+    SLSOrderWindow(g_connection, bar->id, 0, 0);
+    bar->hidden = true;
+
+    tab_bar_publish_hits();
+}
+
+void tab_bar_release(struct tab_bar *bar)
+{
+    if (!bar->id) return;
+
+    for (int i = 0; i < buf_len(tab_bar_list); ++i) {
+        if (tab_bar_list[i] == bar) {
+            buf_del(tab_bar_list, i);
             break;
         }
     }
 
-    SLSOrderWindow(g_connection, node->tab_bar.id, 0, 0);
-    CGContextRelease(node->tab_bar.context);
-    SLSReleaseWindow(g_connection, node->tab_bar.id);
-    memset(&node->tab_bar, 0, sizeof(struct tab_bar));
+    SLSOrderWindow(g_connection, bar->id, 0, 0);
+    CGContextRelease(bar->context);
+    SLSReleaseWindow(g_connection, bar->id);
+
+    void *owner = bar->owner;
+    void (*redraw)(void *owner) = bar->redraw;
+    memset(bar, 0, sizeof(struct tab_bar));
+    bar->owner = owner;
+    bar->redraw = redraw;
 
     if (!workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
 
     tab_bar_publish_hits();
+}
+
+void tab_bar_order(uint32_t wid)
+{
+    for (int i = 0; i < buf_len(tab_bar_list); ++i) {
+        struct tab_bar *bar = tab_bar_list[i];
+        if (!bar->hidden && bar->above_wid == wid) {
+            SLSOrderWindow(g_connection, bar->id, 1, wid);
+        }
+    }
+}
+
+int tab_bar_window_list(uint32_t *window_list, int capacity)
+{
+    int count = 0;
+
+    for (int i = 0; i < buf_len(tab_bar_list) && count < capacity; ++i) {
+        window_list[count++] = tab_bar_list[i]->above_wid;
+    }
+
+    return count;
+}
+
+void tab_bar_redraw_all(void)
+{
+    for (int i = 0; i < buf_len(tab_bar_list); ++i) {
+        struct tab_bar *bar = tab_bar_list[i];
+        if (bar->redraw) bar->redraw(bar->owner);
+    }
+}
+
+//
+// NOTE: Bars of BSP stacks. A stack shows a bar when it holds more than one window.
+//
+
+bool tab_bar_node_has_bar(struct window_node *node)
+{
+    return tab_bar_is_enabled() &&
+           node->left == NULL &&
+           node->right == NULL &&
+           node->window_count > 1 &&
+           node->zoom == NULL &&
+           node->area.h > 2 * g_window_manager.tab_bar_height;
+}
+
+struct area tab_bar_window_area(struct window_node *node, struct area area)
+{
+    if (tab_bar_node_has_bar(node)) {
+        area.y += g_window_manager.tab_bar_height;
+        area.h -= g_window_manager.tab_bar_height;
+    }
+
+    return area;
+}
+
+static void tab_bar_redraw_node(void *owner)
+{
+    tab_bar_update(owner);
 }
 
 void tab_bar_update(struct window_node *node)
@@ -280,73 +384,41 @@ void tab_bar_update(struct window_node *node)
         return;
     }
 
-    uint32_t active_wid = node->window_order[0];
-    uint64_t sid = window_space(active_wid);
+    struct tab_bar_entry entry_list[NODE_MAX_WINDOW_COUNT];
+    bool node_has_focus = window_node_contains_window(node, g_window_manager.focused_window_id);
+
+    for (int i = 0; i < node->window_count; ++i) {
+        uint32_t wid = node->window_list[i];
+        entry_list[i].focus_wid = wid;
+        entry_list[i].title = tab_bar_copy_title(wid);
+        entry_list[i].state = wid != node->window_order[0] ? TAB_BAR_UNFOCUSED : node_has_focus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE;
+    }
+
+    node->tab_bar.owner = node;
+    node->tab_bar.redraw = tab_bar_redraw_node;
+
     CGRect frame = {{node->area.x, node->area.y}, {node->area.w, g_window_manager.tab_bar_height}};
+    tab_bar_render(&node->tab_bar, frame, node->window_order[0], entry_list, node->window_count);
 
-    if (!node->tab_bar.id) {
-        tab_bar_create(node, frame);
-    } else if (!CGRectEqualToRect(frame, node->tab_bar.frame)) {
-        CFTypeRef frame_region;
-        CGSNewRegionWithRect(&frame, &frame_region);
-        SLSDisableUpdate(g_connection);
-        SLSSetWindowShape(g_connection, node->tab_bar.id, 0.0f, 0.0f, frame_region);
-        SLSReenableUpdate(g_connection);
-        CFRelease(frame_region);
-        node->tab_bar.frame = frame;
+    for (int i = 0; i < node->window_count; ++i) {
+        if (entry_list[i].title) CFRelease(entry_list[i].title);
     }
-
-    if (sid && sid != node->tab_bar.sid) {
-        CFArrayRef window_list_ref = cfarray_of_cfnumbers(&node->tab_bar.id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
-        SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, sid);
-        CFRelease(window_list_ref);
-        node->tab_bar.sid = sid;
-    }
-
-    tab_bar_draw(node);
-
-    SLSSetWindowLevel(g_connection, node->tab_bar.id, window_level(active_wid));
-    SLSSetWindowSubLevel(g_connection, node->tab_bar.id, window_sub_level(active_wid));
-    SLSOrderWindow(g_connection, node->tab_bar.id, 1, active_wid);
-
-    tab_bar_publish_hits();
 }
 
-static struct window_node *tab_bar_find_node(uint32_t wid)
+void tab_bar_destroy(struct window_node *node)
 {
-    struct view *view = table_find(&g_window_manager.managed_window, &wid);
-    if (!view || view->layout == VIEW_FLOAT) return NULL;
-
-    return view_find_window_node(view, wid);
+    tab_bar_release(&node->tab_bar);
 }
 
 void tab_bar_refresh_for_window(uint32_t wid)
 {
     if (!wid) return;
 
-    struct window_node *node = tab_bar_find_node(wid);
+    struct view *view = table_find(&g_window_manager.managed_window, &wid);
+    if (!view || view->layout == VIEW_FLOAT) return;
+
+    struct window_node *node = view_find_window_node(view, wid);
     if (node && node->tab_bar.id) tab_bar_update(node);
-}
-
-void tab_bar_order(uint32_t wid)
-{
-    for (int i = 0; i < buf_len(tab_bar_nodes); ++i) {
-        struct window_node *node = tab_bar_nodes[i];
-        if (node->window_order[0] == wid) {
-            SLSOrderWindow(g_connection, node->tab_bar.id, 1, wid);
-        }
-    }
-}
-
-int tab_bar_window_list(uint32_t *window_list, int capacity)
-{
-    int count = 0;
-
-    for (int i = 0; i < buf_len(tab_bar_nodes) && count < capacity; ++i) {
-        window_list[count++] = tab_bar_nodes[i]->window_order[0];
-    }
-
-    return count;
 }
 
 static void tab_bar_destroy_tree(struct window_node *node)
@@ -354,13 +426,6 @@ static void tab_bar_destroy_tree(struct window_node *node)
     if (node->left)  tab_bar_destroy_tree(node->left);
     if (node->right) tab_bar_destroy_tree(node->right);
     tab_bar_destroy(node);
-}
-
-void tab_bar_redraw_all(void)
-{
-    for (int i = 0; i < buf_len(tab_bar_nodes); ++i) {
-        tab_bar_draw(tab_bar_nodes[i]);
-    }
 }
 
 //

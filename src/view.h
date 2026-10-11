@@ -148,12 +148,19 @@ struct feedback_window
     CGContextRef context;
 };
 
+#define TAB_BAR_MAX_ENTRY_COUNT 64
 struct tab_bar
 {
     uint32_t id;
     CGContextRef context;
     CGRect frame;
     uint64_t sid;
+    uint32_t above_wid;
+    bool hidden;
+    int entry_count;
+    uint32_t entry_list[TAB_BAR_MAX_ENTRY_COUNT];
+    void *owner;
+    void (*redraw)(void *owner);
 };
 
 #define NODE_MAX_WINDOW_COUNT 32

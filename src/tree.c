@@ -1,11 +1,13 @@
-extern int g_connection;
 extern struct space_manager g_space_manager;
-extern struct window_manager g_window_manager;
 
 //
-// NOTE: The first part of this file is the container model and the i3 algorithms that work on it.
-// It does not talk to the window server, so that it can be tested on its own. The functions that
-// apply a tree to the screen follow further down.
+// NOTE: The container model and the i3 algorithms that work on it. Nothing here talks to the
+// window server, so that it can be tested on its own. tree_view.c applies a tree to the screen.
+//
+// The structure is only changed through a few primitives, like sway does it: con_insert and
+// con_unlink add and remove a child, con_replace puts a container in the place of another,
+// con_wrap and con_wrap_children nest containers, con_reparent_children moves all children
+// and tree_reap_empty closes the containers that are left without children.
 //
 
 #define TREE_MIN_PERCENT 0.05f
@@ -28,7 +30,7 @@ void con_free(struct con *con)
     }
 
     tree_feedback_destroy(con);
-    tab_bar_release(&con->tab_bar);
+    tab_bar_release(&con->render.tab_bar);
     free(con->children);
     free(con->focus);
     free(con);
@@ -134,7 +136,12 @@ void tree_fix_percent(struct con *con)
     }
 }
 
-static void tree_attach_internal(struct con *parent, struct con *con, int index, bool focus_first)
+//
+// NOTE: Inserts the container among the children of the parent at the index (at the end when it is
+// out of range), and at the front or the back of its focus order. The share of space is left alone.
+//
+
+static void con_insert(struct con *parent, struct con *con, int index, bool focus_head)
 {
     con_reserve(parent, parent->child_count + 1);
 
@@ -142,7 +149,7 @@ static void tree_attach_internal(struct con *parent, struct con *con, int index,
     memmove(parent->children + index + 1, parent->children + index, sizeof(struct con *) * (parent->child_count - index));
     parent->children[index] = con;
 
-    if (focus_first) {
+    if (focus_head) {
         memmove(parent->focus + 1, parent->focus, sizeof(struct con *) * parent->child_count);
         parent->focus[0] = con;
     } else {
@@ -158,18 +165,11 @@ static void tree_attach_internal(struct con *parent, struct con *con, int index,
     //
 
     for (struct con *ancestor = parent; ancestor; ancestor = ancestor->parent) {
-        if (ancestor->layout == CON_TABBED) ancestor->raised = NULL;
+        if (ancestor->layout == CON_TABBED) ancestor->render.raised = NULL;
     }
 }
 
-void tree_attach(struct con *parent, struct con *con, int index)
-{
-    con->percent = 0.0f;
-    tree_attach_internal(parent, con, index, false);
-    tree_fix_percent(parent);
-}
-
-static void tree_unlink(struct con *con)
+static void con_unlink(struct con *con)
 {
     struct con *parent = con->parent;
     if (!parent) return;
@@ -181,14 +181,114 @@ static void tree_unlink(struct con *con)
     memmove(parent->focus + focus_index, parent->focus + focus_index + 1, sizeof(struct con *) * (parent->child_count - focus_index - 1));
 
     --parent->child_count;
-    if (parent->raised == con) parent->raised = NULL;
+    if (parent->render.raised == con) parent->render.raised = NULL;
     con->parent = NULL;
 }
 
 //
-// NOTE: Takes the container out of the tree. Containers that are left without children are
-// closed, like i3 does in con_on_remove_child, except for the workspace itself. Returns the
-// closest ancestor that is still part of the tree.
+// NOTE: The replacement takes the place of the container among the children of its parent and in
+// their focus order, and gets its share of the space. Like sway container_replace.
+//
+
+static void con_replace(struct con *con, struct con *replacement)
+{
+    struct con *parent = con->parent;
+
+    parent->children[con_index(con)] = replacement;
+    parent->focus[con_focus_index(con)] = replacement;
+    if (parent->render.raised == con) parent->render.raised = NULL;
+
+    replacement->parent = parent;
+    replacement->percent = con->percent;
+    con->parent = NULL;
+}
+
+//
+// NOTE: Puts a new container with the layout in the place of the container, which becomes its only
+// child. Like steps 2 to 4 of i3 tree_split and sway container_split.
+//
+
+static struct con *con_wrap(struct con *con, enum con_layout layout)
+{
+    struct con *wrap = con_create(layout);
+    con_replace(con, wrap);
+    con_insert(wrap, con, 0, true);
+    con->percent = 1.0f;
+    return wrap;
+}
+
+//
+// NOTE: Moves every child of the container into another one, starting at the index. The children keep
+// their order and their shares, and take the place at the focus index in the focus order of the
+// other container, in the order they had among themselves.
+//
+
+static void con_reparent_children(struct con *from, struct con *to, int index, int focus_index)
+{
+    int count = from->child_count;
+    if (!count) return;
+
+    if (index < 0 || index > to->child_count) index = to->child_count;
+    if (focus_index < 0 || focus_index > to->child_count) focus_index = to->child_count;
+
+    struct con **focus = malloc(sizeof(struct con *) * count);
+    memcpy(focus, from->focus, sizeof(struct con *) * count);
+
+    for (int i = 0; i < count; ++i) {
+        struct con *child = from->children[0];
+        con_unlink(child);
+        con_insert(to, child, index + i, false);
+    }
+
+    memmove(to->focus + focus_index + count, to->focus + focus_index, sizeof(struct con *) * (to->child_count - count - focus_index));
+    memcpy(to->focus + focus_index, focus, sizeof(struct con *) * count);
+    free(focus);
+}
+
+//
+// NOTE: i3 workspace_encapsulate and sway workspace_wrap_children. Moves every child of the container
+// into a new container with the same layout, which becomes its only child.
+//
+
+static struct con *con_wrap_children(struct con *con)
+{
+    struct con *wrap = con_create(con->layout);
+    wrap->last_split = con->last_split;
+    con_reparent_children(con, wrap, 0, 0);
+    con_insert(con, wrap, 0, true);
+    wrap->percent = 1.0f;
+    return wrap;
+}
+
+//
+// NOTE: Closes the container when it is left without children, and then every ancestor that is left
+// empty, like i3 con_on_remove_child and sway container_reap_empty. The workspace itself stays.
+// Returns the closest container that is still part of the tree, with the shares of its children fixed.
+//
+
+static struct con *tree_reap_empty(struct con *con)
+{
+    while (con->parent && !con_is_leaf(con) && con->child_count == 0) {
+        struct con *empty = con;
+        con = con->parent;
+        con_unlink(empty);
+        con_free(empty);
+    }
+
+    tree_fix_percent(con);
+    return con;
+}
+
+void tree_attach(struct con *parent, struct con *con, int index)
+{
+    con->percent = 0.0f;
+    con_insert(parent, con, index, false);
+    tree_fix_percent(parent);
+}
+
+//
+// NOTE: Takes the container out of the tree and closes the containers that are left empty.
+// Returns the closest ancestor that is still part of the tree.
 //
 
 struct con *tree_detach(struct con *con)
@@ -196,17 +296,8 @@ struct con *tree_detach(struct con *con)
     struct con *parent = con->parent;
     if (!parent) return NULL;
 
-    tree_unlink(con);
-
-    while (parent->parent && parent->child_count == 0) {
-        struct con *empty = parent;
-        parent = parent->parent;
-        tree_unlink(empty);
-        con_free(empty);
-    }
-
-    tree_fix_percent(parent);
-    return parent;
+    con_unlink(con);
+    return tree_reap_empty(parent);
 }
 
 //
@@ -222,28 +313,17 @@ void tree_flatten(struct con *con)
     }
 
     struct con *parent = con->parent;
-    if (!parent) return;
+    if (!parent || parent->layout == CON_TABBED) return;
+    if (!con_is_split(con) || con->child_count == 0) return;
 
     //
     // NOTE: A split that is the only child of a split with the same orientation does not change
     // the layout either, so its children take its place.
     //
 
-    if (parent->child_count == 1 && con_is_split(con) && con->child_count > 0 &&
-        parent->layout != CON_TABBED && con_orientation(con) == con_orientation(parent)) {
-        int focus_count = con->child_count;
-        struct con **focus = malloc(sizeof(struct con *) * focus_count);
-        memcpy(focus, con->focus, sizeof(struct con *) * focus_count);
-
-        tree_unlink(con);
-        while (con->child_count) {
-            struct con *child = con->children[0];
-            tree_unlink(child);
-            tree_attach_internal(parent, child, parent->child_count, false);
-        }
-
-        memcpy(parent->focus, focus, sizeof(struct con *) * focus_count);
-        free(focus);
+    if (parent->child_count == 1 && con_orientation(con) == con_orientation(parent)) {
+        con_unlink(con);
+        con_reparent_children(con, parent, 0, 0);
         con_free(con);
         return;
     }
@@ -251,36 +331,19 @@ void tree_flatten(struct con *con)
     if (con->child_count != 1) return;
 
     struct con *child = con->children[0];
-    if (!con_is_split(con) || !con_is_split(child)) return;
+    if (!con_is_split(child)) return;
     if (con_orientation(con) == con_orientation(child)) return;
-    if (con_orientation(child) != con_orientation(parent) || parent->layout == CON_TABBED) return;
+    if (con_orientation(child) != con_orientation(parent)) return;
+
+    for (int i = 0; i < child->child_count; ++i) {
+        child->children[i]->percent *= con->percent;
+    }
 
     int index = con_index(con);
     int focus_index = con_focus_index(con);
-    float percent = con->percent;
 
-    for (int i = 0; i < child->child_count; ++i) {
-        struct con *grandchild = child->children[i];
-        grandchild->percent *= percent;
-        con_reserve(parent, parent->child_count + 1);
-        memmove(parent->children + index + i + 1, parent->children + index + i, sizeof(struct con *) * (parent->child_count - index - i));
-        parent->children[index + i] = grandchild;
-        ++parent->child_count;
-        grandchild->parent = parent;
-    }
-
-    //
-    // NOTE: The grandchildren take the place of the container in the focus order of the parent,
-    // keeping the order they had among themselves.
-    //
-
-    memmove(parent->focus + focus_index + child->child_count, parent->focus + focus_index, sizeof(struct con *) * (parent->child_count - child->child_count - focus_index));
-    memcpy(parent->focus + focus_index, child->focus, sizeof(struct con *) * child->child_count);
-
-    child->child_count = 0;
-    con->child_count = 0;
-    tree_unlink(con);
-    con_free(child);
+    con_unlink(con);
+    con_reparent_children(child, parent, index, focus_index);
     con_free(con);
     tree_fix_percent(parent);
 }
@@ -457,83 +520,57 @@ struct con *tree_descend_direction(struct con *con, int direction)
     return con;
 }
 
-static enum tree_result tree_next_internal(struct con *con, int direction, bool wrap, enum focus_wrapping wrapping, bool has_output, struct con **result)
-{
-    struct con *parent = con->parent;
-    if (!parent) return has_output ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE;
-
-    if (con_orientation(parent) != direction_orientation(direction) || parent->child_count == 1) {
-        return tree_next_internal(parent, direction, wrap, wrapping, has_output, result);
-    }
-
-    int index = con_index(con) + (direction_is_backward(direction) ? -1 : 1);
-    if (index < 0 || index >= parent->child_count) {
-        if (wrapping != FOCUS_WRAPPING_FORCE) {
-            enum tree_result higher = tree_next_internal(parent, direction, false, wrapping, has_output, result);
-            if (higher != TREE_RESULT_NONE || !wrap) return higher;
-        }
-
-        index = direction_is_backward(direction) ? parent->child_count - 1 : 0;
-    }
-
-    *result = tree_descend_focused(parent->children[index]);
-    return TREE_RESULT_DONE;
-}
-
 //
-// NOTE: i3 _tree_next, for 'focus left/right/up/down'. Walks up to the closest ancestor that is laid
-// out in the direction (tabbed counts as horizontal), and focuses the neighbouring child there,
-// descending along its focus history. At the edge of the workspace the result says to try the
-// display in that direction, and wrapping only happens when there is none.
+// NOTE: i3 get_tree_next, for 'focus left/right/up/down'. Walks up to the closest ancestor that is
+// laid out in the direction (tabbed counts as horizontal) and has a neighbouring child there, and
+// focuses that child, descending along its focus history. At the edge of the workspace the result
+// says to try the display in that direction. Wrapping goes around the innermost container laid out
+// in the direction: right away with 'force', and with 'on' only when there is no display either.
 //
 
 enum tree_result tree_next(struct con *con, int direction, enum focus_wrapping wrapping, bool has_output, struct con **result)
 {
-    return tree_next_internal(con, direction, wrapping != FOCUS_WRAPPING_OFF, wrapping, has_output, result);
-}
+    enum con_orientation orientation = direction_orientation(direction);
+    bool backward = direction_is_backward(direction);
+    struct con *wrap = NULL;
 
-static struct con *tree_parent_with_orientation(struct con *con, enum con_orientation orientation)
-{
-    struct con *parent = con->parent;
-    while (parent && con_orientation(parent) != orientation) {
-        parent = parent->parent;
+    for (; con->parent; con = con->parent) {
+        struct con *parent = con->parent;
+        if (parent->child_count < 2 || con_orientation(parent) != orientation) continue;
+
+        int index = con_index(con) + (backward ? -1 : 1);
+        if (index >= 0 && index < parent->child_count) {
+            *result = tree_descend_focused(parent->children[index]);
+            return TREE_RESULT_DONE;
+        }
+
+        struct con *first = parent->children[backward ? parent->child_count - 1 : 0];
+        if (wrapping == FOCUS_WRAPPING_FORCE) {
+            *result = tree_descend_focused(first);
+            return TREE_RESULT_DONE;
+        }
+
+        if (wrapping == FOCUS_WRAPPING_ON && !wrap) wrap = first;
     }
 
-    return parent;
-}
+    if (has_output) return TREE_RESULT_OUTPUT;
+    if (!wrap) return TREE_RESULT_NONE;
 
-static void tree_move_children(struct con *from, struct con *to)
-{
-    struct con **focus = malloc(sizeof(struct con *) * (from->child_count + 1));
-    int count = from->child_count;
-    memcpy(focus, from->focus, sizeof(struct con *) * count);
-
-    while (from->child_count) {
-        struct con *child = from->children[0];
-        tree_unlink(child);
-        tree_attach_internal(to, child, to->child_count, false);
-    }
-
-    memcpy(to->focus, focus, sizeof(struct con *) * count);
-    free(focus);
+    *result = tree_descend_focused(wrap);
+    return TREE_RESULT_DONE;
 }
 
 //
 // NOTE: i3 ws_force_orientation. Wraps everything on the workspace in a container with the
-// current layout, then lays the workspace out in the requested orientation.
+// current layout, then lays the workspace out in the requested orientation. Returns the new container.
 //
 
-void tree_force_orientation(struct con *root, enum con_orientation orientation)
+struct con *tree_force_orientation(struct con *root, enum con_orientation orientation)
 {
-    struct con *split = con_create(root->layout);
-    split->last_split = root->last_split;
-    tree_move_children(root, split);
-
+    struct con *split = con_wrap_children(root);
     root->layout = orientation_layout(orientation);
     root->last_split = root->layout;
-
-    tree_attach_internal(root, split, 0, true);
-    split->percent = 1.0f;
+    return split;
 }
 
 //
@@ -544,91 +581,105 @@ void tree_force_orientation(struct con *root, enum con_orientation orientation)
 void tree_insert_con(struct con *con, struct con *target, enum tree_position position)
 {
     struct con *old_parent = con->parent;
-    tree_unlink(con);
+    con_unlink(con);
 
     struct con *parent = target->parent;
-    int index = con_index(target) + (position == TREE_AFTER ? 1 : 0);
-    tree_attach_internal(parent, con, index, true);
     con->percent = 0.0f;
+    con_insert(parent, con, con_index(target) + (position == TREE_AFTER ? 1 : 0), true);
     tree_fix_percent(parent);
 
-    while (old_parent && old_parent->parent && old_parent->child_count == 0) {
-        struct con *empty = old_parent;
-        old_parent = old_parent->parent;
-        tree_unlink(empty);
-        con_free(empty);
-    }
-
-    if (old_parent) tree_fix_percent(old_parent);
+    if (old_parent) tree_reap_empty(old_parent);
 }
 
 //
-// NOTE: i3 tree_move, for 'move left/right/up/down'. Swaps with a sibling window, moves into a
-// neighbouring container, or leaves the container at its edge for the closest ancestor laid out
-// in that direction. When no ancestor matches, the workspace is re-oriented (ws_force_orientation).
+// NOTE: The container moves toward next, its neighbour in the direction, or the neighbour of its
+// ancestor above. A window of its own container swaps places with it. A container is entered on
+// the near side (i3 con_descend_direction), next to the window found there. Otherwise it is placed
+// between above and next.
+//
+
+static void tree_move_toward(struct con *con, struct con *above, struct con *next, int direction)
+{
+    bool backward = direction_is_backward(direction);
+
+    if (!con_is_leaf(next)) {
+        struct con *target = tree_descend_direction(next, direction);
+        bool after = con_orientation(target->parent) != direction_orientation(direction) || backward;
+        tree_insert_con(con, target, after ? TREE_AFTER : TREE_BEFORE);
+    } else if (above == con) {
+        struct con *parent = con->parent;
+        int index = con_index(con);
+        int next_index = con_index(next);
+        parent->children[index] = next;
+        parent->children[next_index] = con;
+    } else {
+        tree_insert_con(con, above, backward ? TREE_BEFORE : TREE_AFTER);
+    }
+}
+
+//
+// NOTE: i3 tree_move, for 'move left/right/up/down', written as the single loop of sway
+// container_move_in_direction. Walks up from the container to the closest ancestor that is laid out
+// in the direction and has a neighbour there. The container swaps with a sibling window, moves into
+// a neighbouring container, or leaves its container at the edge and is placed next to the ancestor.
+// When no ancestor is laid out in the direction, the workspace is re-oriented (ws_force_orientation).
 // The result asks the caller to move the container to the display in that direction when it
-// cannot move any further on this workspace.
+// cannot move any further on this workspace, which is tried before re-orienting.
 //
 
 enum tree_result tree_move(struct con *root, struct con *con, int direction, bool has_output)
 {
     if (con == root || !con->parent) return TREE_RESULT_NONE;
 
-    enum con_orientation orientation = direction_orientation(direction);
-    bool backward = direction_is_backward(direction);
+    enum tree_result edge = has_output ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE;
+    if (con->parent == root && root->child_count == 1) return edge;
 
-    if (con->parent == root && root->child_count == 1) {
-        return has_output ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE;
+    enum con_orientation orientation = direction_orientation(direction);
+    int offset = direction_is_backward(direction) ? -1 : 1;
+    bool wrapped = false;
+
+    struct con *current = con;
+    struct con *next = NULL;
+
+    for (;;) {
+        struct con *parent = current->parent;
+
+        if (!parent) {
+            if (has_output) return TREE_RESULT_OUTPUT;
+            current = tree_force_orientation(root, orientation);
+            wrapped = true;
+            continue;
+        }
+
+        if (con_orientation(parent) != orientation) {
+            current = parent;
+            continue;
+        }
+
+        int index = con_index(current) + offset;
+        next = index >= 0 && index < parent->child_count ? parent->children[index] : NULL;
+        if (current != con) break;
+
+        if (next) {
+            tree_move_toward(con, con, next, direction);
+            goto end;
+        }
+
+        if (parent == root) return edge;
+        current = parent;
     }
 
-    struct con *same_orientation = tree_parent_with_orientation(con, orientation);
+    if (next) {
+        tree_move_toward(con, current, next, direction);
+    } else if (!wrapped && con->parent->parent == root && con->parent->child_count == 1) {
+        //
+        // NOTE: The lone child of a container at the edge of the workspace is treated as if the
+        // workspace was its parent, like i3 does.
+        //
 
-    do {
-        if (!same_orientation) {
-            if (has_output) return TREE_RESULT_OUTPUT;
-            tree_force_orientation(root, orientation);
-            same_orientation = tree_parent_with_orientation(con, orientation);
-        }
-
-        if (same_orientation == con->parent) {
-            int index = con_index(con) + (backward ? -1 : 1);
-            struct con *swap = index >= 0 && index < con->parent->child_count ? con->parent->children[index] : NULL;
-
-            if (swap) {
-                if (!con_is_leaf(swap)) {
-                    struct con *target = tree_descend_direction(swap, direction);
-                    enum tree_position position = con_orientation(target->parent) != orientation || backward ? TREE_AFTER : TREE_BEFORE;
-                    tree_insert_con(con, target, position);
-                    goto end;
-                }
-
-                con->parent->children[index] = con;
-                con->parent->children[index + (backward ? 1 : -1)] = swap;
-                return TREE_RESULT_DONE;
-            }
-
-            if (con->parent == root) {
-                return has_output ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE;
-            }
-
-            same_orientation = tree_parent_with_orientation(con->parent, orientation);
-        }
-    } while (!same_orientation);
-
-    struct con *above = con;
-    while (above->parent != same_orientation) above = above->parent;
-
-    int index = con_index(above) + (backward ? -1 : 1);
-    struct con *next = index >= 0 && index < same_orientation->child_count ? same_orientation->children[index] : NULL;
-
-    if (next && !con_is_leaf(next)) {
-        struct con *target = tree_descend_direction(next, direction);
-        enum tree_position position = con_orientation(target->parent) != orientation || backward ? TREE_AFTER : TREE_BEFORE;
-        tree_insert_con(con, target, position);
-    } else if (!next && con->parent->parent == root && con->parent->child_count == 1) {
-        return has_output ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE;
+        return edge;
     } else {
-        tree_insert_con(con, above, backward ? TREE_BEFORE : TREE_AFTER);
+        tree_insert_con(con, current, offset < 0 ? TREE_BEFORE : TREE_AFTER);
     }
 
 end:
@@ -646,24 +697,11 @@ void tree_insert_relative(struct con *target, struct con *con, int direction)
 {
     if (direction == STACK) {
         if (target->parent->layout != CON_TABBED) {
-            struct con *wrap = con_create(CON_TABBED);
-            wrap->last_split = target->parent->layout == CON_TABBED ? CON_SPLITH : target->parent->layout;
-            int index = con_index(target);
-            int focus_index = con_focus_index(target);
-            struct con *parent = target->parent;
-
-            parent->children[index] = wrap;
-            parent->focus[focus_index] = wrap;
-            wrap->parent = parent;
-            wrap->percent = target->percent;
-            target->parent = NULL;
-            tree_attach_internal(wrap, target, 0, true);
-            target->percent = 1.0f;
+            enum con_layout last_split = target->parent->layout;
+            con_wrap(target, CON_TABBED)->last_split = last_split;
         }
 
-        tree_attach_internal(target->parent, con, con_index(target) + 1, false);
-        con->percent = 0.0f;
-        tree_fix_percent(target->parent);
+        tree_attach(target->parent, con, con_index(target) + 1);
         return;
     }
 
@@ -681,19 +719,7 @@ void tree_insert_relative(struct con *target, struct con *con, int direction)
         }
     }
 
-    tree_attach_internal(target->parent, con, con_index(target) + (direction_is_backward(direction) ? 0 : 1), false);
-    con->percent = 0.0f;
-    tree_fix_percent(target->parent);
-}
-
-static struct con *tree_encapsulate(struct con *root)
-{
-    struct con *con = con_create(root->layout);
-    con->last_split = root->last_split;
-    tree_move_children(root, con);
-    tree_attach_internal(root, con, 0, true);
-    con->percent = 1.0f;
-    return con;
+    tree_attach(target->parent, con, con_index(target) + (direction_is_backward(direction) ? 0 : 1));
 }
 
 //
@@ -711,7 +737,7 @@ void tree_split(struct con *con, enum con_orientation orientation)
             return;
         }
 
-        con = tree_encapsulate(con);
+        con = con_wrap_children(con);
     }
 
     struct con *parent = con->parent;
@@ -720,18 +746,7 @@ void tree_split(struct con *con, enum con_orientation orientation)
         return;
     }
 
-    struct con *split = con_create(orientation_layout(orientation));
-    int index = con_index(con);
-    int focus_index = con_focus_index(con);
-
-    parent->children[index] = split;
-    parent->focus[focus_index] = split;
-    split->parent = parent;
-    split->percent = con->percent;
-
-    con->parent = NULL;
-    tree_attach_internal(split, con, 0, true);
-    con->percent = 1.0f;
+    con_wrap(con, orientation_layout(orientation));
 }
 
 //
@@ -762,7 +777,7 @@ void tree_set_layout(struct con *con, enum con_layout layout)
             con->layout = layout;
             con->last_split = layout;
         } else if (con->child_count) {
-            struct con *wrap = tree_encapsulate(con);
+            struct con *wrap = con_wrap_children(con);
             wrap->layout = CON_TABBED;
         }
 
@@ -876,7 +891,7 @@ static void con_reverse_children(struct con *con)
 
 void tree_rotate(struct con *con, int degrees)
 {
-    if (con_is_split(con) || (!con->parent && !con_is_leaf(con))) {
+    if (con_is_split(con)) {
         if ((degrees ==  90 && con->layout == CON_SPLITH) ||
             (degrees == 270 && con->layout == CON_SPLITV) ||
             (degrees == 180)) {
@@ -896,8 +911,8 @@ void tree_rotate(struct con *con, int degrees)
 
 void tree_mirror(struct con *con, enum con_orientation orientation)
 {
-    if (con_is_split(con) || (!con->parent && !con_is_leaf(con))) {
-        if (con_orientation(con) == orientation) con_reverse_children(con);
+    if (con_is_split(con) && con_orientation(con) == orientation) {
+        con_reverse_children(con);
     }
 
     for (int i = 0; i < con->child_count; ++i) {
@@ -932,8 +947,8 @@ void tree_swap(struct con *a, struct con *b)
     a->percent = b->percent;
     b->percent = percent;
 
-    if (a_parent->raised == a) a_parent->raised = NULL;
-    if (b_parent->raised == b) b_parent->raised = NULL;
+    if (a_parent->render.raised == a) a_parent->render.raised = NULL;
+    if (b_parent->render.raised == b) b_parent->render.raised = NULL;
 }
 
 //
@@ -998,630 +1013,4 @@ void tree_update(struct con *con, struct area area, int gap, int bar_height, int
         tree_update(child, child_area, gap, bar_height, bar_offset, bar_inset);
         offset += size + gap;
     }
-}
-
-static void tree_append_title(CFMutableStringRef string, struct con *con)
-{
-    if (con_is_leaf(con)) {
-        struct window *window = window_manager_find_window(&g_window_manager, con->window_id);
-        if (window && window->application && window->application->name) {
-            CFStringAppendCString(string, window->application->name, kCFStringEncodingUTF8);
-        }
-        return;
-    }
-
-    CFStringAppendCString(string, con->layout == CON_SPLITH ? "H[" : con->layout == CON_SPLITV ? "V[" : "T[", kCFStringEncodingUTF8);
-
-    for (int i = 0; i < con->child_count; ++i) {
-        if (i > 0) CFStringAppendCString(string, " ", kCFStringEncodingUTF8);
-        tree_append_title(string, con->children[i]);
-    }
-
-    CFStringAppendCString(string, "]", kCFStringEncodingUTF8);
-}
-
-//
-// NOTE: The tab title of a container: the window title for a window, or the layout and the
-// applications inside for a container, like i3 shows it (H[iTerm2 Safari]).
-//
-
-CFStringRef tree_copy_title(struct con *con)
-{
-    if (con_is_leaf(con)) return tab_bar_copy_title(con->window_id);
-
-    CFMutableStringRef string = CFStringCreateMutable(NULL, 0);
-    tree_append_title(string, con);
-    return string;
-}
-
-static void tree_feedback_destroy(struct con *con)
-{
-    if (!con->feedback_window.id) return;
-
-    SLSOrderWindow(g_connection, con->feedback_window.id, 0, 0);
-    CGContextRelease(con->feedback_window.context);
-    SLSReleaseWindow(g_connection, con->feedback_window.id);
-    memset(&con->feedback_window, 0, sizeof(struct feedback_window));
-}
-
-//
-// NOTE: Everything below applies a tree to the screen: window frames, tab bars and the
-// stacking order of tabs. A view that uses the 'tree' layout owns its root container in view->tree.
-//
-
-static inline int tree_bar_height(void)
-{
-    return tab_bar_is_enabled() ? g_window_manager.tab_bar_height : 0;
-}
-
-static inline int tree_bar_inset(void)
-{
-    return tab_bar_is_enabled() ? tab_bar_card_padding() : 0;
-}
-
-static inline enum con_layout tree_default_layout(struct view *view)
-{
-    switch (g_space_manager.tree_default_orientation) {
-    case TREE_ORIENTATION_HORIZONTAL: return CON_SPLITH;
-    case TREE_ORIENTATION_VERTICAL:   return CON_SPLITV;
-    case TREE_ORIENTATION_AUTO:       break;
-    }
-
-    return view->area.w >= view->area.h ? CON_SPLITH : CON_SPLITV;
-}
-
-struct con *tree_view_root(struct view *view)
-{
-    if (!view->tree) {
-        view->tree = con_create(tree_default_layout(view));
-        view->tree->area = view->area;
-    }
-
-    return view->tree;
-}
-
-void tree_view_update(struct view *view)
-{
-    if (!view->tree) return;
-    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height(), g_window_manager.tab_bar_offset, tree_bar_inset());
-}
-
-static void tree_unmanage_windows(struct con *con)
-{
-    if (con_is_leaf(con)) {
-        window_manager_remove_managed_window(&g_window_manager, con->window_id);
-        return;
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_unmanage_windows(con->children[i]);
-    }
-}
-
-void tree_view_clear(struct view *view)
-{
-    if (!view->tree) return;
-
-    tree_unmanage_windows(view->tree);
-    con_free(view->tree);
-    view->tree = NULL;
-}
-
-struct con *tree_view_find_window(struct view *view, uint32_t window_id)
-{
-    return view->tree ? tree_find_window(view->tree, window_id) : NULL;
-}
-
-//
-// NOTE: i3 places a new window right after the focused container, inside the same parent. When a
-// container is selected (focus parent) the window is appended to it instead. The insertion point
-// is used for windows that are restored or moved here, so they open next to that window.
-//
-
-//
-// NOTE: A new window becomes the focused child of its containers, as i3 focuses new windows, unless
-// the focused window is on this space: a window that is moved here or stops floating then stays
-// behind it, so that the focused window is not hidden in another tab.
-//
-
-static void tree_focus_new_window(struct con *root, struct con *con, uint32_t window_id)
-{
-    tree_focus(con);
-
-    if (window_id != g_window_manager.focused_window_id) {
-        struct con *focused = tree_find_window(root, g_window_manager.focused_window_id);
-        if (focused) tree_focus(focused);
-    }
-}
-
-void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point)
-{
-    struct con *root = tree_view_root(view);
-    if (tree_find_window(root, window->id)) return;
-
-    struct con *con = con_create(CON_SPLITH);
-    con->window_id = window->id;
-
-    if (root->child_count == 0) {
-        root->layout = tree_default_layout(view);
-        root->last_split = root->layout;
-
-        if (g_space_manager.tree_workspace_tabbed) {
-            struct con *tabbed = con_create(CON_TABBED);
-            tabbed->last_split = root->layout;
-            tree_attach(root, tabbed, -1);
-            tree_attach(tabbed, con, -1);
-        } else {
-            tree_attach(root, con, -1);
-        }
-
-        tree_focus_new_window(root, con, window->id);
-        return;
-    }
-
-    struct con *target = NULL;
-    if (view->insertion_point) {
-        target = tree_find_window(root, view->insertion_point);
-        if (target && target->insert_dir) {
-            int direction = target->insert_dir;
-            target->insert_dir = 0;
-            tree_feedback_destroy(target);
-            view->insertion_point = 0;
-
-            tree_insert_relative(target, con, direction);
-            tree_focus_new_window(root, con, window->id);
-            return;
-        }
-    }
-
-    target = insertion_point ? tree_find_window(root, insertion_point) : NULL;
-
-    if (!target) {
-        struct con *selected = tree_find_selected(root);
-        if (selected && !con_is_leaf(selected)) {
-            tree_attach(selected, con, -1);
-            tree_focus_new_window(root, con, window->id);
-            return;
-        }
-
-        target = tree_find_window(root, g_window_manager.focused_window_id);
-        if (!target) target = tree_descend_focused(root);
-    }
-
-    if (!target || target == root) {
-        tree_attach(root, con, -1);
-    } else {
-        if (g_space_manager.tree_autotiling && con_is_leaf(target)) tree_autotile(target);
-        tree_attach(target->parent, con, con_index(target) + 1);
-    }
-
-    tree_focus_new_window(root, con, window->id);
-}
-
-bool tree_remove_window(struct view *view, struct window *window)
-{
-    struct con *con = tree_find_window(view->tree, window->id);
-    if (!con) return false;
-
-    if (view->insertion_point == window->id) view->insertion_point = 0;
-
-    tree_detach(con);
-    con_free(con);
-    tree_flatten(view->tree);
-
-    return true;
-}
-
-static void tree_append_window_list(struct con *con, uint32_t **window_list, int *window_count, int *capacity)
-{
-    if (con_is_leaf(con)) {
-        if (*window_count >= *capacity) {
-            ts_expand(*window_list, sizeof(uint32_t) * (*capacity), sizeof(uint32_t) * (*capacity));
-            *capacity *= 2;
-        }
-
-        (*window_list)[(*window_count)++] = con->window_id;
-        return;
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_append_window_list(con->children[i], window_list, window_count, capacity);
-    }
-}
-
-uint32_t *tree_view_window_list(struct view *view, int *window_count)
-{
-    *window_count = 0;
-
-    int capacity = 13;
-    uint32_t *window_list = ts_alloc_list(uint32_t, capacity);
-    if (view->tree) tree_append_window_list(view->tree, &window_list, window_count, &capacity);
-
-    return window_list;
-}
-
-//
-// NOTE: Counts the areas auto_padding cares about. A tabbed container shows one tab at a time,
-// so it is a single area no matter how many tabs it holds.
-//
-
-static int tree_tiled_count(struct con *con)
-{
-    if (con_is_leaf(con)) return con->zoom == CON_ZOOM_FULLSCREEN ? 0 : 1;
-
-    int count = 0;
-    for (int i = 0; i < con->child_count; ++i) {
-        count += tree_tiled_count(con->children[i]);
-    }
-
-    return con->layout == CON_TABBED && count > 1 ? 1 : count;
-}
-
-int tree_view_tiled_count(struct view *view)
-{
-    return view->tree ? tree_tiled_count(view->tree) : 0;
-}
-
-struct area tree_con_frame(struct view *view, struct con *con)
-{
-    if (con->zoom == CON_ZOOM_FULLSCREEN) return view->tree->area;
-    if (con->zoom == CON_ZOOM_PARENT && con->parent) return con->parent->area;
-    return con->area;
-}
-
-bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame)
-{
-    struct con *con = tree_view_find_window(view, window_id);
-    if (!con) return false;
-
-    struct area area = tree_con_frame(view, con);
-    return AX_DIFF(area.x, frame.origin.x) ||
-           AX_DIFF(area.y, frame.origin.y) ||
-           AX_DIFF(area.w, frame.size.width) ||
-           AX_DIFF(area.h, frame.size.height);
-}
-
-static void tree_capture_windows(struct view *view, struct con *con, struct window_capture **window_list)
-{
-    if (con_is_leaf(con)) {
-        struct window *window = window_manager_find_window(&g_window_manager, con->window_id);
-        if (window) {
-            struct area area = tree_con_frame(view, con);
-            ts_buf_push(*window_list, ((struct window_capture) { .window = window, .x = area.x, .y = area.y, .w = area.w, .h = area.h }));
-        }
-        return;
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_capture_windows(view, con->children[i], window_list);
-    }
-}
-
-static bool tree_has_zoom(struct con *con, enum con_zoom zoom)
-{
-    if (con_is_leaf(con)) return zoom == CON_ZOOM_NONE ? con->zoom != CON_ZOOM_NONE : con->zoom == zoom;
-
-    for (int i = 0; i < con->child_count; ++i) {
-        if (tree_has_zoom(con->children[i], zoom)) return true;
-    }
-
-    return false;
-}
-
-static inline struct con *tree_root_of(struct con *con)
-{
-    while (con->parent) con = con->parent;
-    return con;
-}
-
-static bool tree_contains_window(struct con *con, uint32_t window_id)
-{
-    return window_id && tree_find_window(con, window_id) != NULL;
-}
-
-static void tree_render_bar(void *owner)
-{
-    struct con *con = owner;
-
-    //
-    // NOTE: A zoomed window covers the bars of the containers it belongs to, and a fullscreen
-    // window covers every bar on the space.
-    //
-
-    bool show = tab_bar_is_enabled() &&
-                con->layout == CON_TABBED &&
-                con->child_count > 0 &&
-                con->area.h > 2 * g_window_manager.tab_bar_height &&
-                tree_con_is_visible(con) &&
-                !tree_has_zoom(con, CON_ZOOM_NONE) &&
-                !tree_has_zoom(tree_root_of(con), CON_ZOOM_FULLSCREEN);
-
-    if (!show) {
-        tab_bar_hide(&con->tab_bar);
-        return;
-    }
-
-    int entry_count = min(con->child_count, TAB_BAR_MAX_ENTRY_COUNT);
-    struct tab_bar_entry entry_list[TAB_BAR_MAX_ENTRY_COUNT];
-    bool has_focus = tree_contains_window(con, g_window_manager.focused_window_id);
-    struct con *active = con->focus[0];
-
-    for (int i = 0; i < entry_count; ++i) {
-        struct con *child = con->children[i];
-        struct con *leaf = tree_descend_focused(child);
-
-        entry_list[i].focus_wid = leaf ? leaf->window_id : 0;
-        entry_list[i].title = tree_copy_title(child);
-        entry_list[i].icon = con_is_leaf(child) ? tab_bar_icon(child->window_id) : NULL;
-        entry_list[i].state = child != active ? TAB_BAR_UNFOCUSED : has_focus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE;
-    }
-
-    con->tab_bar.owner = con;
-    con->tab_bar.redraw = tree_render_bar;
-
-    struct con *above = tree_descend_focused(con);
-    int inset = tree_bar_card_inset(con->area, g_window_manager.tab_bar_height, tree_bar_inset());
-    CGRect card = {{con->area.x, con->area.y}, {con->area.w, con->area.h}};
-    CGRect frame = {{con->area.x + inset, con->area.y + inset}, {con->area.w - 2 * inset, g_window_manager.tab_bar_height}};
-    tab_bar_render(&con->tab_bar, frame, card, above ? above->window_id : 0, entry_list, entry_count);
-
-    for (int i = 0; i < entry_count; ++i) {
-        if (entry_list[i].title) CFRelease(entry_list[i].title);
-    }
-}
-
-void tree_render_bars(struct con *con)
-{
-    if (con_is_leaf(con)) return;
-
-    if (con->layout == CON_TABBED) {
-        tree_render_bar(con);
-    } else {
-        tab_bar_release(&con->tab_bar);
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_render_bars(con->children[i]);
-    }
-}
-
-void tree_release_bars(struct con *con)
-{
-    tab_bar_release(&con->tab_bar);
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_release_bars(con->children[i]);
-    }
-}
-
-static void tree_order_windows(struct con *con, int order, uint32_t relative)
-{
-    if (con_is_leaf(con)) {
-        if (con->window_id != relative) scripting_addition_order_window(con->window_id, order, relative);
-        return;
-    }
-
-    if (order == 1 && con->layout == CON_TABBED) {
-        if (con->child_count) tree_order_windows(con->focus[0], order, relative);
-        return;
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_order_windows(con->children[i], order, relative);
-    }
-}
-
-//
-// NOTE: Windows of hidden tabs keep the frame of their tabbed container and are hidden by
-// stacking order alone. When a tab becomes active, the windows of the other tabs are ordered
-// below the backdrop card of the container (below its focused window without a card), and
-// the other visible windows of the tab (when it holds a split) are ordered above it. The card
-// itself sits right below the focused window, so this is redone when either of them changes.
-// The focused window is also ordered right above the card: the card does not reliably follow
-// its own ordering, and a new window was ordered below the card as a hidden tab before it got
-// focus, which the application then does not raise again.
-//
-
-void tree_raise_tabs(struct con *con, bool force)
-{
-    if (con_is_leaf(con)) return;
-
-    if (con->layout == CON_TABBED && con->child_count && tree_con_is_visible(con)) {
-        struct con *active = con->focus[0];
-
-        struct con *anchor = tree_descend_focused(active);
-        uint32_t anchor_wid = anchor ? anchor->window_id : 0;
-        uint32_t card_wid = tab_bar_card_id(&con->tab_bar);
-
-        if (force || con->raised != active || con->raised_anchor != anchor_wid || con->raised_card != card_wid) {
-            con->raised = active;
-            con->raised_anchor = anchor_wid;
-            con->raised_card = card_wid;
-
-            if (anchor && card_wid) {
-                scripting_addition_order_window(anchor_wid, 1, card_wid);
-            }
-
-            if (anchor && con->child_count > 1) {
-                for (int i = 0; i < con->child_count; ++i) {
-                    if (con->children[i] != active) tree_order_windows(con->children[i], -1, card_wid ? card_wid : anchor_wid);
-                }
-            }
-
-            if (anchor && !con_is_leaf(active)) {
-                tree_order_windows(active, 1, anchor->window_id);
-            }
-        }
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        tree_raise_tabs(con->children[i], force);
-    }
-}
-
-void tree_flush(struct view *view)
-{
-    if (!view->tree) return;
-
-    struct window_capture *window_list = NULL;
-    tree_capture_windows(view, view->tree, &window_list);
-    if (window_list) window_manager_animate_window_list(window_list, ts_buf_len(window_list));
-
-    tree_render_bars(view->tree);
-    tree_raise_tabs(view->tree, false);
-
-    struct con *selected = tree_find_selected(view->tree);
-    if (selected) tree_selection_show(selected);
-
-    struct con *insert = view->insertion_point ? tree_find_window(view->tree, view->insertion_point) : NULL;
-    if (insert && insert->insert_dir) tree_feedback_show(insert, insert->insert_dir);
-}
-
-void tree_window_did_receive_focus(struct view *view, uint32_t window_id)
-{
-    struct con *con = tree_view_find_window(view, window_id);
-    if (!con) return;
-
-    tree_select(view->tree, NULL);
-    tree_focus(con);
-
-    if (!space_is_visible(view->sid)) {
-        view_set_flag(view, VIEW_IS_DIRTY);
-        return;
-    }
-
-    tree_raise_tabs(view->tree, false);
-    tree_render_bars(view->tree);
-}
-
-void tree_refresh_for_window(uint32_t window_id)
-{
-    if (!window_id) return;
-
-    struct view *view = table_find(&g_window_manager.managed_window, &window_id);
-    if (!view || view->layout != VIEW_TREE || !view->tree) return;
-
-    if (space_is_visible(view->sid)) tree_render_bars(view->tree);
-}
-
-//
-// NOTE: Outline of a container, drawn with the insert feedback color. Without a direction
-// it outlines the whole container, which marks the container selected with 'window --focus parent'.
-// With a direction it shows the half where a window will be inserted, as set by 'window --insert'
-// or while dragging a window with the mouse.
-//
-
-#define INSERT_FEEDBACK_WIDTH 2
-#define INSERT_FEEDBACK_RADIUS 9
-void tree_feedback_show(struct con *con, int insert_dir)
-{
-    struct con *leaf = tree_descend_focused(con);
-    if (!leaf || !con_is_leaf(leaf)) return;
-
-    CFTypeRef frame_region;
-    CGRect frame = {{con->area.x, con->area.y},{con->area.w, con->area.h}};
-    CGSNewRegionWithRect(&frame, &frame_region);
-    frame.origin.x = 0; frame.origin.y = 0;
-
-    if (!con->feedback_window.id) {
-        uint64_t tags = (1ULL << 1) | (1ULL << 9);
-        CFTypeRef empty_region = CGRegionCreateEmptyRegion();
-        SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &con->feedback_window.id, NULL);
-        CFRelease(empty_region);
-
-        sls_window_disable_shadow(con->feedback_window.id);
-        SLSSetWindowResolution(g_connection, con->feedback_window.id, 1.0f);
-        SLSSetWindowOpacity(g_connection, con->feedback_window.id, 0);
-        con->feedback_window.context = SLWindowContextCreate(g_connection, con->feedback_window.id, 0);
-        CGContextSetLineWidth(con->feedback_window.context, INSERT_FEEDBACK_WIDTH);
-    }
-
-    struct rgba_color color = g_window_manager.insert_feedback_color;
-    CGContextSetRGBFillColor(con->feedback_window.context, color.r, color.g, color.b, color.a * (insert_dir ? 0.25f : 0.15f));
-    CGContextSetRGBStrokeColor(con->feedback_window.context, color.r, color.g, color.b, color.a);
-
-    CGFloat clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
-    CGFloat clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
-    CGFloat clip_w = INSERT_FEEDBACK_WIDTH;
-    CGFloat clip_h = INSERT_FEEDBACK_WIDTH;
-    CGFloat midx = CGRectGetMidX(frame);
-    CGFloat midy = CGRectGetMidY(frame);
-
-    switch (insert_dir) {
-    case DIR_NORTH: { clip_y = midy - 0.5f * INSERT_FEEDBACK_WIDTH; } break;
-    case DIR_EAST:  { clip_x = midx - 0.5f * INSERT_FEEDBACK_WIDTH; } break;
-    case DIR_SOUTH: { clip_h = -midy + INSERT_FEEDBACK_WIDTH; } break;
-    case DIR_WEST:  { clip_w = -midx + INSERT_FEEDBACK_WIDTH; } break;
-    }
-
-    CGRect rect = (CGRect) {{ 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH }, { frame.size.width - INSERT_FEEDBACK_WIDTH, frame.size.height - INSERT_FEEDBACK_WIDTH }};
-    CGRect fill = CGRectInset(rect, 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH);
-    CGRect clip = { { rect.origin.x + clip_x, rect.origin.y + clip_y }, { rect.size.width + clip_w, rect.size.height + clip_h } };
-    CGPathRef path = CGPathCreateWithRoundedRect(rect, cgrect_clamp_x_radius(rect, INSERT_FEEDBACK_RADIUS), cgrect_clamp_y_radius(rect, INSERT_FEEDBACK_RADIUS), NULL);
-
-    SLSDisableUpdate(g_connection);
-    SLSSetWindowShape(g_connection, con->feedback_window.id, 0.0f, 0.0f, frame_region);
-    CGContextClearRect(con->feedback_window.context, frame);
-    CGContextClipToRect(con->feedback_window.context, clip);
-    CGContextFillRect(con->feedback_window.context, fill);
-    CGContextAddPath(con->feedback_window.context, path);
-    CGContextStrokePath(con->feedback_window.context);
-    CGContextResetClip(con->feedback_window.context);
-    CGContextFlush(con->feedback_window.context);
-    SLSReenableUpdate(g_connection);
-    CGPathRelease(path);
-    CFRelease(frame_region);
-
-    SLSSetWindowLevel(g_connection, con->feedback_window.id, window_level(leaf->window_id));
-    SLSSetWindowSubLevel(g_connection, con->feedback_window.id, window_sub_level(leaf->window_id));
-    SLSOrderWindow(g_connection, con->feedback_window.id, 1, leaf->window_id);
-}
-
-void tree_feedback_hide(struct con *con)
-{
-    tree_feedback_destroy(con);
-}
-
-void tree_selection_show(struct con *con)
-{
-    tree_feedback_show(con, 0);
-}
-
-static void tree_serialize_con(FILE *rsp, struct view *view, struct con *con, int depth)
-{
-    struct area frame = con_is_leaf(con) ? tree_con_frame(view, con) : con->area;
-    bool visible = tree_con_is_visible(con);
-
-    fprintf(rsp, "%*s{\"type\":\"%s\",\"layout\":%s%s%s,\"percent\":%.4f,\"window\":%d,\"frame\":{\"x\":%.4f,\"y\":%.4f,\"w\":%.4f,\"h\":%.4f},\"focused\":%s,\"selected\":%s,\"visible\":%s,\"nodes\":[",
-            depth, "",
-            !con->parent ? "workspace" : con_is_leaf(con) ? "window" : "container",
-            con_is_leaf(con) ? "" : "\"", con_is_leaf(con) ? "null" : con_layout_str[con->layout], con_is_leaf(con) ? "" : "\"",
-            con->parent ? con->percent : 1.0f,
-            con->window_id,
-            frame.x, frame.y, frame.w, frame.h,
-            json_bool(con_is_leaf(con) && con->window_id == g_window_manager.focused_window_id),
-            json_bool(con->selected),
-            json_bool(visible));
-
-    for (int i = 0; i < con->child_count; ++i) {
-        fprintf(rsp, "%s\n", i ? "," : "");
-        tree_serialize_con(rsp, view, con->children[i], depth + 1);
-    }
-
-    fprintf(rsp, "%s]}", con->child_count ? "\n" : "");
-}
-
-//
-// NOTE: The container tree of a space, similar to i3's get_tree. Containers list their children
-// in tab or split order. Spaces without the tree layout have no tree.
-//
-
-bool tree_serialize(FILE *rsp, struct view *view)
-{
-    if (view->layout != VIEW_TREE) return false;
-
-    struct con *root = tree_view_root(view);
-    tree_serialize_con(rsp, view, root, 0);
-    fprintf(rsp, "\n");
-    return true;
 }

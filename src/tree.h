@@ -75,6 +75,21 @@ enum tree_position
     TREE_AFTER
 };
 
+//
+// NOTE: What tree_view.c keeps on screen for a container: the tab that was ordered above the
+// others last (with the window and backdrop card it was ordered against), the outline window
+// and the tab bar.
+//
+
+struct con_render
+{
+    struct con *raised;
+    uint32_t raised_anchor;
+    uint32_t raised_card;
+    struct feedback_window feedback_window;
+    struct tab_bar tab_bar;
+};
+
 struct con
 {
     struct con *parent;
@@ -88,13 +103,9 @@ struct con
     uint32_t window_id;
     struct area area;
     enum con_zoom zoom;
-    struct con *raised;
-    uint32_t raised_anchor;
-    uint32_t raised_card;
     bool selected;
     int insert_dir;
-    struct feedback_window feedback_window;
-    struct tab_bar tab_bar;
+    struct con_render render;
 };
 
 struct con *con_create(enum con_layout layout);
@@ -125,7 +136,7 @@ struct con *tree_descend_focused(struct con *con);
 struct con *tree_descend_direction(struct con *con, int direction);
 enum tree_result tree_next(struct con *con, int direction, enum focus_wrapping wrapping, bool has_output, struct con **result);
 
-void tree_force_orientation(struct con *root, enum con_orientation orientation);
+struct con *tree_force_orientation(struct con *root, enum con_orientation orientation);
 void tree_insert_con(struct con *con, struct con *target, enum tree_position position);
 enum tree_result tree_move(struct con *root, struct con *con, int direction, bool has_output);
 void tree_insert_relative(struct con *target, struct con *con, int direction);

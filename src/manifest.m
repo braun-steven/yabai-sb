@@ -91,6 +91,7 @@
 #include "view.c"
 #include "tab_bar.c"
 #include "tree.c"
+#include "tree_view.c"
 #include "window.c"
 #include "process_manager.c"
 #include "application.c"

@@ -151,6 +151,15 @@ static void tree_attach_internal(struct con *parent, struct con *con, int index,
 
     ++parent->child_count;
     con->parent = parent;
+
+    //
+    // NOTE: The new windows have to be ordered with the tabs of every tabbed container
+    // around them, also when the active tab of that container stays the same.
+    //
+
+    for (struct con *ancestor = parent; ancestor; ancestor = ancestor->parent) {
+        if (ancestor->layout == CON_TABBED) ancestor->raised = NULL;
+    }
 }
 
 void tree_attach(struct con *parent, struct con *con, int index)

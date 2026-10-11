@@ -13,6 +13,21 @@ TEST_FUNC(tab_bar_style_parse,
     TEST_CHECK(style, TAB_BAR_STYLE_I3);
 });
 
+TEST_FUNC(tab_bar_backdrop_parse,
+{
+    enum tab_bar_backdrop backdrop = TAB_BAR_BACKDROP_COUNT;
+
+    TEST_CHECK(tab_bar_parse_backdrop("glass", &backdrop), true);
+    TEST_CHECK(backdrop, TAB_BAR_BACKDROP_GLASS);
+    TEST_CHECK(tab_bar_parse_backdrop("blur", &backdrop), true);
+    TEST_CHECK(backdrop, TAB_BAR_BACKDROP_BLUR);
+    TEST_CHECK(tab_bar_parse_backdrop("off", &backdrop), true);
+    TEST_CHECK(backdrop, TAB_BAR_BACKDROP_OFF);
+
+    TEST_CHECK(tab_bar_parse_backdrop("solid", &backdrop), false);
+    TEST_CHECK(backdrop, TAB_BAR_BACKDROP_OFF);
+});
+
 TEST_FUNC(tab_bar_font_parse,
 {
     TEST_CHECK(tab_bar_set_font("system:13"), true);

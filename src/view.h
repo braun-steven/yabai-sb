@@ -111,6 +111,7 @@ struct tab_bar
     uint32_t id;
     CGContextRef context;
     CGRect frame;
+    CGRect card;
     uint64_t sid;
     uint32_t above_wid;
     bool hidden;

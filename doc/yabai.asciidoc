@@ -227,8 +227,23 @@ Global Settings
     Height of the tab bar in points. Default is 24.
 
 *tab_bar_offset* ['<integer number>']::
-    Space in points between the bottom of the tab bar and the windows of the container. Default is 0. +
+    Space in points between the bottom of the tab bar and the windows of the container, inside the backdrop card if there is one. Default is 0. +
     A negative value moves the windows up under the bar. The windows always keep at least *tab_bar_height* of height.
+
+*tab_bar_backdrop* ['off|glass|blur']::
+    Backdrop card of the 'glass' tab bar style. Default is 'glass'. +
+    The card is a rounded surface behind the whole tabbed container that holds the bar at its top and the active window below it, so the wallpaper never shows between the bar and the window. +
+    The card hides the other windows of the container and is tinted with *tab_bar_unfocused_color*, and the active tab pill sits directly on it. +
+    'glass' draws the card in the Liquid Glass material, 'blur' as a dark vibrancy blur, and 'off' draws no card, so the bar floats above the windows in its own track. +
+    The card is never drawn for the 'i3' style or before macOS 26.
+
+*tab_bar_card_padding* ['<integer number>']::
+    Space in points between the edges of the backdrop card and the tab bar and windows inside it. Default is 6.
+
+*tab_bar_window_radius* ['<integer number>']::
+    Corner radius in points that windows are assumed to have. Default is 16. +
+    The backdrop card is rounded with this radius plus *tab_bar_card_padding*, so its corners are concentric with the corners of the window inside it. +
+    Windows with a toolbar have a larger radius in macOS 26 (about 26).
 
 *tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +

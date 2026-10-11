@@ -931,10 +931,18 @@ void tree_swap(struct con *a, struct con *b)
 // NOTE: Computes the area of every container. Splits divide the area along their orientation by
 // the share of each child, with the window gap in between. The children of a tabbed container
 // share its area below the tab bar, moved down by the bar offset (a negative offset lets them
-// reach under the bar). They always keep at least the height of the bar.
+// reach under the bar). They always keep at least the height of the bar. With a backdrop card
+// the bar and the windows are additionally inset from every edge of the container by bar_inset.
 //
 
-void tree_update(struct con *con, struct area area, int gap, int bar_height, int bar_offset)
+int tree_bar_card_inset(struct area area, int bar_height, int bar_inset)
+{
+    if (bar_inset <= 0) return 0;
+    if (area.w <= 4 * bar_inset || area.h - 2 * bar_inset <= 2 * bar_height) return 0;
+    return bar_inset;
+}
+
+void tree_update(struct con *con, struct area area, int gap, int bar_height, int bar_offset, int bar_inset)
 {
     con->area = area;
     if (con_is_leaf(con) || !con->child_count) return;
@@ -942,13 +950,19 @@ void tree_update(struct con *con, struct area area, int gap, int bar_height, int
     if (con->layout == CON_TABBED) {
         struct area child_area = area;
         if (bar_height > 0 && area.h > 2 * bar_height) {
-            int reserve = max(0, min(bar_height + bar_offset, (int) area.h - bar_height));
+            int inset = tree_bar_card_inset(area, bar_height, bar_inset);
+            child_area.x += inset;
+            child_area.y += inset;
+            child_area.w -= 2 * inset;
+            child_area.h -= 2 * inset;
+
+            int reserve = max(0, min(bar_height + bar_offset, (int) child_area.h - bar_height));
             child_area.y += reserve;
             child_area.h -= reserve;
         }
 
         for (int i = 0; i < con->child_count; ++i) {
-            tree_update(con->children[i], child_area, gap, bar_height, bar_offset);
+            tree_update(con->children[i], child_area, gap, bar_height, bar_offset, bar_inset);
         }
 
         return;
@@ -972,7 +986,7 @@ void tree_update(struct con *con, struct area area, int gap, int bar_height, int
             child_area.h = size;
         }
 
-        tree_update(child, child_area, gap, bar_height, bar_offset);
+        tree_update(child, child_area, gap, bar_height, bar_offset, bar_inset);
         offset += size + gap;
     }
 }
@@ -1031,6 +1045,11 @@ static inline int tree_bar_height(void)
     return tab_bar_is_enabled() ? g_window_manager.tab_bar_height : 0;
 }
 
+static inline int tree_bar_inset(void)
+{
+    return tab_bar_is_enabled() ? tab_bar_card_padding() : 0;
+}
+
 static inline enum con_layout tree_default_layout(struct view *view)
 {
     switch (g_space_manager.tree_default_orientation) {
@@ -1055,7 +1074,7 @@ struct con *tree_view_root(struct view *view)
 void tree_view_update(struct view *view)
 {
     if (!view->tree) return;
-    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height(), g_window_manager.tab_bar_offset);
+    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height(), g_window_manager.tab_bar_offset, tree_bar_inset());
 }
 
 static void tree_unmanage_windows(struct con *con)
@@ -1332,8 +1351,10 @@ static void tree_render_bar(void *owner)
     con->tab_bar.redraw = tree_render_bar;
 
     struct con *above = tree_descend_focused(con);
-    CGRect frame = {{con->area.x, con->area.y}, {con->area.w, g_window_manager.tab_bar_height}};
-    tab_bar_render(&con->tab_bar, frame, above ? above->window_id : 0, entry_list, entry_count);
+    int inset = tree_bar_card_inset(con->area, g_window_manager.tab_bar_height, tree_bar_inset());
+    CGRect card = {{con->area.x, con->area.y}, {con->area.w, con->area.h}};
+    CGRect frame = {{con->area.x + inset, con->area.y + inset}, {con->area.w - 2 * inset, g_window_manager.tab_bar_height}};
+    tab_bar_render(&con->tab_bar, frame, card, above ? above->window_id : 0, entry_list, entry_count);
 
     for (int i = 0; i < entry_count; ++i) {
         if (entry_list[i].title) CFRelease(entry_list[i].title);

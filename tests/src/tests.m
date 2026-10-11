@@ -42,6 +42,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_flatten_same_orientation)                  \
     TEST_ENTRY(tree_autotiling)                                \
     TEST_ENTRY(tab_bar_style_parse)                            \
+    TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \
     TEST_ENTRY(tab_bar_glass_tint_default)
 

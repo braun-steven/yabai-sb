@@ -2544,6 +2544,9 @@ void window_manager_init(struct window_manager *wm)
     wm->tab_bar_offset = 0;
     wm->tab_bar_icons = true;
     wm->tab_bar_style = TAB_BAR_STYLE_GLASS;
+    wm->tab_bar_backdrop = TAB_BAR_BACKDROP_GLASS;
+    wm->tab_bar_card_padding = 6;
+    wm->tab_bar_window_radius = 16;
     wm->tab_bar_focused_color = rgba_color_from_hex(0xff285577);
     wm->tab_bar_focused_text_color = rgba_color_from_hex(0xffffffff);
     wm->tab_bar_inactive_color = rgba_color_from_hex(0xff5f676a);

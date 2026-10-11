@@ -76,6 +76,18 @@ bool tab_bar_parse_style(char *name, enum tab_bar_style *style)
     return false;
 }
 
+bool tab_bar_parse_backdrop(char *name, enum tab_bar_backdrop *backdrop)
+{
+    for (int i = 0; i < TAB_BAR_BACKDROP_COUNT; ++i) {
+        if (string_equals(name, tab_bar_backdrop_str[i])) {
+            *backdrop = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool tab_bar_is_enabled(void)
 {
     return g_window_manager.enable_tab_bar && g_window_manager.tab_bar_height > 0;
@@ -350,6 +362,9 @@ struct tab_bar_glass_entry
 struct tab_bar_glass_snapshot
 {
     CGRect frame;
+    CGRect card;
+    enum tab_bar_backdrop backdrop;
+    CGFloat card_radius;
     uint64_t sid;
     uint32_t above_wid;
     int level;
@@ -456,12 +471,30 @@ static NSView *tab_bar_glass_create_tint(void)
     return tint;
 }
 
-static void tab_bar_glass_set_tint(NSView *tint, NSRect frame, struct rgba_color color)
+static void tab_bar_glass_set_tint(NSView *tint, CGFloat radius, struct rgba_color color)
 {
     CGColorRef cg_color = tab_bar_cgcolor(color);
     tint.layer.backgroundColor = cg_color;
-    tint.layer.cornerRadius = frame.size.height * 0.5f;
+    tint.layer.cornerRadius = radius;
     CGColorRelease(cg_color);
+}
+
+//
+// NOTE: NSVisualEffectView only rounds its material through a mask image. A stretchable rounded rect keeps the
+// corners at the given radius for any size of the card.
+//
+
+static NSImage *tab_bar_glass_create_mask(CGFloat radius)
+{
+    CGFloat size = 2.0f * radius + 1.0f;
+    NSImage *mask = [[NSImage alloc] initWithSize:NSMakeSize(size, size)];
+    [mask lockFocus];
+    [[NSColor blackColor] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(0, 0, size, size) xRadius:radius yRadius:radius] fill];
+    [mask unlockFocus];
+    mask.capInsets = NSEdgeInsetsMake(radius, radius, radius, radius);
+    mask.resizingMode = NSImageResizingModeStretch;
+    return mask;
 }
 
 API_AVAILABLE(macos(26.0))
@@ -469,6 +502,11 @@ API_AVAILABLE(macos(26.0))
 {
     NSPanel *panel;
     NSView *root;
+    NSView *backdrop;
+    NSView *backdrop_tint;
+    enum tab_bar_backdrop backdrop_kind;
+    CGFloat backdrop_radius;
+    bool below;
     NSView *track_tint;
     NSGlassEffectView *track;
     NSView *pill_tint;
@@ -477,7 +515,7 @@ API_AVAILABLE(macos(26.0))
 }
 - (void)apply:(struct tab_bar_glass_snapshot *)snapshot;
 - (void)hide;
-- (void)orderAbove:(uint32_t)wid;
+- (void)order:(uint32_t)wid;
 @end
 
 @implementation tab_bar_glass
@@ -527,11 +565,77 @@ API_AVAILABLE(macos(26.0))
     panel.contentView = root;
 }
 
+//
+// NOTE: The backdrop is a rounded card behind the whole tabbed container. The panel covers the card and is ordered
+// below the active window, so the window sits inside the card with the bar above it, and the card hides the other
+// tabs of the container. The card is the track of the bar, so the track glass is hidden while there is a backdrop.
+//
+
+- (void)setBackdrop:(enum tab_bar_backdrop)kind
+{
+    if (kind == backdrop_kind) return;
+
+    [backdrop removeFromSuperview];
+    [backdrop release];
+    [backdrop_tint release];
+    backdrop = nil;
+    backdrop_tint = nil;
+    backdrop_kind = kind;
+    backdrop_radius = -1.0f;
+
+    if (kind == TAB_BAR_BACKDROP_OFF) return;
+
+    backdrop_tint = tab_bar_glass_create_tint();
+    backdrop_tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+
+    if (kind == TAB_BAR_BACKDROP_GLASS) {
+        NSGlassEffectView *glass = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+        glass.contentView = backdrop_tint;
+        backdrop = glass;
+    } else {
+        NSVisualEffectView *effect = [[NSVisualEffectView alloc] initWithFrame:NSZeroRect];
+        effect.material = NSVisualEffectMaterialHUDWindow;
+        effect.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+        effect.state = NSVisualEffectStateActive;
+        [effect addSubview:backdrop_tint];
+        backdrop = effect;
+    }
+
+    [root addSubview:backdrop positioned:NSWindowBelow relativeTo:nil];
+}
+
+- (void)layoutBackdrop:(struct tab_bar_glass_snapshot *)snapshot bounds:(NSRect)bounds
+{
+    [self setBackdrop:snapshot->backdrop];
+    if (!backdrop) return;
+
+    backdrop.frame = bounds;
+    backdrop_tint.frame = backdrop.bounds;
+    tab_bar_glass_set_tint(backdrop_tint, snapshot->card_radius, snapshot->track_tint);
+
+    if (backdrop_radius == snapshot->card_radius) return;
+    backdrop_radius = snapshot->card_radius;
+
+    if (backdrop_kind == TAB_BAR_BACKDROP_GLASS) {
+        ((NSGlassEffectView *) backdrop).cornerRadius = backdrop_radius;
+    } else {
+        NSImage *mask = tab_bar_glass_create_mask(backdrop_radius);
+        ((NSVisualEffectView *) backdrop).maskImage = mask;
+        [mask release];
+    }
+}
+
 - (void)layout:(struct tab_bar_glass_snapshot *)snapshot animate:(bool)animate
 {
-    NSRect bounds = NSMakeRect(0, 0, snapshot->frame.size.width, snapshot->frame.size.height);
-    NSRect track_frame = NSRectFromCGRect(tab_bar_glass_track(NSRectToCGRect(bounds)));
-    CGRect inner = tab_bar_glass_inner(NSRectToCGRect(bounds));
+    bool card = snapshot->backdrop != TAB_BAR_BACKDROP_OFF;
+    CGRect panel_frame = card ? snapshot->card : snapshot->frame;
+    NSRect bounds = NSMakeRect(0, 0, panel_frame.size.width, panel_frame.size.height);
+    NSRect strip = card ? NSMakeRect(snapshot->frame.origin.x - snapshot->card.origin.x,
+                                     snapshot->card.size.height - (snapshot->frame.origin.y - snapshot->card.origin.y) - snapshot->frame.size.height,
+                                     snapshot->frame.size.width, snapshot->frame.size.height)
+                        : bounds;
+    NSRect track_frame = NSRectFromCGRect(tab_bar_glass_track(NSRectToCGRect(strip)));
+    CGRect inner = tab_bar_glass_inner(NSRectToCGRect(strip));
 
     int active = -1;
     for (int i = 0; i < snapshot->entry_count; ++i) {
@@ -539,10 +643,13 @@ API_AVAILABLE(macos(26.0))
     }
 
     root.frame = bounds;
+    [self layoutBackdrop:snapshot bounds:bounds];
+
+    track.hidden = backdrop != nil;
     track.frame = track_frame;
     track.cornerRadius = track_frame.size.height * 0.5f;
-    tab_bar_glass_set_tint(track_tint, track_frame, snapshot->track_tint);
-    content.frame = bounds;
+    tab_bar_glass_set_tint(track_tint, track_frame.size.height * 0.5f, snapshot->track_tint);
+    content.frame = strip;
 
     pill.hidden = active < 0;
     pill_tint.hidden = active < 0;
@@ -550,7 +657,7 @@ API_AVAILABLE(macos(26.0))
 
     NSRect pill_frame = NSRectFromCGRect(tab_bar_slot(inner, active, snapshot->entry_count));
     pill.cornerRadius = pill_frame.size.height * 0.5f;
-    tab_bar_glass_set_tint(pill_tint, pill_frame, snapshot->pill_tint);
+    tab_bar_glass_set_tint(pill_tint, pill_frame.size.height * 0.5f, snapshot->pill_tint);
 
     if (animate && !NSEqualRects(pill.frame, pill_frame)) {
         [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
@@ -569,7 +676,8 @@ API_AVAILABLE(macos(26.0))
 {
     if (!panel) [self setup];
 
-    CGRect frame = snapshot->frame;
+    below = snapshot->backdrop != TAB_BAR_BACKDROP_OFF;
+    CGRect frame = below ? snapshot->card : snapshot->frame;
     CGFloat primary_height = CGDisplayBounds(CGMainDisplayID()).size.height;
     NSRect cocoa_frame = NSMakeRect(frame.origin.x, primary_height - frame.origin.y - frame.size.height, frame.size.width, frame.size.height);
 
@@ -590,14 +698,14 @@ API_AVAILABLE(macos(26.0))
     CFArrayRef window_list_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
     SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, snapshot->sid);
 
-    if (!visible) [panel orderWindow:NSWindowAbove relativeTo:snapshot->above_wid];
+    if (!visible) [panel orderWindow:below ? NSWindowBelow : NSWindowAbove relativeTo:snapshot->above_wid];
 
     SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, snapshot->sid);
     CFRelease(window_list_ref);
 
     SLSSetWindowLevel(g_connection, wid, snapshot->level);
     SLSSetWindowSubLevel(g_connection, wid, snapshot->sub_level);
-    SLSOrderWindow(g_connection, wid, 1, snapshot->above_wid);
+    SLSOrderWindow(g_connection, wid, below ? -1 : 1, snapshot->above_wid);
 }
 
 - (void)hide
@@ -605,9 +713,9 @@ API_AVAILABLE(macos(26.0))
     [panel orderOut:nil];
 }
 
-- (void)orderAbove:(uint32_t)wid
+- (void)order:(uint32_t)wid
 {
-    if (panel.isVisible) SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, 1, wid);
+    if (panel.isVisible) SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, below ? -1 : 1, wid);
 }
 
 - (void)dealloc
@@ -616,6 +724,8 @@ API_AVAILABLE(macos(26.0))
     [panel close];
     [panel release];
     [root release];
+    [backdrop release];
+    [backdrop_tint release];
     [track_tint release];
     [track release];
     [pill_tint release];
@@ -631,6 +741,12 @@ static inline bool tab_bar_uses_glass(void)
     return false;
 }
 
+int tab_bar_card_padding(void)
+{
+    if (!tab_bar_uses_glass() || g_window_manager.tab_bar_backdrop == TAB_BAR_BACKDROP_OFF) return 0;
+    return g_window_manager.tab_bar_card_padding;
+}
+
 static inline bool tab_bar_exists(struct tab_bar *bar)
 {
     return bar->id || bar->glass;
@@ -641,6 +757,9 @@ static void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct
     if (@available(macOS 26.0, *)) {
         struct tab_bar_glass_snapshot *snapshot = malloc(sizeof(struct tab_bar_glass_snapshot));
         snapshot->frame = bar->frame;
+        snapshot->card = bar->card;
+        snapshot->backdrop = g_window_manager.tab_bar_backdrop;
+        snapshot->card_radius = g_window_manager.tab_bar_window_radius + (bar->frame.origin.x - bar->card.origin.x);
         snapshot->sid = bar->sid;
         snapshot->above_wid = above_wid;
         snapshot->level = window_level(above_wid);
@@ -691,7 +810,7 @@ static void tab_bar_glass_order(struct tab_bar *bar, uint32_t wid)
     if (@available(macOS 26.0, *)) {
         tab_bar_glass *glass = bar->glass;
         dispatch_async(dispatch_get_main_queue(), ^{
-            [glass orderAbove:wid];
+            [glass order:wid];
         });
     }
 }
@@ -728,11 +847,13 @@ static void tab_bar_create(struct tab_bar *bar, CGRect frame)
 
 //
 // NOTE: Creates the bar window if needed, moves it to the frame and to the space of the window it
-// sits above, draws the entries and orders it right above that window. Titles stay owned by the caller.
+// sits above, draws the entries and orders it right above that window (right below it for a glass bar
+// with a backdrop card, which then covers the whole card). Titles stay owned by the caller.
 //
 
-void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
+void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
 {
+    bar->card = card;
     if (entry_count > TAB_BAR_MAX_ENTRY_COUNT) entry_count = TAB_BAR_MAX_ENTRY_COUNT;
 
     if (!tab_bar_exists(bar)) {

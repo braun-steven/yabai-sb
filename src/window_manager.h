@@ -112,6 +112,9 @@ struct window_manager
     int tab_bar_offset;
     bool tab_bar_icons;
     enum tab_bar_style tab_bar_style;
+    enum tab_bar_backdrop tab_bar_backdrop;
+    int tab_bar_card_padding;
+    int tab_bar_window_radius;
     char *tab_bar_font_name;
     CTFontRef tab_bar_font;
     struct rgba_color tab_bar_focused_color;

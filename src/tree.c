@@ -958,3 +958,416 @@ static void tree_feedback_destroy(struct con *con)
     SLSReleaseWindow(g_connection, con->feedback_window.id);
     memset(&con->feedback_window, 0, sizeof(struct feedback_window));
 }
+
+//
+// NOTE: Everything below applies a tree to the screen: window frames, tab bars and the
+// stacking order of tabs. A view that uses the 'tree' layout owns its root container in view->tree.
+//
+
+static inline int tree_bar_height(void)
+{
+    return tab_bar_is_enabled() ? g_window_manager.tab_bar_height : 0;
+}
+
+static inline enum con_layout tree_default_layout(struct view *view)
+{
+    switch (g_space_manager.tree_default_orientation) {
+    case TREE_ORIENTATION_HORIZONTAL: return CON_SPLITH;
+    case TREE_ORIENTATION_VERTICAL:   return CON_SPLITV;
+    case TREE_ORIENTATION_AUTO:       break;
+    }
+
+    return view->root->area.w >= view->root->area.h ? CON_SPLITH : CON_SPLITV;
+}
+
+struct con *tree_view_root(struct view *view)
+{
+    if (!view->tree) {
+        view->tree = con_create(tree_default_layout(view));
+        view->tree->area = view->root->area;
+    }
+
+    return view->tree;
+}
+
+void tree_view_update(struct view *view)
+{
+    if (!view->tree) return;
+    tree_update(view->tree, view->root->area, window_node_get_gap(view), tree_bar_height());
+}
+
+static void tree_unmanage_windows(struct con *con)
+{
+    if (con_is_leaf(con)) {
+        window_manager_remove_managed_window(&g_window_manager, con->window_id);
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_unmanage_windows(con->children[i]);
+    }
+}
+
+void tree_view_clear(struct view *view)
+{
+    if (!view->tree) return;
+
+    tree_unmanage_windows(view->tree);
+    con_free(view->tree);
+    view->tree = NULL;
+}
+
+struct con *tree_view_find_window(struct view *view, uint32_t window_id)
+{
+    return view->layout == VIEW_TREE ? tree_find_window(view->tree, window_id) : NULL;
+}
+
+//
+// NOTE: i3 places a new window right after the focused container, inside the same parent. When a
+// container is selected (focus parent) the window is appended to it instead. The insertion point
+// is used for windows that are restored or moved here, so they open next to that window.
+//
+
+void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point)
+{
+    struct con *root = tree_view_root(view);
+    if (tree_find_window(root, window->id)) return;
+
+    struct con *con = con_create(CON_SPLITH);
+    con->window_id = window->id;
+
+    if (root->child_count == 0) {
+        root->layout = tree_default_layout(view);
+        root->last_split = root->layout;
+
+        if (g_space_manager.tree_workspace_tabbed) {
+            struct con *tabbed = con_create(CON_TABBED);
+            tabbed->last_split = root->layout;
+            tree_attach(root, tabbed, -1);
+            tree_attach(tabbed, con, -1);
+        } else {
+            tree_attach(root, con, -1);
+        }
+
+        tree_focus(con);
+        return;
+    }
+
+    struct con *target = NULL;
+    if (view->insertion_point) {
+        target = tree_find_window(root, view->insertion_point);
+        if (target && target->insert_dir) {
+            int direction = target->insert_dir;
+            target->insert_dir = 0;
+            tree_feedback_destroy(target);
+            view->insertion_point = 0;
+
+            tree_insert_relative(target, con, direction);
+            tree_focus(con);
+            return;
+        }
+    }
+
+    target = insertion_point ? tree_find_window(root, insertion_point) : NULL;
+
+    if (!target) {
+        struct con *selected = tree_find_selected(root);
+        if (selected && !con_is_leaf(selected)) {
+            tree_attach(selected, con, -1);
+            tree_focus(con);
+            return;
+        }
+
+        target = tree_find_window(root, g_window_manager.focused_window_id);
+        if (!target) target = tree_descend_focused(root);
+    }
+
+    if (!target || target == root) {
+        tree_attach(root, con, -1);
+    } else {
+        tree_attach(target->parent, con, con_index(target) + 1);
+    }
+
+    if (!insertion_point || window->id == g_window_manager.focused_window_id) {
+        tree_focus(con);
+    }
+}
+
+bool tree_remove_window(struct view *view, struct window *window)
+{
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con) return false;
+
+    if (view->insertion_point == window->id) view->insertion_point = 0;
+
+    tree_detach(con);
+    con_free(con);
+    tree_flatten(view->tree);
+
+    return true;
+}
+
+static void tree_append_window_list(struct con *con, uint32_t **window_list, int *window_count, int *capacity)
+{
+    if (con_is_leaf(con)) {
+        if (*window_count >= *capacity) {
+            ts_expand(*window_list, sizeof(uint32_t) * (*capacity), sizeof(uint32_t) * (*capacity));
+            *capacity *= 2;
+        }
+
+        (*window_list)[(*window_count)++] = con->window_id;
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_append_window_list(con->children[i], window_list, window_count, capacity);
+    }
+}
+
+uint32_t *tree_view_window_list(struct view *view, int *window_count)
+{
+    *window_count = 0;
+
+    int capacity = 13;
+    uint32_t *window_list = ts_alloc_list(uint32_t, capacity);
+    if (view->tree) tree_append_window_list(view->tree, &window_list, window_count, &capacity);
+
+    return window_list;
+}
+
+static int tree_tiled_window_count(struct con *con)
+{
+    if (con_is_leaf(con)) return con->zoom == CON_ZOOM_FULLSCREEN ? 0 : 1;
+
+    int count = 0;
+    for (int i = 0; i < con->child_count; ++i) {
+        count += tree_tiled_window_count(con->children[i]);
+    }
+
+    return count;
+}
+
+int tree_view_tiled_window_count(struct view *view)
+{
+    return view->tree ? tree_tiled_window_count(view->tree) : 0;
+}
+
+struct area tree_con_frame(struct view *view, struct con *con)
+{
+    if (con->zoom == CON_ZOOM_FULLSCREEN) return view->tree->area;
+    if (con->zoom == CON_ZOOM_PARENT && con->parent) return con->parent->area;
+    return con->area;
+}
+
+bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame)
+{
+    struct con *con = tree_view_find_window(view, window_id);
+    if (!con) return false;
+
+    struct area area = tree_con_frame(view, con);
+    return AX_DIFF(area.x, frame.origin.x) ||
+           AX_DIFF(area.y, frame.origin.y) ||
+           AX_DIFF(area.w, frame.size.width) ||
+           AX_DIFF(area.h, frame.size.height);
+}
+
+static void tree_capture_windows(struct view *view, struct con *con, struct window_capture **window_list)
+{
+    if (con_is_leaf(con)) {
+        struct window *window = window_manager_find_window(&g_window_manager, con->window_id);
+        if (window) {
+            struct area area = tree_con_frame(view, con);
+            ts_buf_push(*window_list, ((struct window_capture) { .window = window, .x = area.x, .y = area.y, .w = area.w, .h = area.h }));
+        }
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_capture_windows(view, con->children[i], window_list);
+    }
+}
+
+static bool tree_has_zoom(struct con *con, enum con_zoom zoom)
+{
+    if (con_is_leaf(con)) return zoom == CON_ZOOM_NONE ? con->zoom != CON_ZOOM_NONE : con->zoom == zoom;
+
+    for (int i = 0; i < con->child_count; ++i) {
+        if (tree_has_zoom(con->children[i], zoom)) return true;
+    }
+
+    return false;
+}
+
+static inline struct con *tree_root_of(struct con *con)
+{
+    while (con->parent) con = con->parent;
+    return con;
+}
+
+static bool tree_contains_window(struct con *con, uint32_t window_id)
+{
+    return window_id && tree_find_window(con, window_id) != NULL;
+}
+
+static void tree_render_bar(void *owner)
+{
+    struct con *con = owner;
+
+    //
+    // NOTE: A zoomed window covers the bars of the containers it belongs to, and a fullscreen
+    // window covers every bar on the space.
+    //
+
+    bool show = tab_bar_is_enabled() &&
+                con->layout == CON_TABBED &&
+                con->child_count > 0 &&
+                con->area.h > 2 * g_window_manager.tab_bar_height &&
+                tree_con_is_visible(con) &&
+                !tree_has_zoom(con, CON_ZOOM_NONE) &&
+                !tree_has_zoom(tree_root_of(con), CON_ZOOM_FULLSCREEN);
+
+    if (!show) {
+        tab_bar_hide(&con->tab_bar);
+        return;
+    }
+
+    int entry_count = min(con->child_count, TAB_BAR_MAX_ENTRY_COUNT);
+    struct tab_bar_entry entry_list[TAB_BAR_MAX_ENTRY_COUNT];
+    bool has_focus = tree_contains_window(con, g_window_manager.focused_window_id);
+    struct con *active = con->focus[0];
+
+    for (int i = 0; i < entry_count; ++i) {
+        struct con *child = con->children[i];
+        struct con *leaf = tree_descend_focused(child);
+
+        entry_list[i].focus_wid = leaf ? leaf->window_id : 0;
+        entry_list[i].title = tree_copy_title(child);
+        entry_list[i].state = child != active ? TAB_BAR_UNFOCUSED : has_focus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE;
+    }
+
+    con->tab_bar.owner = con;
+    con->tab_bar.redraw = tree_render_bar;
+
+    struct con *above = tree_descend_focused(con);
+    CGRect frame = {{con->area.x, con->area.y}, {con->area.w, g_window_manager.tab_bar_height}};
+    tab_bar_render(&con->tab_bar, frame, above ? above->window_id : 0, entry_list, entry_count);
+
+    for (int i = 0; i < entry_count; ++i) {
+        if (entry_list[i].title) CFRelease(entry_list[i].title);
+    }
+}
+
+void tree_render_bars(struct con *con)
+{
+    if (con_is_leaf(con)) return;
+
+    if (con->layout == CON_TABBED) {
+        tree_render_bar(con);
+    } else {
+        tab_bar_release(&con->tab_bar);
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_render_bars(con->children[i]);
+    }
+}
+
+void tree_release_bars(struct con *con)
+{
+    tab_bar_release(&con->tab_bar);
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_release_bars(con->children[i]);
+    }
+}
+
+static void tree_order_windows(struct con *con, int order, uint32_t relative)
+{
+    if (con_is_leaf(con)) {
+        if (con->window_id != relative) scripting_addition_order_window(con->window_id, order, relative);
+        return;
+    }
+
+    if (order == 1 && con->layout == CON_TABBED) {
+        if (con->child_count) tree_order_windows(con->focus[0], order, relative);
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_order_windows(con->children[i], order, relative);
+    }
+}
+
+//
+// NOTE: Windows of hidden tabs keep the frame of their tabbed container and are hidden by
+// stacking order alone. When a tab becomes active, the windows of the other tabs are ordered
+// below its focused window, and the other visible windows of the tab (when it holds a split)
+// are ordered above it.
+//
+
+void tree_raise_tabs(struct con *con, bool force)
+{
+    if (con_is_leaf(con)) return;
+
+    if (con->layout == CON_TABBED && con->child_count && tree_con_is_visible(con)) {
+        struct con *active = con->focus[0];
+
+        if (force || con->raised != active) {
+            con->raised = active;
+
+            struct con *anchor = tree_descend_focused(active);
+            if (anchor && con->child_count > 1) {
+                for (int i = 0; i < con->child_count; ++i) {
+                    if (con->children[i] != active) tree_order_windows(con->children[i], -1, anchor->window_id);
+                }
+            }
+
+            if (anchor && !con_is_leaf(active)) {
+                tree_order_windows(active, 1, anchor->window_id);
+            }
+        }
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_raise_tabs(con->children[i], force);
+    }
+}
+
+void tree_flush(struct view *view)
+{
+    if (!view->tree) return;
+
+    struct window_capture *window_list = NULL;
+    tree_capture_windows(view, view->tree, &window_list);
+    if (window_list) window_manager_animate_window_list(window_list, ts_buf_len(window_list));
+
+    tree_render_bars(view->tree);
+    tree_raise_tabs(view->tree, false);
+}
+
+void tree_window_did_receive_focus(struct view *view, uint32_t window_id)
+{
+    struct con *con = tree_view_find_window(view, window_id);
+    if (!con) return;
+
+    tree_select(view->tree, NULL);
+    tree_focus(con);
+
+    if (!space_is_visible(view->sid)) {
+        view_set_flag(view, VIEW_IS_DIRTY);
+        return;
+    }
+
+    tree_raise_tabs(view->tree, false);
+    tree_render_bars(view->tree);
+}
+
+void tree_refresh_for_window(uint32_t window_id)
+{
+    if (!window_id) return;
+
+    struct view *view = table_find(&g_window_manager.managed_window, &window_id);
+    if (!view || view->layout != VIEW_TREE || !view->tree) return;
+
+    if (space_is_visible(view->sid)) tree_render_bars(view->tree);
+}

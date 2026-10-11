@@ -430,15 +430,40 @@ Action performed when pressing \fImouse_modifier\fP + \fIbutton1\fP.
 Action performed when pressing \fImouse_modifier\fP + \fIbutton2\fP.
 .RE
 .sp
+\fBfocus_wrapping\fP [\fIon|off|force\fP]
+.RS 4
+What \fBwindow \-\-focus\fP \fInorth|east|south|west\fP does at the edge of a \fItree\fP space, like i3\(cqs \fIfocus_wrapping\fP.
+.br
+\fIon\fP (the default): focus the display in that direction, and wrap around to the other side of the container if there is none.
+.br
+\fIoff\fP: focus the display in that direction, and do nothing if there is none.
+.br
+\fIforce\fP: always wrap around inside the innermost container in that direction.
+.RE
+.sp
 \fBmouse_drop_action\fP [\fIswap|stack\fP]
 .RS 4
 Action performed when a bsp\-managed window is dropped in the center of some other bsp\-managed window.
 .RE
 .SS "Space Settings"
 .sp
-\fBlayout\fP [\fIbsp|stack|float\fP]
+\fBlayout\fP [\fIbsp|stack|float|tree\fP]
 .RS 4
 Set the layout of the selected space.
+.br
+\fItree\fP arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP.
+.RE
+.sp
+\fBtree_default_orientation\fP [\fIhorizontal|vertical|auto\fP]
+.RS 4
+Orientation of an empty \fItree\fP space when its first window opens, like i3\(cqs \fIdefault_orientation\fP.
+.br
+\fIhorizontal\fP places windows side by side, \fIvertical\fP places them on top of each other, and \fIauto\fP (the default) picks \fIhorizontal\fP when the display is wider than it is tall.
+.RE
+.sp
+\fBtree_workspace_layout\fP [\fIdefault|tabbed\fP]
+.RS 4
+Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, the first window of an empty \fItree\fP space opens inside a tabbed container, so later windows become tabs. Default is \fIdefault\fP.
 .RE
 .sp
 \fBsplit_type\fP [\fIvertical|horizontal|auto\fP]
@@ -1441,6 +1466,25 @@ Arbitrary command executed through \fB/usr/bin/env sh \-c\fP
 .fam
 .fi
 .if n .RE
+.SH "TREE LAYOUT"
+.sp
+A space with layout \fItree\fP arranges its windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container.
+.br
+A container lays out any number of children in one of three ways: \fIsplith\fP (side by side), \fIsplitv\fP (on top of each other) or \fItabbed\fP (one child visible at a time, with a row of tabs on top).
+.br
+Each container remembers which of its children was focused last.
+.sp
+A new window opens right after the focused window, inside the same container.
+.br
+When the last window of a container closes, the container is removed as well.
+.br
+Containers that would only nest a split inside a split of the other orientation are flattened again.
+.sp
+Tabbed containers draw a tab bar with the \fBtab_bar_\(rs\fP* settings, also when they hold a single tab.
+.br
+A tab that holds a container is titled with its layout and applications, e.g. \fIH[iTerm2 Safari]\fP.
+.br
+The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 .SH "EXIT CODES"
 .sp
 If \fByabai\fP can\(cqt handle a message, it will return a non\-zero exit code.

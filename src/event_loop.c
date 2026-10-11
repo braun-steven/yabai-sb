@@ -71,6 +71,8 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
         }
     }
 
+    if (view && view->layout == VIEW_TREE) tree_window_did_receive_focus(view, window->id);
+
     if (prev_focused_window_id != window->id) tab_bar_refresh_for_window(prev_focused_window_id);
     if (node && node->tab_bar.id) tab_bar_update(node);
 }
@@ -243,8 +245,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         if (!space_is_visible(view->sid)) continue;
         if (!view_is_dirty(view))         continue;
 
-        window_node_flush(view->root);
-        view_clear_flag(view, VIEW_IS_DIRTY);
+        view_flush(view);
     }
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
@@ -337,8 +338,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
         if (!space_is_visible(view->sid)) continue;
         if (!view_is_dirty(view))         continue;
 
-        window_node_flush(view->root);
-        view_clear_flag(view, VIEW_IS_DIRTY);
+        view_flush(view);
     }
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
@@ -485,8 +485,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
         if (!space_is_visible(view->sid)) continue;
         if (!view_is_dirty(view))         continue;
 
-        window_node_flush(view->root);
-        view_clear_flag(view, VIEW_IS_DIRTY);
+        view_flush(view);
     }
 
     event_signal_push(SIGNAL_APPLICATION_VISIBLE, application);
@@ -546,8 +545,7 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
         if (!space_is_visible(view->sid)) continue;
         if (!view_is_dirty(view))         continue;
 
-        window_node_flush(view->root);
-        view_clear_flag(view, VIEW_IS_DIRTY);
+        view_flush(view);
     }
 
     event_signal_push(SIGNAL_APPLICATION_HIDDEN, application);
@@ -709,7 +707,9 @@ static EVENT_HANDLER(WINDOW_MOVED)
 
         if (!g_mouse_state.window || g_mouse_state.window != window) {
             struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-            if (view) {
+            if (view && view->layout == VIEW_TREE) {
+                if (tree_window_needs_flush(view, window->id, window->frame)) view_flush(view);
+            } else if (view) {
                 struct window_node *node = view_find_window_node(view, window->id);
                 if (node && (AX_DIFF(node->area.x, new_origin.x) ||
                              AX_DIFF(node->area.y, new_origin.y))
@@ -808,7 +808,9 @@ static EVENT_HANDLER(WINDOW_RESIZED)
 
             if (!g_mouse_state.window || g_mouse_state.window != window) {
                 struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-                if (view) {
+                if (view && view->layout == VIEW_TREE) {
+                    if (tree_window_needs_flush(view, window->id, new_frame)) view_flush(view);
+                } else if (view) {
                     struct window_node *node = view_find_window_node(view, window->id);
                     if (node && (AX_DIFF(node->area.x, new_frame.origin.x)   ||
                                  AX_DIFF(node->area.y, new_frame.origin.y)   ||
@@ -1029,8 +1031,7 @@ static EVENT_HANDLER(SPACE_CHANGED)
         }
 
         if (view_is_dirty(view)) {
-            window_node_flush(view->root);
-            view_clear_flag(view, VIEW_IS_DIRTY);
+            view_flush(view);
         }
     }
 
@@ -1081,8 +1082,7 @@ static EVENT_HANDLER(DISPLAY_CHANGED)
         }
 
         if (view_is_dirty(view)) {
-            window_node_flush(view->root);
-            view_clear_flag(view, VIEW_IS_DIRTY);
+            view_flush(view);
         }
     }
 

@@ -136,7 +136,7 @@ void space_manager_untile_window(struct view *view, struct window *window)
     if (!node) return;
 
     if (space_is_visible(view->sid)) {
-        window_node_flush(node);
+        view_flush_node(view, node);
     } else {
         view_set_flag(view, VIEW_IS_DIRTY);
     }
@@ -479,7 +479,7 @@ struct view *space_manager_tile_window_on_space_with_insertion_point(struct spac
     assert(node);
 
     if (space_is_visible(view->sid)) {
-        window_node_flush(node);
+        view_flush_node(view, node);
     } else {
         view_set_flag(view, VIEW_IS_DIRTY);
     }
@@ -1402,6 +1402,8 @@ void space_manager_begin(struct space_manager *sm)
     sm->auto_balance = SPLIT_NONE;
     sm->auto_padding = false;
     sm->split_type = SPLIT_AUTO;
+    sm->tree_default_orientation = TREE_ORIENTATION_AUTO;
+    sm->tree_workspace_tabbed = false;
     sm->window_placement = CHILD_SECOND;
     sm->window_insertion_point = INSERT_FOCUSED;
     sm->window_zoom_persist = true;

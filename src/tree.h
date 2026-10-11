@@ -55,6 +55,13 @@ static const char *focus_wrapping_str[] =
     "force"
 };
 
+enum con_zoom
+{
+    CON_ZOOM_NONE,
+    CON_ZOOM_PARENT,
+    CON_ZOOM_FULLSCREEN
+};
+
 enum tree_result
 {
     TREE_RESULT_NONE,
@@ -80,7 +87,7 @@ struct con
     float percent;
     uint32_t window_id;
     struct area area;
-    struct con *zoom;
+    enum con_zoom zoom;
     struct con *raised;
     bool selected;
     int insert_dir;
@@ -129,5 +136,22 @@ void tree_mirror(struct con *con, enum con_orientation orientation);
 void tree_swap(struct con *a, struct con *b);
 void tree_update(struct con *con, struct area area, int gap, int bar_height);
 CFStringRef tree_copy_title(struct con *con);
+
+struct con *tree_view_root(struct view *view);
+void tree_view_update(struct view *view);
+void tree_view_clear(struct view *view);
+struct con *tree_view_find_window(struct view *view, uint32_t window_id);
+void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point);
+bool tree_remove_window(struct view *view, struct window *window);
+uint32_t *tree_view_window_list(struct view *view, int *window_count);
+int tree_view_tiled_window_count(struct view *view);
+struct area tree_con_frame(struct view *view, struct con *con);
+bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame);
+void tree_flush(struct view *view);
+void tree_render_bars(struct con *con);
+void tree_release_bars(struct con *con);
+void tree_raise_tabs(struct con *con, bool force);
+void tree_window_did_receive_focus(struct view *view, uint32_t window_id);
+void tree_refresh_for_window(uint32_t window_id);
 
 #endif

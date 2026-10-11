@@ -280,14 +280,28 @@ Global Settings
 *mouse_action2* ['move|resize']::
     Action performed when pressing 'mouse_modifier' + 'button2'.
 
+*focus_wrapping* ['on|off|force']::
+    What *window --focus* 'north|east|south|west' does at the edge of a 'tree' space, like i3's 'focus_wrapping'. +
+    'on' (the default): focus the display in that direction, and wrap around to the other side of the container if there is none. +
+    'off': focus the display in that direction, and do nothing if there is none. +
+    'force': always wrap around inside the innermost container in that direction.
+
 *mouse_drop_action* ['swap|stack']::
     Action performed when a bsp-managed window is dropped in the center of some other bsp-managed window.
 
 Space Settings
 ^^^^^^^^^^^^^^
 
-*layout* ['bsp|stack|float']::
-    Set the layout of the selected space.
+*layout* ['bsp|stack|float|tree']::
+    Set the layout of the selected space. +
+    'tree' arranges windows in an i3-style container tree, see *TREE LAYOUT*.
+
+*tree_default_orientation* ['horizontal|vertical|auto']::
+    Orientation of an empty 'tree' space when its first window opens, like i3's 'default_orientation'. +
+    'horizontal' places windows side by side, 'vertical' places them on top of each other, and 'auto' (the default) picks 'horizontal' when the display is wider than it is tall.
+
+*tree_workspace_layout* ['default|tabbed']::
+    Like i3's 'workspace_layout'. With 'tabbed', the first window of an empty 'tree' space opens inside a tabbed container, so later windows become tabs. Default is 'default'.
 
 *split_type* ['vertical|horizontal|auto']::
     Specify how a window should be split. +
@@ -970,6 +984,21 @@ DATAFORMAT
     "action": string
 }
 ----
+
+Tree Layout
+-----------
+
+A space with layout 'tree' arranges its windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container. +
+A container lays out any number of children in one of three ways: 'splith' (side by side), 'splitv' (on top of each other) or 'tabbed' (one child visible at a time, with a row of tabs on top). +
+Each container remembers which of its children was focused last.
+
+A new window opens right after the focused window, inside the same container. +
+When the last window of a container closes, the container is removed as well. +
+Containers that would only nest a split inside a split of the other orientation are flattened again.
+
+Tabbed containers draw a tab bar with the *tab_bar_\** settings, also when they hold a single tab. +
+A tab that holds a container is titled with its layout and applications, e.g. 'H[iTerm2 Safari]'. +
+The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 
 Exit Codes
 ----------

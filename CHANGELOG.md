@@ -16,6 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Stacks get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
 - Command *window --layout tabbed|split|toggle* collapses a window's parent subtree into a stack, or tiles a stack again
 - With *tab_bar* enabled, *window --focus east|west* and *window --warp east|west* move between the tabs of a stack before leaving it; warping past the first or last tab places the window next to the stack
+- Layout *tree* (`space --layout tree`, `config layout tree`) arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
 
 ### Changed
 - Toggling a scratchpad that is on another space waits for it to arrive on the active space before focusing it, so macOS no longer switches back to the space it came from

@@ -417,6 +417,11 @@ void tab_bar_refresh_for_window(uint32_t wid)
     struct view *view = table_find(&g_window_manager.managed_window, &wid);
     if (!view || view->layout == VIEW_FLOAT) return;
 
+    if (view->layout == VIEW_TREE) {
+        tree_refresh_for_window(wid);
+        return;
+    }
+
     struct window_node *node = view_find_window_node(view, wid);
     if (node && node->tab_bar.id) tab_bar_update(node);
 }
@@ -438,6 +443,7 @@ void tab_bar_refresh_all(void)
     table_for (struct view *view, g_space_manager.view, {
         if (view->layout != VIEW_FLOAT && view->root) {
             tab_bar_destroy_tree(view->root);
+            if (view->tree) tree_release_bars(view->tree);
             view_update(view);
             view_flush(view);
         }

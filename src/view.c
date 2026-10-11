@@ -862,6 +862,13 @@ struct window_node *view_unstack_window_node(struct view *view, struct window *w
 
 struct window_node *view_remove_window_node(struct view *view, struct window *window)
 {
+    if (view->layout == VIEW_TREE) {
+        if (!tree_remove_window(view, window)) return NULL;
+        if (!view_update_auto_padding(view)) tree_view_update(view);
+        view_set_flag(view, VIEW_IS_DIRTY);
+        return view->root;
+    }
+
     struct window_node *node = view_detach_window_node(view, window);
     return view_update_auto_padding(view) ? view->root : node;
 }
@@ -983,6 +990,13 @@ static struct window_node *view_insert_window_node(struct view *view, struct win
 
 struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point)
 {
+    if (view->layout == VIEW_TREE) {
+        tree_add_window(view, window, insertion_point);
+        if (!view_update_auto_padding(view)) tree_view_update(view);
+        view_set_flag(view, VIEW_IS_DIRTY);
+        return view->root;
+    }
+
     struct window_node *node = view_insert_window_node(view, window, insertion_point);
     return node && view_update_auto_padding(view) ? view->root : node;
 }
@@ -994,6 +1008,8 @@ struct window_node *view_add_window_node(struct view *view, struct window *windo
 
 uint32_t *view_find_window_list(struct view *view, int *window_count)
 {
+    if (view->layout == VIEW_TREE) return tree_view_window_list(view, window_count);
+
     *window_count = 0;
 
     int capacity = 13;
@@ -1023,10 +1039,29 @@ bool view_is_dirty(struct view *view)
     return view_check_flag(view, VIEW_IS_DIRTY);
 }
 
+//
+// NOTE: Applies the frames of a node that a tree operation returned. Views with the tree layout
+// always apply the whole tree, since their operations return the root of the bsp tree.
+//
+
+void view_flush_node(struct view *view, struct window_node *node)
+{
+    if (view->layout == VIEW_TREE) {
+        tree_flush(view);
+        view_clear_flag(view, VIEW_IS_DIRTY);
+    } else {
+        window_node_flush(node);
+    }
+}
+
 void view_flush(struct view *view)
 {
     if (space_is_visible(view->sid)) {
-        window_node_flush(view->root);
+        if (view->layout == VIEW_TREE) {
+            tree_flush(view);
+        } else {
+            window_node_flush(view->root);
+        }
         view_clear_flag(view, VIEW_IS_DIRTY);
     } else {
         view_set_flag(view, VIEW_IS_DIRTY);
@@ -1106,7 +1141,12 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
         if (did_output) fprintf(rsp, ",\n");
 
         struct window_node *first_leaf = window_node_find_first_leaf(view->root);
-        fprintf(rsp, "\t\"first-window\":%d", first_leaf ? first_leaf->window_order[0] : 0);
+        uint32_t first_window = first_leaf ? first_leaf->window_order[0] : 0;
+        if (view->layout == VIEW_TREE) {
+            struct con *first = view->tree ? tree_descend_focused(tree_first_leaf(view->tree)) : NULL;
+            first_window = first ? first->window_id : 0;
+        }
+        fprintf(rsp, "\t\"first-window\":%d", first_window);
         did_output = true;
     }
 
@@ -1114,7 +1154,12 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
         if (did_output) fprintf(rsp, ",\n");
 
         struct window_node *last_leaf = window_node_find_last_leaf(view->root);
-        fprintf(rsp, "\t\"last-window\":%d", last_leaf ? last_leaf->window_order[0] : 0);
+        uint32_t last_window = last_leaf ? last_leaf->window_order[0] : 0;
+        if (view->layout == VIEW_TREE) {
+            struct con *last = view->tree ? tree_last_leaf(view->tree) : NULL;
+            last_window = last ? last->window_id : 0;
+        }
+        fprintf(rsp, "\t\"last-window\":%d", last_window);
         did_output = true;
     }
 
@@ -1143,7 +1188,7 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
 
 bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count)
 {
-    return auto_padding && layout == VIEW_BSP && tiled_window_count <= 1;
+    return auto_padding && (layout == VIEW_BSP || layout == VIEW_TREE) && tiled_window_count <= 1;
 }
 
 static int window_node_tiled_window_count(struct view *view, struct window_node *node)
@@ -1162,6 +1207,7 @@ static int window_node_tiled_window_count(struct view *view, struct window_node 
 
 int view_tiled_window_count(struct view *view)
 {
+    if (view->layout == VIEW_TREE) return tree_view_tiled_window_count(view);
     return window_node_tiled_window_count(view, view->root);
 }
 
@@ -1192,6 +1238,7 @@ static void view_update_with_auto_padding(struct view *view, bool unpadded)
     view->root->area = view_root_area(view, frame);
 
     window_node_update(view, view->root);
+    tree_view_update(view);
     view_set_flag(view, VIEW_IS_VALID);
     view_set_flag(view, VIEW_IS_DIRTY);
 }
@@ -1265,6 +1312,7 @@ void view_clear(struct view *view)
         insert_feedback_destroy(view->root);
         tab_bar_destroy(view->root);
         memset(view->root, 0, sizeof(struct window_node));
+        tree_view_clear(view);
         view_update(view);
     }
 }
@@ -1274,6 +1322,8 @@ void view_destroy(struct view *view)
     if (view->root) {
         window_node_destroy(view->root);
     }
+
+    tree_view_clear(view);
 
     if (view->uuid) {
         CFRelease(view->uuid);

@@ -275,6 +275,7 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags);
 bool view_is_invalid(struct view *view);
 bool view_is_dirty(struct view *view);
 void view_flush(struct view *view);
+void view_flush_node(struct view *view, struct window_node *node);
 void view_update(struct view *view);
 struct view *view_create(uint64_t sid);
 void view_destroy(struct view *view);

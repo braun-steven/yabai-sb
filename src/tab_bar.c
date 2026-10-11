@@ -443,10 +443,10 @@ static inline CGRect tab_bar_glass_inner(CGRect bounds)
 @end
 
 //
-// NOTE: The tint is a rounded layer right below each glass shape instead of NSGlassEffectView.tintColor, because
-// AppKit draws glass in its desaturated inactive look in an app that is never active, which hides most of the tint
-// color. The glass refracts and frosts the color beneath it like tinted glass and keeps its edge highlight, where a
-// layer on top of the glass would cover the material and look flat.
+// NOTE: The tints are rounded layers instead of NSGlassEffectView.tintColor, because AppKit draws glass in its
+// desaturated inactive look in an app that is never active, which hides most of the tint color. The pill tint sits
+// below the pill, so the glass refracts and frosts it like tinted glass and keeps its edge highlight. The track tint
+// sits on top of the track instead, because the glass would lighten a dark color beneath it.
 //
 
 static NSView *tab_bar_glass_create_tint(void)
@@ -510,7 +510,9 @@ API_AVAILABLE(macos(26.0))
     pill = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
     content = [[tab_bar_glass_content alloc] initWithFrame:NSZeroRect];
 
-    [root addSubview:track_tint];
+    track_tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    track.contentView = track_tint;
+
     [root addSubview:track];
     [root addSubview:pill_tint];
     [root addSubview:pill];
@@ -530,7 +532,6 @@ API_AVAILABLE(macos(26.0))
     }
 
     root.frame = bounds;
-    track_tint.frame = track_frame;
     track.frame = track_frame;
     track.cornerRadius = track_frame.size.height * 0.5f;
     tab_bar_glass_set_tint(track_tint, track_frame, snapshot->track_tint);

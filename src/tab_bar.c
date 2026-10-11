@@ -443,28 +443,24 @@ static inline CGRect tab_bar_glass_inner(CGRect bounds)
 @end
 
 //
-// NOTE: The tint is a layer inside the glass instead of NSGlassEffectView.tintColor, because AppKit draws glass in its
-// desaturated inactive look in an app that is never active, which hides most of the tint color. The layer sits on
-// the glass, keeps its rounded shape and moves with it, so the pill keeps its color while it animates.
+// NOTE: The tint is a rounded layer right below each glass shape instead of NSGlassEffectView.tintColor, because
+// AppKit draws glass in its desaturated inactive look in an app that is never active, which hides most of the tint
+// color. The glass refracts and frosts the color beneath it like tinted glass and keeps its edge highlight, where a
+// layer on top of the glass would cover the material and look flat.
 //
 
-API_AVAILABLE(macos(26.0))
-static void tab_bar_glass_add_tint(NSGlassEffectView *glass)
+static NSView *tab_bar_glass_create_tint(void)
 {
     NSView *tint = [[NSView alloc] initWithFrame:NSZeroRect];
     tint.wantsLayer = YES;
-    tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-    glass.contentView = tint;
-    [tint release];
+    return tint;
 }
 
-API_AVAILABLE(macos(26.0))
-static void tab_bar_glass_set_tint(NSGlassEffectView *glass, struct rgba_color color)
+static void tab_bar_glass_set_tint(NSView *tint, NSRect frame, struct rgba_color color)
 {
-    CALayer *layer = glass.contentView.layer;
     CGColorRef cg_color = tab_bar_cgcolor(color);
-    layer.backgroundColor = cg_color;
-    layer.cornerRadius = glass.cornerRadius;
+    tint.layer.backgroundColor = cg_color;
+    tint.layer.cornerRadius = frame.size.height * 0.5f;
     CGColorRelease(cg_color);
 }
 
@@ -473,7 +469,9 @@ API_AVAILABLE(macos(26.0))
 {
     NSPanel *panel;
     NSView *root;
+    NSView *track_tint;
     NSGlassEffectView *track;
+    NSView *pill_tint;
     NSGlassEffectView *pill;
     tab_bar_glass_content *content;
 }
@@ -506,13 +504,15 @@ API_AVAILABLE(macos(26.0))
                                NSWindowCollectionBehaviorFullScreenAuxiliary;
 
     root = [[NSView alloc] initWithFrame:NSZeroRect];
+    track_tint = tab_bar_glass_create_tint();
     track = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
+    pill_tint = tab_bar_glass_create_tint();
     pill = [[NSGlassEffectView alloc] initWithFrame:NSZeroRect];
-    tab_bar_glass_add_tint(track);
-    tab_bar_glass_add_tint(pill);
     content = [[tab_bar_glass_content alloc] initWithFrame:NSZeroRect];
 
+    [root addSubview:track_tint];
     [root addSubview:track];
+    [root addSubview:pill_tint];
     [root addSubview:pill];
     [root addSubview:content];
     panel.contentView = root;
@@ -530,25 +530,29 @@ API_AVAILABLE(macos(26.0))
     }
 
     root.frame = bounds;
+    track_tint.frame = track_frame;
     track.frame = track_frame;
     track.cornerRadius = track_frame.size.height * 0.5f;
-    tab_bar_glass_set_tint(track, snapshot->track_tint);
+    tab_bar_glass_set_tint(track_tint, track_frame, snapshot->track_tint);
     content.frame = bounds;
 
     pill.hidden = active < 0;
+    pill_tint.hidden = active < 0;
     if (active < 0) return;
 
     NSRect pill_frame = NSRectFromCGRect(tab_bar_slot(inner, active, snapshot->entry_count));
     pill.cornerRadius = pill_frame.size.height * 0.5f;
-    tab_bar_glass_set_tint(pill, snapshot->pill_tint);
+    tab_bar_glass_set_tint(pill_tint, pill_frame, snapshot->pill_tint);
 
     if (animate && !NSEqualRects(pill.frame, pill_frame)) {
         [NSAnimationContext runAnimationGroup:^(NSAnimationContext *context) {
             context.duration = TAB_BAR_GLASS_ANIMATION_DURATION;
             context.allowsImplicitAnimation = YES;
+            pill_tint.animator.frame = pill_frame;
             pill.animator.frame = pill_frame;
         }];
     } else {
+        pill_tint.frame = pill_frame;
         pill.frame = pill_frame;
     }
 }
@@ -604,7 +608,9 @@ API_AVAILABLE(macos(26.0))
     [panel close];
     [panel release];
     [root release];
+    [track_tint release];
     [track release];
+    [pill_tint release];
     [pill release];
     [content release];
     [super dealloc];

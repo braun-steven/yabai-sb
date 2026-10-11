@@ -123,8 +123,6 @@ struct window_manager
     bool tab_bar_focused_color_custom;
     bool tab_bar_inactive_color_custom;
     bool tab_bar_unfocused_color_custom;
-    struct rgba_color tab_bar_unfocused_color_light;
-    bool tab_bar_unfocused_color_light_custom;
     struct scratchpad *scratchpad_window;
     bool scratchpad_exclusive;
     bool scratchpad_raise;

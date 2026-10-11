@@ -12,6 +12,7 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_GLASS_TRACK_MARGIN 2.0f
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
 #define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
+#define TAB_BAR_GLASS_LIGHT_TRACK_COLOR 0xfff1f1f1
 #define TAB_BAR_GLASS_LIGHT_TRACK_TINT_ALPHA 0.9f
 #define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
 #define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
@@ -414,17 +415,14 @@ struct rgba_color tab_bar_glass_tint(struct rgba_color color, bool custom, float
 }
 
 //
-// NOTE: In light mode the track uses its own color, also when the unfocused color was configured, because a color
-// chosen for the dark appearance rarely suits the light one. The pill and the text keep their colors in both.
+// NOTE: In light mode the track uses a light gray instead of the dark i3 color, unless the unfocused color was
+// configured. The pill and the text keep their colors in both appearances.
 //
 
-struct rgba_color tab_bar_glass_track_tint(bool light)
+struct rgba_color tab_bar_glass_track_tint(struct rgba_color color, bool custom, bool light)
 {
-    if (light) {
-        return tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color_light, g_window_manager.tab_bar_unfocused_color_light_custom, TAB_BAR_GLASS_LIGHT_TRACK_TINT_ALPHA);
-    }
-
-    return tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
+    if (light && !custom) return tab_bar_glass_tint(rgba_color_from_hex(TAB_BAR_GLASS_LIGHT_TRACK_COLOR), false, TAB_BAR_GLASS_LIGHT_TRACK_TINT_ALPHA);
+    return tab_bar_glass_tint(color, custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
 }
 
 static inline CGRect tab_bar_glass_track(CGRect bounds)
@@ -690,7 +688,7 @@ static void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct
         snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
         if (!tab_bar_appearance_valid) tab_bar_update_appearance();
         snapshot->light = tab_bar_light_appearance;
-        snapshot->track_tint = tab_bar_glass_track_tint(snapshot->light);
+        snapshot->track_tint = tab_bar_glass_track_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, snapshot->light);
         snapshot->pill_tint = snapshot->track_tint;
         snapshot->separator = tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color);
         snapshot->entry_count = entry_count;

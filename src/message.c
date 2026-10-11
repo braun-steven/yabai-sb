@@ -88,8 +88,6 @@ extern bool g_verbose;
 #define ARGUMENT_CONFIG_WINDOW_INSERT_FIRST   "first"
 #define ARGUMENT_CONFIG_WINDOW_INSERT_LAST    "last"
 #define ARGUMENT_CONFIG_SHADOW_FLT            "float"
-#define ARGUMENT_CONFIG_LAYOUT_BSP            "bsp"
-#define ARGUMENT_CONFIG_LAYOUT_STACK          "stack"
 #define ARGUMENT_CONFIG_LAYOUT_FLOAT          "float"
 #define ARGUMENT_CONFIG_LAYOUT_TREE           "tree"
 #define ARGUMENT_CONFIG_TREE_DEFAULT          "default"
@@ -145,8 +143,6 @@ extern bool g_verbose;
 #define ARGUMENT_SPACE_TGL_GAP      "gap"
 #define ARGUMENT_SPACE_TGL_MC       "mission-control"
 #define ARGUMENT_SPACE_TGL_SD       "show-desktop"
-#define ARGUMENT_SPACE_LAYOUT_BSP   "bsp"
-#define ARGUMENT_SPACE_LAYOUT_STACK "stack"
 #define ARGUMENT_SPACE_LAYOUT_FLT   "float"
 #define ARGUMENT_SPACE_LAYOUT_TREE  "tree"
 /* ----------------------------------------------------------------------------- */
@@ -177,12 +173,6 @@ extern bool g_verbose;
 
 #define ARGUMENT_WINDOW_SEL_LARGEST     "largest"
 #define ARGUMENT_WINDOW_SEL_SMALLEST    "smallest"
-#define ARGUMENT_WINDOW_SEL_SIBLING     "sibling"
-#define ARGUMENT_WINDOW_SEL_FNEPHEW     "first_nephew"
-#define ARGUMENT_WINDOW_SEL_SNEPHEW     "second_nephew"
-#define ARGUMENT_WINDOW_SEL_UNCLE       "uncle"
-#define ARGUMENT_WINDOW_SEL_FCOUSIN     "first_cousin"
-#define ARGUMENT_WINDOW_SEL_SCOUSIN     "second_cousin"
 #define ARGUMENT_WINDOW_GRID            "%d:%d:%d:%d:%d:%d"
 #define ARGUMENT_WINDOW_MOVE            "%255[^:]:%f:%f"
 #define ARGUMENT_WINDOW_RESIZE          "%255[^:]:%f:%f"
@@ -986,72 +976,6 @@ static struct selector parse_window_selector(FILE *rsp, char **message, struct w
             } else {
                 daemon_fail(rsp, "could not locate window with the smallest area.\n");
             }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_SIBLING)) {
-            if (acting_window) {
-                struct window *sibling_window = window_manager_find_sibling_for_managed_window(&g_window_manager, acting_window);
-                if (sibling_window) {
-                    result.window = sibling_window;
-                } else {
-                    daemon_fail(rsp, "could not locate sibling of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_FNEPHEW)) {
-            if (acting_window) {
-                struct window *nephew_window = window_manager_find_first_nephew_for_managed_window(&g_window_manager, acting_window);
-                if (nephew_window) {
-                    result.window = nephew_window;
-                } else {
-                    daemon_fail(rsp, "could not locate first nephew of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_SNEPHEW)) {
-            if (acting_window) {
-                struct window *nephew_window = window_manager_find_second_nephew_for_managed_window(&g_window_manager, acting_window);
-                if (nephew_window) {
-                    result.window = nephew_window;
-                } else {
-                    daemon_fail(rsp, "could not locate second nephew of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_UNCLE)) {
-            if (acting_window) {
-                struct window *uncle_window = window_manager_find_uncle_for_managed_window(&g_window_manager, acting_window);
-                if (uncle_window) {
-                    result.window = uncle_window;
-                } else {
-                    daemon_fail(rsp, "could not locate uncle of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_FCOUSIN)) {
-            if (acting_window) {
-                struct window *cousin_window = window_manager_find_first_cousin_for_managed_window(&g_window_manager, acting_window);
-                if (cousin_window) {
-                    result.window = cousin_window;
-                } else {
-                    daemon_fail(rsp, "could not locate first cousin of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
-        } else if (token_equals(result.token, ARGUMENT_WINDOW_SEL_SCOUSIN)) {
-            if (acting_window) {
-                struct window *cousin_window = window_manager_find_second_cousin_for_managed_window(&g_window_manager, acting_window);
-                if (cousin_window) {
-                    result.window = cousin_window;
-                } else {
-                    daemon_fail(rsp, "could not locate second cousin of window.\n");
-                }
-            } else {
-                daemon_fail(rsp, "could not locate the selected window.\n");
-            }
         } else if (token_equals(result.token, ARGUMENT_COMMON_SEL_PREV)) {
             if (acting_window) {
                 struct window *prev_window = window_manager_find_prev_managed_window(&g_space_manager, &g_window_manager, acting_window);
@@ -1185,14 +1109,6 @@ static struct selector parse_insert_selector(FILE *rsp, char **message)
     }
 
     return result;
-}
-
-static int peek_tab_direction(char *message)
-{
-    struct token token = get_token(&message);
-    if (token_equals(token, ARGUMENT_COMMON_SEL_EAST)) return DIR_EAST;
-    if (token_equals(token, ARGUMENT_COMMON_SEL_WEST)) return DIR_WEST;
-    return 0;
 }
 
 #define TREE_FOCUS_PARENT 1
@@ -1734,24 +1650,6 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 struct view *view = space_manager_find_view(&g_space_manager, sel_sid);
                 if (!token_is_valid(value)) {
                     fprintf(rsp, "%s\n", view_type_str[view->layout]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_BSP)) {
-                    if (space_is_user(sel_sid)) {
-                        view_set_flag(view, VIEW_LAYOUT);
-                        view->layout = VIEW_BSP;
-                        view_clear(view);
-                        window_manager_validate_and_check_for_windows_on_space(&g_space_manager, &g_window_manager, sel_sid);
-                    } else {
-                        daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                    }
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_STACK)) {
-                    if (space_is_user(sel_sid)) {
-                        view_set_flag(view, VIEW_LAYOUT);
-                        view->layout = VIEW_STACK;
-                        view_clear(view);
-                        window_manager_validate_and_check_for_windows_on_space(&g_space_manager, &g_window_manager, sel_sid);
-                    } else {
-                        daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                    }
                 } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_FLOAT)) {
                     if (space_is_user(sel_sid)) {
                         view_set_flag(view, VIEW_LAYOUT);
@@ -1775,10 +1673,6 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             } else {
                 if (!token_is_valid(value)) {
                     fprintf(rsp, "%s\n", view_type_str[g_space_manager.layout]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_BSP)) {
-                    space_manager_set_layout_for_all_spaces(&g_space_manager, VIEW_BSP);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_STACK)) {
-                    space_manager_set_layout_for_all_spaces(&g_space_manager, VIEW_STACK);
                 } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_FLOAT)) {
                     space_manager_set_layout_for_all_spaces(&g_space_manager, VIEW_FLOAT);
                 } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_TREE)) {
@@ -2213,15 +2107,15 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(command, COMMAND_SPACE_EQUALIZE)) {
             struct token value = get_token(&message);
             if (!token_is_valid(value)) {
-                if (!space_manager_equalize_space(&g_space_manager, acting_sid, SPLIT_X | SPLIT_Y)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot equalize a non-managed space.\n");
                 }
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                if (!space_manager_equalize_space(&g_space_manager, acting_sid, SPLIT_X)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot equalize a non-managed space.\n");
                 }
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                if (!space_manager_equalize_space(&g_space_manager, acting_sid, SPLIT_Y)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot equalize a non-managed space.\n");
                 }
             } else {
@@ -2230,15 +2124,15 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(command, COMMAND_SPACE_BALANCE)) {
             struct token value = get_token(&message);
             if (!token_is_valid(value)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid, SPLIT_X | SPLIT_Y)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot balance a non-managed space.\n");
                 }
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid, SPLIT_X)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot balance a non-managed space.\n");
                 }
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid, SPLIT_Y)) {
+                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
                     daemon_fail(rsp, "cannot balance a non-managed space.\n");
                 }
             } else {
@@ -2315,19 +2209,7 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(command, COMMAND_SPACE_LAYOUT)) {
             struct token value = get_token(&message);
-            if (token_equals(value, ARGUMENT_SPACE_LAYOUT_BSP)) {
-                if (space_is_user(acting_sid)) {
-                    space_manager_set_layout_for_space(&g_space_manager, acting_sid, VIEW_BSP);
-                } else {
-                    daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_SPACE_LAYOUT_STACK)) {
-                if (space_is_user(acting_sid)) {
-                    space_manager_set_layout_for_space(&g_space_manager, acting_sid, VIEW_STACK);
-                } else {
-                    daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_SPACE_LAYOUT_FLT)) {
+            if (token_equals(value, ARGUMENT_SPACE_LAYOUT_FLT)) {
                 if (space_is_user(acting_sid)) {
                     space_manager_set_layout_for_space(&g_space_manager, acting_sid, VIEW_FLOAT);
                 } else {
@@ -2404,13 +2286,6 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                     return;
                 }
 
-                continue;
-            }
-
-            struct window *tab_window = acting_window ? window_manager_find_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message)) : NULL;
-            if (tab_window) {
-                get_token(&message);
-                window_manager_focus_window_with_raise(&tab_window->application->psn, tab_window->id, tab_window->ref);
                 continue;
             }
 
@@ -2502,17 +2377,15 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(command, COMMAND_WINDOW_SWAP)) {
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
-                enum window_op_error result = window_manager_swap_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
+                enum window_op_error result = window_manager_swap_window(&g_window_manager, acting_window, selector.window);
                 if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not within a bsp space.\n");
+                    daemon_fail(rsp, "the acting window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_DST_VIEW) {
-                    daemon_fail(rsp, "the selected window is not within a bsp space.\n");
+                    daemon_fail(rsp, "the selected window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                     daemon_fail(rsp, "the acting window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
                     daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_SAME_STACK) {
-                    daemon_fail(rsp, "cannot swap a window with a window in the same stack.\n");
                 } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot swap a window with itself.\n");
                 }
@@ -2530,24 +2403,17 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 continue;
             }
 
-            if (window_manager_move_tab_in_direction(&g_window_manager, acting_window, peek_tab_direction(message))) {
-                get_token(&message);
-                continue;
-            }
-
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
                 enum window_op_error result = window_manager_warp_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
                 if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not within a bsp space.\n");
+                    daemon_fail(rsp, "the acting window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_DST_VIEW) {
-                    daemon_fail(rsp, "the selected window is not within a bsp space.\n");
+                    daemon_fail(rsp, "the selected window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                     daemon_fail(rsp, "the acting window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
                     daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_SAME_STACK) {
-                    daemon_fail(rsp, "cannot warp a window with a window in the same stack.\n");
                 } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot warp a window onto itself.\n");
                 }
@@ -2558,8 +2424,6 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 enum window_op_error result = window_manager_stack_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
                 if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                     daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_MAX_STACK) {
-                    daemon_fail(rsp, "cannot stack window, max capacity of %d reached.\n", NODE_MAX_WINDOW_COUNT);
                 } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot stack a window onto itself.\n");
                 }
@@ -2586,14 +2450,8 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             }
 
             enum window_op_error result = window_manager_set_window_layout(&g_window_manager, acting_window, layout);
-            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                daemon_fail(rsp, "the acting window is not within a bsp space.\n");
-            } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
+            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW || result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                 daemon_fail(rsp, "the acting window is not managed.\n");
-            } else if (result == WINDOW_OP_ERROR_MAX_STACK) {
-                daemon_fail(rsp, "cannot make tabbed, max capacity of %d reached.\n", NODE_MAX_WINDOW_COUNT);
-            } else if (result == WINDOW_OP_ERROR_INVALID_OPERATION) {
-                daemon_fail(rsp, "layout '%.*s' only works on tree spaces.\n", value.length, value.text);
             }
         } else if (token_equals(command, COMMAND_WINDOW_SPLIT)) {
             struct token value = get_token(&message);
@@ -2612,7 +2470,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
 
             enum window_op_error result = window_manager_tree_split(&g_window_manager, acting_window, orientation);
             if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                daemon_fail(rsp, "the acting window is not within a tree space.\n");
+                daemon_fail(rsp, "the acting window is not managed.\n");
             } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                 daemon_fail(rsp, "the acting window is not managed.\n");
             }
@@ -2621,7 +2479,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             if (selector.did_parse && selector.dir) {
                 enum window_op_error result = window_manager_set_window_insertion(&g_space_manager, acting_window, selector.dir);
                 if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not within a bsp space.\n");
+                    daemon_fail(rsp, "the acting window is not managed.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
                     daemon_fail(rsp, "the acting window is not managed.\n");
                 }
@@ -2656,9 +2514,9 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             if ((sscanf(value.text, ARGUMENT_WINDOW_RESIZE, handle, &w, &h) == 3)) {
                 enum window_op_error result = window_manager_resize_window_relative(&g_window_manager, acting_window, parse_resize_handle(handle), w, h, true);
                 if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                    daemon_fail(rsp, "cannot locate bsp node for the managed window.\n");
+                    daemon_fail(rsp, "cannot locate the container of the managed window.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
-                    daemon_fail(rsp, "cannot locate a bsp node fence.\n");
+                    daemon_fail(rsp, "cannot resize the container in that direction.\n");
                 } else if (result == WINDOW_OP_ERROR_INVALID_OPERATION) {
                     daemon_fail(rsp, "cannot use absolute resizing on a managed window.\n");
                 }

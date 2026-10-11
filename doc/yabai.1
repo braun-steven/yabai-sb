@@ -140,7 +140,7 @@ DIR_SEL\&     := north | east | south | west
 
 STACK_SEL\&   := stack.prev | stack.next | stack.first | stack.last | stack.recent | stack.<index (1\-based)>
 
-WINDOW_SEL\&  := prev | next | first | last | recent | mouse | largest | smallest | sibling | first_nephew | second_nephew | uncle | first_cousin | second_cousin | STACK_SEL | DIR_SEL | <window id>
+WINDOW_SEL\&  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id>
 
 DISPLAY_SEL := prev | next | first | last | recent | mouse | DIR_SEL | <arrangement index (1\-based)> | LABEL
 
@@ -340,15 +340,11 @@ The purpose is to provide a visual preview of the new window frame.
 .sp
 \fBtab_bar\fP [\fI<BOOL_SEL>\fP]
 .RS 4
-Draw a tab bar on top of every stack, like the tabbed layout of i3. Enabled by default.
+Draw a tab bar on top of every tabbed container, like the tabbed layout of i3. Enabled by default.
 .br
-Each tab shows the title of a window in the stack, and clicking a tab focuses that window.
+Each tab shows the title of a window, and clicking a tab focuses that window.
 .br
-The windows of the stack are shrunk by \fBtab_bar_height\fP to make room for the bar.
-.br
-While enabled, \fBwindow \-\-focus\fP \fIeast|west\fP and \fBwindow \-\-warp\fP \fIeast|west\fP move between the tabs of a stack before leaving it.
-.br
-When disabled, stacks behave as they did before tab bars existed.
+The windows of the container are shrunk by \fBtab_bar_height\fP to make room for the bar.
 .RE
 .sp
 \fBtab_bar_height\fP [\fI<integer number>\fP]
@@ -363,12 +359,12 @@ Font of the tab titles, e.g. \fIMenlo:12\fP. Default is \fIHelvetica Neue:12\fP.
 .sp
 \fBtab_bar_focused_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_focused_text_color\fP [\fI0xAARRGGBB\fP]
 .RS 4
-Background and text color of the active tab of the stack that holds the focused window.
+Background and text color of the active tab of the tabbed container that holds the focused window.
 .RE
 .sp
 \fBtab_bar_inactive_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_inactive_text_color\fP [\fI0xAARRGGBB\fP]
 .RS 4
-Background and text color of the active tab of every other stack.
+Background and text color of the active tab of every other tabbed container.
 .RE
 .sp
 \fBtab_bar_unfocused_color\fP [\fI0xAARRGGBB\fP], \fBtab_bar_unfocused_text_color\fP [\fI0xAARRGGBB\fP]
@@ -443,15 +439,15 @@ What \fBwindow \-\-focus\fP \fInorth|east|south|west\fP does at the edge of a \f
 .sp
 \fBmouse_drop_action\fP [\fIswap|stack\fP]
 .RS 4
-Action performed when a bsp\-managed window is dropped in the center of some other bsp\-managed window.
+Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 .RE
 .SS "Space Settings"
 .sp
-\fBlayout\fP [\fIbsp|stack|float|tree\fP]
+\fBlayout\fP [\fItree|float\fP]
 .RS 4
 Set the layout of the selected space.
 .br
-\fItree\fP arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP.
+\fItree\fP (the default) arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP. \fIfloat\fP leaves windows unmanaged.
 .RE
 .sp
 \fBtree_default_orientation\fP [\fIhorizontal|vertical|auto\fP]
@@ -504,13 +500,13 @@ Size of the gap that separates windows for the selected space.
 .sp
 \fBauto_padding\fP [\fI<BOOL_SEL>\fP]
 .RS 4
-Remove padding and window gap on \fIbsp\fP spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and \fIexternal_bar\fP are still respected).
+Remove padding and window gap on \fItree\fP spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and \fIexternal_bar\fP are still respected).
 .br
 The configured padding and gap apply again as soon as the space holds two or more tiled windows, and are always reported unchanged.
 .br
-A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom\-fullscreen. Floating windows, including scratchpad windows and windows with the rule \fImanage=off\fP, never count. Windows stacked in the same node count individually.
+A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom\-fullscreen. Floating windows, including scratchpad windows and windows with the rule \fImanage=off\fP, never count. Every tab of a tabbed container counts.
 .br
-Has no effect on spaces with layout \fIstack\fP or \fIfloat\fP. Padding or gap toggled off with \fIspace \-\-toggle\fP stays off regardless of the number of windows.
+Has no effect on spaces with layout \fIfloat\fP. Padding or gap toggled off with \fIspace \-\-toggle\fP stays off regardless of the number of windows.
 .br
 Windows placed with \fI\-\-grid\fP always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
 .RE
@@ -614,18 +610,11 @@ Send the selected space to the given display.
 System Integrity Protection must be partially disabled.
 .RE
 .sp
-\fB\-\-equalize\fP [\fIx\-axis|y\-axis\fP]
-.RS 4
-Reset the split ratios on the selected space to the default value along the given axis.
-.br
-If no axis is specified, use both.
-.RE
-.sp
 \fB\-\-balance\fP [\fIx\-axis|y\-axis\fP]
 .RS 4
-Adjust the split ratios on the selected space so that all windows along the given axis occupy the same area.
+Give every child of every container on the selected space the same share of its container.
 .br
-If no axis is specified, use both.
+The axis is accepted for compatibility and ignored. \fB\-\-equalize\fP is the same command.
 .RE
 .sp
 \fB\-\-mirror\fP \fIx\-axis|y\-axis\fP
@@ -653,7 +642,7 @@ Size of the gap that separates windows on the selected space.
 Toggle space setting on or off for the selected space.
 .RE
 .sp
-\fB\-\-layout\fP \fIbsp|stack|float\fP
+\fB\-\-layout\fP \fItree|float\fP
 .RS 4
 Set the layout of the selected space.
 .RE
@@ -676,9 +665,7 @@ Focus the given window.
 .br
 If none specified, focus the selected window instead.
 .br
-With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab.
-.br
-On \fItree\fP spaces, a direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies.
+A direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies.
 .br
 \fIparent\fP and \fIchild\fP select the container around the focused window, or go back down, like i3\(cqs \fIfocus parent|child\fP. The selected container is outlined, and \fB\-\-warp\fP and \fB\-\-layout\fP act on it until focus changes.
 .RE
@@ -727,42 +714,26 @@ Swap position of the selected window and the given window.
 .sp
 \fB\-\-warp\fP \fI<WINDOW_SEL>\fP
 .RS 4
-Re\-insert the selected window, splitting the given window.
-.br
-With \fBtab_bar\fP enabled, \fIeast\fP and \fIwest\fP move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction.
-.br
-On \fItree\fP spaces, a direction moves the window (or the selected container) like i3\(cqs \fImove left|right|up|down\fP: it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re\-oriented. At the edge of the space it moves to the display in that direction.
+A direction moves the window (or the selected container) like i3\(cqs \fImove left|right|up|down\fP: it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re\-oriented. At the edge of the space it moves to the display in that direction.
 .br
 A window selector places the window right after that window, in its container.
 .RE
 .sp
 \fB\-\-stack\fP \fI<WINDOW_SEL>\fP
 .RS 4
-Stack the given window on top of the selected window.
-.br
-Any kind of warp operation performed on a stacked window will unstack it.
-.br
-On \fItree\fP spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
+The given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 .RE
 .sp
 \fB\-\-layout\fP \fItabbed|split|toggle|splith|splitv|toggle\-split\fP
 .RS 4
 Change the layout around the selected window, like the \fBlayout\fP command of i3.
 .br
-\fItabbed\fP: turn the selected window and everything it was split with (the subtree of its parent node) into a single stack, with the selected window as the active tab.
-.br
-\fIsplit\fP: tile the windows of the stack that holds the selected window again, in tab order.
-.br
-\fItoggle\fP: \fIsplit\fP if the selected window is stacked, \fItabbed\fP otherwise.
-.br
-On bsp spaces, only \fItabbed\fP, \fIsplit\fP and \fItoggle\fP are supported.
-.br
-On \fItree\fP spaces, the layout of the container that holds the selected window (or the selected container) changes: \fItabbed\fP, \fIsplith\fP and \fIsplitv\fP set it, \fIsplit\fP returns to its last split layout, \fItoggle\fP switches between tabbed and the last split layout, and \fItoggle\-split\fP switches between \fIsplith\fP and \fIsplitv\fP. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+The layout of the container that holds the selected window (or the selected container) changes: \fItabbed\fP, \fIsplith\fP and \fIsplitv\fP set it, \fIsplit\fP returns to its last split layout, \fItoggle\fP switches between tabbed and the last split layout, and \fItoggle\-split\fP switches between \fIsplith\fP and \fIsplitv\fP. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
 .RE
 .sp
 \fB\-\-split\fP \fIhorizontal|vertical|toggle\fP
 .RS 4
-Only on \fItree\fP spaces, like i3\(cqs \fIsplit h|v|toggle\fP. Wraps the selected window in a new container laid out side by side (\fIhorizontal\fP) or on top of each other (\fIvertical\fP), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. \fItoggle\fP picks the orientation that the container of the window does not have.
+Like i3\(cqs \fIsplit h|v|toggle\fP. Wraps the selected window in a new container laid out side by side (\fIhorizontal\fP) or on top of each other (\fIvertical\fP), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. \fItoggle\fP picks the orientation that the container of the window does not have.
 .RE
 .sp
 \fB\-\-insert\fP \fI<DIR_SEL>|stack\fP
@@ -771,7 +742,7 @@ Set the splitting mode of the selected window.
 .br
 If the current splitting mode matches the selected mode, the action will be undone.
 .br
-On \fItree\fP spaces, the next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with \fIstack\fP.
+The next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with \fIstack\fP.
 .RE
 .sp
 \fB\-\-grid\fP \fI<rows>:<cols>:<start\-x>:<start\-y>:<width>:<height>\fP
@@ -797,9 +768,9 @@ If handle is \fIabs\fP the new size will be \fIdx\fP width and \fIdy\fP height a
 .sp
 \fB\-\-ratio\fP \fIrel|abs:<dr>\fP
 .RS 4
-If type is \fIrel\fP the split ratio of the selected window is changed by \fIdr\fP, otherwise \fIdr\fP will become the new split ratio.
+Change the share of the selected window (or the selected container) in its container, like i3\(cqs \fIpercent\fP.
 .br
-A positive/negative delta will increase/decrease the size of the left\-child.
+If type is \fIrel\fP the share is changed by \fIdr\fP, otherwise \fIdr\fP becomes the new share. The space is taken from or given to the next container, or the previous one for the last container.
 .RE
 .sp
 \fB\-\-toggle\fP \fIfloat|sticky|pip|shadow|split|zoom\-parent|zoom\-fullscreen|windowed\-fullscreen|native\-fullscreen|expose|<LABEL>\fP
@@ -1494,7 +1465,7 @@ Arbitrary command executed through \fB/usr/bin/env sh \-c\fP
 .if n .RE
 .SH "TREE LAYOUT"
 .sp
-A space with layout \fItree\fP arranges its windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container.
+\fItree\fP is the tiling layout of every space that does not use \fIfloat\fP. It arranges windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container.
 .br
 A container lays out any number of children in one of three ways: \fIsplith\fP (side by side), \fIsplitv\fP (on top of each other) or \fItabbed\fP (one child visible at a time, with a row of tabs on top).
 .br
@@ -1514,13 +1485,13 @@ The windows of hidden tabs keep the frame of the container and are ordered below
 .sp
 Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
 .br
-In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, as on bsp spaces, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container, and \fIsplit\-child\fP is always \fInone\fP.
+In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container, and \fIsplit\-child\fP is always \fInone\fP.
 .br
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP.
 .sp
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.
 .br
-The \fIstack.prev\fP, \fIstack.next\fP, \fIstack.first\fP, \fIstack.last\fP, \fIstack.recent\fP and \fIstack.<index>\fP selectors pick tabs of the closest tabbed container, and \fIprev\fP, \fInext\fP, \fIfirst\fP and \fIlast\fP follow the order of the tree. The \fIsibling\fP, \fInephew\fP, \fIuncle\fP and \fIcousin\fP selectors do not match on \fItree\fP spaces.
+The \fIstack.prev\fP, \fIstack.next\fP, \fIstack.first\fP, \fIstack.last\fP, \fIstack.recent\fP and \fIstack.<index>\fP selectors pick tabs of the closest tabbed container, and \fIprev\fP, \fInext\fP, \fIfirst\fP and \fIlast\fP follow the order of the tree.
 .SH "EXIT CODES"
 .sp
 If \fByabai\fP can\(cqt handle a message, it will return a non\-zero exit code.

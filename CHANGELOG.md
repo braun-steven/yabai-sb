@@ -8,23 +8,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Added
 - Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
 - Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices
-- Config *auto_padding* removes padding and window gap on bsp spaces with at most one tiled window, globally or per space, e.g. `yabai -m config auto_padding on`
+- Config *auto_padding* removes padding and window gap on tiled spaces with at most one tiled window, globally or per space, e.g. `yabai -m config auto_padding on`
 - Config *scratchpad_exclusive* keeps at most one scratchpad shown: toggling a scratchpad hides every other shown scratchpad
 - Config *scratchpad_raise* makes toggling a shown but unfocused scratchpad focus it instead of hiding it
 - Config *scratchpad_below* puts scratchpads on the same stacking sub-layer as tiled windows, so focusing a tiled window brings it in front of a shown scratchpad
 - Config *scratchpad_grid* sets the frame of a scratchpad each time it is shown from hidden, e.g. `yabai -m config scratchpad_grid 40:40:1:1:38:38`
-- Stacks get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
-- Command *window --layout tabbed|split|toggle* collapses a window's parent subtree into a stack, or tiles a stack again
-- With *tab_bar* enabled, *window --focus east|west* and *window --warp east|west* move between the tabs of a stack before leaving it; warping past the first or last tab places the window next to the stack
-- Layout *tree* (`space --layout tree`, `config layout tree`) arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
-- On *tree* spaces, *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
-- Command *query --tree* prints the container tree of a *tree* space, and *query --windows* reports *split-type*, *stack-index* and the zoom state of windows on *tree* spaces
-- Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|toggle-split* change containers on *tree* spaces, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
+- Layout *tree* arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
+- Tabbed containers get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
+- Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
+- Command *query --tree* prints the container tree of a space, and *query --windows* reports *split-type*, *stack-index* and the zoom state from the tree
+- Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- *tree* replaces the *bsp* and *stack* layouts and is the default layout; *layout* accepts *tree* or *float*
+- *space --equalize* is the same as *space --balance*
 - Toggling a scratchpad that is on another space waits for it to arrive on the active space before focusing it, so macOS no longer switches back to the space it came from
 - Fixed scripting-addition *add_space* pattern for macOS 26.6 Apple Silicon arm64 [#2799](https://github.com/asmvik/yabai/issues/2799)
 - Fixed minor memory leak on space destruction, and added a few missing null checks to SkyLight API calls [#2791](https://github.com/asmvik/yabai/issues/2791)
+
+### Removed
+- Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*
 
 ## [7.1.25] - 2026-05-08
 ### Changed

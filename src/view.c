@@ -3,121 +3,6 @@ extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
 
-#define INSERT_FEEDBACK_WIDTH 2
-#define INSERT_FEEDBACK_RADIUS 9
-void insert_feedback_show(struct window_node *node)
-{
-    CFTypeRef frame_region;
-    CGRect frame = {{node->area.x, node->area.y},{node->area.w, node->area.h}};
-    CGSNewRegionWithRect(&frame, &frame_region);
-    frame.origin.x = 0; frame.origin.y = 0;
-
-    if (!node->feedback_window.id) {
-        uint64_t tags = (1ULL << 1) | (1ULL << 9);
-        CFTypeRef empty_region = CGRegionCreateEmptyRegion();
-        SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &node->feedback_window.id, NULL);
-        CFRelease(empty_region);
-
-        sls_window_disable_shadow(node->feedback_window.id);
-        SLSSetWindowResolution(g_connection, node->feedback_window.id, 1.0f);
-        SLSSetWindowOpacity(g_connection, node->feedback_window.id, 0);
-        SLSSetWindowLevel(g_connection, node->feedback_window.id, window_level(node->window_order[0]));
-        SLSSetWindowSubLevel(g_connection, node->feedback_window.id, window_sub_level(node->window_order[0]));
-        node->feedback_window.context = SLWindowContextCreate(g_connection, node->feedback_window.id, 0);
-        CGContextSetLineWidth(node->feedback_window.context, INSERT_FEEDBACK_WIDTH);
-        CGContextSetRGBFillColor(node->feedback_window.context,
-                                   g_window_manager.insert_feedback_color.r,
-                                   g_window_manager.insert_feedback_color.g,
-                                   g_window_manager.insert_feedback_color.b,
-                                   g_window_manager.insert_feedback_color.a*0.25f);
-        CGContextSetRGBStrokeColor(node->feedback_window.context,
-                                   g_window_manager.insert_feedback_color.r,
-                                   g_window_manager.insert_feedback_color.g,
-                                   g_window_manager.insert_feedback_color.b,
-                                   g_window_manager.insert_feedback_color.a);
-        SLSDisableUpdate(g_connection);
-        CGContextClearRect(node->feedback_window.context, frame);
-        CGContextFlush(node->feedback_window.context);
-        SLSReenableUpdate(g_connection);
-        SLSOrderWindow(g_connection, node->feedback_window.id, 1, node->window_order[0]);
-        table_add(&g_window_manager.insert_feedback, &node->window_order[0], node);
-        if (!workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
-            update_window_notifications();
-        }
-    }
-
-    CGFloat clip_x, clip_y, clip_w, clip_h;
-    CGFloat midx = CGRectGetMidX(frame);
-    CGFloat midy = CGRectGetMidY(frame);
-
-    switch (node->insert_dir) {
-    case DIR_NORTH: {
-        clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_y = midy - 0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_w = INSERT_FEEDBACK_WIDTH;
-        clip_h = INSERT_FEEDBACK_WIDTH;
-    } break;
-    case DIR_EAST: {
-        clip_x = midx - 0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_w = INSERT_FEEDBACK_WIDTH;
-        clip_h = INSERT_FEEDBACK_WIDTH;
-    } break;
-    case DIR_SOUTH: {
-        clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_w = INSERT_FEEDBACK_WIDTH;
-        clip_h = -midy + INSERT_FEEDBACK_WIDTH;
-    } break;
-    case DIR_WEST: {
-        clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_w = -midx + INSERT_FEEDBACK_WIDTH;
-        clip_h = INSERT_FEEDBACK_WIDTH;
-    } break;
-    case STACK: {
-        clip_x = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_y = -0.5f * INSERT_FEEDBACK_WIDTH;
-        clip_w = INSERT_FEEDBACK_WIDTH;
-        clip_h = INSERT_FEEDBACK_WIDTH;
-    } break;
-    }
-
-    CGRect rect = (CGRect) {{ 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH }, { frame.size.width - INSERT_FEEDBACK_WIDTH, frame.size.height - INSERT_FEEDBACK_WIDTH }};
-    CGRect fill = CGRectInset(rect, 0.5f*INSERT_FEEDBACK_WIDTH, 0.5f*INSERT_FEEDBACK_WIDTH);
-    CGRect clip = { { rect.origin.x + clip_x, rect.origin.y + clip_y }, { rect.size.width + clip_w, rect.size.height + clip_h } };
-    CGPathRef path = CGPathCreateWithRoundedRect(rect, cgrect_clamp_x_radius(rect, INSERT_FEEDBACK_RADIUS), cgrect_clamp_y_radius(rect, INSERT_FEEDBACK_RADIUS), NULL);
-
-    SLSDisableUpdate(g_connection);
-    SLSSetWindowShape(g_connection, node->feedback_window.id, 0.0f, 0.0f, frame_region);
-    CGContextClearRect(node->feedback_window.context, frame);
-    CGContextClipToRect(node->feedback_window.context, clip);
-    CGContextFillRect(node->feedback_window.context, fill);
-    CGContextAddPath(node->feedback_window.context, path);
-    CGContextStrokePath(node->feedback_window.context);
-    CGContextResetClip(node->feedback_window.context);
-    CGContextFlush(node->feedback_window.context);
-    SLSReenableUpdate(g_connection);
-    CGPathRelease(path);
-    CFRelease(frame_region);
-}
-
-void insert_feedback_destroy(struct window_node *node)
-{
-    if (node->feedback_window.id) {
-        table_remove(&g_window_manager.insert_feedback, &node->window_order[0]);
-
-        if (!workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
-            update_window_notifications();
-        }
-
-        SLSOrderWindow(g_connection, node->feedback_window.id, 0, 0);
-        CGContextRelease(node->feedback_window.context);
-        SLSReleaseWindow(g_connection, node->feedback_window.id);
-        memset(&node->feedback_window, 0, sizeof(struct feedback_window));
-    }
-}
-
 static inline struct area area_from_cgrect(CGRect rect)
 {
     return (struct area) { rect.origin.x, rect.origin.y, rect.size.width, rect.size.height };
@@ -126,421 +11,6 @@ static inline struct area area_from_cgrect(CGRect rect)
 static inline CGPoint area_max_point(struct area area)
 {
     return (CGPoint) { area.x + area.w - 1, area.y + area.h - 1 };
-}
-
-static inline enum window_node_child window_node_get_child(struct window_node *node)
-{
-    return node->child != CHILD_NONE ? node->child : g_space_manager.window_placement;
-}
-
-static inline enum window_node_split window_node_get_split(struct view *view, struct window_node *node)
-{
-    if (node->split != SPLIT_NONE) return node->split;
-
-    if (view->split_type != SPLIT_NONE) {
-        if (view->split_type != SPLIT_AUTO) {
-            return view->split_type;
-        }
-    } else if (g_space_manager.split_type != SPLIT_AUTO) {
-        return g_space_manager.split_type;
-    }
-
-    return node->area.w >= node->area.h ? SPLIT_Y : SPLIT_X;
-}
-
-static inline float window_node_get_ratio(struct window_node *node)
-{
-    return in_range_ii(node->ratio, 0.1f, 0.9f) ? node->ratio : g_space_manager.split_ratio;
-}
-
-static inline int window_node_get_gap(struct view *view)
-{
-    if (view_check_flag(view, VIEW_IS_UNPADDED)) return 0;
-    return view_check_flag(view, VIEW_ENABLE_GAP) ? view->window_gap : 0;
-}
-
-static void area_make_pair(enum window_node_split split, int gap, float ratio, struct area *parent_area, struct area *left_area, struct area *right_area)
-{
-    if (split == SPLIT_Y) {
-        *left_area  = *parent_area;
-        *right_area = *parent_area;
-
-        float left_width  = (parent_area->w - gap) * ratio;
-        float right_width = (parent_area->w - gap) * (1 - ratio);
-
-        left_area->w   = (int)left_width;
-        right_area->w  = (int)right_width;
-        right_area->x += (int)(left_width + 0.5f) + gap;
-    } else {
-        *left_area  = *parent_area;
-        *right_area = *parent_area;
-
-        float left_width  = (parent_area->h - gap) * ratio;
-        float right_width = (parent_area->h - gap) * (1 - ratio);
-
-        left_area->h   = (int)left_width;
-        right_area->h  = (int)right_width;
-        right_area->y += (int)(left_width + 0.5f) + gap;
-    }
-}
-
-static void area_make_pair_for_node(struct view *view, struct window_node *node)
-{
-    enum window_node_split split = window_node_get_split(view, node);
-    float ratio = window_node_get_ratio(node);
-    int gap     = window_node_get_gap(view);
-
-    area_make_pair(split, gap, ratio, &node->area, &node->left->area, &node->right->area);
-
-    node->split = split;
-    node->ratio = ratio;
-}
-
-static inline bool window_node_is_occupied(struct window_node *node)
-{
-    return node->window_count != 0;
-}
-
-static inline bool window_node_is_intermediate(struct window_node *node)
-{
-    return node->parent != NULL;
-}
-
-static inline bool window_node_is_leaf(struct window_node *node)
-{
-    return node->left == NULL && node->right == NULL;
-}
-
-static inline bool window_node_is_left_child(struct window_node *node)
-{
-    return node->parent && node->parent->left == node;
-}
-
-static inline bool window_node_is_right_child(struct window_node *node)
-{
-    return node->parent && node->parent->right == node;
-}
-
-static void window_node_equalize(struct window_node *node, uint32_t axis_flag)
-{
-    if (node->left)  window_node_equalize(node->left, axis_flag);
-    if (node->right) window_node_equalize(node->right, axis_flag);
-
-    if ((axis_flag & SPLIT_Y) && node->split == SPLIT_Y) {
-        node->ratio = g_space_manager.split_ratio;
-    }
-
-    if ((axis_flag & SPLIT_X) && node->split == SPLIT_X) {
-        node->ratio = g_space_manager.split_ratio;
-    }
-}
-
-static inline struct balance_node balance_node_add(struct balance_node a, struct balance_node b)
-{
-    return (struct balance_node) { a.y_count + b.y_count, a.x_count + b.x_count, };
-}
-
-static struct balance_node window_node_balance(struct window_node *node, uint32_t axis_flag)
-{
-    if (window_node_is_leaf(node)) {
-        return (struct balance_node) {
-            node->parent ? node->parent->split == SPLIT_Y : 0,
-            node->parent ? node->parent->split == SPLIT_X : 0
-        };
-    }
-
-    struct balance_node left_leafs  = window_node_balance(node->left, axis_flag);
-    struct balance_node right_leafs = window_node_balance(node->right, axis_flag);
-    struct balance_node total_leafs = balance_node_add(left_leafs, right_leafs);
-
-    if (axis_flag & SPLIT_Y) {
-        if (node->split == SPLIT_Y) {
-            node->ratio = (float) left_leafs.y_count / total_leafs.y_count;
-            --total_leafs.y_count;
-        }
-    }
-
-    if (axis_flag & SPLIT_X) {
-        if (node->split == SPLIT_X) {
-            node->ratio = (float) left_leafs.x_count / total_leafs.x_count;
-            --total_leafs.x_count;
-        }
-    }
-
-    if (node->parent) {
-        total_leafs.y_count += node->parent->split == SPLIT_Y;
-        total_leafs.x_count += node->parent->split == SPLIT_X;
-    }
-
-    return total_leafs;
-}
-
-static void window_node_split(struct view *view, struct window_node *node, uint32_t window_id)
-{
-    struct window_node *left = malloc(sizeof(struct window_node));
-    memset(left, 0, sizeof(struct window_node));
-
-    struct window_node *right = malloc(sizeof(struct window_node));
-    memset(right, 0, sizeof(struct window_node));
-
-    struct window_node *zoom = !g_space_manager.window_zoom_persist
-                             ? NULL
-                             : !node->zoom
-                             ? NULL
-                             : node->zoom == node->parent
-                             ? node
-                             : view->root;
-
-    if (window_node_get_child(node) == CHILD_SECOND) {
-        memcpy(left->window_list, node->window_list, sizeof(uint32_t) * node->window_count);
-        memcpy(left->window_order, node->window_order, sizeof(uint32_t) * node->window_count);
-        left->window_count = node->window_count;
-        left->zoom = zoom;
-
-        right->window_list[0] = window_id;
-        right->window_order[0] = window_id;
-        right->window_count = 1;
-    } else {
-        memcpy(right->window_list, node->window_list, sizeof(uint32_t) * node->window_count);
-        memcpy(right->window_order, node->window_order, sizeof(uint32_t) * node->window_count);
-        right->window_count = node->window_count;
-        right->zoom = zoom;
-
-        left->window_list[0] = window_id;
-        left->window_order[0] = window_id;
-        left->window_count = 1;
-    }
-
-    left->parent  = node;
-    right->parent = node;
-
-    tab_bar_destroy(node);
-    node->window_count = 0;
-    node->left  = left;
-    node->right = right;
-    node->zoom  = NULL;
-
-    area_make_pair_for_node(view, node);
-}
-
-void window_node_update(struct view *view, struct window_node *node)
-{
-    if (window_node_is_leaf(node)) {
-        if (node->insert_dir) insert_feedback_show(node);
-    } else {
-        area_make_pair_for_node(view, node);
-        window_node_update(view, node->left);
-        window_node_update(view, node->right);
-    }
-}
-
-static void window_node_destroy(struct window_node *node)
-{
-    if (node->left)  window_node_destroy(node->left);
-    if (node->right) window_node_destroy(node->right);
-
-    for (int i = 0; i < node->window_count; ++i) {
-        window_manager_remove_managed_window(&g_window_manager, node->window_list[i]);
-    }
-
-    insert_feedback_destroy(node);
-    tab_bar_destroy(node);
-    free(node);
-}
-
-static void window_node_clear_zoom(struct window_node *node)
-{
-    node->zoom = NULL;
-
-    if (!window_node_is_leaf(node)) {
-        window_node_clear_zoom(node->left);
-        window_node_clear_zoom(node->right);
-    }
-}
-
-void window_node_capture_windows(struct window_node *node, struct window_capture **window_list)
-{
-    if (window_node_is_leaf(node)) {
-        for (int i = 0; i < node->window_count; ++i) {
-            struct window *window = window_manager_find_window(&g_window_manager, node->window_list[i]);
-            if (window) {
-                struct area area = tab_bar_window_area(node, node->zoom ? node->zoom->area : node->area);
-                ts_buf_push(*window_list, ((struct window_capture) { .window = window, .x = area.x, .y = area.y, .w = area.w, .h = area.h }));
-            }
-        }
-
-        tab_bar_update(node);
-    } else {
-        window_node_capture_windows(node->left, window_list);
-        window_node_capture_windows(node->right, window_list);
-    }
-}
-
-void window_node_flush(struct window_node *node)
-{
-    struct window_capture *window_list = NULL;
-    window_node_capture_windows(node, &window_list);
-    if (window_list) window_manager_animate_window_list(window_list, ts_buf_len(window_list));
-}
-
-bool window_node_contains_window(struct window_node *node, uint32_t window_id)
-{
-    for (int i = 0; i < node->window_count; ++i) {
-        if (node->window_list[i] == window_id) return true;
-    }
-
-    return false;
-}
-
-int window_node_index_of_window(struct window_node *node, uint32_t window_id)
-{
-    for (int i = 0; i < node->window_count; ++i) {
-        if (node->window_list[i] == window_id) return i;
-    }
-
-    return 0;
-}
-
-void window_node_swap_window_list(struct window_node *a_node, struct window_node *b_node)
-{
-    uint32_t tmp_window_list[NODE_MAX_WINDOW_COUNT];
-    uint32_t tmp_window_order[NODE_MAX_WINDOW_COUNT];
-    uint32_t tmp_window_count;
-
-    memcpy(tmp_window_list, a_node->window_list, sizeof(uint32_t) * a_node->window_count);
-    memcpy(tmp_window_order, a_node->window_order, sizeof(uint32_t) * a_node->window_count);
-    tmp_window_count = a_node->window_count;
-
-    memcpy(a_node->window_list, b_node->window_list, sizeof(uint32_t) * b_node->window_count);
-    memcpy(a_node->window_order, b_node->window_order, sizeof(uint32_t) * b_node->window_count);
-    a_node->window_count = b_node->window_count;
-
-    memcpy(b_node->window_list, tmp_window_list, sizeof(uint32_t) * tmp_window_count);
-    memcpy(b_node->window_order, tmp_window_order, sizeof(uint32_t) * tmp_window_count);
-    b_node->window_count = tmp_window_count;
-
-    a_node->zoom = NULL;
-    b_node->zoom = NULL;
-}
-
-struct window_node *window_node_find_first_leaf(struct window_node *root)
-{
-    struct window_node *node = root;
-    while (!window_node_is_leaf(node)) {
-        node = node->left;
-    }
-    return node;
-}
-
-struct window_node *window_node_find_last_leaf(struct window_node *root)
-{
-    struct window_node *node = root;
-    while (!window_node_is_leaf(node)) {
-        node = node->right;
-    }
-    return node;
-}
-
-struct window_node *window_node_find_prev_leaf(struct window_node *node)
-{
-    if (!node->parent) return NULL;
-
-    if (window_node_is_left_child(node)) {
-        return window_node_find_prev_leaf(node->parent);
-    }
-
-    if (window_node_is_leaf(node->parent->left)) {
-        return node->parent->left;
-    }
-
-    return window_node_find_last_leaf(node->parent->left->right);
-}
-
-struct window_node *window_node_find_next_leaf(struct window_node *node)
-{
-    if (!node->parent) return NULL;
-
-    if (window_node_is_right_child(node)) {
-        return window_node_find_next_leaf(node->parent);
-    }
-
-    if (window_node_is_leaf(node->parent->right)) {
-        return node->parent->right;
-    }
-
-    return window_node_find_first_leaf(node->parent->right->left);
-}
-
-void window_node_rotate(struct window_node *node, int degrees)
-{
-    if ((degrees ==  90 && node->split == SPLIT_Y) ||
-        (degrees == 270 && node->split == SPLIT_X) ||
-        (degrees == 180)) {
-        struct window_node *temp = node->left;
-        node->left  = node->right;
-        node->right = temp;
-        node->ratio = 1 - node->ratio;
-    }
-
-    if (degrees != 180) {
-        if (node->split == SPLIT_X) {
-            node->split = SPLIT_Y;
-        } else if (node->split == SPLIT_Y) {
-            node->split = SPLIT_X;
-        }
-    }
-
-    if (!window_node_is_leaf(node)) {
-        window_node_rotate(node->left, degrees);
-        window_node_rotate(node->right, degrees);
-    }
-}
-
-struct window_node *window_node_mirror(struct window_node *node, enum window_node_split axis)
-{
-    if (!window_node_is_leaf(node)) {
-        struct window_node *left = window_node_mirror(node->left, axis);
-        struct window_node *right = window_node_mirror(node->right, axis);
-
-        if (node->split == axis) {
-            node->left = right;
-            node->right = left;
-        }
-    }
-
-    return node;
-}
-
-struct window_node *window_node_fence(struct window_node *node, int dir)
-{
-    if (!node) return NULL;
-
-    for (struct window_node *parent = node->parent; parent; parent = parent->parent) {
-        if ((dir == DIR_NORTH && parent->split == SPLIT_X && parent->area.y < node->area.y) ||
-            (dir == DIR_WEST  && parent->split == SPLIT_Y && parent->area.x < node->area.x) ||
-            (dir == DIR_SOUTH && parent->split == SPLIT_X && (parent->area.y + parent->area.h) > (node->area.y + node->area.h)) ||
-            (dir == DIR_EAST  && parent->split == SPLIT_Y && (parent->area.x + parent->area.w) > (node->area.x + node->area.w))) {
-                return parent;
-        }
-    }
-
-    return NULL;
-}
-
-struct window_node *view_find_min_depth_leaf_node(struct window_node *node)
-{
-    struct window_node *list[256] = { node };
-
-    for (int i = 0, j = 0; i < 256; ++i) {
-        if (window_node_is_leaf(list[i])) {
-            return list[i];
-        }
-
-        list[++j] = list[i]->left;
-        list[++j] = list[i]->right;
-    }
-
-    return NULL;
 }
 
 static inline bool area_is_in_direction(struct area *r1, CGPoint r1_max, struct area *r2, CGPoint r2_max, int direction)
@@ -585,448 +55,30 @@ static inline int area_distance_in_direction(struct area *r1, CGPoint r1_max, st
     return INT_MAX;
 }
 
-struct window_node *view_find_window_node_in_direction(struct view *view, struct window_node *source, int direction)
+int view_window_gap(struct view *view)
 {
-    int window_count;
-    uint32_t *window_list = space_window_list(view->sid, &window_count, false);
-    if (!window_list) return NULL;
-
-    int best_distance = INT_MAX;
-    int best_rank = INT_MAX;
-    struct window_node *best_node = NULL;
-    CGPoint source_area_max = area_max_point(source->area);
-
-    for (struct window_node *target = window_node_find_first_leaf(view->root); target; target = window_node_find_next_leaf(target)) {
-        if (source == target) continue;
-
-        CGPoint target_area_max = area_max_point(target->area);
-        if (area_is_in_direction(&source->area, source_area_max, &target->area, target_area_max, direction)) {
-            int distance = area_distance_in_direction(&source->area, source_area_max, &target->area, target_area_max, direction);
-            int rank = window_manager_find_rank_of_window_in_list(target->window_order[0], window_list, window_count);
-            if ((distance < best_distance) || (distance == best_distance && rank < best_rank)) {
-                best_node = target;
-                best_distance = distance;
-                best_rank = rank;
-            }
-        }
-    }
-
-    return best_node;
+    if (view_check_flag(view, VIEW_IS_UNPADDED)) return 0;
+    return view_check_flag(view, VIEW_ENABLE_GAP) ? view->window_gap : 0;
 }
 
-struct window_node *view_find_window_node(struct view *view, uint32_t window_id)
+void view_add_window(struct view *view, struct window *window, uint32_t insertion_point)
 {
-    for (struct window_node *node = window_node_find_first_leaf(view->root); node; node = window_node_find_next_leaf(node)) {
-        if (window_node_contains_window(node, window_id)) return node;
-    }
-
-    return NULL;
+    tree_add_window(view, window, insertion_point);
+    if (!view_update_auto_padding(view)) tree_view_update(view);
+    view_set_flag(view, VIEW_IS_DIRTY);
 }
 
-static struct window_node *view_detach_window_node(struct view *view, struct window *window)
+bool view_remove_window(struct view *view, struct window *window)
 {
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    if (node->window_count > 1) {
-        bool removed_entry = false;
-        bool removed_order = false;
-
-        for (int i = 0; i < node->window_count; ++i) {
-            if (!removed_entry && node->window_list[i] == window->id) {
-                memmove(node->window_list + i, node->window_list + i + 1, sizeof(uint32_t) * (node->window_count - i - 1));
-                removed_entry = true;
-            }
-
-            if (!removed_order && node->window_order[i] == window->id) {
-                memmove(node->window_order + i, node->window_order + i + 1, sizeof(uint32_t) * (node->window_count - i - 1));
-                removed_order = true;
-            }
-        }
-
-        assert(removed_entry);
-        assert(removed_order);
-        --node->window_count;
-
-        if (view->insertion_point == window->id) {
-            view->insertion_point = node->window_order[0];
-        }
-
-        //
-        // NOTE: The remaining windows only need a new frame when the tab bar changed,
-        // so the node is returned for the caller to flush only when tab bars are enabled.
-        //
-
-        if (!tab_bar_is_enabled()) {
-            tab_bar_destroy(node);
-            return NULL;
-        }
-
-        return node;
-    }
-
-    if (node == view->root) {
-        view->insertion_point = 0;
-        insert_feedback_destroy(node);
-        tab_bar_destroy(node);
-        memset(node, 0, sizeof(struct window_node));
-        view_update(view);
-        return NULL;
-    }
-
-    struct window_node *parent = node->parent;
-    struct window_node *child  = window_node_is_right_child(node)
-                               ? parent->left
-                               : parent->right;
-
-
-    memcpy(parent->window_list, child->window_list, sizeof(uint32_t) * child->window_count);
-    memcpy(parent->window_order, child->window_order, sizeof(uint32_t) * child->window_count);
-    parent->window_count = child->window_count;
-
-    parent->left      = NULL;
-    parent->right     = NULL;
-    parent->zoom      = !g_space_manager.window_zoom_persist
-                      ? NULL
-                      : !child->zoom
-                      ? NULL
-                      : child->zoom == parent
-                      ? parent->parent
-                      : view->root;
-
-    if (child->insert_dir) {
-        parent->feedback_window = child->feedback_window;
-        parent->insert_dir      = child->insert_dir;
-        parent->split           = child->split;
-        parent->child           = child->child;
-        insert_feedback_show(parent);
-    }
-
-    if (window_node_is_intermediate(child) && !window_node_is_leaf(child)) {
-        parent->left          = child->left;
-        parent->left->parent  = parent;
-        parent->left->zoom    = !g_space_manager.window_zoom_persist
-                              ? NULL
-                              : !child->left->zoom
-                              ? NULL
-                              : child->left->zoom == child
-                              ? parent
-                              : view->root;
-
-        parent->right         = child->right;
-        parent->right->parent = parent;
-        parent->right->zoom   = !g_space_manager.window_zoom_persist
-                              ? NULL
-                              : !child->right->zoom
-                              ? NULL
-                              : child->right->zoom == child
-                              ? parent
-                              : view->root;
-
-        if (!g_space_manager.window_zoom_persist) {
-            window_node_clear_zoom(parent);
-        }
-
-        window_node_update(view, parent);
-    }
-
-    insert_feedback_destroy(node);
-    tab_bar_destroy(node);
-    tab_bar_destroy(child);
-    free(child);
-    free(node);
-
-    if (view->auto_balance != SPLIT_NONE) {
-        window_node_balance(view->root, view->auto_balance);
-        view_update(view);
-        return view->root;
-    }
-
-    return parent;
-}
-
-static void window_node_free_subtree(struct window_node *node)
-{
-    if (node->left)  window_node_free_subtree(node->left);
-    if (node->right) window_node_free_subtree(node->right);
-
-    insert_feedback_destroy(node);
-    tab_bar_destroy(node);
-    free(node);
-}
-
-static struct window_node *view_balance_or_node(struct view *view, struct window_node *node)
-{
-    if (view->auto_balance == SPLIT_NONE) return node;
-
-    window_node_balance(view->root, view->auto_balance);
-    view_update(view);
-    return view->root;
-}
-
-//
-// NOTE: i3 'layout tabbed'. Collapses the subtree of the window's parent, so the window and
-// everything it was split with, into a single stack. The acting window becomes the active tab.
-// Returns the node to flush, or NULL if the stack would exceed NODE_MAX_WINDOW_COUNT.
-//
-
-struct window_node *view_make_tabbed(struct view *view, uint32_t window_id)
-{
-    struct window_node *node = view_find_window_node(view, window_id);
-    if (!node) return NULL;
-
-    struct window_node *parent = node->parent;
-    if (!parent) return node;
-
-    uint32_t window_list[NODE_MAX_WINDOW_COUNT];
-    int window_count = 0;
-
-    struct window_node *last = window_node_find_last_leaf(parent);
-    for (struct window_node *leaf = window_node_find_first_leaf(parent); leaf; leaf = window_node_find_next_leaf(leaf)) {
-        if (window_count + leaf->window_count >= NODE_MAX_WINDOW_COUNT) return NULL;
-
-        memcpy(window_list + window_count, leaf->window_list, sizeof(uint32_t) * leaf->window_count);
-        window_count += leaf->window_count;
-
-        if (leaf == last) break;
-    }
-
-    window_node_free_subtree(parent->left);
-    window_node_free_subtree(parent->right);
-
-    parent->left = NULL;
-    parent->right = NULL;
-    parent->insert_dir = 0;
-    parent->zoom = NULL;
-
-    memcpy(parent->window_list, window_list, sizeof(uint32_t) * window_count);
-    parent->window_count = window_count;
-
-    parent->window_order[0] = window_id;
-    for (int i = 0, j = 1; i < window_count; ++i) {
-        if (window_list[i] != window_id) parent->window_order[j++] = window_list[i];
-    }
-
-    return view_balance_or_node(view, parent);
-}
-
-//
-// NOTE: i3 'layout split'. Turns a stack back into tiled windows by splitting its area once
-// for each window, keeping the tab order from left to right.
-//
-
-struct window_node *view_make_split(struct view *view, uint32_t window_id)
-{
-    struct window_node *node = view_find_window_node(view, window_id);
-    if (!node || node->window_count < 2) return node;
-
-    uint32_t window_list[NODE_MAX_WINDOW_COUNT];
-    int window_count = node->window_count;
-    memcpy(window_list, node->window_list, sizeof(uint32_t) * window_count);
-
-    tab_bar_destroy(node);
-    node->window_list[0] = window_list[0];
-    node->window_order[0] = window_list[0];
-    node->window_count = 1;
-
-    struct window_node *leaf = node;
-    for (int i = 1; i < window_count; ++i) {
-        enum window_node_child child = leaf->child;
-        leaf->child = CHILD_SECOND;
-        window_node_split(view, leaf, window_list[i]);
-        leaf->child = child;
-        leaf = leaf->right;
-    }
-
-    return view_balance_or_node(view, node);
-}
-
-//
-// NOTE: i3 'move left/right' out of a tabbed container. Takes the window out of its stack and
-// splits the area of the stack, placing the window on the west or east side of it.
-//
-
-struct window_node *view_unstack_window_node(struct view *view, struct window *window, int direction)
-{
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || node->window_count < 2) return NULL;
-
-    view_detach_window_node(view, window);
-
-    node->split = SPLIT_Y;
-    node->child = direction == DIR_WEST ? CHILD_FIRST : CHILD_SECOND;
-    window_node_split(view, node, window->id);
-
-    return view_balance_or_node(view, node);
-}
-
-struct window_node *view_remove_window_node(struct view *view, struct window *window)
-{
-    if (view->layout == VIEW_TREE) {
-        if (!tree_remove_window(view, window)) return NULL;
-        if (!view_update_auto_padding(view)) tree_view_update(view);
-        view_set_flag(view, VIEW_IS_DIRTY);
-        return view->root;
-    }
-
-    struct window_node *node = view_detach_window_node(view, window);
-    return view_update_auto_padding(view) ? view->root : node;
-}
-
-void view_stack_window_node(struct window_node *node, struct window *window)
-{
-    int insert_index = node->window_count;
-
-    for (int i = 0; i < node->window_count; ++i) {
-        if (node->window_list[i] == node->window_order[0]) {
-            insert_index = i+1;
-            break;
-        }
-    }
-
-    if (insert_index < node->window_count) {
-        memmove(node->window_list + insert_index + 1, node->window_list + insert_index, sizeof(uint32_t) * (node->window_count - insert_index));
-    }
-
-    node->window_list[insert_index] = window->id;
-
-    //
-    // NOTE: The focused window stays the active (visible) one when another window joins its
-    // stack, otherwise the window that receives keyboard input would be hidden behind the new one.
-    //
-
-    if (node->window_count > 0 &&
-        node->window_order[0] == g_window_manager.focused_window_id &&
-        window->id != g_window_manager.focused_window_id) {
-        memmove(node->window_order + 2, node->window_order + 1, sizeof(uint32_t) * (node->window_count - 1));
-        node->window_order[1] = window->id;
-    } else {
-        memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * node->window_count);
-        node->window_order[0] = window->id;
-    }
-
-    ++node->window_count;
-}
-
-void view_stack_order_window(struct window_node *node, uint32_t window_id)
-{
-    if (node->window_order[0] == window_id) {
-        scripting_addition_order_window(window_id, 1, node->window_order[1]);
-    } else {
-        scripting_addition_order_window(window_id, -1, node->window_order[0]);
-    }
-}
-
-static bool view_update_auto_padding_for_window_count(struct view *view, int added_window_count);
-
-static struct window_node *view_insert_window_node(struct view *view, struct window *window, uint32_t insertion_point)
-{
-    if (!window_node_is_occupied(view->root) &&
-        window_node_is_leaf(view->root)) {
-        view->root->window_list[0] = window->id;
-        view->root->window_order[0] = window->id;
-        view->root->window_count = 1;
-        return view->root;
-    } else if (view->layout == VIEW_BSP) {
-        uint32_t prev_insertion_point = 0;
-        struct window_node *leaf = NULL;
-
-        if (insertion_point) {
-            prev_insertion_point = view->insertion_point;
-            view->insertion_point = insertion_point;
-        }
-
-        if (view->insertion_point) {
-            leaf = view_find_window_node(view, view->insertion_point);
-            view->insertion_point = prev_insertion_point;
-
-            if (leaf) {
-                bool do_stack = leaf->insert_dir == STACK;
-
-                leaf->insert_dir = 0;
-                insert_feedback_destroy(leaf);
-
-                if (do_stack) {
-                    view_stack_window_node(leaf, window);
-                    return leaf;
-                }
-            }
-        }
-
-        if (!leaf) {
-            if (g_space_manager.window_insertion_point == INSERT_FOCUSED) {
-                leaf = view_find_window_node(view, g_window_manager.focused_window_id);
-            } else if (g_space_manager.window_insertion_point == INSERT_FIRST) {
-                leaf = window_node_find_first_leaf(view->root);
-            } else if (g_space_manager.window_insertion_point == INSERT_LAST) {
-                leaf = window_node_find_last_leaf(view->root);
-            }
-
-            if (!leaf) leaf = view_find_min_depth_leaf_node(view->root);
-        }
-
-        //
-        // NOTE: Apply the padding that the tree will have once the window is added, so that the split
-        // is computed from the final area. view_add_window_node_with_insertion_point verifies the result.
-        //
-
-        bool did_relayout = view_update_auto_padding_for_window_count(view, 1);
-        window_node_split(view, leaf, window->id);
-
-        if (view->auto_balance != SPLIT_NONE) {
-            window_node_balance(view->root, view->auto_balance);
-            view_update(view);
-            return view->root;
-        }
-
-        return did_relayout ? view->root : leaf;
-    } else if (view->layout == VIEW_STACK) {
-        view_stack_window_node(view->root, window);
-        return view->root;
-    }
-
-    return NULL;
-}
-
-struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point)
-{
-    if (view->layout == VIEW_TREE) {
-        tree_add_window(view, window, insertion_point);
-        if (!view_update_auto_padding(view)) tree_view_update(view);
-        view_set_flag(view, VIEW_IS_DIRTY);
-        return view->root;
-    }
-
-    struct window_node *node = view_insert_window_node(view, window, insertion_point);
-    return node && view_update_auto_padding(view) ? view->root : node;
-}
-
-struct window_node *view_add_window_node(struct view *view, struct window *window)
-{
-    return view_add_window_node_with_insertion_point(view, window, 0);
+    if (!tree_remove_window(view, window)) return false;
+    if (!view_update_auto_padding(view)) tree_view_update(view);
+    view_set_flag(view, VIEW_IS_DIRTY);
+    return true;
 }
 
 uint32_t *view_find_window_list(struct view *view, int *window_count)
 {
-    if (view->layout == VIEW_TREE) return tree_view_window_list(view, window_count);
-
-    *window_count = 0;
-
-    int capacity = 13;
-    uint32_t *window_list = ts_alloc_list(uint32_t, capacity);
-
-    for (struct window_node *node = window_node_find_first_leaf(view->root); node; node = window_node_find_next_leaf(node)) {
-        if (*window_count + node->window_count >= capacity) {
-            ts_expand(window_list, sizeof(uint32_t) * capacity, sizeof(uint32_t) * capacity);
-            capacity *= 2;
-        }
-
-        for (int i = 0; i < node->window_count; ++i) {
-            window_list[(*window_count)++] = node->window_list[i];
-        }
-    }
-
-    return window_list;
+    return tree_view_window_list(view, window_count);
 }
 
 bool view_is_invalid(struct view *view)
@@ -1039,29 +91,10 @@ bool view_is_dirty(struct view *view)
     return view_check_flag(view, VIEW_IS_DIRTY);
 }
 
-//
-// NOTE: Applies the frames of a node that a tree operation returned. Views with the tree layout
-// always apply the whole tree, since their operations return the root of the bsp tree.
-//
-
-void view_flush_node(struct view *view, struct window_node *node)
-{
-    if (view->layout == VIEW_TREE) {
-        tree_flush(view);
-        view_clear_flag(view, VIEW_IS_DIRTY);
-    } else {
-        window_node_flush(node);
-    }
-}
-
 void view_flush(struct view *view)
 {
     if (space_is_visible(view->sid)) {
-        if (view->layout == VIEW_TREE) {
-            tree_flush(view);
-        } else {
-            window_node_flush(view->root);
-        }
+        tree_flush(view);
         view_clear_flag(view, VIEW_IS_DIRTY);
     } else {
         view_set_flag(view, VIEW_IS_DIRTY);
@@ -1140,26 +173,16 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
     if (flags & SPACE_PROPERTY_FIRST_WINDOW) {
         if (did_output) fprintf(rsp, ",\n");
 
-        struct window_node *first_leaf = window_node_find_first_leaf(view->root);
-        uint32_t first_window = first_leaf ? first_leaf->window_order[0] : 0;
-        if (view->layout == VIEW_TREE) {
-            struct con *first = view->tree ? tree_descend_focused(tree_first_leaf(view->tree)) : NULL;
-            first_window = first ? first->window_id : 0;
-        }
-        fprintf(rsp, "\t\"first-window\":%d", first_window);
+        struct con *first = view->tree ? tree_descend_focused(tree_first_leaf(view->tree)) : NULL;
+        fprintf(rsp, "\t\"first-window\":%d", first ? first->window_id : 0);
         did_output = true;
     }
 
     if (flags & SPACE_PROPERTY_LAST_WINDOW) {
         if (did_output) fprintf(rsp, ",\n");
 
-        struct window_node *last_leaf = window_node_find_last_leaf(view->root);
-        uint32_t last_window = last_leaf ? last_leaf->window_order[0] : 0;
-        if (view->layout == VIEW_TREE) {
-            struct con *last = view->tree ? tree_last_leaf(view->tree) : NULL;
-            last_window = last ? last->window_id : 0;
-        }
-        fprintf(rsp, "\t\"last-window\":%d", last_window);
+        struct con *last = view->tree ? tree_last_leaf(view->tree) : NULL;
+        fprintf(rsp, "\t\"last-window\":%d", last ? last->window_id : 0);
         did_output = true;
     }
 
@@ -1188,27 +211,12 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags)
 
 bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count)
 {
-    return auto_padding && (layout == VIEW_BSP || layout == VIEW_TREE) && tiled_window_count <= 1;
-}
-
-static int window_node_tiled_window_count(struct view *view, struct window_node *node)
-{
-    if (!window_node_is_leaf(node)) {
-        return window_node_tiled_window_count(view, node->left) + window_node_tiled_window_count(view, node->right);
-    }
-
-    //
-    // NOTE: Windows in zoom-fullscreen remain in the tree, but cover the whole layout area
-    // instead of their own leaf, so they do not count as tiled (matches has-fullscreen-zoom).
-    //
-
-    return node->zoom == view->root ? 0 : node->window_count;
+    return auto_padding && layout == VIEW_TREE && tiled_window_count <= 1;
 }
 
 int view_tiled_window_count(struct view *view)
 {
-    if (view->layout == VIEW_TREE) return tree_view_tiled_window_count(view);
-    return window_node_tiled_window_count(view, view->root);
+    return tree_view_tiled_window_count(view);
 }
 
 static struct area view_root_area(struct view *view, CGRect frame)
@@ -1235,21 +243,11 @@ static void view_update_with_auto_padding(struct view *view, bool unpadded)
 
     uint32_t did = space_display_id(view->sid);
     CGRect frame = display_bounds_constrained(did, false);
-    view->root->area = view_root_area(view, frame);
+    view->area = view_root_area(view, frame);
 
-    window_node_update(view, view->root);
     tree_view_update(view);
     view_set_flag(view, VIEW_IS_VALID);
     view_set_flag(view, VIEW_IS_DIRTY);
-}
-
-static bool view_update_auto_padding_for_window_count(struct view *view, int added_window_count)
-{
-    bool unpadded = view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view) + added_window_count);
-    if (unpadded == (view_check_flag(view, VIEW_IS_UNPADDED) != 0)) return false;
-
-    view_update_with_auto_padding(view, unpadded);
-    return true;
 }
 
 //
@@ -1259,7 +257,11 @@ static bool view_update_auto_padding_for_window_count(struct view *view, int add
 
 bool view_update_auto_padding(struct view *view)
 {
-    return view_update_auto_padding_for_window_count(view, 0);
+    bool unpadded = view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_window_count(view));
+    if (unpadded == (view_check_flag(view, VIEW_IS_UNPADDED) != 0)) return false;
+
+    view_update_with_auto_padding(view, unpadded);
+    return true;
 }
 
 void view_update(struct view *view)
@@ -1271,9 +273,6 @@ struct view *view_create(uint64_t sid)
 {
     struct view *view = malloc(sizeof(struct view));
     memset(view, 0, sizeof(struct view));
-
-    view->root = malloc(sizeof(struct window_node));
-    memset(view->root, 0, sizeof(struct window_node));
 
     view->sid = sid;
     view->uuid = SLSSpaceCopyName(g_connection, sid);
@@ -1301,28 +300,13 @@ struct view *view_create(uint64_t sid)
 
 void view_clear(struct view *view)
 {
-    if (view->root) {
-        if (view->root->left)  window_node_destroy(view->root->left);
-        if (view->root->right) window_node_destroy(view->root->right);
-
-        for (int i = 0; i < view->root->window_count; ++i) {
-            window_manager_remove_managed_window(&g_window_manager, view->root->window_list[i]);
-        }
-
-        insert_feedback_destroy(view->root);
-        tab_bar_destroy(view->root);
-        memset(view->root, 0, sizeof(struct window_node));
-        tree_view_clear(view);
-        view_update(view);
-    }
+    view->insertion_point = 0;
+    tree_view_clear(view);
+    view_update(view);
 }
 
 void view_destroy(struct view *view)
 {
-    if (view->root) {
-        window_node_destroy(view->root);
-    }
-
     tree_view_clear(view);
 
     if (view->uuid) {

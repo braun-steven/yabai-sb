@@ -14,7 +14,6 @@ typedef TEST_SIG(function);
 #include "area.c"
 #include "space_layout.c"
 #include "auto_padding.c"
-#include "tab_bar.c"
 #include "tree.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
@@ -27,11 +26,6 @@ typedef TEST_SIG(function);
     TEST_ENTRY(auto_padding_tiled_window_count)                \
     TEST_ENTRY(auto_padding_root_area)                         \
     TEST_ENTRY(auto_padding_gap)                               \
-    TEST_ENTRY(tab_bar_window_area)                            \
-    TEST_ENTRY(tab_bar_make_tabbed)                            \
-    TEST_ENTRY(tab_bar_make_tabbed_max)                        \
-    TEST_ENTRY(tab_bar_make_split)                             \
-    TEST_ENTRY(tab_bar_unstack)                                \
     TEST_ENTRY(tree_attach_detach)                             \
     TEST_ENTRY(tree_flatten)                                   \
     TEST_ENTRY(tree_focus_direction)                           \

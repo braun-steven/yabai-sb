@@ -24,11 +24,7 @@ static void update_window_notifications(void)
             window_list[window_count++] = window->id;
         })
     } else {
-        // NOTE(asmvik): Subscribe to windows that have a feedback_border because of window_ordered notifications
-        table_for (struct window_node *node, g_window_manager.insert_feedback, {
-            window_list[window_count++] = node->window_order[0];
-        })
-
+        // NOTE(asmvik): Subscribe to windows that have a tab bar because of window_ordered notifications
         window_count += tab_bar_window_list(window_list + window_count, array_count(window_list) - window_count);
     }
 
@@ -58,23 +54,9 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
     ms->ffm_window_id = 0;
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-    struct window_node *node = view ? view_find_window_node(view, window->id) : NULL;
-
-    if (node && node->window_count > 1) {
-        for (int i = 0; i < node->window_count; ++i) {
-            if (node->window_order[i] != window->id) continue;
-
-            memmove(node->window_order + 1, node->window_order, sizeof(uint32_t) * i);
-            node->window_order[0] = window->id;
-
-            break;
-        }
-    }
-
     if (view && view->layout == VIEW_TREE) tree_window_did_receive_focus(view, window->id);
 
     if (prev_focused_window_id != window->id) tab_bar_refresh_for_window(prev_focused_window_id);
-    if (node && node->tab_bar.id) tab_bar_update(node);
 }
 
 #pragma clang diagnostic push
@@ -216,7 +198,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
                 //
 
                 window_manager_adjust_layer(window, LAYER_BELOW);
-                view_add_window_node_with_insertion_point(view, window, prev_window_id);
+                view_add_window(view, window, prev_window_id);
                 window_manager_add_managed_window(&g_window_manager, window, view);
 
                 view_set_flag(view, VIEW_IS_DIRTY);
@@ -301,7 +283,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_remove_window_node(view, window);
+            view_remove_window(view, window);
             window_manager_remove_managed_window(&g_window_manager, window->id);
 
             view_set_flag(view, VIEW_IS_DIRTY);
@@ -461,7 +443,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
             //
 
             window_manager_adjust_layer(window, LAYER_BELOW);
-            view_add_window_node_with_insertion_point(view, window, prev_window_id);
+            view_add_window(view, window, prev_window_id);
             window_manager_add_managed_window(&g_window_manager, window, view);
 
             view_set_flag(view, VIEW_IS_DIRTY);
@@ -522,7 +504,7 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
             //
 
             window_manager_adjust_layer(window, LAYER_NORMAL);
-            view_remove_window_node(view, window);
+            view_remove_window(view, window);
             window_manager_remove_managed_window(&g_window_manager, window->id);
             window_manager_purify_window(&g_window_manager, window);
 
@@ -709,22 +691,7 @@ static EVENT_HANDLER(WINDOW_MOVED)
 
         if (!g_mouse_state.window || g_mouse_state.window != window) {
             struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-            if (view && view->layout == VIEW_TREE) {
-                if (tree_window_needs_flush(view, window->id, window->frame)) view_flush(view);
-            } else if (view) {
-                struct window_node *node = view_find_window_node(view, window->id);
-                if (node && (AX_DIFF(node->area.x, new_origin.x) ||
-                             AX_DIFF(node->area.y, new_origin.y))
-                         &&
-                   (!node->zoom || AX_DIFF(node->zoom->area.x, new_origin.x) ||
-                                   AX_DIFF(node->zoom->area.y, new_origin.y))) {
-                    if (space_is_visible(view->sid)) {
-                        window_node_flush(node);
-                    } else {
-                        view_set_flag(view, VIEW_IS_DIRTY);
-                    }
-                }
-            }
+            if (view && tree_window_needs_flush(view, window->id, window->frame)) view_flush(view);
         }
     }
 }
@@ -810,26 +777,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
 
             if (!g_mouse_state.window || g_mouse_state.window != window) {
                 struct view *view = window_manager_find_managed_window(&g_window_manager, window);
-                if (view && view->layout == VIEW_TREE) {
-                    if (tree_window_needs_flush(view, window->id, new_frame)) view_flush(view);
-                } else if (view) {
-                    struct window_node *node = view_find_window_node(view, window->id);
-                    if (node && (AX_DIFF(node->area.x, new_frame.origin.x)   ||
-                                 AX_DIFF(node->area.y, new_frame.origin.y)   ||
-                                 AX_DIFF(node->area.w, new_frame.size.width) ||
-                                 AX_DIFF(node->area.h, new_frame.size.height))
-                             &&
-                       (!node->zoom || AX_DIFF(node->zoom->area.x, new_frame.origin.x)   ||
-                                       AX_DIFF(node->zoom->area.y, new_frame.origin.y)   ||
-                                       AX_DIFF(node->zoom->area.w, new_frame.size.width) ||
-                                       AX_DIFF(node->zoom->area.h, new_frame.size.height))) {
-                        if (space_is_visible(view->sid)) {
-                            window_node_flush(node);
-                        } else {
-                            view_set_flag(view, VIEW_IS_DIRTY);
-                        }
-                    }
-                }
+                if (view && tree_window_needs_flush(view, window->id, new_frame)) view_flush(view);
             }
         }
     }
@@ -958,8 +906,6 @@ static EVENT_HANDLER(SLS_WINDOW_ORDERED)
 {
     uint32_t wid = (uint64_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, wid);
-    struct window_node *node = table_find(&g_window_manager.insert_feedback, &wid);
-    if (node) SLSOrderWindow(g_connection, node->feedback_window.id, 1, node->window_order[0]);
     tab_bar_order(wid);
 }
 
@@ -1211,50 +1157,9 @@ static EVENT_HANDLER(MOUSE_UP)
         if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
         if (window == g_mouse_state.window) window = NULL;
 
-        if (src_view->layout == VIEW_TREE || dst_view->layout == VIEW_TREE) {
-            mouse_tree_drop(&g_space_manager, &g_window_manager, &g_mouse_state, src_view, dst_view, g_mouse_state.window, window, point);
-            goto err;
-        }
-
-        struct window_node *a_node = view_find_window_node(src_view, g_mouse_state.window->id);
-        struct window_node *b_node = window ? view_find_window_node(dst_view, window->id) : NULL;
-
-        if (a_node && b_node && a_node != b_node) {
-            if (g_mouse_state.feedback_node) {
-                g_mouse_state.feedback_node->insert_dir = 0;
-                insert_feedback_destroy(g_mouse_state.feedback_node);
-                g_mouse_state.feedback_node = NULL;
-            }
-
-            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node->window_count == 1, window, point);
-            switch (drop_action) {
-            case MOUSE_DROP_ACTION_STACK: {
-                mouse_drop_action_stack(&g_window_manager, src_view, g_mouse_state.window, dst_view, window);
-            } break;
-            case MOUSE_DROP_ACTION_SWAP: {
-                mouse_drop_action_swap(&g_window_manager, src_view, a_node, g_mouse_state.window, dst_view, b_node, window);
-            } break;
-            case MOUSE_DROP_ACTION_WARP_TOP: {
-                mouse_drop_action_warp(&g_window_manager, src_view, a_node, g_mouse_state.window, dst_view, b_node, window, SPLIT_X, CHILD_FIRST);
-            } break;
-            case MOUSE_DROP_ACTION_WARP_RIGHT: {
-                mouse_drop_action_warp(&g_window_manager, src_view, a_node, g_mouse_state.window, dst_view, b_node, window, SPLIT_Y, CHILD_SECOND);
-            } break;
-            case MOUSE_DROP_ACTION_WARP_BOTTOM: {
-                mouse_drop_action_warp(&g_window_manager, src_view, a_node, g_mouse_state.window, dst_view, b_node, window, SPLIT_X, CHILD_SECOND);
-            } break;
-            case MOUSE_DROP_ACTION_WARP_LEFT: {
-                mouse_drop_action_warp(&g_window_manager, src_view, a_node, g_mouse_state.window, dst_view, b_node, window, SPLIT_Y, CHILD_FIRST);
-            } break;
-            case MOUSE_DROP_ACTION_NONE: {
-                /* silence compiler warning.. */
-            } break;
-            }
-        } else if (a_node) {
-            mouse_drop_no_target(&g_space_manager, &g_window_manager, src_view, dst_view, g_mouse_state.window, a_node);
-        }
+        mouse_drop(&g_space_manager, &g_window_manager, &g_mouse_state, src_view, dst_view, g_mouse_state.window, window, point);
     } else if (info.changed_position || info.changed_size) {
-        mouse_drop_try_adjust_bsp_grid(&g_window_manager, src_view, g_mouse_state.window, &info);
+        mouse_drop_try_adjust_tree(&g_window_manager, src_view, g_mouse_state.window, &info);
     }
 
 err:
@@ -1322,58 +1227,7 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
         if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
         if (window == g_mouse_state.window) window = NULL;
 
-        if (src_view->layout == VIEW_TREE || dst_view->layout == VIEW_TREE) {
-            mouse_tree_drag(&g_mouse_state, dst_view, window, point);
-            goto out;
-        }
-
-        struct window_node *a_node = view_find_window_node(src_view, g_mouse_state.window->id);
-        struct window_node *b_node = window ? view_find_window_node(dst_view, window->id) : NULL;
-
-        if (a_node && b_node && a_node != b_node) {
-            if (g_mouse_state.feedback_node && g_mouse_state.feedback_node != b_node) {
-                g_mouse_state.feedback_node->insert_dir = 0;
-                insert_feedback_destroy(g_mouse_state.feedback_node);
-            }
-
-            int insert_dir = 0;
-            enum mouse_drop_action drop_action = mouse_determine_drop_action(&g_mouse_state, a_node->window_count == 1, window, point);
-            switch (drop_action) {
-            case MOUSE_DROP_ACTION_STACK: {
-                insert_dir = STACK;
-            } break;
-            case MOUSE_DROP_ACTION_SWAP: {
-                insert_dir = STACK;
-            } break;
-            case MOUSE_DROP_ACTION_WARP_TOP: {
-                insert_dir = DIR_NORTH;
-            } break;
-            case MOUSE_DROP_ACTION_WARP_RIGHT: {
-                insert_dir = DIR_EAST;
-            } break;
-            case MOUSE_DROP_ACTION_WARP_BOTTOM: {
-                insert_dir = DIR_SOUTH;
-            } break;
-            case MOUSE_DROP_ACTION_WARP_LEFT: {
-                insert_dir = DIR_WEST;
-            } break;
-            case MOUSE_DROP_ACTION_NONE: {
-                /* silence compiler warning.. */
-            } break;
-            }
-
-            if (b_node->insert_dir != insert_dir) {
-                b_node->insert_dir = insert_dir;
-                insert_feedback_show(b_node);
-                g_mouse_state.feedback_node = b_node;
-            }
-        } else if (!b_node) {
-            if (g_mouse_state.feedback_node) {
-                g_mouse_state.feedback_node->insert_dir = 0;
-                insert_feedback_destroy(g_mouse_state.feedback_node);
-                g_mouse_state.feedback_node = NULL;
-            }
-        }
+        mouse_drag(&g_mouse_state, dst_view, window, point);
     }
 
 out:

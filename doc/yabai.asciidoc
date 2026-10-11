@@ -101,7 +101,7 @@ DIR_SEL     := north | east | south | west
 
 STACK_SEL   := stack.prev | stack.next | stack.first | stack.last | stack.recent | stack.<index (1-based)>
 
-WINDOW_SEL  := prev | next | first | last | recent | mouse | largest | smallest | sibling | first_nephew | second_nephew | uncle | first_cousin | second_cousin | STACK_SEL | DIR_SEL | <window id>
+WINDOW_SEL  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id>
 
 DISPLAY_SEL := prev | next | first | last | recent | mouse | DIR_SEL | <arrangement index (1-based)> | LABEL
 
@@ -228,11 +228,9 @@ Global Settings
     The purpose is to provide a visual preview of the new window frame.
 
 *tab_bar* ['<BOOL_SEL>']::
-    Draw a tab bar on top of every stack, like the tabbed layout of i3. Enabled by default. +
-    Each tab shows the title of a window in the stack, and clicking a tab focuses that window. +
-    The windows of the stack are shrunk by *tab_bar_height* to make room for the bar. +
-    While enabled, *window --focus* 'east|west' and *window --warp* 'east|west' move between the tabs of a stack before leaving it. +
-    When disabled, stacks behave as they did before tab bars existed.
+    Draw a tab bar on top of every tabbed container, like the tabbed layout of i3. Enabled by default. +
+    Each tab shows the title of a window, and clicking a tab focuses that window. +
+    The windows of the container are shrunk by *tab_bar_height* to make room for the bar.
 
 *tab_bar_height* ['<integer number>']::
     Height of the tab bar in points. Default is 24.
@@ -241,10 +239,10 @@ Global Settings
     Font of the tab titles, e.g. 'Menlo:12'. Default is 'Helvetica Neue:12'.
 
 *tab_bar_focused_color* ['0xAARRGGBB'], *tab_bar_focused_text_color* ['0xAARRGGBB']::
-    Background and text color of the active tab of the stack that holds the focused window.
+    Background and text color of the active tab of the tabbed container that holds the focused window.
 
 *tab_bar_inactive_color* ['0xAARRGGBB'], *tab_bar_inactive_text_color* ['0xAARRGGBB']::
-    Background and text color of the active tab of every other stack.
+    Background and text color of the active tab of every other tabbed container.
 
 *tab_bar_unfocused_color* ['0xAARRGGBB'], *tab_bar_unfocused_text_color* ['0xAARRGGBB']::
     Background and text color of the tabs that are not active.
@@ -287,14 +285,14 @@ Global Settings
     'force': always wrap around inside the innermost container in that direction.
 
 *mouse_drop_action* ['swap|stack']::
-    Action performed when a bsp-managed window is dropped in the center of some other bsp-managed window.
+    Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 
 Space Settings
 ^^^^^^^^^^^^^^
 
-*layout* ['bsp|stack|float|tree']::
+*layout* ['tree|float']::
     Set the layout of the selected space. +
-    'tree' arranges windows in an i3-style container tree, see *TREE LAYOUT*.
+    'tree' (the default) arranges windows in an i3-style container tree, see *TREE LAYOUT*. 'float' leaves windows unmanaged.
 
 *tree_default_orientation* ['horizontal|vertical|auto']::
     Orientation of an empty 'tree' space when its first window opens, like i3's 'default_orientation'. +
@@ -325,10 +323,10 @@ Space Settings
     Size of the gap that separates windows for the selected space.
 
 *auto_padding* ['<BOOL_SEL>']::
-    Remove padding and window gap on 'bsp' spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and 'external_bar' are still respected). +
+    Remove padding and window gap on 'tree' spaces that hold at most one tiled window, so that the window fills the whole area of the display (the menu bar, Dock and 'external_bar' are still respected). +
     The configured padding and gap apply again as soon as the space holds two or more tiled windows, and are always reported unchanged. +
-    A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom-fullscreen. Floating windows, including scratchpad windows and windows with the rule 'manage=off', never count. Windows stacked in the same node count individually. +
-    Has no effect on spaces with layout 'stack' or 'float'. Padding or gap toggled off with 'space --toggle' stays off regardless of the number of windows. +
+    A tiled window is a managed window that is not floating, minimized or hidden, and not in zoom-fullscreen. Floating windows, including scratchpad windows and windows with the rule 'manage=off', never count. Every tab of a tabbed container counts. +
+    Has no effect on spaces with layout 'float'. Padding or gap toggled off with 'space --toggle' stays off regardless of the number of windows. +
     Windows placed with '--grid' always use the configured padding and gap, so their frame does not depend on the number of tiled windows.
 
 *auto_balance* ['<BOOL_SEL>|x-axis|y-axis']::
@@ -403,13 +401,9 @@ COMMAND
     Send the selected space to the given display. +
     System Integrity Protection must be partially disabled.
 
-*--equalize* ['x-axis|y-axis']::
-    Reset the split ratios on the selected space to the default value along the given axis. +
-    If no axis is specified, use both.
-
 *--balance* ['x-axis|y-axis']::
-    Adjust the split ratios on the selected space so that all windows along the given axis occupy the same area. +
-    If no axis is specified, use both.
+    Give every child of every container on the selected space the same share of its container. +
+    The axis is accepted for compatibility and ignored. *--equalize* is the same command.
 
 *--mirror* 'x-axis|y-axis'::
     Flip the tree of the selected space along the given axis.
@@ -426,7 +420,7 @@ COMMAND
 *--toggle* 'padding|gap|mission-control|show-desktop'::
     Toggle space setting on or off for the selected space.
 
-*--layout* 'bsp|stack|float'::
+*--layout* 'tree|float'::
     Set the layout of the selected space.
 
 *--label* ['<LABEL>']::
@@ -447,8 +441,7 @@ COMMAND
 *--focus* ['<WINDOW_SEL>']::
     Focus the given window. +
     If none specified, focus the selected window instead. +
-    With *tab_bar* enabled, 'east' and 'west' focus the next and previous tab when the selected window is stacked, and only leave the stack from its last or first tab. +
-    On 'tree' spaces, a direction moves focus like i3's 'focus left|right|up|down': it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise *focus_wrapping* applies. +
+    A direction moves focus like i3's 'focus left|right|up|down': it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise *focus_wrapping* applies. +
     'parent' and 'child' select the container around the focused window, or go back down, like i3's 'focus parent|child'. The selected container is outlined, and *--warp* and *--layout* act on it until focus changes.
 
 *--close* ['<WINDOW_SEL>']::
@@ -476,31 +469,23 @@ COMMAND
     Swap position of the selected window and the given window.
 
 *--warp* '<WINDOW_SEL>'::
-    Re-insert the selected window, splitting the given window. +
-    With *tab_bar* enabled, 'east' and 'west' move a stacked window one tab to the right or left. From the last or first tab, the window leaves the stack and is placed next to it, splitting the area of the stack, even if there is no window in that direction. +
-    On 'tree' spaces, a direction moves the window (or the selected container) like i3's 'move left|right|up|down': it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re-oriented. At the edge of the space it moves to the display in that direction. +
+    A direction moves the window (or the selected container) like i3's 'move left|right|up|down': it swaps with a neighbouring window, moves into a neighbouring container, or leaves its container at the edge. If no container is laid out in that direction, the space is re-oriented. At the edge of the space it moves to the display in that direction. +
     A window selector places the window right after that window, in its container.
 
 *--stack* '<WINDOW_SEL>'::
-    Stack the given window on top of the selected window. +
-    Any kind of warp operation performed on a stacked window will unstack it. +
-    On 'tree' spaces, the given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
+    The given window becomes a tab next to the selected window, which is wrapped in a tabbed container first if it is not a tab yet.
 
 *--layout* 'tabbed|split|toggle|splith|splitv|toggle-split'::
     Change the layout around the selected window, like the *layout* command of i3. +
-    'tabbed': turn the selected window and everything it was split with (the subtree of its parent node) into a single stack, with the selected window as the active tab. +
-    'split': tile the windows of the stack that holds the selected window again, in tab order. +
-    'toggle': 'split' if the selected window is stacked, 'tabbed' otherwise. +
-    On bsp spaces, only 'tabbed', 'split' and 'toggle' are supported. +
-    On 'tree' spaces, the layout of the container that holds the selected window (or the selected container) changes: 'tabbed', 'splith' and 'splitv' set it, 'split' returns to its last split layout, 'toggle' switches between tabbed and the last split layout, and 'toggle-split' switches between 'splith' and 'splitv'. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
+    The layout of the container that holds the selected window (or the selected container) changes: 'tabbed', 'splith' and 'splitv' set it, 'split' returns to its last split layout, 'toggle' switches between tabbed and the last split layout, and 'toggle-split' switches between 'splith' and 'splitv'. A window directly on the space is wrapped in a new tabbed container first, since the space itself is always split.
 
 *--split* 'horizontal|vertical|toggle'::
-    Only on 'tree' spaces, like i3's 'split h|v|toggle'. Wraps the selected window in a new container laid out side by side ('horizontal') or on top of each other ('vertical'), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. 'toggle' picks the orientation that the container of the window does not have.
+    Like i3's 'split h|v|toggle'. Wraps the selected window in a new container laid out side by side ('horizontal') or on top of each other ('vertical'), so the next window opens next to it inside that container. If the window is the only child of its container, the orientation of the container changes instead. 'toggle' picks the orientation that the container of the window does not have.
 
 *--insert* '<DIR_SEL>|stack'::
     Set the splitting mode of the selected window. +
     If the current splitting mode matches the selected mode, the action will be undone. +
-    On 'tree' spaces, the next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with 'stack'.
+    The next window opens on that side of the selected window, splitting it if its container is laid out the other way, or as a tab next to it with 'stack'.
 
 *--grid* '<rows>:<cols>:<start-x>:<start-y>:<width>:<height>'::
     Set the frame of the selected window based on a self-defined grid. +
@@ -515,8 +500,8 @@ COMMAND
     If handle is 'abs' the new size will be 'dx' width and 'dy' height and cannot be used on managed windows.
 
 *--ratio* 'rel|abs:<dr>'::
-    If type is 'rel' the split ratio of the selected window is changed by 'dr', otherwise 'dr' will become the new split ratio. +
-    A positive/negative delta will increase/decrease the size of the left-child.
+    Change the share of the selected window (or the selected container) in its container, like i3's 'percent'. +
+    If type is 'rel' the share is changed by 'dr', otherwise 'dr' becomes the new share. The space is taken from or given to the next container, or the previous one for the last container.
 
 *--toggle* 'float|sticky|pip|shadow|split|zoom-parent|zoom-fullscreen|windowed-fullscreen|native-fullscreen|expose|<LABEL>'::
     Toggle the given property of the selected window. +
@@ -1002,7 +987,7 @@ DATAFORMAT
 Tree Layout
 -----------
 
-A space with layout 'tree' arranges its windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container. +
+'tree' is the tiling layout of every space that does not use 'float'. It arranges windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container. +
 A container lays out any number of children in one of three ways: 'splith' (side by side), 'splitv' (on top of each other) or 'tabbed' (one child visible at a time, with a row of tabs on top). +
 Each container remembers which of its children was focused last.
 
@@ -1015,11 +1000,11 @@ A tab that holds a container is titled with its layout and applications, e.g. 'H
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 
 Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
-In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', as on bsp spaces, and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container, and 'split-child' is always 'none'. +
+In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container, and 'split-child' is always 'none'. +
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'.
 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +
-The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree. The 'sibling', 'nephew', 'uncle' and 'cousin' selectors do not match on 'tree' spaces.
+The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree.
 
 Exit Codes
 ----------

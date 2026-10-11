@@ -29,8 +29,6 @@ enum window_op_error
     WINDOW_OP_ERROR_MINIMIZE_FAILED,
     WINDOW_OP_ERROR_NOT_MINIMIZED,
     WINDOW_OP_ERROR_DEMINIMIZE_FAILED,
-    WINDOW_OP_ERROR_MAX_STACK,
-    WINDOW_OP_ERROR_SAME_STACK,
 };
 
 enum purify_mode
@@ -90,7 +88,6 @@ struct window_manager
     struct table window_lost_focused_event;
     struct table application_lost_front_switched_event;
     struct table window_animations_table;
-    struct table insert_feedback;
     pthread_mutex_t window_animations_lock;
     struct rule *rules;
     struct application **applications_to_refresh;
@@ -163,37 +160,17 @@ struct window *window_manager_find_first_window_in_stack(struct space_manager *s
 struct window *window_manager_find_last_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window);
 struct window *window_manager_find_recent_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window);
 struct window *window_manager_find_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window, int index);
-struct window *window_manager_find_tab_in_direction(struct window_manager *wm, struct window *window, int direction);
-bool window_manager_move_tab_in_direction(struct window_manager *wm, struct window *window, int direction);
 enum window_op_error window_manager_set_window_layout(struct window_manager *wm, struct window *window, enum window_layout layout);
 struct view *window_manager_find_tree_view(struct window_manager *wm, struct window *window);
 enum window_op_error window_manager_tree_focus_direction(struct window_manager *wm, struct window *window, int direction);
 enum window_op_error window_manager_tree_focus_parent(struct window_manager *wm, struct window *window);
 enum window_op_error window_manager_tree_focus_child(struct window_manager *wm, struct window *window);
 enum window_op_error window_manager_tree_move_direction(struct space_manager *sm, struct window_manager *wm, struct window *window, int direction);
-struct window *window_manager_tree_find_window_in_direction(struct window_manager *wm, struct window *window, int direction);
-enum window_op_error window_manager_tree_swap_window(struct window_manager *wm, struct window *a, struct window *b);
-enum window_op_error window_manager_tree_warp_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b);
-enum window_op_error window_manager_tree_stack_window(struct space_manager *sm, struct window_manager *wm, struct view *a_view, struct window *a, struct window *b);
-struct window *window_manager_tree_find_window_in_stack(struct window_manager *wm, struct view *view, struct window *window, int index, bool relative);
-struct window *window_manager_tree_find_recent_window_in_stack(struct window_manager *wm, struct view *view, struct window *window);
-struct window *window_manager_tree_find_window_in_order(struct window_manager *wm, struct view *view, struct window *window, int which);
 uint32_t window_manager_tree_focus_candidate(struct window_manager *wm, struct view *view, struct window *window);
 void window_manager_tree_focus_after_close(struct window_manager *wm, struct view *view, uint32_t window_id);
 enum window_op_error window_manager_tree_split(struct window_manager *wm, struct window *window, int orientation);
-enum window_op_error window_manager_tree_set_layout(struct window_manager *wm, struct window *window, enum window_layout layout);
-void window_manager_tree_toggle_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom);
-enum window_op_error window_manager_tree_resize(struct view *view, struct window *window, int direction, float dx, float dy);
-enum window_op_error window_manager_tree_adjust_ratio(struct view *view, struct window *window, int type, float ratio);
-enum window_op_error window_manager_tree_set_insertion(struct view *view, struct window *window, int direction);
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_smallest_managed_window(struct space_manager *sm, struct window_manager *wm);
-struct window *window_manager_find_sibling_for_managed_window(struct window_manager *wm, struct window *window);
-struct window *window_manager_find_first_nephew_for_managed_window(struct window_manager *wm, struct window *window);
-struct window *window_manager_find_second_nephew_for_managed_window(struct window_manager *wm, struct window *window);
-struct window *window_manager_find_uncle_for_managed_window(struct window_manager *wm, struct window *window);
-struct window *window_manager_find_first_cousin_for_managed_window(struct window_manager *wm, struct window *window);
-struct window *window_manager_find_second_cousin_for_managed_window(struct window_manager *wm, struct window *window);
 void window_manager_focus_window_without_raise(ProcessSerialNumber *window_psn, uint32_t window_id);
 void window_manager_focus_window_with_raise(ProcessSerialNumber *window_psn, uint32_t window_id, AXUIElementRef window_ref);
 struct window *window_manager_focused_window(struct window_manager *wm);
@@ -228,7 +205,7 @@ void window_manager_set_focus_follows_mouse(struct window_manager *wm, enum ffm_
 enum window_op_error window_manager_set_window_insertion(struct space_manager *sm, struct window *window, int direction);
 enum window_op_error window_manager_stack_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b);
 enum window_op_error window_manager_warp_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b);
-enum window_op_error window_manager_swap_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b);
+enum window_op_error window_manager_swap_window(struct window_manager *wm, struct window *a, struct window *b);
 enum window_op_error window_manager_minimize_window(struct window *window);
 enum window_op_error window_manager_deminimize_window(struct window *window);
 bool window_manager_close_window(struct window *window);

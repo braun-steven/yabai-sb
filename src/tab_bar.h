@@ -32,11 +32,6 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struc
 void tab_bar_hide(struct tab_bar *bar);
 void tab_bar_release(struct tab_bar *bar);
 
-bool tab_bar_node_has_bar(struct window_node *node);
-struct area tab_bar_window_area(struct window_node *node, struct area area);
-void tab_bar_update(struct window_node *node);
-void tab_bar_destroy(struct window_node *node);
-
 void tab_bar_refresh_for_window(uint32_t wid);
 void tab_bar_order(uint32_t wid);
 int tab_bar_window_list(uint32_t *window_list, int capacity);

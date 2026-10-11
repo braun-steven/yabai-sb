@@ -848,7 +848,7 @@ static void con_reverse_children(struct con *con)
 }
 
 //
-// NOTE: Rotates the layout like the bsp layout does: 90 and 270 degrees swap the split orientation,
+// NOTE: Rotates the layout like yabai always has: 90 and 270 degrees swap the split orientation,
 // reversing the side-by-side (90) or top-to-bottom (270) splits, and 180 reverses every split.
 //
 
@@ -1024,14 +1024,14 @@ static inline enum con_layout tree_default_layout(struct view *view)
     case TREE_ORIENTATION_AUTO:       break;
     }
 
-    return view->root->area.w >= view->root->area.h ? CON_SPLITH : CON_SPLITV;
+    return view->area.w >= view->area.h ? CON_SPLITH : CON_SPLITV;
 }
 
 struct con *tree_view_root(struct view *view)
 {
     if (!view->tree) {
         view->tree = con_create(tree_default_layout(view));
-        view->tree->area = view->root->area;
+        view->tree->area = view->area;
     }
 
     return view->tree;
@@ -1040,7 +1040,7 @@ struct con *tree_view_root(struct view *view)
 void tree_view_update(struct view *view)
 {
     if (!view->tree) return;
-    tree_update(view->tree, view->root->area, window_node_get_gap(view), tree_bar_height());
+    tree_update(view->tree, view->area, view_window_gap(view), tree_bar_height());
 }
 
 static void tree_unmanage_windows(struct con *con)
@@ -1066,7 +1066,7 @@ void tree_view_clear(struct view *view)
 
 struct con *tree_view_find_window(struct view *view, uint32_t window_id)
 {
-    return view->layout == VIEW_TREE ? tree_find_window(view->tree, window_id) : NULL;
+    return view->tree ? tree_find_window(view->tree, window_id) : NULL;
 }
 
 //
@@ -1440,12 +1440,14 @@ void tree_refresh_for_window(uint32_t window_id)
 }
 
 //
-// NOTE: Outline of a container, drawn like the insertion feedback of bsp spaces. Without a direction
+// NOTE: Outline of a container, drawn with the insert feedback color. Without a direction
 // it outlines the whole container, which marks the container selected with 'window --focus parent'.
 // With a direction it shows the half where a window will be inserted, as set by 'window --insert'
 // or while dragging a window with the mouse.
 //
 
+#define INSERT_FEEDBACK_WIDTH 2
+#define INSERT_FEEDBACK_RADIUS 9
 void tree_feedback_show(struct con *con, int insert_dir)
 {
     struct con *leaf = tree_descend_focused(con);

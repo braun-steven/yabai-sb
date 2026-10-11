@@ -85,12 +85,6 @@ struct window_animation_context
     int animation_count;
 };
 
-struct balance_node
-{
-    int y_count;
-    int x_count;
-};
-
 enum window_insertion_point
 {
     INSERT_FOCUSED,
@@ -163,30 +157,9 @@ struct tab_bar
     void (*redraw)(void *owner);
 };
 
-#define NODE_MAX_WINDOW_COUNT 32
-struct window_node
-{
-    struct area area;
-    struct window_node *parent;
-    struct window_node *left;
-    struct window_node *right;
-    struct window_node *zoom;
-    uint32_t window_list[NODE_MAX_WINDOW_COUNT];
-    uint32_t window_order[NODE_MAX_WINDOW_COUNT];
-    int window_count;
-    float ratio;
-    enum window_node_split split;
-    enum window_node_child child;
-    int insert_dir;
-    struct feedback_window feedback_window;
-    struct tab_bar tab_bar;
-};
-
 enum view_type
 {
     VIEW_DEFAULT,
-    VIEW_BSP,
-    VIEW_STACK,
     VIEW_FLOAT,
     VIEW_TREE
 };
@@ -194,8 +167,6 @@ enum view_type
 static const char *view_type_str[] =
 {
     "default",
-    "bsp",
-    "stack",
     "float",
     "tree"
 };
@@ -222,7 +193,7 @@ struct view
 {
     CFStringRef uuid;
     uint64_t sid;
-    struct window_node *root;
+    struct area area;
     struct con *tree;
     uint32_t insertion_point;
     enum view_type layout;
@@ -241,32 +212,11 @@ struct view
 #define view_clear_flag(v, x) ((v)->flags &= ~(x))
 #define view_set_flag(v, x)   ((v)->flags |=  (x))
 
-void insert_feedback_show(struct window_node *node);
-void insert_feedback_destroy(struct window_node *node);
-
-void window_node_flush(struct window_node *node);
-void window_node_update(struct view *view, struct window_node *node);
-bool window_node_contains_window(struct window_node *node, uint32_t window_id);
-int window_node_index_of_window(struct window_node *node, uint32_t window_id);
-void window_node_swap_window_list(struct window_node *a_node, struct window_node *b_node);
-struct window_node *window_node_find_first_leaf(struct window_node *root);
-struct window_node *window_node_find_last_leaf(struct window_node *root);
-struct window_node *window_node_find_prev_leaf(struct window_node *node);
-struct window_node *window_node_find_next_leaf(struct window_node *node);
-void window_node_capture_windows(struct window_node *node, struct window_capture **window_list);
-
-struct window_node *view_find_window_node_in_direction(struct view *view, struct window_node *source, int direction);
-struct window_node *view_find_window_node(struct view *view, uint32_t window_id);
-void view_stack_window_node(struct window_node *node, struct window *window);
-void view_stack_order_window(struct window_node *node, uint32_t window_id);
-struct window_node *view_add_window_node_with_insertion_point(struct view *view, struct window *window, uint32_t insertion_point);
-struct window_node *view_add_window_node(struct view *view, struct window *window);
-struct window_node *view_remove_window_node(struct view *view, struct window *window);
-struct window_node *view_make_tabbed(struct view *view, uint32_t window_id);
-struct window_node *view_make_split(struct view *view, uint32_t window_id);
-struct window_node *view_unstack_window_node(struct view *view, struct window *window, int direction);
+void view_add_window(struct view *view, struct window *window, uint32_t insertion_point);
+bool view_remove_window(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
 
+int view_window_gap(struct view *view);
 bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_window_count);
 int view_tiled_window_count(struct view *view);
 bool view_update_auto_padding(struct view *view);
@@ -275,7 +225,6 @@ void view_serialize(FILE *rsp, struct view *view, uint64_t flags);
 bool view_is_invalid(struct view *view);
 bool view_is_dirty(struct view *view);
 void view_flush(struct view *view);
-void view_flush_node(struct view *view, struct window_node *node);
 void view_update(struct view *view);
 struct view *view_create(uint64_t sid);
 void view_destroy(struct view *view);

@@ -132,14 +132,7 @@ void space_manager_untile_window(struct view *view, struct window *window)
     if (view->layout == VIEW_FLOAT) return;
 
     window_manager_adjust_layer(window, LAYER_NORMAL);
-    struct window_node *node = view_remove_window_node(view, window);
-    if (!node) return;
-
-    if (space_is_visible(view->sid)) {
-        view_flush_node(view, node);
-    } else {
-        view_set_flag(view, VIEW_IS_DIRTY);
-    }
+    if (view_remove_window(view, window)) view_flush(view);
 }
 
 struct space_label *space_manager_get_label_for_space(struct space_manager *sm, uint64_t sid)
@@ -424,16 +417,9 @@ bool space_manager_toggle_padding_for_space(struct space_manager *sm, uint64_t s
 bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degrees)
 {
     struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_TREE && view->tree) {
-        tree_rotate(view->tree, degrees);
-        view_update(view);
-        view_flush(view);
-        return true;
-    }
+    if (view->layout != VIEW_TREE || !view->tree) return false;
 
-    if (view->layout != VIEW_BSP) return false;
-
-    window_node_rotate(view->root, degrees);
+    tree_rotate(view->tree, degrees);
     view_update(view);
     view_flush(view);
 
@@ -443,54 +429,21 @@ bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degr
 bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_node_split axis)
 {
     struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_TREE && view->tree) {
-        tree_mirror(view->tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL);
-        view_update(view);
-        view_flush(view);
-        return true;
-    }
+    if (view->layout != VIEW_TREE || !view->tree) return false;
 
-    if (view->layout != VIEW_BSP) return false;
-
-    window_node_mirror(view->root, axis);
+    tree_mirror(view->tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL);
     view_update(view);
     view_flush(view);
 
     return true;
 }
 
-bool space_manager_equalize_space(struct space_manager *sm, uint64_t sid, uint32_t axis_flag)
+bool space_manager_balance_space(struct space_manager *sm, uint64_t sid)
 {
     struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_TREE && view->tree) {
-        tree_balance(view->tree);
-        view_update(view);
-        view_flush(view);
-        return true;
-    }
+    if (view->layout != VIEW_TREE || !view->tree) return false;
 
-    if (view->layout != VIEW_BSP) return false;
-
-    window_node_equalize(view->root, axis_flag);
-    view_update(view);
-    view_flush(view);
-
-    return true;
-}
-
-bool space_manager_balance_space(struct space_manager *sm, uint64_t sid, uint32_t axis_flag)
-{
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_TREE && view->tree) {
-        tree_balance(view->tree);
-        view_update(view);
-        view_flush(view);
-        return true;
-    }
-
-    if (view->layout != VIEW_BSP) return false;
-
-    window_node_balance(view->root, axis_flag);
+    tree_balance(view->tree);
     view_update(view);
     view_flush(view);
 
@@ -503,14 +456,8 @@ struct view *space_manager_tile_window_on_space_with_insertion_point(struct spac
     if (view->layout == VIEW_FLOAT) return view;
 
     window_manager_adjust_layer(window, LAYER_BELOW);
-    struct window_node *node = view_add_window_node_with_insertion_point(view, window, insertion_point);
-    assert(node);
-
-    if (space_is_visible(view->sid)) {
-        view_flush_node(view, node);
-    } else {
-        view_set_flag(view, VIEW_IS_DIRTY);
-    }
+    view_add_window(view, window, insertion_point);
+    view_flush(view);
 
     return view;
 }
@@ -523,30 +470,9 @@ struct view *space_manager_tile_window_on_space(struct space_manager *sm, struct
 void space_manager_toggle_window_split(struct space_manager *sm, struct window *window)
 {
     struct view *view = space_manager_find_view(sm, window_space(window->id));
-    if (view->layout == VIEW_TREE) {
-        window_manager_tree_set_layout(&g_window_manager, window, WINDOW_LAYOUT_TOGGLE_SPLIT);
-        return;
-    }
+    if (view->layout != VIEW_TREE) return;
 
-    if (view->layout != VIEW_BSP) return;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (node && window_node_is_intermediate(node)) {
-        node->parent->split = node->parent->split == SPLIT_Y ? SPLIT_X : SPLIT_Y;
-
-        if (view->auto_balance != SPLIT_NONE) {
-            window_node_balance(view->root, view->auto_balance);
-            view_update(view);
-            view_flush(view);
-        } else {
-            window_node_update(view, node->parent);
-            if (space_is_visible(view->sid)) {
-                window_node_flush(node->parent);
-            } else {
-                view_set_flag(view, VIEW_IS_DIRTY);
-            }
-        }
-    }
+    window_manager_set_window_layout(&g_window_manager, window, WINDOW_LAYOUT_TOGGLE_SPLIT);
 }
 
 int space_manager_mission_control_index(uint64_t sid)
@@ -1430,7 +1356,7 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
 
 void space_manager_begin(struct space_manager *sm)
 {
-    sm->layout = VIEW_FLOAT;
+    sm->layout = VIEW_TREE;
     sm->split_ratio = 0.5f;
     sm->auto_balance = SPLIT_NONE;
     sm->auto_padding = false;

@@ -348,89 +348,14 @@ void tab_bar_redraw_all(void)
     }
 }
 
-//
-// NOTE: Bars of BSP stacks. A stack shows a bar when it holds more than one window.
-//
-
-bool tab_bar_node_has_bar(struct window_node *node)
-{
-    return tab_bar_is_enabled() &&
-           node->left == NULL &&
-           node->right == NULL &&
-           node->window_count > 1 &&
-           node->zoom == NULL &&
-           node->area.h > 2 * g_window_manager.tab_bar_height;
-}
-
-struct area tab_bar_window_area(struct window_node *node, struct area area)
-{
-    if (tab_bar_node_has_bar(node)) {
-        area.y += g_window_manager.tab_bar_height;
-        area.h -= g_window_manager.tab_bar_height;
-    }
-
-    return area;
-}
-
-static void tab_bar_redraw_node(void *owner)
-{
-    tab_bar_update(owner);
-}
-
-void tab_bar_update(struct window_node *node)
-{
-    if (!tab_bar_node_has_bar(node)) {
-        tab_bar_destroy(node);
-        return;
-    }
-
-    struct tab_bar_entry entry_list[NODE_MAX_WINDOW_COUNT];
-    bool node_has_focus = window_node_contains_window(node, g_window_manager.focused_window_id);
-
-    for (int i = 0; i < node->window_count; ++i) {
-        uint32_t wid = node->window_list[i];
-        entry_list[i].focus_wid = wid;
-        entry_list[i].title = tab_bar_copy_title(wid);
-        entry_list[i].state = wid != node->window_order[0] ? TAB_BAR_UNFOCUSED : node_has_focus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE;
-    }
-
-    node->tab_bar.owner = node;
-    node->tab_bar.redraw = tab_bar_redraw_node;
-
-    CGRect frame = {{node->area.x, node->area.y}, {node->area.w, g_window_manager.tab_bar_height}};
-    tab_bar_render(&node->tab_bar, frame, node->window_order[0], entry_list, node->window_count);
-
-    for (int i = 0; i < node->window_count; ++i) {
-        if (entry_list[i].title) CFRelease(entry_list[i].title);
-    }
-}
-
-void tab_bar_destroy(struct window_node *node)
-{
-    tab_bar_release(&node->tab_bar);
-}
-
 void tab_bar_refresh_for_window(uint32_t wid)
 {
     if (!wid) return;
 
     struct view *view = table_find(&g_window_manager.managed_window, &wid);
-    if (!view || view->layout == VIEW_FLOAT) return;
+    if (!view || view->layout != VIEW_TREE) return;
 
-    if (view->layout == VIEW_TREE) {
-        tree_refresh_for_window(wid);
-        return;
-    }
-
-    struct window_node *node = view_find_window_node(view, wid);
-    if (node && node->tab_bar.id) tab_bar_update(node);
-}
-
-static void tab_bar_destroy_tree(struct window_node *node)
-{
-    if (node->left)  tab_bar_destroy_tree(node->left);
-    if (node->right) tab_bar_destroy_tree(node->right);
-    tab_bar_destroy(node);
+    tree_refresh_for_window(wid);
 }
 
 //
@@ -441,8 +366,7 @@ static void tab_bar_destroy_tree(struct window_node *node)
 void tab_bar_refresh_all(void)
 {
     table_for (struct view *view, g_space_manager.view, {
-        if (view->layout != VIEW_FLOAT && view->root) {
-            tab_bar_destroy_tree(view->root);
+        if (view->layout == VIEW_TREE) {
             if (view->tree) tree_release_bars(view->tree);
             view_update(view);
             view_flush(view);

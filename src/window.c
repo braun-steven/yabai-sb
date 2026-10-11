@@ -416,7 +416,6 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     int level;
     int sub_level;
     struct view *view;
-    struct window_node *node;
     struct con *con = NULL;
     bool is_minimized;
     bool is_sticky;
@@ -443,7 +442,6 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
         (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) ||
         (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM)) {
         view = window_manager_find_managed_window(&g_window_manager, window);
-        node = view ? view_find_window_node(view, window->id) : NULL;
         con = view ? tree_view_find_window(view, window->id) : NULL;
     }
 
@@ -586,7 +584,7 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     if (flags & WINDOW_PROPERTY_SPLIT_TYPE) {
         if (did_output) fprintf(rsp, ",\n");
 
-        enum window_node_split split = node && node->parent ? node->parent->split : SPLIT_NONE;
+        enum window_node_split split = SPLIT_NONE;
         if (con && con->parent) split = con->parent->layout == CON_SPLITH ? SPLIT_Y : con->parent->layout == CON_SPLITV ? SPLIT_X : SPLIT_NONE;
         fprintf(rsp, "\t\"split-type\":\"%s\"", window_node_split_str[split]);
         did_output = true;
@@ -595,14 +593,14 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     if (flags & WINDOW_PROPERTY_SPLIT_CHILD) {
         if (did_output) fprintf(rsp, ",\n");
 
-        fprintf(rsp, "\t\"split-child\":\"%s\"", window_node_child_str[node ? window_node_is_left_child(node) ? CHILD_FIRST : CHILD_SECOND : CHILD_NONE]);
+        fprintf(rsp, "\t\"split-child\":\"%s\"", window_node_child_str[CHILD_NONE]);
         did_output = true;
     }
 
     if (flags & WINDOW_PROPERTY_STACK_INDEX) {
         if (did_output) fprintf(rsp, ",\n");
 
-        int stack_index = node && node->window_count > 1 ? window_node_index_of_window(node, window->id)+1 : 0;
+        int stack_index = 0;
         if (con) {
             struct con *tab = con;
             while (tab->parent && tab->parent->layout != CON_TABBED) tab = tab->parent;
@@ -643,7 +641,7 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     if (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) {
         if (did_output) fprintf(rsp, ",\n");
 
-        bool zoom_parent = con ? con->zoom == CON_ZOOM_PARENT : node && node->zoom && node->zoom == node->parent;
+        bool zoom_parent = con && con->zoom == CON_ZOOM_PARENT;
         fprintf(rsp, "\t\"has-parent-zoom\":%s", json_bool(zoom_parent));
         did_output = true;
     }
@@ -651,7 +649,7 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
     if (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM) {
         if (did_output) fprintf(rsp, ",\n");
 
-        bool zoom_fullscreen = con ? con->zoom == CON_ZOOM_FULLSCREEN : node && node->zoom && node->zoom == view->root;
+        bool zoom_fullscreen = con && con->zoom == CON_ZOOM_FULLSCREEN;
         fprintf(rsp, "\t\"has-fullscreen-zoom\":%s", json_bool(zoom_fullscreen));
         did_output = true;
     }

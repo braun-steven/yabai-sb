@@ -297,33 +297,88 @@ void window_manager_add_managed_window(struct window_manager *wm, struct window 
     window_manager_purify_window(wm, window);
 }
 
+//
+// NOTE: Operations on spaces with the 'tree' layout. They act on the container selected with
+// 'window --focus parent' when there is one, and on the window otherwise.
+//
+
+struct view *window_manager_find_tree_view(struct window_manager *wm, struct window *window)
+{
+    struct view *view = window ? window_manager_find_managed_window(wm, window) : NULL;
+    return view && view->tree ? view : NULL;
+}
+
+static struct con *window_manager_tree_acting_con(struct view *view, struct window *window)
+{
+    struct con *selected = tree_find_selected(view->tree);
+    if (selected && window->id == g_window_manager.focused_window_id) return selected;
+    return tree_find_window(view->tree, window->id);
+}
+
+static void window_manager_tree_apply(struct view *view)
+{
+    //
+    // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
+    //
+
+    struct con *focused = tree_find_window(view->tree, g_window_manager.focused_window_id);
+    if (focused) tree_focus(focused);
+
+    if (!view_update_auto_padding(view)) tree_view_update(view);
+    view_flush(view);
+}
+
+static void window_manager_focus_window_id(struct window_manager *wm, uint32_t window_id)
+{
+    struct window *window = window_manager_find_window(wm, window_id);
+    if (window) window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+}
+
+static void window_manager_tree_set_view(struct window_manager *wm, struct con *con, struct view *view)
+{
+    if (con_is_leaf(con)) {
+        struct window *window = window_manager_find_window(wm, con->window_id);
+        if (!window) return;
+
+        if (window_space(window->id) != view->sid) space_manager_move_window_to_space(view->sid, window);
+        window_manager_remove_managed_window(wm, window->id);
+        window_manager_add_managed_window(wm, window, view);
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        window_manager_tree_set_view(wm, con->children[i], view);
+    }
+}
+
+//
+// NOTE: The ratio of a window on a tree space is its share of its container. The space is taken from
+// or given to the next container, or the previous one for the last container.
+//
+
 enum window_op_error window_manager_adjust_window_ratio(struct window_manager *wm, struct window *window, int type, float ratio)
 {
     TIME_FUNCTION;
 
-    struct view *view = window_manager_find_managed_window(wm, window);
+    struct view *view = window_manager_find_tree_view(wm, window);
     if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-    if (view->layout == VIEW_TREE) return window_manager_tree_adjust_ratio(view, window, type, ratio);
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con || !con->parent || con->parent->layout == CON_TABBED) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
-    switch (type) {
-    case TYPE_REL: {
-        node->parent->ratio = clampf_range(node->parent->ratio + ratio, 0.1f, 0.9f);
-    } break;
-    case TYPE_ABS: {
-        node->parent->ratio = clampf_range(ratio, 0.1f, 0.9f);
-    } break;
+    struct con *parent = con->parent;
+    bool horizontal = parent->layout == CON_SPLITH;
+    float size = horizontal ? parent->area.w : parent->area.h;
+    float percent = type == TYPE_REL ? con->percent + ratio : ratio;
+    float delta = (clampf_range(percent, 0.05f, 0.95f) - con->percent) * size;
+
+    if (!tree_resize(con, horizontal ? DIR_EAST : DIR_SOUTH, delta) &&
+        !tree_resize(con, horizontal ? DIR_WEST : DIR_NORTH, -delta)) {
+        return WINDOW_OP_ERROR_INVALID_SRC_NODE;
     }
 
-    window_node_update(view, node->parent);
-
-    if (space_is_visible(view->sid)) {
-        window_node_flush(node->parent);
-    } else {
-        view_set_flag(view, VIEW_IS_DIRTY);
-    }
+    tree_view_update(view);
+    view_flush(view);
 
     return WINDOW_OP_ERROR_SUCCESS;
 }
@@ -372,32 +427,19 @@ enum window_op_error window_manager_resize_window_relative(struct window_manager
 
     struct view *view = window_manager_find_managed_window(wm, window);
     if (view) {
-        if (direction == HANDLE_ABS) return WINDOW_OP_ERROR_INVALID_OPERATION;
-        if (view->layout == VIEW_TREE) return window_manager_tree_resize(view, window, direction, dx, dy);
+        if (direction == HANDLE_ABS || !view->tree) return WINDOW_OP_ERROR_INVALID_OPERATION;
 
-        struct window_node *node = view_find_window_node(view, window->id);
-        if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+        struct con *con = window_manager_tree_acting_con(view, window);
+        if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
-        struct window_node *x_fence = NULL;
-        struct window_node *y_fence = NULL;
+        bool did_resize = false;
+        if (direction & HANDLE_TOP)    did_resize |= tree_resize(con, DIR_NORTH, dy);
+        if (direction & HANDLE_BOTTOM) did_resize |= tree_resize(con, DIR_SOUTH, dy);
+        if (direction & HANDLE_LEFT)   did_resize |= tree_resize(con, DIR_WEST, dx);
+        if (direction & HANDLE_RIGHT)  did_resize |= tree_resize(con, DIR_EAST, dx);
+        if (!did_resize) return WINDOW_OP_ERROR_INVALID_DST_NODE;
 
-        if (direction & HANDLE_TOP)    x_fence = window_node_fence(node, DIR_NORTH);
-        if (direction & HANDLE_BOTTOM) x_fence = window_node_fence(node, DIR_SOUTH);
-        if (direction & HANDLE_LEFT)   y_fence = window_node_fence(node, DIR_WEST);
-        if (direction & HANDLE_RIGHT)  y_fence = window_node_fence(node, DIR_EAST);
-        if (!x_fence && !y_fence)      return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-        if (y_fence) {
-            float sr = y_fence->ratio + (float) dx / (float) y_fence->area.w;
-            y_fence->ratio = clampf_range(sr, 0.1f, 0.9f);
-        }
-
-        if (x_fence) {
-            float sr = x_fence->ratio + (float) dy / (float) x_fence->area.h;
-            x_fence->ratio = clampf_range(sr, 0.1f, 0.9f);
-        }
-
-        view_update(view);
+        tree_view_update(view);
         view_flush(view);
     } else {
         if (direction == HANDLE_ABS) {
@@ -987,71 +1029,54 @@ struct window *window_manager_find_window_below_cursor(struct window_manager *wm
 
 struct window *window_manager_find_closest_managed_window_in_direction(struct window_manager *wm, struct window *window, int direction)
 {
-    struct view *view = window_manager_find_managed_window(wm, window);
+    struct view *view = window_manager_find_tree_view(wm, window);
     if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_direction(wm, window, direction);
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con) return NULL;
 
-    struct window_node *closest = view_find_window_node_in_direction(view, node, direction);
-    if (!closest) return NULL;
+    struct con *result = NULL;
+    if (tree_next(con, direction, FOCUS_WRAPPING_OFF, false, &result) != TREE_RESULT_DONE) return NULL;
+    if (!result || !con_is_leaf(result) || result == con) return NULL;
 
-    return window_manager_find_window(wm, closest->window_order[0]);
+    return window_manager_find_window(wm, result->window_id);
+}
+
+static struct view *window_manager_active_tree_view(struct space_manager *sm)
+{
+    struct view *view = space_manager_find_view(sm, space_manager_active_space());
+    return view && view->tree ? view : NULL;
+}
+
+static struct window *window_manager_find_window_for_con(struct window_manager *wm, struct con *con)
+{
+    return con && con_is_leaf(con) ? window_manager_find_window(wm, con->window_id) : NULL;
 }
 
 struct window *window_manager_find_prev_managed_window(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_order(wm, view, window, 1);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    struct window_node *prev = window_node_find_prev_leaf(node);
-    if (!prev) return NULL;
-
-    return window_manager_find_window(wm, prev->window_order[0]);
+    struct view *view = window_manager_active_tree_view(sm);
+    struct con *con = view ? tree_find_window(view->tree, window->id) : NULL;
+    return con ? window_manager_find_window_for_con(wm, tree_prev_leaf(con)) : NULL;
 }
 
 struct window *window_manager_find_next_managed_window(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_order(wm, view, window, 2);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    struct window_node *next = window_node_find_next_leaf(node);
-    if (!next) return NULL;
-
-    return window_manager_find_window(wm, next->window_order[0]);
+    struct view *view = window_manager_active_tree_view(sm);
+    struct con *con = view ? tree_find_window(view->tree, window->id) : NULL;
+    return con ? window_manager_find_window_for_con(wm, tree_next_leaf(con)) : NULL;
 }
 
 struct window *window_manager_find_first_managed_window(struct space_manager *sm, struct window_manager *wm)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_order(wm, view, NULL, 0);
-
-    struct window_node *first = window_node_find_first_leaf(view->root);
-    if (!first) return NULL;
-
-    return window_manager_find_window(wm, first->window_order[0]);
+    struct view *view = window_manager_active_tree_view(sm);
+    return view ? window_manager_find_window_for_con(wm, tree_first_leaf(view->tree)) : NULL;
 }
 
 struct window *window_manager_find_last_managed_window(struct space_manager *sm, struct window_manager *wm)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_order(wm, view, NULL, 3);
-
-    struct window_node *last = window_node_find_last_leaf(view->root);
-    if (!last) return NULL;
-
-    return window_manager_find_window(wm, last->window_order[0]);
+    struct view *view = window_manager_active_tree_view(sm);
+    return view ? window_manager_find_window_for_con(wm, tree_last_leaf(view->tree)) : NULL;
 }
 
 struct window *window_manager_find_recent_managed_window(struct window_manager *wm)
@@ -1065,289 +1090,101 @@ struct window *window_manager_find_recent_managed_window(struct window_manager *
     return window;
 }
 
+//
+// NOTE: The stack.* selectors pick tabs of the closest tabbed container. A tab that holds a
+// container resolves to the window focused in it last.
+//
+
+static struct con *window_manager_find_tab(struct space_manager *sm, struct window *window, struct con **tabbed)
+{
+    struct view *view = window_manager_active_tree_view(sm);
+    struct con *con = view ? tree_find_window(view->tree, window->id) : NULL;
+    if (!con) return NULL;
+
+    struct con *parent = tree_tabbed_ancestor(con);
+    if (!parent) return NULL;
+
+    while (con->parent != parent) con = con->parent;
+    *tabbed = parent;
+    return con;
+}
+
+static struct window *window_manager_find_tab_window(struct space_manager *sm, struct window_manager *wm, struct window *window, int index, bool relative)
+{
+    struct con *tabbed = NULL;
+    struct con *tab = window_manager_find_tab(sm, window, &tabbed);
+    if (!tab) return NULL;
+
+    int target = relative ? con_index(tab) + index : index == INT_MAX ? tabbed->child_count - 1 : index;
+    if (target < 0 || target >= tabbed->child_count) return NULL;
+
+    return window_manager_find_window_for_con(wm, tree_descend_focused(tabbed->children[target]));
+}
+
 struct window *window_manager_find_prev_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_stack(wm, view, window, -1, true);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    for (int i = 1; i < node->window_count; ++i) {
-        if (node->window_list[i] == window->id) {
-            return window_manager_find_window(wm, node->window_list[i-1]);
-        }
-    }
-
-    return NULL;
+    return window_manager_find_tab_window(sm, wm, window, -1, true);
 }
 
 struct window *window_manager_find_next_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_stack(wm, view, window, 1, true);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    for (int i = 0; i < node->window_count - 1; ++i) {
-        if (node->window_list[i] == window->id) {
-            return window_manager_find_window(wm, node->window_list[i+1]);
-        }
-    }
-
-    return NULL;
+    return window_manager_find_tab_window(sm, wm, window, 1, true);
 }
 
 struct window *window_manager_find_first_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_stack(wm, view, window, 0, false);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    return node->window_count > 1 ? window_manager_find_window(wm, node->window_list[0]) : NULL;
+    return window_manager_find_tab_window(sm, wm, window, 0, false);
 }
 
 struct window *window_manager_find_last_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_stack(wm, view, window, INT_MAX, false);
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    return node->window_count > 1 ? window_manager_find_window(wm, node->window_list[node->window_count-1]) : NULL;
+    return window_manager_find_tab_window(sm, wm, window, INT_MAX, false);
 }
 
 struct window *window_manager_find_recent_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_recent_window_in_stack(wm, view, window);
+    struct con *tabbed = NULL;
+    struct con *tab = window_manager_find_tab(sm, window, &tabbed);
+    if (!tab || tabbed->child_count < 2) return NULL;
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
-
-    return node->window_count > 1 ? window_manager_find_window(wm, node->window_order[1]) : NULL;
+    struct con *recent = tabbed->focus[0] == tab ? tabbed->focus[1] : tabbed->focus[0];
+    return window_manager_find_window_for_con(wm, tree_descend_focused(recent));
 }
 
 struct window *window_manager_find_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window, int index)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
+    return window_manager_find_tab_window(sm, wm, window, index - 1, false);
+}
+
+static struct window *window_manager_find_managed_window_by_area(struct space_manager *sm, struct window_manager *wm, bool largest)
+{
+    struct view *view = window_manager_active_tree_view(sm);
     if (!view) return NULL;
-    if (view->layout == VIEW_TREE) return window_manager_tree_find_window_in_stack(wm, view, window, index - 1, false);
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return NULL;
+    uint32_t best_id   = 0;
+    float best_area = largest ? 0 : FLT_MAX;
 
-    return node->window_count > 1 && in_range_ii(index, 1, node->window_count) ? window_manager_find_window(wm, node->window_list[index-1]) : NULL;
-}
+    for (struct con *con = tree_first_leaf(view->tree); con && con_is_leaf(con); con = tree_next_leaf(con)) {
+        if (!tree_con_is_visible(con)) continue;
 
-static struct window_node *window_manager_find_tab_node(struct window_manager *wm, struct window *window, int direction, int *index)
-{
-    if (!tab_bar_is_enabled()) return NULL;
-    if (direction != DIR_EAST && direction != DIR_WEST) return NULL;
-
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view || view->layout == VIEW_FLOAT) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || node->window_count < 2) return NULL;
-
-    int target = window_node_index_of_window(node, window->id) + (direction == DIR_EAST ? 1 : -1);
-    if (target < 0 || target >= node->window_count) return NULL;
-
-    *index = target;
-    return node;
-}
-
-//
-// NOTE: Tabs of a stack are laid out horizontally, so moving east/west inside a stack
-// walks the tabs first, like i3 does for tabbed containers. NULL means the window is
-// on the edge tab (or not stacked) and the regular directional lookup applies.
-//
-
-struct window *window_manager_find_tab_in_direction(struct window_manager *wm, struct window *window, int direction)
-{
-    int index;
-    struct window_node *node = window_manager_find_tab_node(wm, window, direction, &index);
-    return node ? window_manager_find_window(wm, node->window_list[index]) : NULL;
-}
-
-//
-// NOTE: Warping east/west inside a stack moves the window one tab over. From the first or last
-// tab it leaves the stack and is placed next to it, like i3 does for tabbed containers, even
-// when there is no other window in that direction.
-//
-
-bool window_manager_move_tab_in_direction(struct window_manager *wm, struct window *window, int direction)
-{
-    int index;
-    struct window_node *node = window_manager_find_tab_node(wm, window, direction, &index);
-
-    if (!node) {
-        if (!tab_bar_is_enabled() || (direction != DIR_EAST && direction != DIR_WEST)) return false;
-
-        struct view *view = window_manager_find_managed_window(wm, window);
-        if (!view || view->layout != VIEW_BSP) return false;
-
-        node = view_unstack_window_node(view, window, direction);
-        if (!node) return false;
-
-        if (view_update_auto_padding(view)) node = view->root;
-
-        if (space_is_visible(view->sid)) {
-            window_node_flush(node);
-        } else {
-            view_set_flag(view, VIEW_IS_DIRTY);
+        float area = con->area.w * con->area.h;
+        if (largest ? area > best_area : area <= best_area) {
+            best_id   = con->window_id;
+            best_area = area;
         }
-
-        return true;
     }
 
-    int source = window_node_index_of_window(node, window->id);
-    node->window_list[source] = node->window_list[index];
-    node->window_list[index] = window->id;
-
-    if (node->tab_bar.id) tab_bar_update(node);
-    return true;
+    return best_id ? window_manager_find_window(wm, best_id) : NULL;
 }
 
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-
-    uint32_t best_id   = 0;
-    uint32_t best_area = 0;
-
-    for (struct window_node *node = window_node_find_first_leaf(view->root); node != NULL; node = window_node_find_next_leaf(node)) {
-        uint32_t area = node->area.w * node->area.h;
-        if (area > best_area) {
-            best_id   = node->window_order[0];
-            best_area = area;
-        }
-    }
-
-    return best_id ? window_manager_find_window(wm, best_id) : NULL;
+    return window_manager_find_managed_window_by_area(sm, wm, true);
 }
 
 struct window *window_manager_find_smallest_managed_window(struct space_manager *sm, struct window_manager *wm)
 {
-    struct view *view = space_manager_find_view(sm, space_manager_active_space());
-    if (!view) return NULL;
-
-    uint32_t best_id   = 0;
-    uint32_t best_area = UINT32_MAX;
-
-    for (struct window_node *node = window_node_find_first_leaf(view->root); node != NULL; node = window_node_find_next_leaf(node)) {
-        uint32_t area = node->area.w * node->area.h;
-        if (area <= best_area) {
-            best_id   = node->window_order[0];
-            best_area = area;
-        }
-    }
-
-    return best_id ? window_manager_find_window(wm, best_id) : NULL;
-}
-
-struct window *window_manager_find_sibling_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *sibling_node = window_node_is_left_child(node) ? node->parent->right : node->parent->left;
-    if (!window_node_is_leaf(sibling_node)) return NULL;
-
-    return window_manager_find_window(wm, sibling_node->window_order[0]);
-}
-
-struct window *window_manager_find_first_nephew_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *sibling_node = window_node_is_left_child(node) ? node->parent->right : node->parent->left;
-    if (window_node_is_leaf(sibling_node) || !window_node_is_leaf(sibling_node->left)) return NULL;
-
-    return window_manager_find_window(wm, sibling_node->left->window_order[0]);
-}
-
-struct window *window_manager_find_second_nephew_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *sibling_node = window_node_is_left_child(node) ? node->parent->right : node->parent->left;
-    if (window_node_is_leaf(sibling_node) || !window_node_is_leaf(sibling_node->right)) return NULL;
-
-    return window_manager_find_window(wm, sibling_node->right->window_order[0]);
-}
-
-struct window *window_manager_find_uncle_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *grandparent = node->parent->parent;
-    if (!grandparent) return NULL;
-
-    struct window_node *uncle_node = window_node_is_left_child(node->parent) ? grandparent->right : grandparent->left;
-    if (!window_node_is_leaf(uncle_node)) return NULL;
-
-    return window_manager_find_window(wm, uncle_node->window_order[0]);
-}
-
-struct window *window_manager_find_first_cousin_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *grandparent = node->parent->parent;
-    if (!grandparent) return NULL;
-
-    struct window_node *uncle_node = window_node_is_left_child(node->parent) ? grandparent->right : grandparent->left;
-    if (window_node_is_leaf(uncle_node) || !window_node_is_leaf(uncle_node->left)) return NULL;
-
-    return window_manager_find_window(wm, uncle_node->left->window_order[0]);
-}
-
-struct window *window_manager_find_second_cousin_for_managed_window(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return NULL;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node || !node->parent) return NULL;
-
-    struct window_node *grandparent = node->parent->parent;
-    if (!grandparent) return NULL;
-
-    struct window_node *uncle_node = window_node_is_left_child(node->parent) ? grandparent->right : grandparent->left;
-    if (window_node_is_leaf(uncle_node) || !window_node_is_leaf(uncle_node->right)) return NULL;
-
-    return window_manager_find_window(wm, uncle_node->right->window_order[0]);
+    return window_manager_find_managed_window_by_area(sm, wm, false);
 }
 
 static void window_manager_make_key_window(ProcessSerialNumber *window_psn, uint32_t window_id)
@@ -1833,53 +1670,38 @@ enum window_op_error window_manager_set_window_insertion(struct space_manager *s
 {
     TIME_FUNCTION;
 
-    uint64_t sid = window_space(window->id);
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_TREE && view->tree) return window_manager_tree_set_insertion(view, window, direction);
-    if (view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    struct view *view = space_manager_find_view(sm, window_space(window->id));
+    if (view->layout != VIEW_TREE || !view->tree) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
     if (view->insertion_point && view->insertion_point != window->id) {
-        struct window_node *insert_node = view_find_window_node(view, view->insertion_point);
-        if (insert_node) {
-            insert_feedback_destroy(insert_node);
-            insert_node->split = SPLIT_NONE;
-            insert_node->child = CHILD_NONE;
-            insert_node->insert_dir = 0;
+        struct con *insert = tree_find_window(view->tree, view->insertion_point);
+        if (insert) {
+            insert->insert_dir = 0;
+            tree_feedback_hide(insert);
         }
     }
 
-    if (direction == node->insert_dir) {
-        insert_feedback_destroy(node);
-        node->split = SPLIT_NONE;
-        node->child = CHILD_NONE;
-        node->insert_dir = 0;
+    if (direction == con->insert_dir) {
+        con->insert_dir = 0;
+        tree_feedback_hide(con);
         view->insertion_point = 0;
         return WINDOW_OP_ERROR_SUCCESS;
     }
 
-    if (direction == DIR_NORTH) {
-        node->split = SPLIT_X;
-        node->child = CHILD_FIRST;
-    } else if (direction == DIR_EAST) {
-        node->split = SPLIT_Y;
-        node->child = CHILD_SECOND;
-    } else if (direction == DIR_SOUTH) {
-        node->split = SPLIT_X;
-        node->child = CHILD_SECOND;
-    } else if (direction == DIR_WEST) {
-        node->split = SPLIT_Y;
-        node->child = CHILD_FIRST;
-    }
-
-    node->insert_dir = direction;
-    view->insertion_point = node->window_order[0];
-    insert_feedback_show(node);
+    con->insert_dir = direction;
+    view->insertion_point = window->id;
+    if (space_is_visible(view->sid)) tree_feedback_show(con, direction);
 
     return WINDOW_OP_ERROR_SUCCESS;
 }
+
+//
+// NOTE: Stacking a window onto another puts it into the tabbed container of that window, and turns
+// the window into a tabbed container first when it is not a tab yet.
+//
 
 enum window_op_error window_manager_stack_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b)
 {
@@ -1887,9 +1709,11 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
 
     if (a->id == b->id) return WINDOW_OP_ERROR_SAME_WINDOW;
 
-    struct view *a_view = window_manager_find_managed_window(wm, a);
+    struct view *a_view = window_manager_find_tree_view(wm, a);
     if (!a_view) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-    if (a_view->layout == VIEW_TREE) return window_manager_tree_stack_window(sm, wm, a_view, a, b);
+
+    struct con *a_con = tree_find_window(a_view->tree, a->id);
+    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
     struct view *b_view = window_manager_find_managed_window(wm, b);
     if (b_view) {
@@ -1902,26 +1726,19 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
         if (window_check_flag(b, WINDOW_STICKY)) window_manager_make_window_sticky(sm, wm, b, false);
     }
 
-    struct window_node *a_node = view_find_window_node(a_view, a->id);
-    if (a_node->window_count+1 >= NODE_MAX_WINDOW_COUNT) return WINDOW_OP_ERROR_MAX_STACK;
+    a_con = tree_find_window(a_view->tree, a->id);
+    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
-    view_stack_window_node(a_node, b);
+    if (window_space(b->id) != a_view->sid) space_manager_move_window_to_space(a_view->sid, b);
+
+    struct con *con = con_create(CON_SPLITH);
+    con->window_id = b->id;
+    tree_insert_relative(a_con, con, STACK);
+
     window_manager_add_managed_window(wm, b, a_view);
     window_manager_adjust_layer(b, LAYER_BELOW);
-    view_stack_order_window(a_node, b->id);
+    window_manager_tree_apply(a_view);
 
-    if (view_update_auto_padding(a_view)) {
-        window_node_flush(a_view->root);
-        return WINDOW_OP_ERROR_SUCCESS;
-    }
-
-    if (tab_bar_is_enabled()) {
-        window_node_flush(a_node);
-        return WINDOW_OP_ERROR_SUCCESS;
-    }
-
-    struct area area = a_node->zoom ? a_node->zoom->area : a_node->area;
-    window_manager_animate_window((struct window_capture) { b, area.x, area.y, area.w, area.h });
     return WINDOW_OP_ERROR_SUCCESS;
 }
 
@@ -1929,271 +1746,88 @@ enum window_op_error window_manager_set_window_layout(struct window_manager *wm,
 {
     TIME_FUNCTION;
 
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-    if (view->layout == VIEW_TREE) return window_manager_tree_set_layout(wm, window, layout);
-    if (view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-    if (layout == WINDOW_LAYOUT_SPLITH || layout == WINDOW_LAYOUT_SPLITV || layout == WINDOW_LAYOUT_TOGGLE_SPLIT) return WINDOW_OP_ERROR_INVALID_OPERATION;
+    struct view *view = window_manager_find_tree_view(wm, window);
+    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
 
-    struct window_node *node = view_find_window_node(view, window->id);
-    if (!node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    struct con *con = window_manager_tree_acting_con(view, window);
+    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
-    if (layout == WINDOW_LAYOUT_TOGGLE) {
-        layout = node->window_count > 1 ? WINDOW_LAYOUT_SPLIT : WINDOW_LAYOUT_TABBED;
+    struct con *parent = con->parent ? con->parent : con;
+
+    switch (layout) {
+    case WINDOW_LAYOUT_TABBED:       { tree_set_layout(con, CON_TABBED); } break;
+    case WINDOW_LAYOUT_SPLITH:       { tree_set_layout(con, CON_SPLITH); } break;
+    case WINDOW_LAYOUT_SPLITV:       { tree_set_layout(con, CON_SPLITV); } break;
+    case WINDOW_LAYOUT_SPLIT:        { tree_set_layout(con, parent->layout == CON_TABBED ? parent->last_split : parent->layout); } break;
+    case WINDOW_LAYOUT_TOGGLE:       { tree_toggle_layout(con, false); } break;
+    case WINDOW_LAYOUT_TOGGLE_SPLIT: { tree_toggle_layout(con, true); } break;
     }
 
-    if (layout == WINDOW_LAYOUT_TABBED) {
-        node = view_make_tabbed(view, window->id);
-        if (!node) return WINDOW_OP_ERROR_MAX_STACK;
-    } else {
-        node = view_make_split(view, window->id);
-    }
-
-    if (view_update_auto_padding(view)) node = view->root;
-
-    if (space_is_visible(view->sid)) {
-        window_node_flush(node);
-    } else {
-        view_set_flag(view, VIEW_IS_DIRTY);
-    }
-
-    if (layout == WINDOW_LAYOUT_TABBED && wm->focused_window_id == window->id) {
-        window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
-    }
-
+    tree_flatten(view->tree);
+    window_manager_tree_apply(view);
     return WINDOW_OP_ERROR_SUCCESS;
 }
+
+//
+// NOTE: Warping onto a window places the window right after it, in the container of that window.
+//
 
 enum window_op_error window_manager_warp_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b)
 {
     TIME_FUNCTION;
 
     if (a->id == b->id) return WINDOW_OP_ERROR_SAME_WINDOW;
-    if (window_manager_find_tree_view(wm, a)) return window_manager_tree_warp_window(sm, wm, a, b);
 
-    uint64_t a_sid = window_space(a->id);
-    struct view *a_view = space_manager_find_view(sm, a_sid);
-    if (a_view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    struct view *a_view = window_manager_find_tree_view(wm, a);
+    struct view *b_view = window_manager_find_tree_view(wm, b);
+    if (!a_view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    if (!b_view) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
 
-    uint64_t b_sid = window_space(b->id);
-    struct view *b_view = space_manager_find_view(sm, b_sid);
-    if (b_view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
+    struct con *a_con = tree_find_window(a_view->tree, a->id);
+    struct con *b_con = tree_find_window(b_view->tree, b->id);
+    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    if (!b_con) return WINDOW_OP_ERROR_INVALID_DST_NODE;
 
-    struct window_node *a_node = view_find_window_node(a_view, a->id);
-    if (!a_node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    struct window_node *b_node = view_find_window_node(b_view, b->id);
-    if (!b_node) return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-    if (a_node == b_node) return WINDOW_OP_ERROR_SAME_STACK;
-
-    if (a_node->parent && b_node->parent &&
-        a_node->parent == b_node->parent &&
-        a_node->window_count == 1) {
-        if (window_node_contains_window(b_node, b_view->insertion_point)) {
-            b_node->parent->split = b_node->split;
-            b_node->parent->child = b_node->child;
-
-            view_remove_window_node(a_view, a);
-            window_manager_remove_managed_window(wm, a->id);
-            window_manager_add_managed_window(wm, a, b_view);
-            struct window_node *a_node_add = view_add_window_node_with_insertion_point(b_view, a, b->id);
-
-            struct window_capture *window_list = NULL;
-            window_node_capture_windows(a_node_add, &window_list);
-            window_manager_animate_window_list(window_list, ts_buf_len(window_list));
-        } else {
-            if (window_node_contains_window(a_node, a_view->insertion_point)) {
-                a_view->insertion_point = b->id;
-            }
-
-            window_node_swap_window_list(a_node, b_node);
-            if (view_update_auto_padding(a_view)) a_node = b_node = a_view->root;
-
-            struct window_capture *window_list = NULL;
-            window_node_capture_windows(a_node, &window_list);
-            if (b_node != a_node) window_node_capture_windows(b_node, &window_list);
-            window_manager_animate_window_list(window_list, ts_buf_len(window_list));
-        }
+    if (a_view == b_view) {
+        tree_insert_con(a_con, b_con, TREE_AFTER);
+        tree_flatten(a_view->tree);
+        window_manager_tree_apply(a_view);
     } else {
-        if (a_view->sid == b_view->sid) {
-
-            //
-            // :NaturalWarp
-            //
-            // NOTE(asmvik): Precalculate both target areas and select the one that has the closest distance to the source area.
-            // This allows the warp to feel more natural in terms of where the window is placed on screen, however, this is only utilized
-            // for warp operations where both operands belong to the same space. There may be a better system to handle this if/when multiple
-            // monitors should be supported.
-            //
-
-            struct area cf, cs;
-            area_make_pair(window_node_get_split(b_view, b_node), window_node_get_gap(b_view), window_node_get_ratio(b_node), &b_node->area, &cf, &cs);
-
-            CGPoint ca = { (int)(0.5f + a_node->area.x + a_node->area.w / 2.0f), (int)(0.5f + a_node->area.y + a_node->area.h / 2.0f) };
-            float dcf = powf((ca.x - (int)(0.5f + cf.x + cf.w / 2.0f)), 2.0f) + powf((ca.y - (int)(0.5f + cf.y + cf.h / 2.0f)), 2.0f);
-            float dcs = powf((ca.x - (int)(0.5f + cs.x + cs.w / 2.0f)), 2.0f) + powf((ca.y - (int)(0.5f + cs.y + cs.h / 2.0f)), 2.0f);
-
-            if (dcf < dcs) {
-                b_node->child = CHILD_FIRST;
-            } else if (dcf > dcs) {
-                b_node->child = CHILD_SECOND;
-            } else {
-                b_node->child = window_node_is_left_child(a_node) ? CHILD_FIRST : CHILD_SECOND;
-            }
-
-            struct window_node *a_node_rm = view_remove_window_node(a_view, a);
-            struct window_node *a_node_add = view_add_window_node_with_insertion_point(b_view, a, b->id);
-
-            struct window_capture *window_list = NULL;
-            if (a_node_rm) {
-                window_node_capture_windows(a_node_rm, &window_list);
-            }
-
-            if (a_node_rm != a_node_add && a_node_rm != a_node_add->parent) {
-                window_node_capture_windows(a_node_add, &window_list);
-            }
-
-            window_manager_animate_window_list(window_list, ts_buf_len(window_list));
-        } else {
-            if (wm->focused_window_id == a->id) {
-                struct window *next = window_manager_find_window_on_space_by_rank_filtering_window(wm, a_view->sid, 1, a->id);
-                if (next) {
-                    window_manager_focus_window_with_raise(&next->application->psn, next->id, next->ref);
-                } else {
-                    _SLPSSetFrontProcessWithOptions(&g_process_manager.finder_psn, 0, kCPSNoWindows);
-                }
-            }
-
-            //
-            // :NaturalWarp
-            //
-            // TODO(asmvik): Warp operations with operands that belong to different monitors does not yet implement a heuristic to select
-            // the target area that feels the most natural in terms of where the window is placed on screen. Is it possible to do better when
-            // warping between spaces that belong to the same monitor as well??
-            //
-
-            space_manager_untile_window(a_view, a);
-            window_manager_remove_managed_window(wm, a->id);
-            window_manager_add_managed_window(wm, a, b_view);
-            space_manager_move_window_to_space(b_view->sid, a);
-            space_manager_tile_window_on_space_with_insertion_point(sm, a, b_view->sid, b->id);
-        }
+        space_manager_untile_window(a_view, a);
+        window_manager_remove_managed_window(wm, a->id);
+        window_manager_add_managed_window(wm, a, b_view);
+        space_manager_move_window_to_space(b_view->sid, a);
+        space_manager_tile_window_on_space_with_insertion_point(sm, a, b_view->sid, b->id);
     }
 
     return WINDOW_OP_ERROR_SUCCESS;
 }
 
-enum window_op_error window_manager_swap_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b)
+enum window_op_error window_manager_swap_window(struct window_manager *wm, struct window *a, struct window *b)
 {
     TIME_FUNCTION;
 
     if (a->id == b->id) return WINDOW_OP_ERROR_SAME_WINDOW;
-    if (window_manager_find_tree_view(wm, a)) return window_manager_tree_swap_window(wm, a, b);
 
-    uint64_t a_sid = window_space(a->id);
-    struct view *a_view = space_manager_find_view(sm, a_sid);
+    struct view *a_view = window_manager_find_tree_view(wm, a);
+    struct view *b_view = window_manager_find_tree_view(wm, b);
+    if (!a_view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
+    if (!b_view) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
 
-    uint64_t b_sid = window_space(b->id);
-    struct view *b_view = space_manager_find_view(sm, b_sid);
+    struct con *a_con = tree_find_window(a_view->tree, a->id);
+    struct con *b_con = tree_find_window(b_view->tree, b->id);
+    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    if (!b_con) return WINDOW_OP_ERROR_INVALID_DST_NODE;
 
-    struct window_node *a_node = view_find_window_node(a_view, a->id);
-    if (!a_node) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+    tree_swap(a_con, b_con);
 
-    struct window_node *b_node = view_find_window_node(b_view, b->id);
-    if (!b_node) return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-    if (a_node == b_node) {
-        int a_list_index = 0;
-        int a_order_index = 0;
-
-        int b_list_index = 0;
-        int b_order_index = 0;
-
-        for (int i = 0; i < a_node->window_count; ++i) {
-            if (a_node->window_list[i] == a->id) {
-                a_list_index = i;
-            } else if (a_node->window_list[i] == b->id) {
-                b_list_index = i;
-            }
-
-            if (a_node->window_order[i] == a->id) {
-                a_order_index = i;
-            } else if (a_node->window_order[i] == b->id) {
-                b_order_index = i;
-            }
-        }
-
-        a_node->window_list[a_list_index] = b->id;
-        a_node->window_order[a_order_index] = b->id;
-
-        a_node->window_list[b_list_index] = a->id;
-        a_node->window_order[b_order_index] = a->id;
-
-        if (a->id == wm->focused_window_id) {
-            window_manager_focus_window_with_raise(&b->application->psn, b->id, b->ref);
-        } else if (b->id == wm->focused_window_id) {
-            window_manager_focus_window_with_raise(&a->application->psn, a->id, a->ref);
-        }
-
-        return WINDOW_OP_ERROR_SUCCESS;
+    if (a_view != b_view) {
+        window_manager_tree_set_view(wm, a_con, b_view);
+        window_manager_tree_set_view(wm, b_con, a_view);
+        window_manager_tree_apply(b_view);
     }
 
-    if (a_view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-    if (b_view->layout != VIEW_BSP) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
-
-    if (window_node_contains_window(a_node, a_view->insertion_point)) {
-        a_view->insertion_point = b->id;
-    } else if (window_node_contains_window(b_node, b_view->insertion_point)) {
-        b_view->insertion_point = a->id;
-    }
-
-    bool a_visible = space_is_visible(a_view->sid);
-    bool b_visible = space_is_visible(b_view->sid);
-
-    if (a_view->sid != b_view->sid) {
-        for (int i = 0; i < a_node->window_count; ++i) {
-            struct window *window = window_manager_find_window(wm, a_node->window_list[i]);
-            window_manager_remove_managed_window(wm, a_node->window_list[i]);
-            space_manager_move_window_to_space(b_view->sid, window);
-            window_manager_add_managed_window(wm, window, b_view);
-        }
-
-        for (int i = 0; i < b_node->window_count; ++i) {
-            struct window *window = window_manager_find_window(wm, b_node->window_list[i]);
-            window_manager_remove_managed_window(wm, b_node->window_list[i]);
-            space_manager_move_window_to_space(a_view->sid, window);
-            window_manager_add_managed_window(wm, window, a_view);
-        }
-
-        if (a_visible && !b_visible && a->id == wm->focused_window_id) {
-            window_manager_focus_window_with_raise(&b->application->psn, b->id, b->ref);
-        } else if (b_visible && !a_visible && b->id == wm->focused_window_id) {
-            window_manager_focus_window_with_raise(&a->application->psn, a->id, a->ref);
-        }
-    }
-
-    window_node_swap_window_list(a_node, b_node);
-    if (view_update_auto_padding(a_view)) a_node = a_view->root;
-    if (view_update_auto_padding(b_view)) b_node = b_view->root;
-    if (a_view == b_view && a_node == a_view->root) b_node = a_node;
-    struct window_capture *window_list = NULL;
-
-    if (a_visible) {
-        window_node_capture_windows(a_node, &window_list);
-    } else {
-        view_set_flag(a_view, VIEW_IS_DIRTY);
-    }
-
-    if (b_node != a_node) {
-        if (b_visible) {
-            window_node_capture_windows(b_node, &window_list);
-        } else {
-            view_set_flag(b_view, VIEW_IS_DIRTY);
-        }
-    }
-
-    window_manager_animate_window_list(window_list, ts_buf_len(window_list));
+    window_manager_tree_apply(a_view);
     return WINDOW_OP_ERROR_SUCCESS;
 }
 
@@ -2466,76 +2100,30 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
     window_manager_wait_for_native_fullscreen_transition(window);
 }
 
+static void window_manager_toggle_window_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom)
+{
+    struct view *view = window_manager_find_tree_view(wm, window);
+    if (!view) return;
+
+    struct con *con = tree_find_window(view->tree, window->id);
+    if (!con || con == view->tree) return;
+    if (zoom == CON_ZOOM_PARENT && con->parent == view->tree) zoom = CON_ZOOM_FULLSCREEN;
+
+    con->zoom = con->zoom == zoom ? CON_ZOOM_NONE : zoom;
+    window_manager_tree_apply(view);
+}
+
+
 void window_manager_toggle_window_zoom_parent(struct window_manager *wm, struct window *window)
 {
     TIME_FUNCTION;
-
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (view && view->layout == VIEW_TREE) {
-        window_manager_tree_toggle_zoom(wm, window, CON_ZOOM_PARENT);
-        return;
-    }
-
-    if (!view || view->layout != VIEW_BSP) return;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    assert(node);
-
-    if (!node->parent) return;
-
-    if (node->zoom == node->parent) {
-        node->zoom = NULL;
-        if (view_update_auto_padding(view)) node = view->root;
-        if (space_is_visible(view->sid)) {
-            window_node_flush(node);
-        } else {
-            view_set_flag(view, VIEW_IS_DIRTY);
-        }
-    } else {
-        node->zoom = node->parent;
-        if (view_update_auto_padding(view)) node = view->root;
-        if (space_is_visible(view->sid)) {
-            window_node_flush(node);
-        } else {
-            view_set_flag(view, VIEW_IS_DIRTY);
-        }
-    }
+    window_manager_toggle_window_zoom(wm, window, CON_ZOOM_PARENT);
 }
 
 void window_manager_toggle_window_zoom_fullscreen(struct window_manager *wm, struct window *window)
 {
     TIME_FUNCTION;
-
-    struct view *view = window_manager_find_managed_window(wm, window);
-    if (view && view->layout == VIEW_TREE) {
-        window_manager_tree_toggle_zoom(wm, window, CON_ZOOM_FULLSCREEN);
-        return;
-    }
-
-    if (!view || view->layout != VIEW_BSP) return;
-
-    struct window_node *node = view_find_window_node(view, window->id);
-    assert(node);
-
-    if (node == view->root) return;
-
-    if (node->zoom == view->root) {
-        node->zoom = NULL;
-        if (view_update_auto_padding(view)) node = view->root;
-        if (space_is_visible(view->sid)) {
-            window_node_flush(node);
-        } else {
-            view_set_flag(view, VIEW_IS_DIRTY);
-        }
-    } else {
-        node->zoom = view->root;
-        if (view_update_auto_padding(view)) node = view->root;
-        if (space_is_visible(view->sid)) {
-            window_node_flush(node);
-        } else {
-            view_set_flag(view, VIEW_IS_DIRTY);
-        }
-    }
+    window_manager_toggle_window_zoom(wm, window, CON_ZOOM_FULLSCREEN);
 }
 
 void window_manager_toggle_window_windowed_fullscreen(struct window *window)
@@ -2794,7 +2382,7 @@ static void window_manager_validate_windows_on_space(struct window_manager *wm, 
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_remove_window_node(view, window);
+            view_remove_window(view, window);
             window_manager_adjust_layer(window, LAYER_NORMAL);
             window_manager_remove_managed_window(wm, window->id);
             window_manager_purify_window(wm, window);
@@ -2823,7 +2411,7 @@ static void window_manager_check_for_windows_on_space(struct window_manager *wm,
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_remove_window_node(existing_view, window);
+            view_remove_window(existing_view, window);
             window_manager_adjust_layer(window, LAYER_NORMAL);
             window_manager_remove_managed_window(wm, window->id);
             window_manager_purify_window(wm, window);
@@ -2842,7 +2430,7 @@ static void window_manager_check_for_windows_on_space(struct window_manager *wm,
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_add_window_node(view, window);
+            view_add_window(view, window, 0);
             window_manager_adjust_layer(window, LAYER_BELOW);
             window_manager_add_managed_window(wm, window, view);
             view_set_flag(view, VIEW_IS_DIRTY);
@@ -2870,8 +2458,7 @@ void window_manager_validate_and_check_for_windows_on_space(struct space_manager
     //
 
     if (space_is_visible(view->sid) && view_is_dirty(view)) {
-        window_node_flush(view->root);
-        view_clear_flag(view, VIEW_IS_DIRTY);
+        view_flush(view);
     }
 }
 
@@ -2972,7 +2559,6 @@ void window_manager_init(struct window_manager *wm)
     table_init(&wm->window_lost_focused_event, 150, hash_wm, compare_wm);
     table_init(&wm->application_lost_front_switched_event, 150, hash_wm, compare_wm);
     table_init(&wm->window_animations_table, 150, hash_wm, compare_wm);
-    table_init(&wm->insert_feedback, 150, hash_wm, compare_wm);
     pthread_mutex_init(&wm->window_animations_lock, NULL);
 }
 
@@ -3004,43 +2590,6 @@ void window_manager_begin(struct space_manager *sm, struct window_manager *wm)
         wm->focused_window_psn = window->application->psn;
         window_manager_set_window_opacity(wm, window, wm->active_window_opacity);
     }
-}
-
-//
-// NOTE: Operations on spaces with the 'tree' layout. They act on the container selected with
-// 'window --focus parent' when there is one, and on the window otherwise.
-//
-
-struct view *window_manager_find_tree_view(struct window_manager *wm, struct window *window)
-{
-    struct view *view = window ? window_manager_find_managed_window(wm, window) : NULL;
-    return view && view->layout == VIEW_TREE && view->tree ? view : NULL;
-}
-
-static struct con *window_manager_tree_acting_con(struct view *view, struct window *window)
-{
-    struct con *selected = tree_find_selected(view->tree);
-    if (selected && window->id == g_window_manager.focused_window_id) return selected;
-    return tree_find_window(view->tree, window->id);
-}
-
-static void window_manager_tree_apply(struct view *view)
-{
-    //
-    // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
-    //
-
-    struct con *focused = tree_find_window(view->tree, g_window_manager.focused_window_id);
-    if (focused) tree_focus(focused);
-
-    if (!view_update_auto_padding(view)) tree_view_update(view);
-    view_flush(view);
-}
-
-static void window_manager_focus_window_id(struct window_manager *wm, uint32_t window_id)
-{
-    struct window *window = window_manager_find_window(wm, window_id);
-    if (window) window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
 }
 
 static uint32_t window_manager_tree_display_in_direction(struct view *view, int direction)
@@ -3185,188 +2734,6 @@ enum window_op_error window_manager_tree_move_direction(struct space_manager *sm
     return WINDOW_OP_ERROR_SUCCESS;
 }
 
-struct window *window_manager_tree_find_window_in_direction(struct window_manager *wm, struct window *window, int direction)
-{
-    struct view *view = window_manager_find_tree_view(wm, window);
-    if (!view) return NULL;
-
-    struct con *con = tree_find_window(view->tree, window->id);
-    if (!con) return NULL;
-
-    struct con *result = NULL;
-    if (tree_next(con, direction, FOCUS_WRAPPING_OFF, false, &result) != TREE_RESULT_DONE) return NULL;
-    if (!result || !con_is_leaf(result) || result == con) return NULL;
-
-    return window_manager_find_window(wm, result->window_id);
-}
-
-static void window_manager_tree_set_view(struct window_manager *wm, struct con *con, struct view *view)
-{
-    if (con_is_leaf(con)) {
-        struct window *window = window_manager_find_window(wm, con->window_id);
-        if (!window) return;
-
-        if (window_space(window->id) != view->sid) space_manager_move_window_to_space(view->sid, window);
-        window_manager_remove_managed_window(wm, window->id);
-        window_manager_add_managed_window(wm, window, view);
-        return;
-    }
-
-    for (int i = 0; i < con->child_count; ++i) {
-        window_manager_tree_set_view(wm, con->children[i], view);
-    }
-}
-
-enum window_op_error window_manager_tree_swap_window(struct window_manager *wm, struct window *a, struct window *b)
-{
-    struct view *a_view = window_manager_find_tree_view(wm, a);
-    struct view *b_view = window_manager_find_tree_view(wm, b);
-    if (!a_view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-    if (!b_view) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
-
-    struct con *a_con = tree_find_window(a_view->tree, a->id);
-    struct con *b_con = tree_find_window(b_view->tree, b->id);
-    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-    if (!b_con) return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-    tree_swap(a_con, b_con);
-
-    if (a_view != b_view) {
-        window_manager_tree_set_view(wm, a_con, b_view);
-        window_manager_tree_set_view(wm, b_con, a_view);
-        window_manager_tree_apply(b_view);
-    }
-
-    window_manager_tree_apply(a_view);
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-//
-// NOTE: Warping onto a window places the window right after it, in the container of that window.
-//
-
-enum window_op_error window_manager_tree_warp_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b)
-{
-    struct view *a_view = window_manager_find_tree_view(wm, a);
-    struct view *b_view = window_manager_find_tree_view(wm, b);
-    if (!a_view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-    if (!b_view) return WINDOW_OP_ERROR_INVALID_DST_VIEW;
-
-    struct con *a_con = tree_find_window(a_view->tree, a->id);
-    struct con *b_con = tree_find_window(b_view->tree, b->id);
-    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-    if (!b_con) return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-    if (a_view == b_view) {
-        tree_insert_con(a_con, b_con, TREE_AFTER);
-        tree_flatten(a_view->tree);
-        window_manager_tree_apply(a_view);
-    } else {
-        space_manager_untile_window(a_view, a);
-        window_manager_remove_managed_window(wm, a->id);
-        window_manager_add_managed_window(wm, a, b_view);
-        space_manager_move_window_to_space(b_view->sid, a);
-        space_manager_tile_window_on_space_with_insertion_point(sm, a, b_view->sid, b->id);
-    }
-
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-//
-// NOTE: Stacking a window onto another puts it into the tabbed container of that window, and turns
-// the window into a tabbed container first when it is not a tab yet.
-//
-
-enum window_op_error window_manager_tree_stack_window(struct space_manager *sm, struct window_manager *wm, struct view *a_view, struct window *a, struct window *b)
-{
-    struct con *a_con = tree_find_window(a_view->tree, a->id);
-    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    struct view *b_view = window_manager_find_managed_window(wm, b);
-    if (b_view) {
-        space_manager_untile_window(b_view, b);
-        window_manager_remove_managed_window(wm, b->id);
-        window_manager_purify_window(wm, b);
-    } else if (window_check_flag(b, WINDOW_FLOAT)) {
-        if (!window_manager_is_window_eligible(b)) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-        window_clear_flag(b, WINDOW_FLOAT);
-        if (window_check_flag(b, WINDOW_STICKY)) window_manager_make_window_sticky(sm, wm, b, false);
-    }
-
-    a_con = tree_find_window(a_view->tree, a->id);
-    if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    if (window_space(b->id) != a_view->sid) space_manager_move_window_to_space(a_view->sid, b);
-
-    struct con *con = con_create(CON_SPLITH);
-    con->window_id = b->id;
-    tree_insert_relative(a_con, con, STACK);
-
-    window_manager_add_managed_window(wm, b, a_view);
-    window_manager_adjust_layer(b, LAYER_BELOW);
-    window_manager_tree_apply(a_view);
-
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-static struct con *window_manager_tree_tab(struct view *view, struct window *window, struct con **tabbed)
-{
-    struct con *con = tree_find_window(view->tree, window->id);
-    if (!con) return NULL;
-
-    struct con *parent = tree_tabbed_ancestor(con);
-    if (!parent) return NULL;
-
-    while (con->parent != parent) con = con->parent;
-    *tabbed = parent;
-    return con;
-}
-
-//
-// NOTE: The stack.* selectors pick tabs of the closest tabbed container in tree spaces.
-// A tab that holds a container resolves to the window focused in it last.
-//
-
-struct window *window_manager_tree_find_window_in_stack(struct window_manager *wm, struct view *view, struct window *window, int index, bool relative)
-{
-    struct con *tabbed = NULL;
-    struct con *tab = window_manager_tree_tab(view, window, &tabbed);
-    if (!tab) return NULL;
-
-    int target = relative ? con_index(tab) + index : index == INT_MAX ? tabbed->child_count - 1 : index;
-    if (target < 0 || target >= tabbed->child_count) return NULL;
-
-    struct con *leaf = tree_descend_focused(tabbed->children[target]);
-    return leaf && con_is_leaf(leaf) ? window_manager_find_window(wm, leaf->window_id) : NULL;
-}
-
-struct window *window_manager_tree_find_recent_window_in_stack(struct window_manager *wm, struct view *view, struct window *window)
-{
-    struct con *tabbed = NULL;
-    struct con *tab = window_manager_tree_tab(view, window, &tabbed);
-    if (!tab || tabbed->child_count < 2) return NULL;
-
-    struct con *recent = tabbed->focus[0] == tab ? tabbed->focus[1] : tabbed->focus[0];
-    struct con *leaf = tree_descend_focused(recent);
-    return leaf && con_is_leaf(leaf) ? window_manager_find_window(wm, leaf->window_id) : NULL;
-}
-
-struct window *window_manager_tree_find_window_in_order(struct window_manager *wm, struct view *view, struct window *window, int which)
-{
-    struct con *con = NULL;
-
-    if (which == 0) {
-        con = tree_first_leaf(view->tree);
-    } else if (which == 3) {
-        con = tree_last_leaf(view->tree);
-    } else {
-        struct con *leaf = tree_find_window(view->tree, window->id);
-        if (leaf) con = which == 1 ? tree_prev_leaf(leaf) : tree_next_leaf(leaf);
-    }
-
-    return con && con_is_leaf(con) ? window_manager_find_window(wm, con->window_id) : NULL;
-}
-
 //
 // NOTE: When the focused window of a tree space closes, i3 focuses the window that was focused
 // before it in the same container. Computed before the window is taken out of the tree.
@@ -3415,115 +2782,6 @@ enum window_op_error window_manager_tree_split(struct window_manager *wm, struct
 
     tree_split(con, orientation);
     window_manager_tree_apply(view);
-
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-enum window_op_error window_manager_tree_set_layout(struct window_manager *wm, struct window *window, enum window_layout layout)
-{
-    struct view *view = window_manager_find_tree_view(wm, window);
-    if (!view) return WINDOW_OP_ERROR_INVALID_SRC_VIEW;
-
-    struct con *con = window_manager_tree_acting_con(view, window);
-    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    struct con *parent = con->parent ? con->parent : con;
-
-    switch (layout) {
-    case WINDOW_LAYOUT_TABBED:       { tree_set_layout(con, CON_TABBED); } break;
-    case WINDOW_LAYOUT_SPLITH:       { tree_set_layout(con, CON_SPLITH); } break;
-    case WINDOW_LAYOUT_SPLITV:       { tree_set_layout(con, CON_SPLITV); } break;
-    case WINDOW_LAYOUT_SPLIT:        { tree_set_layout(con, parent->layout == CON_TABBED ? parent->last_split : parent->layout); } break;
-    case WINDOW_LAYOUT_TOGGLE:       { tree_toggle_layout(con, false); } break;
-    case WINDOW_LAYOUT_TOGGLE_SPLIT: { tree_toggle_layout(con, true); } break;
-    }
-
-    tree_flatten(view->tree);
-    window_manager_tree_apply(view);
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-void window_manager_tree_toggle_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom)
-{
-    struct view *view = window_manager_find_tree_view(wm, window);
-    if (!view) return;
-
-    struct con *con = tree_find_window(view->tree, window->id);
-    if (!con || con == view->tree) return;
-    if (zoom == CON_ZOOM_PARENT && con->parent == view->tree) zoom = CON_ZOOM_FULLSCREEN;
-
-    con->zoom = con->zoom == zoom ? CON_ZOOM_NONE : zoom;
-    window_manager_tree_apply(view);
-}
-
-enum window_op_error window_manager_tree_resize(struct view *view, struct window *window, int direction, float dx, float dy)
-{
-    struct con *con = window_manager_tree_acting_con(view, window);
-    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    bool did_resize = false;
-    if (direction & HANDLE_TOP)    did_resize |= tree_resize(con, DIR_NORTH, dy);
-    if (direction & HANDLE_BOTTOM) did_resize |= tree_resize(con, DIR_SOUTH, dy);
-    if (direction & HANDLE_LEFT)   did_resize |= tree_resize(con, DIR_WEST, dx);
-    if (direction & HANDLE_RIGHT)  did_resize |= tree_resize(con, DIR_EAST, dx);
-    if (!did_resize) return WINDOW_OP_ERROR_INVALID_DST_NODE;
-
-    tree_view_update(view);
-    view_flush(view);
-
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-//
-// NOTE: The ratio of a window on a tree space is its share of its container. The space is taken from
-// or given to the next container, or the previous one for the last container.
-//
-
-enum window_op_error window_manager_tree_adjust_ratio(struct view *view, struct window *window, int type, float ratio)
-{
-    struct con *con = window_manager_tree_acting_con(view, window);
-    if (!con || !con->parent || con->parent->layout == CON_TABBED) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    struct con *parent = con->parent;
-    bool horizontal = parent->layout == CON_SPLITH;
-    float size = horizontal ? parent->area.w : parent->area.h;
-    float percent = type == TYPE_REL ? con->percent + ratio : ratio;
-    float delta = (clampf_range(percent, 0.05f, 0.95f) - con->percent) * size;
-
-    if (!tree_resize(con, horizontal ? DIR_EAST : DIR_SOUTH, delta) &&
-        !tree_resize(con, horizontal ? DIR_WEST : DIR_NORTH, -delta)) {
-        return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-    }
-
-    tree_view_update(view);
-    view_flush(view);
-
-    return WINDOW_OP_ERROR_SUCCESS;
-}
-
-enum window_op_error window_manager_tree_set_insertion(struct view *view, struct window *window, int direction)
-{
-    struct con *con = tree_find_window(view->tree, window->id);
-    if (!con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
-
-    if (view->insertion_point && view->insertion_point != window->id) {
-        struct con *insert = tree_find_window(view->tree, view->insertion_point);
-        if (insert) {
-            insert->insert_dir = 0;
-            tree_feedback_hide(insert);
-        }
-    }
-
-    if (direction == con->insert_dir) {
-        con->insert_dir = 0;
-        tree_feedback_hide(con);
-        view->insertion_point = 0;
-        return WINDOW_OP_ERROR_SUCCESS;
-    }
-
-    con->insert_dir = direction;
-    view->insertion_point = window->id;
-    if (space_is_visible(view->sid)) tree_feedback_show(con, direction);
 
     return WINDOW_OP_ERROR_SUCCESS;
 }

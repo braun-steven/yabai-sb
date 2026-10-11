@@ -3026,6 +3026,13 @@ static struct con *window_manager_tree_acting_con(struct view *view, struct wind
 
 static void window_manager_tree_apply(struct view *view)
 {
+    //
+    // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
+    //
+
+    struct con *focused = tree_find_window(view->tree, g_window_manager.focused_window_id);
+    if (focused) tree_focus(focused);
+
     if (!view_update_auto_padding(view)) tree_view_update(view);
     view_flush(view);
 }

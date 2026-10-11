@@ -1075,6 +1075,22 @@ struct con *tree_view_find_window(struct view *view, uint32_t window_id)
 // is used for windows that are restored or moved here, so they open next to that window.
 //
 
+//
+// NOTE: A new window becomes the focused child of its containers, as i3 focuses new windows, unless
+// the focused window is on this space: a window that is moved here or stops floating then stays
+// behind it, so that the focused window is not hidden in another tab.
+//
+
+static void tree_focus_new_window(struct con *root, struct con *con, uint32_t window_id)
+{
+    tree_focus(con);
+
+    if (window_id != g_window_manager.focused_window_id) {
+        struct con *focused = tree_find_window(root, g_window_manager.focused_window_id);
+        if (focused) tree_focus(focused);
+    }
+}
+
 void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point)
 {
     struct con *root = tree_view_root(view);
@@ -1096,7 +1112,7 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
             tree_attach(root, con, -1);
         }
 
-        tree_focus(con);
+        tree_focus_new_window(root, con, window->id);
         return;
     }
 
@@ -1110,7 +1126,7 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
             view->insertion_point = 0;
 
             tree_insert_relative(target, con, direction);
-            tree_focus(con);
+            tree_focus_new_window(root, con, window->id);
             return;
         }
     }
@@ -1121,7 +1137,7 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
         struct con *selected = tree_find_selected(root);
         if (selected && !con_is_leaf(selected)) {
             tree_attach(selected, con, -1);
-            tree_focus(con);
+            tree_focus_new_window(root, con, window->id);
             return;
         }
 
@@ -1135,9 +1151,7 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
         tree_attach(target->parent, con, con_index(target) + 1);
     }
 
-    if (!insertion_point || window->id == g_window_manager.focused_window_id) {
-        tree_focus(con);
-    }
+    tree_focus_new_window(root, con, window->id);
 }
 
 bool tree_remove_window(struct view *view, struct window *window)

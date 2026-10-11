@@ -865,13 +865,14 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
     if (window->subrole) CFRelease(window->subrole);
     window->subrole = window_ax_subrole(window);
 
+    struct view *view = window_manager_find_managed_window(&g_window_manager, window);
+    uint32_t next_focus = view ? window_manager_tree_focus_candidate(&g_window_manager, view, window) : 0;
+
     if (window->id == g_window_manager.last_window_id) {
         g_window_manager.last_window_id = g_window_manager.focused_window_id;
     }
 
-    struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view) {
-        uint32_t next_focus = window_manager_tree_focus_candidate(&g_window_manager, view, window);
         space_manager_untile_window(view, window);
         window_manager_remove_managed_window(&g_window_manager, window->id);
         window_manager_purify_window(&g_window_manager, window);

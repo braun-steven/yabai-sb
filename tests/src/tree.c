@@ -718,3 +718,32 @@ TEST_FUNC(tree_window_order_collect,
 
     con_free(root);
 });
+
+TEST_FUNC(tree_window_ids_collect,
+{
+    // H[ 1 T[ 2 V[ 3 4 ] ] ]: every window, hidden tabs included, in tree order
+    struct con *root = con_create(CON_SPLITH);
+    tree_test_leaf(root, 1);
+    struct con *t = tree_test_split(root, CON_TABBED);
+    tree_test_leaf(t, 2);
+    struct con *v = tree_test_split(t, CON_SPLITV);
+    tree_test_leaf(v, 3);
+    tree_test_leaf(v, 4);
+
+    uint32_t *list = NULL;
+    tree_collect_window_ids(root, &list);
+    TEST_CHECK(ts_buf_len(list), 4);
+    for (int i = 0; i < ts_buf_len(list); ++i) TEST_CHECK(list[i], (uint32_t)(i + 1));
+
+    list = NULL;
+    tree_collect_window_ids(t, &list);
+    TEST_CHECK(ts_buf_len(list), 3);
+    TEST_CHECK(list[0], 2);
+
+    list = NULL;
+    tree_collect_window_ids(v->children[1], &list);
+    TEST_CHECK(ts_buf_len(list), 1);
+    TEST_CHECK(list[0], 4);
+
+    con_free(root);
+});

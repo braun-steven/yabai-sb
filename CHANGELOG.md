@@ -41,6 +41,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Switching tabs orders the windows of all tabbed containers with one scripting-addition message instead of one per window
 - Commands that act on the active space no longer ask the frontmost application for its focused window when yabai already knows it, so they do not wait for an application that does not respond
 - An application that cannot be observed after launch is tried again with a growing delay and given up on after about 36 seconds instead of every 100ms forever; activating it tries again
+- Moving a container to another display, or swapping windows across spaces, moves its windows with one operation and waits for them to arrive before laying them out
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

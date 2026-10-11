@@ -697,6 +697,20 @@ bool space_manager_wait_for_window_on_space(uint32_t wid, uint64_t sid, int time
     return window_space(wid) == sid;
 }
 
+bool space_manager_wait_for_windows_on_space(uint32_t *window_list, int window_count, uint64_t sid, int timeout_ms)
+{
+    int arrived = 0;
+
+    for (int i = 0; i < timeout_ms / 10; ++i) {
+        while (arrived < window_count && window_space(window_list[arrived]) == sid) ++arrived;
+        if (arrived == window_count) return true;
+        usleep(10000);
+    }
+
+    while (arrived < window_count && window_space(window_list[arrived]) == sid) ++arrived;
+    return arrived == window_count;
+}
+
 void space_manager_move_window_to_space(uint64_t sid, struct window *window)
 {
     if (SLSPerformAsynchronousBridgedWindowManagementOperation) {

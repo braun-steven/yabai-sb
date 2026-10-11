@@ -50,6 +50,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_open_con_selected)                         \
     TEST_ENTRY(tree_attach_from_direction)                     \
     TEST_ENTRY(tree_window_order_collect)                      \
+    TEST_ENTRY(tree_window_ids_collect)                        \
     TEST_ENTRY(tab_bar_style_parse)                            \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \

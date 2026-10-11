@@ -337,21 +337,46 @@ static void window_manager_focus_window_id(struct window_manager *wm, uint32_t w
     }
 }
 
-static void window_manager_tree_set_view(struct window_manager *wm, struct con *con, struct view *view)
+static void tree_collect_window_ids(struct con *con, uint32_t **list)
 {
     if (con_is_leaf(con)) {
-        struct window *window = window_manager_find_window(wm, con->window_id);
-        if (!window) return;
-
-        if (window_space(window->id) != view->sid) space_manager_move_window_to_space(view->sid, window);
-        window_manager_remove_managed_window(wm, window->id);
-        window_manager_add_managed_window(wm, window, view);
+        if (con->window_id) ts_buf_push(*list, con->window_id);
         return;
     }
 
     for (int i = 0; i < con->child_count; ++i) {
-        window_manager_tree_set_view(wm, con->children[i], view);
+        tree_collect_window_ids(con->children[i], list);
     }
+}
+
+//
+// NOTE: The windows of the container that are on another space are moved with one operation, which
+// is asynchronous. The returned list of moved windows is passed to window_manager_tree_wait_for_view
+// before the layout of the view is applied, so that the frames are not set before the windows arrive.
+//
+
+static uint32_t *window_manager_tree_set_view(struct window_manager *wm, struct con *con, struct view *view)
+{
+    uint32_t *window_list = NULL;
+    tree_collect_window_ids(con, &window_list);
+
+    uint32_t *move_list = NULL;
+    for (int i = 0; i < ts_buf_len(window_list); ++i) {
+        struct window *window = window_manager_find_window(wm, window_list[i]);
+        if (!window) continue;
+
+        if (window_space(window->id) != view->sid) ts_buf_push(move_list, window->id);
+        window_manager_remove_managed_window(wm, window->id);
+        window_manager_add_managed_window(wm, window, view);
+    }
+
+    if (move_list) space_manager_move_window_list_to_space(view->sid, move_list, ts_buf_len(move_list));
+    return move_list;
+}
+
+static void window_manager_tree_wait_for_view(uint32_t *move_list, struct view *view)
+{
+    if (move_list) space_manager_wait_for_windows_on_space(move_list, ts_buf_len(move_list), view->sid, 200);
 }
 
 //
@@ -2076,8 +2101,10 @@ enum window_op_error window_manager_swap_window(struct window_manager *wm, struc
     tree_swap(a_con, b_con);
 
     if (a_view != b_view) {
-        window_manager_tree_set_view(wm, a_con, b_view);
-        window_manager_tree_set_view(wm, b_con, a_view);
+        uint32_t *a_moved = window_manager_tree_set_view(wm, a_con, b_view);
+        uint32_t *b_moved = window_manager_tree_set_view(wm, b_con, a_view);
+        window_manager_tree_wait_for_view(a_moved, b_view);
+        window_manager_tree_wait_for_view(b_moved, a_view);
         window_manager_tree_apply(b_view);
     }
 
@@ -2965,7 +2992,8 @@ static void window_manager_tree_move_to_display(struct space_manager *sm, struct
 
         if (view_is_invalid(dst_view)) view_update(dst_view);
         tree_view_attach_from_direction(dst_view, con, direction);
-        window_manager_tree_set_view(wm, con, dst_view);
+        uint32_t *moved = window_manager_tree_set_view(wm, con, dst_view);
+        window_manager_tree_wait_for_view(moved, dst_view);
         tree_flatten(dst_view->tree);
 
         if (focus) tree_focus(focus);

@@ -108,6 +108,7 @@ bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degr
 bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_split axis);
 void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list, int window_count);
 bool space_manager_wait_for_window_on_space(uint32_t wid, uint64_t sid, int timeout_ms);
+bool space_manager_wait_for_windows_on_space(uint32_t *window_list, int window_count, uint64_t sid, int timeout_ms);
 void space_manager_move_window_to_space(uint64_t sid, struct window *window);
 bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid);
 enum space_op_error space_manager_focus_space(uint64_t sid);

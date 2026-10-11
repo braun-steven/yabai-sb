@@ -140,5 +140,6 @@ struct application *application_create(struct process *process)
 void application_destroy(struct application *application)
 {
     CFRelease(application->ref);
+    if (application->icon) CGImageRelease(application->icon);
     free(application);
 }

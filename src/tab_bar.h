@@ -14,6 +14,7 @@ struct tab_bar_entry
 {
     uint32_t focus_wid;
     CFStringRef title;
+    CGImageRef icon;
     enum tab_bar_state state;
 };
 
@@ -28,6 +29,7 @@ struct tab_bar_hit
 bool tab_bar_set_font(char *font);
 bool tab_bar_is_enabled(void);
 CFStringRef tab_bar_copy_title(uint32_t wid);
+CGImageRef tab_bar_icon(uint32_t wid);
 void tab_bar_render(struct tab_bar *bar, CGRect frame, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
 void tab_bar_hide(struct tab_bar *bar);
 void tab_bar_release(struct tab_bar *bar);

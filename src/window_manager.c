@@ -2541,6 +2541,7 @@ void window_manager_init(struct window_manager *wm)
     wm->focus_wrapping = FOCUS_WRAPPING_ON;
     wm->enable_tab_bar = true;
     wm->tab_bar_height = 24;
+    wm->tab_bar_icons = true;
     wm->tab_bar_focused_color = rgba_color_from_hex(0xff285577);
     wm->tab_bar_focused_text_color = rgba_color_from_hex(0xffffffff);
     wm->tab_bar_inactive_color = rgba_color_from_hex(0xff5f676a);

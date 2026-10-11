@@ -229,6 +229,10 @@ Global Settings
 *tab_bar_font* ['<family>:<size>']::
     Font of the tab titles, e.g. 'Menlo:12'. Default is 'Helvetica Neue:12'.
 
+*tab_bar_icons* ['<BOOL_SEL>']::
+    Draw the application icon left of the title in each window tab. Enabled by default. +
+    Tabs that hold a nested container show only the title.
+
 *tab_bar_focused_color* ['0xAARRGGBB'], *tab_bar_focused_text_color* ['0xAARRGGBB']::
     Background and text color of the active tab of the tabbed container that holds the focused window.
 

@@ -4,6 +4,9 @@ extern struct window_manager g_window_manager;
 
 #define TAB_BAR_TITLE_PADDING 8.0f
 #define TAB_BAR_MAX_HIT_COUNT 256
+#define TAB_BAR_ICON_SCALE 0.7f
+#define TAB_BAR_ICON_SPACING 5.0f
+#define TAB_BAR_ICON_PIXEL_SIZE 64.0f
 
 //
 // NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
@@ -106,44 +109,76 @@ static CTLineRef tab_bar_create_line(CFStringRef text, CFDictionaryRef attribute
     return line;
 }
 
-static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGRect rect, struct rgba_color color)
+//
+// NOTE: Draws the application icon (if any) left of the title and centers both in the tab.
+// The title is truncated first; the icon is dropped only when the tab is too narrow for it.
+//
+
+static void tab_bar_draw_title(CGContextRef context, CFStringRef title, CGImageRef icon, CGRect rect, struct rgba_color color)
 {
     double max_width = rect.size.width - 2.0f * TAB_BAR_TITLE_PADDING;
-    if (max_width <= 0 || !g_window_manager.tab_bar_font) return;
+    if (max_width <= 0) return;
 
-    CGColorRef text_color = tab_bar_cgcolor(color);
-    const void *keys[] = { kCTFontAttributeName, kCTForegroundColorAttributeName };
-    const void *values[] = { g_window_manager.tab_bar_font, text_color };
-    CFDictionaryRef attributes = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CGFloat icon_size = (int)(rect.size.height * TAB_BAR_ICON_SCALE);
+    if (!icon || icon_size <= 0 || icon_size > max_width) icon = NULL;
 
-    CTLineRef line = tab_bar_create_line(title, attributes);
-    if (CTLineGetTypographicBounds(line, NULL, NULL, NULL) > max_width) {
-        UniChar ellipsis_char = 0x2026;
-        CFStringRef ellipsis = CFStringCreateWithCharacters(NULL, &ellipsis_char, 1);
-        CTLineRef token = tab_bar_create_line(ellipsis, attributes);
-        CTLineRef truncated = CTLineCreateTruncatedLine(line, max_width, kCTLineTruncationEnd, token);
-        CFRelease(token);
-        CFRelease(ellipsis);
+    double text_max_width = icon ? max_width - icon_size - TAB_BAR_ICON_SPACING : max_width;
+    if (!g_window_manager.tab_bar_font || text_max_width <= 0) title = NULL;
 
-        if (truncated) {
-            CFRelease(line);
-            line = truncated;
+    CTLineRef line = NULL;
+    CFDictionaryRef attributes = NULL;
+    CGColorRef text_color = NULL;
+    CGFloat ascent = 0, descent = 0;
+    double text_width = 0;
+
+    if (title) {
+        text_color = tab_bar_cgcolor(color);
+        const void *keys[] = { kCTFontAttributeName, kCTForegroundColorAttributeName };
+        const void *values[] = { g_window_manager.tab_bar_font, text_color };
+        attributes = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+        line = tab_bar_create_line(title, attributes);
+        if (CTLineGetTypographicBounds(line, NULL, NULL, NULL) > text_max_width) {
+            UniChar ellipsis_char = 0x2026;
+            CFStringRef ellipsis = CFStringCreateWithCharacters(NULL, &ellipsis_char, 1);
+            CTLineRef token = tab_bar_create_line(ellipsis, attributes);
+            CTLineRef truncated = CTLineCreateTruncatedLine(line, text_max_width, kCTLineTruncationEnd, token);
+            CFRelease(token);
+            CFRelease(ellipsis);
+
+            if (truncated) {
+                CFRelease(line);
+                line = truncated;
+            }
         }
+
+        text_width = CTLineGetTypographicBounds(line, &ascent, &descent, NULL);
     }
 
-    CGFloat ascent, descent;
-    double width = CTLineGetTypographicBounds(line, &ascent, &descent, NULL);
+    double content_width = text_width;
+    if (icon) content_width += icon_size + (line ? TAB_BAR_ICON_SPACING : 0);
 
-    CGFloat x = rect.origin.x + (rect.size.width - width) * 0.5f;
-    CGFloat y = rect.origin.y + (rect.size.height - (ascent + descent)) * 0.5f + descent;
+    CGFloat x = (int)(rect.origin.x + (rect.size.width - content_width) * 0.5f);
 
-    CGContextSetTextMatrix(context, CGAffineTransformIdentity);
-    CGContextSetTextPosition(context, (int) x, (int) y);
-    CTLineDraw(line, context);
+    if (icon) {
+        CGFloat y = (int)(rect.origin.y + (rect.size.height - icon_size) * 0.5f);
+        CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
+        CGContextDrawImage(context, (CGRect) {{x, y}, {icon_size, icon_size}}, icon);
+        x += icon_size + TAB_BAR_ICON_SPACING;
+    }
 
-    CFRelease(line);
-    CFRelease(attributes);
-    CGColorRelease(text_color);
+    if (line) {
+        CGFloat y = rect.origin.y + (rect.size.height - (ascent + descent)) * 0.5f + descent;
+
+        CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+        CGContextSetTextPosition(context, (int) x, (int) y);
+        CTLineDraw(line, context);
+
+        CFRelease(line);
+    }
+
+    if (attributes) CFRelease(attributes);
+    if (text_color) CGColorRelease(text_color);
 }
 
 CFStringRef tab_bar_copy_title(uint32_t wid)
@@ -160,6 +195,32 @@ CFStringRef tab_bar_copy_title(uint32_t wid)
     }
 
     return NULL;
+}
+
+//
+// NOTE: The application icon of a window, loaded once per application and owned by it.
+//
+
+CGImageRef tab_bar_icon(uint32_t wid)
+{
+    if (!g_window_manager.tab_bar_icons) return NULL;
+
+    struct window *window = window_manager_find_window(&g_window_manager, wid);
+    if (!window || !window->application) return NULL;
+
+    struct application *application = window->application;
+    if (application->icon) return application->icon;
+
+    @autoreleasepool {
+        NSImage *image = [[NSRunningApplication runningApplicationWithProcessIdentifier:application->pid] icon];
+        if (image) {
+            NSRect rect = NSMakeRect(0, 0, TAB_BAR_ICON_PIXEL_SIZE, TAB_BAR_ICON_PIXEL_SIZE);
+            CGImageRef cg_image = [image CGImageForProposedRect:&rect context:nil hints:nil];
+            if (cg_image) application->icon = CGImageRetain(cg_image);
+        }
+    }
+
+    return application->icon;
 }
 
 static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, int entry_count)
@@ -202,8 +263,8 @@ static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, 
             CGContextFillRect(context, (CGRect) {{x0, 0}, {1, bounds.size.height}});
         }
 
-        if (entry_list[i].title) {
-            tab_bar_draw_title(context, entry_list[i].title, tab, text);
+        if (entry_list[i].title || entry_list[i].icon) {
+            tab_bar_draw_title(context, entry_list[i].title, entry_list[i].icon, tab, text);
         }
     }
 

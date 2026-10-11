@@ -1322,6 +1322,7 @@ static void tree_render_bar(void *owner)
 
         entry_list[i].focus_wid = leaf ? leaf->window_id : 0;
         entry_list[i].title = tree_copy_title(child);
+        entry_list[i].icon = con_is_leaf(child) ? tab_bar_icon(child->window_id) : NULL;
         entry_list[i].state = child != active ? TAB_BAR_UNFOCUSED : has_focus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE;
     }
 

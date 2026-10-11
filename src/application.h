@@ -72,6 +72,7 @@ struct application
     ProcessSerialNumber psn;
     pid_t pid;
     char *name;
+    CGImageRef icon;
     AXObserverRef observer_ref;
     uint8_t notification;
     bool is_observing;

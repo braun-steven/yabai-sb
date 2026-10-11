@@ -1414,8 +1414,9 @@ static void tree_order_windows(struct con *con, int order, uint32_t relative)
 //
 // NOTE: Windows of hidden tabs keep the frame of their tabbed container and are hidden by
 // stacking order alone. When a tab becomes active, the windows of the other tabs are ordered
-// below its focused window, and the other visible windows of the tab (when it holds a split)
-// are ordered above it.
+// below the backdrop card of the container (below its focused window without a card), and
+// the other visible windows of the tab (when it holds a split) are ordered above it. The card
+// itself sits right below the focused window, so this is redone when either of them changes.
 //
 
 void tree_raise_tabs(struct con *con, bool force)
@@ -1425,13 +1426,18 @@ void tree_raise_tabs(struct con *con, bool force)
     if (con->layout == CON_TABBED && con->child_count && tree_con_is_visible(con)) {
         struct con *active = con->focus[0];
 
-        if (force || con->raised != active) {
-            con->raised = active;
+        struct con *anchor = tree_descend_focused(active);
+        uint32_t anchor_wid = anchor ? anchor->window_id : 0;
+        uint32_t card_wid = tab_bar_card_id(&con->tab_bar);
 
-            struct con *anchor = tree_descend_focused(active);
+        if (force || con->raised != active || con->raised_anchor != anchor_wid || con->raised_card != card_wid) {
+            con->raised = active;
+            con->raised_anchor = anchor_wid;
+            con->raised_card = card_wid;
+
             if (anchor && con->child_count > 1) {
                 for (int i = 0; i < con->child_count; ++i) {
-                    if (con->children[i] != active) tree_order_windows(con->children[i], -1, anchor->window_id);
+                    if (con->children[i] != active) tree_order_windows(con->children[i], -1, card_wid ? card_wid : anchor_wid);
                 }
             }
 

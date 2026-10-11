@@ -514,8 +514,10 @@ API_AVAILABLE(macos(26.0))
     NSView *pill_tint;
     NSGlassEffectView *pill;
     tab_bar_glass_content *content;
+    uint32_t panel_wid;
 }
 - (void)apply:(struct tab_bar_glass_snapshot *)snapshot;
+- (uint32_t)panelId;
 - (void)hide;
 - (void)order:(uint32_t)wid;
 @end
@@ -565,6 +567,13 @@ API_AVAILABLE(macos(26.0))
     [root addSubview:pill];
     [root addSubview:content];
     panel.contentView = root;
+
+    __atomic_store_n(&panel_wid, (uint32_t) panel.windowNumber, __ATOMIC_RELEASE);
+}
+
+- (uint32_t)panelId
+{
+    return __atomic_load_n(&panel_wid, __ATOMIC_ACQUIRE);
 }
 
 //
@@ -952,6 +961,23 @@ void tab_bar_release(struct tab_bar *bar)
     }
 
     tab_bar_publish_hits();
+}
+
+//
+// NOTE: Window id of the backdrop card of a visible bar, or 0 when it has none (yet). The panel is created on the
+// main queue, so the id only becomes known after the first update of the bar reaches it.
+//
+
+uint32_t tab_bar_card_id(struct tab_bar *bar)
+{
+    if (bar->hidden || !bar->glass) return 0;
+    if (!tab_bar_uses_glass() || g_window_manager.tab_bar_backdrop == TAB_BAR_BACKDROP_OFF) return 0;
+
+    if (@available(macOS 26.0, *)) {
+        return [(tab_bar_glass *) bar->glass panelId];
+    }
+
+    return 0;
 }
 
 void tab_bar_order(uint32_t wid)

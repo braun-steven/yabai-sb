@@ -89,6 +89,8 @@ struct con
     struct area area;
     enum con_zoom zoom;
     struct con *raised;
+    uint32_t raised_anchor;
+    uint32_t raised_card;
     bool selected;
     int insert_dir;
     struct feedback_window feedback_window;

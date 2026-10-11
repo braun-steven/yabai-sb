@@ -69,6 +69,7 @@ void tab_bar_release(struct tab_bar *bar);
 
 void tab_bar_refresh_for_window(uint32_t wid);
 void tab_bar_order(uint32_t wid);
+uint32_t tab_bar_card_id(struct tab_bar *bar);
 int tab_bar_window_list(uint32_t *window_list, int capacity);
 bool tab_bar_hit_test(CGPoint point, uint32_t *wid);
 void tab_bar_redraw_all(void);

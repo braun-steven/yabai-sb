@@ -37,6 +37,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Waiting for native-fullscreen transitions, window sub-level queries and reading `yabai -m` messages are bounded, so they can no longer hang the window manager
 - Fixed a leak and a long stall in the window discovery fallback for applications that do not respond, and overflows of the scripting-addition and JankyBorders message buffers with very many windows
 - Fixed minor memory leak on space destruction, and added a few missing null checks to SkyLight API calls [#2791](https://github.com/asmvik/yabai/issues/2791)
+- The scripting addition no longer leaks a Dock space object on every space switch or frees objects it does not own, drains the objects it autoreleases, and changes Dock's current space on Dock's main thread
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

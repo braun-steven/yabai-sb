@@ -1,5 +1,9 @@
 #include <Foundation/Foundation.h>
 
+#if __has_feature(objc_arc)
+#error "payload.m uses manual retain/release and must be compiled without -fobjc-arc"
+#endif
+
 #include <mach-o/getsect.h>
 #include <mach-o/dyld.h>
 #include <mach/mach.h>
@@ -400,9 +404,28 @@ static inline id get_ivar_value(id instance, const char *name)
     return result;
 }
 
-static inline void set_ivar_value(id instance, const char *name, id value)
+//
+// NOTE: _currentSpace is a stored property of the Swift class DockCore.DisplaySpaces (macOS 27, arm64e).
+// Its class_ro_t has RO_IS_ARC set but neither a strong nor a weak ivar layout, so the runtime treats the
+// ivar as unretained and object_setInstanceVariable only stores the pointer. The field still owns a
+// reference that Swift releases when it overwrites the property, so a plain store of a retained value
+// leaked the previous space on every write. We write the field directly and retain the new value and
+// release the old one ourselves. That is correct for any strong field, Swift or ObjC under ARC, and does
+// not depend on how a given macOS version's runtime classifies the ivar.
+//
+static inline void set_current_space(id display_space, id space)
 {
-    object_setInstanceVariable(instance, name, value);
+    if (display_space == nil || space == nil) return;
+
+    Ivar ivar = class_getInstanceVariable(object_getClass(display_space), "_currentSpace");
+    if (!ivar) return;
+
+    id *location = (id *)((char *)display_space + ivar_getOffset(ivar));
+    id old_space = *location;
+    if (old_space == space) return;
+
+    *location = [space retain];
+    [old_space release];
 }
 
 static inline uint64_t get_space_id(id space)
@@ -470,43 +493,49 @@ static void do_space_move(char *message)
     unpack(focus_dest_space);
 
     CFStringRef source_display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), source_space_id);
-    id source_space = space_for_display_with_id(source_display_uuid, source_space_id);
-    id source_display_space = display_space_for_display_uuid(source_display_uuid);
-
     CFStringRef dest_display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), dest_space_id);
-    id dest_space = space_for_display_with_id(dest_display_uuid, dest_space_id);
-    unsigned dest_display_id = ((unsigned (*)(id, SEL, id)) objc_msgSend)(dock_spaces, @selector(displayIDForSpace:), dest_space);
-    id dest_display_space = display_space_for_display_uuid(dest_display_uuid);
 
-    if (source_prev_space_id) {
-        NSArray *ns_source_space = @[ @(source_space_id) ];
-        NSArray *ns_dest_space = @[ @(source_prev_space_id) ];
-        id new_source_space = space_for_display_with_id(source_display_uuid, source_prev_space_id);
-        SLSShowSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_space);
-        SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
-        SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), source_display_uuid, source_prev_space_id);
-        set_ivar_value(source_display_space, "_currentSpace", [new_source_space retain]);
-        [ns_dest_space release];
-        [ns_source_space release];
-    }
+    __block id source_space;
+    __block id source_display_space;
+    __block id dest_space;
+    __block unsigned dest_display_id;
+    __block id dest_display_space;
+
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        source_space = space_for_display_with_id(source_display_uuid, source_space_id);
+        source_display_space = display_space_for_display_uuid(source_display_uuid);
+
+        dest_space = space_for_display_with_id(dest_display_uuid, dest_space_id);
+        dest_display_id = ((unsigned (*)(id, SEL, id)) objc_msgSend)(dock_spaces, @selector(displayIDForSpace:), dest_space);
+        dest_display_space = display_space_for_display_uuid(dest_display_uuid);
+
+        if (source_prev_space_id) {
+            NSArray *ns_source_space = @[ @(source_space_id) ];
+            NSArray *ns_dest_space = @[ @(source_prev_space_id) ];
+            id new_source_space = space_for_display_with_id(source_display_uuid, source_prev_space_id);
+            SLSShowSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_space);
+            SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
+            SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), source_display_uuid, source_prev_space_id);
+            set_current_space(source_display_space, new_source_space);
+        }
+    });
 
     asm__call_move_space(source_space, dest_space, dest_display_uuid, dock_spaces, move_space_fp);
 
     dispatch_sync(dispatch_get_main_queue(), ^{
         ((void (*)(id, SEL, id, unsigned, CFStringRef)) objc_msgSend)(dp_desktop_picture_manager, @selector(moveSpace:toDisplay:displayUUID:), source_space, dest_display_id, dest_display_uuid);
+
+        if (focus_dest_space) {
+            uint64_t new_source_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), source_display_uuid);
+            id new_source_space = space_for_display_with_id(source_display_uuid, new_source_space_id);
+            set_current_space(source_display_space, new_source_space);
+
+            NSArray *ns_dest_monitor_space = @[ @(dest_space_id) ];
+            SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_monitor_space);
+            SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), dest_display_uuid, source_space_id);
+            set_current_space(dest_display_space, source_space);
+        }
     });
-
-    if (focus_dest_space) {
-        uint64_t new_source_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), source_display_uuid);
-        id new_source_space = space_for_display_with_id(source_display_uuid, new_source_space_id);
-        set_ivar_value(source_display_space, "_currentSpace", [new_source_space retain]);
-
-        NSArray *ns_dest_monitor_space = @[ @(dest_space_id) ];
-        SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_monitor_space);
-        SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), dest_display_uuid, source_space_id);
-        set_ivar_value(dest_display_space, "_currentSpace", [source_space retain]);
-        [ns_dest_monitor_space release];
-    }
 
     CFRelease(source_display_uuid);
     CFRelease(dest_display_uuid);
@@ -523,18 +552,18 @@ static void do_space_destroy(char *message)
     CFStringRef display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), space_id);
     uint64_t active_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), display_uuid);
 
-    id space = space_for_display_with_id(display_uuid, space_id);
-    id display_space = display_space_for_display_uuid(display_uuid);
-
     dispatch_sync(dispatch_get_main_queue(), ^{
-        ((remove_space_call) remove_space_fp)(space, display_space, dock_spaces, space_id, space_id);
-    });
+        id space = space_for_display_with_id(display_uuid, space_id);
+        id display_space = display_space_for_display_uuid(display_uuid);
 
-    if (active_space_id == space_id) {
-        uint64_t dest_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), display_uuid);
-        id dest_space = space_for_display_with_id(display_uuid, dest_space_id);
-        set_ivar_value(display_space, "_currentSpace", [dest_space retain]);
-    }
+        ((remove_space_call) remove_space_fp)(space, display_space, dock_spaces, space_id, space_id);
+
+        if (active_space_id == space_id) {
+            uint64_t dest_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), display_uuid);
+            id dest_space = space_for_display_with_id(display_uuid, dest_space_id);
+            set_current_space(display_space, dest_space);
+        }
+    });
 
     CFRelease(display_uuid);
 }
@@ -566,27 +595,27 @@ static void do_space_focus(char *message)
 
     if (dest_space_id) {
         CFStringRef dest_display = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), dest_space_id);
-        id source_space = macOSSequoia
-                        ? ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display)
-                        : ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceforDisplayUUID:), dest_display);
-        uint64_t source_space_id = get_space_id(source_space);
 
-        if (source_space_id != dest_space_id) {
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            id source_space = macOSSequoia
+                            ? ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display)
+                            : ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceforDisplayUUID:), dest_display);
+            uint64_t source_space_id = get_space_id(source_space);
+            if (source_space_id == dest_space_id) return;
+
             id dest_space = space_for_display_with_id(dest_display, dest_space_id);
-            if (dest_space != nil) {
-                id display_space = display_space_for_space_with_id(source_space_id);
-                if (display_space != nil) {
-                    NSArray *ns_source_space = @[ @(source_space_id) ];
-                    NSArray *ns_dest_space = @[ @(dest_space_id) ];
-                    SLSShowSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_space);
-                    SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
-                    SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), dest_display, dest_space_id);
-                    set_ivar_value(display_space, "_currentSpace", [dest_space retain]);
-                    [ns_dest_space release];
-                    [ns_source_space release];
-                }
-            }
-        }
+            if (dest_space == nil) return;
+
+            id display_space = display_space_for_space_with_id(source_space_id);
+            if (display_space == nil) return;
+
+            NSArray *ns_source_space = @[ @(source_space_id) ];
+            NSArray *ns_dest_space = @[ @(dest_space_id) ];
+            SLSShowSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_space);
+            SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
+            SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), dest_display, dest_space_id);
+            set_current_space(display_space, dest_space);
+        });
 
         CFRelease(dest_display);
     }
@@ -644,7 +673,6 @@ static void do_window_move(char *message)
 
     NSArray *window_list = @[ @(wid) ];
     SLSReassociateWindowsSpacesByGeometry(SLSMainConnectionID(), (__bridge CFArrayRef) window_list);
-    [window_list release];
 }
 
 static void do_window_opacity(char *message)
@@ -786,8 +814,8 @@ static void do_window_focus(char *message)
     uint32_t wid;
     unpack(wid);
 
-    SLSGetWindowOwner(SLSMainConnectionID(), wid, &window_connection);
-    SLSGetConnectionPSN(SLSMainConnectionID(), &window_psn);
+    if (SLSGetWindowOwner(SLSMainConnectionID(), wid, &window_connection) != kCGErrorSuccess) return;
+    if (SLSGetConnectionPSN(window_connection, &window_psn) != kCGErrorSuccess) return;
 
     ((focus_window_call) set_front_window_fp)(window_psn, wid);
 }
@@ -1046,9 +1074,16 @@ static void *handle_connection(void *unused)
         int sockfd = accept(daemon_sockfd, NULL, 0);
         if (sockfd == -1) continue;
 
-        char message[SA_SOCKET_BUFF_LEN];
-        if (read_message(sockfd, message)) {
-            handle_message(sockfd, message);
+        //
+        // NOTE: This thread has no autorelease pool of its own. Without one, the autoreleased
+        // objects created while handling a message (e.g. array literals) would never be freed.
+        //
+
+        @autoreleasepool {
+            char message[SA_SOCKET_BUFF_LEN];
+            if (read_message(sockfd, message)) {
+                handle_message(sockfd, message);
+            }
         }
 
         shutdown(sockfd, SHUT_RDWR);

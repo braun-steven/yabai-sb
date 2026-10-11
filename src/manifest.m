@@ -62,6 +62,7 @@
 
 #include "view.h"
 #include "tab_bar.h"
+#include "tree.h"
 #include "sa.h"
 #include "event_loop.h"
 #include "event_signal.h"
@@ -89,6 +90,7 @@
 #include "space.c"
 #include "view.c"
 #include "tab_bar.c"
+#include "tree.c"
 #include "window.c"
 #include "process_manager.c"
 #include "application.c"

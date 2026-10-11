@@ -187,7 +187,8 @@ enum view_type
     VIEW_DEFAULT,
     VIEW_BSP,
     VIEW_STACK,
-    VIEW_FLOAT
+    VIEW_FLOAT,
+    VIEW_TREE
 };
 
 static const char *view_type_str[] =
@@ -195,7 +196,8 @@ static const char *view_type_str[] =
     "default",
     "bsp",
     "stack",
-    "float"
+    "float",
+    "tree"
 };
 
 enum view_flag
@@ -221,6 +223,7 @@ struct view
     CFStringRef uuid;
     uint64_t sid;
     struct window_node *root;
+    struct con *tree;
     uint32_t insertion_point;
     enum view_type layout;
     enum window_node_split split_type;

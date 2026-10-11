@@ -18,7 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - With *tab_bar* enabled, *window --focus east|west* and *window --warp east|west* move between the tabs of a stack before leaving it; warping past the first or last tab places the window next to the stack
 - Layout *tree* (`space --layout tree`, `config layout tree`) arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
 - On *tree* spaces, *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
-- Command *query --tree* prints the container tree of a *tree* space
+- Command *query --tree* prints the container tree of a *tree* space, and *query --windows* reports *split-type*, *stack-index* and the zoom state of windows on *tree* spaces
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|toggle-split* change containers on *tree* spaces, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed

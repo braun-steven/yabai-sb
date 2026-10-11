@@ -1514,6 +1514,8 @@ The windows of hidden tabs keep the frame of the container and are ordered below
 .sp
 Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
 .br
+In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, as on bsp spaces, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container, and \fIsplit\-child\fP is always \fInone\fP.
+.br
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP.
 .sp
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.

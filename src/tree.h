@@ -128,6 +128,7 @@ void tree_insert_con(struct con *con, struct con *target, enum tree_position pos
 enum tree_result tree_move(struct con *root, struct con *con, int direction, bool has_output);
 void tree_insert_relative(struct con *target, struct con *con, int direction);
 void tree_split(struct con *con, enum con_orientation orientation);
+void tree_autotile(struct con *target);
 void tree_set_layout(struct con *con, enum con_layout layout);
 enum con_layout tree_toggle_layout(struct con *con, bool split_only);
 bool tree_resize(struct con *con, int direction, float delta);

@@ -442,6 +442,13 @@ Orientation of an empty \fItree\fP space when its first window opens, like i3\(c
 Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, the first window of an empty \fItree\fP space opens inside a tabbed container, so later windows become tabs. Default is \fIdefault\fP.
 .RE
 .sp
+\fBtree_autotiling\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree.
+.br
+Windows that open in a tabbed container, next to a selected container or with \fBwindow \-\-insert\fP are placed as usual. Default is \fIoff\fP.
+.RE
+.sp
 \fBtop_padding\fP [\fI<integer number>\fP]
 .RS 4
 Padding added at the upper side of the selected space.
@@ -1434,7 +1441,7 @@ A container lays out any number of children in one of three ways: \fIsplith\fP (
 .br
 Each container remembers which of its children was focused last.
 .sp
-A new window opens right after the focused window, inside the same container.
+A new window opens right after the focused window, inside the same container. With \fBtree_autotiling\fP, the focused window is first split along its longer side.
 .br
 When the last window of a container closes, the container is removed as well.
 .br

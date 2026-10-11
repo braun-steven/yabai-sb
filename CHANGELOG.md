@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *scratchpad_below* puts scratchpads on the same stacking sub-layer as tiled windows, so focusing a tiled window brings it in front of a shown scratchpad
 - Config *scratchpad_grid* sets the frame of a scratchpad each time it is shown from hidden, e.g. `yabai -m config scratchpad_grid 40:40:1:1:38:38`
 - Layout *tree* arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
+- Config *tree_autotiling* splits the focused window along its longer side when a new window opens next to it, like the i3 autotiling script
 - Tabbed containers get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
 - Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
 - Command *query --tree* prints the container tree of a space, and *query --windows* reports *split-type*, *stack-index* and the zoom state from the tree

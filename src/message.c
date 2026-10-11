@@ -53,6 +53,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_AUTO_PADDING          "auto_padding"
 #define COMMAND_CONFIG_TREE_ORIENTATION      "tree_default_orientation"
 #define COMMAND_CONFIG_TREE_WORKSPACE_LAYOUT "tree_workspace_layout"
+#define COMMAND_CONFIG_TREE_AUTOTILING       "tree_autotiling"
 #define COMMAND_CONFIG_FOCUS_WRAPPING        "focus_wrapping"
 #define COMMAND_CONFIG_MOUSE_MOD             "mouse_modifier"
 #define COMMAND_CONFIG_MOUSE_ACTION1         "mouse_action1"
@@ -1656,6 +1657,17 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 g_space_manager.tree_workspace_tabbed = false;
             } else if (token_equals(value, ARGUMENT_CONFIG_TREE_TABBED)) {
                 g_space_manager.tree_workspace_tabbed = true;
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TREE_AUTOTILING)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_space_manager.tree_autotiling]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_space_manager.tree_autotiling = false;
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_space_manager.tree_autotiling = true;
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             }

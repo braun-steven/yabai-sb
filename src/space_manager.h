@@ -38,6 +38,7 @@ struct space_manager
     bool auto_padding;
     enum tree_orientation tree_default_orientation;
     bool tree_workspace_tabbed;
+    bool tree_autotiling;
     struct space_label *labels;
     bool skip_window_focus_animation;
     struct space_layout space_layout[SPACE_LAYOUT_MAX];

@@ -726,6 +726,19 @@ void tree_split(struct con *con, enum con_orientation orientation)
 }
 
 //
+// NOTE: Like the i3 autotiling script: a window that opens next to the target splits it along its
+// longer side, so every new window halves the target. Tabbed containers are left alone.
+//
+
+void tree_autotile(struct con *target)
+{
+    if (!target->parent || target->parent->layout == CON_TABBED) return;
+
+    enum con_orientation orientation = target->area.w >= target->area.h ? CON_HORIZONTAL : CON_VERTICAL;
+    if (con_orientation(target->parent) != orientation) tree_split(target, orientation);
+}
+
+//
 // NOTE: i3 con_set_layout. The layout of the parent changes, unless the container is the workspace.
 // The workspace itself is always a split, so a tabbed layout wraps its contents in a new container.
 //
@@ -1148,6 +1161,7 @@ void tree_add_window(struct view *view, struct window *window, uint32_t insertio
     if (!target || target == root) {
         tree_attach(root, con, -1);
     } else {
+        if (g_space_manager.tree_autotiling && con_is_leaf(target)) tree_autotile(target);
         tree_attach(target->parent, con, con_index(target) + 1);
     }
 

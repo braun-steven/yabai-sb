@@ -420,3 +420,53 @@ TEST_FUNC(tree_flatten_same_orientation,
 
     con_free(root);
 });
+
+static void tree_test_area(struct con *con, float w, float h)
+{
+    con->area.w = w;
+    con->area.h = h;
+}
+
+TEST_FUNC(tree_autotiling,
+{
+    // a wide window in a vertical split is split side by side
+    struct con *root = con_create(CON_SPLITV);
+    struct con *a = tree_test_leaf(root, 1);
+    tree_test_leaf(root, 2);
+    tree_test_area(a, 800, 400);
+
+    tree_autotile(a);
+    TEST_CHECK(a->parent != root, true);
+    TEST_CHECK(a->parent->layout, CON_SPLITH);
+    TEST_CHECK(a->parent->parent == root, true);
+
+    // a tall window in a vertical split stays, the new window goes below it
+    struct con *b = root->children[1];
+    tree_test_area(b, 400, 800);
+    tree_autotile(b);
+    TEST_CHECK(b->parent == root, true);
+    con_free(root);
+
+    // a tall window in a horizontal split is split on top of each other
+    root = con_create(CON_SPLITH);
+    a = tree_test_leaf(root, 1);
+    tree_test_leaf(root, 2);
+    tree_test_area(a, 500, 1000);
+
+    tree_autotile(a);
+    TEST_CHECK(a->parent != root, true);
+    TEST_CHECK(a->parent->layout, CON_SPLITV);
+    con_free(root);
+
+    // a tab is never split
+    root = con_create(CON_SPLITH);
+    struct con *tabbed = tree_test_split(root, CON_TABBED);
+    a = tree_test_leaf(tabbed, 1);
+    tree_test_leaf(tabbed, 2);
+    tree_test_area(a, 500, 1000);
+
+    tree_autotile(a);
+    TEST_CHECK(a->parent == tabbed, true);
+    TEST_CHECK(tabbed->layout, CON_TABBED);
+    con_free(root);
+});

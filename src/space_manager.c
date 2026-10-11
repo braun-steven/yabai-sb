@@ -1340,6 +1340,7 @@ void space_manager_begin(struct space_manager *sm)
     sm->auto_padding = false;
     sm->tree_default_orientation = TREE_ORIENTATION_AUTO;
     sm->tree_workspace_tabbed = false;
+    sm->tree_autotiling = false;
     sm->labels = NULL;
     sm->skip_window_focus_animation = false;
     table_init(&sm->view, 23, hash_view, compare_view);

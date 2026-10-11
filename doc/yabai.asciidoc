@@ -289,6 +289,10 @@ Space Settings
 *tree_workspace_layout* ['default|tabbed']::
     Like i3's 'workspace_layout'. With 'tabbed', the first window of an empty 'tree' space opens inside a tabbed container, so later windows become tabs. Default is 'default'.
 
+*tree_autotiling* ['<BOOL_SEL>']::
+    Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree. +
+    Windows that open in a tabbed container, next to a selected container or with *window --insert* are placed as usual. Default is 'off'.
+
 *top_padding* ['<integer number>']::
     Padding added at the upper side of the selected space.
 
@@ -969,7 +973,7 @@ Tree Layout
 A container lays out any number of children in one of three ways: 'splith' (side by side), 'splitv' (on top of each other) or 'tabbed' (one child visible at a time, with a row of tabs on top). +
 Each container remembers which of its children was focused last.
 
-A new window opens right after the focused window, inside the same container. +
+A new window opens right after the focused window, inside the same container. With *tree_autotiling*, the focused window is first split along its longer side. +
 When the last window of a container closes, the container is removed as well. +
 Containers that would only nest a split inside a split of the other orientation are flattened again.
 

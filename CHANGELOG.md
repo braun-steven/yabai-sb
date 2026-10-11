@@ -17,7 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *tree_autotiling* splits the focused window along its longer side when a new window opens next to it, like the i3 autotiling script
 - Tabbed containers get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
 - Config *tab_bar_icons* draws the application icon left of the title in each window tab
-- Config *tab_bar_style* draws tab bars like native macOS window tabs, in the Liquid Glass (`glass`, default) or pre-Tahoe (`classic`) look, following the system appearance; `i3` keeps the colored i3 tabs. *tab_bar_font* accepts `system:<size>`, which is the new default
+- Config *tab_bar_style* draws tab bars like the native Liquid Glass window tabs of macOS Tahoe (`glass`, default), following the system appearance; `i3` keeps the colored i3 tabs. *tab_bar_font* accepts `system:<size>`, which is the new default
 - Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
 - Command *query --tree* prints the container tree of a space, and *query --windows* reports *split-type*, *stack-index* and the zoom state from the tree
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree

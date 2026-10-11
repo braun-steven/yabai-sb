@@ -450,36 +450,6 @@ static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_
 }
 
 //
-// NOTE: The pre-Tahoe window tabs: a recessed strip where the selected tab takes the window background
-// and merges into the window below it, while the other tabs sit behind a hairline and full height separators.
-//
-
-static void tab_bar_draw_classic(CGContextRef context, CGRect bounds, bool has_focus, struct tab_bar_entry *entry_list, int entry_count)
-{
-    struct tab_bar_palette *palette = &tab_bar_palette;
-    tab_bar_fill(context, bounds, palette->track);
-
-    for (int i = 0; i < entry_count; ++i) {
-        struct tab_bar_entry *entry = &entry_list[i];
-        CGRect tab = tab_bar_slot(bounds, i, entry_count);
-
-        if (tab_bar_entry_is_selected(entry)) {
-            tab_bar_fill(context, tab, has_focus ? palette->selected : palette->selected_dim);
-        } else {
-            tab_bar_fill(context, (CGRect) {{tab.origin.x, 0}, {tab.size.width, 1}}, palette->separator);
-        }
-
-        if (i > 0 && !tab_bar_entry_is_selected(entry) && !tab_bar_entry_is_selected(&entry_list[i - 1])) {
-            tab_bar_fill(context, (CGRect) {{tab.origin.x, 0}, {1, bounds.size.height}}, palette->separator);
-        }
-
-        if (entry->title || entry->icon) {
-            tab_bar_draw_title(context, entry->title, entry->icon, tab, tab_bar_native_text_color(entry, has_focus));
-        }
-    }
-}
-
-//
 // NOTE: The Liquid Glass window tabs of macOS Tahoe: a recessed capsule holds the tabs, the selected
 // tab is a raised pill with a soft shadow, and short separators divide the tabs that are not selected.
 //
@@ -534,10 +504,9 @@ static void tab_bar_draw(struct tab_bar *bar, bool has_focus, struct tab_bar_ent
     CGContextClearRect(context, bounds);
 
     switch (g_window_manager.tab_bar_style) {
-    case TAB_BAR_STYLE_GLASS:   tab_bar_draw_glass(context, bounds, has_focus, entry_list, entry_count);   break;
-    case TAB_BAR_STYLE_CLASSIC: tab_bar_draw_classic(context, bounds, has_focus, entry_list, entry_count); break;
+    case TAB_BAR_STYLE_GLASS: tab_bar_draw_glass(context, bounds, has_focus, entry_list, entry_count); break;
     case TAB_BAR_STYLE_I3:
-    case TAB_BAR_STYLE_COUNT:   tab_bar_draw_i3(context, bounds, entry_list, entry_count);                 break;
+    case TAB_BAR_STYLE_COUNT: tab_bar_draw_i3(context, bounds, entry_list, entry_count); break;
     }
 
     CGContextFlush(context);

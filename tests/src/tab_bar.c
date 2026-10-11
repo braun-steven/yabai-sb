@@ -4,8 +4,7 @@ TEST_FUNC(tab_bar_style_parse,
 
     TEST_CHECK(tab_bar_parse_style("glass", &style), true);
     TEST_CHECK(style, TAB_BAR_STYLE_GLASS);
-    TEST_CHECK(tab_bar_parse_style("classic", &style), true);
-    TEST_CHECK(style, TAB_BAR_STYLE_CLASSIC);
+    TEST_CHECK(tab_bar_parse_style("classic", &style), false);
     TEST_CHECK(tab_bar_parse_style("i3", &style), true);
     TEST_CHECK(style, TAB_BAR_STYLE_I3);
 

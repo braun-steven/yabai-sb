@@ -337,15 +337,13 @@ The windows of the container are shrunk by \fBtab_bar_height\fP to make room for
 Height of the tab bar in points. Default is 24.
 .RE
 .sp
-\fBtab_bar_style\fP [\fIglass|classic|i3\fP]
+\fBtab_bar_style\fP [\fIglass|i3\fP]
 .RS 4
 Look of the tab bar. Default is \fIglass\fP.
 .br
 \fIglass\fP draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track, and the active tab is a raised pill.
 .br
-\fIclassic\fP draws the flat window tabs of earlier macOS versions, where the active tab merges into the window below it.
-.br
-Both follow the system appearance (light, dark and increased contrast) and dim the tabs of containers that do not hold the focused window.
+It follows the system appearance (light, dark and increased contrast) and dims the tabs of containers that do not hold the focused window.
 .br
 \fIi3\fP draws flat tabs in the \fBtab_bar_\(rs*_color\fP colors.
 .RE

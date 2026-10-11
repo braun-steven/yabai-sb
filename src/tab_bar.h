@@ -7,7 +7,6 @@
 enum tab_bar_style
 {
     TAB_BAR_STYLE_GLASS,
-    TAB_BAR_STYLE_CLASSIC,
     TAB_BAR_STYLE_I3,
     TAB_BAR_STYLE_COUNT
 };
@@ -15,7 +14,6 @@ enum tab_bar_style
 static const char *tab_bar_style_str[] =
 {
     "glass",
-    "classic",
     "i3"
 };
 

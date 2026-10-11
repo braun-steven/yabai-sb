@@ -226,11 +226,10 @@ Global Settings
 *tab_bar_height* ['<integer number>']::
     Height of the tab bar in points. Default is 24.
 
-*tab_bar_style* ['glass|classic|i3']::
+*tab_bar_style* ['glass|i3']::
     Look of the tab bar. Default is 'glass'. +
     'glass' draws the Liquid Glass window tabs of macOS Tahoe: the tabs sit in a rounded track, and the active tab is a raised pill. +
-    'classic' draws the flat window tabs of earlier macOS versions, where the active tab merges into the window below it. +
-    Both follow the system appearance (light, dark and increased contrast) and dim the tabs of containers that do not hold the focused window. +
+    It follows the system appearance (light, dark and increased contrast) and dims the tabs of containers that do not hold the focused window. +
     'i3' draws flat tabs in the *tab_bar_\*_color* colors.
 
 *tab_bar_font* ['<family>:<size>']::

@@ -89,11 +89,18 @@ void event_signal_flush(void)
             if (es->arg_name[3]) setenv(es->arg_name[3], es->arg_value[3], 1);
 
             char *exec[] = { "/usr/bin/env", "sh", "-c", signal->command, NULL};
-            exit(execvp(exec[0], exec));
+            execvp(exec[0], exec);
+            _exit(EXIT_FAILURE);
         }
     }
 
-    exit(EXIT_SUCCESS);
+    //
+    // NOTE: This is a forked copy of a multithreaded process. exit() would run the atexit handlers and
+    // finalizers of the frameworks (e.g. CoreSpotlight flushing to PowerLog), which are not safe to run
+    // after fork and crash; _exit() skips them.
+    //
+
+    _exit(EXIT_SUCCESS);
 }
 
 void event_signal_push(enum signal_type type, void *context)

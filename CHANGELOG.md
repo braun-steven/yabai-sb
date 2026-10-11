@@ -42,6 +42,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Commands that act on the active space no longer ask the frontmost application for its focused window when yabai already knows it, so they do not wait for an application that does not respond
 - An application that cannot be observed after launch is tried again with a growing delay and given up on after about 36 seconds instead of every 100ms forever; activating it tries again. Each attempt stops at the first notification the application does not respond to, instead of waiting for the timeout of every notification
 - Moving a container to another display, or swapping windows across spaces, moves its windows with one operation and waits for them to arrive before laying them out
+- Fixed a crash of the process that runs signal commands, which left a crash report each time signals were sent
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

@@ -3,3 +3,8 @@
 /archive
 /src/osax/loader_bin.c
 /src/osax/payload_bin.c
+/scripts/live-tests/bounds
+/scripts/live-tests/mouse
+/scripts/live-tests/freeze
+/scripts/live-tests/.focused-window
+/scripts/live-tests/__pycache__

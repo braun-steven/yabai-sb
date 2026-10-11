@@ -110,6 +110,7 @@ struct window_manager
     bool enable_tab_bar;
     int tab_bar_height;
     bool tab_bar_icons;
+    enum tab_bar_style tab_bar_style;
     char *tab_bar_font_name;
     CTFontRef tab_bar_font;
     struct rgba_color tab_bar_focused_color;

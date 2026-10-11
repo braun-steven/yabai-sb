@@ -15,6 +15,7 @@ typedef TEST_SIG(function);
 #include "space_layout.c"
 #include "auto_padding.c"
 #include "tree.c"
+#include "tab_bar.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -39,7 +40,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_rotate_mirror_swap)                        \
     TEST_ENTRY(tree_focus_candidate)                           \
     TEST_ENTRY(tree_flatten_same_orientation)                  \
-    TEST_ENTRY(tree_autotiling)
+    TEST_ENTRY(tree_autotiling)                                \
+    TEST_ENTRY(tab_bar_style_parse)                            \
+    TEST_ENTRY(tab_bar_font_parse)
 
 static struct {
     char *name;

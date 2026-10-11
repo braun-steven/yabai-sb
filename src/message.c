@@ -39,6 +39,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_TAB_BAR_HEIGHT        "tab_bar_height"
 #define COMMAND_CONFIG_TAB_BAR_FONT          "tab_bar_font"
 #define COMMAND_CONFIG_TAB_BAR_ICONS         "tab_bar_icons"
+#define COMMAND_CONFIG_TAB_BAR_STYLE         "tab_bar_style"
 #define COMMAND_CONFIG_TAB_BAR_FOCUSED_COLOR          "tab_bar_focused_color"
 #define COMMAND_CONFIG_TAB_BAR_FOCUSED_TEXT_COLOR     "tab_bar_focused_text_color"
 #define COMMAND_CONFIG_TAB_BAR_INACTIVE_COLOR         "tab_bar_inactive_color"
@@ -1474,6 +1475,17 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 tab_bar_redraw_all();
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
                 g_window_manager.tab_bar_icons = true;
+                tab_bar_redraw_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_STYLE)) {
+            struct token value = get_token(&message);
+            enum tab_bar_style style;
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", tab_bar_style_str[g_window_manager.tab_bar_style]);
+            } else if (tab_bar_parse_style(value.text, &style)) {
+                g_window_manager.tab_bar_style = style;
                 tab_bar_redraw_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);

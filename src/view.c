@@ -55,9 +55,13 @@ static inline int area_distance_in_direction(struct area *r1, CGPoint r1_max, st
     return INT_MAX;
 }
 
+//
+// NOTE: auto_padding leaves the gap alone: a space with one tiled container has no gap to remove,
+// except between the windows of a split inside a tabbed container, which keep it.
+//
+
 int view_window_gap(struct view *view)
 {
-    if (view_check_flag(view, VIEW_IS_UNPADDED)) return 0;
     return view_check_flag(view, VIEW_ENABLE_GAP) ? view->window_gap : 0;
 }
 

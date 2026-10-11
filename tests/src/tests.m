@@ -30,6 +30,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(auto_padding_tiled_count)                \
     TEST_ENTRY(auto_padding_root_area)                         \
     TEST_ENTRY(auto_padding_gap)                               \
+    TEST_ENTRY(auto_padding_split_in_tab)                      \
     TEST_ENTRY(tree_attach_detach)                             \
     TEST_ENTRY(tree_flatten)                                   \
     TEST_ENTRY(tree_focus_direction)                           \

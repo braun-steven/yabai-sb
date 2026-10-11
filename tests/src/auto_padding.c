@@ -134,16 +134,16 @@ TEST_FUNC(auto_padding_gap,
     TEST_CHECK((int) b->area.x, 30 + 461 + 8);
     TEST_CHECK((int) b->area.w, 461);
 
-    // one tiled window next to a zoom-fullscreen one: no padding, no gap
+    // one tiled window next to a zoom-fullscreen one: no padding, the gap stays
     view_set_flag(&view, VIEW_IS_UNPADDED);
-    TEST_CHECK(view_window_gap(&view), 0);
+    TEST_CHECK(view_window_gap(&view), 8);
 
     view.area = view_root_area(&view, frame);
     tree_view_update(&view);
     TEST_CHECK((int) a->area.x, 0);
-    TEST_CHECK((int) a->area.w, 500);
-    TEST_CHECK((int) b->area.x, 500);
-    TEST_CHECK((int) b->area.w, 500);
+    TEST_CHECK((int) a->area.w, 496);
+    TEST_CHECK((int) b->area.x, 496 + 8);
+    TEST_CHECK((int) b->area.w, 496);
 
     // the configured gap used by --grid is unchanged
     TEST_CHECK(view.window_gap, 8);
@@ -151,6 +151,32 @@ TEST_FUNC(auto_padding_gap,
     view_clear_flag(&view, VIEW_IS_UNPADDED);
     view_clear_flag(&view, VIEW_ENABLE_GAP);
     TEST_CHECK(view_window_gap(&view), 0);
+
+    con_free(view.tree);
+});
+
+TEST_FUNC(auto_padding_split_in_tab,
+{
+    struct view view;
+    auto_padding_view_init(&view);
+    view.tree->layout = CON_TABBED;
+
+    struct con *split = con_create(CON_SPLITH);
+    tree_attach(view.tree, split, -1);
+    struct con *a = auto_padding_leaf(split, 1);
+    struct con *b = auto_padding_leaf(split, 2);
+
+    // the tabbed container is the only container: no padding, but its split keeps the gap
+    bool unpadded = view_auto_padding_applies(view.layout, view.auto_padding, view_tiled_count(&view));
+    TEST_CHECK(unpadded, true);
+    view_set_flag(&view, VIEW_IS_UNPADDED);
+
+    view.area = view_root_area(&view, CGRectMake(0, 0, 1000, 800));
+    tree_view_update(&view);
+    TEST_CHECK((int) a->area.x, 0);
+    TEST_CHECK((int) a->area.w, 496);
+    TEST_CHECK((int) b->area.x, 496 + 8);
+    TEST_CHECK((int) b->area.x + (int) b->area.w, 1000);
 
     con_free(view.tree);
 });

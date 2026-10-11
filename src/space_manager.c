@@ -855,6 +855,30 @@ enum space_op_error space_manager_move_space_to_space(uint64_t acting_sid, uint6
     return success ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION;
 }
 
+static uint64_t space_manager_display_neighbor_space(uint64_t sid, uint32_t did)
+{
+    int space_count;
+    uint64_t *space_list = display_space_list(did, &space_count);
+    if (!space_list) return 0;
+
+    uint64_t prev_sid = 0;
+    for (int i = 0; i < space_count; ++i) {
+        if (space_list[i] == sid) {
+            if (prev_sid) return prev_sid;
+
+            for (int j = i + 1; j < space_count; ++j) {
+                if (space_is_user(space_list[j])) return space_list[j];
+            }
+
+            return 0;
+        }
+
+        if (space_is_user(space_list[i])) prev_sid = space_list[i];
+    }
+
+    return 0;
+}
+
 enum space_op_error space_manager_move_space_to_display(struct space_manager *sm, uint64_t sid, uint32_t did)
 {
     bool is_in_mc = mission_control_is_active();
@@ -878,7 +902,15 @@ enum space_op_error space_manager_move_space_to_display(struct space_manager *sm
 
     bool focus_space = sid == space_manager_active_space();
 
-    if (scripting_addition_move_space_to_display(sid, d_sid,  focus_space ? space_manager_prev_space(sid) : 0, focus_space ? 1 : 0)) {
+    //
+    // NOTE: A visible space must be replaced on its display before the move, even when it is
+    // not focused. Otherwise the WindowServer keeps it shown on the destination display next
+    // to that display's current space, and its menubar stays on screen above the real one.
+    //
+
+    uint64_t replacement_sid = space_is_visible(sid) ? space_manager_display_neighbor_space(sid, s_did) : 0;
+
+    if (scripting_addition_move_space_to_display(sid, d_sid, replacement_sid, focus_space ? 1 : 0)) {
         space_manager_mark_view_invalid(sm, sid);
         if (focus_space) {
             space_manager_focus_space(sid);
@@ -1180,12 +1212,14 @@ enum space_layout_result space_manager_reconcile_space_layout(struct space_manag
         uint64_t *space_list = display_space_list(did_list[surplus], &space_count);
         if (!space_list) return SPACE_LAYOUT_RESULT_FAILED;
 
+        uint64_t visible_sid = display_space_id(did_list[surplus]);
         uint64_t sid = 0;
         if (deficit > surplus) {
-            for (int i = space_count - 1; i >= 0 && !sid; --i) if (space_is_user(space_list[i])) sid = space_list[i];
+            for (int i = space_count - 1; i >= 0 && !sid; --i) if (space_is_user(space_list[i]) && space_list[i] != visible_sid) sid = space_list[i];
         } else {
-            for (int i = 0; i < space_count && !sid; ++i) if (space_is_user(space_list[i])) sid = space_list[i];
+            for (int i = 0; i < space_count && !sid; ++i) if (space_is_user(space_list[i]) && space_list[i] != visible_sid) sid = space_list[i];
         }
+        if (!sid && space_is_user(visible_sid)) sid = visible_sid;
 
         debug("%s: move space %lld from display %d to display %d\n", __FUNCTION__, sid, surplus + 1, deficit + 1);
         result = space_manager_move_space_to_display(sm, sid, did_list[deficit]);

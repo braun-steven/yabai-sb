@@ -217,7 +217,7 @@ extern struct event_loop g_event_loop;
 {
     if ([keyPath isEqualToString:@"activationPolicy"]) {
         struct process *process = context;
-        if (process->terminated) return;
+        if (__atomic_load_n(&process->terminated, __ATOMIC_ACQUIRE)) return;
 
         id result = [change objectForKey:NSKeyValueChangeNewKey];
         if ([result intValue] != process->policy) {
@@ -242,7 +242,7 @@ extern struct event_loop g_event_loop;
 
     if ([keyPath isEqualToString:@"finishedLaunching"]) {
         struct process *process = context;
-        if (process->terminated) return;
+        if (__atomic_load_n(&process->terminated, __ATOMIC_ACQUIRE)) return;
 
         id result = [change objectForKey:NSKeyValueChangeNewKey];
         if ([result intValue] == 1) {

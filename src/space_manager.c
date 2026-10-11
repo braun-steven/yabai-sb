@@ -650,6 +650,22 @@ void space_manager_move_window_list_to_space(uint64_t sid, uint32_t *window_list
     }
 }
 
+//
+// NOTE: The bridged operation moves windows asynchronously. Laying out or focusing a window before it has
+// arrived on its new space places it on the wrong display, or makes macOS switch to the space it came from.
+// The wait is bounded, because it blocks the event loop and a window may not be moved at all.
+//
+
+bool space_manager_wait_for_window_on_space(uint32_t wid, uint64_t sid, int timeout_ms)
+{
+    for (int i = 0; i < timeout_ms / 10; ++i) {
+        if (window_space(wid) == sid) return true;
+        usleep(10000);
+    }
+
+    return window_space(wid) == sid;
+}
+
 void space_manager_move_window_to_space(uint64_t sid, struct window *window)
 {
     if (SLSPerformAsynchronousBridgedWindowManagementOperation) {

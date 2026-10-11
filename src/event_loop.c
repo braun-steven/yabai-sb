@@ -63,6 +63,13 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
     wm->focused_window_psn = window->application->psn;
     ms->ffm_window_id = 0;
 
+    //
+    // NOTE: Late focus events of windows focused earlier must not end a pending focus, so it is only
+    // cleared when the window that was asked to be focused reports it.
+    //
+
+    if (wm->pending_focus_window_id == window->id) wm->pending_focus_window_id = 0;
+
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view && view->layout == VIEW_TREE) tree_window_did_receive_focus(view, window->id);
 
@@ -628,6 +635,19 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
+}
+
+static EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)
+{
+    uint32_t window_id = (uint32_t)(intptr_t) context;
+
+    struct window *window = window_manager_find_window(&g_window_manager, window_id);
+    if (!window || !window->application) {
+        debug("%s: %d no longer exists, ignoring event..\n", __FUNCTION__, window_id);
+        return;
+    }
+
+    window_manager_focus_window_without_raise_deferred(window);
 }
 
 static EVENT_HANDLER(WINDOW_FOCUSED)

@@ -108,6 +108,8 @@ struct window_manager
     struct application **applications_to_refresh;
     uint32_t focused_window_id;
     ProcessSerialNumber focused_window_psn;
+    uint32_t pending_focus_window_id;
+    uint64_t pending_focus_time;
     uint32_t last_window_id;
     bool enable_mff;
     enum ffm_mode ffm_mode;
@@ -200,8 +202,11 @@ enum window_op_error window_manager_tree_split(struct window_manager *wm, struct
 struct window *window_manager_find_largest_managed_window(struct space_manager *sm, struct window_manager *wm);
 struct window *window_manager_find_smallest_managed_window(struct space_manager *sm, struct window_manager *wm);
 void window_manager_focus_window_without_raise(ProcessSerialNumber *window_psn, uint32_t window_id);
+void window_manager_focus_window_without_raise_deferred(struct window *window);
 void window_manager_focus_window_with_raise(ProcessSerialNumber *window_psn, uint32_t window_id, AXUIElementRef window_ref);
 struct window *window_manager_focused_window(struct window_manager *wm);
+struct window *window_manager_acting_window(struct window_manager *wm);
+void window_manager_set_pending_focus(struct window_manager *wm, uint32_t window_id);
 struct application *window_manager_focused_application(struct window_manager *wm);
 struct view *window_manager_find_managed_window(struct window_manager *wm, struct window *window);
 void window_manager_remove_managed_window(struct window_manager *wm, uint32_t wid);

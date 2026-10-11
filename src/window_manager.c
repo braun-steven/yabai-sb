@@ -331,7 +331,10 @@ static void window_manager_tree_apply(struct view *view)
 static void window_manager_focus_window_id(struct window_manager *wm, uint32_t window_id)
 {
     struct window *window = window_manager_find_window(wm, window_id);
-    if (window) window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+    if (window) {
+        window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+        window_manager_set_pending_focus(wm, window->id);
+    }
 }
 
 static void window_manager_tree_set_view(struct window_manager *wm, struct con *con, struct view *view)
@@ -1404,16 +1407,33 @@ void window_manager_focus_window_without_raise(ProcessSerialNumber *window_psn, 
         // because some applications appear to be confused if both of
         // the events appear instantaneously.
         //
+        // NOTE: The activation is posted back to the event loop instead of sleeping,
+        // so that the event loop keeps handling events in the meantime.
+        //
 
-        usleep(40000);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 40 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            event_loop_post(&g_event_loop, WINDOW_FOCUS_DEFERRED, (void *)(intptr_t) window_id, 0);
+        });
 
-        g_event_bytes[0x8a] = 0x01;
-        memcpy(g_event_bytes + 0x3c, &window_id, sizeof(uint32_t));
-        SLPSPostEventRecordTo(window_psn, g_event_bytes);
+        return;
     }
 
     _SLPSSetFrontProcessWithOptions(window_psn, window_id, kCPSUserGenerated);
     window_manager_make_key_window(window_psn, window_id);
+}
+
+void window_manager_focus_window_without_raise_deferred(struct window *window)
+{
+    memset(g_event_bytes, 0, 0xf8);
+    g_event_bytes[0x04] = 0xf8;
+    g_event_bytes[0x08] = 0x0d;
+
+    g_event_bytes[0x8a] = 0x01;
+    memcpy(g_event_bytes + 0x3c, &window->id, sizeof(uint32_t));
+    SLPSPostEventRecordTo(&window->application->psn, g_event_bytes);
+
+    _SLPSSetFrontProcessWithOptions(&window->application->psn, window->id, kCPSUserGenerated);
+    window_manager_make_key_window(&window->application->psn, window->id);
 }
 
 void window_manager_focus_window_with_raise(ProcessSerialNumber *window_psn, uint32_t window_id, AXUIElementRef window_ref)
@@ -1453,6 +1473,35 @@ struct window *window_manager_focused_window(struct window_manager *wm)
 
     uint32_t window_id = application_focused_window(application);
     return window_manager_find_window(wm, window_id);
+}
+
+//
+// NOTE: A window focused by a command only reports its focus once the application has processed the
+// activation, which can take longer than it takes to send the next command. Until then, the next command
+// acts on the window that was asked to be focused, instead of the one the application still reports.
+//
+
+#define PENDING_FOCUS_TIMEOUT_MS 500.0f
+
+void window_manager_set_pending_focus(struct window_manager *wm, uint32_t window_id)
+{
+    wm->pending_focus_window_id = window_id;
+    wm->pending_focus_time = read_os_timer();
+}
+
+struct window *window_manager_acting_window(struct window_manager *wm)
+{
+    TIME_FUNCTION;
+
+    if (wm->pending_focus_window_id) {
+        float dt = ((float) read_os_timer() - wm->pending_focus_time) * (1000.0f / (float) read_os_freq());
+        struct window *window = dt < PENDING_FOCUS_TIMEOUT_MS ? window_manager_find_window(wm, wm->pending_focus_window_id) : NULL;
+        if (window) return window;
+
+        wm->pending_focus_window_id = 0;
+    }
+
+    return window_manager_focused_window(wm);
 }
 #pragma clang diagnostic pop
 
@@ -1918,7 +1967,10 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
     a_con = tree_find_window(a_view->tree, a->id);
     if (!a_con) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
 
-    if (window_space(b->id) != a_view->sid) space_manager_move_window_to_space(a_view->sid, b);
+    if (window_space(b->id) != a_view->sid) {
+        space_manager_move_window_to_space(a_view->sid, b);
+        space_manager_wait_for_window_on_space(b->id, a_view->sid, 200);
+    }
 
     struct con *con = con_create(CON_SPLITH);
     con->window_id = b->id;
@@ -1986,6 +2038,7 @@ enum window_op_error window_manager_warp_window(struct space_manager *sm, struct
         window_manager_remove_managed_window(wm, a->id);
         window_manager_add_managed_window(wm, a, b_view);
         space_manager_move_window_to_space(b_view->sid, a);
+        space_manager_wait_for_window_on_space(a->id, b_view->sid, 200);
         space_manager_tile_window_on_space_with_insertion_point(sm, a, b_view->sid, b->id);
     }
 
@@ -2079,6 +2132,7 @@ void window_manager_send_window_to_space(struct space_manager *sm, struct window
     }
 
     space_manager_move_window_to_space(dst_sid, window);
+    space_manager_wait_for_window_on_space(window->id, dst_sid, 200);
     SLSSpaceSetFrontPSN(g_connection, dst_sid, window->application->psn);
 
     if (window_manager_should_manage_window(window)) {
@@ -2471,13 +2525,7 @@ mode_2:;
     } else {
 mode_3:;
         space_manager_move_window_to_space(sid, window);
-
-        //
-        // NOTE: The move can complete asynchronously. Focusing the window
-        // before it has arrived makes macOS switch to the space it came from.
-        //
-
-        for (int i = 0; i < 20 && window_space(window->id) != sid; ++i) usleep(10000);
+        space_manager_wait_for_window_on_space(window->id, sid, 200);
 
         if (by_label && !ordered_in) window_manager_apply_scratchpad_grid(wm, window);
         scripting_addition_order_window(window->id, 1, 0);

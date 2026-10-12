@@ -106,6 +106,7 @@ static void tab_bar_publish_hits(void)
         struct tab_bar_hit *hit = &tab_bar_hit_list[tab_bar_hit_count++];
         hit->frame = bar->frame;
         hit->sid = bar->sid;
+        hit->above_wid = bar->above_wid;
         hit->entry_count = bar->entry_count;
         memcpy(hit->entry_list, bar->entry_list, sizeof(uint32_t) * bar->entry_count);
     }
@@ -113,9 +114,49 @@ static void tab_bar_publish_hits(void)
     pthread_mutex_unlock(&tab_bar_hit_lock);
 }
 
+static bool tab_bar_connection_is_jankyborders(int cid)
+{
+    char process_name[PROC_PIDPATHINFO_MAXSIZE];
+
+    pid_t pid = 0;
+    SLSConnectionGetPID(cid, &pid);
+    if (proc_name(pid, process_name, sizeof(process_name)) <= 0) return false;
+
+    return strcmp(process_name, "borders") == 0;
+}
+
+//
+// NOTE: The bar only sits right above the window it belongs to, so windows ordered in front of that
+// window (menu bar extras, Control Center, notifications, floating windows) may cover it. A click goes
+// to the bar only when the window that would receive it is one of ours or is ordered behind the bar.
+//
+
+static bool tab_bar_is_covered_at_point(CGPoint point, uint32_t above_wid)
+{
+    CGPoint window_point;
+    uint32_t window_id = 0;
+    int window_cid = 0;
+
+    SLSFindWindowAndOwner(g_connection, 0, 1, 0, &point, &window_point, &window_id, &window_cid);
+    while (window_id && window_cid != g_connection && tab_bar_connection_is_jankyborders(window_cid)) {
+        SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
+    }
+
+    if (!window_id || window_cid == g_connection || window_id == above_wid) return false;
+
+    CFArrayRef window_list = CGWindowListCreate(kCGWindowListOptionOnScreenAboveWindow, above_wid);
+    if (!window_list) return false;
+
+    bool result = CFArrayContainsValue(window_list, CFRangeMake(0, CFArrayGetCount(window_list)), (void *)(uintptr_t) window_id);
+    CFRelease(window_list);
+
+    return result;
+}
+
 bool tab_bar_hit_test(CGPoint point, uint32_t *wid)
 {
-    bool result = false;
+    bool found = false;
+    uint32_t above_wid = 0;
     pthread_mutex_lock(&tab_bar_hit_lock);
 
     for (int i = 0; i < tab_bar_hit_count; ++i) {
@@ -128,12 +169,13 @@ bool tab_bar_hit_test(CGPoint point, uint32_t *wid)
         if (index >= hit->entry_count) index = hit->entry_count - 1;
 
         *wid = hit->entry_list[index];
-        result = true;
+        above_wid = hit->above_wid;
+        found = true;
         break;
     }
 
     pthread_mutex_unlock(&tab_bar_hit_lock);
-    return result;
+    return found && !tab_bar_is_covered_at_point(point, above_wid);
 }
 
 static inline CGColorRef tab_bar_cgcolor(struct rgba_color color)

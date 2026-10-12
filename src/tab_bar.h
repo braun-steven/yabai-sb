@@ -51,6 +51,7 @@ struct tab_bar_hit
 {
     CGRect frame;
     uint64_t sid;
+    uint32_t above_wid;
     int entry_count;
     uint32_t entry_list[TAB_BAR_MAX_ENTRY_COUNT];
 };

@@ -31,6 +31,8 @@ struct border
     bool shown;
     bool sticky;
     bool suspended;
+    int level;
+    int sub_level;
 };
 
 void border_edge_frames(CGRect frame, float width, float radius, CGRect *edge);
@@ -41,6 +43,8 @@ void border_refresh_window_space(struct window *window);
 void border_remove(uint32_t wid);
 void border_suspend(uint32_t wid, bool suspended);
 void border_window_moved(uint32_t wid);
+void border_window_resized(uint32_t wid);
+void border_window_ordered(uint32_t wid);
 void border_window_changed(uint32_t wid);
 void border_window_hidden(uint32_t wid);
 int border_window_list(uint32_t *window_list, int capacity);

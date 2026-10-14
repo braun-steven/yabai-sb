@@ -750,7 +750,7 @@ API_AVAILABLE(macos(26.0))
     // right below the window again to stay on top of the card.
     //
 
-    if (below) border_window_changed(snapshot->above_wid);
+    if (below) border_window_ordered(snapshot->above_wid);
 }
 
 - (void)hide
@@ -763,7 +763,7 @@ API_AVAILABLE(macos(26.0))
     if (!panel.isVisible) return;
 
     SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, below ? -1 : 1, wid);
-    if (below) border_window_changed(wid);
+    if (below) border_window_ordered(wid);
 }
 
 - (void)dealloc

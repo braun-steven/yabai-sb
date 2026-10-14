@@ -246,88 +246,135 @@ static void border_set_sticky(struct border *border, bool sticky)
 }
 
 //
-// NOTE: Brings the border in line with its window: hides it while the window is not ordered in, otherwise moves it
-// to the space of the window, reshapes and redraws the edges when the size or the color changed, moves them to the
-// frame and orders them right below the window at its level.
+// NOTE: Brings the border in line with its window. BORDER_UPDATE_FRAME moves the edges to the frame of the window and
+// reshapes and redraws them when its size or the color changed. BORDER_UPDATE_ORDER hides the border while the window
+// is not ordered in, otherwise orders the edges right below the window at its level and keeps them on its space.
+// A border that is shown again gets both. Updates are pushed by the window server notifications of the window, so
+// each one does only what its notification can have changed: SkyLight calls are cheap, but yabai makes many of them.
+//
+// BORDER_UPDATE_COLOR only redraws the edges of a shown border in its current color, without asking the window server
+// about the window. A focus change needs nothing else, and it happens while the application of the window is busy
+// becoming active: the window server can hold back its replies about the window until then, for up to half a second.
 //
 
-static void border_update_locked(struct border *border)
+#define BORDER_UPDATE_FRAME 0x1
+#define BORDER_UPDATE_ORDER 0x2
+#define BORDER_UPDATE_COLOR 0x4
+#define BORDER_UPDATE_ALL   (BORDER_UPDATE_FRAME | BORDER_UPDATE_ORDER)
+
+static void border_update_locked(struct border *border, int what)
 {
     if (!border_settings.enabled || !border->enabled || border->suspended) {
         border_hide_locked(border);
         return;
     }
 
-    uint8_t ordered_in = 0;
-    SLSWindowIsOrderedIn(g_connection, border->wid, &ordered_in);
-    if (!ordered_in) {
-        border_hide_locked(border);
-        return;
-    }
+    if (!border->shown) what = BORDER_UPDATE_ALL;
 
-    CGRect bounds;
-    if (SLSGetWindowBounds(g_connection, border->wid, &bounds) != kCGErrorSuccess) {
-        border_hide_locked(border);
-        return;
-    }
-
-    CGRect frame = border_target_frame(border, bounds);
-    float radius = border_target_radius(border);
-    struct rgba_color color = border->focused ? border_settings.active_color : border_settings.normal_color;
-    bool resized = !CGSizeEqualToSize(frame.size, border->frame.size) || border->width != border_settings.width || radius != border->drawn_radius;
-    bool recolored = color.p != border->color;
-
-    border->frame = frame;
-    border->width = border_settings.width;
-    border->drawn_radius = radius;
-    border_edge_frames(frame, border->width, radius, border->edge);
-
-    SLSDisableUpdate(g_connection);
-
-    if (!border->id[0]) {
-        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) border_create_edge(border, i);
-        border->sid = 0;
-        border->sticky = false;
-        resized = true;
-    } else if (resized) {
-        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) border_reshape_edge(border, i);
-    }
-
-    if (resized || recolored) {
+    if (what == BORDER_UPDATE_COLOR) {
+        struct rgba_color color = border->focused ? border_settings.active_color : border_settings.normal_color;
         for (int i = 0; i < BORDER_EDGE_COUNT; ++i) border_draw_edge(border, i, color);
         border->color = color.p;
+        return;
     }
 
-    int level = window_level(border->wid);
-    int sub_level = window_sub_level(border->wid);
-
-    for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
-        SLSMoveWindow(g_connection, border->id[i], &border->edge[i].origin);
-        SLSSetWindowLevel(g_connection, border->id[i], level);
-        SLSSetWindowSubLevel(g_connection, border->id[i], sub_level);
-
-        //
-        // NOTE: A side edge of a window shorter than two corners is empty, so it stays hidden.
-        //
-
-        if (border->edge[i].size.width > 0 && border->edge[i].size.height > 0) {
-            SLSOrderWindow(g_connection, border->id[i], -1, border->wid);
-        } else {
-            SLSOrderWindow(g_connection, border->id[i], 0, 0);
+    if (what & BORDER_UPDATE_ORDER) {
+        uint8_t ordered_in = 0;
+        SLSWindowIsOrderedIn(g_connection, border->wid, &ordered_in);
+        if (!ordered_in) {
+            border_hide_locked(border);
+            return;
         }
     }
 
-    //
-    // NOTE: The edges are put on the space of the window after they are ordered, and checked on every update,
-    // because ordering them in can move them to the active space.
-    //
+    if (what & BORDER_UPDATE_FRAME) {
+        CGRect bounds;
+        if (SLSGetWindowBounds(g_connection, border->wid, &bounds) != kCGErrorSuccess) {
+            border_hide_locked(border);
+            return;
+        }
 
-    bool sticky = window_is_sticky(border->wid);
-    uint64_t sid = window_space(border->wid);
-    if (!sticky && sid && window_space(border->id[0]) != sid) border_move_to_space(border, sid);
-    border_set_sticky(border, sticky);
+        CGRect frame = border_target_frame(border, bounds);
+        float radius = border_target_radius(border);
+        struct rgba_color color = border->focused ? border_settings.active_color : border_settings.normal_color;
+        bool restyled = border->width != border_settings.width || radius != border->drawn_radius || color.p != border->color;
 
-    SLSReenableUpdate(g_connection);
+        CGRect previous[BORDER_EDGE_COUNT];
+        memcpy(previous, border->edge, sizeof(previous));
+
+        border->frame = frame;
+        border->width = border_settings.width;
+        border->drawn_radius = radius;
+        border->color = color.p;
+        border_edge_frames(frame, border->width, radius, border->edge);
+
+        bool created = !border->id[0];
+        if (created) {
+            for (int i = 0; i < BORDER_EDGE_COUNT; ++i) border_create_edge(border, i);
+            border->sid = 0;
+            border->sticky = false;
+            border->level = INT_MIN;
+            border->sub_level = INT_MIN;
+        }
+
+        //
+        // NOTE: Only edges whose size changed are reshaped and redrawn: a window that gets wider only changes the top
+        // and bottom edges, the side edges just move.
+        //
+
+        bool reshaped[BORDER_EDGE_COUNT];
+        bool any_reshaped = false;
+
+        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
+            reshaped[i] = created || !CGSizeEqualToSize(previous[i].size, border->edge[i].size);
+            any_reshaped |= reshaped[i];
+        }
+
+        if (any_reshaped) SLSDisableUpdate(g_connection);
+
+        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
+            if (reshaped[i] && !created) border_reshape_edge(border, i);
+            if (reshaped[i] || restyled) border_draw_edge(border, i, color);
+            SLSMoveWindow(g_connection, border->id[i], &border->edge[i].origin);
+        }
+
+        if (any_reshaped) SLSReenableUpdate(g_connection);
+    }
+
+    if (what & BORDER_UPDATE_ORDER) {
+        int level = window_level(border->wid);
+        int sub_level = window_sub_level(border->wid);
+
+        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
+            if (level != border->level) SLSSetWindowLevel(g_connection, border->id[i], level);
+            if (sub_level != border->sub_level) SLSSetWindowSubLevel(g_connection, border->id[i], sub_level);
+
+            //
+            // NOTE: A side edge of a window shorter than two corners is empty, so it stays hidden.
+            //
+
+            if (border->edge[i].size.width > 0 && border->edge[i].size.height > 0) {
+                SLSOrderWindow(g_connection, border->id[i], -1, border->wid);
+            } else {
+                SLSOrderWindow(g_connection, border->id[i], 0, 0);
+            }
+        }
+
+        border->level = level;
+        border->sub_level = sub_level;
+
+        //
+        // NOTE: The edges are put on the space of the window after they are ordered, because ordering them in can
+        // move them to the active space.
+        //
+
+        bool sticky = window_is_sticky(border->wid);
+        uint64_t sid = window_space(border->wid);
+        if (!sticky && sid && window_space(border->id[0]) != sid) border_move_to_space(border, sid);
+        if (sid) border->sid = sid;
+        border_set_sticky(border, sticky);
+    }
+
     border->shown = true;
 }
 
@@ -402,19 +449,42 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
 
     bool added = false;
     if (border) {
+        float inset_top    = enabled ? window_area.y - border_area.y : border->inset_top;
+        float inset_left   = enabled ? window_area.x - border_area.x : border->inset_left;
+        float inset_bottom = enabled ? (border_area.y + border_area.h) - (window_area.y + window_area.h) : border->inset_bottom;
+        float inset_right  = enabled ? (border_area.x + border_area.w) - (window_area.x + window_area.w) : border->inset_right;
+        float radius       = enabled ? container_radius : border->container_radius;
+
+        //
+        // NOTE: Nothing to do when the state of the border is unchanged; moves and resizes of the window reach the
+        // border through its own notifications. A border that only changes its color is just redrawn.
+        //
+
+        struct rgba_color color = focused ? border_settings.active_color : border_settings.normal_color;
+        bool recolored = border->color != color.p;
+        bool changed = border->enabled != enabled ||
+                       border->inset_top != inset_top ||
+                       border->inset_left != inset_left ||
+                       border->inset_bottom != inset_bottom ||
+                       border->inset_right != inset_right ||
+                       border->container_radius != radius ||
+                       border->width != border_settings.width ||
+                       border->shown != enabled;
+
         added = !border->enabled && enabled;
         border->enabled = enabled;
         border->focused = focused;
+        border->inset_top = inset_top;
+        border->inset_left = inset_left;
+        border->inset_bottom = inset_bottom;
+        border->inset_right = inset_right;
+        border->container_radius = radius;
 
-        if (enabled) {
-            border->inset_top    = window_area.y - border_area.y;
-            border->inset_left   = window_area.x - border_area.x;
-            border->inset_bottom = (border_area.y + border_area.h) - (window_area.y + window_area.h);
-            border->inset_right  = (border_area.x + border_area.w) - (window_area.x + window_area.w);
-            border->container_radius = container_radius;
+        if (changed) {
+            border_update_locked(border, BORDER_UPDATE_ALL);
+        } else if (recolored) {
+            border_update_locked(border, BORDER_UPDATE_COLOR);
         }
-
-        border_update_locked(border);
     }
 
     pthread_mutex_unlock(&border_lock);
@@ -435,15 +505,56 @@ void border_refresh(struct window *window)
     border_refresh_with_count(window, 0, -1);
 }
 
+//
+// NOTE: Without window_border_hide_single a change on a space only affects the borders of its tiled windows and of
+// the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
+// without asking the window server for the space of every window.
+//
+
 void border_refresh_space(uint64_t sid)
 {
     if (!sid) return;
 
-    int window_count = g_window_manager.window_border_hide_single ? border_space_window_count(sid) : 0;
+    if (g_window_manager.window_border_hide_single) {
+        int window_count = border_space_window_count(sid);
 
-    table_for (struct window *window, g_window_manager.window, {
-        if (window_space(window->id) == sid) border_refresh_with_count(window, sid, window_count);
-    })
+        table_for (struct window *window, g_window_manager.window, {
+            if (window_space(window->id) == sid) border_refresh_with_count(window, sid, window_count);
+        })
+
+        return;
+    }
+
+    int window_count = 0;
+    uint32_t *tree_list = NULL;
+
+    struct view *view = space_manager_find_view(&g_space_manager, sid);
+    if (view && view->layout == VIEW_TREE) tree_list = tree_view_window_list(view, &window_count);
+
+    int capacity = window_count + g_window_manager.window.count;
+    uint32_t *window_list = ts_alloc_list(uint32_t, capacity);
+    if (window_count) memcpy(window_list, tree_list, sizeof(uint32_t) * window_count);
+
+    pthread_mutex_lock(&border_lock);
+    if (border_table_ready) {
+        table_for (struct border *border, border_table, {
+            if (border->sid != sid) continue;
+
+            bool listed = false;
+            for (int j = 0; j < window_count; ++j) {
+                if (window_list[j] == border->wid) { listed = true; break; }
+            }
+
+            if (!listed && window_count < capacity) {
+                window_list[window_count++] = border->wid;
+            }
+        })
+    }
+    pthread_mutex_unlock(&border_lock);
+
+    for (int i = 0; i < window_count; ++i) {
+        border_refresh_with_count(window_manager_find_window(&g_window_manager, window_list[i]), sid, 0);
+    }
 }
 
 void border_refresh_window_space(struct window *window)
@@ -515,7 +626,7 @@ void border_suspend(uint32_t wid, bool suspended)
     struct border *border = table_find(&border_table, &wid);
     if (border) {
         border->suspended = suspended;
-        border_update_locked(border);
+        border_update_locked(border, BORDER_UPDATE_ALL);
     }
 
 out:
@@ -539,33 +650,46 @@ void border_window_moved(uint32_t wid)
 
     CGRect frame = border_target_frame(border, bounds);
     if (!CGSizeEqualToSize(frame.size, border->frame.size)) {
-        border_update_locked(border);
+        border_update_locked(border, BORDER_UPDATE_FRAME);
         goto out;
     }
 
     border->frame = frame;
     border_edge_frames(frame, border->width, border->drawn_radius, border->edge);
 
-    SLSDisableUpdate(g_connection);
     for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
         SLSMoveWindow(g_connection, border->id[i], &border->edge[i].origin);
     }
-    SLSReenableUpdate(g_connection);
 
 out:
     pthread_mutex_unlock(&border_lock);
 }
 
-void border_window_changed(uint32_t wid)
+static void border_window_update(uint32_t wid, int what)
 {
     pthread_mutex_lock(&border_lock);
     if (!border_table_ready) goto out;
 
     struct border *border = table_find(&border_table, &wid);
-    if (border && border->enabled) border_update_locked(border);
+    if (border && border->enabled) border_update_locked(border, what);
 
 out:
     pthread_mutex_unlock(&border_lock);
+}
+
+void border_window_resized(uint32_t wid)
+{
+    border_window_update(wid, BORDER_UPDATE_FRAME);
+}
+
+void border_window_ordered(uint32_t wid)
+{
+    border_window_update(wid, BORDER_UPDATE_ORDER);
+}
+
+void border_window_changed(uint32_t wid)
+{
+    border_window_update(wid, BORDER_UPDATE_ALL);
 }
 
 void border_window_hidden(uint32_t wid)

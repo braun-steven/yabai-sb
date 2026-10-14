@@ -16,7 +16,7 @@ static CONNECTION_CALLBACK(connection_handler)
         event_loop_post(&g_event_loop, SLS_SPACE_DESTROYED, (void *) (intptr_t) sid, 0);
     } else if (type == 808) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
-        border_window_changed(wid);
+        border_window_ordered(wid);
         event_loop_post(&g_event_loop, SLS_WINDOW_ORDERED, (void *) (intptr_t) wid, 0);
     } else if (type == 804) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
@@ -25,7 +25,10 @@ static CONNECTION_CALLBACK(connection_handler)
     } else if (type == 806) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         border_window_moved(wid);
-    } else if (type == 807 || type == 815) {
+    } else if (type == 807) {
+        uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
+        border_window_resized(wid);
+    } else if (type == 815) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         border_window_changed(wid);
     } else if (type == 816) {

@@ -67,6 +67,11 @@ CGImageRef tab_bar_icon(uint32_t wid);
 void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
 void tab_bar_hide(struct tab_bar *bar);
 void tab_bar_release(struct tab_bar *bar);
+void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
+void tab_bar_glass_hide(struct tab_bar *bar);
+void tab_bar_glass_order(struct tab_bar *bar, uint32_t wid);
+void tab_bar_glass_release(struct tab_bar *bar);
+uint32_t tab_bar_glass_panel_id(struct tab_bar *bar);
 
 void tab_bar_refresh_for_window(uint32_t wid);
 void tab_bar_order(uint32_t wid);

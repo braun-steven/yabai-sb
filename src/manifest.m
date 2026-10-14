@@ -103,6 +103,7 @@
 #include "space.c"
 #include "view.c"
 #include "tab_bar.c"
+#include "tab_bar_glass.m"
 #include "tree.c"
 #include "tree_view.c"
 #include "window.c"

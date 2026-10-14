@@ -1023,8 +1023,8 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
     if (!space_list) return;
 
     int list_count = 0;
-    struct view *view_list[sm->view.count];
-    CFStringRef uuid_list[sm->view.count];
+    struct view **view_list = ts_alloc_list(struct view *, sm->view.count);
+    CFStringRef *uuid_list = ts_alloc_list(CFStringRef, sm->view.count);
 
     table_for (struct view *view, sm->view, {
         view_list[list_count] = view;

@@ -1,6 +1,26 @@
 #ifndef MOUSE_H
 #define MOUSE_H
 
+//
+// NOTE: Private event type and fields of the dock swipe gesture that switches spaces.
+//
+
+enum
+{
+    kCGSEventDockControl          = 30,
+    kCGSEventTypeField            = 55,
+    kCGEventGestureHIDType        = 110,
+    kCGEventGestureSwipeMotion    = 123,
+    kCGEventGestureSwipeProgress  = 124,
+    kCGEventGestureSwipeVelocityX = 129,
+    kCGEventGesturePhase          = 132,
+    kIOHIDEventTypeDockSwipe      = 23,
+    kCGGestureMotionHorizontal    = 1,
+    kCGSGesturePhaseBegan         = 1,
+    kCGSGesturePhaseEnded         = 4,
+    kCGSGesturePhaseCancelled     = 8
+};
+
 #define MOUSE_EVENT_MASK_FFM (1 << kCGEventMouseMoved) | \
                              (1 << kCGEventLeftMouseDown) | \
                              (1 << kCGEventLeftMouseUp) | \
@@ -8,7 +28,7 @@
                              (1 << kCGEventRightMouseDown) | \
                              (1 << kCGEventRightMouseUp) | \
                              (1 << kCGEventRightMouseDragged) | \
-                             (1 << /* kCGSEventDockControl */ 30)
+                             (1 << kCGSEventDockControl)
 
 #define MOUSE_EVENT_MASK     (1 << kCGEventLeftMouseDown) | \
                              (1 << kCGEventLeftMouseUp) | \
@@ -16,7 +36,7 @@
                              (1 << kCGEventRightMouseDown) | \
                              (1 << kCGEventRightMouseUp) | \
                              (1 << kCGEventRightMouseDragged) | \
-                             (1 << /* kCGSEventDockControl */ 30)
+                             (1 << kCGSEventDockControl)
 
 #define MOUSE_HANDLER(name) CGEventRef name(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *context)
 

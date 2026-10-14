@@ -20,6 +20,24 @@ static inline uint8_t mouse_mod_from_cgflags(uint32_t cgflags)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wswitch"
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+//
+// NOTE: Focus follows mouse is paused while a horizontal swipe switches spaces, and for a moment after it.
+//
+
+static void mouse_handle_dock_gesture(CGEventRef event)
+{
+    if (CGEventGetIntegerValueField(event, kCGEventGestureHIDType) != kIOHIDEventTypeDockSwipe)       return;
+    if (CGEventGetIntegerValueField(event, kCGEventGestureSwipeMotion) != kCGGestureMotionHorizontal) return;
+
+    int phase = CGEventGetIntegerValueField(event, kCGEventGesturePhase);
+    if (phase == kCGSGesturePhaseBegan) {
+        __atomic_store_n(&__pending_gesture, true, __ATOMIC_RELEASE);
+    } else if (phase == kCGSGesturePhaseEnded || phase == kCGSGesturePhaseCancelled) {
+        __atomic_store_n(&__pending_gesture, false, __ATOMIC_RELEASE);
+        __atomic_store_n(&__last_gesture_time, read_os_timer(), __ATOMIC_RELEASE);
+    }
+}
+
 static MOUSE_HANDLER(mouse_handler)
 {
     struct mouse_state *mouse_state = context;
@@ -85,20 +103,8 @@ static MOUSE_HANDLER(mouse_handler)
         __atomic_add_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL);
         event_loop_post(&g_event_loop, MOUSE_MOVED, (void *) CFRetain(event), mod);
     } break;
-    case /* kCGSEventDockControl */ 30: {
-        int type = CGEventGetIntegerValueField(event, /* kCGEventGestureHIDType */ 110);
-        if (type == /* kIOHIDEventTypeDockSwipe */ 23) {
-            int motion = CGEventGetIntegerValueField(event, /* kCGEventGestureSwipeMotion */ 123);
-            if (motion == /* kCGGestureMotionHorizontal */ 1) {
-                int phase = CGEventGetIntegerValueField(event, /* kCGEventGesturePhase */ 132);
-                if (phase == /* kCGSGesturePhaseBegan */ 1) {
-                    __atomic_store_n(&__pending_gesture, true, __ATOMIC_RELEASE);
-                } else if (phase == /* kCGSGesturePhaseEnded */ 4 || phase == /* kCGSGesturePhaseCancelled */ 8) {
-                    __atomic_store_n(&__pending_gesture, false, __ATOMIC_RELEASE);
-                    __atomic_store_n(&__last_gesture_time, read_os_timer(), __ATOMIC_RELEASE);
-                }
-            }
-        }
+    case kCGSEventDockControl: {
+        mouse_handle_dock_gesture(event);
     } break;
     }
 

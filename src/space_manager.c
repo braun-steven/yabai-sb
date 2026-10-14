@@ -928,16 +928,16 @@ bool space_manager_focus_space_using_gesture(uint32_t new_did, uint64_t new_sid)
     if (!event_dock_control) return false;
 
     float sign = (new_index - cur_index) > 0 ? 1.0 : -1.0;
-    CGEventSetIntegerValueField(event_dock_control, /* kCGSEventTypeField            */  55, /* kCGSEventDockControl       */ 30);
-    CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureHIDType        */ 110, /* kIOHIDEventTypeDockSwipe   */ 23);
-    CGEventSetIntegerValueField(event_dock_control, /* kCGEventGestureSwipeMotion    */ 123, /* kCGGestureMotionHorizontal */  1);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeProgress  */ 124, sign);
-    CGEventSetDoubleValueField(event_dock_control,  /* kCGEventGestureSwipeVelocityX */ 129, sign * 9999.0);
+    CGEventSetIntegerValueField(event_dock_control, kCGSEventTypeField, kCGSEventDockControl);
+    CGEventSetIntegerValueField(event_dock_control, kCGEventGestureHIDType, kIOHIDEventTypeDockSwipe);
+    CGEventSetIntegerValueField(event_dock_control, kCGEventGestureSwipeMotion, kCGGestureMotionHorizontal);
+    CGEventSetDoubleValueField(event_dock_control,  kCGEventGestureSwipeProgress, sign);
+    CGEventSetDoubleValueField(event_dock_control,  kCGEventGestureSwipeVelocityX, sign * 9999.0);
 
     for (int i = 0; i < count; ++i) {
-        CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, /* kCGSGesturePhaseBegan */ 1);
+        CGEventSetIntegerValueField(event_dock_control, kCGEventGesturePhase, kCGSGesturePhaseBegan);
         CGEventPost(kCGSessionEventTap, event_dock_control);
-        CGEventSetIntegerValueField(event_dock_control, /* kCGEventGesturePhase */ 132, /* kCGSGesturePhaseEnded */ 4);
+        CGEventSetIntegerValueField(event_dock_control, kCGEventGesturePhase, kCGSGesturePhaseEnded);
         CGEventPost(kCGSessionEventTap, event_dock_control);
     }
     CFRelease(event_dock_control);

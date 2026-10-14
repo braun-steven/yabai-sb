@@ -86,6 +86,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_client_encoding)                        \
     TEST_ENTRY(message_selectors)                              \
     TEST_ENTRY(message_signal_parse)                           \
+    TEST_ENTRY(json_string_escaping)                           \
+    TEST_ENTRY(rule_effects_combine)                           \
     TEST_ENTRY(window_info_serialize_selected)                 \
     TEST_ENTRY(window_info_tree_fields)                        \
     TEST_ENTRY(event_signal_filter_properties)                 \

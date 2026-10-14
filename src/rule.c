@@ -5,16 +5,6 @@ void rule_serialize(FILE *rsp, struct rule *rule, int index)
 {
     TIME_FUNCTION;
 
-    char *app   = rule->app;
-    char *title = rule->title;
-    char *role  = rule->role;
-    char *srole = rule->subrole;
-
-    char *escaped_app   = app   ? ts_string_escape(app)   : NULL;
-    char *escaped_title = title ? ts_string_escape(title) : NULL;
-    char *escaped_role  = role  ? ts_string_escape(role)  : NULL;
-    char *escaped_srole = srole ? ts_string_escape(srole) : NULL;
-
     fprintf(rsp,
             "{\n"
             "\t\"index\":%d,\n"
@@ -38,11 +28,11 @@ void rule_serialize(FILE *rsp, struct rule *rule, int index)
             "\t\"flags\":\"0x%08x\"\n"
             "}",
             index,
-            rule->label ? rule->label : "",
-            escaped_app ? escaped_app : app ? app : "",
-            escaped_title ? escaped_title : title ? title : "",
-            escaped_role ? escaped_role : role ? role : "",
-            escaped_srole ? escaped_srole : srole ? srole : "",
+            json_string(rule->label),
+            json_string(rule->app),
+            json_string(rule->title),
+            json_string(rule->role),
+            json_string(rule->subrole),
             rule->effects.did ? display_manager_display_id_arrangement(rule->effects.did) : 0,
             rule->effects.sid ? space_manager_mission_control_index(rule->effects.sid) : 0,
             json_bool(rule_effects_check_flag(&rule->effects, RULE_FOLLOW_SPACE)),
@@ -55,24 +45,17 @@ void rule_serialize(FILE *rsp, struct rule *rule, int index)
             rule->effects.grid[0], rule->effects.grid[1],
             rule->effects.grid[2], rule->effects.grid[3],
             rule->effects.grid[4], rule->effects.grid[5],
-            rule->effects.scratchpad ? rule->effects.scratchpad : "",
+            json_string(rule->effects.scratchpad),
             json_bool(rule_check_flag(rule, RULE_ONE_SHOT)),
             (uint32_t)(rule->effects.flags << 16) | (uint32_t)rule->flags);
 }
 
 void rule_combine_effects(struct rule_effects *effects, struct rule_effects *result)
 {
-    if (effects->did) {
-        result->did = effects->did;
-        if (rule_effects_check_flag(effects, RULE_FOLLOW_SPACE)) {
-            rule_effects_set_flag(result, RULE_FOLLOW_SPACE);
-        } else {
-            rule_effects_clear_flag(result, RULE_FOLLOW_SPACE);
-        }
-    }
+    if (effects->did) result->did = effects->did;
+    if (effects->sid) result->sid = effects->sid;
 
-    if (effects->sid) {
-        result->sid = effects->sid;
+    if (effects->did || effects->sid) {
         if (rule_effects_check_flag(effects, RULE_FOLLOW_SPACE)) {
             rule_effects_set_flag(result, RULE_FOLLOW_SPACE);
         } else {
@@ -101,12 +84,7 @@ void rule_combine_effects(struct rule_effects *effects, struct rule_effects *res
     if (effects->fullscreen != RULE_PROP_UD) result->fullscreen = effects->fullscreen;
 
     if (effects->grid[0] != 0 && effects->grid[1] != 0) {
-        result->grid[0] = effects->grid[0];
-        result->grid[1] = effects->grid[1];
-        result->grid[2] = effects->grid[2];
-        result->grid[3] = effects->grid[3];
-        result->grid[4] = effects->grid[4];
-        result->grid[5] = effects->grid[5];
+        memcpy(result->grid, effects->grid, sizeof(result->grid));
     }
 }
 

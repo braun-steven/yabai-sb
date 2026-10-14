@@ -302,3 +302,41 @@ TEST_FUNC(message_signal_parse,
     TEST_CHECK(strstr(response, "unsupported token '!' (exclusion) given for key 'label'") != NULL, true);
     event_signal_destroy(&signal);
 });
+
+TEST_FUNC(json_string_escaping,
+{
+    TEST_CHECK(strcmp(json_string(NULL), ""), 0);
+    TEST_CHECK(strcmp(json_string("plain"), "plain"), 0);
+    TEST_CHECK(strcmp(json_string("say \"hi\"\n"), "say \\\"hi\\\"\\n"), 0);
+});
+
+static struct rule_effects rule_effects_test_space(uint64_t sid, bool follow)
+{
+    struct rule_effects effects = { .sid = sid, .manage = RULE_PROP_OFF };
+    if (follow) rule_effects_set_flag(&effects, RULE_FOLLOW_SPACE);
+    effects.grid[0] = 2; effects.grid[1] = 2; effects.grid[4] = 1; effects.grid[5] = 1;
+    return effects;
+}
+
+TEST_FUNC(rule_effects_combine,
+{
+    struct rule_effects combined = {0};
+    struct rule_effects first = rule_effects_test_space(4, true);
+    rule_combine_effects(&first, &combined);
+    TEST_CHECK((int) combined.sid, 4);
+    TEST_CHECK(rule_effects_check_flag(&combined, RULE_FOLLOW_SPACE), true);
+    TEST_CHECK(combined.manage, RULE_PROP_OFF);
+    TEST_CHECK((int) combined.grid[4], 1);
+
+    // NOTE: a later rule that does not set a property keeps the earlier value
+    struct rule_effects second = { .sticky = RULE_PROP_ON };
+    rule_combine_effects(&second, &combined);
+    TEST_CHECK((int) combined.sid, 4);
+    TEST_CHECK(combined.manage, RULE_PROP_OFF);
+    TEST_CHECK(combined.sticky, RULE_PROP_ON);
+
+    struct rule_effects third = rule_effects_test_space(6, false);
+    rule_combine_effects(&third, &combined);
+    TEST_CHECK((int) combined.sid, 6);
+    TEST_CHECK(rule_effects_check_flag(&combined, RULE_FOLLOW_SPACE), false);
+});

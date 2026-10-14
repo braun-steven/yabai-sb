@@ -147,7 +147,7 @@ static char *view_uuid_string(struct view *view)
 static char *view_label_string(struct view *view)
 {
     struct space_label *space_label = space_manager_get_label_for_space(&g_space_manager, view->sid);
-    return space_label ? space_label->label : "";
+    return space_label ? json_string(space_label->label) : "";
 }
 
 void view_serialize(FILE *rsp, struct view *view, uint64_t flags)

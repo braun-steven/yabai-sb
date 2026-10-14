@@ -30,7 +30,7 @@ static char *display_uuid_ts(uint32_t did)
 static char *display_label_string(uint32_t did)
 {
     struct display_label *display_label = display_manager_get_label_for_display(&g_display_manager, did);
-    return display_label ? display_label->label : "";
+    return display_label ? json_string(display_label->label) : "";
 }
 
 //

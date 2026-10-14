@@ -245,12 +245,6 @@ struct window_info window_info_for_window_id(uint32_t wid, uint64_t flags)
     return info;
 }
 
-static inline char *json_string(char *s)
-{
-    char *escaped = ts_string_escape(s);
-    return escaped ? escaped : s;
-}
-
 void window_info_serialize(FILE *rsp, struct window_info *info, uint64_t flags)
 {
     TIME_FUNCTION;

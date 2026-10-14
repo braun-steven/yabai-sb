@@ -319,6 +319,18 @@ static inline char *ts_string_escape(char *s)
     return result;
 }
 
+//
+// NOTE: A string for a json value: escaped when needed, and empty for NULL.
+//
+
+static inline char *json_string(char *s)
+{
+    if (!s) return "";
+
+    char *escaped = ts_string_escape(s);
+    return escaped ? escaped : s;
+}
+
 static inline CFStringRef CFSTRINGNUM32(int32_t num)
 {
     char num_str[255] = {0};

@@ -159,6 +159,16 @@ static inline uint64_t read_os_freq(void)
     return 1000000000;
 }
 
+//
+// NOTE: Subtracts before converting to float: a timestamp in nanoseconds since boot does not fit into the
+// 24 bits of precision of a float, which would round intervals to tens of milliseconds after a few days.
+//
+
+static inline float os_timer_ms_between(uint64_t from, uint64_t to)
+{
+    return (float)(int64_t)(to - from) * (1000.0f / (float) read_os_freq());
+}
+
 struct rgba_color
 {
     uint32_t p;

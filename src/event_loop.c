@@ -383,7 +383,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
 
         uint64_t last_cmd_tab_time = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED);
-        float dt = ((float) read_os_timer() - last_cmd_tab_time) * (1000.0f / (float)read_os_freq());
+        float dt = os_timer_ms_between(last_cmd_tab_time, read_os_timer());
         if (dt > 1500.0f) {
             CFTypeRef dummy = NULL;
             AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
@@ -1175,7 +1175,7 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
         }
     } else if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
         uint64_t event_time = read_os_timer();
-        float dt = ((float) event_time - g_mouse_state.last_moved_time) * (1000.0f / (float)read_os_freq());
+        float dt = os_timer_ms_between(g_mouse_state.last_moved_time, event_time);
         if (dt < 67.67f) goto out;
 
         int dx = point.x - g_mouse_state.down_location.x;
@@ -1317,7 +1317,7 @@ static EVENT_HANDLER(MOUSE_MOVED)
 
     if (__atomic_load_n(&__pending_gesture, __ATOMIC_RELAXED)) goto out;
     uint64_t last_gesture_time = __atomic_load_n(&__last_gesture_time, __ATOMIC_RELAXED);
-    float dt = ((float) read_os_timer() - last_gesture_time) * (1000.0f / (float)read_os_freq());
+    float dt = os_timer_ms_between(last_gesture_time, read_os_timer());
     if (dt < 1250.0f) goto out;
 
     CGPoint point = CGEventGetLocation(context);

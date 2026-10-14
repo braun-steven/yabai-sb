@@ -1476,7 +1476,7 @@ struct window *window_manager_pending_focus_window(struct window_manager *wm)
 {
     if (!wm->pending_focus_window_id) return NULL;
 
-    float dt = ((float) read_os_timer() - wm->pending_focus_time) * (1000.0f / (float) read_os_freq());
+    float dt = os_timer_ms_between(wm->pending_focus_time, read_os_timer());
     struct window *window = dt < PENDING_FOCUS_TIMEOUT_MS ? window_manager_find_window(wm, wm->pending_focus_window_id) : NULL;
     if (!window) wm->pending_focus_window_id = 0;
 

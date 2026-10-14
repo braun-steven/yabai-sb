@@ -83,6 +83,7 @@
 
 #include "sa.m"
 #include "mission_control.c"
+#include "event_handlers.c"
 #include "event_loop.c"
 #include "event_signal.c"
 #include "workspace.m"

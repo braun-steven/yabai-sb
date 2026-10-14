@@ -106,3 +106,19 @@ TEST_FUNC(message_config_options,
     g_window_manager.focus_wrapping = wrapping;
     g_space_manager.top_padding = top_padding;
 });
+
+static struct token message_test_token(char *text)
+{
+    return (struct token) { .text = text, .length = (int) strlen(text) };
+}
+
+TEST_FUNC(message_window_toggle_lookup,
+{
+    TEST_CHECK(window_toggle_for_value(message_test_token("float")) == window_toggle_float, true);
+    TEST_CHECK(window_toggle_for_value(message_test_token("zoom-fullscreen")) == window_toggle_zoom_fullscreen, true);
+    TEST_CHECK(window_toggle_for_value(message_test_token("shadow")) == window_manager_toggle_window_shadow, true);
+
+    // NOTE: anything else is a scratchpad label
+    TEST_CHECK(window_toggle_for_value(message_test_token("notes")) == NULL, true);
+    TEST_CHECK(window_toggle_for_value(message_test_token("floa")) == NULL, true);
+});

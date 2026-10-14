@@ -1156,6 +1156,21 @@ static struct selector parse_window_selector(FILE *rsp, char **message, struct w
     return result;
 }
 
+//
+// NOTE: An optional window selector replaces *window when one is given. Returns false when the
+// given selector does not select a window (parse_window_selector has reported why).
+//
+
+static bool parse_optional_window_selector(FILE *rsp, char **message, struct window **window)
+{
+    struct selector selector = parse_window_selector(rsp, message, *window, true);
+    if (!token_is_valid(selector.token)) return true;
+    if (!selector.did_parse || !selector.window) return false;
+
+    *window = selector.window;
+    return true;
+}
+
 static struct selector parse_insert_selector(FILE *rsp, char **message)
 {
     struct selector result = { .token = get_token(message), .did_parse = true };
@@ -1839,69 +1854,37 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
             } else {
                 daemon_fail_space_op(rsp, result, "destroy space");
             }
-        } else if (token_equals(command, COMMAND_SPACE_EQUALIZE)) {
+        } else if (token_equals(command, COMMAND_SPACE_EQUALIZE) || token_equals(command, COMMAND_SPACE_BALANCE)) {
+            //
+            // NOTE: A tree is always balanced along both axes, so the optional axis is accepted but has no effect.
+            //
+
             struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot equalize a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot equalize a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot equalize a non-managed space.\n");
-                }
-            } else {
+            if (token_is_valid(value) && !token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X) && !token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
-            }
-        } else if (token_equals(command, COMMAND_SPACE_BALANCE)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot balance a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot balance a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
-                    daemon_fail(rsp, "cannot balance a non-managed space.\n");
-                }
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
+            } else if (!space_manager_balance_space(&g_space_manager, acting_sid)) {
+                daemon_fail(rsp, "cannot %s a non-managed space.\n", token_equals(command, COMMAND_SPACE_EQUALIZE) ? "equalize" : "balance");
             }
         } else if (token_equals(command, COMMAND_SPACE_MIRROR)) {
             struct token value = get_token(&message);
-            if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X)) {
-                if (!space_manager_mirror_space(&g_space_manager, acting_sid, SPLIT_X)) {
-                    daemon_fail(rsp, "cannot mirror a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y)) {
-                if (!space_manager_mirror_space(&g_space_manager, acting_sid, SPLIT_Y)) {
-                    daemon_fail(rsp, "cannot mirror a non-managed space.\n");
-                }
-            } else {
+            enum window_split axis = token_equals(value, ARGUMENT_COMMON_VAL_AXIS_X) ? SPLIT_X
+                                   : token_equals(value, ARGUMENT_COMMON_VAL_AXIS_Y) ? SPLIT_Y
+                                   : SPLIT_NONE;
+            if (axis == SPLIT_NONE) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
+            } else if (!space_manager_mirror_space(&g_space_manager, acting_sid, axis)) {
+                daemon_fail(rsp, "cannot mirror a non-managed space.\n");
             }
         } else if (token_equals(command, COMMAND_SPACE_ROTATE)) {
             struct token value = get_token(&message);
-            if (token_equals(value, ARGUMENT_SPACE_ROTATE_90)) {
-                if (!space_manager_rotate_space(&g_space_manager, acting_sid, 90)) {
-                    daemon_fail(rsp, "cannot rotate a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_SPACE_ROTATE_180)) {
-                if (!space_manager_rotate_space(&g_space_manager, acting_sid, 180)) {
-                    daemon_fail(rsp, "cannot rotate a non-managed space.\n");
-                }
-            } else if (token_equals(value, ARGUMENT_SPACE_ROTATE_270)) {
-                if (!space_manager_rotate_space(&g_space_manager, acting_sid, 270)) {
-                    daemon_fail(rsp, "cannot rotate a non-managed space.\n");
-                }
-            } else {
+            int degrees = token_equals(value, ARGUMENT_SPACE_ROTATE_90)  ? 90
+                        : token_equals(value, ARGUMENT_SPACE_ROTATE_180) ? 180
+                        : token_equals(value, ARGUMENT_SPACE_ROTATE_270) ? 270
+                        : 0;
+            if (!degrees) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
+            } else if (!space_manager_rotate_space(&g_space_manager, acting_sid, degrees)) {
+                daemon_fail(rsp, "cannot rotate a non-managed space.\n");
             }
         } else if (token_equals(command, COMMAND_SPACE_PADDING)) {
             int t, b, l, r;
@@ -1976,6 +1959,46 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
     }
 }
 
+static void window_toggle_float(struct window *window)           { window_manager_make_window_floating(&g_space_manager, &g_window_manager, window, !window_check_flag(window, WINDOW_FLOAT), false); }
+static void window_toggle_sticky(struct window *window)          { window_manager_make_window_sticky(&g_space_manager, &g_window_manager, window, !window_check_flag(window, WINDOW_STICKY)); }
+static void window_toggle_split(struct window *window)           { space_manager_toggle_window_split(&g_space_manager, window); }
+static void window_toggle_zoom_parent(struct window *window)     { window_manager_toggle_window_zoom_parent(&g_window_manager, window); }
+static void window_toggle_zoom_fullscreen(struct window *window) { window_manager_toggle_window_zoom_fullscreen(&g_window_manager, window); }
+static void window_toggle_pip(struct window *window)             { window_manager_toggle_window_pip(&g_space_manager, window); }
+
+typedef void window_toggle_func(struct window *window);
+
+static const struct {
+    char *value;
+    window_toggle_func *toggle;
+} window_toggle_list[] = {
+    { ARGUMENT_WINDOW_TOGGLE_FLOAT,    window_toggle_float },
+    { ARGUMENT_WINDOW_TOGGLE_STICKY,   window_toggle_sticky },
+    { ARGUMENT_WINDOW_TOGGLE_SHADOW,   window_manager_toggle_window_shadow },
+    { ARGUMENT_WINDOW_TOGGLE_SPLIT,    window_toggle_split },
+    { ARGUMENT_WINDOW_TOGGLE_PARENT,   window_toggle_zoom_parent },
+    { ARGUMENT_WINDOW_TOGGLE_FULLSC,   window_toggle_zoom_fullscreen },
+    { ARGUMENT_WINDOW_TOGGLE_WINDOWED, window_manager_toggle_window_windowed_fullscreen },
+    { ARGUMENT_WINDOW_TOGGLE_NATIVE,   window_manager_toggle_window_native_fullscreen },
+    { ARGUMENT_WINDOW_TOGGLE_EXPOSE,   window_manager_toggle_window_expose },
+    { ARGUMENT_WINDOW_TOGGLE_PIP,      window_toggle_pip }
+};
+
+//
+// NOTE: Returns NULL when value is not a window property, so that it can be a scratchpad label.
+//
+
+static window_toggle_func *window_toggle_for_value(struct token value)
+{
+    for (int i = 0; i < array_count(window_toggle_list); ++i) {
+        if (token_equals(value, window_toggle_list[i].value)) {
+            return window_toggle_list[i].toggle;
+        }
+    }
+
+    return NULL;
+}
+
 static void handle_domain_window(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
@@ -2024,15 +2047,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 continue;
             }
 
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 window_manager_focus_window_with_raise(&acting_window->application->psn, acting_window->id, acting_window->ref);
@@ -2041,15 +2056,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "could not locate the window to act on!\n");
             }
         } else if (token_equals(command, COMMAND_WINDOW_CLOSE)) {
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 if (!window_manager_close_window(acting_window)) {
@@ -2059,15 +2066,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "could not locate the window to act on!\n");
             }
         } else if (token_equals(command, COMMAND_WINDOW_MINIMIZE)) {
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 enum window_op_error result = window_manager_minimize_window(acting_window);
@@ -2250,89 +2249,27 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(command, COMMAND_WINDOW_TOGGLE)) {
             struct token value = get_token(&message);
-            if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_FLOAT)) {
-                if (acting_window) {
-                    window_manager_make_window_floating(&g_space_manager, &g_window_manager, acting_window, !window_check_flag(acting_window, WINDOW_FLOAT), false);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
+            window_toggle_func *toggle = window_toggle_for_value(value);
+            if (!toggle) {
+                if (!window_manager_toggle_scratchpad_window_by_label(&g_window_manager, value.text)) {
+                    daemon_fail_unknown_value(rsp, domain, command, value);
                 }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_STICKY)) {
-                if (acting_window) {
-                    window_manager_make_window_sticky(&g_space_manager, &g_window_manager, acting_window, !window_check_flag(acting_window, WINDOW_STICKY));
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_SHADOW)) {
-                if (acting_window) {
-                    window_manager_toggle_window_shadow(acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_SPLIT)) {
-                if (acting_window) {
-                    space_manager_toggle_window_split(&g_space_manager, acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_PARENT)) {
-                if (acting_window) {
-                    window_manager_toggle_window_zoom_parent(&g_window_manager, acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_FULLSC)) {
-                if (acting_window) {
-                    window_manager_toggle_window_zoom_fullscreen(&g_window_manager, acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_WINDOWED)) {
-                if (acting_window) {
-                    window_manager_toggle_window_windowed_fullscreen(acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_NATIVE)) {
-                if (acting_window) {
-                    window_manager_toggle_window_native_fullscreen(acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_EXPOSE)) {
-                if (acting_window) {
-                    window_manager_toggle_window_expose(acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_TOGGLE_PIP)) {
-                if (acting_window) {
-                    window_manager_toggle_window_pip(&g_space_manager, acting_window);
-                } else {
-                    daemon_fail(rsp, "could not locate the window to act on!\n");
-                }
-            } else if (!window_manager_toggle_scratchpad_window_by_label(&g_window_manager, value.text)) {
-                daemon_fail_unknown_value(rsp, domain, command, value);
+            } else if (acting_window) {
+                toggle(acting_window);
+            } else {
+                daemon_fail(rsp, "could not locate the window to act on!\n");
             }
         } else if (token_equals(command, COMMAND_WINDOW_SUB_LAYER)) {
             struct token value = get_token(&message);
-            if (token_equals(value, ARGUMENT_WINDOW_LAYER_BELOW)) {
-                if (!window_manager_set_window_layer(acting_window, LAYER_BELOW)) {
-                    daemon_fail(rsp, "could not change sub-layer of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYER_NORMAL)) {
-                if (!window_manager_set_window_layer(acting_window, LAYER_NORMAL)) {
-                    daemon_fail(rsp, "could not change sub-layer of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYER_ABOVE)) {
-                if (!window_manager_set_window_layer(acting_window, LAYER_ABOVE)) {
-                    daemon_fail(rsp, "could not change sub-layer of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
-                }
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYER_AUTO)) {
-                if (!window_manager_set_window_layer(acting_window, LAYER_AUTO)) {
-                    daemon_fail(rsp, "could not change sub-layer of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
-                }
-            } else {
+            int layer = token_equals(value, ARGUMENT_WINDOW_LAYER_BELOW)  ? LAYER_BELOW
+                      : token_equals(value, ARGUMENT_WINDOW_LAYER_NORMAL) ? LAYER_NORMAL
+                      : token_equals(value, ARGUMENT_WINDOW_LAYER_ABOVE)  ? LAYER_ABOVE
+                      : token_equals(value, ARGUMENT_WINDOW_LAYER_AUTO)   ? LAYER_AUTO
+                      : -1;
+            if (layer == -1) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
+            } else if (!window_manager_set_window_layer(acting_window, layer)) {
+                daemon_fail(rsp, "could not change sub-layer of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
             }
         } else if (token_equals(command, COMMAND_WINDOW_OPACITY)) {
             struct token_value value = token_to_value(get_token(&message));
@@ -2437,15 +2374,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
             fprintf(rsp, "\n");
         } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
             struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 display_serialize(rsp, window_display_id(acting_window->id), properties.flags);
@@ -2495,15 +2424,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
             struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 space_manager_query_spaces_for_window(rsp, acting_window, properties.flags);
@@ -2548,15 +2469,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
             window_manager_query_windows_for_spaces(rsp, &acting_sid, 1, properties.flags);
         } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
             struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    acting_window = selector.window;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
 
             if (acting_window) {
                 window_serialize(rsp, acting_window, properties.flags);

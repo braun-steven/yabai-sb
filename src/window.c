@@ -719,7 +719,7 @@ void window_refresh_ax_properties(struct window *window)
     window->subrole = window_ax_subrole(window);
 }
 
-struct window *window_create(struct application *application, AXUIElementRef window_ref, uint32_t window_id)
+struct window *window_create(struct application *application, CF_CONSUMED AXUIElementRef window_ref, uint32_t window_id)
 {
     struct window *window = malloc(sizeof(struct window));
     memset(window, 0, sizeof(struct window));

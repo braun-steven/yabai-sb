@@ -50,7 +50,7 @@ int yabai_main(int argc, char **argv);
 #include <libproc.h>
 #include <dlfcn.h>
 
-#include "../misc/extern.h"
+#include <CPrivate.h>
 #include "../misc/macros.h"
 #include "../misc/memory_pool.h"
 #include "../misc/ts.h"

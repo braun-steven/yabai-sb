@@ -26,6 +26,7 @@ let package = Package(
     targets: [
         .target(
             name: "YabaiC",
+            dependencies: ["CPrivate"],
             path: "src",
             sources: ["manifest.m", "osax/payload_bin.c", "osax/loader_bin.c"],
             publicHeadersPath: "include",
@@ -38,13 +39,19 @@ let package = Package(
                 .linkedFramework("Carbon"),
                 .linkedFramework("Cocoa"),
                 .linkedFramework("CoreServices"),
-                .linkedFramework("CoreVideo"),
+                .linkedFramework("CoreVideo")
+            ]
+        ),
+        // the declarations of the private functions yabai calls, and the pointers to the ones it resolves at runtime
+        .target(
+            name: "CPrivate",
+            linkerSettings: [
                 .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
             ]
         ),
         .executableTarget(
             name: "Yabai",
-            dependencies: ["YabaiC"],
+            dependencies: ["CPrivate", "YabaiC"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", Context.packageDirectory + "/assets/Info.plist"] + sdk)
             ]

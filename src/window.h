@@ -229,7 +229,7 @@ static inline bool window_invalidate(struct window *window)
 }
 
 void window_refresh_ax_properties(struct window *window);
-struct window *window_create(struct application *application, AXUIElementRef window_ref, uint32_t window_id);
+struct window *window_create(struct application *application, CF_CONSUMED AXUIElementRef window_ref, uint32_t window_id);
 void window_destroy(struct window *window);
 
 #endif

@@ -21,7 +21,7 @@ static void window_manager_debug_window_info(struct window *window)
     fprintf(stdout, "\n");
 }
 
-struct window *window_manager_create_and_add_window(struct space_manager *sm, struct window_manager *wm, struct application *application, AXUIElementRef window_ref, uint32_t window_id, bool one_shot_rules)
+struct window *window_manager_create_and_add_window(struct space_manager *sm, struct window_manager *wm, struct application *application, CF_CONSUMED AXUIElementRef window_ref, uint32_t window_id, bool one_shot_rules)
 {
     struct window *window = window_create(application, window_ref, window_id);
 

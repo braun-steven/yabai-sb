@@ -249,7 +249,7 @@ enum window_op_error window_manager_minimize_window(struct window *window);
 enum window_op_error window_manager_deminimize_window(struct window *window);
 bool window_manager_close_window(struct window *window);
 void window_manager_send_window_to_space(struct space_manager *sm, struct window_manager *wm, struct window *window, uint64_t sid, bool moved_by_rule);
-struct window *window_manager_create_and_add_window(struct space_manager *sm, struct window_manager *wm, struct application *application, AXUIElementRef window_ref, uint32_t window_id, bool one_shot_rules);
+struct window *window_manager_create_and_add_window(struct space_manager *sm, struct window_manager *wm, struct application *application, CF_CONSUMED AXUIElementRef window_ref, uint32_t window_id, bool one_shot_rules);
 void window_manager_remove_one_shot_rules(struct window_manager *wm);
 uint64_t window_manager_origin_space(struct window_manager *wm, struct window *window);
 struct window **window_manager_add_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int *count);

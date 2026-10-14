@@ -883,19 +883,37 @@ static void tab_bar_create(struct tab_bar *bar, CGRect frame)
 
     if (tab_bar_uses_glass()) return;
 
+    //
+    // NOTE: Created with SLSNewWindow instead of SLSNewWindowWithOpaqueShapeAndContext, because a window of the latter
+    // is moved to the active space each time it is ordered in again, so a bar that was hidden and shown again would
+    // land on whatever space is visible instead of the space of its window.
+    //
+
     CFTypeRef frame_region;
     CGSNewRegionWithRect(&frame, &frame_region);
-
-    uint64_t tags = (1ULL << 1) | (1ULL << 9);
-    CFTypeRef empty_region = CGRegionCreateEmptyRegion();
-    SLSNewWindowWithOpaqueShapeAndContext(g_connection, 2, frame_region, empty_region, 13, &tags, 0, 0, 64, &bar->id, NULL);
-    CFRelease(empty_region);
+    SLSNewWindow(g_connection, 2, 0, 0, frame_region, &bar->id);
     CFRelease(frame_region);
 
+    uint64_t tags = (1ULL << 1) | (1ULL << 9);
+    SLSSetWindowTags(g_connection, bar->id, &tags, 64);
     sls_window_disable_shadow(bar->id);
     SLSSetWindowResolution(g_connection, bar->id, 2.0f);
     SLSSetWindowOpacity(g_connection, bar->id, 0);
     bar->context = SLWindowContextCreate(g_connection, bar->id, 0);
+}
+
+//
+// NOTE: Ordering a bar in can still move it to the active space, so its space is checked after every order and
+// fixed up when it no longer matches the space of the window it sits above.
+//
+
+static void tab_bar_keep_on_space(struct tab_bar *bar)
+{
+    if (!bar->id || !bar->sid || window_space(bar->id) == bar->sid) return;
+
+    CFArrayRef window_list_ref = cfarray_of_cfnumbers(&bar->id, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+    SLSMoveWindowsToManagedSpace(g_connection, window_list_ref, bar->sid);
+    CFRelease(window_list_ref);
 }
 
 //
@@ -947,6 +965,7 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t abo
         SLSSetWindowLevel(g_connection, bar->id, window_level(above_wid));
         SLSSetWindowSubLevel(g_connection, bar->id, window_sub_level(above_wid));
         SLSOrderWindow(g_connection, bar->id, 1, above_wid);
+        tab_bar_keep_on_space(bar);
     } else {
         tab_bar_glass_render(bar, above_wid, entry_list, entry_count);
     }
@@ -1030,6 +1049,7 @@ void tab_bar_order(uint32_t wid)
 
         if (bar->id) {
             SLSOrderWindow(g_connection, bar->id, 1, wid);
+            tab_bar_keep_on_space(bar);
         } else {
             tab_bar_glass_order(bar, wid);
         }

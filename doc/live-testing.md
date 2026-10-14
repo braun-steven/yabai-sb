@@ -47,6 +47,9 @@ Rules for the user's machine:
 - Before `setup`, check `pgrep -lx TextEdit`, `"Script Editor"`, `Calculator`; if one runs, ask the
   user. `setup` records the focused window in `.focused-window` and `cleanup` focuses it again;
   `launch` needs the test apps closed, so it runs after a `cleanup`.
+- Every deploy restarts yabai, and a restart loses the trees: all spaces, including the user's, come
+  back as a flat splith row (tabbed containers are gone). Rebuild a test layout after each deploy,
+  and tell the user that their layouts were reset.
 - The native ctrl+←/→ space shortcuts are disabled (symbolic hotkeys 79/81), so the harness skips
   that check. Don't change the user's settings.
 - A frozen application blocks every accessibility call to it for about 1 s (the AX timeout).

@@ -25,7 +25,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [x] | 348c156 | C handlers keep get_token/token_equals/daemon_fail until P5/P6 |
 | P5 | IPC server, CLI client, config domain | [x] | 91aa5b0 | other domains write into a FILE that the Response captures; new test target YabaiTests |
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [x] | c1854e6 | `rule --list`/`signal --list` json stays C until P11/P7; golden replay is a Swift test |
-| P7 | `@WM` actor, event loop, signals | [ ] | | |
+| P7 | `@WM` actor, event loop, signals | [x] | b36d9e2 | handlers stay C, called from `handle` in EventLoop.swift; signal commands use posix_spawn (no fork in Swift) |
 | P8 | Event handlers + Mission Control | [ ] | | |
 | P9 | Display + space model | [ ] | | |
 | P10 | Process, application, workspace | [ ] | | |
@@ -535,4 +535,31 @@ Append one entry per session, newest last. Template:
   - A non-AX window whose `proc_name` fails gets app "" (C kept the name of the previous such window in its static buffer). App names, titles and roles are Swift `String`s, so invalid UTF-8 (only a truncated `proc_name`) would come out as U+FFFD, like the labels since P3.
   - The `window --toggle` handler checks the toggle before it needs an acting window (C ran the same checks in another order); the results are the same.
 - Pitfalls added to "Swift conventions and pitfalls": header functions with a body that are not `static` (duplicate symbol in the test target, `memory_pool_init`)
+- Waiting on user: nothing
+
+### 2026-10-14 P7 [x]
+- Commits: b36d9e2 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the whole phase.
+  - `Sources/Yabai/EventLoop.swift`: the global actor `WM` (executor: `DispatchSerialQueue` "yabai.wm", default QoS like the C pthread, an autorelease pool per work item), `WM.assumeIsolated` (see pitfalls), the `Event` enum (one case per `EVENT_TYPE_LIST` entry; ids as associated values, C objects and retained CF objects in a `Handoff` wrapper), `EventLoop.post` (`queue.async { WM.assumeIsolated { handle; eventSignalFlush; ts_reset_storage } }`), the `@_cdecl` shim `event_loop_post(type, context, param1)` (the `struct event_loop *` parameter is gone; every C caller drops `&g_event_loop`), and `handle`, which calls the C handlers. The handlers lost `static`; `event_loop.h` declares them through the X-macro.
+  - `event_loop.c`, `memory_pool.h`, `event_signal.c`, `g_event_loop`, `g_signal_event`, `g_signal_storage`, `event_signal_storage_init` and `tests/src/event_signal.c` are deleted. `event_signal.h` keeps `enum signal_type` and the prototype of the `event_signal_push` shim (the C handlers push signals). `ts_reset_storage` (`ts.h`) resets the temporary storage after each event.
+  - Signals: `Sources/YabaiCore/EventSignal.swift` (`SignalType` with the names of `signal_type_str`, `PendingSignal` = `struct event_signal` with `filters` = `event_signal_filter`, `SignalTable` = `g_signal_event` with add/remove/`list`, the `signal --list` json), `Sources/Yabai/EventSignal.swift` (the `@WM` state `eventSignals`/`pendingSignals`, the describe functions on the C structs, `eventSignalPush`, `eventSignalFlush`, `eventSignalSpawn`). The signal domain uses them directly (`parseCSignal` is gone); `handleMessage` and `handleDomainSignal` are `@WM`, and `daemon_message_handle` enters `@WM` with `WM.assumeIsolated`.
+  - `Sources/Yabai/Log.swift`: `debug(_:)` for Swift, written to C's stdout (`stdout_global()`), so the lines keep their order with the C debug output. `globals.h` gained `process_manager_global`, `stdout_global`, `environ_global`.
+  - `AGENTS.md` (event loop, signals, file list), `doc/live-testing.md` (signals no longer fork) updated.
+- Resume at: next phase (P8)
+- Open @_cdecl shims / C structs still shared: the P6 list, plus `event_loop_post` (called by every C producer until P8/P10/P13 port them), `event_signal_push` (called by the C handlers until P8). C structs: unchanged from P6 minus `struct signal`/`struct event_signal`/`struct event_loop` (deleted).
+- Tests: C remaining 53, Swift added 3 (total ported 29/82): `event_signal_filter_properties`, `event_signal_args` (YabaiCoreTests), `event_signal_describe_spaces` (YabaiTests). Extra Swift tests: `signalTypeNames`, `signalTableAddsRemovesAndLists`. Golden replay 145/145 (now `@Test @WM`), `goldenCaptureCoversEveryCommand` passes; 47 Swift tests in all.
+- Measurements:
+  - Lines (as in P6): C 11,670 · headers 3,616 · ObjC 1,019 · Swift 8,148 · C tests 1,783
+  - Release `bin/yabai`: 1,360,440 B (P6: 1,308,744 B)
+  - V1 all four variants warning-free (`make -C tests` too); V2 passes; V3 39 warnings (HEAD before the phase: 36), diffed: the three new ones are view leaks (views owned by tables, the known class) in `event_handlers_mouse.c` (`MOUSE_DRAGGED`), `event_handlers_space.c` and `window_manager.c:1223`: the handlers are no longer `static`, so the analyzer starts paths in them.
+  - V5: `run` 28/28, `extra` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 15 ms, Dock pid unchanged), `launch` 3/3 (13 attempts, gave up; queries median 19 ms, max 1008 ms); asan `run` 28/28 and tsan `run` 28/28, both without reports (tsan also with two signals firing). Crash reports 26 before and after (older ones aged out). `deploy.sh restore` done; `sa_version.py` back at 2.1.33.
+  - V6: `ipc_compare.sh` (246 commands) is byte-identical between the P7 release build and the installed build, each right after a restart, except 10 window queries of space 4, whose windows `bench.py` had rotated between the two captures. A labeled `window_focused` signal gets `$YABAI_WINDOW_ID` for `window --focus <id>` and back, a second one with `app=^NoSuchApp$` is filtered out, `space_changed` gets the four space variables (14 4 23 2, then 23 2 14 4); `debug_output on` logs `event_signal_flush: transmitting window_focused to 2 subscriber(s)`.
+  - Bench (V5 step 2, same windows): P7 tab focus 25.1 / 24.6, rotate 158.7 / 152.4, split focus 18.8 / 21.6 ms; installed build 21.7 / 23.2, 150.1 / 153.9, 21.7 / 23.2 ms. Within 10% of the P0 baseline (30.8 / 31.5, 150.5 / 147.2, 30.3 / 28.7 ms).
+- Deviations from plan / surprises:
+  - Signal commands: Swift cannot call `fork` (unavailable), so the filters run on the event loop and `posix_spawn` starts `/usr/bin/env NAME=VALUE… sh -c <action>` for each matching signal, with the daemon's environment. C forked a copy of the daemon per event, which forked and exec'd each command. Differences: a command's parent is the daemon (`$PPID`), not launchd; the `transmitting … subscriber(s)` debug line is printed by the daemon now (the forked C copy wrote it into its stdout buffer and left with `_exit`, so it never reached the log); a value of more than 127 bytes is no longer cut (the values are ids and mode names); there is no cap of 2,520 pushed signals per event (the C storage was 256 KB).
+  - The C handlers stay C and the plan's `signals.flush()` is `eventSignalFlush()`; `handle` calls the handlers with the context and param1 they were posted with, so P8 can replace them case by case.
+  - The plan's TSan expectation: the two known `APPLICATION_LAUNCHED` reports did not show up (none since P3 either); dispatch is a happens-before edge that TSan models, the C queue was not.
+  - The Event cases keep the C producers' contexts: `Handoff<UnsafeMutablePointer<process>>`, `Handoff<Unmanaged<AXUIElement>>` (`WINDOW_CREATED`), `Handoff<Unmanaged<CGEvent>>` (mouse); the handler still releases the CF objects. `MISSION_CONTROL_ENTER` is never posted (its notification went in P1), the case stays with its handler.
+- Pitfalls added to "Swift conventions and pitfalls": `fork`/`environ` unavailable in Swift; a custom global actor has no static `assumeIsolated` (and sending non-Sendable captures into it); locals named like a C type
 - Waiting on user: nothing

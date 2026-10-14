@@ -122,3 +122,58 @@ TEST_FUNC(message_window_toggle_lookup,
     TEST_CHECK(window_toggle_for_value(message_test_token("notes")) == NULL, true);
     TEST_CHECK(window_toggle_for_value(message_test_token("floa")) == NULL, true);
 });
+
+static char message_test_rule_buffer[256];
+
+static bool message_test_parse_rule(const char *message, size_t size, struct rule *rule, char **response)
+{
+    memcpy(message_test_rule_buffer, message, size);
+    char *cursor = message_test_rule_buffer;
+
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    memset(rule, 0, sizeof(struct rule));
+    bool result = parse_rule(rsp, &cursor, rule, get_token(&cursor));
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+#define MESSAGE_TEST_RULE(m, rule, response) message_test_parse_rule(m, sizeof(m), rule, response)
+
+TEST_FUNC(message_rule_parse,
+{
+    struct rule rule;
+    char *response;
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=^Safari$\0title!=Preferences\0manage=off\0sticky=on\0sub-layer=above\0opacity=0.5\0", &rule, &response), true);
+    TEST_CHECK(rule_check_flag(&rule, RULE_APP_VALID) != 0, true);
+    TEST_CHECK(rule_check_flag(&rule, RULE_APP_EXCLUDE) != 0, false);
+    TEST_CHECK(rule_check_flag(&rule, RULE_TITLE_EXCLUDE) != 0, true);
+    TEST_CHECK(rule.effects.manage, RULE_PROP_OFF);
+    TEST_CHECK(rule.effects.sticky, RULE_PROP_ON);
+    TEST_CHECK(rule.effects.mff, RULE_PROP_UD);
+    TEST_CHECK(rule.effects.layer, LAYER_ABOVE);
+    TEST_CHECK(rule_effects_check_flag(&rule.effects, RULE_LAYER), true);
+    TEST_CHECK(rule_effects_check_flag(&rule.effects, RULE_OPACITY), true);
+    TEST_CHECK(strcmp(rule.app, "^Safari$"), 0);
+    TEST_CHECK(response[0], '\0');
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=x\0manage=maybe\0", &rule, &response), false);
+    TEST_CHECK(strstr(response, "invalid value 'maybe' for key 'manage'") != NULL, true);
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=(\0", &rule, &response), false);
+    TEST_CHECK(strstr(response, "invalid regex pattern '(' for key 'app'") != NULL, true);
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=x\0label!=y\0", &rule, &response), false);
+    TEST_CHECK(strstr(response, "unsupported token '!' (exclusion) given for key 'label'") != NULL, true);
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("manage=on\0colour=red\0", &rule, &response), false);
+    TEST_CHECK(strstr(response, "unknown key 'colour'") != NULL, true);
+    TEST_CHECK(strstr(response, "missing required key-value pair") != NULL, true);
+    rule_destroy(&rule);
+});

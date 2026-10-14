@@ -564,6 +564,15 @@ static void parse_key_value_pair(char *token, char **key, char **value, bool *ex
     }
 }
 
+static int parse_layer(char *value)
+{
+    if (string_equals(value, ARGUMENT_WINDOW_LAYER_BELOW))  return LAYER_BELOW;
+    if (string_equals(value, ARGUMENT_WINDOW_LAYER_NORMAL)) return LAYER_NORMAL;
+    if (string_equals(value, ARGUMENT_WINDOW_LAYER_ABOVE))  return LAYER_ABOVE;
+    if (string_equals(value, ARGUMENT_WINDOW_LAYER_AUTO))   return LAYER_AUTO;
+    return -1;
+}
+
 static uint8_t parse_value_type(char *type)
 {
     if (string_equals(type, "abs")) {
@@ -2261,11 +2270,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(command, COMMAND_WINDOW_SUB_LAYER)) {
             struct token value = get_token(&message);
-            int layer = token_equals(value, ARGUMENT_WINDOW_LAYER_BELOW)  ? LAYER_BELOW
-                      : token_equals(value, ARGUMENT_WINDOW_LAYER_NORMAL) ? LAYER_NORMAL
-                      : token_equals(value, ARGUMENT_WINDOW_LAYER_ABOVE)  ? LAYER_ABOVE
-                      : token_equals(value, ARGUMENT_WINDOW_LAYER_AUTO)   ? LAYER_AUTO
-                      : -1;
+            int layer = parse_layer(value.text);
             if (layer == -1) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
             } else if (!window_manager_set_window_layer(acting_window, layer)) {
@@ -2510,6 +2515,29 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
     }
 }
 
+static bool parse_rule_pattern(struct rule *rule, char *value, bool exclusion, char **pattern, regex_t *regex, enum rule_flag valid_flag, enum rule_flag exclude_flag)
+{
+    *pattern = string_copy(value);
+    if (exclusion) rule_set_flag(rule, exclude_flag);
+    if (regcomp(regex, value, REG_EXTENDED) != 0) return false;
+
+    rule_set_flag(rule, valid_flag);
+    return true;
+}
+
+static bool parse_rule_prop(char *value, int *prop)
+{
+    if (string_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+        *prop = RULE_PROP_ON;
+    } else if (string_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+        *prop = RULE_PROP_OFF;
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct token token)
 {
     TIME_FUNCTION;
@@ -2530,70 +2558,37 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
             continue;
         }
 
+        bool is_filter = false;
+        bool valid_value = true;
+        bool valid_pattern = true;
+
         if (string_equals(key, ARGUMENT_RULE_KEY_LABEL)) {
-            if (exclusion) unsupported_exclusion = key;
             rule->label = string_copy(value);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SCRATCHPAD)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            bool valid = true;
             for (int i = 0; i < array_count(reserved_window_identifiers); ++i) {
                 if (string_equals(value, reserved_window_identifiers[i])) {
-                    valid = false;
+                    valid_value = false;
                     break;
                 }
             }
 
-            if (valid) {
+            if (valid_value) {
                 rule->effects.scratchpad = string_copy(value);
                 rule->effects.manage = RULE_PROP_OFF;
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
             }
         } else if (string_equals(key, ARGUMENT_RULE_KEY_APP)) {
-            has_filter = true;
-            rule->app = string_copy(value);
-            if (exclusion) rule_set_flag(rule, RULE_APP_EXCLUDE);
-            if (regcomp(&rule->app_regex, value, REG_EXTENDED) == 0) {
-                rule_set_flag(rule, RULE_APP_VALID);
-            } else {
-                daemon_fail(rsp, "invalid regex pattern '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            is_filter = true;
+            valid_pattern = parse_rule_pattern(rule, value, exclusion, &rule->app, &rule->app_regex, RULE_APP_VALID, RULE_APP_EXCLUDE);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_TITLE)) {
-            has_filter = true;
-            rule->title = string_copy(value);
-            if (exclusion) rule_set_flag(rule, RULE_TITLE_EXCLUDE);
-            if (regcomp(&rule->title_regex, value, REG_EXTENDED) == 0) {
-                rule_set_flag(rule, RULE_TITLE_VALID);
-            } else {
-                daemon_fail(rsp, "invalid regex pattern '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            is_filter = true;
+            valid_pattern = parse_rule_pattern(rule, value, exclusion, &rule->title, &rule->title_regex, RULE_TITLE_VALID, RULE_TITLE_EXCLUDE);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_ROLE)) {
-            has_filter = true;
-            rule->role = string_copy(value);
-            if (exclusion) rule_set_flag(rule, RULE_ROLE_EXCLUDE);
-            if (regcomp(&rule->role_regex, value, REG_EXTENDED) == 0) {
-                rule_set_flag(rule, RULE_ROLE_VALID);
-            } else {
-                daemon_fail(rsp, "invalid regex pattern '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            is_filter = true;
+            valid_pattern = parse_rule_pattern(rule, value, exclusion, &rule->role, &rule->role_regex, RULE_ROLE_VALID, RULE_ROLE_EXCLUDE);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SUBROLE)) {
-            has_filter = true;
-            rule->subrole = string_copy(value);
-            if (exclusion) rule_set_flag(rule, RULE_SUBROLE_EXCLUDE);
-            if (regcomp(&rule->subrole_regex, value, REG_EXTENDED) == 0) {
-                rule_set_flag(rule, RULE_SUBROLE_VALID);
-            } else {
-                daemon_fail(rsp, "invalid regex pattern '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            is_filter = true;
+            valid_pattern = parse_rule_pattern(rule, value, exclusion, &rule->subrole, &rule->subrole_regex, RULE_SUBROLE_VALID, RULE_SUBROLE_EXCLUDE);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_DISPLAY)) {
-            if (exclusion) unsupported_exclusion = key;
-
             if (value[0] == ARGUMENT_RULE_VALUE_SPACE) {
                 ++value;
                 rule_effects_set_flag(&rule->effects, RULE_FOLLOW_SPACE);
@@ -2606,8 +2601,6 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
                 did_parse = false;
             }
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SPACE)) {
-            if (exclusion) unsupported_exclusion = key;
-
             if (value[0] == ARGUMENT_RULE_VALUE_SPACE) {
                 ++value;
                 rule_effects_set_flag(&rule->effects, RULE_FOLLOW_SPACE);
@@ -2620,89 +2613,44 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
                 did_parse = false;
             }
         } else if (string_equals(key, ARGUMENT_RULE_KEY_GRID)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if ((sscanf(value, ARGUMENT_RULE_VALUE_GRID,
-                        &rule->effects.grid[0], &rule->effects.grid[1],
-                        &rule->effects.grid[2], &rule->effects.grid[3],
-                        &rule->effects.grid[4], &rule->effects.grid[5]) != 6)) {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            valid_value = sscanf(value, ARGUMENT_RULE_VALUE_GRID,
+                                 &rule->effects.grid[0], &rule->effects.grid[1],
+                                 &rule->effects.grid[2], &rule->effects.grid[3],
+                                 &rule->effects.grid[4], &rule->effects.grid[5]) == 6;
         } else if (string_equals(key, ARGUMENT_RULE_KEY_OPACITY)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if ((sscanf(value, "%f", &rule->effects.opacity) == 1) && (in_range_ii(rule->effects.opacity, 0.0f, 1.0f))) {
-                rule_effects_set_flag(&rule->effects, RULE_OPACITY);
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            valid_value = (sscanf(value, "%f", &rule->effects.opacity) == 1) && (in_range_ii(rule->effects.opacity, 0.0f, 1.0f));
+            if (valid_value) rule_effects_set_flag(&rule->effects, RULE_OPACITY);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_MANAGE)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if (string_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                rule->effects.manage = RULE_PROP_ON;
-            } else if (string_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                rule->effects.manage = RULE_PROP_OFF;
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            valid_value = parse_rule_prop(value, &rule->effects.manage);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_STICKY)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if (string_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                rule->effects.sticky = RULE_PROP_ON;
-            } else if (string_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                rule->effects.sticky = RULE_PROP_OFF;
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            valid_value = parse_rule_prop(value, &rule->effects.sticky);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_MFF)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if (string_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                rule->effects.mff = RULE_PROP_ON;
-            } else if (string_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                rule->effects.mff = RULE_PROP_OFF;
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
-        } else if (string_equals(key, ARGUMENT_RULE_KEY_SUB_LAYER)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if (string_equals(value, ARGUMENT_WINDOW_LAYER_BELOW)) {
-                rule->effects.layer = LAYER_BELOW;
-                rule_effects_set_flag(&rule->effects, RULE_LAYER);
-            } else if (string_equals(value, ARGUMENT_WINDOW_LAYER_NORMAL)) {
-                rule->effects.layer = LAYER_NORMAL;
-                rule_effects_set_flag(&rule->effects, RULE_LAYER);
-            } else if (string_equals(value, ARGUMENT_WINDOW_LAYER_ABOVE)) {
-                rule->effects.layer = LAYER_ABOVE;
-                rule_effects_set_flag(&rule->effects, RULE_LAYER);
-            } else if (string_equals(value, ARGUMENT_WINDOW_LAYER_AUTO)) {
-                rule->effects.layer = LAYER_AUTO;
-                rule_effects_set_flag(&rule->effects, RULE_LAYER);
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
-            }
+            valid_value = parse_rule_prop(value, &rule->effects.mff);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_FULLSCR)) {
-            if (exclusion) unsupported_exclusion = key;
-
-            if (string_equals(value, ARGUMENT_COMMON_VAL_ON)) {
-                rule->effects.fullscreen = RULE_PROP_ON;
-            } else if (string_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                rule->effects.fullscreen = RULE_PROP_OFF;
-            } else {
-                daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
-                did_parse = false;
+            valid_value = parse_rule_prop(value, &rule->effects.fullscreen);
+        } else if (string_equals(key, ARGUMENT_RULE_KEY_SUB_LAYER)) {
+            int layer = parse_layer(value);
+            valid_value = layer != -1;
+            if (valid_value) {
+                rule->effects.layer = layer;
+                rule_effects_set_flag(&rule->effects, RULE_LAYER);
             }
         } else {
             daemon_fail(rsp, "unknown key '%s'\n", key);
+            did_parse = false;
+            continue;
+        }
+
+        has_filter |= is_filter;
+        if (exclusion && !is_filter) unsupported_exclusion = key;
+
+        if (!valid_value) {
+            daemon_fail(rsp, "invalid value '%s' for key '%s'\n", value, key);
+            did_parse = false;
+        }
+
+        if (!valid_pattern) {
+            daemon_fail(rsp, "invalid regex pattern '%s' for key '%s'\n", value, key);
             did_parse = false;
         }
     }

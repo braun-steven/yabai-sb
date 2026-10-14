@@ -73,6 +73,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_config_choice)                          \
     TEST_ENTRY(message_config_options)                         \
     TEST_ENTRY(message_window_toggle_lookup)                   \
+    TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(window_info_serialize_selected)                 \
     TEST_ENTRY(window_info_tree_fields)
 

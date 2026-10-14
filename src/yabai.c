@@ -203,7 +203,7 @@ int yabai_main(int argc, char **argv)
         error("yabai: could not allocate temporary storage! abort..\n");
     }
 
-    if (!memory_pool_init(&g_signal_storage, KILOBYTES(256))) {
+    if (!event_signal_storage_init()) {
         error("yabai: could not allocate event signal storage! abort..\n");
     }
 

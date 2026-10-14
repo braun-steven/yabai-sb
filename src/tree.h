@@ -14,13 +14,6 @@ enum con_layout
     CON_TABBED
 };
 
-static const char *con_layout_str[] =
-{
-    "splith",
-    "splitv",
-    "tabbed"
-};
-
 enum con_orientation
 {
     CON_HORIZONTAL,
@@ -176,6 +169,5 @@ void tree_refresh_for_window(uint32_t window_id);
 void tree_selection_show(struct con *con);
 void tree_feedback_show(struct con *con, int insert_dir);
 void tree_feedback_hide(struct con *con);
-bool tree_serialize(FILE *rsp, struct view *view);
 
 #endif

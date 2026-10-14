@@ -17,65 +17,6 @@ static DISPLAY_EVENT_HANDLER(display_handler)
 }
 #pragma clang diagnostic pop
 
-static char *display_uuid_ts(uint32_t did)
-{
-    CFStringRef uuid_ref = display_uuid(did);
-    if (!uuid_ref) return "<unknown>";
-
-    char *uuid = ts_cfstring_copy(uuid_ref);
-    CFRelease(uuid_ref);
-    return uuid ? uuid : "<unknown>";
-}
-
-static char *display_label_string(uint32_t did)
-{
-    char *display_label = label_find_id(g_display_manager.labels, did);
-    return display_label ? json_string(display_label) : "";
-}
-
-//
-// NOTE: The Mission Control indices of the spaces of a display as a json array, in temporary storage.
-//
-
-static char *display_space_index_list_json(uint32_t did)
-{
-    int count = 0;
-    uint64_t *space_list = display_space_list(did, &count);
-    if (!space_list) count = 0;
-
-    int size = 3 + count * 12;
-    char *result = ts_alloc_unaligned(size);
-    int length = snprintf(result, size, "[");
-
-    int first_mci = count ? space_manager_mission_control_index(space_list[0]) : 0;
-    for (int i = 0; i < count; ++i) {
-        length += snprintf(result + length, size - length, "%s%d", i ? ", " : "", first_mci + i);
-    }
-
-    snprintf(result + length, size - length, "]");
-    return result;
-}
-
-void display_serialize(FILE *rsp, uint32_t did, uint64_t flags)
-{
-    TIME_FUNCTION;
-
-    if (flags == 0x0) flags |= ~flags;
-
-    char *separator = "";
-    fprintf(rsp, "{\n");
-
-    JSON_PROPERTY(DISPLAY_PROPERTY_ID,        "\"id\":%d", did);
-    JSON_PROPERTY(DISPLAY_PROPERTY_UUID,      "\"uuid\":\"%s\"", display_uuid_ts(did));
-    JSON_PROPERTY(DISPLAY_PROPERTY_INDEX,     "\"index\":%d", display_manager_display_id_arrangement(did));
-    JSON_PROPERTY(DISPLAY_PROPERTY_LABEL,     "\"label\":\"%s\"", display_label_string(did));
-    JSON_PROPERTY(DISPLAY_PROPERTY_FRAME,     "\"frame\":" JSON_FRAME_FORMAT, JSON_FRAME_VALUES(CGDisplayBounds(did)));
-    JSON_PROPERTY(DISPLAY_PROPERTY_SPACES,    "\"spaces\":%s", display_space_index_list_json(did));
-    JSON_PROPERTY(DISPLAY_PROPERTY_HAS_FOCUS, "\"has-focus\":%s", json_bool(did == g_display_manager.current_display_id));
-
-    fprintf(rsp, "\n}");
-}
-
 inline CF_RETURNS_RETAINED CFStringRef display_uuid(uint32_t did)
 {
     CFUUIDRef uuid_ref = CGDisplayCreateUUIDFromDisplayID(did);

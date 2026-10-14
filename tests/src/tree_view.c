@@ -64,27 +64,3 @@ TEST_FUNC(tree_view_zoom_frames,
 
     con_free(root);
 });
-
-static char tree_view_test_output[2048];
-
-TEST_FUNC(tree_view_serialize_tree,
-{
-    struct con *root = con_create(CON_SPLITH);
-    struct con *tabs = tree_test_split(root, CON_TABBED);
-    tree_test_leaf(tabs, 7);
-    struct view view = tree_view_test_view(root);
-
-    memset(tree_view_test_output, 0, sizeof(tree_view_test_output));
-    FILE *rsp = fmemopen(tree_view_test_output, sizeof(tree_view_test_output), "w");
-    TEST_CHECK(tree_serialize(rsp, &view), true);
-    fclose(rsp);
-
-    TEST_CHECK(strstr(tree_view_test_output, "{\"type\":\"workspace\",\"layout\":\"splith\"") == tree_view_test_output, true);
-    TEST_CHECK(strstr(tree_view_test_output, "{\"type\":\"container\",\"layout\":\"tabbed\"") != NULL, true);
-    TEST_CHECK(strstr(tree_view_test_output, "{\"type\":\"window\",\"layout\":null,\"percent\":1.0000,\"window\":7") != NULL, true);
-
-    view.layout = VIEW_FLOAT;
-    TEST_CHECK(tree_serialize(NULL, &view), false);
-
-    con_free(root);
-});

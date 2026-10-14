@@ -101,11 +101,11 @@ func daemon_message_handle(_ sockfd: Int32)
         return
     }
 
+    message.withUnsafeMutableBufferPointer { debug_message("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
+
     var response = Response()
-    message.withUnsafeMutableBufferPointer { buffer in
-        debug_message("EVENT_HANDLER_DAEMON_MESSAGE", buffer.baseAddress)
-        handleMessage(&response, buffer.baseAddress!)
-    }
+    var tokens = Message(message.map { UInt8(bitPattern: $0) })
+    handleMessage(&response, &tokens)
 
     ResponseWriter(sockfd: sockfd).send(response)
 }
@@ -134,42 +134,26 @@ struct ResponseWriter
     }
 }
 
-/// `handle_message`: runs the commands of a message. The domains other than config are still C and write into a FILE.
-func handleMessage(_ response: inout Response, _ message: UnsafeMutablePointer<CChar>)
+/// `handle_message`: runs the commands of a message.
+func handleMessage(_ response: inout Response, _ message: inout Message)
 {
-    var cursor: UnsafeMutablePointer<CChar>? = message
-    let domain = get_token(&cursor)
-    let name = Token(domain)
+    let domain = message.next()
 
-    if name.equals(Domain.config) {
-        withUnsafeMutablePointer(to: &cursor) { cursor in
-            var source = CMessage(cursor: cursor)
-            handleDomainConfig(&response, name, &source)
-        }
-    } else if name.equals(Domain.display) {
-        response.appendWritten { handle_domain_display($0, domain, cursor) }
-    } else if name.equals(Domain.space) {
-        response.appendWritten { handle_domain_space($0, domain, cursor) }
-    } else if name.equals(Domain.window) {
-        response.appendWritten { handle_domain_window($0, domain, cursor) }
-    } else if name.equals(Domain.query) {
-        response.appendWritten { handle_domain_query($0, domain, cursor) }
-    } else if name.equals(Domain.rule) {
-        response.appendWritten { handle_domain_rule($0, domain, cursor) }
-    } else if name.equals(Domain.signal) {
-        response.appendWritten { handle_domain_signal($0, domain, cursor) }
+    if domain.equals(Domain.config) {
+        handleDomainConfig(&response, domain, &message)
+    } else if domain.equals(Domain.display) {
+        handleDomainDisplay(&response, domain, &message)
+    } else if domain.equals(Domain.space) {
+        handleDomainSpace(&response, domain, &message)
+    } else if domain.equals(Domain.window) {
+        handleDomainWindow(&response, domain, &message)
+    } else if domain.equals(Domain.query) {
+        handleDomainQuery(&response, domain, &message)
+    } else if domain.equals(Domain.rule) {
+        handleDomainRule(&response, domain, &message)
+    } else if domain.equals(Domain.signal) {
+        handleDomainSignal(&response, domain, &message)
     } else {
-        response.fail("unknown domain '\(name)'\n")
+        response.fail("unknown domain '\(domain)'\n")
     }
-}
-
-/// The C entry point of handleMessage, for the golden replay of the C tests (tests/src/golden.c).
-@_cdecl("handle_message")
-func handle_message(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<CChar>?)
-{
-    guard let message else { return }
-
-    var response = Response()
-    handleMessage(&response, message)
-    response.write(to: rsp)
 }

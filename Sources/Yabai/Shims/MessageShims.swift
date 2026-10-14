@@ -2,24 +2,13 @@ import YabaiC
 import YabaiCore
 
 //
-// NOTE: The C entry points of the message parsers (Sources/YabaiCore/Message.swift, MessageParse.swift, Rule.swift) while
-// the handlers of message*.c are C (src/message_parse.h). The C handlers keep reading tokens with get_token; a parser that
-// takes the next tokens reads them through CMessage, so it consumes exactly what the C version did. A parser writes its
-// response into a Response, which the shim writes to rsp before it returns, so the order of the output is unchanged.
+// NOTE: What the Swift handlers of the IPC domains (Sources/Yabai/IPC/) need from the C managers while those are C: the
+// selectors look up displays, spaces and windows in them, and rules and signals are parsed into their C structs. Also
+// the C entry point of RuleEffects.combine.
 //
 
 extension Token
 {
-    init(_ token: token)
-    {
-        guard let text = token.text, token.length > 0 else {
-            self.init(ArraySlice<UInt8>())
-            return
-        }
-
-        self.init(UnsafeRawBufferPointer(start: text, count: Int(token.length)))
-    }
-
     init(cString: UnsafePointer<CChar>?)
     {
         guard let cString else {
@@ -28,23 +17,6 @@ extension Token
         }
 
         self.init(UnsafeRawBufferPointer(start: cString, count: strlen(cString)))
-    }
-}
-
-/// The cursor of a C message (`char **message`), read with get_token.
-struct CMessage: TokenSource
-{
-    let cursor: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>
-
-    mutating func next() -> Token
-    {
-        Token(get_token(cursor))
-    }
-
-    func peek() -> Token
-    {
-        var copy = cursor.pointee
-        return Token(get_token(&copy))
     }
 }
 
@@ -163,73 +135,12 @@ struct CSelectorContext: SelectorContext
     }
 }
 
-@_cdecl("token_to_value")
-func token_to_value(_ token: token) -> token_value
-{
-    var result = token_value()
-    result.token = token
-
-    switch Token(token).value {
-    case .invalid:          result.type = TOKEN_TYPE_INVALID
-    case .int(let value):   result.type = TOKEN_TYPE_INT;    result.int_value = value
-    case .u32(let value):   result.type = TOKEN_TYPE_U32;    result.u32_value = value
-    case .float(let value): result.type = TOKEN_TYPE_FLOAT;  result.float_value = value
-    case .string:           result.type = TOKEN_TYPE_STRING; result.string_value = token.text
-    }
-
-    return result
-}
-
-private func tokenValue(_ value: token_value) -> TokenValue
-{
-    switch value.type {
-    case TOKEN_TYPE_INT:    .int(value.int_value)
-    case TOKEN_TYPE_U32:    .u32(value.u32_value)
-    case TOKEN_TYPE_FLOAT:  .float(value.float_value)
-    case TOKEN_TYPE_STRING: .string(Token(value.token))
-    default:                .invalid
-    }
-}
-
-@_cdecl("token_value_float")
-func token_value_float(_ value: token_value, _ result: UnsafeMutablePointer<Float>) -> Bool
-{
-    guard let float = tokenValue(value).floatValue else { return false }
-
-    result.pointee = float
-    return true
-}
-
-@_cdecl("daemon_fail_unknown_command")
-func daemon_fail_unknown_command(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token)
-{
-    var response = Response()
-    response.failUnknownCommand(Token(domain), Token(command))
-    response.write(to: rsp)
-}
-
-@_cdecl("daemon_fail_unknown_option")
-func daemon_fail_unknown_option(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token, _ option: token)
-{
-    var response = Response()
-    response.failUnknownOption(Token(domain), Token(command), Token(option))
-    response.write(to: rsp)
-}
-
-@_cdecl("daemon_fail_unknown_value")
-func daemon_fail_unknown_value(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token, _ value: token)
-{
-    var response = Response()
-    response.failUnknownValue(Token(domain), Token(command), Token(value))
-    response.write(to: rsp)
-}
-
 //
 // NOTE: The values of LAYER_* (src/misc/macros.h). Swift does not import the macros that name the CGWindowLevelKey
 // constants.
 //
 
-private func layerValue(_ layer: WindowLayer) -> Int32
+func layerValue(_ layer: WindowLayer) -> Int32
 {
     switch layer {
     case .auto:   Int32(LAYER_AUTO)
@@ -244,191 +155,6 @@ private func windowLayer(_ layer: Int32) -> WindowLayer
     WindowLayer.allCases.first { layerValue($0) == layer } ?? .auto
 }
 
-@_cdecl("parse_layer")
-func parse_layer(_ value: UnsafeMutablePointer<CChar>?) -> Int32
-{
-    parseLayer(Token(cString: value)).map(layerValue) ?? -1
-}
-
-@_cdecl("parse_value_type")
-func parse_value_type(_ type: UnsafeMutablePointer<CChar>?) -> UInt8
-{
-    parseValueType(Token(cString: type))?.rawValue ?? 0
-}
-
-@_cdecl("parse_resize_handle")
-func parse_resize_handle(_ handle: UnsafeMutablePointer<CChar>?) -> UInt8
-{
-    parseResizeHandle(Token(cString: handle)).rawValue
-}
-
-@_cdecl("window_toggle_index")
-func window_toggle_index(_ value: token) -> Int32
-{
-    guard let toggle = WindowToggle(Token(value)) else { return -1 }
-    return Int32(WindowToggle.allCases.firstIndex(of: toggle)!)
-}
-
-private func labelKind(_ type: label_type) -> LabelKind
-{
-    switch type {
-    case LABEL_DISPLAY: .display
-    case LABEL_SPACE:   .space
-    default:            .window
-    }
-}
-
-@_cdecl("parse_label")
-func parse_label(_ rsp: UnsafeMutablePointer<FILE>?, _ token: token, _ type: label_type, _ label: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Bool
-{
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let result = parseLabel(&response, Token(token), labelKind(type))
-    label.pointee = result.label.map { mallocString($0.bytes) }
-    return result.valid
-}
-
-@_cdecl("parse_properties")
-func parse_properties(_ rsp: UnsafeMutablePointer<FILE>?, _ token: token, _ propertyVal: UnsafeMutablePointer<UInt64>, _ propertyStr: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ propertyCount: Int32) -> properties
-{
-    let names = (0..<Int(propertyCount)).map { String(cString: propertyStr[$0]!) }
-    let values = Array(UnsafeBufferPointer(start: propertyVal, count: Int(propertyCount)))
-
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let parsed = parseProperties(&response, Token(token), names: names, values: values)
-    return properties(token: token, did_parse: parsed.didParse, did_error: parsed.didError, flags: parsed.flags)
-}
-
-@_cdecl("parse_display_selector")
-func parse_display_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ actingDid: UInt32, _ optional: Bool) -> selector
-{
-    let token = get_token(message)
-
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let parsed = parseDisplaySelector(&response, Token(token), acting: actingDid, optional: optional, CSelectorContext())
-    var result = selector()
-    result.token = token
-    result.did_parse = parsed.didParse
-    result.did = parsed.value
-    return result
-}
-
-@_cdecl("parse_space_selector")
-func parse_space_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ actingSid: UInt64, _ optional: Bool) -> selector
-{
-    let token = get_token(message)
-
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let parsed = parseSpaceSelector(&response, Token(token), acting: actingSid, optional: optional, CSelectorContext())
-    var result = selector()
-    result.token = token
-    result.did_parse = parsed.didParse
-    result.sid = parsed.value
-    return result
-}
-
-@_cdecl("parse_window_selector")
-func parse_window_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ actingWindow: UnsafeMutablePointer<window>?, _ optional: Bool) -> selector
-{
-    let token = get_token(message)
-
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let parsed = parseWindowSelector(&response, Token(token), acting: actingWindow, optional: optional, CSelectorContext())
-    var result = selector()
-    result.token = token
-    result.did_parse = parsed.didParse
-    result.window = parsed.value
-    return result
-}
-
-@_cdecl("parse_optional_display_selector")
-func parse_optional_display_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ did: UnsafeMutablePointer<UInt32>) -> Bool
-{
-    var response = Response()
-    var source = CMessage(cursor: message)
-    defer { response.write(to: rsp) }
-    return parseOptionalDisplaySelector(&response, &source, &did.pointee, CSelectorContext())
-}
-
-@_cdecl("parse_optional_space_selector")
-func parse_optional_space_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ sid: UnsafeMutablePointer<UInt64>) -> Bool
-{
-    var response = Response()
-    var source = CMessage(cursor: message)
-    defer { response.write(to: rsp) }
-    return parseOptionalSpaceSelector(&response, &source, &sid.pointee, CSelectorContext())
-}
-
-@_cdecl("parse_optional_window_selector")
-func parse_optional_window_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ window: UnsafeMutablePointer<UnsafeMutablePointer<window>?>) -> Bool
-{
-    var response = Response()
-    var source = CMessage(cursor: message)
-    defer { response.write(to: rsp) }
-    return parseOptionalWindowSelector(&response, &source, &window.pointee, CSelectorContext())
-}
-
-@_cdecl("parse_insert_selector")
-func parse_insert_selector(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> selector
-{
-    let token = get_token(message)
-
-    var response = Response()
-    defer { response.write(to: rsp) }
-
-    let parsed = parseInsertSelector(&response, Token(token))
-    var result = selector()
-    result.token = token
-    result.did_parse = parsed.didParse
-    result.dir = parsed.value?.rawValue ?? 0
-    return result
-}
-
-@_cdecl("peek_tree_direction")
-func peek_tree_direction(_ message: UnsafeMutablePointer<CChar>?) -> Int32
-{
-    var cursor = message
-    switch parseTreeFocus(Token(get_token(&cursor))) {
-    case .direction(let direction): return direction.rawValue
-    case .parent:                   return TREE_FOCUS_PARENT
-    case .child:                    return TREE_FOCUS_CHILD
-    case nil:                       return 0
-    }
-}
-
-@_cdecl("parse_query_target")
-func parse_query_target(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ properties: properties, _ target: UnsafeMutablePointer<query_target>) -> Bool
-{
-    var parsedProperties = Properties(token: Token(properties.token), didParse: properties.did_parse)
-    parsedProperties.didError = properties.did_error
-    parsedProperties.flags = properties.flags
-
-    var response = Response()
-    var source = CMessage(cursor: message)
-    defer { response.write(to: rsp) }
-
-    target.pointee = query_target()
-    guard let parsed = parseQueryTarget(&response, Token(domain), Token(command), &source, parsedProperties, CSelectorContext()) else { return false }
-
-    switch parsed {
-    case .all:                 target.pointee.type = QUERY_TARGET_ALL
-    case .display(let did):    target.pointee.type = QUERY_TARGET_DISPLAY; target.pointee.did = did
-    case .space(let sid):      target.pointee.type = QUERY_TARGET_SPACE;   target.pointee.sid = sid
-    case .window(let window):  target.pointee.type = QUERY_TARGET_WINDOW;  target.pointee.window = window
-    }
-
-    return true
-}
-
 //
 // NOTE: struct rule and struct signal stay C until the rules and signals are Swift (P7, P11). The shims fill them from
 // the parsed Rule and EventSignal: the strings are malloc'ed copies and the patterns compiled again into the C regex_t,
@@ -440,7 +166,6 @@ private func compile(_ regex: inout regex_t, _ pattern: UnsafeMutablePointer<CCh
 {
     regcomp(&regex, pattern, REG_EXTENDED) == 0
 }
-
 
 extension RuleEffects
 {
@@ -487,15 +212,11 @@ func rule_combine_effects(_ effects: UnsafeMutablePointer<rule_effects>, _ resul
     combined.write(to: &result.pointee)
 }
 
-@_cdecl("parse_rule")
-func parse_rule(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ result: UnsafeMutablePointer<rule>, _ first: token) -> Bool
+/// `parse_rule` into a C rule.
+func parseCRule(_ rsp: inout Response, _ message: inout some TokenSource, _ result: UnsafeMutablePointer<rule>, _ first: Token) -> Bool
 {
     var parsed = Rule()
-
-    var response = Response()
-    var source = CMessage(cursor: message)
-    let didParse = parseRule(&response, &source, &parsed, Token(first), CSelectorContext())
-    response.write(to: rsp)
+    let didParse = parseRule(&rsp, &message, &parsed, first, CSelectorContext())
 
     var flags = result.pointee.flags
     let patterns: [(RulePattern?, rule_flag, rule_flag, WritableKeyPath<rule, UnsafeMutablePointer<CChar>?>, WritableKeyPath<rule, regex_t>)] = [
@@ -519,19 +240,16 @@ func parse_rule(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePoin
     return didParse
 }
 
-@_cdecl("parse_signal")
-func parse_signal(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ result: UnsafeMutablePointer<signal>, _ signalType: UnsafeMutablePointer<signal_type>) -> Bool
+/// `parse_signal` into a C signal.
+func parseCSignal(_ rsp: inout Response, _ message: inout some TokenSource, _ result: UnsafeMutablePointer<signal>, _ signalType: UnsafeMutablePointer<signal_type>) -> Bool
 {
     var parsed = EventSignal()
     var event: signal_type?
 
-    var response = Response()
-    var source = CMessage(cursor: message)
-    let didParse = parseSignal(&response, &source, &parsed, &event) { name in
+    let didParse = parseSignal(&rsp, &message, &parsed, &event) { name in
         let type = name.withCString { signal_type_from_string($0) }
         return type == SIGNAL_TYPE_UNKNOWN ? nil : type
     }
-    response.write(to: rsp)
 
     signalType.pointee = event ?? SIGNAL_TYPE_UNKNOWN
 
@@ -551,18 +269,4 @@ func parse_signal(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePo
     result.pointee.command = mallocString(parsed.command)
     result.pointee.label = mallocString(parsed.label)
     return didParse
-}
-
-/// The C entry point of ClientMessage.encode, for the golden replay of the C tests (tests/src/golden.c), which frees the
-/// message. argv[0] is the program, as in the C version.
-@_cdecl("client_encode_message")
-func client_encode_message(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ size: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<CChar>
-{
-    let arguments = (1..<Int(argc)).map { Array(UnsafeRawBufferPointer(start: argv[$0]!, count: strlen(argv[$0]!))) }
-    let message = ClientMessage.encode(arguments)
-
-    size.pointee = Int32(message.count)
-    let result = malloc(message.count)!
-    message.withUnsafeBytes { result.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
-    return result.bindMemory(to: CChar.self, capacity: message.count)
 }

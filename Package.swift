@@ -64,14 +64,14 @@ let package = Package(
         .testTarget(
             name: "YabaiCoreTests",
             dependencies: ["YabaiCore"],
-            path: "tests/YabaiCoreTests",
-            resources: [.copy("Golden")]
+            path: "tests/YabaiCoreTests"
         ),
-        // the code of the daemon that needs the C managers (the IPC handlers), through @testable import Yabai
+        // the code of the daemon that needs the C managers (the IPC handlers and the golden replay), through @testable import Yabai
         .testTarget(
             name: "YabaiTests",
             dependencies: ["Yabai", "YabaiC", "YabaiCore"],
-            path: "tests/YabaiTests"
+            path: "tests/YabaiTests",
+            resources: [.copy("Golden")]
         )
     ],
     swiftLanguageModes: [.v6],

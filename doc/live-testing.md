@@ -7,11 +7,11 @@ point below was learned the hard way; read it before running anything live.
 ## Unit tests
 
 - `make -C tests` builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/YabaiCore/` and of
-  `Sources/Yabai/` but `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan, then the golden
-  IPC replay (`tests/src/golden.c`). The test build is warning-free; any warning is new. Check with
+  `Sources/Yabai/` but `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan. The golden
+  IPC replay is a Swift test (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`). The test build is warning-free; any warning is new. Check with
   `make -C tests 2>&1 | grep -c "warning:"`. `make test` runs `swift test` first.
-- The golden replay runs on a daemon state without displays, spaces or windows, but in this process: a command
-  in `tests/YabaiCoreTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
+- The golden replay runs on a daemon state without displays, spaces or windows, but in the test process: a command
+  in `tests/YabaiTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
   real one. Only add commands that fail before they act, or that only change the daemon's own state.
 - `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
   (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
@@ -42,7 +42,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
-| `ipc_compare.sh` | ~70 IPC commands that only query, fail while parsing, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
+| `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
 Rules for the user's machine:

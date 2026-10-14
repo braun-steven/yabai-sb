@@ -48,7 +48,6 @@ struct display_manager
     struct label_list *labels;
 };
 
-bool display_manager_query_displays(FILE *rsp, uint64_t flags);
 uint32_t display_manager_main_display_id(void);
 CF_RETURNS_RETAINED CFStringRef display_manager_active_display_uuid(void);
 uint32_t display_manager_active_display_id(void);

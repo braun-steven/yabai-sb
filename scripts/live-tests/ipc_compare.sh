@@ -153,5 +153,76 @@ run config space_layout 15 10:5 10:5:1b space_layout
 run config external_bar all:0:0 external_bar
 run config insert_feedback_color 0xffd75f5f window_opacity_duration 0.25 window_opacity_duration
 run query --spaces id,index,label,display,windows
+# P6: the full json of every query (it only reads), and space, window, display, rule and signal commands that fail
+# before they act. Window titles can change between the runs (e.g. a terminal's); compare those lines by eye.
+run query --displays
+run query --displays --display
+run query --displays --space 4
+run query --displays --window
+run query --spaces
+run query --spaces --display 1
+run query --spaces --space
+run query --spaces --space 4
+run query --spaces --window
+run query --windows
+run query --windows --display 1
+run query --windows --space 4
+run query --windows --window
+run query --windows id,app,frame,split-type,stack-index,has-parent-zoom,has-fullscreen-zoom --space 4
+run query --windows title,role,subrole,level,sub-level,layer,sub-layer,opacity,has-shadow --space 4
+run query --windows root-window,display,space,can-move,can-resize,is-visible,is-sticky,is-floating --space 5
+run query --tree
+run query --tree --space 4
+run query --tree --space 5
+run query --tree --space 12
+run query --bogus
+run space --rotate 45
+run space --mirror z-axis
+run space --padding bogus
+run space --gap abs:x
+run space --toggle bogus
+run space --layout bsp
+run space --equalize z-axis
+run space --balance diagonal
+run space --bogus
+run space --create 9
+run space --move 99
+run space --swap bogus
+run space --display 9
+run space --destroy bogus
+run space --focus
+run space 99 --label x
+run display --bogus
+run display --space 99
+run display --focus bogus
+run display 9 --label x
+run window --grid 0:0
+run window --move abs:x
+run window --resize bogus
+run window --ratio rel
+run window --layout stacked
+run window --split diagonal
+run window --opacity 2
+run window --opacity half
+run window --swap bogus
+run window --warp bogus
+run window --stack 99999999
+run window --display 9
+run window --space 99
+run window --raise bogus
+run window --lower stack.bogus
+run window --scratchpad 12
+run window --deminimize bogus
+run window --close 99999999
+run window --minimize bogus
+run window --bogus
+run window 99999999 --toggle float
+run rule --remove no_such_label_claude
+run rule --remove 1.5
+run rule --apply 0x10
+run signal --remove no_such_label_claude
+run signal --remove 0x10
+run signal --bogus
+run rule --bogus
 printf '$ (no -m arguments)\n'; out=$("$Y" -m 2>&1); printf '%s\n[exit %d]\n' "$out" "$?"
 printf '$ (USER unset)\n'; out=$(env -u USER "$Y" -m query --spaces 2>&1); printf '%s\n[exit %d]\n' "$out" "$?"

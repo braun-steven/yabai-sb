@@ -119,6 +119,7 @@ struct signal
     char *label;
 };
 
+bool event_signal_storage_init(void);
 void event_signal_push(enum signal_type type, void *context);
 void event_signal_flush(void);
 

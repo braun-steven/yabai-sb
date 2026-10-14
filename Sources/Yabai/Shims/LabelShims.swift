@@ -3,7 +3,7 @@ import YabaiCore
 
 //
 // NOTE: The C entry points of LabelList (Sources/YabaiCore/Label.swift) while the display and space managers are C
-// (src/misc/label.h). A `struct label_list *` is an opaque reference to a LabelListBox: label_set creates it with
+// (src/misc/label.h). A `struct label_list *` is an opaque reference to a LabelListBox: labelSet creates it with
 // passRetained when the list is NULL, and nothing releases it, because the managers own their lists while the
 // daemon runs. They go when the managers are Swift (P9).
 //
@@ -47,16 +47,21 @@ func label_remove_id(_ list: OpaquePointer?, _ id: UInt64) -> Bool
     labelList(list)?.list.remove(id: id) ?? false
 }
 
-@_cdecl("label_set")
-func label_set(_ list: UnsafeMutablePointer<OpaquePointer?>, _ id: UInt64, _ name: UnsafeMutablePointer<CChar>)
+/// The C label list of a manager (`struct label_list *`): sets a label, creating the list when it has none (`label_set`).
+func labelSet(_ list: UnsafeMutablePointer<OpaquePointer?>, _ id: UInt64, _ label: Token)
 {
-    defer { free(name) }
-
     if list.pointee == nil {
         list.pointee = OpaquePointer(Unmanaged.passRetained(LabelListBox()).toOpaque())
     }
 
-    labelList(list.pointee)!.list.set(id: id, name: String(cString: name))
+    labelList(list.pointee)!.list.set(id: id, name: label.string)
+}
+
+@_cdecl("label_set")
+func label_set(_ list: UnsafeMutablePointer<OpaquePointer?>, _ id: UInt64, _ name: UnsafeMutablePointer<CChar>)
+{
+    defer { free(name) }
+    labelSet(list, id, Token(cString: name))
 }
 
 @_cdecl("label_replace_id")

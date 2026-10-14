@@ -2,24 +2,6 @@ extern struct display_manager g_display_manager;
 extern struct window_manager g_window_manager;
 extern int g_connection;
 
-bool display_manager_query_displays(FILE *rsp, uint64_t flags)
-{
-    TIME_FUNCTION;
-
-    int count;
-    uint32_t *display_list = display_manager_active_display_list(&count);
-    if (!display_list) return false;
-
-    fprintf(rsp, "[");
-    for (int i = 0; i < count; ++i) {
-        if (i) fprintf(rsp, ",");
-        display_serialize(rsp, display_list[i], flags);
-    }
-    fprintf(rsp, "]\n");
-
-    return true;
-}
-
 uint32_t display_manager_main_display_id(void)
 {
     return CGMainDisplayID();

@@ -87,7 +87,7 @@ int yabai_main(int argc, char **argv);
 #include "../window_manager.h"
 #include "../border.h"
 #include "../mouse_handler.h"
-#include "../message_parse.h"
+#include "../globals.h"
 #include "../message.h"
 
 

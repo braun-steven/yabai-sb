@@ -4,41 +4,6 @@
 #define AX_ABS(a, b) (((a) - (b) < 0) ? (((a) - (b)) * -1) : ((a) - (b)))
 #define AX_DIFF(a, b) (AX_ABS(a, b) >= 1.5f)
 
-#define SPACE_PROPERTY_LIST \
-    SPACE_PROPERTY_ENTRY("id",                   SPACE_PROPERTY_ID,            0x001) \
-    SPACE_PROPERTY_ENTRY("uuid",                 SPACE_PROPERTY_UUID,          0x002) \
-    SPACE_PROPERTY_ENTRY("index",                SPACE_PROPERTY_INDEX,         0x004) \
-    SPACE_PROPERTY_ENTRY("label",                SPACE_PROPERTY_LABEL,         0x008) \
-    SPACE_PROPERTY_ENTRY("type",                 SPACE_PROPERTY_TYPE,          0x010) \
-    SPACE_PROPERTY_ENTRY("display",              SPACE_PROPERTY_DISPLAY,       0x020) \
-    SPACE_PROPERTY_ENTRY("windows",              SPACE_PROPERTY_WINDOWS,       0x040) \
-    SPACE_PROPERTY_ENTRY("first-window",         SPACE_PROPERTY_FIRST_WINDOW,  0x080) \
-    SPACE_PROPERTY_ENTRY("last-window",          SPACE_PROPERTY_LAST_WINDOW,   0x100) \
-    SPACE_PROPERTY_ENTRY("has-focus",            SPACE_PROPERTY_HAS_FOCUS,     0x200) \
-    SPACE_PROPERTY_ENTRY("is-visible",           SPACE_PROPERTY_IS_VISIBLE,    0x400) \
-    SPACE_PROPERTY_ENTRY("is-native-fullscreen", SPACE_PROPERTY_IS_FULLSCREEN, 0x800)
-
-enum space_property
-{
-#define SPACE_PROPERTY_ENTRY(n, p, v) p = v,
-    SPACE_PROPERTY_LIST
-#undef SPACE_PROPERTY_ENTRY
-};
-
-static uint64_t space_property_val[] =
-{
-#define SPACE_PROPERTY_ENTRY(n, p, v) p,
-    SPACE_PROPERTY_LIST
-#undef SPACE_PROPERTY_ENTRY
-};
-
-static char *space_property_str[] =
-{
-#define SPACE_PROPERTY_ENTRY(n, p, v) n,
-    SPACE_PROPERTY_LIST
-#undef SPACE_PROPERTY_ENTRY
-};
-
 struct area
 {
     float x;
@@ -107,13 +72,6 @@ enum window_split
     SPLIT_X
 };
 
-static const char *window_split_str[] =
-{
-    "none",
-    "vertical",
-    "horizontal"
-};
-
 struct feedback_window
 {
     uint32_t id;
@@ -142,13 +100,6 @@ enum view_type
     VIEW_DEFAULT,
     VIEW_FLOAT,
     VIEW_TREE
-};
-
-static const char *view_type_str[] =
-{
-    "default",
-    "float",
-    "tree"
 };
 
 enum view_flag
@@ -209,7 +160,6 @@ bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int til
 int view_tiled_count(struct view *view);
 bool view_update_auto_padding(struct view *view);
 
-void view_serialize(FILE *rsp, struct view *view, uint64_t flags);
 bool view_is_invalid(struct view *view);
 bool view_is_dirty(struct view *view);
 void view_flush(struct view *view);

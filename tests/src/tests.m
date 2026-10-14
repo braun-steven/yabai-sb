@@ -18,12 +18,9 @@ typedef TEST_SIG(function);
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
-#include "message.c"
-#include "window_info.c"
 #include "window_rules.c"
 #include "space_window.c"
 #include "event_signal.c"
-#include "golden.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -56,7 +53,6 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_window_ids_collect)                        \
     TEST_ENTRY(tree_view_window_list_order)                    \
     TEST_ENTRY(tree_view_zoom_frames)                          \
-    TEST_ENTRY(tree_view_serialize_tree)                       \
     TEST_ENTRY(tab_bar_style_parse)                            \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \
@@ -79,13 +75,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_child_windows_collect)                   \
     TEST_ENTRY(border_edge_frames_split)                       \
     TEST_ENTRY(border_tabbed_container_area)                   \
-    TEST_ENTRY(message_window_layout_values)                   \
-    TEST_ENTRY(message_window_command_groups)                  \
-    TEST_ENTRY(message_space_command_groups)                   \
     TEST_ENTRY(window_rules_combine_matching)                  \
     TEST_ENTRY(window_rules_manage_round)                      \
-    TEST_ENTRY(window_info_serialize_selected)                 \
-    TEST_ENTRY(window_info_tree_fields)                        \
     TEST_ENTRY(event_signal_filter_properties)                 \
     TEST_ENTRY(event_signal_args)                              \
     TEST_ENTRY(event_signal_describe_spaces)
@@ -124,6 +115,5 @@ int main(void)
     printf("\t%d \e[1;31mfailed\e[m\n", failed);
     printf("\t%d \e[1;33mtotal\e[m\n\n", total);
 
-    bool golden = golden_replay();
-    return total == succeeded && golden ? EXIT_SUCCESS : EXIT_FAILURE;
+    return total == succeeded ? EXIT_SUCCESS : EXIT_FAILURE;
 }

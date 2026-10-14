@@ -28,100 +28,6 @@ static CFStringRef ax_window_notification[] =
     [AX_WINDOW_DEMINIMIZED_INDEX]    = kAXWindowDeminiaturizedNotification
 };
 
-#define WINDOW_PROPERTY_LIST \
-    WINDOW_PROPERTY_ENTRY("id",                   WINDOW_PROPERTY_ID,                  0x000000001) \
-    WINDOW_PROPERTY_ENTRY("pid",                  WINDOW_PROPERTY_PID,                 0x000000002) \
-    WINDOW_PROPERTY_ENTRY("app",                  WINDOW_PROPERTY_APP,                 0x000000004) \
-    WINDOW_PROPERTY_ENTRY("title",                WINDOW_PROPERTY_TITLE,               0x000000008) \
-    WINDOW_PROPERTY_ENTRY("scratchpad",           WINDOW_PROPERTY_SCRATCHPAD,          0x000000010) \
-    WINDOW_PROPERTY_ENTRY("frame",                WINDOW_PROPERTY_FRAME,               0x000000020) \
-    WINDOW_PROPERTY_ENTRY("role",                 WINDOW_PROPERTY_ROLE,                0x000000040) \
-    WINDOW_PROPERTY_ENTRY("subrole",              WINDOW_PROPERTY_SUBROLE,             0x000000080) \
-    WINDOW_PROPERTY_ENTRY("root-window",          WINDOW_PROPERTY_ROOT_WINDOW,         0x000000100) \
-    WINDOW_PROPERTY_ENTRY("display",              WINDOW_PROPERTY_DISPLAY,             0x000000200) \
-    WINDOW_PROPERTY_ENTRY("space",                WINDOW_PROPERTY_SPACE,               0x000000400) \
-    WINDOW_PROPERTY_ENTRY("level",                WINDOW_PROPERTY_LEVEL,               0x000000800) \
-    WINDOW_PROPERTY_ENTRY("sub-level",            WINDOW_PROPERTY_SUB_LEVEL,           0x000001000) \
-    WINDOW_PROPERTY_ENTRY("layer",                WINDOW_PROPERTY_LAYER,               0x000002000) \
-    WINDOW_PROPERTY_ENTRY("sub-layer",            WINDOW_PROPERTY_SUB_LAYER,           0x000004000) \
-    WINDOW_PROPERTY_ENTRY("opacity",              WINDOW_PROPERTY_OPACITY,             0x000008000) \
-    WINDOW_PROPERTY_ENTRY("split-type",           WINDOW_PROPERTY_SPLIT_TYPE,          0x000010000) \
-    WINDOW_PROPERTY_ENTRY("stack-index",          WINDOW_PROPERTY_STACK_INDEX,         0x000040000) \
-    WINDOW_PROPERTY_ENTRY("can-move",             WINDOW_PROPERTY_CAN_MOVE,            0x000080000) \
-    WINDOW_PROPERTY_ENTRY("can-resize",           WINDOW_PROPERTY_CAN_RESIZE,          0x000100000) \
-    WINDOW_PROPERTY_ENTRY("has-focus",            WINDOW_PROPERTY_HAS_FOCUS,           0x000200000) \
-    WINDOW_PROPERTY_ENTRY("has-shadow",           WINDOW_PROPERTY_HAS_SHADOW,          0x000400000) \
-    WINDOW_PROPERTY_ENTRY("has-parent-zoom",      WINDOW_PROPERTY_HAS_PARENT_ZOOM,     0x000800000) \
-    WINDOW_PROPERTY_ENTRY("has-fullscreen-zoom",  WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM, 0x001000000) \
-    WINDOW_PROPERTY_ENTRY("has-ax-reference",     WINDOW_PROPERTY_HAS_AX_REFERENCE,    0x002000000) \
-    WINDOW_PROPERTY_ENTRY("is-native-fullscreen", WINDOW_PROPERTY_IS_FULLSCREEN,       0x004000000) \
-    WINDOW_PROPERTY_ENTRY("is-visible",           WINDOW_PROPERTY_IS_VISIBLE,          0x008000000) \
-    WINDOW_PROPERTY_ENTRY("is-minimized",         WINDOW_PROPERTY_IS_MINIMIZED,        0x010000000) \
-    WINDOW_PROPERTY_ENTRY("is-hidden",            WINDOW_PROPERTY_IS_HIDDEN,           0x020000000) \
-    WINDOW_PROPERTY_ENTRY("is-floating",          WINDOW_PROPERTY_IS_FLOATING,         0x040000000) \
-    WINDOW_PROPERTY_ENTRY("is-sticky",            WINDOW_PROPERTY_IS_STICKY,           0x080000000) \
-    WINDOW_PROPERTY_ENTRY("is-grabbed",           WINDOW_PROPERTY_IS_GRABBED,          0x100000000)
-
-enum window_property
-{
-#define WINDOW_PROPERTY_ENTRY(n, p, v) p = v,
-    WINDOW_PROPERTY_LIST
-#undef WINDOW_PROPERTY_ENTRY
-};
-
-static uint64_t window_property_val[] =
-{
-#define WINDOW_PROPERTY_ENTRY(n, p, v) p,
-    WINDOW_PROPERTY_LIST
-#undef WINDOW_PROPERTY_ENTRY
-};
-
-static char *window_property_str[] =
-{
-#define WINDOW_PROPERTY_ENTRY(n, p, v) n,
-    WINDOW_PROPERTY_LIST
-#undef WINDOW_PROPERTY_ENTRY
-};
-
-//
-// NOTE: The values reported by `query --windows`, collected from a window yabai tracks or from the
-// window server alone (see window_info_for_window and window_info_for_window_id).
-//
-
-struct window_info
-{
-    uint32_t id;
-    pid_t pid;
-    char *app;
-    char *title;
-    char *scratchpad;
-    CGRect frame;
-    char *role;
-    char *subrole;
-    bool is_root;
-    int display;
-    int space;
-    int level;
-    int sub_level;
-    float opacity;
-    enum window_split split;
-    int stack_index;
-    bool can_move;
-    bool can_resize;
-    bool has_focus;
-    bool has_shadow;
-    bool has_parent_zoom;
-    bool has_fullscreen_zoom;
-    bool has_ax_reference;
-    bool is_fullscreen;
-    bool is_visible;
-    bool is_minimized;
-    bool is_hidden;
-    bool is_floating;
-    bool is_sticky;
-    bool is_grabbed;
-};
-
 struct window
 {
     struct application *application;
@@ -176,12 +82,8 @@ CF_RETURNS_RETAINED CFStringRef window_display_uuid(uint32_t wid);
 uint32_t window_display_id(uint32_t wid);
 uint64_t window_space(uint32_t wid);
 uint64_t *window_space_list(uint32_t wid, int *count);
-struct window_info window_info_for_window(struct window *window, uint64_t flags);
-struct window_info window_info_for_window_id(uint32_t wid, uint64_t flags);
-void window_info_serialize(FILE *rsp, struct window_info *info, uint64_t flags);
+// implemented in Sources/Yabai/IPC/Serialize.swift
 void window_serialize(FILE *rsp, struct window *window, uint64_t flags);
-void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags);
-char *window_property_title_ts(uint32_t wid);
 char *window_title_ts(struct window *window);
 CF_RETURNS_RETAINED CFStringRef window_title(struct window *window);
 bool window_shadow(uint32_t wid);

@@ -1,9 +1,20 @@
 extern struct signal *g_signal_event[SIGNAL_TYPE_COUNT];
 extern struct memory_pool g_signal_storage;
+
 extern struct process_manager g_process_manager;
 extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
+
+//
+// NOTE: The storage of the signals pushed while an event is handled. A function of its own, so that Swift (the
+// fixture of the golden replay) does not call memory_pool_init, a header function it would emit a second copy of.
+//
+
+bool event_signal_storage_init(void)
+{
+    return memory_pool_init(&g_signal_storage, KILOBYTES(256));
+}
 
 static inline bool event_signal_regex_mismatch(bool valid, regex_t *regex, bool exclude, char *text)
 {

@@ -20,7 +20,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P0 | Branch, SwiftPM skeleton, baselines | [x] | 1c5bee6 | layout deviates from the plan, see Target architecture |
 | P1 | macOS 27 / arm64 cleanup (still C) | [x] | 174b5b8 | OSAX 2.1.34, reloaded by the user and live-checked |
 | P2 | CPrivate module + Platform wrappers | [x] | 872fe3b | no live run (no behavior change); conventions moved to a skill |
-| P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [ ] | | |
+| P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [x] | 2a646a8 | label lists live in Swift behind an opaque C reference |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [ ] | | |
 | P5 | IPC server, CLI client, config domain | [ ] | | |
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [ ] | | |
@@ -415,4 +415,30 @@ Append one entry per session, newest last. Template:
   - Nothing from `sa.h`/`log.h` went into CPrivate: they hold yabai's own declarations (the OSAX byte arrays, `g_verbose`), not private framework ones, and no Swift code needs them yet.
   - With `CF_IMPLICIT_BRIDGING_ENABLED` the analyzer trusts the Create rule for `_AXUIElementCreateWithRemoteToken` and reported a new leak in `window_manager_add_windows_by_element_id`, where the element is handed to `window_manager_create_and_add_window`. That function always takes the reference (the other callers pass `CFRetain(window_ref)`, `window_destroy` releases it), so the parameter is now `CF_CONSUMED`, and the count is back to 37.
 - Pitfalls added to "Swift conventions and pitfalls": a C target without sources does not link; nullability is per file (macros, multi-level pointers); imported C types (`Boolean`, `CGError`, CF out-parameters)
+- Waiting on user: nothing
+
+### 2026-10-14 P3 [x]
+- Commits: 2a646a8 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the whole phase.
+  - New library target `YabaiCore` (`Sources/YabaiCore/`, does not import YabaiC): `Area.swift` (`Area`, `Direction`; `area_from_cgrect`, `area_max_point`, `area_is_in_direction`, `area_distance_in_direction`), `Label.swift` (`LabelList`), `SpaceLayout.swift` (`space_layout_parse`, `space_layout_targets`, `space_layout_move_candidate`), `SpaceList.swift` (`space_manager_move_space_replacement`), `JSON.swift` (`ts_string_escape`/`json_string`, `json_bool`, `%.4f` through `vsnprintf`, `JSON_FRAME_FORMAT`, and `JSONWriter`, which reproduces `JSON_PROPERTY`: separator, tab, lazily evaluated values, `finish()` closes the object). Yabai and YabaiCoreTests depend on it; `tests/makefile` builds it as its own module before the Yabai sources.
+  - C callers go through `@_cdecl` shims in `Sources/Yabai/Shims/` (`AreaShims`, `LabelShims`, `SpaceLayoutShims`, `JSONShims`); the C prototypes stay in `view.h`, `label.h`, `space_layout.h`, `space_manager.h` and `helpers.h`, each with a pointer to its shim.
+  - Label lists: `struct label *` sbuffers became an opaque `struct label_list *` (a `LabelListBox` retained by the first `label_set`, never released, like the C lists were never freed). `label_find_id` returns the name in temporary storage, `label_find_name` returns the id through an out parameter, `label_remove_id` takes the list instead of its address. The two loops in `space_manager.c` that poked into the label array became `label_swap_ids` (swap of spaces across displays) and `label_replace_id` (`space_manager_handle_display_add`).
+  - `ts_string_from_bytes` (`src/misc/ts.h`): the one way for Swift to allocate temporary storage (see pitfalls).
+  - Ported tests (Swift display names = the C names): `display_area_is_in_direction`, `closest_display_in_direction`, `space_layout_parse`, `space_layout_targets`, `space_move_replacement`, `space_layout_move_candidate`, `label_list`, `json_string_escaping`. Extra Swift tests: `labelListMovesIDs`, `jsonEscapesEveryControlCharacter`, `jsonNumbersMatchPrintf`, `jsonWriterMatchesJSONProperty`. `tests/src/area.c` and `label.c` are deleted; `tests/src/space_layout.c` keeps only `space_list_navigation` (a P9 test) and is renamed `space_list.c`.
+- Resume at: next phase (P4)
+- Open @_cdecl shims / C structs still shared: tab_bar_glass_* entry points (src/tab_bar_glass.h); `yabai_main` (C, called by main.swift); `macho_find_symbol`; the P3 shims `area_max_point`, `area_is_in_direction`, `area_distance_in_direction`, `label_find_id`, `label_find_name`, `label_remove_id`, `label_set`, `label_replace_id`, `label_swap_ids`, `space_layout_parse`, `space_layout_targets`, `space_layout_move_candidate`, `space_manager_move_space_replacement`, `json_string`. C structs still shared: `struct area` (view/tree code, P9/P12), `struct space_layout` (in `struct space_manager`, P9); `struct label_list` is opaque to C.
+- Tests: C remaining 74, Swift added 8 (total ported 8/82); plus 4 extra Swift tests, golden replay 145/145, `goldenCaptureCoversEveryCommand` passes
+- Measurements:
+  - Lines (as in P2): C 15,808 · headers 4,032 · ObjC 1,027 · Swift 1,864 · C tests 2,649
+  - Release `bin/yabai`: 926,616 B (P2: 850,648 B; the YabaiCore module and the shims)
+  - V1 all four variants warning-free (`make -C tests` too); V2 passes; V3 35 warnings: the 37 known minus two false positives that went with the ported C (`label.h` null dereference, `space_layout.c` garbage value), no new ones (diffed)
+  - V5: `run` 28/28, `extra` 14/14, `launch` 3/3; asan `run` 28/28 and tsan `run` 28/28, both with no reports (labels, direction queries and `space_layout` errors exercised under both); crash reports 29 before and after (the 29th, 18:12 today, is from an unknown build that is neither the installed binary nor this session's). `deploy.sh restore` done; `sa_version.py` back at 2.1.33.
+  - V6 (what P3 touched): space and display labels set, moved to another id, queried by name, removed (and the "not associated with a label" error); a label with `"` and `\` comes back escaped; `query --displays --display east/west/north/south` from display 1 gives 2 and the three "could not locate" errors; the yabairc's `space_layout 15 10:5 10:5:1b` parses and reads back, `10::5`, `0` and `1b:2b` fail with the C texts. `rule --list` (48 rules), `signal --list` and `query --displays` are byte-identical to the installed build's.
+  - Bench (V5 step 2, same windows): P3 tab focus 31.7 / 27.3 / 31.8, rotate 158.9 / 153.6 / 145.3, split focus 27.7 / 27.5 / 30.9 ms (the third sample after the sanitizer runs); installed build 28.2 / 26.8, 145.1 / 154.2, 26.0 / 26.3 ms. Within 10% of the P0 baseline; the timed commands (`window --focus`, `space --rotate`) run none of the ported code, so the spread is noise.
+- Deviations from plan / surprises:
+  - The plan lists `display_area_is_in_direction` and `closest_display_in_direction` under P9 too; they test only the area helpers, so they moved with them in P3.
+  - Label names are Swift `String`s: a label with invalid UTF-8 (only possible through a crafted argv) is stored with U+FFFD replacements, where C kept the raw bytes.
+  - `area_from_cgrect` and `struct area` stay C (the struct's constructor; view and tree code use it on hot paths); YabaiCore has `Area.init(CGRect)` for later phases.
+- Pitfalls added to "Swift conventions and pitfalls": header functions that touch `static` globals; `String ==` is not `strcmp`; YabaiCore does not import YabaiC (shims, tuples, the test makefile)
 - Waiting on user: nothing

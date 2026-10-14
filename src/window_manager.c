@@ -1930,7 +1930,7 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
         window_manager_remove_managed_window(wm, b->id);
         window_manager_purify_window(wm, b);
     } else if (window_check_flag(b, WINDOW_FLOAT)) {
-        if (!window_manager_is_window_eligible(b)) return WINDOW_OP_ERROR_INVALID_SRC_NODE;
+        if (!window_manager_is_window_eligible(b)) return WINDOW_OP_ERROR_INVALID_DST_NODE;
         window_clear_flag(b, WINDOW_FLOAT);
         if (window_check_flag(b, WINDOW_STICKY)) window_manager_make_window_sticky(sm, wm, b, false);
     }

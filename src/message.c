@@ -508,6 +508,30 @@ static bool parse_config_choice(FILE *rsp, struct token domain, struct token com
     return false;
 }
 
+//
+// NOTE: reports the errors that every space operation can fail with, so callers only handle
+// the errors specific to their operation.
+//
+
+static void daemon_fail_space_op(FILE *rsp, enum space_op_error result, char *action)
+{
+    switch (result) {
+    case SPACE_OP_ERROR_DISPLAY_IS_ANIMATING: daemon_fail(rsp, "cannot %s because the display is in the middle of an animation.\n", action); break;
+    case SPACE_OP_ERROR_IN_MISSION_CONTROL:   daemon_fail(rsp, "cannot %s because mission-control is active.\n", action);                  break;
+    case SPACE_OP_ERROR_SCRIPTING_ADDITION:   daemon_fail(rsp, "cannot %s due to an error with the scripting-addition.\n", action);         break;
+    default: break;
+    }
+}
+
+static void daemon_fail_unmanaged_window(FILE *rsp, enum window_op_error result)
+{
+    if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW || result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
+        daemon_fail(rsp, "the acting window is not managed.\n");
+    } else if (result == WINDOW_OP_ERROR_INVALID_DST_VIEW || result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
+        daemon_fail(rsp, "the selected window is not managed.\n");
+    }
+}
+
 static void parse_key_value_pair(char *token, char **key, char **value, bool *exclusion)
 {
     *key = token;
@@ -1678,12 +1702,8 @@ static void handle_domain_display(FILE *rsp, struct token domain, char *message)
             enum space_op_error result = display_manager_focus_space(acting_did, selector.sid);
             if (result == SPACE_OP_ERROR_SAME_DISPLAY) {
                 daemon_fail(rsp, "acting display does not contain the given space.\n");
-            } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                daemon_fail(rsp, "cannot focus space because the display is in the middle of an animation.\n");
-            } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                daemon_fail(rsp, "cannot focus space because mission-control is active.\n");
-            } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                daemon_fail(rsp, "cannot focus space due to an error with the scripting-addition.\n");
+            } else {
+                daemon_fail_space_op(rsp, result, "focus space");
             }
         }
     } else if (token_equals(command, COMMAND_DISPLAY_LABEL)) {
@@ -1729,12 +1749,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 enum space_op_error result = space_manager_focus_space(selector.sid);
                 if (result == SPACE_OP_ERROR_SAME_SPACE) {
                     daemon_fail(rsp, "cannot focus an already focused space.\n");
-                } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                    daemon_fail(rsp, "cannot focus space because the display is in the middle of an animation.\n");
-                } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                    daemon_fail(rsp, "cannot focus space because mission-control is active.\n");
-                } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                    daemon_fail(rsp, "cannot focus space due to an error with the scripting-addition.\n");
+                } else {
+                    daemon_fail_space_op(rsp, result, "focus space");
                 }
             }
         } else if (token_equals(command, COMMAND_SPACE_SWITCH)) {
@@ -1743,12 +1759,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 enum space_op_error result = space_manager_switch_space(selector.sid);
                 if (result == SPACE_OP_ERROR_SAME_SPACE) {
                     daemon_fail(rsp, "cannot focus an already focused space.\n");
-                } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                    daemon_fail(rsp, "cannot focus space because the display is in the middle of an animation.\n");
-                } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                    daemon_fail(rsp, "cannot focus space because mission-control is active.\n");
-                } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                    daemon_fail(rsp, "cannot focus space due to an error with the scripting-addition.\n");
+                } else {
+                    daemon_fail_space_op(rsp, result, "focus space");
                 }
             }
         } else if (token_equals(command, COMMAND_SPACE_MOVE)) {
@@ -1759,12 +1771,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                     daemon_fail(rsp, "cannot move space to itself.\n");
                 } else if (result == SPACE_OP_ERROR_SAME_DISPLAY) {
                     daemon_fail(rsp, "cannot move space across display boundaries. use --display instead.\n");
-                } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                    daemon_fail(rsp, "cannot move space because the display is in the middle of an animation.\n");
-                } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                    daemon_fail(rsp, "cannot move space because mission-control is active.\n");
-                } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                    daemon_fail(rsp, "cannot move space due to an error with the scripting-addition.\n");
+                } else {
+                    daemon_fail_space_op(rsp, result, "move space");
                 }
             }
         } else if (token_equals(command, COMMAND_SPACE_SWAP)) {
@@ -1773,12 +1781,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 enum space_op_error result = space_manager_swap_space_with_space(acting_sid, selector.sid);
                 if (result == SPACE_OP_ERROR_SAME_SPACE) {
                     daemon_fail(rsp, "cannot swap space with itself.\n");
-                } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                    daemon_fail(rsp, "cannot swap space because the display is in the middle of an animation.\n");
-                } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                    daemon_fail(rsp, "cannot swap space because mission-control is active.\n");
-                } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                    daemon_fail(rsp, "cannot swap space due to an error with the scripting-addition.\n");
+                } else {
+                    daemon_fail_space_op(rsp, result, "swap space");
                 }
             }
         } else if (token_equals(command, COMMAND_SPACE_DISPLAY)) {
@@ -1793,12 +1797,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                     daemon_fail(rsp, "acting space is the last user-space on the source display and cannot be moved.\n");
                 } else if (result == SPACE_OP_ERROR_INVALID_DST) {
                     daemon_fail(rsp, "acting space is already located on the given display.\n");
-                } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                    daemon_fail(rsp, "cannot send space to display because it is in the middle of an animation.\n");
-                } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                    daemon_fail(rsp, "cannot send space to display because mission-control is active.\n");
-                } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                    daemon_fail(rsp, "cannot send space to display due to an error with the scripting-addition.\n");
+                } else {
+                    daemon_fail_space_op(rsp, result, "send space to display");
                 }
             }
         } else if (token_equals(command, COMMAND_SPACE_CREATE)) {
@@ -1815,12 +1815,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
             enum space_op_error result = space_manager_add_space(acting_sid);
             if (result == SPACE_OP_ERROR_MISSING_SRC) {
                 daemon_fail(rsp, "could not locate the space to act on.\n");
-            } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                daemon_fail(rsp, "cannot create space because the display is in the middle of an animation.\n");
-            } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                daemon_fail(rsp, "cannot create space because mission-control is active.\n");
-            } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                daemon_fail(rsp, "cannot create space due to an error with the scripting-addition.\n");
+            } else {
+                daemon_fail_space_op(rsp, result, "create space");
             }
         } else if (token_equals(command, COMMAND_SPACE_DESTROY)) {
             struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
@@ -1840,12 +1836,8 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "acting space is the last user-space on the source display and cannot be destroyed.\n");
             } else if (result == SPACE_OP_ERROR_INVALID_TYPE) {
                 daemon_fail(rsp, "cannot destroy a macOS fullscreen space.\n");
-            } else if (result == SPACE_OP_ERROR_DISPLAY_IS_ANIMATING) {
-                daemon_fail(rsp, "cannot destroy space because the display is in the middle of an animation.\n");
-            } else if (result == SPACE_OP_ERROR_IN_MISSION_CONTROL) {
-                daemon_fail(rsp, "cannot destroy space because mission-control is active.\n");
-            } else if (result == SPACE_OP_ERROR_SCRIPTING_ADDITION) {
-                daemon_fail(rsp, "cannot destroy space due to an error with the scripting-addition.\n");
+            } else {
+                daemon_fail_space_op(rsp, result, "destroy space");
             }
         } else if (token_equals(command, COMMAND_SPACE_EQUALIZE)) {
             struct token value = get_token(&message);
@@ -2122,16 +2114,10 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
                 enum window_op_error result = window_manager_swap_window(&g_window_manager, acting_window, selector.window);
-                if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_DST_VIEW) {
-                    daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
-                    daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
+                if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot swap a window with itself.\n");
+                } else {
+                    daemon_fail_unmanaged_window(rsp, result);
                 }
             }
         } else if (token_equals(command, COMMAND_WINDOW_WARP)) {
@@ -2150,26 +2136,20 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
                 enum window_op_error result = window_manager_warp_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
-                if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_DST_VIEW) {
-                    daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_DST_NODE) {
-                    daemon_fail(rsp, "the selected window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
+                if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot warp a window onto itself.\n");
+                } else {
+                    daemon_fail_unmanaged_window(rsp, result);
                 }
             }
         } else if (token_equals(command, COMMAND_WINDOW_STACK)) {
             struct selector selector = parse_window_selector(rsp, &message, acting_window, false);
             if (selector.did_parse && selector.window) {
                 enum window_op_error result = window_manager_stack_window(&g_space_manager, &g_window_manager, acting_window, selector.window);
-                if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
+                if (result == WINDOW_OP_ERROR_SAME_WINDOW) {
                     daemon_fail(rsp, "cannot stack a window onto itself.\n");
+                } else {
+                    daemon_fail_unmanaged_window(rsp, result);
                 }
             }
         } else if (token_equals(command, COMMAND_WINDOW_LAYOUT)) {
@@ -2193,10 +2173,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 return;
             }
 
-            enum window_op_error result = window_manager_set_window_layout(&g_window_manager, acting_window, layout);
-            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW || result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                daemon_fail(rsp, "the acting window is not managed.\n");
-            }
+            daemon_fail_unmanaged_window(rsp, window_manager_set_window_layout(&g_window_manager, acting_window, layout));
         } else if (token_equals(command, COMMAND_WINDOW_SPLIT)) {
             struct token value = get_token(&message);
             int orientation;
@@ -2212,21 +2189,11 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 return;
             }
 
-            enum window_op_error result = window_manager_tree_split(&g_window_manager, acting_window, orientation);
-            if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                daemon_fail(rsp, "the acting window is not managed.\n");
-            } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                daemon_fail(rsp, "the acting window is not managed.\n");
-            }
+            daemon_fail_unmanaged_window(rsp, window_manager_tree_split(&g_window_manager, acting_window, orientation));
         } else if (token_equals(command, COMMAND_WINDOW_INSERT)) {
             struct selector selector = parse_insert_selector(rsp, &message);
             if (selector.did_parse && selector.dir) {
-                enum window_op_error result = window_manager_set_window_insertion(&g_space_manager, acting_window, selector.dir);
-                if (result == WINDOW_OP_ERROR_INVALID_SRC_VIEW) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                } else if (result == WINDOW_OP_ERROR_INVALID_SRC_NODE) {
-                    daemon_fail(rsp, "the acting window is not managed.\n");
-                }
+                daemon_fail_unmanaged_window(rsp, window_manager_set_window_insertion(&g_space_manager, acting_window, selector.dir));
             }
         } else if (token_equals(command, COMMAND_WINDOW_GRID)) {
             unsigned r, c, x, y, w, h;

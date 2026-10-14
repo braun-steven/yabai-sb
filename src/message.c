@@ -1616,20 +1616,12 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
     }
 
     for (; token_is_valid(command); command = get_token(&message)) {
-        if (token_equals(command, COMMAND_SPACE_FOCUS)) {
+        if (token_equals(command, COMMAND_SPACE_FOCUS) || token_equals(command, COMMAND_SPACE_SWITCH)) {
             struct selector selector = parse_space_selector(rsp, &message, acting_sid, false);
             if (selector.did_parse && selector.sid) {
-                enum space_op_error result = space_manager_focus_space(selector.sid);
-                if (result == SPACE_OP_ERROR_SAME_SPACE) {
-                    daemon_fail(rsp, "cannot focus an already focused space.\n");
-                } else {
-                    daemon_fail_space_op(rsp, result, "focus space");
-                }
-            }
-        } else if (token_equals(command, COMMAND_SPACE_SWITCH)) {
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, false);
-            if (selector.did_parse && selector.sid) {
-                enum space_op_error result = space_manager_switch_space(selector.sid);
+                enum space_op_error result = token_equals(command, COMMAND_SPACE_FOCUS)
+                                           ? space_manager_focus_space(selector.sid)
+                                           : space_manager_switch_space(selector.sid);
                 if (result == SPACE_OP_ERROR_SAME_SPACE) {
                     daemon_fail(rsp, "cannot focus an already focused space.\n");
                 } else {

@@ -1,11 +1,7 @@
 MACOS_MIN      = 11.0
 FRAMEWORK_PATH = -F/System/Library/PrivateFrameworks
-FRAMEWORK      = -framework Carbon -framework Cocoa -framework CoreServices -framework CoreVideo -framework SkyLight
 WARN_FLAGS     = -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference
 COMMON_FLAGS   = -std=c11 $(WARN_FLAGS) -fvisibility=hidden -mmacosx-version-min=$(MACOS_MIN) -fno-objc-arc
-CLI_FLAGS      =
-VARIANT_FLAGS  = -g -O0
-BUILD_FLAGS    = $(COMMON_FLAGS) $(VARIANT_FLAGS) -arch x86_64 -arch arm64 -sectcreate __TEXT __info_plist $(INFO_PLIST)
 BUILD_PATH     = ./bin
 DOC_PATH       = ./doc
 SCRIPT_PATH    = ./scripts
@@ -13,34 +9,32 @@ ASSET_PATH     = ./assets
 SMP_PATH       = ./examples
 ARCH_PATH      = ./archive
 OSAX_SRC       = ./src/osax/payload_bin.c ./src/osax/loader_bin.c
-YABAI_SRC      = ./src/manifest.m $(OSAX_SRC)
 OSAX_PATH      = ./src/osax
 OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch x86_64 -arch arm64e
-INFO_PLIST     = $(ASSET_PATH)/Info.plist
-SWIFT_SRC      = ./src/tab_bar_glass.swift
-SWIFT_FLAGS    = -swift-version 6 -parse-as-library -module-name yabai -import-objc-header ./src/tab_bar_glass.h -disable-bridging-pch -emit-object
-SWIFT_VARIANT  = -g -Onone
-SWIFT_OBJ      = $(BUILD_PATH)/tab_bar_glass.o
-SWIFT_LINK     = -L$(shell xcrun --show-sdk-path)/usr/lib/swift -L$(shell dirname $(shell xcrun -f swiftc))/../lib/swift/macosx -Wl,-rpath,/usr/lib/swift
+ARCHS          = arm64 x86_64
+SWIFT_BUILD    = swift build --product yabai $(foreach arch,$(ARCHS),--arch $(arch))
+VARIANT_FLAGS  =
 BINS           = $(BUILD_PATH)/yabai
+
+# Package.swift reads it to stamp the right SDK version into the binary
+export SDKROOT := $(shell xcrun --show-sdk-path)
 
 .PHONY: all asan tsan install test analyze man icon archive publish sign clean-build clean FORCE
 
 all: $(BINS)
 
-asan: VARIANT_FLAGS = -g -O0 -fsanitize=address,undefined
-asan: SWIFT_VARIANT = -g -Onone -sanitize=address
+asan: VARIANT_FLAGS = --sanitize=address --sanitize=undefined
 asan: $(BINS)
 
-tsan: VARIANT_FLAGS = -g -O0 -fsanitize=thread,undefined
-tsan: SWIFT_VARIANT = -g -Onone -sanitize=thread
+tsan: VARIANT_FLAGS = --sanitize=thread --sanitize=undefined
 tsan: $(BINS)
 
-install: VARIANT_FLAGS = -DNDEBUG -O3
-install: SWIFT_VARIANT = -O
+install: VARIANT_FLAGS = -c release -Xswiftc -warnings-as-errors
 install: $(BINS)
 
-test:
+# swift test needs the generated OSAX sources: they are sources of the YabaiC target
+test: $(OSAX_SRC)
+	swift test
 	$(MAKE) -C tests
 
 # every source file is #included into manifest.m, so the analyzer must be told to analyze included files
@@ -84,19 +78,15 @@ clean-build:
 	rm -rf $(BUILD_PATH)
 
 clean: clean-build
+	rm -rf .build
 	rm -f $(OSAX_SRC)
 
-# always relink from scratch: the variants share one output path, and the unity build takes seconds.
-# The old bin/ (incl. a stale yabai.dSYM) is removed here instead of by a clean-build prerequisite,
-# which would race with the compile under make -j.
-# the AppKit side of the glass tab bars is Swift: one object per architecture, merged into a universal object.
-$(BUILD_PATH)/yabai: $(YABAI_SRC) $(SWIFT_SRC) FORCE
+# SwiftPM builds the binary (Package.swift) incrementally in .build; the variants only differ in VARIANT_FLAGS.
+# bin/ is replaced on every build, so it never holds the binary of another variant.
+$(BUILD_PATH)/yabai: $(OSAX_SRC) FORCE
 	rm -rf $(BUILD_PATH)
 	mkdir -p $(BUILD_PATH)
-	xcrun swiftc $(SWIFT_SRC) $(SWIFT_FLAGS) $(SWIFT_VARIANT) -target x86_64-apple-macos$(MACOS_MIN) -o $(SWIFT_OBJ).x86_64
-	xcrun swiftc $(SWIFT_SRC) $(SWIFT_FLAGS) $(SWIFT_VARIANT) -target arm64-apple-macos$(MACOS_MIN) -o $(SWIFT_OBJ).arm64
-	xcrun lipo -create $(SWIFT_OBJ).x86_64 $(SWIFT_OBJ).arm64 -output $(SWIFT_OBJ)
-	xcrun clang $(YABAI_SRC) $(SWIFT_OBJ) $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) $(SWIFT_LINK) -o $@
-	rm -f $(SWIFT_OBJ) $(SWIFT_OBJ).x86_64 $(SWIFT_OBJ).arm64
+	$(SWIFT_BUILD) $(VARIANT_FLAGS)
+	cp "$$($(SWIFT_BUILD) $(VARIANT_FLAGS) --show-bin-path)/yabai" $@
 
 FORCE:

@@ -6,9 +6,13 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- `make -C tests` builds `src/manifest.m` with `-DTESTS` and runs every entry of `TEST_LIST` in
-  `tests/src/tests.m`, under ASan/UBSan. The test build is warning-free; any warning is new. Check with
-  `make -C tests 2>&1 | grep -c "warning:"`.
+- `make -C tests` builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/Yabai/` but
+  `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan, then the golden
+  IPC replay (`tests/src/golden.c`). The test build is warning-free; any warning is new. Check with
+  `make -C tests 2>&1 | grep -c "warning:"`. `make test` runs `swift test` first.
+- The golden replay runs on a daemon state without displays, spaces or windows, but in this process: a command
+  in `tests/YabaiCoreTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
+  real one. Only add commands that fail before they act, or that only change the daemon's own state.
 - `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
   (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
   with "too many arguments provided to function-like macro invocation". Build fixtures in a static

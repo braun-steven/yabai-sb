@@ -1,6 +1,14 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 
+//
+// NOTE: Swift imports the headers of the unity build with ARC, which rejects the manual retain/release below, so it
+// only sees the declaration (src/include/yabai_c.h).
+//
+
+#ifdef __swift__
+void notify(const char *subtitle, const char *format, ...);
+#else
 static bool g_notify_init;
 static NSImage *g_notify_img;
 
@@ -48,3 +56,4 @@ static void notify(const char *subtitle, const char *format, ...)
 }
 
 #pragma clang diagnostic pop
+#endif

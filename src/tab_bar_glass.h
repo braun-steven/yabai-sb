@@ -3,8 +3,7 @@
 
 //
 // NOTE: The interface between the C side of the glass tab bars (tab_bar_glass.c) and the AppKit side
-// (tab_bar_glass.swift). The unity build includes it like any other header, and swiftc imports it as the
-// bridging header of tab_bar_glass.swift, so it must not depend on the other headers of yabai.
+// (Sources/Yabai/TabBarGlass.swift), which sees it through src/include/yabai_c.h.
 //
 
 #include <CoreGraphics/CoreGraphics.h>

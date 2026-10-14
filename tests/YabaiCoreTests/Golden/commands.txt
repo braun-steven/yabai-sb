@@ -1,0 +1,167 @@
+# Golden IPC commands (doc/swift-port.md, P0 step 8). tests/src/golden.c runs them in order on one fixture daemon
+# without displays, spaces or windows, and responses.txt holds the responses of the C implementation. Never add a
+# command that acts on the live displays, spaces or windows: space and display commands must fail before they act.
+# Re-record with: GOLDEN_RECORD=1 make -C tests
+
+# unknown domain
+foo
+
+# config: the default of every option
+config debug_output
+config mouse_follows_focus
+config focus_follows_mouse
+config display_arrangement_order
+config builtin_display_last
+config window_origin_display
+config window_opacity
+config window_opacity_duration
+config window_animation_duration
+config window_animation_easing
+config window_shadow
+config menubar_opacity
+config active_window_opacity
+config normal_window_opacity
+config insert_feedback_color
+config window_border
+config window_border_width
+config window_border_hide_single
+config active_window_border_color
+config normal_window_border_color
+config tab_bar
+config tab_bar_height
+config tab_bar_offset
+config tab_bar_font
+config tab_bar_icons
+config tab_bar_style
+config tab_bar_backdrop
+config tab_bar_card_padding
+config tab_bar_window_radius
+config tab_bar_focused_color
+config tab_bar_focused_text_color
+config tab_bar_inactive_color
+config tab_bar_inactive_text_color
+config tab_bar_unfocused_color
+config tab_bar_unfocused_text_color
+config tab_bar_backdrop_color
+config top_padding
+config bottom_padding
+config left_padding
+config right_padding
+config layout
+config window_gap
+config auto_padding
+config tree_default_orientation
+config tree_workspace_layout
+config tree_autotiling
+config focus_wrapping
+config mouse_modifier
+config mouse_action1
+config mouse_action2
+config mouse_drop_action
+config external_bar
+config skip_window_focus_animation
+config space_layout
+config scratchpad_exclusive
+config scratchpad_raise
+config scratchpad_below
+config scratchpad_grid
+
+# config: options that only change state of the daemon, then read back
+config mouse_modifier ctrl
+config mouse_action1 resize
+config mouse_drop_action stack
+config mouse_modifier
+config mouse_action1
+config mouse_drop_action
+config focus_wrapping force
+config tree_default_orientation vertical
+config tree_workspace_layout tabbed
+config tree_autotiling on
+config focus_wrapping
+config tree_default_orientation
+config tree_workspace_layout
+config tree_autotiling
+config window_opacity_duration 0.25
+config window_opacity_duration
+config insert_feedback_color 0xff112233
+config insert_feedback_color
+config window_animation_easing ease_in_sine
+config window_animation_easing
+config scratchpad_exclusive on
+config window_origin_display focused
+config scratchpad_exclusive
+config window_origin_display
+config window_gap 8
+config top_padding 10 bottom_padding 12
+config window_gap
+config top_padding
+config bottom_padding
+config tab_bar_height 30
+config tab_bar_style i3
+config tab_bar_backdrop blur
+config tab_bar_focused_color 0xff00ff00
+config tab_bar_font Menlo:14
+config tab_bar_height
+config tab_bar_style
+config tab_bar_backdrop
+config tab_bar_focused_color
+config tab_bar_font
+
+# config: errors (a getter takes the next option as its value)
+config window_gap top_padding
+config nonexistent_option
+config window_gap abc
+config mouse_modifier hyper
+config focus_follows_mouse bogus
+config window_opacity_duration abc
+config insert_feedback_color 0
+config active_window_opacity 2.0
+config tab_bar_style bogus
+config --space nolabel window_gap
+
+# rule
+rule --add app=^Calculator$ manage=off
+rule --add label=term app=Terminal opacity=0.9 sticky=on
+rule --add --one-shot title=x manage=on
+rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
+rule --list
+rule --add app=Foo bogus=1
+rule --add
+rule --remove term
+rule --remove 5
+rule --remove nolabel
+rule --list
+rule --apply 7
+rule --foo
+
+# signal
+signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
+signal --add event=space_changed action='echo hi' app=^Finder$
+signal --add event=bogus action=x
+signal --add label=x
+signal --add event=window_created action=true title!=^Untitled$ active=no
+signal --list
+signal --remove wf
+signal --remove 9
+signal --remove nolabel
+signal --list
+signal --foo
+
+# query: errors only, a query of everything reads the live spaces
+query
+query --foo
+query --windows --window 4242
+query --windows --foo
+query --spaces --space nolabel
+query --displays --display nolabel
+
+# window: there is no window to act on
+window --foo
+window --resize left:10:0
+window 4242 --close
+
+# space and display: commands that fail before they act
+space --foo
+space nolabel --foo
+display --foo
+display nolabel --foo

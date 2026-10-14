@@ -268,7 +268,7 @@ static void parse_arguments(int argc, char **argv)
 }
 
 #ifndef TESTS
-int main(int argc, char **argv)
+int yabai_main(int argc, char **argv)
 {
     if (argc > 1) {
         parse_arguments(argc, argv);

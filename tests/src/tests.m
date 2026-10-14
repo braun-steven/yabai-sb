@@ -25,6 +25,7 @@ typedef TEST_SIG(function);
 #include "space_window.c"
 #include "label.c"
 #include "event_signal.c"
+#include "golden.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -143,7 +144,8 @@ int main(void)
     printf("\n\e[1;34m -- Completed (%0.4fms)\e[m\n", ms_elapsed);
     printf("\t%d \e[1;32msucceeded\e[m\n", succeeded);
     printf("\t%d \e[1;31mfailed\e[m\n", failed);
-    printf("\t%d \e[1;33mtotal\e[m\n", total);
+    printf("\t%d \e[1;33mtotal\e[m\n\n", total);
 
-    return total == succeeded ? EXIT_SUCCESS : EXIT_FAILURE;
+    bool golden = golden_replay();
+    return total == succeeded && golden ? EXIT_SUCCESS : EXIT_FAILURE;
 }

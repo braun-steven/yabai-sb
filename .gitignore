@@ -8,3 +8,5 @@
 /scripts/live-tests/freeze
 /scripts/live-tests/.focused-window
 /scripts/live-tests/__pycache__
+/.build
+/.swiftpm

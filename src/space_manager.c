@@ -1068,7 +1068,7 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
     sm->last_space_id = sm->current_space_id;
 }
 
-void space_manager_begin(struct space_manager *sm)
+void space_manager_init(struct space_manager *sm)
 {
     sm->layout = VIEW_TREE;
     sm->auto_padding = false;
@@ -1078,6 +1078,11 @@ void space_manager_begin(struct space_manager *sm)
     sm->labels = NULL;
     sm->skip_window_focus_animation = false;
     table_init(&sm->view, 23, hash_view, compare_view);
+}
+
+void space_manager_begin(struct space_manager *sm)
+{
+    space_manager_init(sm);
 
     int display_count;
     uint32_t *display_list = display_manager_active_display_list(&display_count);

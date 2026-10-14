@@ -1,4 +1,5 @@
 import AppKit
+import YabaiC
 
 //
 // NOTE: The AppKit side of the glass tab bars. AppKit must be used from the main thread, so the event loop hands a

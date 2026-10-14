@@ -1,6 +1,6 @@
 //
 // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
-// AppKit views. Each bar is therefore a borderless panel owned by AppKit (tab_bar_glass.swift) instead of a raw
+// AppKit views. Each bar is therefore a borderless panel owned by AppKit (TabBarGlass.swift) instead of a raw
 // SkyLight window. This side runs on the event loop: it takes a snapshot of a bar and hands it to the Swift side,
 // which shows it on the main queue.
 //

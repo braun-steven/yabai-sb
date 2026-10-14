@@ -1,0 +1,4 @@
+module YabaiC {
+    header "yabai_c.h"
+    export *
+}

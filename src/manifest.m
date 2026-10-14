@@ -106,6 +106,7 @@
 #include "space_layout.c"
 #include "window_animation.c"
 #include "window_manager.c"
+#include "window_manager_discovery.c"
 #include "window_manager_rules.c"
 #include "window_manager_scratchpad.c"
 #include "window_manager_tree.c"

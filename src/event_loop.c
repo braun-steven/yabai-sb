@@ -88,6 +88,34 @@ static void flush_dirty_views(struct view **view_list, int view_count)
     }
 }
 
+//
+// NOTE: Tiles the windows that should be managed and are not yet, each one after the previous one,
+// starting after insertion_point. New windows go to the space chosen by window_origin_display, other
+// windows stay on their space.
+//
+
+static void tile_windows_batched(struct window **window_list, int window_count, uint32_t insertion_point, bool new_windows)
+{
+    int view_count = 0;
+    struct view **view_list = ts_alloc_list(struct view *, window_count);
+
+    for (int i = 0; i < window_count; ++i) {
+        struct window *window = window_list[i];
+        if (!window_manager_should_manage_window(window))                  continue;
+        if (window_manager_find_managed_window(&g_window_manager, window)) continue;
+
+        uint64_t sid = new_windows ? window_manager_origin_space(&g_window_manager, window) : window_space(window->id);
+        struct view *view = space_manager_find_view(&g_space_manager, sid);
+        if (view->layout == VIEW_FLOAT) continue;
+
+        tile_window_batched(view, window, insertion_point);
+        view_list[view_count++] = view;
+        insertion_point = window->id;
+    }
+
+    flush_dirty_views(view_list, view_count);
+}
+
 static void window_did_receive_focus(struct window_manager *wm, struct mouse_state *ms, struct window *window)
 {
     struct window *focused_window = window_manager_find_window(wm, wm->focused_window_id);
@@ -249,30 +277,13 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
 
     int window_count;
     struct window **window_list = window_manager_add_application_windows(&g_space_manager, &g_window_manager, application, &window_count);
-    uint32_t prev_window_id = g_window_manager.focused_window_id;
-
-    int view_count = 0;
-    struct view **view_list = ts_alloc_list(struct view *, window_count);
+    tile_windows_batched(window_list, window_count, g_window_manager.focused_window_id, true);
 
     for (int i = 0; i < window_count; ++i) {
-        struct window *window = window_list[i];
-
-        if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-            struct view *view = space_manager_find_view(&g_space_manager, window_manager_origin_space(&g_window_manager, window));
-            if (view->layout != VIEW_FLOAT) {
-                tile_window_batched(view, window, prev_window_id);
-                view_list[view_count++] = view;
-
-                prev_window_id = window->id;
-            }
-        }
-
-        if (window_manager_is_window_eligible(window)) {
-            event_signal_push(SIGNAL_WINDOW_CREATED, window);
+        if (window_manager_is_window_eligible(window_list[i])) {
+            event_signal_push(SIGNAL_WINDOW_CREATED, window_list[i]);
         }
     }
-
-    flush_dirty_views(view_list, view_count);
 
     if (workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
@@ -449,26 +460,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
 
     int window_count;
     struct window **window_list = window_manager_find_application_windows(&g_window_manager, application, &window_count);
-    uint32_t prev_window_id = g_window_manager.last_window_id;
-
-    int view_count = 0;
-    struct view **view_list = ts_alloc_list(struct view *, window_count);
-
-    for (int i = 0; i < window_count; ++i) {
-        struct window *window = window_list[i];
-
-        if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-            struct view *view = space_manager_find_view(&g_space_manager, window_space(window->id));
-            if (view->layout == VIEW_FLOAT) continue;
-
-            tile_window_batched(view, window, prev_window_id);
-            view_list[view_count++] = view;
-
-            prev_window_id = window->id;
-        }
-    }
-
-    flush_dirty_views(view_list, view_count);
+    tile_windows_batched(window_list, window_count, g_window_manager.last_window_id, false);
 
     for (int i = 0; i < window_count; ++i) {
         border_refresh_window_space(window_list[i]);

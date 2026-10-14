@@ -37,6 +37,18 @@ void *workspace_application_create_running_ns_application(struct process *proces
     return [[NSRunningApplication runningApplicationWithProcessIdentifier:process->pid] retain];
 }
 
+//
+// NOTE: Removing an observation that is not registered throws, and there is no way to list the
+// registered observations, so failures are ignored.
+//
+
+static void workspace_application_remove_observer(NSRunningApplication *application, void *context, struct process *process, NSString *key_path)
+{
+    @try {
+        [application removeObserver:context forKeyPath:key_path context:process];
+    } @catch (NSException * __unused exception) {}
+}
+
 void workspace_application_destroy_running_ns_application(void *ws_context, struct process *process)
 {
     NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
@@ -60,50 +72,58 @@ void workspace_application_destroy_running_ns_application(void *ws_context, stru
             // to remove a non-existing observation when it just called us back.
             //
 
-            @try {
-                [application removeObserver:ws_context forKeyPath:@"activationPolicy" context:process];
-            } @catch (NSException * __unused exception) {}
-
-            @try {
-                [application removeObserver:ws_context forKeyPath:@"finishedLaunching" context:process];
-            } @catch (NSException * __unused exception) {}
+            workspace_application_remove_observer(application, ws_context, process, @"activationPolicy");
+            workspace_application_remove_observer(application, ws_context, process, @"finishedLaunching");
         }
 
         [application release];
     }
 }
 
-void workspace_application_observe_finished_launching(void *context, struct process *process)
+static void workspace_application_add_observer(void *context, struct process *process, NSString *key_path)
 {
     NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
     if (application) {
-        [application addObserver:context forKeyPath:@"finishedLaunching" options:NSKeyValueObservingOptionInitial|NSKeyValueObservingOptionNew context:process];
+        [application addObserver:context forKeyPath:key_path options:NSKeyValueObservingOptionInitial|NSKeyValueObservingOptionNew context:process];
     } else {
-        debug("%s: could not subscribe to finished launching changes for %s (%d)\n", __FUNCTION__, process->name, process->pid);
+        debug("%s: could not subscribe to %s changes for %s (%d)\n", __FUNCTION__, [key_path UTF8String], process->name, process->pid);
     }
+}
+
+void workspace_application_observe_finished_launching(void *context, struct process *process)
+{
+    workspace_application_add_observer(context, process, @"finishedLaunching");
 }
 
 void workspace_application_observe_activation_policy(void *context, struct process *process)
 {
+    workspace_application_add_observer(context, process, @"activationPolicy");
+}
+
+static void workspace_application_remove_observer_if_observed(void *context, struct process *process, NSString *key_path)
+{
     NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
-    if (application) {
-        [application addObserver:context forKeyPath:@"activationPolicy" options:NSKeyValueObservingOptionInitial|NSKeyValueObservingOptionNew context:process];
-    } else {
-        debug("%s: could not subscribe to activation policy changes for %s (%d)\n", __FUNCTION__, process->name, process->pid);
+    if (application && [application observationInfo]) {
+        workspace_application_remove_observer(application, context, process, key_path);
     }
+}
+
+void workspace_application_unobserve_finished_launching(void *context, struct process *process)
+{
+    workspace_application_remove_observer_if_observed(context, process, @"finishedLaunching");
+}
+
+void workspace_application_unobserve_activation_policy(void *context, struct process *process)
+{
+    workspace_application_remove_observer_if_observed(context, process, @"activationPolicy");
 }
 
 void workspace_application_unobserve(void *ws_context, struct process *process)
 {
     NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
     if (application) {
-        @try {
-            [application removeObserver:ws_context forKeyPath:@"activationPolicy" context:process];
-        } @catch (NSException * __unused exception) {}
-
-        @try {
-            [application removeObserver:ws_context forKeyPath:@"finishedLaunching" context:process];
-        } @catch (NSException * __unused exception) {}
+        workspace_application_remove_observer(application, ws_context, process, @"activationPolicy");
+        workspace_application_remove_observer(application, ws_context, process, @"finishedLaunching");
     }
 }
 

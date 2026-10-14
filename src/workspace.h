@@ -18,6 +18,11 @@ static inline bool workspace_is_macos_##name(void) \
     SUPPORTED_MACOS_VERSION_LIST
 #undef SUPPORT_MACOS_VERSION
 
+static inline bool workspace_is_macos_sequoia_or_newer(void)
+{
+    return workspace_is_macos_sequoia() || workspace_is_macos_tahoe();
+}
+
 @interface workspace_context : NSObject {
 }
 - (id)init;
@@ -31,6 +36,8 @@ bool workspace_application_is_observable(struct process *process);
 bool workspace_application_is_finished_launching(struct process *process);
 void workspace_application_observe_finished_launching(void *context, struct process *process);
 void workspace_application_observe_activation_policy(void *context, struct process *process);
+void workspace_application_unobserve_finished_launching(void *context, struct process *process);
+void workspace_application_unobserve_activation_policy(void *context, struct process *process);
 int workspace_display_notch_height(uint32_t did);
 pid_t workspace_get_dock_pid(void);
 bool workspace_event_handler_begin(void **context);

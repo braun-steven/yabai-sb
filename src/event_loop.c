@@ -30,14 +30,14 @@ static void update_window_notifications(void)
     int window_count = 0;
     int window_capacity = 1024;
 
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         if (g_window_manager.window.count > window_capacity) window_capacity = g_window_manager.window.count;
     }
 
     uint32_t *window_list = calloc(window_capacity, sizeof(uint32_t));
     if (!window_list) return;
 
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
         table_for (struct window *window, g_window_manager.window, {
             if (window_count < window_capacity) window_list[window_count++] = window->id;
@@ -51,6 +51,26 @@ static void update_window_notifications(void)
 
     SLSRequestNotificationsForWindows(g_connection, window_list, window_count);
     free(window_list);
+}
+
+//
+// @cleanup
+//
+// :AXBatching
+//
+// NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
+// This is necessary to make sure that we do not call the AX API for each modification to the tree.
+//
+
+static void flush_dirty_views(struct view **view_list, int view_count)
+{
+    for (int i = 0; i < view_count; ++i) {
+        struct view *view = view_list[i];
+        if (!space_is_visible(view->sid)) continue;
+        if (!view_is_dirty(view))         continue;
+
+        view_flush(view);
+    }
 }
 
 static void window_did_receive_focus(struct window_manager *wm, struct mouse_state *ms, struct window *window)
@@ -165,14 +185,8 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         // Not actually sure if this can happen in practice..
         //
 
-        if (workspace_application_is_finished_launching(process)) {
-            @try {
-                NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
-                if (application && [application observationInfo]) {
-                    [application removeObserver:g_workspace_context forKeyPath:@"finishedLaunching" context:process];
-                }
-            } @catch (NSException * __unused exception) {}
-        } else { return; }
+        if (!workspace_application_is_finished_launching(process)) return;
+        workspace_application_unobserve_finished_launching(g_workspace_context, process);
     }
 
     if (!workspace_application_is_observable(process)) {
@@ -184,14 +198,8 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         // Not actually sure if this can happen in practice..
         //
 
-        if (workspace_application_is_observable(process)) {
-            @try {
-                NSRunningApplication *application = __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED);
-                if (application && [application observationInfo]) {
-                    [application removeObserver:g_workspace_context forKeyPath:@"activationPolicy" context:process];
-                }
-            } @catch (NSException * __unused exception) {}
-        } else { return; }
+        if (!workspace_application_is_observable(process)) return;
+        workspace_application_unobserve_activation_policy(g_workspace_context, process);
     }
 
     //
@@ -276,24 +284,9 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         }
     }
 
-    //
-    // @cleanup
-    //
-    // :AXBatching
-    //
-    // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
-    // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-    //
+    flush_dirty_views(view_list, view_count);
 
-    for (int i = 0; i < view_count; ++i) {
-        struct view *view = view_list[i];
-        if (!space_is_visible(view->sid)) continue;
-        if (!view_is_dirty(view))         continue;
-
-        view_flush(view);
-    }
-
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 }
@@ -369,24 +362,9 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
     application_unobserve(application);
     application_destroy(application);
 
-    //
-    // @cleanup
-    //
-    // :AXBatching
-    //
-    // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
-    // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-    //
+    flush_dirty_views(view_list, view_count);
 
-    for (int i = 0; i < view_count; ++i) {
-        struct view *view = view_list[i];
-        if (!space_is_visible(view->sid)) continue;
-        if (!view_is_dirty(view))         continue;
-
-        view_flush(view);
-    }
-
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 
@@ -530,22 +508,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
         }
     }
 
-    //
-    // @cleanup
-    //
-    // :AXBatching
-    //
-    // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
-    // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-    //
-
-    for (int i = 0; i < view_count; ++i) {
-        struct view *view = view_list[i];
-        if (!space_is_visible(view->sid)) continue;
-        if (!view_is_dirty(view))         continue;
-
-        view_flush(view);
-    }
+    flush_dirty_views(view_list, view_count);
 
     for (int i = 0; i < window_count; ++i) {
         border_refresh_window_space(window_list[i]);
@@ -594,22 +557,7 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
         }
     }
 
-    //
-    // @cleanup
-    //
-    // :AXBatching
-    //
-    // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
-    // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-    //
-
-    for (int i = 0; i < view_count; ++i) {
-        struct view *view = view_list[i];
-        if (!space_is_visible(view->sid)) continue;
-        if (!view_is_dirty(view))         continue;
-
-        view_flush(view);
-    }
+    flush_dirty_views(view_list, view_count);
 
     for (int i = 0; i < window_count; ++i) {
         border_refresh_window_space(window_list[i]);
@@ -667,7 +615,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
 
     border_refresh_window_space(window);
 
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 }
@@ -706,7 +654,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
         border_refresh_space(g_space_manager.current_space_id);
     }
 
-    if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 }

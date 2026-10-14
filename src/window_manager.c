@@ -430,6 +430,35 @@ void window_manager_adjust_layer(struct window *window, int layer)
     scripting_addition_set_layer(window->id, layer);
 }
 
+//
+// NOTE: The descendants of root in a list of (parent, child) relations, breadth first, into result (at
+// least relation_count entries). Every relation is used once, which consumes parent_list, so a cycle
+// cannot repeat windows.
+//
+
+static int window_manager_collect_child_windows(uint32_t root, uint32_t *parent_list, uint32_t *child_list, int relation_count, uint32_t *result)
+{
+    int result_count = 0;
+
+    for (int i = -1; i < result_count; ++i) {
+        uint32_t parent = i < 0 ? root : result[i];
+
+        for (int j = 0; j < relation_count; ++j) {
+            if (parent_list[j] != parent) continue;
+
+            parent_list[j] = 0;
+            result[result_count++] = child_list[j];
+        }
+    }
+
+    return result_count;
+}
+
+//
+// NOTE: The child windows (e.g. sheets) follow the layer of their window. With LAYER_AUTO, managed windows (and
+// scratchpads with scratchpad_below) go to the below sub-layer and their child windows to the normal one.
+//
+
 bool window_manager_set_window_layer(struct window *window, int layer)
 {
     int parent_layer = layer;
@@ -449,33 +478,31 @@ bool window_manager_set_window_layer(struct window *window, int layer)
     if (!window_list) return result;
 
     int window_count = CFArrayGetCount(window_list);
-    CFTypeRef query = SLSWindowQueryWindows(g_connection, window_list, window_count);
-    CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
+    if (window_count > 0) {
+        CFTypeRef query = SLSWindowQueryWindows(g_connection, window_list, window_count);
+        CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
 
-    int relation_count = 0;
-    uint32_t parent_list[window_count];
-    uint32_t child_list[window_count];
+        int relation_count = 0;
+        uint32_t *parent_list = ts_alloc_list(uint32_t, window_count);
+        uint32_t *child_list = ts_alloc_list(uint32_t, window_count);
 
-    while (SLSWindowIteratorAdvance(iterator)) {
-        parent_list[relation_count] = SLSWindowIteratorGetParentID(iterator);
-        child_list[relation_count] = SLSWindowIteratorGetWindowID(iterator);
-        ++relation_count;
-    }
-
-    int check_count = 1;
-    uint32_t check_list[window_count];
-    check_list[0] = window->id;
-
-    for (int i = 0; i < check_count; ++i) {
-        for (int j = 0; j < window_count; ++j) {
-            if (parent_list[j] != check_list[i]) continue;
-            scripting_addition_set_layer(child_list[j], child_layer);
-            check_list[check_count++] = child_list[j];
+        while (relation_count < window_count && SLSWindowIteratorAdvance(iterator)) {
+            parent_list[relation_count] = SLSWindowIteratorGetParentID(iterator);
+            child_list[relation_count] = SLSWindowIteratorGetWindowID(iterator);
+            ++relation_count;
         }
+
+        uint32_t *descendant_list = ts_alloc_list(uint32_t, window_count);
+        int descendant_count = window_manager_collect_child_windows(window->id, parent_list, child_list, relation_count, descendant_list);
+
+        for (int i = 0; i < descendant_count; ++i) {
+            scripting_addition_set_layer(descendant_list[i], child_layer);
+        }
+
+        CFRelease(query);
+        CFRelease(iterator);
     }
 
-    CFRelease(query);
-    CFRelease(iterator);
     CFRelease(window_list);
 
     return result;

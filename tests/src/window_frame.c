@@ -293,3 +293,32 @@ TEST_FUNC(mouse_drop_action_regions,
     ms.drop_action = MOUSE_MODE_STACK;
     TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(200, 150)), MOUSE_DROP_ACTION_STACK);
 });
+
+//
+// NOTE: 1 has the children 2 and 3, 3 has the child 4, and 9 belongs to another window. The direct relations
+// make every window a direct child, which needs as many entries as there are relations.
+//
+
+static uint32_t child_test_parent_list[]  = { 3, 1, 9, 1 };
+static uint32_t child_test_child_list[]   = { 4, 2, 8, 3 };
+static uint32_t child_test_direct_parent[] = { 1, 1, 1 };
+static uint32_t child_test_direct_child[]  = { 2, 3, 4 };
+static uint32_t child_test_cycle_parent[]  = { 1, 2 };
+static uint32_t child_test_cycle_child[]   = { 2, 1 };
+
+TEST_FUNC(window_child_windows_collect,
+{
+    uint32_t descendants[4];
+
+    TEST_CHECK(window_manager_collect_child_windows(1, child_test_parent_list, child_test_child_list, 4, descendants), 3);
+    TEST_CHECK((int) descendants[0], 2);
+    TEST_CHECK((int) descendants[1], 3);
+    TEST_CHECK((int) descendants[2], 4);
+
+    TEST_CHECK(window_manager_collect_child_windows(1, child_test_direct_parent, child_test_direct_child, 3, descendants), 3);
+
+    // NOTE: a cycle does not repeat windows
+    TEST_CHECK(window_manager_collect_child_windows(1, child_test_cycle_parent, child_test_cycle_child, 2, descendants), 2);
+
+    TEST_CHECK(window_manager_collect_child_windows(1, NULL, NULL, 0, descendants), 0);
+});

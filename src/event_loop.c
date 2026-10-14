@@ -58,9 +58,24 @@ static void update_window_notifications(void)
 //
 // :AXBatching
 //
-// NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
+// NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
+// making sure that each window is only moved and resized a single time, when the final layout has been computed.
 // This is necessary to make sure that we do not call the AX API for each modification to the tree.
+// The handlers collect the views they modified and flush them once with flush_dirty_views.
 //
+
+static void tile_window_batched(struct view *view, struct window *window, uint32_t insertion_point)
+{
+    window_manager_adjust_layer(window, LAYER_BELOW);
+    view_add_window(view, window, insertion_point);
+    window_manager_add_managed_window(&g_window_manager, window, view);
+}
+
+static void untile_window_batched(struct view *view, struct window *window)
+{
+    view_remove_window(view, window);
+    window_manager_remove_managed_window(&g_window_manager, window->id);
+}
 
 static void flush_dirty_views(struct view **view_list, int view_count)
 {
@@ -258,21 +273,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
 
             struct view *view = space_manager_find_view(&g_space_manager, sid);
             if (view->layout != VIEW_FLOAT) {
-                //
-                // @cleanup
-                //
-                // :AXBatching
-                //
-                // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
-                // making sure that each window is only moved and resized a single time, when the final layout has been computed.
-                // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-                //
-
-                window_manager_adjust_layer(window, LAYER_BELOW);
-                view_add_window(view, window, prev_window_id);
-                window_manager_add_managed_window(&g_window_manager, window, view);
-
-                view_set_flag(view, VIEW_IS_DIRTY);
+                tile_window_batched(view, window, prev_window_id);
                 view_list[view_count++] = view;
 
                 prev_window_id = window->id;
@@ -329,20 +330,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
         if (view) {
 
-            //
-            // @cleanup
-            //
-            // :AXBatching
-            //
-            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
-            // making sure that each window is only moved and resized a single time, when the final layout has been computed.
-            // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-            //
-
-            view_remove_window(view, window);
-            window_manager_remove_managed_window(&g_window_manager, window->id);
-
-            view_set_flag(view, VIEW_IS_DIRTY);
+            untile_window_batched(view, window);
             view_list[view_count++] = view;
         }
 
@@ -487,21 +475,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
             struct view *view = space_manager_find_view(&g_space_manager, window_space(window->id));
             if (view->layout == VIEW_FLOAT) continue;
 
-            //
-            // @cleanup
-            //
-            // :AXBatching
-            //
-            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
-            // making sure that each window is only moved and resized a single time, when the final layout has been computed.
-            // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-            //
-
-            window_manager_adjust_layer(window, LAYER_BELOW);
-            view_add_window(view, window, prev_window_id);
-            window_manager_add_managed_window(&g_window_manager, window, view);
-
-            view_set_flag(view, VIEW_IS_DIRTY);
+            tile_window_batched(view, window, prev_window_id);
             view_list[view_count++] = view;
 
             prev_window_id = window->id;
@@ -537,22 +511,9 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
         if (view) {
 
-            //
-            // @cleanup
-            //
-            // :AXBatching
-            //
-            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
-            // making sure that each window is only moved and resized a single time, when the final layout has been computed.
-            // This is necessary to make sure that we do not call the AX API for each modification to the tree.
-            //
-
             window_manager_adjust_layer(window, LAYER_NORMAL);
-            view_remove_window(view, window);
-            window_manager_remove_managed_window(&g_window_manager, window->id);
+            untile_window_batched(view, window);
             window_manager_purify_window(&g_window_manager, window);
-
-            view_set_flag(view, VIEW_IS_DIRTY);
             view_list[view_count++] = view;
         }
     }

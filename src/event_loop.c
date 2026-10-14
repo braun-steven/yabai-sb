@@ -1090,6 +1090,44 @@ out:
     CFRelease(context);
 }
 
+static void mouse_drag_move_window(CGPoint point)
+{
+    CGPoint new_point = { g_mouse_state.window_frame.origin.x + (point.x - g_mouse_state.down_location.x),
+                          g_mouse_state.window_frame.origin.y + (point.y - g_mouse_state.down_location.y) };
+
+    uint32_t did = display_manager_point_display_id(new_point);
+    if (did) {
+        CGRect bounds = display_bounds_constrained(did, false);
+        if (new_point.y < bounds.origin.y) new_point.y = bounds.origin.y;
+    }
+
+    if (!scripting_addition_move_window(g_mouse_state.window->id, new_point.x, new_point.y)) {
+        window_manager_move_window(g_mouse_state.window, new_point.x, new_point.y);
+    }
+}
+
+//
+// NOTE: Resizing through the AX API is slow, so a drag resizes the window at most once per throttle
+// interval. Returns false when this event was skipped.
+//
+
+#define MOUSE_RESIZE_THROTTLE_MS 67.67f
+
+static bool mouse_drag_resize_window(CGPoint point)
+{
+    uint64_t event_time = read_os_timer();
+    if (os_timer_ms_between(g_mouse_state.last_moved_time, event_time) < MOUSE_RESIZE_THROTTLE_MS) return false;
+
+    int dx = point.x - g_mouse_state.down_location.x;
+    int dy = point.y - g_mouse_state.down_location.y;
+
+    window_manager_resize_window_relative_internal(g_mouse_state.window, g_mouse_state.window->frame, g_mouse_state.direction, dx, dy, false);
+
+    g_mouse_state.last_moved_time = event_time;
+    g_mouse_state.down_location = point;
+    return true;
+}
+
 static EVENT_HANDLER(MOUSE_DRAGGED)
 {
     //
@@ -1114,30 +1152,9 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
     debug("%s: %.2f, %.2f\n", __FUNCTION__, point.x, point.y);
 
     if (g_mouse_state.current_action == MOUSE_MODE_MOVE) {
-        CGPoint new_point = { g_mouse_state.window_frame.origin.x + (point.x - g_mouse_state.down_location.x),
-                              g_mouse_state.window_frame.origin.y + (point.y - g_mouse_state.down_location.y) };
-
-        uint32_t did = display_manager_point_display_id(new_point);
-        if (did) {
-            CGRect bounds = display_bounds_constrained(did, false);
-            if (new_point.y < bounds.origin.y) new_point.y = bounds.origin.y;
-        }
-
-        if (!scripting_addition_move_window(g_mouse_state.window->id, new_point.x, new_point.y)) {
-            window_manager_move_window(g_mouse_state.window, new_point.x, new_point.y);
-        }
+        mouse_drag_move_window(point);
     } else if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
-        uint64_t event_time = read_os_timer();
-        float dt = os_timer_ms_between(g_mouse_state.last_moved_time, event_time);
-        if (dt < 67.67f) goto out;
-
-        int dx = point.x - g_mouse_state.down_location.x;
-        int dy = point.y - g_mouse_state.down_location.y;
-
-        window_manager_resize_window_relative_internal(g_mouse_state.window, g_mouse_state.window->frame, g_mouse_state.direction, dx, dy, false);
-
-        g_mouse_state.last_moved_time = event_time;
-        g_mouse_state.down_location = point;
+        if (!mouse_drag_resize_window(point)) goto out;
     }
 
     struct view *src_view = window_manager_find_managed_window(&g_window_manager, g_mouse_state.window);

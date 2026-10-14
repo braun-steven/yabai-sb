@@ -259,3 +259,16 @@ TEST_FUNC(window_one_shot_rules,
     rule_destroy(&wm.rules[0]);
     buf_free(wm.rules);
 });
+
+TEST_FUNC(mouse_resize_handle,
+{
+    CGRect frame = CGRectMake(100, 100, 200, 100);
+
+    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(110, 110)), HANDLE_LEFT | HANDLE_TOP);
+    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(290, 190)), HANDLE_RIGHT | HANDLE_BOTTOM);
+
+    // NOTE: on a center line only one edge is dragged
+    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(200, 190)), HANDLE_BOTTOM);
+    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(110, 150)), HANDLE_LEFT);
+    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(200, 150)), 0);
+});

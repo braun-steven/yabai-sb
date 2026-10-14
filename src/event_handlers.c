@@ -1017,6 +1017,23 @@ static EVENT_HANDLER(DISPLAY_RESIZED)
     event_signal_push(SIGNAL_DISPLAY_RESIZED, context);
 }
 
+//
+// NOTE: A resize drags the corner (or edge) of the window that is closest to where the mouse went down.
+//
+
+static inline int mouse_resize_direction(CGRect frame, CGPoint point)
+{
+    int direction = 0;
+    CGPoint frame_mid = { CGRectGetMidX(frame), CGRectGetMidY(frame) };
+
+    if (point.x < frame_mid.x) direction |= HANDLE_LEFT;
+    if (point.y < frame_mid.y) direction |= HANDLE_TOP;
+    if (point.x > frame_mid.x) direction |= HANDLE_RIGHT;
+    if (point.y > frame_mid.y) direction |= HANDLE_BOTTOM;
+
+    return direction;
+}
+
 static EVENT_HANDLER(MOUSE_DOWN)
 {
     if (mission_control_is_active())                     goto out;
@@ -1043,11 +1060,7 @@ static EVENT_HANDLER(MOUSE_DOWN)
     }
 
     if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
-        CGPoint frame_mid = { CGRectGetMidX(g_mouse_state.window_frame), CGRectGetMidY(g_mouse_state.window_frame) };
-        if (point.x < frame_mid.x) g_mouse_state.direction |= HANDLE_LEFT;
-        if (point.y < frame_mid.y) g_mouse_state.direction |= HANDLE_TOP;
-        if (point.x > frame_mid.x) g_mouse_state.direction |= HANDLE_RIGHT;
-        if (point.y > frame_mid.y) g_mouse_state.direction |= HANDLE_BOTTOM;
+        g_mouse_state.direction = mouse_resize_direction(g_mouse_state.window_frame, point);
     }
 
 out:
@@ -1063,6 +1076,21 @@ static EVENT_HANDLER(TAB_BAR_CLICKED)
     if (!window) return;
 
     window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+}
+
+//
+// NOTE: The view of the space under the cursor, and the window under the cursor other than the dragged
+// window (or NULL), that a dragged window is dropped on.
+//
+
+static struct window *mouse_drop_target(CGPoint point, struct view **dst_view)
+{
+    uint64_t cursor_sid = display_space_id(display_manager_point_display_id(point));
+    *dst_view = space_manager_find_view(&g_space_manager, cursor_sid);
+
+    struct window *window = window_manager_find_window_at_point_filtering_window(&g_window_manager, point, g_mouse_state.window->id);
+    if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
+    return window == g_mouse_state.window ? NULL : window;
 }
 
 static EVENT_HANDLER(MOUSE_UP)
@@ -1090,12 +1118,8 @@ static EVENT_HANDLER(MOUSE_UP)
     mouse_window_info_populate(&g_mouse_state, &info);
 
     if (info.changed_position && !info.changed_size) {
-        uint64_t cursor_sid = display_space_id(display_manager_point_display_id(point));
-        struct view *dst_view = space_manager_find_view(&g_space_manager, cursor_sid);
-
-        struct window *window = window_manager_find_window_at_point_filtering_window(&g_window_manager, point, g_mouse_state.window->id);
-        if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
-        if (window == g_mouse_state.window) window = NULL;
+        struct view *dst_view;
+        struct window *window = mouse_drop_target(point, &dst_view);
 
         mouse_drop(&g_space_manager, &g_window_manager, &g_mouse_state, src_view, dst_view, g_mouse_state.window, window, point);
     } else if (info.changed_position || info.changed_size) {
@@ -1184,12 +1208,8 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
     mouse_window_info_populate(&g_mouse_state, &info);
 
     if (info.changed_position && !info.changed_size) {
-        uint64_t cursor_sid = display_space_id(display_manager_point_display_id(point));
-        struct view *dst_view = space_manager_find_view(&g_space_manager, cursor_sid);
-
-        struct window *window = window_manager_find_window_at_point_filtering_window(&g_window_manager, point, g_mouse_state.window->id);
-        if (!window) window = window_manager_find_window_at_point(&g_window_manager, point);
-        if (window == g_mouse_state.window) window = NULL;
+        struct view *dst_view;
+        struct window *window = mouse_drop_target(point, &dst_view);
 
         mouse_drag(&g_mouse_state, dst_view, window, point);
     }

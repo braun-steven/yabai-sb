@@ -81,6 +81,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(label_list)                                     \
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \
+    TEST_ENTRY(mouse_resize_handle)                            \
     TEST_ENTRY(border_edge_frames_split)                       \
     TEST_ENTRY(border_tabbed_container_area)                   \
     TEST_ENTRY(message_config_bool)                            \

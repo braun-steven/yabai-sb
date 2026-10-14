@@ -110,6 +110,8 @@
 #include "window_animation.c"
 #include "window_manager.c"
 #include "window_manager_discovery.c"
+#include "window_manager_lookup.c"
+#include "window_manager_focus.c"
 #include "window_manager_rules.c"
 #include "window_manager_scratchpad.c"
 #include "window_manager_tree.c"

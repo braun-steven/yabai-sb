@@ -456,6 +456,16 @@ static inline void daemon_fail(FILE *rsp, char *fmt, ...)
     va_end(ap);
 }
 
+static inline void daemon_fail_unknown_command(FILE *rsp, struct token domain, struct token command)
+{
+    daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+}
+
+static inline void daemon_fail_unknown_option(FILE *rsp, struct token domain, struct token command, struct token option)
+{
+    daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+}
+
 static inline void daemon_fail_unknown_value(FILE *rsp, struct token domain, struct token command, struct token value)
 {
     daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
@@ -1166,9 +1176,29 @@ static struct selector parse_window_selector(FILE *rsp, char **message, struct w
 }
 
 //
-// NOTE: An optional window selector replaces *window when one is given. Returns false when the
-// given selector does not select a window (parse_window_selector has reported why).
+// NOTE: An optional selector replaces the acting display, space or window when one is given. These
+// return false when the given selector does not select anything (the parser has reported why).
 //
+
+static bool parse_optional_display_selector(FILE *rsp, char **message, uint32_t *did)
+{
+    struct selector selector = parse_display_selector(rsp, message, *did, true);
+    if (!token_is_valid(selector.token)) return true;
+    if (!selector.did_parse || !selector.did) return false;
+
+    *did = selector.did;
+    return true;
+}
+
+static bool parse_optional_space_selector(FILE *rsp, char **message, uint64_t *sid)
+{
+    struct selector selector = parse_space_selector(rsp, message, *sid, true);
+    if (!token_is_valid(selector.token)) return true;
+    if (!selector.did_parse || !selector.sid) return false;
+
+    *sid = selector.sid;
+    return true;
+}
 
 static bool parse_optional_window_selector(FILE *rsp, char **message, struct window **window)
 {
@@ -1686,7 +1716,7 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "%s:%d:%d\n", external_bar_mode_str[g_display_manager.mode], g_display_manager.top_padding, g_display_manager.bottom_padding);
             }
         } else {
-            daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_command(rsp, domain, command);
         }
     }
 }
@@ -1742,7 +1772,7 @@ static void handle_domain_display(FILE *rsp, struct token domain, char *message)
             }
         }
     } else {
-        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+        daemon_fail_unknown_command(rsp, domain, command);
     }
 }
 
@@ -1843,15 +1873,7 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 daemon_fail_space_op(rsp, result, "create space");
             }
         } else if (token_equals(command, COMMAND_SPACE_DESTROY)) {
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.sid) {
-                    acting_sid = selector.sid;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
 
             enum space_op_error result = space_manager_destroy_space(acting_sid);
             if (result == SPACE_OP_ERROR_MISSING_SRC) {
@@ -1963,7 +1985,7 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
                 }
             }
         } else {
-            daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_command(rsp, domain, command);
         }
     }
 }
@@ -2334,7 +2356,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
                 }
             }
         } else {
-            daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_command(rsp, domain, command);
         }
     }
 }
@@ -2351,29 +2373,13 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
         struct token option = properties.did_parse ? get_token(&message) : properties.token;
         if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
             uint32_t acting_did = display_manager_active_display_id();
-            struct selector selector = parse_display_selector(rsp, &message, acting_did, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.did) {
-                    acting_did = selector.did;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
 
             display_serialize(rsp, acting_did, properties.flags);
             fprintf(rsp, "\n");
         } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
             uint64_t acting_sid = space_manager_active_space();
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.sid) {
-                    acting_sid = selector.sid;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
 
             display_serialize(rsp, space_display_id(acting_sid), properties.flags);
             fprintf(rsp, "\n");
@@ -2388,7 +2394,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "could not find window to retrieve display details.\n");
             }
         } else if (token_is_valid(option)) {
-            daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_option(rsp, domain, command, option);
         } else {
             display_manager_query_displays(rsp, properties.flags);
         }
@@ -2399,30 +2405,14 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
         struct token option = properties.did_parse ? get_token(&message) : properties.token;
         if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
             uint32_t acting_did = display_manager_active_display_id();
-            struct selector selector = parse_display_selector(rsp, &message, acting_did, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.did) {
-                    acting_did = selector.did;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
 
             if (!space_manager_query_spaces_for_display(rsp, acting_did, properties.flags)) {
                 daemon_fail(rsp, "could not retrieve spaces for display.\n");
             }
         } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
             uint64_t acting_sid = space_manager_active_space();
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.sid) {
-                    acting_sid = selector.sid;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
 
             if (!space_manager_query_space(rsp, acting_sid, properties.flags)) {
                 daemon_fail(rsp, "could not retrieve space details.\n");
@@ -2437,7 +2427,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "could not find window to retrieve space details.\n");
             }
         } else if (token_is_valid(option)) {
-            daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_option(rsp, domain, command, option);
         } else if (!space_manager_query_spaces_for_displays(rsp, properties.flags)) {
             daemon_fail(rsp, "could not retrieve spaces for displays.\n");
         }
@@ -2448,28 +2438,12 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
         struct token option = properties.did_parse ? get_token(&message) : properties.token;
         if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
             uint32_t acting_did = display_manager_active_display_id();
-            struct selector selector = parse_display_selector(rsp, &message, acting_did, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.did) {
-                    acting_did = selector.did;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
 
             window_manager_query_windows_for_display(rsp, acting_did, properties.flags);
         } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
             uint64_t acting_sid = space_manager_active_space();
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.sid) {
-                    acting_sid = selector.sid;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
 
             window_manager_query_windows_for_spaces(rsp, &acting_sid, 1, properties.flags);
         } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
@@ -2483,7 +2457,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
                 daemon_fail(rsp, "could not retrieve window details.\n");
             }
         } else if (token_is_valid(option)) {
-            daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_option(rsp, domain, command, option);
         } else {
             window_manager_query_windows_for_displays(rsp, properties.flags);
         }
@@ -2492,17 +2466,9 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
         struct token option = get_token(&message);
 
         if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
-            struct selector selector = parse_space_selector(rsp, &message, acting_sid, true);
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.sid) {
-                    acting_sid = selector.sid;
-                } else {
-                    return;
-                }
-            }
+            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
         } else if (token_is_valid(option)) {
-            daemon_fail(rsp, "unknown option '%.*s' given to command '%.*s' for domain '%.*s'\n", option.length, option.text, command.length, command.text, domain.length, domain.text);
+            daemon_fail_unknown_option(rsp, domain, command, option);
             return;
         }
 
@@ -2511,7 +2477,7 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
             daemon_fail(rsp, "the selected space does not use the tree layout.\n");
         }
     } else {
-        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+        daemon_fail_unknown_command(rsp, domain, command);
     }
 }
 
@@ -2722,7 +2688,7 @@ static void handle_domain_rule(FILE *rsp, struct token domain, char *message)
     } else if (token_equals(command, COMMAND_RULE_LS)) {
         window_manager_query_window_rules(rsp);
     } else {
-        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+        daemon_fail_unknown_command(rsp, domain, command);
     }
 }
 
@@ -2837,7 +2803,7 @@ static void handle_domain_signal(FILE *rsp, struct token domain, char *message)
     } else if (token_equals(command, COMMAND_SIGNAL_LS)) {
         event_signal_list(rsp);
     } else {
-        daemon_fail(rsp, "unknown command '%.*s' for domain '%.*s'\n", command.length, command.text, domain.length, domain.text);
+        daemon_fail_unknown_command(rsp, domain, command);
     }
 }
 

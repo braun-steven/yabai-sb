@@ -177,3 +177,31 @@ TEST_FUNC(message_rule_parse,
     TEST_CHECK(strstr(response, "missing required key-value pair") != NULL, true);
     rule_destroy(&rule);
 });
+
+static char *message_test_encode(int *size)
+{
+    static char *argv[] = { "-m", "window", "--focus", "", "east" };
+    return client_encode_message(array_count(argv), argv, size);
+}
+
+TEST_FUNC(message_client_encoding,
+{
+    int size;
+    char *message = message_test_encode(&size);
+
+    int payload_length;
+    memcpy(&payload_length, message, sizeof(int));
+    TEST_CHECK(size, (int) sizeof(int) + payload_length);
+    TEST_CHECK(payload_length, 6 + 7 + 0 + 4 + 4 + 1);
+
+    char *cursor = message + sizeof(int);
+    TEST_CHECK(token_equals(get_token(&cursor), "window"), true);
+    TEST_CHECK(token_equals(get_token(&cursor), "--focus"), true);
+
+    // NOTE: an empty argument looks like the end of the message, so the daemon stops reading there
+    TEST_CHECK(token_is_valid(get_token(&cursor)), false);
+    TEST_CHECK(token_is_valid(get_token(&cursor)), false);
+    TEST_CHECK(memcmp(message + size - 6, "east\0\0", 6), 0);
+
+    free(message);
+});

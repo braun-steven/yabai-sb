@@ -50,6 +50,32 @@ int g_connection;
 bool g_verbose;
 pid_t g_pid;
 
+//
+// NOTE: The message is the arguments argv[1..argc-1], each followed by a null byte, and an empty
+// argument at the end, prefixed with the length of that payload. The daemon reads it with get_token.
+//
+
+static char *client_encode_message(int argc, char **argv, int *size)
+{
+    int payload_length = 1;
+    for (int i = 1; i < argc; ++i) payload_length += strlen(argv[i]) + 1;
+
+    *size = sizeof(int) + payload_length;
+    char *message = malloc(*size);
+    memcpy(message, &payload_length, sizeof(int));
+
+    char *cursor = message + sizeof(int);
+    for (int i = 1; i < argc; ++i) {
+        int length = strlen(argv[i]);
+        memcpy(cursor, argv[i], length);
+        cursor += length;
+        *cursor++ = '\0';
+    }
+    *cursor = '\0';
+
+    return message;
+}
+
 static int client_send_message(int argc, char **argv)
 {
     if (argc <= 1) {
@@ -61,24 +87,8 @@ static int client_send_message(int argc, char **argv)
         error("yabai-msg: 'env USER' not set! abort..\n");
     }
 
-    int message_length = argc;
-    int argl[argc];
-
-    for (int i = 1; i < argc; ++i) {
-        argl[i] = strlen(argv[i]);
-        message_length += argl[i];
-    }
-
-    char *message = malloc(sizeof(int)+message_length);
-    char *temp = sizeof(int)+message;
-
-    memcpy(message, &message_length, sizeof(int));
-    for (int i = 1; i < argc; ++i) {
-        memcpy(temp, argv[i], argl[i]);
-        temp += argl[i];
-        *temp++ = '\0';
-    }
-    *temp++ = '\0';
+    int message_size;
+    char *message = client_encode_message(argc, argv, &message_size);
 
     int sockfd;
     char socket_file[MAXLEN];
@@ -92,8 +102,10 @@ static int client_send_message(int argc, char **argv)
         error("yabai-msg: failed to connect to socket..\n");
     }
 
-    if (send(sockfd, message, sizeof(int)+message_length, 0) == -1) {
-        error("yabai-msg: failed to send data..\n");
+    for (int sent = 0; sent < message_size;) {
+        ssize_t bytes = send(sockfd, message + sent, message_size - sent, 0);
+        if (bytes == -1) error("yabai-msg: failed to send data..\n");
+        sent += bytes;
     }
 
     shutdown(sockfd, SHUT_WR);

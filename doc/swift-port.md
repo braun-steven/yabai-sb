@@ -22,7 +22,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P2 | CPrivate module + Platform wrappers | [x] | 872fe3b | no live run (no behavior change); conventions moved to a skill |
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [x] | 2a646a8 | label lists live in Swift behind an opaque C reference |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [x] | 348c156 | C handlers keep get_token/token_equals/daemon_fail until P5/P6 |
-| P5 | IPC server, CLI client, config domain | [ ] | | |
+| P5 | IPC server, CLI client, config domain | [x] | 91aa5b0 | other domains write into a FILE that the Response captures; new test target YabaiTests |
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [ ] | | |
 | P7 | `@WM` actor, event loop, signals | [ ] | | |
 | P8 | Event handlers + Mission Control | [ ] | | |
@@ -72,10 +72,12 @@ Sources/
                          // CF_IMPLICIT_BRIDGING and _Nullable), include/module.modulemap, CPrivate.c (the two function pointers
                          // yabai.c resolves with macho_find_symbol). Links SkyLight.
   YabaiCore/             // (P3) Swift library without window server access: pure, unit-tested logic
-  Yabai/                 // Swift executable: main.swift (calls yabai_main of yabai.c until P5), TabBarGlass.swift,
-                         // Platform/ (P2: SkyLight, AX, CoreDock wrappers; MachO.swift = macho_find_symbol via @_cdecl)
+  Yabai/                 // Swift executable: main.swift (runs the client for -m, otherwise calls yabai_main of yabai.c),
+                         // TabBarGlass.swift, Platform/ (P2: SkyLight, AX, CoreDock wrappers; MachO.swift = macho_find_symbol
+                         // via @_cdecl), Shims/ (@_cdecl entry points for C), IPC/ (P5: client, socket, dispatch, config domain)
 tests/YabaiCoreTests/    // Swift Testing (import Testing) and Golden/. Not Tests/: the file system is case-insensitive, and
                          // Tests/ would be the C harness tests/.
+tests/YabaiTests/        // (P5) Swift Testing of the Yabai executable (@testable import Yabai): the IPC handlers on the C managers
 tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sources/Yabai but main.swift
 ```
 - **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. Since P1 the makefile builds `--arch arm64` only (`ARCHS`).
@@ -469,4 +471,34 @@ Append one entry per session, newest last. Template:
   - Crash (pre-existing, not P4): the P4 release daemon crashed 13 s after a deploy while `live.py cleanup` quit the test apps: SIGSEGV in `window_manager_apply_window_frame_group` (`group->application` NULL) < `window_manager_set_window_frames` < `tree_flush` < `space_manager_untile_window` < `EVENT_HANDLER_WINDOW_DESTROYED`. The 18:12 report of today (an unknown build) has the same stack. Likely cause: `APPLICATION_TERMINATED` (`src/event_handlers.c:318`) sets `window->application = NULL` for a window that a pending `WINDOW_DESTROYED` already invalidated, but leaves it in its tree; the pending event of a sibling then untiles and flushes the tree with that window in it. It did not reproduce in two tries (installed build and P4 build). It belongs on master, reported to the user.
 - Pitfalls added to "Swift conventions and pitfalls": mutable C globals; macros that name another constant; `&x` in a `CVarArg...` list; parameter names that are C type names
 - Waiting on user: nothing (the crash above is reported for a decision on master)
+
+### 2026-10-14 P5 [x]
+- Commits: 094259e (code), 91aa5b0 (dead config shims removed), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the whole phase.
+  - Client: `ClientMessage.encode` (`Sources/YabaiCore/Client.swift`, `client_encode_message`) and `Client.send` (`Sources/Yabai/IPC/Client.swift`, `client_send_message`). `main.swift` runs it for `-m`/`--message` before `yabai_main`; the client code and `CLIENT_OPT_*` are gone from `yabai.c`. Output goes through write(2) (C: fprintf + fflush of each read), with the same quirks: the failure byte is checked at the start of every read of up to `BUFSIZ - 1` bytes, and each read is printed up to its first null byte.
+  - Server: `message_loop_begin` (`@_cdecl`, `IPC/MessageLoop.swift`) binds the socket and runs the accept loop on a `Thread`, which posts `DAEMON_MESSAGE` through `event_loop_post` (`event_loop_global()`). The handler in `event_handlers_system.c` calls `daemon_message_handle` (Swift): it reads the message, calls `debug_message` with the same prefix as before (`EVENT_HANDLER_DAEMON_MESSAGE`), runs `handleMessage` into a `Response`, and `ResponseWriter.send` writes it to the socket and closes it (replaces fdopen/fflush/fclose).
+  - `handleMessage` dispatches by domain (`Domain` in `Message.swift`). The config domain is Swift (`handleDomainConfig`, `IPC/MessageConfig.swift`, generic over `TokenSource`); the C domains are called with a `FILE *` from `open_memstream` (`Response.appendWritten`), and their output is appended to the Response. `handle_domain_{display,space,window,query,rule,signal}` are no longer `static` (prototypes in `message.h`, which now comes after `message_parse.h` in `yabai_c.h`). `handle_message` keeps its C signature as a shim for the golden replay of the C tests.
+  - `message_config.c` and the config `COMMAND_*`/`ARGUMENT_*` strings of `message_parse.c` are deleted (`enum Config` in `MessageConfig.swift`). The `*_str` tables of the C headers it printed are Swift arrays there, until their headers are Swift (static C arrays cannot be read from Swift). `TokenSource` has `peek()` now (config `space_layout` stops before the first token that is not a layout); `cFormat` formats numbers like printf (`%f`, `%.4f`).
+  - `scripting_addition_is_sip_friendly` (`sa.m`) is no longer `static`; `message_parse.h` has `event_loop_global()`, `mouse_state_global()` and `verbose_global()`.
+  - `scripts/live-tests/ipc_compare.sh` gained the P5 cases (every config getter, `--space` getters and errors, ~45 failing setters, setting the yabairc's own values again, messages with several commands and a failure between them, the client's "no arguments" and "USER not set" errors). `live.py` checks the daemon pid with `pgrep -ox yabai` (see surprises).
+- Resume at: next phase (P6). The test target `YabaiTests` already imports the executable, so the Swift golden replay can live there (move `Golden/` or point it at `tests/YabaiCoreTests/Golden`).
+- Open @_cdecl shims / C structs still shared: the P4 list minus `parse_config_bool`/`parse_config_choice` (removed), plus `message_loop_begin`, `daemon_message_handle`, `handle_message` (C prototype for golden.c) and `client_encode_message` (only for golden.c; delete both with the C replay in P6). `space_layout_parse` and `parse_optional_display_selector` have no C caller left (the first is called from `MessageConfig.swift`). C structs: unchanged from P4.
+- Tests: C remaining 62, Swift added 3 (total ported 20/82): `message_client_encoding` (YabaiCoreTests), `message_config_options`, `message_config_values` (YabaiTests, serialized suite). Extra Swift test: `cFormatMatchesPrintf`. Golden replay 145/145 (now through the Swift dispatch and config domain), `goldenCaptureCoversEveryCommand` passes.
+- Measurements:
+  - Lines (git ls-files, `src/` without `src/osax`; Swift = every tracked `.swift` file): C 13,919 · headers 4,106 (`src/**/*.h`; all tracked `.h` 4,235) · ObjC 1,026 · Swift 5,567 · C tests 2,208
+  - Release `bin/yabai`: 1,241,272 B (P4: 1,195,768 B)
+  - V1 all four variants warning-free (`make -C tests` too); V2 passes; V3 34 warnings, diffed against HEAD before the phase (38): gone are the leak in `message_config.c` and four reports in `tree.c`, `tree_view.c` and `window_manager.c` whose paths started in the C config handler; new is one view leak in `border.c` (views owned by tables, the known class).
+  - V5: `run` 28/28 (first try 27/28, see surprises), `extra` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 13 ms, Dock pid unchanged), `launch` 3/3; asan `run` 28/28 and tsan `run` 28/28, both without reports. Crash reports 30 before and after. `deploy.sh restore` done; `sa_version.py` back at 2.1.33.
+  - V6: `ipc_compare.sh` (now ~1,760 lines of output) is byte-identical between the P5 release build and the installed build, each right after a restart; the asan and tsan builds differ only in `--display mouse` (cursor) and the windows of space 4 (the test apps were closed). A `window_focused` signal runs; `debug_output on` logs `EVENT_HANDLER_DAEMON_MESSAGE: query --spaces --space 4`.
+  - Bench (V5 step 2, same windows): P5 tab focus 28.3 / 27.1, rotate 153.3 / 155.1, split focus 27.3 / 28.7 ms; installed build 25.0 / 27.0, 153.9 / 146.8, 28.1 / 27.5 ms. Within 10% of the P0 baseline.
+- Deviations from plan / surprises:
+  - The plan says the socket thread does "accept/read". The message is still read on the event loop, as in C (with the 1 s socket timeouts and their NOTE): reading on the accept thread would let one stalled client hold up every other client instead of the event loop, a behavior change. P7 can decide with `.daemonMessage`.
+  - `handle_message` moved to Swift in this phase (the plan does not name it), because the Swift dispatch is what lets the config domain write into a `Response` while the other domains are C.
+  - Two null bytes are appended to every received message, so a message without its empty last token cannot make get_token read past the buffer (C read past it, into the temporary storage). A negative length closes the connection.
+  - The tab_bar_offset check `float == (int) float` converts like arm64's `fcvtzs` (saturating, NaN → 0, `cInt` in `MessageConfig.swift`), since Swift's `Int32(Float)` traps where C was undefined.
+  - The test target `YabaiTests` was added now (plan: P6) for the config tests, which need the C managers.
+  - `live.py run` failed "daemon still running (same pid)" once: right after a deploy `pgrep -x yabai` listed the daemon and a `yabai -m config layout tree` client of the yabairc, which takes seconds while every space is laid out again; at the end only the daemon was left. The installed build's restart showed the same two pids. `live.py` now compares `pgrep -ox yabai` (oldest), noted in `doc/live-testing.md`.
+- Pitfalls added to "Swift conventions and pitfalls": testing code of the executable (`@testable import Yabai`, serialized suites); C fields that hold an enum as `int`
+- Waiting on user: nothing
 

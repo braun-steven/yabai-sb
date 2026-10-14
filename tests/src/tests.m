@@ -15,6 +15,7 @@ typedef TEST_SIG(function);
 #include "space_layout.c"
 #include "auto_padding.c"
 #include "tree.c"
+#include "tree_view.c"
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
@@ -57,6 +58,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(tree_attach_from_direction)                     \
     TEST_ENTRY(tree_window_order_collect)                      \
     TEST_ENTRY(tree_window_ids_collect)                        \
+    TEST_ENTRY(tree_view_window_list_order)                    \
+    TEST_ENTRY(tree_view_zoom_frames)                          \
+    TEST_ENTRY(tree_view_serialize_tree)                       \
     TEST_ENTRY(tab_bar_style_parse)                            \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \

@@ -362,6 +362,61 @@ out:
     process_destroy(process);
 }
 
+//
+// NOTE: With skip_window_focus_animation, an application activated on a space that is not visible
+// (e.g. by cmd-tab) brings that space to front without the space switch animation.
+//
+
+static void application_front_switched_focus_space(struct application *application, struct process *process)
+{
+    uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
+
+    uint64_t last_cmd_tab_time = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED);
+    float dt = os_timer_ms_between(last_cmd_tab_time, read_os_timer());
+    if (dt > 1500.0f) {
+        CFTypeRef dummy = NULL;
+        AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
+    }
+
+    if (__atomic_load_n(&__pending_window_focus, __ATOMIC_RELAXED) == false) {
+        if (psn_sid && !space_is_visible(psn_sid)) {
+            SLSSpaceSetFrontPSN(g_connection, psn_sid, process->psn);
+            space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
+        }
+    }
+}
+
+static struct window *dim_focused_window(void)
+{
+    struct window *focused_window = window_manager_find_window(&g_window_manager, g_window_manager.focused_window_id);
+    if (focused_window) {
+        window_manager_set_window_opacity(&g_window_manager, focused_window, g_window_manager.normal_window_opacity);
+    }
+
+    return focused_window;
+}
+
+//
+// NOTE: The activated application has no focused window (e.g. Finder with only the desktop), so no window
+// has focus until one of its windows is focused.
+//
+
+static void application_front_switched_without_window(struct application *application)
+{
+    struct window *focused_window = dim_focused_window();
+
+    uint32_t prev_focused_window_id = g_window_manager.focused_window_id;
+    g_window_manager.last_window_id = prev_focused_window_id;
+    g_window_manager.focused_window_id = 0;
+    g_window_manager.focused_window_psn = application->psn;
+    g_mouse_state.ffm_window_id = 0;
+
+    if (prev_focused_window_id) {
+        tab_bar_refresh_for_window(prev_focused_window_id);
+        border_refresh(focused_window);
+    }
+}
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
@@ -383,21 +438,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
     }
 
     if (g_space_manager.skip_window_focus_animation) {
-        uint64_t psn_sid = process_manager_active_space_for_psn(application->connection);
-
-        uint64_t last_cmd_tab_time = __atomic_load_n(&__last_cmd_tab_time, __ATOMIC_RELAXED);
-        float dt = os_timer_ms_between(last_cmd_tab_time, read_os_timer());
-        if (dt > 1500.0f) {
-            CFTypeRef dummy = NULL;
-            AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
-        }
-
-        if (__atomic_load_n(&__pending_window_focus, __ATOMIC_RELAXED) == false) {
-            if (psn_sid && !space_is_visible(psn_sid)) {
-                SLSSpaceSetFrontPSN(g_connection, psn_sid, process->psn);
-                space_manager_focus_space_using_gesture(space_display_id(psn_sid), psn_sid);
-            }
-        }
+        application_front_switched_focus_space(application, process);
     }
 
     struct application *deactivated_application = window_manager_find_application(&g_window_manager, g_process_manager.front_pid);
@@ -420,31 +461,13 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
 
     uint32_t application_focused_window_id = application_focused_window(application);
     if (!application_focused_window_id) {
-        struct window *focused_window = window_manager_find_window(&g_window_manager, g_window_manager.focused_window_id);
-        if (focused_window) {
-            window_manager_set_window_opacity(&g_window_manager, focused_window, g_window_manager.normal_window_opacity);
-        }
-
-        uint32_t prev_focused_window_id = g_window_manager.focused_window_id;
-        g_window_manager.last_window_id = prev_focused_window_id;
-        g_window_manager.focused_window_id = 0;
-        g_window_manager.focused_window_psn = application->psn;
-        g_mouse_state.ffm_window_id = 0;
-
-        if (prev_focused_window_id) {
-            tab_bar_refresh_for_window(prev_focused_window_id);
-            border_refresh(focused_window);
-        }
+        application_front_switched_without_window(application);
         return;
     }
 
     struct window *window = window_manager_find_window(&g_window_manager, application_focused_window_id);
     if (!window) {
-        struct window *focused_window = window_manager_find_window(&g_window_manager, g_window_manager.focused_window_id);
-        if (focused_window) {
-            window_manager_set_window_opacity(&g_window_manager, focused_window, g_window_manager.normal_window_opacity);
-        }
-
+        dim_focused_window();
         window_manager_add_lost_focused_event(&g_window_manager, application_focused_window_id);
         return;
     }

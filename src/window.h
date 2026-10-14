@@ -212,6 +212,22 @@ bool window_level_is_standard(struct window *window);
 bool window_is_unknown(struct window *window);
 bool window_observe(struct window *window);
 void window_unobserve(struct window *window);
+//
+// NOTE: id_ptr points at id until the window is invalidated. Events that are already queued for a window
+// hold on to its memory, so their handlers check that the window is still valid before using it.
+// window_invalidate succeeds for exactly one caller, which then owns the destruction of the window.
+//
+
+static inline bool window_is_valid(struct window *window)
+{
+    return __sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id);
+}
+
+static inline bool window_invalidate(struct window *window)
+{
+    return __sync_bool_compare_and_swap(&window->id_ptr, &window->id, NULL);
+}
+
 void window_refresh_ax_properties(struct window *window);
 struct window *window_create(struct application *application, AXUIElementRef window_ref, uint32_t window_id);
 void window_destroy(struct window *window);

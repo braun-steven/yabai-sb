@@ -322,7 +322,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
     for (int i = 0; i < window_count; ++i) {
         struct window *window = window_list[i];
 
-        if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, NULL)) {
+        if (!window_invalidate(window)) {
             window->application = NULL;
             continue;
         }
@@ -643,7 +643,7 @@ static EVENT_HANDLER(WINDOW_FOCUSED)
         return;
     }
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window_id);
         return;
     }
@@ -677,7 +677,7 @@ static EVENT_HANDLER(WINDOW_MOVED)
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
     if (!window) return;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window_id);
         return;
     }
@@ -714,7 +714,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
     if (!window) return;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window_id);
         return;
     }
@@ -785,7 +785,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
 {
     struct window *window = context;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window->id);
         return;
     }
@@ -817,7 +817,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
 {
     struct window *window = context;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window->id);
         window_manager_remove_lost_focused_event(&g_window_manager, window->id);
         return;
@@ -855,7 +855,7 @@ static EVENT_HANDLER(WINDOW_TITLE_CHANGED)
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
     if (!window) return;
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, &window->id)) {
+    if (!window_is_valid(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, window_id);
         return;
     }
@@ -891,7 +891,7 @@ static EVENT_HANDLER(SLS_WINDOW_DESTROYED)
     // WINDOW_DESTROYED event for memory that we are about to free.
     //
 
-    if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, NULL)) {
+    if (!window_invalidate(window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, wid);
         return;
     }
@@ -1104,7 +1104,7 @@ static EVENT_HANDLER(MOUSE_UP)
     if (mission_control_is_active()) goto out;
     if (!g_mouse_state.window)       goto res;
 
-    if (!__sync_bool_compare_and_swap(&g_mouse_state.window->id_ptr, &g_mouse_state.window->id, &g_mouse_state.window->id)) {
+    if (!window_is_valid(g_mouse_state.window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, g_mouse_state.window->id);
         goto err;
     }
@@ -1156,7 +1156,7 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
     if (mission_control_is_active()) goto out;
     if (!g_mouse_state.window)       goto out;
 
-    if (!__sync_bool_compare_and_swap(&g_mouse_state.window->id_ptr, &g_mouse_state.window->id, &g_mouse_state.window->id)) {
+    if (!window_is_valid(g_mouse_state.window)) {
         debug("%s: %d has been marked invalid by the system, ignoring event..\n", __FUNCTION__, g_mouse_state.window->id);
         g_mouse_state.window = NULL;
         g_mouse_state.current_action = MOUSE_MODE_NONE;

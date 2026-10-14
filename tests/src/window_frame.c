@@ -225,3 +225,16 @@ TEST_FUNC(window_unresolved_list,
 
     table_free(&wm.window);
 });
+
+TEST_FUNC(window_validity,
+{
+    struct window window = { .id = 5 };
+    window.id_ptr = &window.id;
+
+    TEST_CHECK(window_is_valid(&window), true);
+    TEST_CHECK(window_invalidate(&window), true);
+    TEST_CHECK(window_is_valid(&window), false);
+
+    // NOTE: only one caller may claim the destruction of a window
+    TEST_CHECK(window_invalidate(&window), false);
+});

@@ -33,7 +33,7 @@ static OBSERVER_CALLBACK(application_notification_handler)
         // be freed when this event is handled.
         //
 
-        if (!__sync_bool_compare_and_swap(&window->id_ptr, &window->id, NULL)) return;
+        if (!window_invalidate(window)) return;
 
         event_loop_post(&g_event_loop, WINDOW_DESTROYED, window, 0);
     }

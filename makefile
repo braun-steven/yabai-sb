@@ -19,7 +19,7 @@ OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch x86_64 -arch arm64e
 INFO_PLIST     = $(ASSET_PATH)/Info.plist
 BINS           = $(BUILD_PATH)/yabai
 
-.PHONY: all asan tsan install test man icon archive publish sign clean-build clean FORCE
+.PHONY: all asan tsan install test analyze man icon archive publish sign clean-build clean FORCE
 
 all: $(BINS)
 
@@ -34,6 +34,10 @@ install: $(BINS)
 
 test:
 	$(MAKE) -C tests
+
+# every source file is #included into manifest.m, so the analyzer must be told to analyze included files
+analyze:
+	xcrun clang --analyze -Xclang -analyzer-opt-analyze-headers -Xclang -analyzer-output=text $(COMMON_FLAGS) -arch arm64 $(FRAMEWORK_PATH) ./src/manifest.m -o /dev/null
 
 # payload.m #includes these, so a pattern/offset update must rebuild the payload
 $(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/x64_payload.m $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h

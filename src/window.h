@@ -172,7 +172,7 @@ static inline bool window_check_rule_flag(struct window *w, enum window_rule_fla
 static inline void window_clear_rule_flag(struct window *w, enum window_rule_flag x) { w->rule_flags &= ~x; }
 static inline void window_set_rule_flag(struct window *w, enum window_rule_flag x) { w->rule_flags |= x; }
 
-CFStringRef window_display_uuid(uint32_t wid);
+CF_RETURNS_RETAINED CFStringRef window_display_uuid(uint32_t wid);
 uint32_t window_display_id(uint32_t wid);
 uint64_t window_space(uint32_t wid);
 uint64_t *window_space_list(uint32_t wid, int *count);
@@ -183,7 +183,7 @@ void window_serialize(FILE *rsp, struct window *window, uint64_t flags);
 void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags);
 char *window_property_title_ts(uint32_t wid);
 char *window_title_ts(struct window *window);
-CFStringRef window_title(struct window *window);
+CF_RETURNS_RETAINED CFStringRef window_title(struct window *window);
 bool window_shadow(uint32_t wid);
 float window_opacity(uint32_t wid);
 uint32_t window_parent(uint32_t wid);
@@ -193,10 +193,10 @@ uint64_t window_tags(uint32_t wid);
 bool window_is_sticky(uint32_t wid);
 CGPoint window_ax_origin(struct window *window);
 CGRect window_ax_frame(struct window *window);
-CFStringRef window_ax_role(struct window *window);
+CF_RETURNS_RETAINED CFStringRef window_ax_role(struct window *window);
 CFStringRef window_role(struct window *window);
 char *window_role_ts(struct window *window);
-CFStringRef window_ax_subrole(struct window *window);
+CF_RETURNS_RETAINED CFStringRef window_ax_subrole(struct window *window);
 CFStringRef window_subrole(struct window *window);
 char *window_subrole_ts(struct window *window);
 bool window_ax_can_move(struct window *window);

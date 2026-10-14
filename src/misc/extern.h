@@ -37,7 +37,7 @@ extern CGError SLSSetWindowLevel(int cid, uint32_t wid, int level);
 extern CGError SLSSetWindowSubLevel(int cid, uint32_t wid, int sub_level);
 extern CGContextRef SLWindowContextCreate(int cid, uint32_t wid, CFDictionaryRef options);
 extern CFTypeRef CGRegionCreateEmptyRegion(void);
-extern CGError CGSNewRegionWithRect(CGRect *rect, CFTypeRef *region);
+extern CGError CGSNewRegionWithRect(CGRect *rect, CF_RETURNS_RETAINED CFTypeRef *region);
 extern CFUUIDRef CGDisplayCreateUUIDFromDisplayID(uint32_t did);
 extern CFArrayRef SLSCopyManagedDisplays(int cid);
 extern uint64_t SLSManagedDisplayGetCurrentSpace(int cid, CFStringRef uuid);
@@ -65,7 +65,7 @@ extern void SLSMoveWindowsToManagedSpace(int cid, CFArrayRef window_list, uint64
 extern CGError CoreDockSendNotification(CFStringRef notification, int unknown);
 extern CGError SLSMoveWindow(int cid, uint32_t wid, CGPoint *point);
 extern CFArrayRef SLSCopyAssociatedWindows(int cid, uint32_t wid);
-extern CFTypeRef SLSWindowQueryWindows(int cid, CFArrayRef windows, int count);
+extern CF_RETURNS_RETAINED CFTypeRef SLSWindowQueryWindows(int cid, CFArrayRef windows, int count);
 extern CFTypeRef SLSWindowQueryResultCopyWindows(CFTypeRef window_query);
 extern int SLSWindowIteratorGetCount(CFTypeRef iterator);
 extern bool SLSWindowIteratorAdvance(CFTypeRef iterator);
@@ -93,6 +93,6 @@ extern CGError SLSTransactionOrderWindow(CFTypeRef transaction, uint32_t wid, in
 extern CGError SLSTransactionOrderWindowGroup(CFTypeRef transaction, uint32_t wid, int order, uint32_t rel_wid);
 extern CGError SLSTransactionSetWindowAlpha(CFTypeRef transaction, uint32_t wid, float alpha);
 extern CGError SLSTransactionSetWindowSystemAlpha(CFTypeRef transaction, uint32_t wid, float alpha);
-extern CFArrayRef SLSHWCaptureWindowList(int cid, uint32_t *window_list, int window_count, uint32_t options);
+extern CF_RETURNS_RETAINED CFArrayRef SLSHWCaptureWindowList(int cid, uint32_t *window_list, int window_count, uint32_t options);
 extern CGError SLSSpaceSetCompatID(int cid, uint64_t sid, int workspace);
 extern CGError SLSSetWindowListWorkspace(int cid, uint32_t *window_list, int window_count, int workspace);

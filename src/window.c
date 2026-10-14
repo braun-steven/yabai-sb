@@ -28,7 +28,7 @@ void window_unobserve(struct window *window)
     }
 }
 
-CFStringRef window_display_uuid(uint32_t wid)
+CF_RETURNS_RETAINED CFStringRef window_display_uuid(uint32_t wid)
 {
     CFStringRef uuid = SLSCopyManagedDisplayForWindow(g_connection, wid);
     if (!uuid) {
@@ -320,7 +320,7 @@ char *window_title_ts(struct window *window)
     return window->title ? ts_cfstring_copy(window->title) : ts_string_copy("");
 }
 
-CFStringRef window_title(struct window *window)
+CF_RETURNS_RETAINED CFStringRef window_title(struct window *window)
 {
     CFTypeRef value = NULL;
     AXUIElementCopyAttributeValue(window->ref, kAXTitleAttribute, &value);
@@ -595,7 +595,7 @@ err2:
     return tags;
 }
 
-CFStringRef window_ax_role(struct window *window)
+CF_RETURNS_RETAINED CFStringRef window_ax_role(struct window *window)
 {
     const void *role = NULL;
     AXUIElementCopyAttributeValue(window->ref, kAXRoleAttribute, &role);
@@ -616,7 +616,7 @@ char *window_role_ts(struct window *window)
     return result;
 }
 
-CFStringRef window_ax_subrole(struct window *window)
+CF_RETURNS_RETAINED CFStringRef window_ax_subrole(struct window *window)
 {
     const void *srole = NULL;
     AXUIElementCopyAttributeValue(window->ref, kAXSubroleAttribute, &srole);

@@ -112,7 +112,7 @@ bool application_is_hidden(struct application *application)
 }
 #pragma clang diagnostic pop
 
-CFArrayRef application_window_list(struct application *application)
+CF_RETURNS_RETAINED CFArrayRef application_window_list(struct application *application)
 {
     CFTypeRef window_list_ref = NULL;
     AXUIElementCopyAttributeValue(application->ref, kAXWindowsAttribute, &window_list_ref);

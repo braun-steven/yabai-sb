@@ -25,7 +25,7 @@ uint32_t display_manager_main_display_id(void)
     return CGMainDisplayID();
 }
 
-CFStringRef display_manager_active_display_uuid(void)
+CF_RETURNS_RETAINED CFStringRef display_manager_active_display_uuid(void)
 {
     return SLSCopyActiveMenuBarDisplayIdentifier(g_connection);
 }
@@ -41,7 +41,7 @@ uint32_t display_manager_active_display_id(void)
     return result;
 }
 
-CFStringRef display_manager_dock_display_uuid(void)
+CF_RETURNS_RETAINED CFStringRef display_manager_dock_display_uuid(void)
 {
     CGRect dock = display_manager_dock_rect();
     return SLSCopyBestManagedDisplayForRect(g_connection, dock);
@@ -58,7 +58,7 @@ uint32_t display_manager_dock_display_id(void)
     return result;
 }
 
-CFStringRef display_manager_point_display_uuid(CGPoint point)
+CF_RETURNS_RETAINED CFStringRef display_manager_point_display_uuid(CGPoint point)
 {
     return SLSCopyBestManagedDisplayForPoint(g_connection, point);
 }
@@ -107,7 +107,7 @@ static bool display_manager_uuid_is_builtin(CFStringRef uuid)
     return did && CGDisplayIsBuiltin(did);
 }
 
-CFArrayRef display_manager_order_builtin_last(CFArrayRef list, bool display_spaces)
+CF_RETURNS_RETAINED CFArrayRef display_manager_order_builtin_last(CF_CONSUMED CFArrayRef list, bool display_spaces)
 {
     if (!list || !g_display_manager.builtin_last) return list;
 
@@ -178,7 +178,7 @@ int display_manager_display_id_arrangement(uint32_t did)
     return result;
 }
 
-CFStringRef display_manager_arrangement_display_uuid(int arrangement)
+CF_RETURNS_RETAINED CFStringRef display_manager_arrangement_display_uuid(int arrangement)
 {
     CFArrayRef displays = display_manager_copy_arranged_displays();
     if (!displays) return NULL;
@@ -361,7 +361,7 @@ uint32_t *display_manager_active_display_list(int *count)
     return result;
 }
 
-static AXUIElementRef display_manager_find_element_at_point(CGPoint point)
+static CF_RETURNS_RETAINED AXUIElementRef display_manager_find_element_at_point(CGPoint point)
 {
     AXUIElementRef element_ref = NULL;
     AXUIElementCopyElementAtPosition(g_window_manager.system_element, point.x, point.y, &element_ref);

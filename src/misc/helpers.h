@@ -331,14 +331,7 @@ static inline char *json_string(char *s)
     return escaped ? escaped : s;
 }
 
-static inline CFStringRef CFSTRINGNUM32(int32_t num)
-{
-    char num_str[255] = {0};
-    snprintf(num_str, sizeof(num_str), "%d", num);
-    return CFStringCreateWithCString(NULL, num_str, kCFStringEncodingMacRoman);
-}
-
-static inline CFNumberRef CFNUM32(int32_t num)
+static inline CF_RETURNS_RETAINED CFNumberRef CFNUM32(int32_t num)
 {
     return CFNumberCreate(NULL, kCFNumberSInt32Type, &num);
 }
@@ -354,7 +347,7 @@ static inline void sls_window_disable_shadow(uint32_t id)
     CFRelease(options);
 }
 
-static inline CFArrayRef cfarray_of_cfnumbers(void *values, size_t size, int count, CFNumberType type)
+static inline CF_RETURNS_RETAINED CFArrayRef cfarray_of_cfnumbers(void *values, size_t size, int count, CFNumberType type)
 {
     CFNumberRef temp[count];
 

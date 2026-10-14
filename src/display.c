@@ -76,7 +76,7 @@ void display_serialize(FILE *rsp, uint32_t did, uint64_t flags)
     fprintf(rsp, "\n}");
 }
 
-inline CFStringRef display_uuid(uint32_t did)
+inline CF_RETURNS_RETAINED CFStringRef display_uuid(uint32_t did)
 {
     CFUUIDRef uuid_ref = CGDisplayCreateUUIDFromDisplayID(did);
     if (!uuid_ref) return NULL;

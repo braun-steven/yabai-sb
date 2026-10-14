@@ -55,3 +55,29 @@ TEST_FUNC(tab_bar_glass_tint_default,
     TEST_CHECK(custom.a == color.a, true);
     TEST_CHECK(custom.p, color.p);
 });
+
+static double tab_bar_test_fitted_width(char *text, double max_width)
+{
+    CTFontRef font = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, 13.0f, NULL);
+    const void *keys[] = { kCTFontAttributeName };
+    const void *values[] = { font };
+    CFDictionaryRef attributes = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFStringRef title = CFStringCreateWithCString(NULL, text, kCFStringEncodingUTF8);
+
+    CTLineRef line = tab_bar_create_fitted_line(title, attributes, max_width);
+    double width = CTLineGetTypographicBounds(line, NULL, NULL, NULL);
+
+    CFRelease(line);
+    CFRelease(title);
+    CFRelease(attributes);
+    CFRelease(font);
+    return width;
+}
+
+TEST_FUNC(tab_bar_title_fits,
+{
+    double full = tab_bar_test_fitted_width("Untitled Document", 1000.0);
+    TEST_CHECK(full > 50.0, true);
+    TEST_CHECK(tab_bar_test_fitted_width("Untitled Document", 50.0) <= 50.0, true);
+    TEST_CHECK(tab_bar_test_fitted_width("Untitled Document", full) == full, true);
+});

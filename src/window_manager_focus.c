@@ -3,7 +3,6 @@
 //
 
 extern uint8_t *g_event_bytes;
-extern struct event_loop g_event_loop;
 
 static void window_manager_make_key_window(ProcessSerialNumber *window_psn, uint32_t window_id)
 {
@@ -63,7 +62,7 @@ void window_manager_focus_window_without_raise(ProcessSerialNumber *window_psn, 
         //
 
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 40 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            event_loop_post(&g_event_loop, WINDOW_FOCUS_DEFERRED, (void *)(intptr_t) window_id, 0);
+            event_loop_post(WINDOW_FOCUS_DEFERRED, (void *)(intptr_t) window_id, 0);
         });
 
         return;

@@ -5,7 +5,6 @@
 // mouse,system}.c have the others.
 //
 
-extern struct event_loop g_event_loop;
 extern struct process_manager g_process_manager;
 extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
@@ -191,11 +190,11 @@ static void application_launch_retry(struct process *process)
     __block ProcessSerialNumber psn = process->psn;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         struct process *_process = process_manager_find_process(&g_process_manager, &psn);
-        if (_process) event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, _process, 0);
+        if (_process) event_loop_post(APPLICATION_LAUNCHED, _process, 0);
     });
 }
 
-static EVENT_HANDLER(APPLICATION_LAUNCHED)
+EVENT_HANDLER(APPLICATION_LAUNCHED)
 {
     struct process *process = context;
 
@@ -262,7 +261,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
     }
 
     if (window_manager_find_lost_front_switched_event(&g_window_manager, process->pid)) {
-        event_loop_post(&g_event_loop, APPLICATION_FRONT_SWITCHED, process, 0);
+        event_loop_post(APPLICATION_FRONT_SWITCHED, process, 0);
         window_manager_remove_lost_front_switched_event(&g_window_manager, process->pid);
     }
 
@@ -285,7 +284,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
     update_window_notifications();
 }
 
-static EVENT_HANDLER(APPLICATION_TERMINATED)
+EVENT_HANDLER(APPLICATION_TERMINATED)
 {
     struct process *process = context;
     struct application *application = window_manager_find_application(&g_window_manager, process->pid);
@@ -407,7 +406,7 @@ static void application_front_switched_without_window(struct application *applic
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
+EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
 {
     struct process *process = context;
     struct application *application = window_manager_find_application(&g_window_manager, process->pid);
@@ -419,7 +418,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
             debug("%s: %s (%d) was activated, trying to observe it again\n", __FUNCTION__, process->name, process->pid);
             process->launch_attempts = 0;
             process->launch_given_up = false;
-            event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, process, 0);
+            event_loop_post(APPLICATION_LAUNCHED, process, 0);
         }
 
         return;
@@ -466,7 +465,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
 }
 #pragma clang diagnostic pop
 
-static EVENT_HANDLER(APPLICATION_VISIBLE)
+EVENT_HANDLER(APPLICATION_VISIBLE)
 {
     struct application *application = window_manager_find_application(&g_window_manager, (pid_t)(intptr_t) context);
     if (!application) return;
@@ -485,7 +484,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
     event_signal_push(SIGNAL_APPLICATION_VISIBLE, application);
 }
 
-static EVENT_HANDLER(APPLICATION_HIDDEN)
+EVENT_HANDLER(APPLICATION_HIDDEN)
 {
     struct application *application = window_manager_find_application(&g_window_manager, (pid_t)(intptr_t) context);
     if (!application) return;

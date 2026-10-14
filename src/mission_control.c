@@ -1,4 +1,3 @@
-extern struct event_loop g_event_loop;
 extern enum mission_control_mode g_mission_control_mode;
 extern volatile uint64_t __last_cmd_tab_time;
 
@@ -8,18 +7,18 @@ static CONNECTION_CALLBACK(connection_handler)
 {
     if (type == 1327) {
         uint64_t sid; memcpy(&sid, data, sizeof(uint64_t));
-        event_loop_post(&g_event_loop, SLS_SPACE_CREATED, (void *) (intptr_t) sid , 0);
+        event_loop_post(SLS_SPACE_CREATED, (void *) (intptr_t) sid , 0);
     } else if (type == 1328) {
         uint64_t sid; memcpy(&sid, data, sizeof(uint64_t));
-        event_loop_post(&g_event_loop, SLS_SPACE_DESTROYED, (void *) (intptr_t) sid, 0);
+        event_loop_post(SLS_SPACE_DESTROYED, (void *) (intptr_t) sid, 0);
     } else if (type == 808) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         border_window_ordered(wid);
-        event_loop_post(&g_event_loop, SLS_WINDOW_ORDERED, (void *) (intptr_t) wid, 0);
+        event_loop_post(SLS_WINDOW_ORDERED, (void *) (intptr_t) wid, 0);
     } else if (type == 804) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         border_window_hidden(wid);
-        event_loop_post(&g_event_loop, SLS_WINDOW_DESTROYED, (void *) (intptr_t) wid, 0);
+        event_loop_post(SLS_WINDOW_DESTROYED, (void *) (intptr_t) wid, 0);
     } else if (type == 806) {
         uint32_t wid; memcpy(&wid, data, sizeof(uint32_t));
         border_window_moved(wid);
@@ -71,13 +70,13 @@ static CFStringRef kAXExposeExit             = CFSTR("AXExposeExit");
 static OBSERVER_CALLBACK(mission_control_notification_handler)
 {
     if (CFEqual(notification, kAXExposeShowAllWindows)) {
-        event_loop_post(&g_event_loop, MISSION_CONTROL_SHOW_ALL_WINDOWS, NULL, 0);
+        event_loop_post(MISSION_CONTROL_SHOW_ALL_WINDOWS, NULL, 0);
     } else if (CFEqual(notification, kAXExposeShowFrontWindows)) {
-        event_loop_post(&g_event_loop, MISSION_CONTROL_SHOW_FRONT_WINDOWS, NULL, 0);
+        event_loop_post(MISSION_CONTROL_SHOW_FRONT_WINDOWS, NULL, 0);
     } else if (CFEqual(notification, kAXExposeShowDesktop)) {
-        event_loop_post(&g_event_loop, MISSION_CONTROL_SHOW_DESKTOP, NULL, 0);
+        event_loop_post(MISSION_CONTROL_SHOW_DESKTOP, NULL, 0);
     } else if (CFEqual(notification, kAXExposeExit)) {
-        event_loop_post(&g_event_loop, MISSION_CONTROL_EXIT, NULL, 0);
+        event_loop_post(MISSION_CONTROL_EXIT, NULL, 0);
     }
 }
 #pragma clang diagnostic pop

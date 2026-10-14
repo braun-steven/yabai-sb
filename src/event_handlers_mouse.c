@@ -22,7 +22,7 @@ static inline int mouse_resize_direction(CGRect frame, CGPoint point)
     return direction;
 }
 
-static EVENT_HANDLER(MOUSE_DOWN)
+EVENT_HANDLER(MOUSE_DOWN)
 {
     if (mission_control_is_active())                     goto out;
     if (g_mouse_state.current_action != MOUSE_MODE_NONE) goto out;
@@ -55,7 +55,7 @@ out:
     CFRelease(context);
 }
 
-static EVENT_HANDLER(TAB_BAR_CLICKED)
+EVENT_HANDLER(TAB_BAR_CLICKED)
 {
     uint32_t wid = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, wid);
@@ -81,7 +81,7 @@ static struct window *mouse_drop_target(CGPoint point, struct view **dst_view)
     return window == g_mouse_state.window ? NULL : window;
 }
 
-static EVENT_HANDLER(MOUSE_UP)
+EVENT_HANDLER(MOUSE_UP)
 {
     if (mission_control_is_active()) goto out;
     if (!g_mouse_state.window)       goto res;
@@ -160,7 +160,7 @@ static bool mouse_drag_resize_window(CGPoint point)
     return true;
 }
 
-static EVENT_HANDLER(MOUSE_DRAGGED)
+EVENT_HANDLER(MOUSE_DRAGGED)
 {
     //
     // NOTE: Only the most recent drag event matters, because the new frame is computed from the
@@ -305,7 +305,7 @@ static void ffm_focus_display_at_point(CGPoint point)
     g_mouse_state.ffm_window_id = wid;
 }
 
-static EVENT_HANDLER(MOUSE_MOVED)
+EVENT_HANDLER(MOUSE_MOVED)
 {
     if (mouse_event_is_stale(&__pending_mouse_moved)) goto out;
 

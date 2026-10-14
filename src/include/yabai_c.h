@@ -49,10 +49,10 @@ int yabai_main(int argc, char **argv);
 #include <spawn.h>
 #include <libproc.h>
 #include <dlfcn.h>
+#include <crt_externs.h>
 
 #include <CPrivate.h>
 #include "../misc/macros.h"
-#include "../misc/memory_pool.h"
 #include "../misc/ts.h"
 //#include "../misc/autorelease.h"
 #include "../misc/notify.h"

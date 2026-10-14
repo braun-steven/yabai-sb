@@ -22,14 +22,11 @@
 #define MINOR  1
 #define PATCH 25
 
-struct signal *g_signal_event[SIGNAL_TYPE_COUNT];
 struct process_manager g_process_manager;
 struct display_manager g_display_manager;
 struct window_manager g_window_manager;
 struct space_manager g_space_manager;
-struct memory_pool g_signal_storage;
 struct mouse_state g_mouse_state;
-struct event_loop g_event_loop;
 void *g_workspace_context;
 
 enum mission_control_mode g_mission_control_mode;
@@ -203,16 +200,8 @@ int yabai_main(int argc, char **argv)
         error("yabai: could not allocate temporary storage! abort..\n");
     }
 
-    if (!event_signal_storage_init()) {
-        error("yabai: could not allocate event signal storage! abort..\n");
-    }
-
     if (!configure_settings_and_acquire_lock()) {
         error("yabai: could not acquire lock-file! abort..\n");
-    }
-
-    if (!event_loop_begin(&g_event_loop)) {
-        error("yabai: could not start event loop! abort..\n");
     }
 
     if (!workspace_event_handler_begin(&g_workspace_context)) {

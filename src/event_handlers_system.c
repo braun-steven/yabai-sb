@@ -5,40 +5,40 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-static EVENT_HANDLER(MISSION_CONTROL_SHOW_ALL_WINDOWS)
+EVENT_HANDLER(MISSION_CONTROL_SHOW_ALL_WINDOWS)
 {
     debug("%s:\n", __FUNCTION__);
     g_mission_control_mode = MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS;
     event_signal_push(SIGNAL_MISSION_CONTROL_ENTER, (void*)(uintptr_t)g_mission_control_mode);
 }
 
-static EVENT_HANDLER(MISSION_CONTROL_SHOW_FRONT_WINDOWS)
+EVENT_HANDLER(MISSION_CONTROL_SHOW_FRONT_WINDOWS)
 {
     debug("%s:\n", __FUNCTION__);
     g_mission_control_mode = MISSION_CONTROL_MODE_SHOW_FRONT_WINDOWS;
     event_signal_push(SIGNAL_MISSION_CONTROL_ENTER, (void*)(uintptr_t)g_mission_control_mode);
 }
 
-static EVENT_HANDLER(MISSION_CONTROL_SHOW_DESKTOP)
+EVENT_HANDLER(MISSION_CONTROL_SHOW_DESKTOP)
 {
     debug("%s:\n", __FUNCTION__);
     g_mission_control_mode = MISSION_CONTROL_MODE_SHOW_DESKTOP;
     event_signal_push(SIGNAL_MISSION_CONTROL_ENTER, (void*)(uintptr_t)g_mission_control_mode);
 }
 
-static EVENT_HANDLER(MISSION_CONTROL_ENTER)
+EVENT_HANDLER(MISSION_CONTROL_ENTER)
 {
     debug("%s:\n", __FUNCTION__);
     g_mission_control_mode = MISSION_CONTROL_MODE_SHOW;
 
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.1f * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        event_loop_post(&g_event_loop, MISSION_CONTROL_CHECK_FOR_EXIT, NULL, 0);
+        event_loop_post(MISSION_CONTROL_CHECK_FOR_EXIT, NULL, 0);
     });
 
     event_signal_push(SIGNAL_MISSION_CONTROL_ENTER, (void*)(uintptr_t)g_mission_control_mode);
 }
 
-static EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)
+EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)
 {
     if (!mission_control_is_active()) return;
 
@@ -70,18 +70,18 @@ static EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)
 
     if (found) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.1f * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            event_loop_post(&g_event_loop, MISSION_CONTROL_CHECK_FOR_EXIT, NULL, 0);
+            event_loop_post(MISSION_CONTROL_CHECK_FOR_EXIT, NULL, 0);
         });
     } else {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.0f), dispatch_get_main_queue(), ^{
-            event_loop_post(&g_event_loop, MISSION_CONTROL_EXIT, NULL, 0);
+            event_loop_post(MISSION_CONTROL_EXIT, NULL, 0);
         });
     }
 
     CFRelease(window_list);
 }
 
-static EVENT_HANDLER(MISSION_CONTROL_EXIT)
+EVENT_HANDLER(MISSION_CONTROL_EXIT)
 {
     debug("%s:\n", __FUNCTION__);
 
@@ -98,7 +98,7 @@ static EVENT_HANDLER(MISSION_CONTROL_EXIT)
     g_mission_control_mode = MISSION_CONTROL_MODE_INACTIVE;
 }
 
-static EVENT_HANDLER(DOCK_DID_RESTART)
+EVENT_HANDLER(DOCK_DID_RESTART)
 {
     debug("%s:\n", __FUNCTION__);
 
@@ -113,7 +113,7 @@ static EVENT_HANDLER(DOCK_DID_RESTART)
 static enum ffm_mode ffm_value;
 static int is_menu_open = 0;
 
-static EVENT_HANDLER(MENU_OPENED)
+EVENT_HANDLER(MENU_OPENED)
 {
     debug("%s\n", __FUNCTION__);
     ++is_menu_open;
@@ -124,7 +124,7 @@ static EVENT_HANDLER(MENU_OPENED)
     }
 }
 
-static EVENT_HANDLER(MENU_CLOSED)
+EVENT_HANDLER(MENU_CLOSED)
 {
     debug("%s\n", __FUNCTION__);
     --is_menu_open;
@@ -136,21 +136,21 @@ static EVENT_HANDLER(MENU_CLOSED)
     }
 }
 
-static EVENT_HANDLER(MENU_BAR_HIDDEN_CHANGED)
+EVENT_HANDLER(MENU_BAR_HIDDEN_CHANGED)
 {
     debug("%s:\n", __FUNCTION__);
     space_manager_mark_spaces_invalid(&g_space_manager);
     event_signal_push(SIGNAL_MENU_BAR_HIDDEN_CHANGED, NULL);
 }
 
-static EVENT_HANDLER(DOCK_DID_CHANGE_PREF)
+EVENT_HANDLER(DOCK_DID_CHANGE_PREF)
 {
     debug("%s:\n", __FUNCTION__);
     space_manager_mark_spaces_invalid(&g_space_manager);
     event_signal_push(SIGNAL_DOCK_DID_CHANGE_PREF, NULL);
 }
 
-static EVENT_HANDLER(SYSTEM_WOKE)
+EVENT_HANDLER(SYSTEM_WOKE)
 {
     debug("%s:\n", __FUNCTION__);
 
@@ -164,7 +164,7 @@ static EVENT_HANDLER(SYSTEM_WOKE)
     event_signal_push(SIGNAL_SYSTEM_WOKE, NULL);
 }
 
-static EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
+EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
 {
     if ((uint32_t) param1 != g_space_manager.space_layout_gen) return;
     if (!g_space_manager.space_layout_count) return;
@@ -189,7 +189,7 @@ static EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
     }
 }
 
-static EVENT_HANDLER(DAEMON_MESSAGE)
+EVENT_HANDLER(DAEMON_MESSAGE)
 {
     TIME_FUNCTION;
 

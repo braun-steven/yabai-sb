@@ -3,7 +3,7 @@ import YabaiCore
 
 //
 // NOTE: What the Swift handlers of the IPC domains (Sources/Yabai/IPC/) need from the C managers while those are C: the
-// selectors look up displays, spaces and windows in them, and rules and signals are parsed into their C structs. Also
+// selectors look up displays, spaces and windows in them, and rules are parsed into their C struct. Also
 // the C entry point of RuleEffects.combine.
 //
 
@@ -156,10 +156,9 @@ private func windowLayer(_ layer: Int32) -> WindowLayer
 }
 
 //
-// NOTE: struct rule and struct signal stay C until the rules and signals are Swift (P7, P11). The shims fill them from
-// the parsed Rule and EventSignal: the strings are malloc'ed copies and the patterns compiled again into the C regex_t,
-// so that rule_destroy and event_signal_destroy free them as before. A pattern that does not compile has no VALID flag.
-// The caller sets RULE_ONE_SHOT, which parse_rule keeps.
+// NOTE: struct rule stays C until the rules are Swift (P11). The shim fills it from the parsed Rule: the strings are
+// malloc'ed copies and the patterns compiled again into the C regex_t, so that rule_destroy frees them as before. A
+// pattern that does not compile has no VALID flag. The caller sets RULE_ONE_SHOT, which parse_rule keeps.
 //
 
 private func compile(_ regex: inout regex_t, _ pattern: UnsafeMutablePointer<CChar>?) -> Bool
@@ -237,36 +236,5 @@ func parseCRule(_ rsp: inout Response, _ message: inout some TokenSource, _ resu
     result.pointee.flags = flags
     result.pointee.label = mallocString(parsed.label)
     parsed.effects.write(to: &result.pointee.effects)
-    return didParse
-}
-
-/// `parse_signal` into a C signal.
-func parseCSignal(_ rsp: inout Response, _ message: inout some TokenSource, _ result: UnsafeMutablePointer<signal>, _ signalType: UnsafeMutablePointer<signal_type>) -> Bool
-{
-    var parsed = EventSignal()
-    var event: signal_type?
-
-    let didParse = parseSignal(&rsp, &message, &parsed, &event) { name in
-        let type = name.withCString { signal_type_from_string($0) }
-        return type == SIGNAL_TYPE_UNKNOWN ? nil : type
-    }
-
-    signalType.pointee = event ?? SIGNAL_TYPE_UNKNOWN
-
-    if let app = parsed.app {
-        result.pointee.app = mallocString(app.text)
-        result.pointee.app_regex_exclude = app.exclude
-        result.pointee.app_regex_valid = compile(&result.pointee.app_regex, result.pointee.app)
-    }
-
-    if let title = parsed.title {
-        result.pointee.title = mallocString(title.text)
-        result.pointee.title_regex_exclude = title.exclude
-        result.pointee.title_regex_valid = compile(&result.pointee.title_regex, result.pointee.title)
-    }
-
-    result.pointee.active = parsed.active.rawValue
-    result.pointee.command = mallocString(parsed.command)
-    result.pointee.label = mallocString(parsed.label)
     return didParse
 }

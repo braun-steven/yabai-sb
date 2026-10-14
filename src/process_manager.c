@@ -1,4 +1,3 @@
-extern struct event_loop g_event_loop;
 extern void *g_workspace_context;
 
 static TABLE_HASH_FUNC(hash_psn)
@@ -160,7 +159,7 @@ static PROCESS_EVENT_HANDLER(process_handler)
         if (!process) return noErr;
 
         table_add(&pm->process, &process->psn, process);
-        event_loop_post(&g_event_loop, APPLICATION_LAUNCHED, process, 0);
+        event_loop_post(APPLICATION_LAUNCHED, process, 0);
     } break;
     case kEventAppTerminated: {
         struct process *process = process_manager_find_process(pm, &psn);
@@ -171,13 +170,13 @@ static PROCESS_EVENT_HANDLER(process_handler)
         workspace_application_unobserve(g_workspace_context, process);
         __asm__ __volatile__ ("" ::: "memory");
 
-        event_loop_post(&g_event_loop, APPLICATION_TERMINATED, process, 0);
+        event_loop_post(APPLICATION_TERMINATED, process, 0);
     } break;
     case kEventAppFrontSwitched: {
         struct process *process = process_manager_find_process(pm, &psn);
         if (!process) return noErr;
 
-        event_loop_post(&g_event_loop, APPLICATION_FRONT_SWITCHED, process, 0);
+        event_loop_post(APPLICATION_FRONT_SWITCHED, process, 0);
     } break;
     }
 

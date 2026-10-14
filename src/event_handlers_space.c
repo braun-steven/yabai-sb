@@ -5,7 +5,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-static EVENT_HANDLER(SLS_SPACE_CREATED)
+EVENT_HANDLER(SLS_SPACE_CREATED)
 {
     uint64_t sid = (uint64_t)(intptr_t) context;
     int type = SLSSpaceGetType(g_connection, sid);
@@ -18,7 +18,7 @@ static EVENT_HANDLER(SLS_SPACE_CREATED)
     }
 }
 
-static EVENT_HANDLER(SLS_SPACE_DESTROYED)
+EVENT_HANDLER(SLS_SPACE_DESTROYED)
 {
     uint64_t sid = (uint64_t)(intptr_t) context;
     struct view *view = table_find(&g_space_manager.view, &sid);
@@ -68,7 +68,7 @@ static void refresh_current_space(void)
     }
 }
 
-static EVENT_HANDLER(SPACE_CHANGED)
+EVENT_HANDLER(SPACE_CHANGED)
 {
     g_space_manager.last_space_id = g_space_manager.current_space_id;
     g_space_manager.current_space_id = space_manager_active_space();
@@ -79,7 +79,7 @@ static EVENT_HANDLER(SPACE_CHANGED)
     event_signal_push(SIGNAL_SPACE_CHANGED, NULL);
 }
 
-static EVENT_HANDLER(DISPLAY_CHANGED)
+EVENT_HANDLER(DISPLAY_CHANGED)
 {
     uint32_t new_did = display_manager_active_display_id();
     if (g_display_manager.current_display_id == new_did) {
@@ -105,7 +105,7 @@ static EVENT_HANDLER(DISPLAY_CHANGED)
     event_signal_push(SIGNAL_DISPLAY_CHANGED, NULL);
 }
 
-static EVENT_HANDLER(DISPLAY_ADDED)
+EVENT_HANDLER(DISPLAY_ADDED)
 {
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);
@@ -115,7 +115,7 @@ static EVENT_HANDLER(DISPLAY_ADDED)
     event_signal_push(SIGNAL_DISPLAY_ADDED, context);
 }
 
-static EVENT_HANDLER(DISPLAY_REMOVED)
+EVENT_HANDLER(DISPLAY_REMOVED)
 {
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);
@@ -125,7 +125,7 @@ static EVENT_HANDLER(DISPLAY_REMOVED)
     event_signal_push(SIGNAL_DISPLAY_REMOVED, context);
 }
 
-static EVENT_HANDLER(DISPLAY_MOVED)
+EVENT_HANDLER(DISPLAY_MOVED)
 {
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);
@@ -134,7 +134,7 @@ static EVENT_HANDLER(DISPLAY_MOVED)
     event_signal_push(SIGNAL_DISPLAY_MOVED, context);
 }
 
-static EVENT_HANDLER(DISPLAY_RESIZED)
+EVENT_HANDLER(DISPLAY_RESIZED)
 {
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);

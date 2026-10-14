@@ -44,90 +44,11 @@ enum signal_type
     SIGNAL_TYPE_COUNT
 };
 
-static const char *signal_type_str[] =
-{
-    [SIGNAL_TYPE_UNKNOWN]                   = "signal_type_unknown",
+//
+// NOTE: The signals are Swift (Sources/Yabai/EventSignal.swift, Sources/YabaiCore/EventSignal.swift). The C event
+// handlers push the signals of an event through this shim; the event loop runs their commands after the handler.
+//
 
-    [SIGNAL_APPLICATION_LAUNCHED]           = "application_launched",
-    [SIGNAL_APPLICATION_TERMINATED]         = "application_terminated",
-    [SIGNAL_APPLICATION_FRONT_SWITCHED]     = "application_front_switched",
-    [SIGNAL_APPLICATION_ACTIVATED]          = "application_activated",
-    [SIGNAL_APPLICATION_DEACTIVATED]        = "application_deactivated",
-    [SIGNAL_APPLICATION_VISIBLE]            = "application_visible",
-    [SIGNAL_APPLICATION_HIDDEN]             = "application_hidden",
-
-    [SIGNAL_WINDOW_CREATED]                 = "window_created",
-    [SIGNAL_WINDOW_DESTROYED]               = "window_destroyed",
-    [SIGNAL_WINDOW_FOCUSED]                 = "window_focused",
-    [SIGNAL_WINDOW_MOVED]                   = "window_moved",
-    [SIGNAL_WINDOW_RESIZED]                 = "window_resized",
-    [SIGNAL_WINDOW_MINIMIZED]               = "window_minimized",
-    [SIGNAL_WINDOW_DEMINIMIZED]             = "window_deminimized",
-    [SIGNAL_WINDOW_TITLE_CHANGED]           = "window_title_changed",
-
-    [SIGNAL_SPACE_CREATED]                  = "space_created",
-    [SIGNAL_SPACE_DESTROYED]                = "space_destroyed",
-    [SIGNAL_SPACE_CHANGED]                  = "space_changed",
-
-    [SIGNAL_DISPLAY_ADDED]                  = "display_added",
-    [SIGNAL_DISPLAY_REMOVED]                = "display_removed",
-    [SIGNAL_DISPLAY_MOVED]                  = "display_moved",
-    [SIGNAL_DISPLAY_RESIZED]                = "display_resized",
-    [SIGNAL_DISPLAY_CHANGED]                = "display_changed",
-
-    [SIGNAL_MISSION_CONTROL_ENTER]          = "mission_control_enter",
-    [SIGNAL_MISSION_CONTROL_EXIT]           = "mission_control_exit",
-
-    [SIGNAL_DOCK_DID_CHANGE_PREF]           = "dock_did_change_pref",
-    [SIGNAL_DOCK_DID_RESTART]               = "dock_did_restart",
-
-    [SIGNAL_MENU_BAR_HIDDEN_CHANGED]        = "menu_bar_hidden_changed",
-    [SIGNAL_SYSTEM_WOKE]                    = "system_woke",
-
-    [SIGNAL_TYPE_COUNT]                     = "signal_type_count"
-};
-
-#define SIGNAL_PROP_UD  0
-#define SIGNAL_PROP_YES 1
-#define SIGNAL_PROP_NO  2
-
-#define EVENT_SIGNAL_ARG_SIZE 128
-
-struct event_signal
-{
-    enum signal_type type;
-    const char *arg_name[4];
-    char *arg_value[4];
-    int arg_count;
-    char *app;
-    char *title;
-    int active;
-};
-
-struct signal
-{
-    char *app;
-    char *title;
-    bool app_regex_valid;
-    bool title_regex_valid;
-    bool app_regex_exclude;
-    bool title_regex_exclude;
-    regex_t app_regex;
-    regex_t title_regex;
-    int active;
-    char *command;
-    char *label;
-};
-
-bool event_signal_storage_init(void);
 void event_signal_push(enum signal_type type, void *context);
-void event_signal_flush(void);
-
-void event_signal_add(enum signal_type type, struct signal *signal);
-void event_signal_destroy(struct signal *signal);
-bool event_signal_remove_by_index(int index);
-bool event_signal_remove(char *label);
-void event_signal_list(FILE *rsp);
-enum signal_type signal_type_from_string(const char *str);
 
 #endif

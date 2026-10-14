@@ -67,7 +67,7 @@ private func messageLoopRun(_ listener: Int32) -> Never
         setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
-        event_loop_post(event_loop_global(), DAEMON_MESSAGE, nil, sockfd)
+        EventLoop.post(.daemonMessage(sockfd: sockfd))
     }
 }
 
@@ -79,6 +79,11 @@ private func messageLoopRun(_ listener: Int32) -> Never
 
 @_cdecl("daemon_message_handle")
 func daemon_message_handle(_ sockfd: Int32)
+{
+    WM.assumeIsolated { daemonMessageHandle(sockfd) }
+}
+
+@WM private func daemonMessageHandle(_ sockfd: Int32)
 {
     var bytesToRead: Int32 = 0
     guard read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size, bytesToRead >= 0 else {
@@ -135,7 +140,7 @@ struct ResponseWriter
 }
 
 /// `handle_message`: runs the commands of a message.
-func handleMessage(_ response: inout Response, _ message: inout Message)
+@WM func handleMessage(_ response: inout Response, _ message: inout Message)
 {
     let domain = message.next()
 

@@ -175,35 +175,33 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
     }
 }
 
-func handleDomainSignal(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainSignal(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     let command = message.next()
 
     if command.equals(SignalCommand.add) {
-        var result: signal = .init()
-        var signalType = SIGNAL_TYPE_UNKNOWN
+        var result = EventSignal()
+        var signalType: SignalType?
 
-        if parseCSignal(&rsp, &message, &result, &signalType) {
-            event_signal_add(signalType, &result)
-        } else {
-            event_signal_destroy(&result)
+        if parseSignal(&rsp, &message, &result, &signalType, eventType: { SignalType(name: $0) }), let signalType {
+            eventSignals.add(result, signalType)
         }
     } else if command.equals(SignalCommand.remove) {
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !event_signal_remove_by_index(index) {
+            if !eventSignals.remove(at: Int(index)) {
                 rsp.fail("signal with index '\(index)' not found.\n")
             }
         case .string:
-            if !token.withCString({ event_signal_remove(UnsafeMutablePointer(mutating: $0)) }) {
+            if !eventSignals.remove(label: token.string) {
                 rsp.fail("signal with label '\(token)' not found.\n")
             }
         default:
             rsp.fail("value '\(token)' is not a valid option for SIGNAL_SEL\n")
         }
     } else if command.equals(SignalCommand.list) {
-        rsp.appendWritten { event_signal_list($0) }
+        rsp.write("\(eventSignals.list())")
     } else {
         rsp.failUnknownCommand(domain, command)
     }

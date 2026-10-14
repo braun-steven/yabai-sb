@@ -1,4 +1,3 @@
-extern struct event_loop g_event_loop;
 extern volatile bool __pending_gesture;
 extern volatile uint64_t __last_gesture_time;
 extern volatile uint32_t __pending_mouse_moved;
@@ -55,11 +54,11 @@ static MOUSE_HANDLER(mouse_handler)
         uint32_t tab_wid;
         if (type == kCGEventLeftMouseDown && mod != mouse_state->modifier && tab_bar_hit_test(CGEventGetLocation(event), &tab_wid)) {
             mouse_state->consume_tab_click = true;
-            event_loop_post(&g_event_loop, TAB_BAR_CLICKED, (void *)(intptr_t) tab_wid, 0);
+            event_loop_post(TAB_BAR_CLICKED, (void *)(intptr_t) tab_wid, 0);
             return NULL;
         }
 
-        event_loop_post(&g_event_loop, MOUSE_DOWN, (void *) CFRetain(event), mod);
+        event_loop_post(MOUSE_DOWN, (void *) CFRetain(event), mod);
 
         if (mod == mouse_state->modifier) {
             mouse_state->consume_mouse_click = true;
@@ -74,7 +73,7 @@ static MOUSE_HANDLER(mouse_handler)
             return NULL;
         }
 
-        event_loop_post(&g_event_loop, MOUSE_UP, (void *) CFRetain(event), 0);
+        event_loop_post(MOUSE_UP, (void *) CFRetain(event), 0);
 
         if (mouse_state->consume_mouse_click) {
             if (!mouse_state->drag_detected) {
@@ -94,14 +93,14 @@ static MOUSE_HANDLER(mouse_handler)
 
         mouse_state->drag_detected = true;
         __atomic_add_fetch(&__pending_mouse_dragged, 1, __ATOMIC_ACQ_REL);
-        event_loop_post(&g_event_loop, MOUSE_DRAGGED, (void *) CFRetain(event), 0);
+        event_loop_post(MOUSE_DRAGGED, (void *) CFRetain(event), 0);
     } break;
     case kCGEventMouseMoved: {
         uint8_t mod = mouse_mod_from_cgflags(CGEventGetFlags(event));
         if (mod == mouse_state->modifier) return event;
 
         __atomic_add_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL);
-        event_loop_post(&g_event_loop, MOUSE_MOVED, (void *) CFRetain(event), mod);
+        event_loop_post(MOUSE_MOVED, (void *) CFRetain(event), mod);
     } break;
     case kCGSEventDockControl: {
         mouse_handle_dock_gesture(event);

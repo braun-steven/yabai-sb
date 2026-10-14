@@ -4,7 +4,6 @@
 // resolved later, or found by element id.
 //
 
-extern struct event_loop g_event_loop;
 extern struct space_manager g_space_manager;
 
 //
@@ -50,7 +49,7 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
     }
 
     if (window_manager_find_lost_focused_event(wm, window->id)) {
-        event_loop_post(&g_event_loop, WINDOW_FOCUSED, (void *)(intptr_t) window->id, 0);
+        event_loop_post(WINDOW_FOCUSED, (void *)(intptr_t) window->id, 0);
         window_manager_remove_lost_focused_event(wm, window->id);
     }
 

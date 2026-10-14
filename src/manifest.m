@@ -11,8 +11,6 @@
 #include "event_handlers_space.c"
 #include "event_handlers_mouse.c"
 #include "event_handlers_system.c"
-#include "event_loop.c"
-#include "event_signal.c"
 #include "workspace.m"
 #include "rule.c"
 #include "display.c"

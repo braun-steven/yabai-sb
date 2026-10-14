@@ -4,7 +4,6 @@
 //
 
 extern struct space_manager g_space_manager;
-extern struct event_loop g_event_loop;
 
 static int space_layout_user_space_count(uint64_t *space_list, int space_count)
 {
@@ -130,6 +129,6 @@ void space_layout_schedule(double delay, bool reset_passes)
 
     uint32_t gen = ++g_space_manager.space_layout_gen;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        event_loop_post(&g_event_loop, SPACE_LAYOUT_RECONCILE, NULL, (int) gen);
+        event_loop_post(SPACE_LAYOUT_RECONCILE, NULL, (int) gen);
     });
 }

@@ -55,25 +55,16 @@ enum event_type
 #undef EVENT_TYPE_ENTRY
 };
 
-struct event
-{
-    enum event_type type;
-    int param1;
-    void *context;
-    struct event *next;
-};
+//
+// NOTE: The event loop is Swift (Sources/Yabai/EventLoop.swift): event_loop_post maps an event to the Event enum and
+// queues it on the serial queue of the @WM actor. Any thread may post an event. The handlers stay C until P8 of the port,
+// and the Swift loop calls them by these names.
+//
 
-struct event_loop
-{
-    bool is_running;
-    pthread_t thread;
-    sem_t *semaphore;
-    struct memory_pool pool;
-    struct event *head;
-    struct event *tail;
-};
+#define EVENT_TYPE_ENTRY(value) EVENT_HANDLER(value);
+    EVENT_TYPE_LIST
+#undef EVENT_TYPE_ENTRY
 
-bool event_loop_begin(struct event_loop *event_loop);
-void event_loop_post(struct event_loop *event_loop, enum event_type type, void *context, int param1);
+void event_loop_post(enum event_type type, void *context, int param1);
 
 #endif

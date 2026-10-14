@@ -5,7 +5,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
-static EVENT_HANDLER(WINDOW_CREATED)
+EVENT_HANDLER(WINDOW_CREATED)
 {
     uint32_t window_id = ax_window_id(context);
     if (!window_id) { CFRelease(context); return; }
@@ -37,7 +37,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
     update_window_notifications();
 }
 
-static EVENT_HANDLER(WINDOW_DESTROYED)
+EVENT_HANDLER(WINDOW_DESTROYED)
 {
     struct window *window = context;
     if (!window || window->id == 0) {
@@ -74,7 +74,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     update_window_notifications();
 }
 
-static EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)
+EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)
 {
     uint32_t window_id = (uint32_t)(intptr_t) context;
 
@@ -87,7 +87,7 @@ static EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)
     window_manager_focus_window_without_raise_deferred(window);
 }
 
-static EVENT_HANDLER(WINDOW_FOCUSED)
+EVENT_HANDLER(WINDOW_FOCUSED)
 {
     __atomic_store_n(&__pending_window_focus, false, __ATOMIC_RELEASE);
     uint32_t window_id = (uint32_t)(intptr_t) context;
@@ -126,7 +126,7 @@ static EVENT_HANDLER(WINDOW_FOCUSED)
     event_signal_push(SIGNAL_WINDOW_FOCUSED, window);
 }
 
-static EVENT_HANDLER(WINDOW_MOVED)
+EVENT_HANDLER(WINDOW_MOVED)
 {
     uint32_t window_id = (uint32_t)(intptr_t) context;
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
@@ -163,7 +163,7 @@ static EVENT_HANDLER(WINDOW_MOVED)
     }
 }
 
-static EVENT_HANDLER(WINDOW_RESIZED)
+EVENT_HANDLER(WINDOW_RESIZED)
 {
     uint32_t window_id = (uint32_t)(intptr_t) context;
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
@@ -233,7 +233,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     }
 }
 
-static EVENT_HANDLER(WINDOW_MINIMIZED)
+EVENT_HANDLER(WINDOW_MINIMIZED)
 {
     struct window *window = context;
 
@@ -263,7 +263,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
     event_signal_push(SIGNAL_WINDOW_MINIMIZED, window);
 }
 
-static EVENT_HANDLER(WINDOW_DEMINIMIZED)
+EVENT_HANDLER(WINDOW_DEMINIMIZED)
 {
     struct window *window = context;
 
@@ -290,7 +290,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
     }
 
     if (window_manager_find_lost_focused_event(&g_window_manager, window->id)) {
-        event_loop_post(&g_event_loop, WINDOW_FOCUSED, (void *)(intptr_t) window->id, 0);
+        event_loop_post(WINDOW_FOCUSED, (void *)(intptr_t) window->id, 0);
         window_manager_remove_lost_focused_event(&g_window_manager, window->id);
     }
 
@@ -298,7 +298,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
     event_signal_push(SIGNAL_WINDOW_DEMINIMIZED, window);
 }
 
-static EVENT_HANDLER(WINDOW_TITLE_CHANGED)
+EVENT_HANDLER(WINDOW_TITLE_CHANGED)
 {
     uint32_t window_id = (uint32_t)(intptr_t) context;
     struct window *window = window_manager_find_window(&g_window_manager, window_id);
@@ -319,14 +319,14 @@ static EVENT_HANDLER(WINDOW_TITLE_CHANGED)
     event_signal_push(SIGNAL_WINDOW_TITLE_CHANGED, window);
 }
 
-static EVENT_HANDLER(SLS_WINDOW_ORDERED)
+EVENT_HANDLER(SLS_WINDOW_ORDERED)
 {
     uint32_t wid = (uint64_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, wid);
     tab_bar_order(wid);
 }
 
-static EVENT_HANDLER(SLS_WINDOW_DESTROYED)
+EVENT_HANDLER(SLS_WINDOW_DESTROYED)
 {
     uint32_t wid = (uint64_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, wid);

@@ -150,7 +150,8 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   event queue, which TSan does not model; treat them as false positives.
 - Fixed on `fix-left-out-findings`: the forked signal process called `exit()`, which ran CoreSpotlight's
   PowerLog finalizers in a fork of a multithreaded process and crashed (`_os_log_find` /
-  `_dispatch_mgr_queue_push` under `exit` < `event_signal_flush`). It now uses `_exit()`. Any child
+  `_dispatch_mgr_queue_push` under `exit` < `event_signal_flush`). It then used `_exit()`; since P7 of the
+  Swift port the daemon no longer forks for signals, it starts each command with `posix_spawn`. Any child
   of a fork must leave with `_exit()`.
 
 ## Crash reports

@@ -1,4 +1,3 @@
-extern struct event_loop g_event_loop;
 extern volatile bool __pending_window_focus;
 
 #pragma clang diagnostic push
@@ -6,24 +5,24 @@ extern volatile bool __pending_window_focus;
 static OBSERVER_CALLBACK(application_notification_handler)
 {
     if (CFEqual(notification, kAXCreatedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_CREATED, (void *) CFRetain(element), 0);
+        event_loop_post(WINDOW_CREATED, (void *) CFRetain(element), 0);
     } else if (CFEqual(notification, kAXFocusedWindowChangedNotification)) {
         __atomic_store_n(&__pending_window_focus, true, __ATOMIC_RELEASE);
-        event_loop_post(&g_event_loop, WINDOW_FOCUSED, (void *)(intptr_t) ax_window_id(element), 0);
+        event_loop_post(WINDOW_FOCUSED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXWindowMovedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_MOVED, (void *)(intptr_t) ax_window_id(element), 0);
+        event_loop_post(WINDOW_MOVED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXWindowResizedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_RESIZED, (void *)(intptr_t) ax_window_id(element), 0);
+        event_loop_post(WINDOW_RESIZED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXTitleChangedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_TITLE_CHANGED, (void *)(intptr_t) ax_window_id(element), 0);
+        event_loop_post(WINDOW_TITLE_CHANGED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXMenuOpenedNotification)) {
-        event_loop_post(&g_event_loop, MENU_OPENED, (void *)(intptr_t) ax_window_id(element), 0);
+        event_loop_post(MENU_OPENED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXMenuClosedNotification)) {
-        event_loop_post(&g_event_loop, MENU_CLOSED, NULL, 0);
+        event_loop_post(MENU_CLOSED, NULL, 0);
     } else if (CFEqual(notification, kAXWindowMiniaturizedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_MINIMIZED, context, 0);
+        event_loop_post(WINDOW_MINIMIZED, context, 0);
     } else if (CFEqual(notification, kAXWindowDeminiaturizedNotification)) {
-        event_loop_post(&g_event_loop, WINDOW_DEMINIMIZED, context, 0);
+        event_loop_post(WINDOW_DEMINIMIZED, context, 0);
     } else if (CFEqual(notification, kAXUIElementDestroyedNotification)) {
         struct window *window = context;
 
@@ -35,7 +34,7 @@ static OBSERVER_CALLBACK(application_notification_handler)
 
         if (!window_invalidate(window)) return;
 
-        event_loop_post(&g_event_loop, WINDOW_DESTROYED, window, 0);
+        event_loop_post(WINDOW_DESTROYED, window, 0);
     }
 }
 #pragma clang diagnostic pop

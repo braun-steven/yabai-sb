@@ -89,7 +89,7 @@ enum Golden
         return Message(Array(ClientMessage.encode(arguments).dropFirst(MemoryLayout<Int32>.size)))
     }
 
-    static func run(_ line: String) -> [UInt8]
+    @WM static func run(_ line: String) -> [UInt8]
     {
         var response = Response()
         var message = encode(line)
@@ -97,11 +97,11 @@ enum Golden
         return response.bytes
     }
 
-    static func fixture()
+    @WM static func fixture()
     {
         window_manager_init(window_manager_global())
         space_manager_init(space_manager_global())
-        _ = event_signal_storage_init()
+        eventSignals = SignalTable()
     }
 
     static func escaped(_ bytes: [UInt8]) -> String
@@ -131,7 +131,7 @@ extension DaemonState
             #expect(records.map(\.command) == commands)
         }
 
-        @Test func goldenReplay() throws
+        @Test @WM func goldenReplay() throws
         {
             let commands = try Golden.commands()
             Golden.fixture()

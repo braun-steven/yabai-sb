@@ -445,6 +445,23 @@ static struct token_value token_to_value(struct token token)
     return value;
 }
 
+//
+// NOTE: Float options also accept integers, which token_to_value reports as TOKEN_TYPE_INT.
+//
+
+static inline bool token_value_float(struct token_value value, float *result)
+{
+    if (value.type == TOKEN_TYPE_FLOAT) {
+        *result = value.float_value;
+    } else if (value.type == TOKEN_TYPE_INT) {
+        *result = (float) value.int_value;
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 static inline void daemon_fail(FILE *rsp, char *fmt, ...)
 {
     if (!rsp) return;
@@ -1088,6 +1105,174 @@ static bool *tab_bar_color_custom_for_command(struct token command)
     return NULL;
 }
 
+static void config_scratchpad_grid(FILE *rsp, struct token domain, struct token command, char **message)
+{
+    unsigned *grid = g_window_manager.scratchpad_grid;
+    unsigned r, c, x, y, w, h;
+    struct token value = get_token(message);
+
+    if (!token_is_valid(value)) {
+        if (grid[0] == 0 || grid[1] == 0) {
+            fprintf(rsp, "%s\n", ARGUMENT_COMMON_VAL_OFF);
+        } else {
+            fprintf(rsp, "%u:%u:%u:%u:%u:%u\n", grid[0], grid[1], grid[2], grid[3], grid[4], grid[5]);
+        }
+    } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+        memset(grid, 0, sizeof(g_window_manager.scratchpad_grid));
+    } else if ((sscanf(value.text, ARGUMENT_WINDOW_GRID, &r, &c, &x, &y, &w, &h) == 6) && r > 0 && c > 0) {
+        grid[0] = r; grid[1] = c; grid[2] = x; grid[3] = y; grid[4] = w; grid[5] = h;
+    } else {
+        daemon_fail_unknown_value(rsp, domain, command, value);
+    }
+}
+
+//
+// NOTE: space_layout takes one layout per display count, e.g. '15 10:5 10:5:1b'. The layouts are the
+// tokens that start with a digit, so the next command can follow them. Returns false when the message
+// is invalid and the remaining commands must not be run.
+//
+
+static bool config_space_layout(FILE *rsp, struct token domain, struct token command, char **message, uint64_t sel_sid)
+{
+    if (sel_sid) {
+        daemon_fail(rsp, "command '%.*s' for domain '%.*s' does not support the '%s' selector\n", command.length, command.text, domain.length, domain.text, SELECTOR_CONFIG_SPACE);
+        return false;
+    }
+
+    char *cursor = *message;
+    struct token value = get_token(message);
+
+    if (!token_is_valid(value)) {
+        fprintf(rsp, "%s\n", g_space_manager.space_layout_spec ? g_space_manager.space_layout_spec : ARGUMENT_COMMON_VAL_OFF);
+        return true;
+    }
+
+    if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+        if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
+        g_space_manager.space_layout_spec = NULL;
+        g_space_manager.space_layout_count = 0;
+        return true;
+    }
+
+    struct space_layout layout_list[SPACE_LAYOUT_MAX];
+    int layout_count = 0;
+    char spec[256] = {0};
+    int spec_length = 0;
+
+    while (token_is_valid(value) && value.text[0] >= '0' && value.text[0] <= '9') {
+        if (layout_count == SPACE_LAYOUT_MAX || !space_manager_parse_space_layout(value.text, value.length, &layout_list[layout_count])) {
+            daemon_fail(rsp, "invalid value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            return false;
+        }
+
+        for (int i = 0; i < layout_count; ++i) {
+            if (layout_list[i].count == layout_list[layout_count].count) {
+                daemon_fail(rsp, "value '%.*s' given to command '%.*s' for domain '%.*s' repeats a layout for %d display(s)\n", value.length, value.text, command.length, command.text, domain.length, domain.text, layout_list[i].count);
+                return false;
+            }
+        }
+
+        spec_length += snprintf(spec + spec_length, sizeof(spec) - spec_length, "%s%.*s", layout_count ? " " : "", value.length, value.text);
+        if (spec_length >= (int) sizeof(spec)) {
+            daemon_fail(rsp, "value given to command '%.*s' for domain '%.*s' is too long\n", command.length, command.text, domain.length, domain.text);
+            return false;
+        }
+
+        ++layout_count;
+        cursor = *message;
+        value = get_token(message);
+    }
+
+    if (!layout_count) {
+        daemon_fail_unknown_value(rsp, domain, command, value);
+        return false;
+    }
+
+    *message = cursor;
+
+    memcpy(g_space_manager.space_layout, layout_list, sizeof(struct space_layout) * layout_count);
+    g_space_manager.space_layout_count = layout_count;
+    if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
+    g_space_manager.space_layout_spec = string_copy(spec);
+    space_layout_schedule(0.0, true);
+    return true;
+}
+
+//
+// NOTE: Animations need the scripting addition and Screen Recording permission; 0 turns them off.
+//
+
+static void config_animation_duration(FILE *rsp, struct token domain, struct token command, char **message)
+{
+    struct token_value value = token_to_value(get_token(message));
+    float duration;
+
+    if (value.type == TOKEN_TYPE_INVALID) {
+        fprintf(rsp, "%f\n", g_window_manager.window_animation_duration);
+    } else if (!token_value_float(value, &duration)) {
+        daemon_fail_unknown_value(rsp, domain, command, value.token);
+    } else if (duration == 0.0f) {
+        g_window_manager.window_animation_duration = duration;
+    } else if (!scripting_addition_is_sip_friendly()) {
+        daemon_fail(rsp, "command '%.*s' for domain '%.*s' requires System Integrity Protection to be partially disabled! ignoring request..\n", command.length, command.text, domain.length, domain.text);
+    } else if (CGPreflightScreenCaptureAccess()) {
+        g_window_manager.window_animation_duration = duration;
+    } else {
+        daemon_fail(rsp, "command '%.*s' for domain '%.*s' requires Screen Recording permissions! ignoring request..\n", command.length, command.text, domain.length, domain.text);
+        CGRequestScreenCaptureAccess();
+    }
+}
+
+static void config_layout(FILE *rsp, struct token domain, struct token command, char **message, uint64_t sel_sid)
+{
+    struct token value = get_token(message);
+
+    if (!token_is_valid(value)) {
+        enum view_type layout = sel_sid ? space_manager_find_view(&g_space_manager, sel_sid)->layout : g_space_manager.layout;
+        fprintf(rsp, "%s\n", view_type_str[layout]);
+        return;
+    }
+
+    enum view_type layout = token_equals(value, ARGUMENT_CONFIG_LAYOUT_FLOAT) ? VIEW_FLOAT
+                          : token_equals(value, ARGUMENT_CONFIG_LAYOUT_TREE)  ? VIEW_TREE
+                          : VIEW_DEFAULT;
+
+    if (layout == VIEW_DEFAULT) {
+        daemon_fail_unknown_value(rsp, domain, command, value);
+    } else if (!sel_sid) {
+        space_manager_set_layout_for_all_spaces(&g_space_manager, layout);
+    } else if (!space_is_user(sel_sid)) {
+        daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
+    } else {
+        view_set_flag(space_manager_find_view(&g_space_manager, sel_sid), VIEW_LAYOUT);
+        space_manager_set_layout_for_space(&g_space_manager, sel_sid, layout);
+    }
+}
+
+static void config_external_bar(FILE *rsp, struct token domain, struct token command, char **message)
+{
+    int top, bottom;
+    char mode[6];
+    struct token value = get_token(message);
+
+    if (sscanf(value.text, ARGUMENT_CONFIG_EXTERNAL_BAR, mode, &top, &bottom) != 3) {
+        fprintf(rsp, "%s:%d:%d\n", external_bar_mode_str[g_display_manager.mode], g_display_manager.top_padding, g_display_manager.bottom_padding);
+        return;
+    }
+
+    for (int i = 0; i < array_count(external_bar_mode_str); ++i) {
+        if (string_equals(mode, external_bar_mode_str[i])) {
+            g_display_manager.mode = i;
+            g_display_manager.top_padding = top;
+            g_display_manager.bottom_padding = bottom;
+            space_manager_mark_spaces_invalid(&g_space_manager);
+            return;
+        }
+    }
+
+    daemon_fail(rsp, "unknown mode '%s' specified in value '%.*s' given to command '%.*s' for domain '%.*s'\n", mode, value.length, value.text, command.length, command.text, domain.length, domain.text);
+}
+
 static enum view_flag spacing_for_command(struct token command)
 {
     if (token_equals(command, COMMAND_CONFIG_TOP_PADDING))    return VIEW_TOP_PADDING;
@@ -1148,111 +1333,26 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_BELOW)) {
             if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.scratchpad_below)) window_manager_set_scratchpad_layers(&g_window_manager);
         } else if (token_equals(command, COMMAND_CONFIG_SCRATCHPAD_GRID)) {
-            unsigned *grid = g_window_manager.scratchpad_grid;
-            unsigned r, c, x, y, w, h;
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                if (grid[0] == 0 || grid[1] == 0) {
-                    fprintf(rsp, "%s\n", ARGUMENT_COMMON_VAL_OFF);
-                } else {
-                    fprintf(rsp, "%u:%u:%u:%u:%u:%u\n", grid[0], grid[1], grid[2], grid[3], grid[4], grid[5]);
-                }
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                memset(grid, 0, sizeof(g_window_manager.scratchpad_grid));
-            } else if ((sscanf(value.text, ARGUMENT_WINDOW_GRID, &r, &c, &x, &y, &w, &h) == 6) && r > 0 && c > 0) {
-                grid[0] = r; grid[1] = c; grid[2] = x; grid[3] = y; grid[4] = w; grid[5] = h;
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
-            }
+            config_scratchpad_grid(rsp, domain, command, &message);
         } else if (token_equals(command, COMMAND_CONFIG_SKIP_SPACE_ANIMATION)) {
             parse_config_bool(rsp, domain, command, &message, &g_space_manager.skip_window_focus_animation);
         } else if (token_equals(command, COMMAND_CONFIG_SPACE_LAYOUT)) {
-            if (sel_sid) {
-                daemon_fail(rsp, "command '%.*s' for domain '%.*s' does not support the '%s' selector\n", command.length, command.text, domain.length, domain.text, SELECTOR_CONFIG_SPACE);
-                return;
-            }
-
-            char *cursor = message;
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", g_space_manager.space_layout_spec ? g_space_manager.space_layout_spec : ARGUMENT_COMMON_VAL_OFF);
-            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
-                if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
-                g_space_manager.space_layout_spec = NULL;
-                g_space_manager.space_layout_count = 0;
-            } else {
-                struct space_layout layout_list[SPACE_LAYOUT_MAX];
-                int layout_count = 0;
-                char spec[256] = {0};
-                int spec_length = 0;
-
-                while (token_is_valid(value) && value.text[0] >= '0' && value.text[0] <= '9') {
-                    if (layout_count == SPACE_LAYOUT_MAX || !space_manager_parse_space_layout(value.text, value.length, &layout_list[layout_count])) {
-                        daemon_fail(rsp, "invalid value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
-                        return;
-                    }
-
-                    for (int i = 0; i < layout_count; ++i) {
-                        if (layout_list[i].count == layout_list[layout_count].count) {
-                            daemon_fail(rsp, "value '%.*s' given to command '%.*s' for domain '%.*s' repeats a layout for %d display(s)\n", value.length, value.text, command.length, command.text, domain.length, domain.text, layout_list[i].count);
-                            return;
-                        }
-                    }
-
-                    spec_length += snprintf(spec + spec_length, sizeof(spec) - spec_length, "%s%.*s", layout_count ? " " : "", value.length, value.text);
-                    if (spec_length >= (int) sizeof(spec)) {
-                        daemon_fail(rsp, "value given to command '%.*s' for domain '%.*s' is too long\n", command.length, command.text, domain.length, domain.text);
-                        return;
-                    }
-
-                    ++layout_count;
-                    cursor = message;
-                    value = get_token(&message);
-                }
-
-                if (!layout_count) {
-                    daemon_fail_unknown_value(rsp, domain, command, value);
-                    return;
-                }
-
-                message = cursor;
-
-                memcpy(g_space_manager.space_layout, layout_list, sizeof(struct space_layout) * layout_count);
-                g_space_manager.space_layout_count = layout_count;
-                if (g_space_manager.space_layout_spec) free(g_space_manager.space_layout_spec);
-                g_space_manager.space_layout_spec = string_copy(spec);
-                space_layout_schedule(0.0, true);
-            }
+            if (!config_space_layout(rsp, domain, command, &message, sel_sid)) return;
         } else if (token_equals(command, COMMAND_CONFIG_OPACITY)) {
             bool enabled = g_window_manager.enable_window_opacity;
             if (parse_config_bool(rsp, domain, command, &message, &enabled)) window_manager_set_window_opacity_enabled(&g_window_manager, enabled);
         } else if (token_equals(command, COMMAND_CONFIG_OPACITY_DURATION)) {
             struct token_value value = token_to_value(get_token(&message));
+            float duration;
             if (value.type == TOKEN_TYPE_INVALID) {
                 fprintf(rsp, "%f\n", g_window_manager.window_opacity_duration);
-            } else if (value.type == TOKEN_TYPE_FLOAT) {
-                g_window_manager.window_opacity_duration = value.float_value;
+            } else if (token_value_float(value, &duration)) {
+                g_window_manager.window_opacity_duration = duration;
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }
         } else if (token_equals(command, COMMAND_CONFIG_ANIMATION_DURATION)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%f\n", g_window_manager.window_animation_duration);
-            } else if (value.type == TOKEN_TYPE_FLOAT) {
-                if (value.float_value == 0.0f) {
-                    g_window_manager.window_animation_duration = value.float_value;
-                } else if (!scripting_addition_is_sip_friendly()) {
-                    daemon_fail(rsp, "command '%.*s' for domain '%.*s' requires System Integrity Protection to be partially disabled! ignoring request..\n", command.length, command.text, domain.length, domain.text);
-                } else if (CGPreflightScreenCaptureAccess()) {
-                    g_window_manager.window_animation_duration = value.float_value;
-                } else {
-                    daemon_fail(rsp, "command '%.*s' for domain '%.*s' requires Screen Recording permissions! ignoring request..\n", command.length, command.text, domain.length, domain.text);
-                    CGRequestScreenCaptureAccess();
-                }
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
+            config_animation_duration(rsp, domain, command, &message);
         } else if (token_equals(command, COMMAND_CONFIG_ANIMATION_EASING)) {
             int choice;
             if (parse_config_choice(rsp, domain, command, &message, animation_easing_type_str, 0, EASING_TYPE_COUNT-1, g_window_manager.window_animation_easing, &choice)) g_window_manager.window_animation_easing = choice;
@@ -1261,28 +1361,31 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             if (parse_config_choice(rsp, domain, command, &message, purify_mode_str, PURIFY_DISABLED, PURIFY_ALWAYS, g_window_manager.purify_mode, &choice)) window_manager_set_purify_mode(&g_window_manager, choice);
         } else if (token_equals(command, COMMAND_CONFIG_MENUBAR_OPACITY)) {
             struct token_value value = token_to_value(get_token(&message));
+            float opacity;
             if (value.type == TOKEN_TYPE_INVALID) {
                 fprintf(rsp, "%.4f\n", g_window_manager.menubar_opacity);
-            } else if (value.type == TOKEN_TYPE_FLOAT && in_range_ii(value.float_value, 0.0f, 1.0f)) {
-                window_manager_set_menubar_opacity(&g_window_manager, value.float_value);
+            } else if (token_value_float(value, &opacity) && in_range_ii(opacity, 0.0f, 1.0f)) {
+                window_manager_set_menubar_opacity(&g_window_manager, opacity);
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }
         } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY)) {
             struct token_value value = token_to_value(get_token(&message));
+            float opacity;
             if (value.type == TOKEN_TYPE_INVALID) {
                 fprintf(rsp, "%.4f\n", g_window_manager.active_window_opacity);
-            } else if (value.type == TOKEN_TYPE_FLOAT && in_range_ei(value.float_value, 0.0f, 1.0f)) {
-                window_manager_set_active_window_opacity(&g_window_manager, value.float_value);
+            } else if (token_value_float(value, &opacity) && in_range_ei(opacity, 0.0f, 1.0f)) {
+                window_manager_set_active_window_opacity(&g_window_manager, opacity);
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }
         } else if (token_equals(command, COMMAND_CONFIG_NORMAL_WINDOW_OPACITY)) {
             struct token_value value = token_to_value(get_token(&message));
+            float opacity;
             if (value.type == TOKEN_TYPE_INVALID) {
                 fprintf(rsp, "%.4f\n", g_window_manager.normal_window_opacity);
-            } else if (value.type == TOKEN_TYPE_FLOAT && in_range_ei(value.float_value, 0.0f, 1.0f)) {
-                window_manager_set_normal_window_opacity(&g_window_manager, value.float_value);
+            } else if (token_value_float(value, &opacity) && in_range_ei(opacity, 0.0f, 1.0f)) {
+                window_manager_set_normal_window_opacity(&g_window_manager, opacity);
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }
@@ -1301,13 +1404,11 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.window_border_hide_single)) border_refresh_all();
         } else if (token_equals(command, COMMAND_CONFIG_BORDER_WIDTH)) {
             struct token_value value = token_to_value(get_token(&message));
+            float width;
             if (value.type == TOKEN_TYPE_INVALID) {
                 fprintf(rsp, "%.4f\n", g_window_manager.window_border_width);
-            } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
-                g_window_manager.window_border_width = value.int_value;
-                border_refresh_all();
-            } else if (value.type == TOKEN_TYPE_FLOAT && value.float_value > 0.0f) {
-                g_window_manager.window_border_width = value.float_value;
+            } else if (token_value_float(value, &width) && width > 0.0f) {
+                g_window_manager.window_border_width = width;
                 border_refresh_all();
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
@@ -1433,42 +1534,7 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 space_manager_set_spacing_for_all_spaces(&g_space_manager, flag, value.int_value);
             }
         } else if (token_equals(command, COMMAND_CONFIG_LAYOUT)) {
-            struct token value = get_token(&message);
-            if (sel_sid) {
-                struct view *view = space_manager_find_view(&g_space_manager, sel_sid);
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", view_type_str[view->layout]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_FLOAT)) {
-                    if (space_is_user(sel_sid)) {
-                        view_set_flag(view, VIEW_LAYOUT);
-                        view->layout = VIEW_FLOAT;
-                        view_clear(view);
-                    } else {
-                        daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                    }
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_TREE)) {
-                    if (space_is_user(sel_sid)) {
-                        view_set_flag(view, VIEW_LAYOUT);
-                        view->layout = VIEW_TREE;
-                        view_clear(view);
-                        window_manager_validate_and_check_for_windows_on_space(&g_space_manager, &g_window_manager, sel_sid);
-                    } else {
-                        daemon_fail(rsp, "cannot set layout for a macOS fullscreen space!\n");
-                    }
-                } else {
-                    daemon_fail_unknown_value(rsp, domain, command, value);
-                }
-            } else {
-                if (!token_is_valid(value)) {
-                    fprintf(rsp, "%s\n", view_type_str[g_space_manager.layout]);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_FLOAT)) {
-                    space_manager_set_layout_for_all_spaces(&g_space_manager, VIEW_FLOAT);
-                } else if (token_equals(value, ARGUMENT_CONFIG_LAYOUT_TREE)) {
-                    space_manager_set_layout_for_all_spaces(&g_space_manager, VIEW_TREE);
-                } else {
-                    daemon_fail_unknown_value(rsp, domain, command, value);
-                }
-            }
+            config_layout(rsp, domain, command, &message, sel_sid);
         } else if (token_equals(command, COMMAND_CONFIG_TREE_ORIENTATION)) {
             int choice;
             if (parse_config_choice(rsp, domain, command, &message, tree_orientation_str, TREE_ORIENTATION_AUTO, TREE_ORIENTATION_VERTICAL, g_space_manager.tree_default_orientation, &choice)) g_space_manager.tree_default_orientation = choice;
@@ -1509,31 +1575,7 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             int choice;
             if (parse_config_choice(rsp, domain, command, &message, mouse_mode_str, MOUSE_MODE_SWAP, MOUSE_MODE_STACK, g_mouse_state.drop_action, &choice)) g_mouse_state.drop_action = choice;
         } else if (token_equals(command, COMMAND_CONFIG_EXTERNAL_BAR)) {
-            int t, b;
-            char mode[6];
-            struct token value = get_token(&message);
-            if ((sscanf(value.text, ARGUMENT_CONFIG_EXTERNAL_BAR, mode, &t, &b) == 3)) {
-                if (string_equals(mode, ARGUMENT_CONFIG_EXTERNAL_BAR_MAIN)) {
-                    g_display_manager.mode = EXTERNAL_BAR_MAIN;
-                    g_display_manager.top_padding = t;
-                    g_display_manager.bottom_padding = b;
-                    space_manager_mark_spaces_invalid(&g_space_manager);
-                } else if (string_equals(mode, ARGUMENT_CONFIG_EXTERNAL_BAR_ALL)) {
-                    g_display_manager.mode = EXTERNAL_BAR_ALL;
-                    g_display_manager.top_padding = t;
-                    g_display_manager.bottom_padding = b;
-                    space_manager_mark_spaces_invalid(&g_space_manager);
-                } else if (string_equals(mode, ARGUMENT_COMMON_VAL_OFF)) {
-                    g_display_manager.mode = EXTERNAL_BAR_OFF;
-                    g_display_manager.top_padding = t;
-                    g_display_manager.bottom_padding = b;
-                    space_manager_mark_spaces_invalid(&g_space_manager);
-                } else {
-                    daemon_fail(rsp, "unknown mode '%s' specified in value '%.*s' given to command '%.*s' for domain '%.*s'\n", mode, value.length, value.text, command.length, command.text, domain.length, domain.text);
-                }
-            } else {
-                fprintf(rsp, "%s:%d:%d\n", external_bar_mode_str[g_display_manager.mode], g_display_manager.top_padding, g_display_manager.bottom_padding);
-            }
+            config_external_bar(rsp, domain, command, &message);
         } else {
             daemon_fail_unknown_command(rsp, domain, command);
         }
@@ -2111,9 +2153,10 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(command, COMMAND_WINDOW_OPACITY)) {
             struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_FLOAT && in_range_ii(value.float_value, 0.0f, 1.0f)) {
-                if (window_manager_set_opacity(&g_window_manager, acting_window, value.float_value)) {
-                    acting_window->opacity = value.float_value;
+            float opacity;
+            if (token_value_float(value, &opacity) && in_range_ii(opacity, 0.0f, 1.0f)) {
+                if (window_manager_set_opacity(&g_window_manager, acting_window, opacity)) {
+                    acting_window->opacity = opacity;
                 } else {
                     daemon_fail(rsp, "could not change opacity of window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
                 }

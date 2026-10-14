@@ -340,3 +340,28 @@ TEST_FUNC(rule_effects_combine,
     TEST_CHECK((int) combined.sid, 6);
     TEST_CHECK(rule_effects_check_flag(&combined, RULE_FOLLOW_SPACE), false);
 });
+
+TEST_FUNC(message_config_values,
+{
+    unsigned grid[6];
+    memcpy(grid, g_window_manager.scratchpad_grid, sizeof(grid));
+    float duration = g_window_manager.window_animation_duration;
+
+    TEST_CHECK(strcmp(message_test_run_config("scratchpad_grid\0off\0scratchpad_grid\0"), "off\n"), 0);
+    TEST_CHECK(strcmp(message_test_run_config("scratchpad_grid\0004:4:1:1:2:2\0scratchpad_grid\0"), "4:4:1:1:2:2\n"), 0);
+    TEST_CHECK(strstr(message_test_run_config("scratchpad_grid\0000:4:1:1:2:2\0"), "unknown value '0:4:1:1:2:2'") != NULL, true);
+
+    TEST_CHECK(strcmp(message_test_run_config("window_animation_duration\0" "0\0window_animation_duration\0"), "0.000000\n"), 0);
+    TEST_CHECK(strstr(message_test_run_config("window_animation_duration\0fast\0"), "unknown value 'fast'") != NULL, true);
+
+    TEST_CHECK(strstr(message_test_run_config("layout\0bsp\0"), "unknown value 'bsp'") != NULL, true);
+    TEST_CHECK(strstr(message_test_run_config("external_bar\0some:1:2\0"), "unknown mode 'some'") != NULL, true);
+
+    // NOTE: float options also take integers
+    float opacity_duration = g_window_manager.window_opacity_duration;
+    TEST_CHECK(strcmp(message_test_run_config("window_opacity_duration\0" "1\0window_opacity_duration\0"), "1.000000\n"), 0);
+    g_window_manager.window_opacity_duration = opacity_duration;
+
+    memcpy(g_window_manager.scratchpad_grid, grid, sizeof(grid));
+    g_window_manager.window_animation_duration = duration;
+});

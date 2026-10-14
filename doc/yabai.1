@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-08
+.\"      Date: 2026-10-14
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-08" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-14" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -321,6 +321,29 @@ for details.
 Color of the \fBwindow \-\-insert\fP message and mouse_drag selection.
 .br
 The purpose is to provide a visual preview of the new window frame.
+.RE
+.sp
+\fBwindow_border\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Draw a border around each window, in the active color for the focused window and in the normal color otherwise.
+.br
+The border sits outside the window frame and is ordered right below the window. It is shown for standard windows,
+and hidden while a window is minimized, hidden, in native fullscreen or animated.
+.RE
+.sp
+\fBwindow_border_width\fP [\fI<FLOAT_SEL>\fP]
+.RS 4
+Width of the window border in points.
+.RE
+.sp
+\fBactive_window_border_color\fP [\fI0xAARRGGBB\fP]
+.RS 4
+Color of the border of the focused window.
+.RE
+.sp
+\fBnormal_window_border_color\fP [\fI0xAARRGGBB\fP]
+.RS 4
+Color of the border of every other window.
 .RE
 .sp
 \fBtab_bar\fP [\fI<BOOL_SEL>\fP]

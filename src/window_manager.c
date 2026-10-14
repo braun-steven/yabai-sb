@@ -773,6 +773,9 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
 
     TIME_BODY(window_manager_animate_window_list_async___swap_proxy_in, {
     scripting_addition_swap_window_proxy_in(context->animation_list, context->animation_count);
+    for (int i = 0; i < context->animation_count; ++i) {
+        border_suspend(context->animation_list[i].wid, true);
+    }
     });
 
     TIME_BODY(window_manager_animate_window_list_async___notify_jb, {
@@ -1579,6 +1582,7 @@ struct window *window_manager_find_window(struct window_manager *wm, uint32_t wi
 
 void window_manager_remove_window(struct window_manager *wm, uint32_t window_id)
 {
+    border_remove(window_id);
     table_remove(&wm->window, &window_id);
 }
 
@@ -2178,6 +2182,8 @@ void window_manager_send_window_to_space(struct space_manager *sm, struct window
         struct view *view = space_manager_tile_window_on_space(sm, window, dst_sid);
         window_manager_add_managed_window(wm, window, view);
     }
+
+    border_refresh(window);
 }
 
 enum window_op_error window_manager_apply_grid(struct space_manager *sm, struct window_manager *wm, struct window *window, unsigned r, unsigned c, unsigned x, unsigned y, unsigned w, unsigned h)
@@ -2576,6 +2582,8 @@ out:
         window_manager_hide_other_scratchpad_windows(wm, window);
     }
 
+    border_refresh(window);
+
     return true;
 }
 
@@ -2820,6 +2828,10 @@ void window_manager_init(struct window_manager *wm)
     wm->window_animation_duration = 0.0f;
     wm->window_animation_easing = ease_out_circ_type;
     wm->insert_feedback_color = rgba_color_from_hex(0xffd75f5f);
+    wm->enable_window_border = false;
+    wm->window_border_width = 4.0f;
+    wm->active_window_border_color = rgba_color_from_hex(0xffe1e3e4);
+    wm->normal_window_border_color = rgba_color_from_hex(0xff494d64);
     wm->focus_wrapping = FOCUS_WRAPPING_ON;
     wm->enable_tab_bar = true;
     wm->tab_bar_height = 24;

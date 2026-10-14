@@ -35,6 +35,10 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY "active_window_opacity"
 #define COMMAND_CONFIG_NORMAL_WINDOW_OPACITY "normal_window_opacity"
 #define COMMAND_CONFIG_INSERT_FEEDBACK_COLOR "insert_feedback_color"
+#define COMMAND_CONFIG_BORDER                "window_border"
+#define COMMAND_CONFIG_BORDER_WIDTH          "window_border_width"
+#define COMMAND_CONFIG_ACTIVE_BORDER_COLOR   "active_window_border_color"
+#define COMMAND_CONFIG_NORMAL_BORDER_COLOR   "normal_window_border_color"
 #define COMMAND_CONFIG_TAB_BAR               "tab_bar"
 #define COMMAND_CONFIG_TAB_BAR_HEIGHT        "tab_bar_height"
 #define COMMAND_CONFIG_TAB_BAR_OFFSET        "tab_bar_offset"
@@ -1455,6 +1459,45 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "0x%x\n", g_window_manager.insert_feedback_color.p);
             } else if (value.type == TOKEN_TYPE_U32 && value.u32_value) {
                 g_window_manager.insert_feedback_color = rgba_color_from_hex(value.u32_value);
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_BORDER)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_window_manager.enable_window_border]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_window_manager.enable_window_border = false;
+                border_refresh_all();
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_window_manager.enable_window_border = true;
+                border_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_BORDER_WIDTH)) {
+            struct token_value value = token_to_value(get_token(&message));
+            if (value.type == TOKEN_TYPE_INVALID) {
+                fprintf(rsp, "%.4f\n", g_window_manager.window_border_width);
+            } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
+                g_window_manager.window_border_width = value.int_value;
+                border_refresh_all();
+            } else if (value.type == TOKEN_TYPE_FLOAT && value.float_value > 0.0f) {
+                g_window_manager.window_border_width = value.float_value;
+                border_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR) || token_equals(command, COMMAND_CONFIG_NORMAL_BORDER_COLOR)) {
+            struct rgba_color *color = token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR)
+                                     ? &g_window_manager.active_window_border_color
+                                     : &g_window_manager.normal_window_border_color;
+            struct token_value value = token_to_value(get_token(&message));
+            if (value.type == TOKEN_TYPE_INVALID) {
+                fprintf(rsp, "0x%x\n", color->p);
+            } else if (value.type == TOKEN_TYPE_U32) {
+                *color = rgba_color_from_hex(value.u32_value);
+                border_refresh_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.token.length, value.token.text, command.length, command.text, domain.length, domain.text);
             }

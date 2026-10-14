@@ -218,6 +218,20 @@ Global Settings
     Color of the *window --insert* message and mouse_drag selection. +
     The purpose is to provide a visual preview of the new window frame.
 
+*window_border* ['<BOOL_SEL>']::
+    Draw a border around each window, in the active color for the focused window and in the normal color otherwise. +
+    The border sits outside the window frame and is ordered right below the window. It is shown for standard windows,
+    and hidden while a window is minimized, hidden, in native fullscreen or animated.
+
+*window_border_width* ['<FLOAT_SEL>']::
+    Width of the window border in points.
+
+*active_window_border_color* ['0xAARRGGBB']::
+    Color of the border of the focused window.
+
+*normal_window_border_color* ['0xAARRGGBB']::
+    Color of the border of every other window.
+
 *tab_bar* ['<BOOL_SEL>']::
     Draw a tab bar on top of every tabbed container, like the tabbed layout of i3. Enabled by default. +
     Each tab shows the title of a window, and clicking a tab focuses that window. +

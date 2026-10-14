@@ -41,6 +41,7 @@
 #include <pwd.h>
 #include <spawn.h>
 #include <libproc.h>
+#include <dlfcn.h>
 
 #include "misc/extern.h"
 #include "misc/macros.h"
@@ -77,6 +78,7 @@
 #include "display_manager.h"
 #include "space_manager.h"
 #include "window_manager.h"
+#include "border.h"
 #include "mouse_handler.h"
 
 #include "sa.m"
@@ -98,5 +100,6 @@
 #include "display_manager.c"
 #include "space_manager.c"
 #include "window_manager.c"
+#include "border.c"
 #include "mouse_handler.c"
 #include "yabai.c"

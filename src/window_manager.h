@@ -123,6 +123,10 @@ struct window_manager
     float window_animation_duration;
     int window_animation_easing;
     struct rgba_color insert_feedback_color;
+    bool enable_window_border;
+    float window_border_width;
+    struct rgba_color active_window_border_color;
+    struct rgba_color normal_window_border_color;
     enum focus_wrapping focus_wrapping;
     bool enable_tab_bar;
     int tab_bar_height;

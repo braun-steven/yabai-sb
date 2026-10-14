@@ -43,8 +43,10 @@ static void update_window_notifications(void)
             if (window_count < window_capacity) window_list[window_count++] = window->id;
         })
     } else {
-        // NOTE(asmvik): Subscribe to windows that have a tab bar because of window_ordered notifications
+        // NOTE(asmvik): Subscribe to windows that have a tab bar because of window_ordered notifications,
+        // and to windows that have a border because of the window_moved and window_resized notifications.
         window_count += tab_bar_window_list(window_list + window_count, window_capacity - window_count);
+        window_count += border_window_list(window_list + window_count, window_capacity - window_count);
     }
 
     SLSRequestNotificationsForWindows(g_connection, window_list, window_count);
@@ -83,7 +85,12 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     if (view && view->layout == VIEW_TREE) tree_window_did_receive_focus(view, window->id);
 
-    if (prev_focused_window_id != window->id) tab_bar_refresh_for_window(prev_focused_window_id);
+    if (prev_focused_window_id != window->id) {
+        tab_bar_refresh_for_window(prev_focused_window_id);
+        border_refresh(window_manager_find_window(wm, prev_focused_window_id));
+    }
+
+    border_refresh(window);
 }
 
 #pragma clang diagnostic push
@@ -530,6 +537,10 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
         view_flush(view);
     }
 
+    for (int i = 0; i < window_count; ++i) {
+        border_refresh(window_list[i]);
+    }
+
     event_signal_push(SIGNAL_APPLICATION_VISIBLE, application);
 }
 
@@ -590,6 +601,10 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
         view_flush(view);
     }
 
+    for (int i = 0; i < window_count; ++i) {
+        border_refresh(window_list[i]);
+    }
+
     event_signal_push(SIGNAL_APPLICATION_HIDDEN, application);
 }
 
@@ -639,6 +654,8 @@ static EVENT_HANDLER(WINDOW_CREATED)
     if (window_manager_is_window_eligible(window)) {
         event_signal_push(SIGNAL_WINDOW_CREATED, window);
     }
+
+    border_refresh(window);
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
@@ -826,6 +843,8 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     bool windowed_fullscreen = CGRectEqualToRect(window->windowed_frame, window->frame);
     window->frame = new_frame;
 
+    if (was_fullscreen != is_fullscreen) border_refresh(window);
+
     if (!was_fullscreen && is_fullscreen) {
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
         if (view) {
@@ -900,6 +919,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
         window_manager_tree_focus_after_close(&g_window_manager, view, next_focus);
     }
 
+    border_refresh(window);
     event_signal_push(SIGNAL_WINDOW_MINIMIZED, window);
 }
 
@@ -951,6 +971,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
         window_manager_remove_lost_focused_event(&g_window_manager, window->id);
     }
 
+    border_refresh(window);
     event_signal_push(SIGNAL_WINDOW_DEMINIMIZED, window);
 }
 

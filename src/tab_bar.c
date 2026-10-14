@@ -758,6 +758,13 @@ API_AVAILABLE(macos(26.0))
     SLSSetWindowLevel(g_connection, wid, snapshot->level);
     SLSSetWindowSubLevel(g_connection, wid, snapshot->sub_level);
     SLSOrderWindow(g_connection, wid, below ? -1 : 1, snapshot->above_wid);
+
+    //
+    // NOTE: A card ordered below the window lands between the window and its border, so the border is ordered
+    // right below the window again to stay on top of the card.
+    //
+
+    if (below) border_window_changed(snapshot->above_wid);
 }
 
 - (void)hide
@@ -767,7 +774,10 @@ API_AVAILABLE(macos(26.0))
 
 - (void)order:(uint32_t)wid
 {
-    if (panel.isVisible) SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, below ? -1 : 1, wid);
+    if (!panel.isVisible) return;
+
+    SLSOrderWindow(g_connection, (uint32_t) panel.windowNumber, below ? -1 : 1, wid);
+    if (below) border_window_changed(wid);
 }
 
 - (void)dealloc

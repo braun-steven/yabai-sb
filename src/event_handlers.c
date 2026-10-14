@@ -36,25 +36,15 @@ static void update_window_notifications(void)
 {
     int window_count = 0;
     int window_capacity = 1024;
-
-    if (workspace_is_macos_sequoia_or_newer()) {
-        if (g_window_manager.window.count > window_capacity) window_capacity = g_window_manager.window.count;
-    }
+    if (g_window_manager.window.count > window_capacity) window_capacity = g_window_manager.window.count;
 
     uint32_t *window_list = calloc(window_capacity, sizeof(uint32_t));
     if (!window_list) return;
 
-    if (workspace_is_macos_sequoia_or_newer()) {
-        // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
-        table_for (struct window *window, g_window_manager.window, {
-            if (window_count < window_capacity) window_list[window_count++] = window->id;
-        })
-    } else {
-        // NOTE(asmvik): Subscribe to windows that have a tab bar because of window_ordered notifications,
-        // and to windows that have a border because of the window_moved and window_resized notifications.
-        window_count += tab_bar_window_list(window_list + window_count, window_capacity - window_count);
-        window_count += border_window_list(window_list + window_count, window_capacity - window_count);
-    }
+    // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
+    table_for (struct window *window, g_window_manager.window, {
+        if (window_count < window_capacity) window_list[window_count++] = window->id;
+    })
 
     SLSRequestNotificationsForWindows(g_connection, window_list, window_count);
     free(window_list);
@@ -292,9 +282,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         }
     }
 
-    if (workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
+    update_window_notifications();
 }
 
 static EVENT_HANDLER(APPLICATION_TERMINATED)
@@ -356,9 +344,7 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
 
     flush_dirty_views(view_list, view_count);
 
-    if (workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
+    update_window_notifications();
 
 out:
     process_destroy(process);

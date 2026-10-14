@@ -152,7 +152,6 @@ private func makeMask(radius: CGFloat) -> NSImage
 // NOTE: The panel of a bar and its views, created by the first update that reaches the main queue.
 //
 
-@available(macOS 26.0, *)
 @MainActor
 private final class Panel
 {
@@ -343,7 +342,6 @@ private final class Panel
 // and the id of the panel is 0.
 //
 
-@available(macOS 26.0, *)
 private final class TabBarGlass: @unchecked Sendable
 {
     private let lock = NSLock()
@@ -383,7 +381,6 @@ private final class TabBarGlass: @unchecked Sendable
     }
 }
 
-@available(macOS 26.0, *)
 private func onMain(_ glass: UnsafeMutableRawPointer, _ body: @escaping @MainActor (TabBarGlass) -> Void)
 {
     let bar = Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue()
@@ -395,7 +392,6 @@ private func onMain(_ glass: UnsafeMutableRawPointer, _ body: @escaping @MainAct
 @_cdecl("tab_bar_glass_create")
 func tab_bar_glass_create() -> UnsafeMutableRawPointer?
 {
-    guard #available(macOS 26.0, *) else { return nil }
     return Unmanaged.passRetained(TabBarGlass()).toOpaque()
 }
 
@@ -403,21 +399,18 @@ func tab_bar_glass_create() -> UnsafeMutableRawPointer?
 func tab_bar_glass_apply(_ glass: UnsafeMutableRawPointer, _ pointer: UnsafeMutablePointer<tab_bar_glass_snapshot>)
 {
     let snapshot = Snapshot(taking: pointer)
-    guard #available(macOS 26.0, *) else { return }
     onMain(glass) { $0.apply(snapshot) }
 }
 
 @_cdecl("tab_bar_glass_hide_panel")
 func tab_bar_glass_hide_panel(_ glass: UnsafeMutableRawPointer)
 {
-    guard #available(macOS 26.0, *) else { return }
     onMain(glass) { $0.hide() }
 }
 
 @_cdecl("tab_bar_glass_order_above")
 func tab_bar_glass_order_above(_ glass: UnsafeMutableRawPointer, _ wid: UInt32)
 {
-    guard #available(macOS 26.0, *) else { return }
     onMain(glass) { $0.order(wid) }
 }
 
@@ -429,7 +422,6 @@ func tab_bar_glass_order_above(_ glass: UnsafeMutableRawPointer, _ wid: UInt32)
 @_cdecl("tab_bar_glass_destroy")
 func tab_bar_glass_destroy(_ glass: UnsafeMutableRawPointer)
 {
-    guard #available(macOS 26.0, *) else { return }
     onMain(glass) { $0.close() }
     Unmanaged<TabBarGlass>.fromOpaque(glass).release()
 }
@@ -437,6 +429,5 @@ func tab_bar_glass_destroy(_ glass: UnsafeMutableRawPointer)
 @_cdecl("tab_bar_glass_id")
 func tab_bar_glass_id(_ glass: UnsafeMutableRawPointer) -> UInt32
 {
-    guard #available(macOS 26.0, *) else { return 0 }
     return Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue().id
 }

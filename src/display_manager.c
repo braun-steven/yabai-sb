@@ -281,10 +281,6 @@ CGRect display_manager_menu_bar_rect(uint32_t did)
 {
     CGRect bounds = {0};
 
-#ifdef __x86_64__
-    SLSGetRevealedMenuBarBounds(&bounds, g_connection, display_space_id(did));
-#elif __arm64__
-
     //
     // NOTE(asmvik): SLSGetRevealedMenuBarBounds is broken on Apple Silicon,
     // but we expected it to return the full display bounds along with the menubar
@@ -296,7 +292,6 @@ CGRect display_manager_menu_bar_rect(uint32_t did)
 
     bounds = CGDisplayBounds(did);
     bounds.size.height = height;
-#endif
 
     //
     // NOTE(asmvik): Height needs to be offset by 1 because that is the actual
@@ -326,24 +321,6 @@ CGRect display_manager_dock_rect(void)
     CGRect bounds = {0};
     SLSGetDockRectWithReason(g_connection, &bounds, &reason);
     return bounds;
-}
-
-bool display_manager_display_is_animating(uint32_t did)
-{
-    if (workspace_is_macos_bigsur()   ||
-        workspace_is_macos_monterey() ||
-        workspace_is_macos_ventura())
-    {
-        CFStringRef uuid = display_uuid(did);
-        if (!uuid) return false;
-
-        bool result = SLSManagedDisplayIsAnimating(g_connection, uuid);
-        CFRelease(uuid);
-
-        return result;
-    }
-
-    return false; // This does not return a correct result on modern macOS versions.
 }
 
 int display_manager_active_display_count(void)
@@ -445,9 +422,6 @@ enum space_op_error display_manager_focus_space(uint32_t did, uint64_t sid)
 {
     bool is_in_mc = mission_control_is_active();
     if (is_in_mc) return SPACE_OP_ERROR_IN_MISSION_CONTROL;
-
-    bool is_animating = display_manager_display_is_animating(did);
-    if (is_animating) return SPACE_OP_ERROR_DISPLAY_IS_ANIMATING;
 
     uint32_t space_did = space_display_id(sid);
     if (space_did != did) return SPACE_OP_ERROR_SAME_DISPLAY;

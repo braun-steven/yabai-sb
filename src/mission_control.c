@@ -6,9 +6,7 @@ extern volatile uint64_t __last_cmd_tab_time;
 #pragma clang diagnostic ignored "-Wunused-parameter"
 static CONNECTION_CALLBACK(connection_handler)
 {
-    if (type == 1204) {
-        event_loop_post(&g_event_loop, MISSION_CONTROL_ENTER, NULL, 0);
-    } else if (type == 1327) {
+    if (type == 1327) {
         uint64_t sid; memcpy(&sid, data, sizeof(uint64_t));
         event_loop_post(&g_event_loop, SLS_SPACE_CREATED, (void *) (intptr_t) sid , 0);
     } else if (type == 1328) {

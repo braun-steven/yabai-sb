@@ -50,6 +50,5 @@ void border_window_resized(uint32_t wid);
 void border_window_ordered(uint32_t wid);
 void border_window_changed(uint32_t wid);
 void border_window_hidden(uint32_t wid);
-int border_window_list(uint32_t *window_list, int capacity);
 
 #endif

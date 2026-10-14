@@ -543,7 +543,6 @@ static bool parse_config_choice(FILE *rsp, struct token domain, struct token com
 static void daemon_fail_space_op(FILE *rsp, enum space_op_error result, char *action)
 {
     switch (result) {
-    case SPACE_OP_ERROR_DISPLAY_IS_ANIMATING: daemon_fail(rsp, "cannot %s because the display is in the middle of an animation.\n", action); break;
     case SPACE_OP_ERROR_IN_MISSION_CONTROL:   daemon_fail(rsp, "cannot %s because mission-control is active.\n", action);                  break;
     case SPACE_OP_ERROR_SCRIPTING_ADDITION:   daemon_fail(rsp, "cannot %s due to an error with the scripting-addition.\n", action);         break;
     default: break;

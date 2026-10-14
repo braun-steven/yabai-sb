@@ -1,4 +1,4 @@
-MACOS_MIN      = 11.0
+MACOS_MIN      = 27.0
 FRAMEWORK_PATH = -F/System/Library/PrivateFrameworks
 WARN_FLAGS     = -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference
 COMMON_FLAGS   = -std=c11 $(WARN_FLAGS) -fvisibility=hidden -mmacosx-version-min=$(MACOS_MIN) -fno-objc-arc
@@ -10,8 +10,8 @@ SMP_PATH       = ./examples
 ARCH_PATH      = ./archive
 OSAX_SRC       = ./src/osax/payload_bin.c ./src/osax/loader_bin.c
 OSAX_PATH      = ./src/osax
-OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch x86_64 -arch arm64e
-ARCHS          = arm64 x86_64
+OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch arm64e
+ARCHS          = arm64
 SWIFT_BUILD    = swift build --product yabai $(foreach arch,$(ARCHS),--arch $(arch))
 VARIANT_FLAGS  =
 BINS           = $(BUILD_PATH)/yabai
@@ -42,7 +42,7 @@ analyze:
 	xcrun clang --analyze -Xclang -analyzer-opt-analyze-headers -Xclang -analyzer-output=text $(COMMON_FLAGS) -arch arm64 $(FRAMEWORK_PATH) ./src/manifest.m -o /dev/null
 
 # payload.m #includes these, so a pattern/offset update must rebuild the payload
-$(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/x64_payload.m $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h
+$(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h
 	xcrun clang $(OSAX_PATH)/payload.m -shared -fPIC $(OSAX_FLAGS) -o $(OSAX_PATH)/payload $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
 	xxd -i -a $(OSAX_PATH)/payload $@
 	rm -f $(OSAX_PATH)/payload

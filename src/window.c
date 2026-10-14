@@ -493,31 +493,25 @@ err2:
 int window_level(uint32_t wid)
 {
     int level = 0;
+    CFArrayRef window_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
 
-    if (workspace_is_macos_ventura_or_newer()) {
-        CFArrayRef window_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+    CFTypeRef query = SLSWindowQueryWindows(g_connection, window_ref, 1);
+    if (!query) goto err2;
 
-        CFTypeRef query = SLSWindowQueryWindows(g_connection, window_ref, 1);
-        if (!query) goto err2;
+    CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
+    if (!iterator) goto err1;
 
-        CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
-        if (!iterator) goto err1;
-
-        if (SLSWindowIteratorGetCount(iterator) == 1) {
-            if (SLSWindowIteratorAdvance(iterator)) {
-                level = SLSWindowIteratorGetLevel(iterator);
-            }
+    if (SLSWindowIteratorGetCount(iterator) == 1) {
+        if (SLSWindowIteratorAdvance(iterator)) {
+            level = SLSWindowIteratorGetLevel(iterator);
         }
-
-        CFRelease(iterator);
-    err1:
-        CFRelease(query);
-    err2:
-        CFRelease(window_ref);
-    } else {
-        SLSGetWindowLevel(g_connection, wid, &level);
     }
 
+    CFRelease(iterator);
+err1:
+    CFRelease(query);
+err2:
+    CFRelease(window_ref);
     return level;
 }
 
@@ -539,7 +533,7 @@ static bool SLSGetWindowSubLevel__Internal(int cid, uint32_t wid, int *sub_level
     msg.header.msgh_bits = 0x1513;
     msg.header.msgh_remote_port = CGSGetConnectionPortById(cid);
     msg.header.msgh_local_port = mig_get_special_reply_port();
-    msg.header.msgh_id = workspace_is_macos_tahoe() ? 0x76E3 : 0x73C3;
+    msg.header.msgh_id = 0x76E3;
 
     //
     // NOTE: Bound the wait for the reply, so that a message the window server does not answer (e.g. an

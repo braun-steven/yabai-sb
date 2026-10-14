@@ -18,7 +18,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `scripts/`: maintenance tooling (codesigning helper, `install.sh`, `payload-history.sh`, and the live test harness in `scripts/live-tests/`).
 
 ## Build, Test, and Development Commands
-- `make`: debug build, a universal (x86_64 + arm64) binary at `bin/yabai`. It runs `swift build` (Package.swift), which builds incrementally in `.build/`, and copies the product to `bin/`. Every build target replaces `bin/`.
+- `make`: debug build, an arm64 binary at `bin/yabai` (macOS 27 or later; the scripting addition is arm64e). It runs `swift build` (Package.swift), which builds incrementally in `.build/`, and copies the product to `bin/`. Every build target replaces `bin/`.
 - `make install`: optimized release build (`-c release`: `-O3 -DNDEBUG` for C, Swift warnings are errors) at the same path.
 - `make asan` / `make tsan`: builds with Address/Thread sanitizers (plus UBSan).
 - `make clean`: removes `bin/`, `.build/` and the generated `src/osax/payload_bin.c` / `loader_bin.c`. These are rebuilt on the next `make`, and also whenever `payload.m`, `loader.m` or a file they include (`common.h`, `*_payload.m`) changes.
@@ -59,9 +59,9 @@ There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`w
 
 **Rules and signals.** `rule.c` matches windows when they are created or when a rule is applied. `event_signal.c` runs the user's shell commands on events, with environment variables set, in forked processes.
 
-**Scripting addition (OSAX).** This is optional and needs SIP to be partially disabled. `src/osax/loader.m` injects `payload.m` into Dock.app. The payload then serves the socket `/tmp/yabai-sa_$USER.socket`. The client side is `src/sa.m`: it sends a length-prefixed byte payload (`sa_payload_init` / `sa_payload_send`) with an `SA_OPCODE_*` from `src/osax/common.h`. Some features depend on finding private Dock functions by byte pattern. The patterns and search offsets are written per macOS version and per architecture in `src/osax/arm64_payload.m` and `src/osax/x64_payload.m`. New macOS releases usually break these. See `doc/payload-updates.md` for that workflow. If the payload protocol or behavior changes, bump `OSAX_VERSION` in `common.h`: a running Dock only gets the new payload when the version differs.
+**Scripting addition (OSAX).** This is optional and needs SIP to be partially disabled. `src/osax/loader.m` injects `payload.m` into Dock.app. The payload then serves the socket `/tmp/yabai-sa_$USER.socket`. The client side is `src/sa.m`: it sends a length-prefixed byte payload (`sa_payload_init` / `sa_payload_send`) with an `SA_OPCODE_*` from `src/osax/common.h`. Some features depend on finding private Dock functions by byte pattern. The patterns and search offsets of macOS 27 are in `src/osax/arm64_payload.m`. New macOS releases usually break these. See `doc/payload-updates.md` for that workflow. If the payload protocol or behavior changes, bump `OSAX_VERSION` in `common.h`: a running Dock only gets the new payload when the version differs.
 
-**macOS version gating.** `SUPPORTED_MACOS_VERSION_LIST` generates `workspace_is_macos_<name>()` predicates. Code paths often branch on these, or on `NSOperatingSystemVersion`. Supported versions run from Big Sur (11) to Tahoe (26) and later.
+**macOS version gating.** On branch `swift-port` the minimum is macOS 27 on arm64, and the code has no macOS version or architecture branches; `verify_os_version` in `src/osax/payload.m` accepts only macOS 27. Add a branch only when a newer release needs different behavior.
 
 ## Commit & Pull Request Guidelines
 - Commit directly to `master`; no feature branches needed, unless the user asks for a separate branch (e.g. for experimental work).

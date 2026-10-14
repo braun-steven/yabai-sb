@@ -1,17 +1,5 @@
 bool workspace_event_handler_begin(void **context)
 {
-    NSOperatingSystemVersion version = [[NSProcessInfo processInfo] operatingSystemVersion];
-#define SUPPORT_MACOS_VERSION(name, major_version) _workspace_is_macos_version_##name = version.majorVersion == major_version;
-    SUPPORTED_MACOS_VERSION_LIST
-#undef SUPPORT_MACOS_VERSION
-
-    //
-    // NOTE: Releases after Tahoe keep its window server and Dock interfaces, so they take the Tahoe code paths.
-    // Without this, macOS 27 fell back to pre-Sequoia behavior, e.g. a window sub-level query that always returned 0.
-    //
-
-    _workspace_is_macos_version_tahoe = version.majorVersion >= 26;
-
     workspace_context *ws_context = [workspace_context alloc];
     if (!ws_context) return false;
 
@@ -19,17 +7,6 @@ bool workspace_event_handler_begin(void **context)
     *context = ws_context;
 
     return true;
-}
-
-bool workspace_use_macos_space_workaround(void)
-{
-    NSOperatingSystemVersion os_version = [[NSProcessInfo processInfo] operatingSystemVersion];
-
-    if (os_version.majorVersion == 12 && os_version.minorVersion >= 7) return true;
-    if (os_version.majorVersion == 13 && os_version.minorVersion >= 6) return true;
-    if (os_version.majorVersion == 14 && os_version.minorVersion >= 5) return true;
-
-    return os_version.majorVersion >= 15;
 }
 
 void *workspace_application_create_running_ns_application(struct process *process)
@@ -153,11 +130,9 @@ int workspace_display_notch_height(uint32_t did)
 {
     if (!CGDisplayIsBuiltin(did)) return 0;
 
-    if (__builtin_available(macos 12.0, *)) {
-        for (NSScreen *screen in [NSScreen screens]) {
-            if ([[[screen deviceDescription] objectForKey:@"NSScreenNumber"] unsignedIntValue] == did) {
-                return screen.safeAreaInsets.top;
-            }
+    for (NSScreen *screen in [NSScreen screens]) {
+        if ([[[screen deviceDescription] objectForKey:@"NSScreenNumber"] unsignedIntValue] == did) {
+            return screen.safeAreaInsets.top;
         }
     }
 

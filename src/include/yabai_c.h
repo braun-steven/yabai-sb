@@ -15,15 +15,10 @@
 #include <mach-o/swap.h>
 #include <bootstrap.h>
 
-#ifdef __x86_64__
-#include <emmintrin.h>
-#elif __arm64__
 #include <arm_neon.h>
 
 // the entry point of the daemon and the client in yabai.c, called by main.swift
 int yabai_main(int argc, char **argv);
-
-#endif
 
 #include <stdio.h>
 #include <stddef.h>

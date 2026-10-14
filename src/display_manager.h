@@ -72,7 +72,6 @@ CGRect display_manager_menu_bar_rect(uint32_t did);
 bool display_manager_dock_hidden(void);
 int display_manager_dock_orientation(void);
 CGRect display_manager_dock_rect(void);
-bool display_manager_display_is_animating(uint32_t did);
 int display_manager_active_display_count(void);
 uint32_t *display_manager_active_display_list(int *count);
 uint32_t display_manager_focus_display_with_window_at_point(CGPoint point);

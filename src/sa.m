@@ -314,7 +314,6 @@ static bool scripting_addition_is_sip_friendly(void)
     return true;
 }
 
-#ifdef __arm64__
 static bool scripting_addition_is_arm64e_enabled(void)
 {
     char bootargs[2048];
@@ -328,7 +327,6 @@ static bool scripting_addition_is_arm64e_enabled(void)
 
     return false;
 }
-#endif
 
 static bool mach_loader_inject_payload(void)
 {
@@ -390,14 +388,12 @@ int scripting_addition_load(void)
         goto out;
     }
 
-#ifdef __arm64__
     if (!scripting_addition_is_arm64e_enabled()) {
         warn("yabai: missing required nvram boot-arg '-arm64e_preview_abi'!\n");
         notify("scripting-addition", "missing required nvram boot-arg '-arm64e_preview_abi'!");
         result = 1;
         goto out;
     }
-#endif
 
     if (!mach_loader_inject_payload()) {
         warn("yabai: scripting-addition failed to inject payload into Dock.app!\n");

@@ -19,7 +19,7 @@ let warnings = ["-Wall", "-Wextra", "-Wstrict-prototypes", "-Wimplicit-fallthrou
 
 let package = Package(
     name: "yabai",
-    platforms: [.macOS("12.0")],
+    platforms: [.macOS("27.0")],
     products: [
         .executable(name: "yabai", targets: ["Yabai"])
     ],

@@ -104,10 +104,8 @@ static EVENT_HANDLER(DOCK_DID_RESTART)
 
     scripting_addition_payload_changed();
 
-    if (workspace_is_macos_monterey_or_newer()) {
-        mission_control_unobserve();
-        mission_control_observe();
-    }
+    mission_control_unobserve();
+    mission_control_observe();
 
     event_signal_push(SIGNAL_DOCK_DID_RESTART, NULL);
 }

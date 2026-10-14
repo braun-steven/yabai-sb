@@ -972,40 +972,24 @@ void window_manager_toggle_window_shadow(struct window *window)
 
 #define NATIVE_FULLSCREEN_WAIT_ITERATIONS 30
 
-void window_manager_wait_for_native_fullscreen_transition(struct window *window)
+void window_manager_wait_for_native_fullscreen_transition(void)
 {
     TIME_FUNCTION;
 
-    if (workspace_is_macos_monterey_or_newer()) {
-        for (int i = 0; i < NATIVE_FULLSCREEN_WAIT_ITERATIONS && !space_is_user(space_manager_active_space()); ++i) {
+    for (int i = 0; i < NATIVE_FULLSCREEN_WAIT_ITERATIONS && !space_is_user(space_manager_active_space()); ++i) {
 
-            //
-            // NOTE(asmvik): Window has exited native-fullscreen mode.
-            // We need to spin lock until the display is finished animating
-            // because we are not actually able to interact with the window.
-            //
-            // The display_manager API does not work on macOS Monterey.
-            //
-            // NOTE: The wait is bounded, because the space we wait for may never become active
-            // (e.g. the transition was cancelled), and this blocks the event loop.
-            //
+        //
+        // NOTE(asmvik): Window has exited native-fullscreen mode.
+        // We need to spin lock until the display is finished animating
+        // because we are not actually able to interact with the window.
+        //
+        // The display_manager API does not work on macOS Monterey.
+        //
+        // NOTE: The wait is bounded, because the space we wait for may never become active
+        // (e.g. the transition was cancelled), and this blocks the event loop.
+        //
 
-            usleep(100000);
-        }
-    } else {
-        uint32_t did = window_display_id(window->id);
-        int i = 0;
-
-        do {
-
-            //
-            // NOTE(asmvik): Window has exited native-fullscreen mode.
-            // We need to spin lock until the display is finished animating
-            // because we are not actually able to interact with the window.
-            //
-
-            usleep(100000);
-        } while (display_manager_display_is_animating(did) && ++i < NATIVE_FULLSCREEN_WAIT_ITERATIONS);
+        usleep(100000);
     }
 }
 
@@ -1036,7 +1020,7 @@ void window_manager_toggle_window_native_fullscreen(struct window *window)
     // now spin lock until the post-exit space animation has finished.
     //
 
-    window_manager_wait_for_native_fullscreen_transition(window);
+    window_manager_wait_for_native_fullscreen_transition();
 }
 
 static void window_manager_toggle_window_zoom(struct window_manager *wm, struct window *window, enum con_zoom zoom)

@@ -41,8 +41,6 @@ static int border_show_count;
 static uint32_t border_hide_list[64];
 static int border_hide_count;
 
-static CFArrayRef (*border_corner_radii_func)(CFTypeRef iterator);
-static bool border_corner_radii_resolved;
 
 static TABLE_HASH_FUNC(border_hash)
 {
@@ -101,19 +99,11 @@ void border_edge_frames(CGRect frame, float width, float radius, CGRect *edge)
 }
 
 //
-// NOTE: macOS 26 gives windows different corner radii, which SkyLight reports per window. Older versions have no
-// such function and use the same radius for every window.
+// NOTE: Since macOS 26 windows have different corner radii, which SkyLight reports per window.
 //
 
 static float border_window_radius(uint32_t wid)
 {
-    if (!border_corner_radii_resolved) {
-        border_corner_radii_func = dlsym(RTLD_DEFAULT, "SLSWindowIteratorGetCornerRadii");
-        border_corner_radii_resolved = true;
-    }
-
-    if (!border_corner_radii_func) return BORDER_DEFAULT_RADIUS;
-
     int radius = 0;
     CFArrayRef window_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
     CFTypeRef query = SLSWindowQueryWindows(g_connection, window_ref, 1);
@@ -121,7 +111,7 @@ static float border_window_radius(uint32_t wid)
         CFTypeRef iterator = SLSWindowQueryResultCopyWindows(query);
         if (iterator) {
             if (SLSWindowIteratorAdvance(iterator)) {
-                CFArrayRef radii = border_corner_radii_func(iterator);
+                CFArrayRef radii = SLSWindowIteratorGetCornerRadii(iterator);
                 if (radii) {
                     if (CFArrayGetCount(radii) > 0) {
                         CFNumberGetValue(CFArrayGetValueAtIndex(radii, 0), kCFNumberIntType, &radius);
@@ -524,7 +514,6 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
         table_add(&border_table, &border->wid, border);
     }
 
-    bool added = false;
     if (border) {
         float inset_top    = enabled ? window_area.y - border_area.y : border->inset_top;
         float inset_left   = enabled ? window_area.x - border_area.x : border->inset_left;
@@ -549,7 +538,6 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
                        border->width != border_settings.width ||
                        border->shown != enabled;
 
-        added = !border->enabled && enabled;
         border->enabled = enabled;
         border->focused = focused;
         border->inset_top = inset_top;
@@ -571,10 +559,6 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
     }
 
     pthread_mutex_unlock(&border_lock);
-
-    if (added && !workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
 }
 
 void border_begin_batch(void)
@@ -833,19 +817,4 @@ void border_window_hidden(uint32_t wid)
 
 out:
     pthread_mutex_unlock(&border_lock);
-}
-
-int border_window_list(uint32_t *window_list, int capacity)
-{
-    int count = 0;
-    pthread_mutex_lock(&border_lock);
-
-    if (border_table_ready) {
-        table_for (struct border *border, border_table, {
-            if (border->enabled && count < capacity) window_list[count++] = border->wid;
-        })
-    }
-
-    pthread_mutex_unlock(&border_lock);
-    return count;
 }

@@ -81,6 +81,7 @@ static void *window_manager_build_window_proxy_thread_proc(void *data)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static CVReturn window_manager_animate_window_list_thread_proc(CVDisplayLinkRef link, const CVTimeStamp *now, const CVTimeStamp *output_time, CVOptionFlags flags, CVOptionFlags *flags_out, void *data)
 {
     struct window_animation_context *context = data;
@@ -255,11 +256,19 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
     window_manager_set_window_frames(window_list, window_count);
     });
 
+    //
+    // NOTE: CVDisplayLink is deprecated since macOS 15. P13 of doc/swift-port.md replaces it with
+    // NSScreen.displayLink; until then the deprecation warnings are silenced here and in the callback.
+    //
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     CVDisplayLinkRef link;
     SLSReenableUpdate(context->animation_connection);
     CVDisplayLinkCreateWithActiveCGDisplays(&link);
     CVDisplayLinkSetOutputCallback(link, window_manager_animate_window_list_thread_proc, context);
     CVDisplayLinkStart(link);
+#pragma clang diagnostic pop
 }
 
 //

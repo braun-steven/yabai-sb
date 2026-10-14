@@ -64,48 +64,46 @@ void tab_bar_glass_order_panel(uint32_t wid, bool below, uint32_t relative_wid)
 
 void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count)
 {
-    if (@available(macOS 26.0, *)) {
-        struct rgba_color track_tint = tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
-        struct rgba_color pill_tint = track_tint;
+    struct rgba_color track_tint = tab_bar_glass_tint(g_window_manager.tab_bar_unfocused_color, g_window_manager.tab_bar_unfocused_color_custom, TAB_BAR_GLASS_TRACK_TINT_ALPHA);
+    struct rgba_color pill_tint = track_tint;
 
-        struct tab_bar_glass_snapshot *snapshot = malloc(sizeof(struct tab_bar_glass_snapshot));
-        snapshot->frame = bar->frame;
-        snapshot->card = bar->card;
-        snapshot->backdrop = g_window_manager.tab_bar_backdrop;
-        snapshot->card_radius = g_window_manager.tab_bar_window_radius + (bar->frame.origin.x - bar->card.origin.x);
-        snapshot->sid = bar->sid;
-        snapshot->above_wid = above_wid;
-        snapshot->level = window_level(above_wid);
-        snapshot->sub_level = window_sub_level(above_wid);
-        snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
-        snapshot->track_tint = tab_bar_cgcolor(track_tint);
-        snapshot->backdrop_tint = tab_bar_cgcolor(tab_bar_glass_tint(g_window_manager.tab_bar_backdrop_color, g_window_manager.tab_bar_backdrop_color_custom, TAB_BAR_GLASS_BACKDROP_TINT_ALPHA));
-        snapshot->separator = tab_bar_cgcolor(tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color));
-        snapshot->entry_count = entry_count;
-        snapshot->entry_list = malloc(sizeof(struct tab_bar_glass_entry) * entry_count);
+    struct tab_bar_glass_snapshot *snapshot = malloc(sizeof(struct tab_bar_glass_snapshot));
+    snapshot->frame = bar->frame;
+    snapshot->card = bar->card;
+    snapshot->backdrop = g_window_manager.tab_bar_backdrop;
+    snapshot->card_radius = g_window_manager.tab_bar_window_radius + (bar->frame.origin.x - bar->card.origin.x);
+    snapshot->sid = bar->sid;
+    snapshot->above_wid = above_wid;
+    snapshot->level = window_level(above_wid);
+    snapshot->sub_level = window_sub_level(above_wid);
+    snapshot->font = g_window_manager.tab_bar_font ? CFRetain(g_window_manager.tab_bar_font) : NULL;
+    snapshot->track_tint = tab_bar_cgcolor(track_tint);
+    snapshot->backdrop_tint = tab_bar_cgcolor(tab_bar_glass_tint(g_window_manager.tab_bar_backdrop_color, g_window_manager.tab_bar_backdrop_color_custom, TAB_BAR_GLASS_BACKDROP_TINT_ALPHA));
+    snapshot->separator = tab_bar_cgcolor(tab_bar_separator_color(g_window_manager.tab_bar_unfocused_text_color));
+    snapshot->entry_count = entry_count;
+    snapshot->entry_list = malloc(sizeof(struct tab_bar_glass_entry) * entry_count);
 
-        for (int i = 0; i < entry_count; ++i) {
-            struct rgba_color background, text;
-            struct tab_bar_glass_entry *entry = &snapshot->entry_list[i];
-            tab_bar_state_colors(entry_list[i].state, &background, &text);
+    for (int i = 0; i < entry_count; ++i) {
+        struct rgba_color background, text;
+        struct tab_bar_glass_entry *entry = &snapshot->entry_list[i];
+        tab_bar_state_colors(entry_list[i].state, &background, &text);
 
-            entry->title = entry_list[i].title ? CFRetain(entry_list[i].title) : NULL;
-            entry->icon = entry_list[i].icon ? CGImageRetain(entry_list[i].icon) : NULL;
-            entry->text = tab_bar_cgcolor(text);
-            entry->active = entry_list[i].state != TAB_BAR_UNFOCUSED;
+        entry->title = entry_list[i].title ? CFRetain(entry_list[i].title) : NULL;
+        entry->icon = entry_list[i].icon ? CGImageRetain(entry_list[i].icon) : NULL;
+        entry->text = tab_bar_cgcolor(text);
+        entry->active = entry_list[i].state != TAB_BAR_UNFOCUSED;
 
-            if (entry_list[i].state == TAB_BAR_FOCUSED) {
-                pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_focused_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
-            } else if (entry_list[i].state == TAB_BAR_INACTIVE) {
-                pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_inactive_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
-            }
+        if (entry_list[i].state == TAB_BAR_FOCUSED) {
+            pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_focused_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
+        } else if (entry_list[i].state == TAB_BAR_INACTIVE) {
+            pill_tint = tab_bar_glass_tint(background, g_window_manager.tab_bar_inactive_color_custom, TAB_BAR_GLASS_PILL_TINT_ALPHA);
         }
-
-        snapshot->pill_tint = tab_bar_cgcolor(pill_tint);
-
-        if (!bar->glass) bar->glass = tab_bar_glass_create();
-        tab_bar_glass_apply(bar->glass, snapshot);
     }
+
+    snapshot->pill_tint = tab_bar_cgcolor(pill_tint);
+
+    if (!bar->glass) bar->glass = tab_bar_glass_create();
+    tab_bar_glass_apply(bar->glass, snapshot);
 }
 
 void tab_bar_glass_hide(struct tab_bar *bar)

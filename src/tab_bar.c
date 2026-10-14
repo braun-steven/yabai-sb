@@ -368,8 +368,7 @@ static void tab_bar_draw(struct tab_bar *bar, struct tab_bar_entry *entry_list, 
 
 static inline bool tab_bar_uses_glass(void)
 {
-    if (@available(macOS 26.0, *)) return g_window_manager.tab_bar_style == TAB_BAR_STYLE_GLASS;
-    return false;
+    return g_window_manager.tab_bar_style == TAB_BAR_STYLE_GLASS;
 }
 
 int tab_bar_card_padding(void)
@@ -458,7 +457,6 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t abo
         bar->sid = sid;
     }
 
-    bool above_changed = bar->above_wid != above_wid;
     bar->above_wid = above_wid;
     bar->hidden = false;
     bar->entry_count = entry_count;
@@ -475,10 +473,6 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t abo
         tab_bar_keep_on_space(bar);
     } else {
         tab_bar_glass_render(bar, above_wid, entry_list, entry_count);
-    }
-
-    if (above_changed && !workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
     }
 
     tab_bar_publish_hits();
@@ -524,10 +518,6 @@ void tab_bar_release(struct tab_bar *bar)
     bar->owner = owner;
     bar->redraw = redraw;
 
-    if (!workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
-
     tab_bar_publish_hits();
 }
 
@@ -557,17 +547,6 @@ void tab_bar_order(uint32_t wid)
             tab_bar_glass_order(bar, wid);
         }
     }
-}
-
-int tab_bar_window_list(uint32_t *window_list, int capacity)
-{
-    int count = 0;
-
-    for (int i = 0; i < buf_len(tab_bar_list) && count < capacity; ++i) {
-        window_list[count++] = tab_bar_list[i]->above_wid;
-    }
-
-    return count;
 }
 
 void tab_bar_redraw_all(void)

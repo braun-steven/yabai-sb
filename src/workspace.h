@@ -1,38 +1,6 @@
 #ifndef WORKSPACE_H
 #define WORKSPACE_H
 
-#define SUPPORTED_MACOS_VERSION_LIST    \
-    SUPPORT_MACOS_VERSION(tahoe,    26) \
-    SUPPORT_MACOS_VERSION(sequoia,  15) \
-    SUPPORT_MACOS_VERSION(sonoma,   14) \
-    SUPPORT_MACOS_VERSION(ventura,  13) \
-    SUPPORT_MACOS_VERSION(monterey, 12) \
-    SUPPORT_MACOS_VERSION(bigsur,   11)
-
-#define SUPPORT_MACOS_VERSION(name, major_version) \
-static bool _workspace_is_macos_version_##name; \
-static inline bool workspace_is_macos_##name(void) \
-{ \
-    return _workspace_is_macos_version_##name; \
-}
-    SUPPORTED_MACOS_VERSION_LIST
-#undef SUPPORT_MACOS_VERSION
-
-static inline bool workspace_is_macos_sequoia_or_newer(void)
-{
-    return workspace_is_macos_sequoia() || workspace_is_macos_tahoe();
-}
-
-static inline bool workspace_is_macos_ventura_or_newer(void)
-{
-    return workspace_is_macos_ventura() || workspace_is_macos_sonoma() || workspace_is_macos_sequoia_or_newer();
-}
-
-static inline bool workspace_is_macos_monterey_or_newer(void)
-{
-    return workspace_is_macos_monterey() || workspace_is_macos_ventura_or_newer();
-}
-
 @interface workspace_context : NSObject {
 }
 - (id)init;
@@ -51,6 +19,5 @@ void workspace_application_unobserve_activation_policy(void *context, struct pro
 int workspace_display_notch_height(uint32_t did);
 pid_t workspace_get_dock_pid(void);
 bool workspace_event_handler_begin(void **context);
-bool workspace_use_macos_space_workaround(void);
 
 #endif

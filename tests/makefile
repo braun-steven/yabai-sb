@@ -3,13 +3,13 @@ FRAMEWORK      = -framework Carbon -framework Cocoa -framework CoreServices -fra
 # same language and warning flags as ../makefile; -DTESTS removes main() and the code only it calls, hence -Wno-unused-function.
 # Tests run under ASan/UBSan, and any undefined behavior aborts the run.
 TEST_FLAGS     = -std=c11 -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference -Wno-unused-function \
-                 -g -O0 -fno-objc-arc -mmacosx-version-min=11.0 \
+                 -g -O0 -fno-objc-arc -mmacosx-version-min=27.0 \
                  -fsanitize=address,undefined -fno-sanitize-recover=undefined
 # the Swift code of the daemon (all of ../Sources/Yabai but main.swift) as one object for the host architecture. It sees the
 # C headers as the module YabaiC (../src/include/module.modulemap), like in Package.swift.
 SWIFT_SRC      = $(filter-out %/main.swift,$(wildcard ../Sources/Yabai/*.swift))
 SWIFT_FLAGS    = -swift-version 6 -parse-as-library -module-name Yabai -I ../src/include -Xcc -DTESTS -Xcc -DPROFILE=1 \
-                 -wmo -emit-object -g -Onone -sanitize=address -target $(shell uname -m)-apple-macos11.0
+                 -wmo -emit-object -g -Onone -sanitize=address -target $(shell uname -m)-apple-macos27.0
 SWIFT_LINK     = -L$(shell xcrun --show-sdk-path)/usr/lib/swift -L$(shell dirname $(shell xcrun -f swiftc))/../lib/swift/macosx -Wl,-rpath,/usr/lib/swift
 
 .PHONY: clean build run all

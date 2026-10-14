@@ -34,9 +34,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
 
     border_refresh_window_space(window);
 
-    if (workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
+    update_window_notifications();
 }
 
 static EVENT_HANDLER(WINDOW_DESTROYED)
@@ -73,9 +71,7 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
         border_refresh_space(g_space_manager.current_space_id);
     }
 
-    if (workspace_is_macos_sequoia_or_newer()) {
-        update_window_notifications();
-    }
+    update_window_notifications();
 }
 
 static EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)
@@ -216,7 +212,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
             window_manager_unmanage_window(&g_window_manager, view, window);
         }
     } else if (was_fullscreen && !is_fullscreen) {
-        window_manager_wait_for_native_fullscreen_transition(window);
+        window_manager_wait_for_native_fullscreen_transition();
 
         if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
             window_manager_manage_window(&g_space_manager, &g_window_manager, window, window_space(window->id), 0);

@@ -30,12 +30,8 @@
 
 #include "common.h"
 
-#ifdef __x86_64__
-#include "x64_payload.m"
-#elif __arm64__
 #include "arm64_payload.m"
 #include <ptrauth.h>
-#endif
 
 #define HASHTABLE_IMPLEMENTATION
 #include "../misc/hashtable.h"
@@ -89,7 +85,6 @@ static uint64_t remove_space_fp;
 static uint64_t move_space_fp;
 static uint64_t set_front_window_fp;
 static uint64_t animation_time_addr;
-static bool macOSSequoia;
 
 static pthread_t daemon_thread;
 static int daemon_sockfd;
@@ -133,12 +128,20 @@ static Class dump_class_info_by_name(const char *name)
     return c;
 }
 
+//
+// NOTE: getsegbyname is deprecated since macOS 13, but still returns the __TEXT segment of Dock, which the
+// pattern offsets are relative to. Its warning only shows since the deployment target is macOS 27.
+//
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 static uint64_t static_base_address(void)
 {
     const struct segment_command_64 *command = getsegbyname("__TEXT");
     uint64_t addr = command->vmaddr;
     return addr;
 }
+#pragma clang diagnostic pop
 
 static uint64_t image_slide(void)
 {
@@ -199,7 +202,6 @@ loop:
     return addr;
 }
 
-#if __arm64__
 uint64_t decode_adrp_add(uint64_t addr, uint64_t offset)
 {
     uint32_t adrp_instr = *(uint32_t *) addr;
@@ -219,51 +221,14 @@ uint64_t decode_adrp_add(uint64_t addr, uint64_t offset)
 
     return (offset & 0xfffffffffffff000) + value_64 + imm12;
 }
-#endif
 
 static bool verify_os_version(NSOperatingSystemVersion os_version)
 {
     NSLog(@"[yabai-sa] checking for macOS %ld.%ld.%ld compatibility!", os_version.majorVersion, os_version.minorVersion, os_version.patchVersion);
 
-#ifdef __x86_64__
-    if (os_version.majorVersion == 11) {
-        return true; // Big Sur 11.0
-    } else if (os_version.majorVersion == 12) {
-        return true; // Monterey 12.0
-    } else if (os_version.majorVersion == 13) {
-        return true; // Ventura 13.0
-    } else if (os_version.majorVersion == 14) {
-        return true; // Sonoma 14.0
-    } else if (os_version.majorVersion == 15) {
-        macOSSequoia = true;
-        return true; // Sequoia 15.0
-    } else if (os_version.majorVersion == 26) {
+    if (os_version.majorVersion == 27) return true;
 
-        NSLog(@"[yabai-sa] Detected Tahoe Preview... flagging 'macOSSequoia=true.'");
-        macOSSequoia = true;
-        return true; // Tahoe preview
-    }
-
-    NSLog(@"[yabai-sa] spaces functionality is only supported on macOS Big Sur 11.0.0+, Monterey 12.0.0+, Ventura 13.0.0+, Sonoma 14.0.0+, and Sequoia 15.0");
-#elif __arm64__
-    if (os_version.majorVersion == 12) {
-        return true; // Monterey 12.0
-    } else if (os_version.majorVersion == 13) {
-        return true; // Ventura 13.0
-    } else if (os_version.majorVersion == 14) {
-        return true; // Sonoma 14.0
-    } else if (os_version.majorVersion == 15) {
-        macOSSequoia = true;
-        return true; // Sequoia 15.0
-    } else if (os_version.majorVersion == 26 || os_version.majorVersion == 27) {
-
-        NSLog(@"[yabai-sa] Detected Tahoe Preview... flagging 'macOSSequoia=true.'");
-        macOSSequoia = true;
-        return true; // Tahoe preview
-    }
-
-    NSLog(@"[yabai-sa] spaces functionality is only supported on macOS Monterey 12.0.0+, and Ventura 13.0.0+, Sonoma 14.0.0+, and Sequoia 15.0");
-#endif
+    NSLog(@"[yabai-sa] spaces functionality is only supported on macOS 27");
 
     return false;
 }
@@ -275,36 +240,24 @@ static void init_instances()
 
     uint64_t baseaddr = static_base_address() + image_slide();
 
-    uint64_t dock_spaces_addr = hex_find_seq(baseaddr + get_dock_spaces_offset(os_version), get_dock_spaces_pattern(os_version));
+    uint64_t dock_spaces_addr = hex_find_seq(baseaddr + get_dock_spaces_offset(), get_dock_spaces_pattern());
     if (dock_spaces_addr == 0) {
         dock_spaces = nil;
         NSLog(@"[yabai-sa] could not locate pointer to dock.spaces! spaces functionality will not work!");
     } else {
-#ifdef __x86_64__
-        uint32_t dock_spaces_offset = *(int32_t *)dock_spaces_addr;
-        NSLog(@"[yabai-sa] (0x%llx) dock.spaces found at address 0x%llX (0x%llx)", baseaddr, dock_spaces_addr, dock_spaces_addr - baseaddr);
-        dock_spaces = [(*(id *)(dock_spaces_addr + dock_spaces_offset + 0x4)) retain];
-#elif __arm64__
         uint64_t dock_spaces_offset = decode_adrp_add(dock_spaces_addr, dock_spaces_addr - baseaddr);
         NSLog(@"[yabai-sa] (0x%llx) dock.spaces found at address 0x%llX (0x%llx)", baseaddr, dock_spaces_offset, dock_spaces_offset - baseaddr);
         dock_spaces = [(*(id *)(baseaddr + dock_spaces_offset)) retain];
-#endif
     }
 
-    uint64_t dppm_addr = hex_find_seq(baseaddr + get_dppm_offset(os_version), get_dppm_pattern(os_version));
+    uint64_t dppm_addr = hex_find_seq(baseaddr + get_dppm_offset(), get_dppm_pattern());
     if (dppm_addr == 0) {
         dp_desktop_picture_manager = nil;
         NSLog(@"[yabai-sa] could not locate pointer to dppm! moving spaces will not work!");
     } else {
-#ifdef __x86_64__
-        uint32_t dppm_offset = *(int32_t *)dppm_addr;
-        NSLog(@"[yabai-sa] (0x%llx) dppm found at address 0x%llX (0x%llx)", baseaddr, dppm_addr, dppm_addr - baseaddr);
-        dp_desktop_picture_manager = [(*(id *)(dppm_addr + dppm_offset + 0x4)) retain];
-#elif __arm64__
         uint64_t dppm_offset = decode_adrp_add(dppm_addr, dppm_addr - baseaddr);
         NSLog(@"[yabai-sa] (0x%llx) dppm found at address 0x%llX (0x%llx)", baseaddr, dppm_offset, dppm_offset - baseaddr);
         dp_desktop_picture_manager = [(*(id *)(baseaddr + dppm_offset)) retain];
-#endif
 
         //
         // @hack
@@ -316,80 +269,54 @@ static void init_instances()
         // the subtract to arrive at the correct location in cases where the usual location is null.
         //
 
-#ifdef __x86_64__
-        if (dp_desktop_picture_manager == nil) {
-            dp_desktop_picture_manager = [(*(id *)(dppm_addr + dppm_offset + 0x4 - 0x8)) retain];
-        }
-#elif __arm64__
         if (dp_desktop_picture_manager == nil) {
             dp_desktop_picture_manager = [(*(id *)(baseaddr + dppm_offset - 0x8)) retain];
         }
-#endif
     }
 
-    uint64_t add_space_addr = hex_find_seq(baseaddr + get_add_space_offset(os_version), get_add_space_pattern(os_version));
+    uint64_t add_space_addr = hex_find_seq(baseaddr + get_add_space_offset(), get_add_space_pattern());
     if (add_space_addr == 0x0) {
         NSLog(@"[yabai-sa] failed to get pointer to addSpace function..");
         add_space_fp = 0;
     } else {
         NSLog(@"[yabai-sa] (0x%llx) addSpace found at address 0x%llX (0x%llx)", baseaddr, add_space_addr, add_space_addr - baseaddr);
-#ifdef __x86_64__
-        add_space_fp = add_space_addr;
-#elif __arm64__
         add_space_fp = (uint64_t) ptrauth_sign_unauthenticated((void *) add_space_addr, ptrauth_key_asia, 0);
-#endif
     }
 
-    uint64_t remove_space_addr = hex_find_seq(baseaddr + get_remove_space_offset(os_version), get_remove_space_pattern(os_version));
+    uint64_t remove_space_addr = hex_find_seq(baseaddr + get_remove_space_offset(), get_remove_space_pattern());
     if (remove_space_addr == 0x0) {
         NSLog(@"[yabai-sa] failed to get pointer to removeSpace function..");
         remove_space_fp = 0;
     } else {
         NSLog(@"[yabai-sa] (0x%llx) removeSpace found at address 0x%llX (0x%llx)", baseaddr, remove_space_addr, remove_space_addr - baseaddr);
-#ifdef __x86_64__
-        remove_space_fp = remove_space_addr;
-#elif __arm64__
         remove_space_fp = (uint64_t) ptrauth_sign_unauthenticated((void *) remove_space_addr, ptrauth_key_asia, 0);
-#endif
     }
 
-    uint64_t move_space_addr = hex_find_seq(baseaddr + get_move_space_offset(os_version), get_move_space_pattern(os_version));
+    uint64_t move_space_addr = hex_find_seq(baseaddr + get_move_space_offset(), get_move_space_pattern());
     if (move_space_addr == 0x0) {
         NSLog(@"[yabai-sa] failed to get pointer to moveSpace function..");
         move_space_fp = 0;
     } else {
         NSLog(@"[yabai-sa] (0x%llx) moveSpace found at address 0x%llX (0x%llx)", baseaddr, move_space_addr, move_space_addr - baseaddr);
-#ifdef __x86_64__
-        move_space_fp = move_space_addr;
-#elif __arm64__
         move_space_fp = (uint64_t) ptrauth_sign_unauthenticated((void *) move_space_addr, ptrauth_key_asia, 0);
-#endif
     }
 
-    uint64_t set_front_window_addr = hex_find_seq(baseaddr + get_set_front_window_offset(os_version), get_set_front_window_pattern(os_version));
+    uint64_t set_front_window_addr = hex_find_seq(baseaddr + get_set_front_window_offset(), get_set_front_window_pattern());
     if (set_front_window_addr == 0x0) {
         NSLog(@"[yabai-sa] failed to get pointer to setFrontWindow function..");
         set_front_window_fp = 0;
     } else {
         NSLog(@"[yabai-sa] (0x%llx) setFrontWindow found at address 0x%llX (0x%llx)", baseaddr, set_front_window_addr, set_front_window_addr - baseaddr);
-#ifdef __x86_64__
-        set_front_window_fp = set_front_window_addr;
-#elif __arm64__
         set_front_window_fp = (uint64_t) ptrauth_sign_unauthenticated((void *) set_front_window_addr, ptrauth_key_asia, 0);
-#endif
     }
 
-    animation_time_addr = hex_find_seq(baseaddr + get_fix_animation_offset(os_version), get_fix_animation_pattern(os_version));
+    animation_time_addr = hex_find_seq(baseaddr + get_fix_animation_offset(), get_fix_animation_pattern());
     if (animation_time_addr == 0x0) {
         NSLog(@"[yabai-sa] failed to get pointer to animation-time..");
     } else {
         NSLog(@"[yabai-sa] (0x%llx) animation_time_addr found at address 0x%llX (0x%llx)", baseaddr, animation_time_addr, animation_time_addr - baseaddr);
         if (vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) == KERN_SUCCESS) {
-#ifdef __x86_64__
-            *(uint64_t *) animation_time_addr = 0x660fefc0660fefc0;
-#elif __arm64__
             *(uint32_t *) animation_time_addr = 0x2f00e400;
-#endif
             vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_EXECUTE);
         } else {
             NSLog(@"[yabai-sa] animation_time_addr vm_protect failed; unable to patch instruction!");
@@ -577,9 +504,7 @@ static void do_space_create(char *message)
 
     CFStringRef __block display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), space_id);
     dispatch_sync(dispatch_get_main_queue(), ^{
-        id new_space = macOSSequoia
-                     ? [[objc_getClass("ManagedSpace") alloc] init]
-                     : [[objc_getClass("Dock.ManagedSpace") alloc] init];
+        id new_space = [[objc_getClass("ManagedSpace") alloc] init];
         id display_space = display_space_for_display_uuid(display_uuid);
         asm__call_add_space(new_space, display_space, add_space_fp);
         CFRelease(display_uuid);
@@ -597,9 +522,7 @@ static void do_space_focus(char *message)
         CFStringRef dest_display = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), dest_space_id);
 
         dispatch_sync(dispatch_get_main_queue(), ^{
-            id source_space = macOSSequoia
-                            ? ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display)
-                            : ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceforDisplayUUID:), dest_display);
+            id source_space = ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display);
             uint64_t source_space_id = get_space_id(source_space);
             if (source_space_id == dest_space_id) return;
 

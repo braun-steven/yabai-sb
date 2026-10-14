@@ -527,28 +527,31 @@ struct window *window_manager_find_window_on_space_by_rank_filtering_window(stru
     return result;
 }
 
-struct window *window_manager_find_window_at_point_filtering_window(struct window_manager *wm, CGPoint point, uint32_t filter_wid)
+//
+// NOTE: The window at point, starting below start_wid (order -1) or from the top (start_wid 0, order 1).
+// Windows of our own connection (borders, tab bars) are skipped.
+//
+
+static struct window *window_manager_find_window_at_point_from(struct window_manager *wm, CGPoint point, uint32_t start_wid, int order)
 {
     CGPoint window_point;
     uint32_t window_id;
     int window_cid;
 
-    SLSFindWindowAndOwner(g_connection, filter_wid, -1, 0, &point, &window_point, &window_id, &window_cid);
+    SLSFindWindowAndOwner(g_connection, start_wid, order, 0, &point, &window_point, &window_id, &window_cid);
     while (window_id && g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
 
     return window_manager_find_window(wm, window_id);
 }
 
+struct window *window_manager_find_window_at_point_filtering_window(struct window_manager *wm, CGPoint point, uint32_t filter_wid)
+{
+    return window_manager_find_window_at_point_from(wm, point, filter_wid, -1);
+}
+
 struct window *window_manager_find_window_at_point(struct window_manager *wm, CGPoint point)
 {
-    CGPoint window_point;
-    uint32_t window_id;
-    int window_cid;
-
-    SLSFindWindowAndOwner(g_connection, 0, 1, 0, &point, &window_point, &window_id, &window_cid);
-    while (window_id && g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-
-    return window_manager_find_window(wm, window_id);
+    return window_manager_find_window_at_point_from(wm, point, 0, 1);
 }
 
 struct window *window_manager_find_window_below_cursor(struct window_manager *wm)

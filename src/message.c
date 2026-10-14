@@ -229,13 +229,7 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
         if (string_equals(key, ARGUMENT_RULE_KEY_LABEL)) {
             parse_rule_string(&rule->label, value);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SCRATCHPAD)) {
-            for (int i = 0; i < array_count(reserved_window_identifiers); ++i) {
-                if (string_equals(value, reserved_window_identifiers[i])) {
-                    valid_value = false;
-                    break;
-                }
-            }
-
+            valid_value = !label_is_reserved(LABEL_WINDOW, (struct token) { .text = value, .length = strlen(value) });
             if (valid_value) {
                 parse_rule_string(&rule->effects.scratchpad, value);
                 rule->effects.manage = RULE_PROP_OFF;

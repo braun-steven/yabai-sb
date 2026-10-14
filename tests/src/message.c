@@ -123,6 +123,30 @@ TEST_FUNC(message_window_toggle_lookup,
     TEST_CHECK(window_toggle_for_value(message_test_token("floa")) == NULL, true);
 });
 
+static char *message_test_parse_label(char *text, enum label_type type, char **label)
+{
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    if (!parse_label(rsp, message_test_token(text), type, label)) *label = NULL;
+    fclose(rsp);
+    return message_test_response;
+}
+
+TEST_FUNC(message_label_reserved,
+{
+    char *label;
+
+    // NOTE: directions only select displays, so they are valid space labels
+    TEST_CHECK(strstr(message_test_parse_label("west", LABEL_DISPLAY, &label), "cannot be used as a label") != NULL, true);
+    TEST_CHECK(message_test_parse_label("west", LABEL_SPACE, &label)[0], '\0');
+    TEST_CHECK(strcmp(label, "west"), 0);
+    free(label);
+
+    TEST_CHECK(strstr(message_test_parse_label("float", LABEL_WINDOW, &label), "cannot be used as a scratchpad") != NULL, true);
+    TEST_CHECK(label == NULL, true);
+    TEST_CHECK(strstr(message_test_parse_label("recent", LABEL_SPACE, &label), "reserved keyword") != NULL, true);
+});
+
 static char message_test_rule_buffer[256];
 
 static bool message_test_parse_rule(const char *message, size_t size, struct rule *rule, char **response)
@@ -178,6 +202,11 @@ TEST_FUNC(message_rule_parse,
     TEST_CHECK(rule_check_flag(&rule, RULE_APP_VALID) != 0, true);
     TEST_CHECK(rule_check_flag(&rule, RULE_APP_EXCLUDE) != 0, false);
     TEST_CHECK(strcmp(rule.label, "y"), 0);
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=x\0scratchpad=float\0", &rule, &response), false);
+    TEST_CHECK(strstr(response, "invalid value 'float' for key 'scratchpad'") != NULL, true);
+    TEST_CHECK(rule.effects.scratchpad == NULL, true);
     rule_destroy(&rule);
 
     TEST_CHECK(MESSAGE_TEST_RULE("app=x\0app=(\0", &rule, &response), false);

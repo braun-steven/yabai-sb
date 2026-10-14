@@ -682,6 +682,25 @@ static char *reserved_window_identifiers[] =
     ARGUMENT_WINDOW_SCRATCHPAD_RECOVER
 };
 
+static struct {
+    char **identifiers;
+    int count;
+    char *noun;
+} label_reserved[] = {
+    [LABEL_DISPLAY] = { reserved_display_identifiers, array_count(reserved_display_identifiers), "label" },
+    [LABEL_SPACE]   = { reserved_space_identifiers,   array_count(reserved_space_identifiers),   "label" },
+    [LABEL_WINDOW]  = { reserved_window_identifiers,  array_count(reserved_window_identifiers),  "scratchpad" },
+};
+
+static bool label_is_reserved(enum label_type type, struct token token)
+{
+    for (int i = 0; i < label_reserved[type].count; ++i) {
+        if (token_equals(token, label_reserved[type].identifiers[i])) return true;
+    }
+
+    return false;
+}
+
 static bool parse_label(FILE *rsp, struct token token, enum label_type type, char **label)
 {
     struct token_value value = token_to_value(token);
@@ -696,32 +715,9 @@ static bool parse_label(FILE *rsp, struct token token, enum label_type type, cha
         return false;
     }
 
-    switch (type) {
-    default: break;
-    case LABEL_DISPLAY: {
-        for (int i = 0; i < array_count(reserved_display_identifiers); ++i) {
-            if (token_equals(token, reserved_display_identifiers[i])) {
-                daemon_fail(rsp, "'%.*s' is a reserved keyword and cannot be used as a label.\n", token.length, token.text);
-                return false;
-            }
-        }
-    } break;
-    case LABEL_SPACE: {
-        for (int i = 0; i < array_count(reserved_space_identifiers); ++i) {
-            if (token_equals(token, reserved_space_identifiers[i])) {
-                daemon_fail(rsp, "'%.*s' is a reserved keyword and cannot be used as a label.\n", token.length, token.text);
-                return false;
-            }
-        }
-    } break;
-    case LABEL_WINDOW: {
-        for (int i = 0; i < array_count(reserved_window_identifiers); ++i) {
-            if (token_equals(token, reserved_window_identifiers[i])) {
-                daemon_fail(rsp, "'%.*s' is a reserved keyword and cannot be used as a scratchpad.\n", token.length, token.text);
-                return false;
-            }
-        }
-    } break;
+    if (label_is_reserved(type, token)) {
+        daemon_fail(rsp, "'%.*s' is a reserved keyword and cannot be used as a %s.\n", token.length, token.text, label_reserved[type].noun);
+        return false;
     }
 
     *label = malloc(token.length + 1);

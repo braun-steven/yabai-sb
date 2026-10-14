@@ -3,58 +3,6 @@ extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
 
-static inline struct area area_from_cgrect(CGRect rect)
-{
-    return (struct area) { rect.origin.x, rect.origin.y, rect.size.width, rect.size.height };
-}
-
-static inline CGPoint area_max_point(struct area area)
-{
-    return (CGPoint) { area.x + area.w - 1, area.y + area.h - 1 };
-}
-
-static inline bool area_is_in_direction(struct area *r1, CGPoint r1_max, struct area *r2, CGPoint r2_max, int direction)
-{
-    if (direction == DIR_NORTH && r1_max.y <= r2->y) return false;
-    if (direction == DIR_EAST  && r2_max.x <= r1->x) return false;
-    if (direction == DIR_SOUTH && r2_max.y <= r1->y) return false;
-    if (direction == DIR_WEST  && r1_max.x <= r2->x) return false;
-
-    if (direction == DIR_NORTH || direction == DIR_SOUTH) {
-        return ((r2_max.x >  r1->x && r2_max.x <= r1_max.x) ||
-                (r2->x    <  r1->x && r2_max.x >  r1_max.x) ||
-                (r2->x    >= r1->x && r2->x    <  r1_max.x));
-    }
-
-    if (direction == DIR_EAST || direction == DIR_WEST) {
-        return ((r2_max.y >  r1->y && r2_max.y <= r1_max.y) ||
-                (r2->y    <  r1->y && r2_max.y >  r1_max.y) ||
-                (r2->y    >= r1->y && r2->y    <  r1_max.y));
-    }
-
-    return false;
-}
-
-static inline int area_distance_in_direction(struct area *r1, CGPoint r1_max, struct area *r2, CGPoint r2_max, int direction)
-{
-    switch (direction) {
-    case DIR_NORTH: {
-        return r2_max.y > r1->y ? r2_max.y - r1->y : r1->y - r2_max.y;
-    } break;
-    case DIR_EAST: {
-        return r2->x < r1_max.x ? r1_max.x - r2->x : r2->x - r1_max.x;
-    } break;
-    case DIR_SOUTH: {
-        return r2->y < r1_max.y ? r1_max.y - r2->y : r2->y - r1_max.y;
-    } break;
-    case DIR_WEST: {
-        return r2_max.x > r1->x ? r2_max.x - r1->x : r1->x - r2_max.x;
-    } break;
-    }
-
-    return INT_MAX;
-}
-
 //
 // NOTE: auto_padding leaves the gap alone: a space with one tiled container has no gap to remove,
 // except between the windows of a split inside a tabbed container, which keep it.
@@ -243,8 +191,7 @@ void view_update_and_flush(struct view *view)
 
 struct view *view_create(uint64_t sid)
 {
-    struct view *view = malloc(sizeof(struct view));
-    memset(view, 0, sizeof(struct view));
+    struct view *view = calloc(1, sizeof(struct view));
 
     view->sid = sid;
     view->uuid = SLSSpaceCopyName(g_connection, sid);
@@ -253,13 +200,13 @@ struct view *view_create(uint64_t sid)
     view_set_flag(view, VIEW_ENABLE_GAP);
 
     if (space_is_user(view->sid)) {
-        if (!view_check_flag(view, VIEW_LAYOUT))         view->layout         = g_space_manager.layout;
-        if (!view_check_flag(view, VIEW_TOP_PADDING))    view->top_padding    = g_space_manager.top_padding;
-        if (!view_check_flag(view, VIEW_BOTTOM_PADDING)) view->bottom_padding = g_space_manager.bottom_padding;
-        if (!view_check_flag(view, VIEW_LEFT_PADDING))   view->left_padding   = g_space_manager.left_padding;
-        if (!view_check_flag(view, VIEW_RIGHT_PADDING))  view->right_padding  = g_space_manager.right_padding;
-        if (!view_check_flag(view, VIEW_WINDOW_GAP))     view->window_gap     = g_space_manager.window_gap;
-        if (!view_check_flag(view, VIEW_AUTO_PADDING))   view->auto_padding   = g_space_manager.auto_padding;
+        view->layout         = g_space_manager.layout;
+        view->top_padding    = g_space_manager.top_padding;
+        view->bottom_padding = g_space_manager.bottom_padding;
+        view->left_padding   = g_space_manager.left_padding;
+        view->right_padding  = g_space_manager.right_padding;
+        view->window_gap     = g_space_manager.window_gap;
+        view->auto_padding   = g_space_manager.auto_padding;
         view_update(view);
     } else {
         view->layout = VIEW_FLOAT;

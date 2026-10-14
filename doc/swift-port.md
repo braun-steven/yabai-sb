@@ -17,7 +17,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 
 | Phase | Title | Status | Last commit | Notes |
 |---|---|---|---|---|
-| P0 | Branch, SwiftPM skeleton, baselines | [~] | see log | step 1 done; resume at step 2 |
+| P0 | Branch, SwiftPM skeleton, baselines | [x] | 1c5bee6 | layout deviates from the plan, see Target architecture |
 | P1 | macOS 27 / arm64 cleanup (still C) | [ ] | | |
 | P2 | CPrivate module + Platform wrappers | [ ] | | |
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [ ] | | |
@@ -56,28 +56,32 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 3. **Config, rules and signals:** option names, value syntax, defaults, rule semantics, signal events and their environment variables (`src/event_signal.c`). `doc/yabai.asciidoc` stays correct.
 4. **Service and SA:** `--start/--restart/--stop-service`, `--load-sa`, `--version` (`src/misc/service.h`); the SA opcodes and payload layout (`src/osax/common.h`). Bump `OSAX_VERSION` whenever the payload changes.
 5. **Build entry points:** `make`, `make install`, `make asan`, `make tsan`, `make test`, `make man` → `bin/yabai`. `scripts/live-tests/deploy.sh` and the external `~/.local/bin/update-yabai-fork` (runs `make install`, copies `bin/yabai`) depend on this.
-6. **Performance:** `scripts/live-tests/bench.py` medians stay within 10% of the P0 baseline.
+6. **Performance:** `scripts/live-tests/bench.py` medians stay within 10% of the P0 baseline (Handoff log, P0 entry). Measure the way the baseline was measured (V5 step 2): the numbers depend on the layout state far more than on the build.
 
 ## Target architecture
 ### Package layout (repo root)
+As built in P0 (it deviates from the first plan; see the P0 Handoff log entry for why):
 ```
-Package.swift            // swift-tools-version 6.2, platforms [.macOS("27.0")], Swift 6 language mode, complete concurrency checking
+Package.swift            // swift-tools-version 6.2, Swift 6 language mode. platforms [.macOS("12.0")] until P1 sets "27.0".
+src/                     // TEMPORARY C target YabaiC (path "src"): sources manifest.m + osax/payload_bin.c + osax/loader_bin.c.
+  include/yabai_c.h      //   every header of the unity build; module.modulemap makes it the module YabaiC for Swift.
+                         //   Shrinks every phase, deleted in P14 (except src/osax, which moves to osax/).
+  osax/                  // unchanged ObjC payload/loader, built by the makefile only (arm64e); its _bin.c are YabaiC sources
 Sources/
-  CPrivate/              // C target: include/CPrivate.h (from src/misc/extern.h; keep CF_RETURNS_RETAINED, add CF_ASSUME_NONNULL
+  CPrivate/              // (P2) C target: include/CPrivate.h (from src/misc/extern.h; keep CF_RETURNS_RETAINED, add CF_ASSUME_NONNULL
                          // and _Nullable), include/module.modulemap, macho_dlsym.c (from src/misc/macho_dlsym.h)
-  OSAXBlob/              // C target: generated src/osax/payload_bin.c + loader_bin.c (makefile generates them before swift build)
-  YabaiC/                // TEMPORARY C target: today's unity build (sources: ["manifest.m"]) + include/yabai_c.h umbrella header.
-                         // Shrinks every phase, deleted in P14.
-  YabaiCore/             // Swift library without window server access: pure, unit-tested logic
-  Yabai/                 // Swift executable: daemon + client (main.swift)
-Tests/YabaiCoreTests/    // Swift Testing (import Testing)
-src/osax/                // unchanged ObjC payload/loader (moved to osax/ in P14), built by makefile only, arm64e
+  YabaiCore/             // (P3) Swift library without window server access: pure, unit-tested logic
+  Yabai/                 // Swift executable: main.swift (calls yabai_main of yabai.c until P5), TabBarGlass.swift
+tests/YabaiCoreTests/    // Swift Testing (import Testing) and Golden/. Not Tests/: the file system is case-insensitive, and
+                         // Tests/ would be the C harness tests/.
+tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sources/Yabai but main.swift
 ```
-- **Linker settings** (unsafeFlags is fine in a root package): `-F/System/Library/PrivateFrameworks -framework SkyLight`, plus `-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker assets/Info.plist` on `Yabai`.
-- **YabaiC** compiles with `-fno-objc-arc -std=c11` and the `WARN_FLAGS` of today's makefile.
+- **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. `--arch arm64 --arch x86_64` gives a universal binary in one build.
+- **Linker settings** (unsafeFlags is fine in a root package): `-F/System/Library/PrivateFrameworks -framework SkyLight` on YabaiC; `-sectcreate __TEXT __info_plist assets/Info.plist` and `-isysroot $SDKROOT` (see pitfalls) on `Yabai`.
+- **YabaiC** compiles with `-fno-objc-arc`, C11 and the warnings of today's makefile, without `-fvisibility=hidden` (see pitfalls).
 
 ### Two bridges while C and Swift coexist
-- **Swift → C:** `YabaiC/include/yabai_c.h` includes the system headers and every header of `src/manifest.m`, in the same order. Swift sees all C structs and functions.
+- **Swift → C:** `src/include/yabai_c.h` includes the system headers and every header of the unity build, in order; `src/manifest.m` includes it and then the `.c`/`.m` files. Swift (`import YabaiC`) sees all C structs and functions. Only non-`static` C functions can be called from Swift.
 - **C → Swift:**
   1. Move a C function's body to Swift as `@_cdecl("same_name") func …` with the identical C signature.
   2. Keep the prototype in its `.h` file and delete the C body.
@@ -125,7 +129,7 @@ src/osax/                // unchanged ObjC payload/loader (moved to osax/ in P14
   - `doc/live-testing.md`: spaces 1–3, 9–11 and 15 belong to the user; deploys reset layouts
   - for SA work, `doc/payload-updates.md`
 - **Port one-to-one first. Simplify in a separate commit** after the phase's tests pass. No behavior or feature changes.
-- **Port every `// NOTE:` comment with its code.** They record hard-won macOS behavior. Keep the repo style: `// NOTE:` blocks, sparse comments, function braces on their own line (as in `src/tab_bar_glass.swift`).
+- **Port every `// NOTE:` comment with its code.** They record hard-won macOS behavior. Keep the repo style: `// NOTE:` blocks, sparse comments, function braces on their own line (as in `Sources/Yabai/TabBarGlass.swift`).
 - **Warnings and concurrency escapes:**
   - no warnings; `make install` uses `-warnings-as-errors`
   - `@unchecked Sendable` and `nonisolated(unsafe)` only with a NOTE explaining why
@@ -162,8 +166,13 @@ Read this before writing Swift. Keep each entry to a few lines with a pointer to
 **Pitfalls learned so far**
 - **CF types in C structs** import as `Unmanaged<T>?` unless the header has nullability annotations. Wrap the header in `CF_ASSUME_NONNULL_BEGIN/END` and mark the optional fields `_Nullable` (example: `src/tab_bar_glass.h`). Then take each value once with `takeUnretainedValue()` and let C free the struct.
 - **Who frees a C struct's CF objects:** either Swift takes the +1 references (`takeRetainedValue()`) and C only frees the memory, or Swift retains (`takeUnretainedValue()`) and C releases. Pick one per struct and write it in the header's NOTE. The pilot uses the second way (`tab_bar_glass_snapshot_free`).
-- **Swift runtime rpath:** a C/ObjC-driven link of Swift objects needs `-Wl,-rpath,/usr/lib/swift`. Otherwise `@rpath/libswift_Concurrency.dylib` is weak-linked and silently missing, and `MainActor.assumeIsolated` crashes. Check with `DYLD_PRINT_LIBRARIES=1 bin/yabai --version 2>&1 | grep Concurrency`. SwiftPM-linked executables get this right on their own; re-check after P0.
-- **Missing `.pch` warnings:** a bridging header compiled by `swiftc` leaves debug info pointing at a temporary PCH, and dsymutil warns "`….pch: No such file or directory`". Use `-disable-bridging-pch`, or a module map, which is the SwiftPM default.
+- **Swift runtime rpath:** a C/ObjC-driven link of Swift objects needs `-Wl,-rpath,/usr/lib/swift`. Otherwise `@rpath/libswift_Concurrency.dylib` is weak-linked and silently missing, and `MainActor.assumeIsolated` crashes. Check with `DYLD_PRINT_LIBRARIES=1 bin/yabai --version 2>&1 | grep Concurrency`. SwiftPM adds the rpath itself (checked in P0); it matters again only for the C test harness (`tests/makefile`).
+- **Swift Build prelinks each C target** with `ld -r` into one object (`YabaiC.o`), which turns hidden symbols into local ones. With `-fvisibility=hidden` on YabaiC, Swift fails to link against any C function ("Undefined symbols"). YabaiC is therefore built without it.
+- **Swift Build adds Xcode's default warnings** to C targets (e.g. `-Wshorten-64-to-32`, 38 hits). `Package.swift` turns those off to keep the makefile's warning set. A new default warning shows up after a toolchain update: switch it off there, unless it finds a real bug.
+- **SDK version of the binary:** Swift Build links with `--sysroot`, from which clang does not read the SDK version, so the binary claims an SDK as old as its deployment target, and AppKit may treat it as an old app. `Package.swift` passes `-isysroot $SDKROOT` (set by xcrun's `swift` shim and by the makefile). Check with `vtool -show-build bin/yabai | grep sdk` (must be the SDK, e.g. 27.0).
+- **Swift imports C headers with ARC.** A header body with manual `retain`/`release`/`NSAutoreleasePool` fails to import ("ARC forbids…"); hide it behind `#ifndef __swift__` and leave Swift a declaration (`src/misc/notify.h`). The importer also builds structs with ObjC pointer fields as ARC structs, so do not read such fields from Swift until the struct is Swift.
+- **Missing `.pch` warnings:** a bridging header compiled by `swiftc` leaves debug info pointing at a temporary PCH, and dsymutil warns "`….pch: No such file or directory`". Use `-disable-bridging-pch`, or a module map, which is the SwiftPM default (and what P0 uses).
+- **Case-insensitive file system:** `Tests/` and `tests/` are the same directory. The Swift tests live in `tests/YabaiCoreTests` (`path:` in `Package.swift`).
 - **Autolinking:** `import AppKit` autolinks dozens of `libswift*` overlays. That is harmless (they are in the OS); don't try to trim them.
 - **`@_cdecl` functions** must use C-representable types only (`UnsafeMutableRawPointer`, `UnsafeMutablePointer<cstruct>`, integers, `Bool`). Pass Swift objects through C as `Unmanaged.passRetained(obj).toOpaque()`, and balance that with exactly one `release()` (example: `tab_bar_glass_create` / `tab_bar_glass_destroy`).
 - **Main-queue blocks that use a Swift object** must capture it strongly, like the ObjC blocks retained it. The last pending block then releases the object, on the main queue. Release the C-held reference right after posting the final block (`tab_bar_glass_destroy`).
@@ -172,13 +181,14 @@ Read this before writing Swift. Keep each entry to a few lines with a pointer to
 ## Verification checklist (referenced by the phases)
 - **V1 Build:** `make`, `make install`, `make asan` and `make tsan` succeed with no warnings, and `bin/yabai --version` runs.
 - **V2 Unit tests:**
-  - `swift test` and `make test` (while C tests exist) pass.
-  - Keep the test ledger in the Handoff log: C tests left + Swift tests added. It must reach "82 ported" by P14.
+  - `make test` passes: it runs `swift test`, then the C tests and the golden IPC replay (`Golden IPC: 145 of 145 responses match` in P0).
+  - Keep the test ledger in the Handoff log: C tests left + Swift tests added. It must reach "82 ported" by P14. The golden replay and `goldenCaptureCoversEveryCommand` are not part of the 82.
+  - A response of the golden capture changes only when the phase changes behavior on purpose (it should not). Re-record with `GOLDEN_RECORD=1 make -C tests`, and explain each changed record in the Handoff log.
 - **V3 Analyzer:** `make analyze` keeps its known 37 false positives while C exists. Triage new ones.
 - **V4 Golden IPC (from P6):** `swift test --filter Golden` passes, with byte-identical responses.
 - **V5 Live (the agent runs it):**
   1. `deploy.sh install`, then from `scripts/live-tests`: `live.py setup` → `run <phase>` → `extra <phase>` → `cleanup` → `launch <phase>`
-  2. `bench.py <phase>`, within 10% of the P0 baseline
+  2. `bench.py`, within 10% of the P0 baseline. The medians depend on the layout state (rotate ran 55 to 150 ms on one build), so compare like for like: after `live.py setup`, `deploy.sh install` then `bench.py <phase>-A` and `<phase>-B`; then `deploy.sh restore` (also a restart) and `bench.py base-A` and `base-B` on the installed build, with the same windows.
   3. `crashes.py`, with no new reports
   4. Once per phase with `deploy.sh asan` and `deploy.sh tsan`: a short `live.py run`
   5. At the end of the session: `deploy.sh restore` (see Agent rules)
@@ -188,7 +198,7 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scri
 
 ## Phases
 
-### P0 — Branch, SwiftPM skeleton, baselines
+### P0 — Branch, SwiftPM skeleton, baselines (done; the package layout deviates, see Target architecture)
 1. `git switch swift-pilot-tab-bar-glass && git switch -c swift-port`. Copy this file to `doc/swift-port.md` and commit.
 2. Add `Package.swift` with the targets above:
    - `YabaiC` = the unity build. Move `src/` into `Sources/YabaiC/` with `git mv`; `manifest.m` is the only source, and the OSAX `_bin.c` files go to `OSAXBlob`.
@@ -208,7 +218,7 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scri
    - release binary size
    - `make install` time
    - `bench.py` medians of the installed `master` build (run them before the first deploy; record `~/.local/bin/yabai --version`)
-8. **Golden capture:** while the C IPC is still in place, write `Tests/YabaiCoreTests/Golden/commands.txt` (~60 commands covering every domain) and record the expected responses from the C implementation. The capture method is your choice, e.g. a `-DGOLDEN` test entry in `tests/src/tests.m` that runs the message handlers on fixture managers. P6 replays these.
+8. **Golden capture:** while the C IPC is still in place, write `tests/YabaiCoreTests/Golden/commands.txt` (~60 commands covering every domain) and record the expected responses from the C implementation. The capture method is your choice, e.g. a `-DGOLDEN` test entry in `tests/src/tests.m` that runs the message handlers on fixture managers. P6 replays these. (Done: `tests/src/golden.c`, 145 commands.)
 - **Done when:** V1, V2, V3, V5 (the binary behaves like the pilot). Status `[x]`.
 
 ### P1 — macOS 27 / arm64 cleanup (still C)
@@ -221,7 +231,9 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scri
    - keep only the macOS 27 pattern/offset branches in `arm64_payload.m`, after checking them with `bash scripts/payload-history.sh`
    - delete `x64_payload.m` if approved, and the x86 paths in `loader.m`/`payload.m`
    - bump `OSAX_VERSION`; this phase needs the user's scripting-addition reload (see Agent rules)
-4. Set `MACOS_MIN = 27.0` everywhere, including `tests/makefile`.
+4. Set `MACOS_MIN = 27.0` everywhere: `platforms: [.macOS("27.0")]` in `Package.swift`, `makefile` (OSAX), `tests/makefile` (C and Swift `-target`). If x86_64 goes, set `ARCHS = arm64` in the makefile.
+   - P0 tried 27.0 in `Package.swift`: it adds 5 `-Wdeprecated-declarations` warnings for the `CVDisplayLink*` calls in `window_animation.c` (deprecated since macOS 15; P13 replaces them with `NSScreen.displayLink`), and Swift Build warns that x86_64 is deprecated for 27.0. Until P13, wrap those calls in `#pragma clang diagnostic ignored "-Wdeprecated-declarations"` with a NOTE.
+   - With the deployment target at 27, `@available(macOS 26.0, *)` / `#available` checks in Swift become redundant; remove them (`TabBarGlass.swift`).
 - **Done when:** V1–V3, V5 (especially `live.py extra`: the SA space switches).
 
 ### P2 — CPrivate + Platform wrappers
@@ -258,7 +270,11 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scri
   - `handle_domain_window` (`message_window.c`)
   - query, rule and signal (`message.c`)
   - the serializers they call (`window_info_serialize`, the space/display/tree serializers), on top of `JSONWriter`
-- Add `Golden` tests that replay the P0 capture with byte comparison.
+- Add `Golden` tests that replay the P0 capture with byte comparison:
+  - The records are read by `Golden.records()` in `tests/YabaiCoreTests/GoldenTests.swift` (format in `tests/src/golden.c`).
+  - The fixture is `golden_fixture` in `tests/src/golden.c`: `window_manager_init`, `space_manager_init` and the signal storage, nothing else. The commands run in order on one state (later commands read what earlier ones set).
+  - The test target needs the daemon's code: either test the `Yabai` executable target (`@testable import Yabai` works for executables on macOS) or move the IPC code into a library target first.
+  - Keep the C replay (`golden_replay` in `tests/src/tests.m`) until the C tests are gone, or delete it in the same commit that makes the Swift replay pass.
 - Port the tests `message_window_command_groups`, `message_window_layout_values`, `message_space_command_groups`, `window_info_serialize_selected`, `window_info_tree_fields`, `tree_view_serialize_tree`.
 - **Done when:** V1–V6.
 
@@ -297,7 +313,7 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scri
 ### P13 — Border, tab bars, animation, mouse, SA client
 - **Port:**
   - `border.c`: keep today's approach; memory measurements are in the user's notes
-  - `tab_bar.c` + `tab_bar_glass.c` (merge them with `tab_bar_glass.swift`)
+  - `tab_bar.c` + `tab_bar_glass.c` (merge them with `Sources/Yabai/TabBarGlass.swift`)
   - `window_animation.c` (DisplayLink, as described above)
   - `mouse_handler.c` (event tap)
   - `sa.m` (`[UInt8]` payload builder with `SA_OPCODE_*`; keep `OSAX_VERSION` checks)
@@ -338,3 +354,29 @@ Append one entry per session, newest last. Template:
   make analyze 37 known false positives
 - Deviations from plan / surprises: none yet
 - Waiting on user: nothing (agents deploy and run the live checks themselves since 4754520)
+
+### 2026-10-14 P0 [x]
+- Commits: 1c5bee6 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (merged as 826e456; nothing newer on master)
+- Done: steps 2–8.
+  - `Package.swift` with the C target YabaiC (the unity build) and the executable Yabai (`main.swift` → `yabai_main`, `TabBarGlass.swift`). The makefile wraps `swift build`; `tests/makefile` builds the Swift sources against the module map.
+  - `space_manager_init` was split out of `space_manager_begin` (defaults only) for the golden fixture.
+  - Golden capture: 145 commands (every config option, rule, signal, query errors, window/space/display commands that fail before acting) in `tests/YabaiCoreTests/Golden/`, replayed at the end of `make -C tests`. Swift test `goldenCaptureCoversEveryCommand` parses the records.
+- Resume at: next phase (P1). Its first step asks the user about x86_64.
+- Open @_cdecl shims / C structs still shared: the tab_bar_glass_* entry points (src/tab_bar_glass.h); `yabai_main` (C, called by main.swift)
+- Tests: C remaining 82, Swift added 0 (total ported 0/82); plus golden replay 145/145 and 1 Swift test (`goldenCaptureCoversEveryCommand`)
+- Measurements:
+  - Lines: C 16,061 · headers 4,301 (incl. yabai_c.h) · ObjC 1,056 · OSAX 2,076 · Swift 446 · C tests 2,918
+  - Release `bin/yabai` (universal): 1,954,568 B (pilot 1,952,344 B)
+  - `make install`: 8.5 s from an empty `.build` (pilot makefile: 6.8 s), 1.6 s with nothing changed
+  - Bench baseline. Installed pilot build (yabai-v7.1.25, the pilot's code), measured as in V5 step 2: tab focus 30.8 / 31.5, rotate 150.5 / 147.2, split focus 30.3 / 28.7 ms. P0 build in the same state: 31.1 / 32.9, 145.2 / 148.5, 28.2 / 30.9 ms.
+  - V5: `run` 28/28, `extra` 14/14 (+1 SKIP, hotkey disabled), `launch` 3/3; asan `run` 28/28 with no reports; tsan `run` 28/28 with only the 2 known `APPLICATION_LAUNCHED` reports; no new crash reports (28 before and after). `deploy.sh restore` done.
+- Deviations from plan / surprises:
+  - The C sources stay in `src/` (target path "src") instead of moving to `Sources/YabaiC`. That keeps master merges, `payload-history.sh` and the docs' paths working; the files go away when they are ported anyway. The OSAX `_bin.c` files are sources of YabaiC, not a separate `OSAXBlob` target.
+  - Swift tests live in `tests/YabaiCoreTests` (case-insensitive file system). `YabaiCore` is not created yet; P3 adds it with its first code.
+  - The deployment target is 12.0 (the lowest Swift Build accepts), not 11.0 or 27.0; 27.0 belongs to P1 (warnings listed there).
+  - The binary keeps `-rdynamic` (Swift Build's default) and gets rpaths into the toolchain and `.build` (unused at runtime; the Swift runtime comes from `/usr/lib/swift`).
+  - Golden capture finding: `config mouse_modifier` answers `(null)` on a fresh daemon (no modifier set; `printf("%s", NULL)`). A getter takes the next option as its value (`config window_gap top_padding` fails). Both are recorded as they are.
+  - Bench medians depend on the layout state: right after `live.py run` the P0 build measured rotate 55 ms, right after a restart 150 ms. V5 step 2 now prescribes the like-for-like procedure.
+- Pitfalls added to "Swift conventions and pitfalls": Swift Build prelinks C targets (no `-fvisibility=hidden`); Swift Build's extra warnings; SDK version of the binary; Swift imports C headers with ARC; case-insensitive `Tests/`. The section is close to a page; P1 may move it into a skill.
+- Waiting on user: nothing

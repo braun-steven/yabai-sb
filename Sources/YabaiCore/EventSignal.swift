@@ -7,8 +7,8 @@ import Darwin
 // the commands is Sources/Yabai/EventSignal.swift.
 //
 
-/// `enum signal_type` (src/event_signal.h) with the names of `signal_type_str`. The raw values are those of the C
-/// enum, which the C event handlers pass to `event_signal_push`.
+/// `enum signal_type` (the former src/event_signal.h) with the names of `signal_type_str`, and the raw values of the
+/// C enum.
 public enum SignalType: Int, CaseIterable, Sendable
 {
     case applicationLaunched = 1

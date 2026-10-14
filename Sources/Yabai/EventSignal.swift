@@ -4,8 +4,8 @@ import YabaiC
 import YabaiCore
 
 //
-// NOTE: The signals of the daemon and the signals pushed while the current event is handled. The C event handlers
-// push them through event_signal_push, and the event loop runs their commands after each handler
+// NOTE: The signals of the daemon and the signals pushed while the current event is handled. The event handlers
+// push them with eventSignalPush, and the event loop runs their commands after each handler
 // (eventSignalFlush). Ported from src/event_signal.c; the table, the filters and the json are in
 // Sources/YabaiCore/EventSignal.swift.
 //
@@ -230,12 +230,4 @@ private func describeMissionControl(_ es: inout PendingSignal, _ context: Unsafe
     }
 
     pendingSignals.append(es)
-}
-
-@_cdecl("event_signal_push")
-func event_signal_push(_ type: signal_type, _ context: UnsafeMutableRawPointer?)
-{
-    guard let signalType = SignalType(rawValue: Int(type.rawValue)) else { return }
-    let object = Handoff(value: context)
-    WM.assumeIsolated { eventSignalPush(signalType, object.value) }
 }

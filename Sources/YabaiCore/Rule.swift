@@ -314,7 +314,7 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
     return didParse
 }
 
-/// `SIGNAL_PROP_UD`, `SIGNAL_PROP_YES` and `SIGNAL_PROP_NO` (src/event_signal.h)
+/// `SIGNAL_PROP_UD`, `SIGNAL_PROP_YES` and `SIGNAL_PROP_NO` (the former src/event_signal.h)
 public enum SignalProp: Int32, Sendable
 {
     case undefined = 0
@@ -322,7 +322,7 @@ public enum SignalProp: Int32, Sendable
     case no        = 2
 }
 
-/// `struct signal` (src/event_signal.h): the filters and the action of a signal.
+/// `struct signal` (the former src/event_signal.h): the filters and the action of a signal.
 public struct EventSignal
 {
     public var label: String?

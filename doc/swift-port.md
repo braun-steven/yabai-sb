@@ -19,7 +19,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 |---|---|---|---|---|
 | P0 | Branch, SwiftPM skeleton, baselines | [x] | 1c5bee6 | layout deviates from the plan, see Target architecture |
 | P1 | macOS 27 / arm64 cleanup (still C) | [x] | 174b5b8 | OSAX 2.1.34, reloaded by the user and live-checked |
-| P2 | CPrivate module + Platform wrappers | [ ] | | |
+| P2 | CPrivate module + Platform wrappers | [x] | 872fe3b | no live run (no behavior change); conventions moved to a skill |
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [ ] | | |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [ ] | | |
 | P5 | IPC server, CLI client, config domain | [ ] | | |
@@ -391,4 +391,28 @@ Append one entry per session, newest last. Template:
 - Measurements: see the P1 [L] entry
 - Deviations from plan / surprises: after `deploy.sh restore` Dock was back on payload 2.1.33 without a user step: the restored master binary matches the `--load-sa` sudoers rule, so its yabairc reinstalls its own payload when yabai starts. Added to `doc/live-testing.md`. A port build's payload therefore only stays loaded while a port build is installed.
 - Pitfalls added to "Swift conventions and pitfalls": none
+- Waiting on user: nothing
+
+### 2026-10-14 P2 [x]
+- Commits: 872fe3b (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: steps 1–3.
+  - `Sources/CPrivate`: `include/CPrivate.h` is `src/misc/extern.h` (moved with `git mv`) inside `CF_IMPLICIT_BRIDGING_ENABLED` + `CF_ASSUME_NONNULL`; every returned object is `_Nullable`, as are the parameters the C code passes NULL to (notify-proc context, `opaque_shape`, `SLWindowContextCreate` options). `CPrivate.c` defines `CGSGetConnectionPortById` and `SLSPerformAsynchronousBridgedWindowManagementOperation` (they were `static` in extern.h). CPrivate links SkyLight; YabaiC and Yabai depend on it, and `yabai_c.h` does `#include <CPrivate.h>`. `tests/makefile` and `make analyze` pass `-I Sources/CPrivate/include`; the tests compile `CPrivate.c` and the Swift files of `Sources/Yabai/*/`.
+  - `macho_find_symbol` is Swift (`Platform/MachO.swift`, `@_cdecl`); `src/misc/macho_dlsym.h` keeps only the prototype. Checked against the C original in a scratch program: same addresses for `_CGSGetConnectionPortById`, the bridged-operation symbol and `_SLSMainConnectionID`, NULL for a missing symbol or image.
+  - `Platform/SkyLight.swift` (`enum SLS`), `AX.swift` (`struct AXElement`), `CoreDock.swift` (`enum CoreDock`): the calls that `window.c`, `space.c` and `display.c` make for the serializers P6 ports (bounds, alpha, sub-level, title, owner/pid, ordered-in, spaces for windows, the window query iterator as `[SLS.QueriedWindow]`, managed displays, current space, space type/name, display spaces), plus the AX title/role/subrole/window id and the Dock state. They take the connection as the C calls do. A scratch program run against the window server matched `yabai -m query --windows --window` field by field.
+  - `CF_CONSUMED` on the `window_ref` parameter of `window_create` and `window_manager_create_and_add_window` (see surprises).
+  - The "Swift conventions and pitfalls" section moved to `.claude/skills/swift-port-conventions/SKILL.md` (it outgrew a page); the plan points there.
+- Resume at: next phase (P3)
+- Open @_cdecl shims / C structs still shared: tab_bar_glass_* entry points (src/tab_bar_glass.h); `yabai_main` (C, called by main.swift); `macho_find_symbol` (Swift, called by yabai.c)
+- Tests: C remaining 82, Swift added 0 (total ported 0/82); golden replay 145/145, `goldenCaptureCoversEveryCommand` passes
+- Measurements:
+  - Lines (git ls-files, as in P1 but Swift counts every `.swift` file): C 15,901 · headers 4,153 · ObjC 1,027 · Swift 989
+  - Release `bin/yabai`: 850,648 B (P1: 849,384 B); `make install` 5.0 s incremental after the other variants
+  - V1 all four variants warning-free; V2 passes; V3 37 warnings, identical to HEAD before the phase (diffed)
+  - V5 not run: P2 changes no behavior ("Done when" is V1–V3)
+- Deviations from plan / surprises:
+  - The plan put `macho_dlsym.c` into CPrivate; step 3 ports it to Swift instead, and CPrivate only declares private functions (plus the two resolved pointers, which give it the source file Swift Build needs).
+  - Nothing from `sa.h`/`log.h` went into CPrivate: they hold yabai's own declarations (the OSAX byte arrays, `g_verbose`), not private framework ones, and no Swift code needs them yet.
+  - With `CF_IMPLICIT_BRIDGING_ENABLED` the analyzer trusts the Create rule for `_AXUIElementCreateWithRemoteToken` and reported a new leak in `window_manager_add_windows_by_element_id`, where the element is handed to `window_manager_create_and_add_window`. That function always takes the reference (the other callers pass `CFRetain(window_ref)`, `window_destroy` releases it), so the parameter is now `CF_CONSUMED`, and the count is back to 37.
+- Pitfalls added to "Swift conventions and pitfalls": a C target without sources does not link; nullability is per file (macros, multi-level pointers); imported C types (`Boolean`, `CGError`, CF out-parameters)
 - Waiting on user: nothing

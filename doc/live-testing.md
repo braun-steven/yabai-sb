@@ -57,6 +57,10 @@ Rules for the user's machine:
   and tell the user that their layouts were reset.
 - The native ctrl+←/→ space shortcuts are disabled (symbolic hotkeys 79/81), so the harness skips
   that check. Don't change the user's settings.
+- While the screen is locked, AX reports no windows of any application (System Events too): a daemon that
+  starts then spends tens of seconds in AX timeouts, `live.py run` finds no windows, and bench numbers drop
+  because moves no longer apply. Check `CGSessionCopyCurrentDictionary()["CGSSessionScreenIsLocked"]`
+  (a scratch Swift script) before a live run, and stop if it is 1.
 - A frozen application blocks every accessibility call to it for about 1 s (the AX timeout).
   `kill -STOP` right after `open` only parks the app on yabai's `finishedLaunching` observation, so no
   retries happen; `freeze com.apple.TextEdit` stops it from a KVO callback the moment it has

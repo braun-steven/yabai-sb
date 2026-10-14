@@ -24,6 +24,26 @@ bool space_manager_query_space(FILE *rsp, uint64_t sid, uint64_t flags)
     return true;
 }
 
+//
+// NOTE: Spaces that have no view are left out, so the separators are written before each element.
+//
+
+static void space_manager_query_space_list(FILE *rsp, uint64_t *space_list, int space_count, uint64_t flags)
+{
+    char *separator = "";
+
+    fprintf(rsp, "[");
+    for (int i = 0; i < space_count; ++i) {
+        struct view *view = space_manager_query_view(&g_space_manager, space_list[i]);
+        if (!view) continue;
+
+        fprintf(rsp, "%s", separator);
+        view_serialize(rsp, view, flags);
+        separator = ",";
+    }
+    fprintf(rsp, "]\n");
+}
+
 bool space_manager_query_spaces_for_window(FILE *rsp, struct window *window, uint64_t flags)
 {
     TIME_FUNCTION;
@@ -32,16 +52,7 @@ bool space_manager_query_spaces_for_window(FILE *rsp, struct window *window, uin
     uint64_t *space_list = window_space_list(window->id, &space_count);
     if (!space_list) return false;
 
-    fprintf(rsp, "[");
-    for (int i = 0; i < space_count; ++i) {
-        struct view *view = space_manager_query_view(&g_space_manager, space_list[i]);
-        if (!view) continue;
-
-        view_serialize(rsp, view, flags);
-        fprintf(rsp, "%c", i < space_count - 1 ? ',' : ']');
-    }
-    fprintf(rsp, "\n");
-
+    space_manager_query_space_list(rsp, space_list, space_count, flags);
     return true;
 }
 
@@ -53,16 +64,7 @@ bool space_manager_query_spaces_for_display(FILE *rsp, uint32_t did, uint64_t fl
     uint64_t *space_list = display_space_list(did, &space_count);
     if (!space_list) return false;
 
-    fprintf(rsp, "[");
-    for (int i = 0; i < space_count; ++i) {
-        struct view *view = space_manager_query_view(&g_space_manager, space_list[i]);
-        if (!view) continue;
-
-        view_serialize(rsp, view, flags);
-        fprintf(rsp, "%c", i < space_count - 1 ? ',' : ']');
-    }
-    fprintf(rsp, "\n");
-
+    space_manager_query_space_list(rsp, space_list, space_count, flags);
     return true;
 }
 
@@ -70,28 +72,11 @@ bool space_manager_query_spaces_for_displays(FILE *rsp, uint64_t flags)
 {
     TIME_FUNCTION;
 
-    int display_count;
-    uint32_t *display_list = display_manager_active_display_list(&display_count);
-    if (!display_list) return false;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    if (!space_list) return false;
 
-    fprintf(rsp, "[");
-    for (int i = 0; i < display_count; ++i) {
-        int space_count;
-        uint64_t *space_list = display_space_list(display_list[i], &space_count);
-        if (!space_list) continue;
-
-        for (int j = 0; j < space_count; ++j) {
-            struct view *view = space_manager_query_view(&g_space_manager, space_list[j]);
-            if (!view) continue;
-
-            view_serialize(rsp, view, flags);
-            if (j < space_count - 1) fprintf(rsp, ",");
-        }
-
-        fprintf(rsp, "%c", i < display_count - 1 ? ',' : ']');
-    }
-    fprintf(rsp, "\n");
-
+    space_manager_query_space_list(rsp, space_list, space_count, flags);
     return true;
 }
 
@@ -403,7 +388,7 @@ void space_manager_toggle_window_split(struct space_manager *sm, struct window *
 // temporary storage.
 //
 
-static uint64_t *space_manager_mission_control_space_list(int *count)
+uint64_t *space_manager_mission_control_space_list(int *count)
 {
     *count = 0;
 

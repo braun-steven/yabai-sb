@@ -63,27 +63,8 @@ void window_manager_query_windows_for_displays(FILE *rsp, uint64_t flags)
 {
     TIME_FUNCTION;
 
-    int display_count = 0;
-    uint32_t *display_list = display_manager_active_display_list(&display_count);
-
-    int space_count = 0;
-    uint64_t *space_list = NULL;
-
-    for (int i = 0; i < display_count; ++i) {
-        int count;
-        uint64_t *list = display_space_list(display_list[i], &count);
-        if (!list) continue;
-
-        //
-        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
-        // and so we only need to track the beginning of the first list along
-        // with the total number of spaces that have been allocated.
-        //
-
-        if (!space_list) space_list = list;
-        space_count += count;
-    }
-
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
     window_manager_query_windows_for_spaces(rsp, space_list, space_count, flags);
 }
 
@@ -1735,27 +1716,8 @@ struct window **window_manager_add_application_windows(struct space_manager *sm,
 
 static uint32_t *window_manager_existing_application_window_list(struct application *application, int *window_count)
 {
-    int display_count;
-    uint32_t *display_list = display_manager_active_display_list(&display_count);
-    if (!display_list) return NULL;
-
-    int space_count = 0;
-    uint64_t *space_list = NULL;
-
-    for (int i = 0; i < display_count; ++i) {
-        int count;
-        uint64_t *list = display_space_list(display_list[i], &count);
-        if (!list) continue;
-
-        //
-        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
-        // and so we only need to track the beginning of the first list along
-        // with the total number of windows that have been allocated.
-        //
-
-        if (!space_list) space_list = list;
-        space_count += count;
-    }
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
 
     return space_list ? space_window_list_for_connection(space_list, space_count, application ? application->connection : 0, window_count, true) : NULL;
 }

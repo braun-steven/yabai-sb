@@ -88,6 +88,7 @@ struct view *space_manager_tile_window_on_space_with_insertion_point(struct spac
 struct view *space_manager_tile_window_on_space(struct space_manager *sm, struct window *window, uint64_t sid);
 bool space_manager_balance_space(struct space_manager *sm, uint64_t sid);
 void space_manager_toggle_window_split(struct space_manager *sm, struct window *window);
+uint64_t *space_manager_mission_control_space_list(int *count);
 int space_manager_mission_control_index(uint64_t sid);
 uint64_t space_manager_mission_control_space(int desktop_id);
 uint64_t space_manager_cursor_space(void);

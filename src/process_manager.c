@@ -85,27 +85,9 @@ uint64_t process_manager_active_space_for_psn(int connection)
 {
     uint64_t sid = 0;
 
-    int display_count;
-    uint32_t *display_list = display_manager_active_display_list(&display_count);
-    if (!display_list) return sid;
-
-    int space_count = 0;
-    uint64_t *space_list = NULL;
-
-    for (int i = 0; i < display_count; ++i) {
-        int count;
-        uint64_t *list = display_space_list(display_list[i], &count);
-        if (!list) continue;
-
-        //
-        // NOTE(asmvik): display_space_list(..) uses a linear allocator,
-        // and so we only need to track the beginning of the first list along
-        // with the total number of windows that have been allocated.
-        //
-
-        if (!space_list) space_list = list;
-        space_count += count;
-    }
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    if (!space_list) return sid;
 
     uint64_t set_tags = 0;
     uint64_t clear_tags = 0;

@@ -12,10 +12,10 @@ bool display_manager_query_displays(FILE *rsp, uint64_t flags)
 
     fprintf(rsp, "[");
     for (int i = 0; i < count; ++i) {
+        if (i) fprintf(rsp, ",");
         display_serialize(rsp, display_list[i], flags);
-        fprintf(rsp, "%c", i < count - 1 ? ',' : ']');
     }
-    fprintf(rsp, "\n");
+    fprintf(rsp, "]\n");
 
     return true;
 }

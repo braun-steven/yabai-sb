@@ -3,6 +3,7 @@
 > **How to use this file (every agent, every session)**
 > 1. This plan lives in the repo as `doc/swift-port.md` on branch `swift-port` (P0 copies it there). Always work from that copy, never from `master`.
 > 2. Read **Context**, **Parity contract**, **Target architecture**, **Agent rules**, **Swift conventions and pitfalls** (the skill `.claude/skills/swift-port-conventions/SKILL.md`) and **Verification checklist** once.
+>    **Very important:** run every build, test, analyzer, live-check and other long-output command through the `output-summarizer` subagent, never directly. This keeps the main agent's context window small. Details in **Agent rules**.
 > 3. In the **Status board**, find the first phase that is not `[x]`. If it is `[~]`, resume from its last **Handoff log** entry.
 > 4. Do only that phase. Its steps, "Done when" and handoff duties are in **Phases**.
 > 5. Before you stop, even mid-phase:
@@ -23,7 +24,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [x] | 2a646a8 | label lists live in Swift behind an opaque C reference |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [x] | 348c156 | C handlers keep get_token/token_equals/daemon_fail until P5/P6 |
 | P5 | IPC server, CLI client, config domain | [x] | 91aa5b0 | other domains write into a FILE that the Response captures; new test target YabaiTests |
-| P6 | IPC display/space/window/query/rule/signal domains + golden tests | [ ] | | |
+| P6 | IPC display/space/window/query/rule/signal domains + golden tests | [x] | c1854e6 | `rule --list`/`signal --list` json stays C until P11/P7; golden replay is a Swift test |
 | P7 | `@WM` actor, event loop, signals | [ ] | | |
 | P8 | Event handlers + Mission Control | [ ] | | |
 | P9 | Display + space model | [ ] | | |
@@ -77,7 +78,8 @@ Sources/
                          // via @_cdecl), Shims/ (@_cdecl entry points for C), IPC/ (P5: client, socket, dispatch, config domain)
 tests/YabaiCoreTests/    // Swift Testing (import Testing) and Golden/. Not Tests/: the file system is case-insensitive, and
                          // Tests/ would be the C harness tests/.
-tests/YabaiTests/        // (P5) Swift Testing of the Yabai executable (@testable import Yabai): the IPC handlers on the C managers
+tests/YabaiTests/        // (P5) Swift Testing of the Yabai executable (@testable import Yabai): the IPC handlers on the C managers,
+                         // and (P6) the golden replay (Golden/); tests that touch the managers nest in the serialized suite DaemonState
 tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sources/Yabai but main.swift
 ```
 - **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. Since P1 the makefile builds `--arch arm64` only (`ARCHS`).
@@ -147,13 +149,18 @@ tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sou
   - Use `git log <last-synced>..master -- src tests doc` and port or merge each fix. While a file is still C, `git merge master` is fine.
   - Write the new SHA in the Handoff log.
 - **Commits:** small, on `swift-port`, with concise imperative subjects (repo style). No README "Fork changes" entries until P14.
-- **Long output:** delegate noisy commands (full test runs, builds, logs) to the `output-summarizer` subagent, per the user's global instructions.
+- **Long output: always delegate to the `output-summarizer` subagent (very important).**
+  - Why: builds, test runs and logs fill the main agent's context window. A phase needs many of them, so the main agent must stay small and focused.
+  - Delegate every command whose output is expected to be long, for example: `make`, `make install`, `make asan`, `make tsan`, `make test`, `make analyze`, `make -C tests`, `swift build`, `swift test`, the golden replay, `scripts/live-tests/` scripts (`live.py`, `bench.py`, `crashes.py`, `ipc_compare.sh`), `git log` and `git diff` over `master`, and wide greps over `src/` or `Sources/`.
+  - Give the subagent the goal, the exact command with its working directory, the question to answer (e.g. "do all four builds finish with no warnings? list each warning line"), and the answer format. Ask for the exact failing lines when you need them, not the whole log.
+  - Run a command yourself only when its output is short, when you need the full raw output, or when it changes state (`deploy.sh`, `codesign`, `git commit`, editing files).
 - **Pitfalls:** when something costs you real time, add it to the skill `.claude/skills/swift-port-conventions/SKILL.md` in the same commit. Note it in the Handoff log too.
 
 ## Swift conventions and pitfalls
 Moved in P2 to the project skill `.claude/skills/swift-port-conventions/SKILL.md` (it outgrew a page). Read it before writing Swift; add new pitfalls there.
 
 ## Verification checklist (referenced by the phases)
+Run these through the `output-summarizer` subagent (see **Agent rules**, "Long output"). Record its answers in the Handoff log, not the raw output.
 - **V1 Build:** `make`, `make install`, `make asan` and `make tsan` succeed with no warnings, and `bin/yabai --version` runs.
 - **V2 Unit tests:**
   - `make test` passes: it runs `swift test`, then the C tests and the golden IPC replay (`Golden IPC: 145 of 145 responses match` in P0).
@@ -502,3 +509,30 @@ Append one entry per session, newest last. Template:
 - Pitfalls added to "Swift conventions and pitfalls": testing code of the executable (`@testable import Yabai`, serialized suites); C fields that hold an enum as `int`
 - Waiting on user: nothing
 
+### 2026-10-14 P6 [x]
+- Commits: c1854e6 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the whole phase.
+  - Handlers in Swift: `handleDomainDisplay`/`handleDomainSpace` (`Sources/Yabai/IPC/MessageSpace.swift`, with `spaceCommandArrange`/`spaceCommandLayout`, `failSpaceOp`, `CommandResult`), `handleDomainWindow` (`MessageWindow.swift`: the five command groups, `parseWindowLayout`, `parseSplitOrientation`, the toggles as a switch over `WindowToggle`, `failUnmanagedWindow`), `handleDomainQuery`/`handleDomainRule`/`handleDomainSignal` (`MessageQuery.swift`). Command strings are private enums per file, as `enum Config` in P5. `handleMessage` reads a Swift `Message` built from the received bytes; `get_token`, `CMessage` and the C cursor are gone.
+  - Query json in Swift: `Serialize.swift` (`displaySerialize`, `viewSerialize`, the space/window query lists, `windowInfo(for:)`/`windowInfo(forID:)`/`windowInfoSetTree`, `treeSerialize`) and `Sources/YabaiCore/Query.swift` (`DisplayProperty`/`SpaceProperty`/`WindowProperty` with their lists, `WindowSplit`, `WindowInfo.serialize`). `window_serialize` stays a `@_cdecl` entry point for the debug output of `window_manager_discovery.c`.
+  - Deleted C: `message_parse.c`, `message_space.c`, `message_window.c`, `message.c`; the serializers of `display.c`, `display_manager.c`, `view.c`, `space_manager.c`, `window.c` (all of `window_info_*`, `window_property_title_ts`), `window_manager.c` and `tree_view.c`; the `*_PROPERTY_LIST` tables, `struct window_info`, `view_type_str`, `window_split_str`, `con_layout_str`; every parser shim of P4 that only the C handlers called, `handle_message` and `client_encode_message`. `src/message_parse.h` is now `src/globals.h` (only the accessors of the singletons, plus `connection_global()`).
+  - `event_signal_storage_init` (`event_signal.c`) replaces the `memory_pool_init` call in `yabai.c`, so the golden fixture can set up the signal storage (see pitfalls).
+  - Golden: `tests/YabaiCoreTests/Golden` moved to `tests/YabaiTests/Golden`; `goldenReplay` and `goldenCaptureCoversEveryCommand` are in `tests/YabaiTests/GoldenTests.swift` (record with `GOLDEN_RECORD=1 swift test --filter Golden`). The C replay `tests/src/golden.c` is deleted. The tests that touch the C managers nest in `@Suite(.serialized) struct DaemonState` (`tests/YabaiTests/DaemonState.swift`), since `.serialized` only orders the tests within one suite tree. `tests/YabaiTests/TreeFixtures.swift` has `treeTestLeaf`/`treeTestSplit` for P12.
+  - `scripts/live-tests/ipc_compare.sh` gained ~70 P6 cases: the full json of every query and target (`--displays`/`--spaces`/`--windows` with every target, property subsets, `--tree`) and display/space/window/rule/signal commands that fail before they act.
+- Resume at: next phase (P7)
+- Open @_cdecl shims / C structs still shared: the P3 shims (`area_*`, `label_*`, `space_layout_*`, `space_manager_move_space_replacement`, `json_string`, used by `rule.c`/`event_signal.c`), `rule_combine_effects`, `message_loop_begin`, `daemon_message_handle`, `window_serialize`. `space_layout_parse` still has no C caller. C structs: `struct area`, `struct space_layout`, `struct rule`/`rule_effects` (P11, filled by `parseCRule` in `MessageShims.swift`), `struct signal` (P7, `parseCSignal`), and the manager/window/view/con structs the handlers and serializers read.
+- Tests: C remaining 56, Swift added 6 (total ported 26/82): `message_window_layout_values`, `message_window_command_groups`, `message_space_command_groups`, `window_info_tree_fields`, `tree_view_serialize_tree` (YabaiTests), `window_info_serialize_selected` (YabaiCoreTests). Extra Swift test: `windowInfoWritesEveryPropertyInListOrder`. Golden replay 145/145 in Swift (through the Swift handlers), `goldenCaptureCoversEveryCommand` passes; 42 Swift tests in all.
+- Measurements:
+  - Lines (as in P5): C 12,246 · headers 3,743 · ObjC 1,022 · Swift 7,279 · C tests 1,850
+  - Release `bin/yabai`: 1,308,744 B (P5: 1,241,272 B); `make install` 6.8 s incremental
+  - V1 all four variants warning-free (`make -C tests` too); V2 passes; V3 36 warnings (HEAD before the phase: 34), diffed and triaged: gone are the three `a->id` NullDereference of `window_manager_{stack,warp,swap}_window` and a `dview` leak, whose paths started in the C window handler; new are a use-after-free (`window_manager.c:143`) and a NullDereference (`tree.c:112`) on paths through `window_manager_tree_move_direction` → `tree_move` → `tree_flatten(root)` that assume the root container has a parent (it never has, and `tree_flatten` never frees a parentless container), and four view leaks (views owned by tables). The functions became top-level entry points of the analyzer when their C caller went away; all are the known false-positive classes.
+  - V5: `run` 28/28, `extra` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 13 ms, Dock pid unchanged), `launch` 3/3; asan `run` 28/28 and tsan `run` 28/28, both without reports. Crash reports 30 before and after. `deploy.sh restore` done.
+  - V6: `ipc_compare.sh` (196 commands, ~2,800 lines) is byte-identical between the P6 release build and the installed build, each right after a restart, except `query --windows` (all): the same 7 windows with identical fields, in another order (the z-order changed as the live run moved focus), and the spinner character of a terminal title. A `window_focused` signal runs for `window --focus <id>` and back.
+  - Bench (V5 step 2, same windows): P6 tab focus 28.7 / 34.6, rotate 160.5 / 152.4, split focus 32.3 / 31.3 ms; installed build 32.5 / 30.5, 153.2 / 151.7, 33.4 / 33.7 ms.
+- Deviations from plan / surprises:
+  - `rule --list` and `signal --list` are still written by C (`window_manager_query_window_rules` → `rule_serialize`, `event_signal_list`) through `Response.appendWritten`: they serialize `struct rule`/`struct signal`, which P11/P7 port.
+  - The plan names only the serializers; the collection of a window's values (`window_info_for_window`, `window_info_for_window_id`, `window_info_set_tree`, …) moved too, because `window_info_tree_fields` tests it and nothing else used it.
+  - A non-AX window whose `proc_name` fails gets app "" (C kept the name of the previous such window in its static buffer). App names, titles and roles are Swift `String`s, so invalid UTF-8 (only a truncated `proc_name`) would come out as U+FFFD, like the labels since P3.
+  - The `window --toggle` handler checks the toggle before it needs an acting window (C ran the same checks in another order); the results are the same.
+- Pitfalls added to "Swift conventions and pitfalls": header functions with a body that are not `static` (duplicate symbol in the test target, `memory_pool_init`)
+- Waiting on user: nothing

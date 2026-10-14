@@ -1,6 +1,5 @@
 extern struct window_manager g_window_manager;
 extern int g_connection;
-extern volatile bool __pending_window_focus;
 
 static TABLE_HASH_FUNC(hash_view)
 {
@@ -385,7 +384,7 @@ static struct window *space_manager_focused_window(void)
     ProcessSerialNumber front = {0};
     _SLPSGetFrontProcess(&front);
 
-    bool pending_focus = __atomic_load_n(&__pending_window_focus, __ATOMIC_ACQUIRE);
+    bool pending_focus = pending_window_focus();
     if (space_manager_can_use_known_focus(&front, &g_window_manager, pending_focus)) {
         struct window *window = window_manager_find_window(&g_window_manager, g_window_manager.focused_window_id);
         if (window) return window;

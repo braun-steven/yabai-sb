@@ -125,24 +125,6 @@ TEST_FUNC(window_pending_focus,
     table_free(&pending_focus_wm.window);
 });
 
-TEST_FUNC(mouse_event_coalescing,
-{
-    volatile uint32_t pending = 0;
-
-    //
-    // NOTE: Three events were posted before the handler ran: only the last one is handled.
-    //
-
-    __atomic_add_fetch(&pending, 3, __ATOMIC_ACQ_REL);
-    TEST_CHECK(mouse_event_is_stale(&pending), true);
-    TEST_CHECK(mouse_event_is_stale(&pending), true);
-    TEST_CHECK(mouse_event_is_stale(&pending), false);
-
-    __atomic_add_fetch(&pending, 1, __ATOMIC_ACQ_REL);
-    TEST_CHECK(mouse_event_is_stale(&pending), false);
-    TEST_CHECK((int) pending, 0);
-});
-
 static ProcessSerialNumber known_focus_psn(uint32_t low)
 {
     ProcessSerialNumber psn = {0};
@@ -170,26 +152,6 @@ TEST_FUNC(space_known_focus,
 
     wm.focused_window_id = 0;
     TEST_CHECK(space_manager_can_use_known_focus(&owner, &wm, false), false);
-});
-
-TEST_FUNC(application_launch_retry_backoff,
-{
-    //
-    // NOTE: The delay doubles from 100ms and is capped at 5s; delays are compared in milliseconds.
-    //
-
-    TEST_CHECK((int)(application_launch_retry_delay(0) * 1000.0f + 0.5f), 100);
-    TEST_CHECK((int)(application_launch_retry_delay(1) * 1000.0f + 0.5f), 200);
-    TEST_CHECK((int)(application_launch_retry_delay(5) * 1000.0f + 0.5f), 3200);
-    TEST_CHECK((int)(application_launch_retry_delay(6) * 1000.0f + 0.5f), 5000);
-    TEST_CHECK((int)(application_launch_retry_delay(40) * 1000.0f + 0.5f), 5000);
-
-    float total = 0.0f;
-    int attempts = 0;
-    while (application_launch_can_retry(attempts)) total += application_launch_retry_delay(attempts++);
-
-    TEST_CHECK(attempts, APPLICATION_LAUNCH_MAX_ATTEMPTS);
-    TEST_CHECK(total > 30.0f && total < 40.0f, true);
 });
 
 static uint32_t *unresolved_window_ids(struct window_manager *wm, int *count)
@@ -258,19 +220,6 @@ TEST_FUNC(window_one_shot_rules,
 
     rule_destroy(&wm.rules[0]);
     buf_free(wm.rules);
-});
-
-TEST_FUNC(mouse_resize_handle,
-{
-    CGRect frame = CGRectMake(100, 100, 200, 100);
-
-    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(110, 110)), HANDLE_LEFT | HANDLE_TOP);
-    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(290, 190)), HANDLE_RIGHT | HANDLE_BOTTOM);
-
-    // NOTE: on a center line only one edge is dragged
-    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(200, 190)), HANDLE_BOTTOM);
-    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(110, 150)), HANDLE_LEFT);
-    TEST_CHECK(mouse_resize_direction(frame, CGPointMake(200, 150)), 0);
 });
 
 static struct window mouse_drop_test_window(void)

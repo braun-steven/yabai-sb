@@ -1,5 +1,3 @@
-extern volatile bool __pending_window_focus;
-
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 static OBSERVER_CALLBACK(application_notification_handler)
@@ -7,7 +5,7 @@ static OBSERVER_CALLBACK(application_notification_handler)
     if (CFEqual(notification, kAXCreatedNotification)) {
         event_loop_post(WINDOW_CREATED, (void *) CFRetain(element), 0);
     } else if (CFEqual(notification, kAXFocusedWindowChangedNotification)) {
-        __atomic_store_n(&__pending_window_focus, true, __ATOMIC_RELEASE);
+        pending_window_focus_set(true);
         event_loop_post(WINDOW_FOCUSED, (void *)(intptr_t) ax_window_id(element), 0);
     } else if (CFEqual(notification, kAXWindowMovedNotification)) {
         event_loop_post(WINDOW_MOVED, (void *)(intptr_t) ax_window_id(element), 0);

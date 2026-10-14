@@ -74,6 +74,7 @@ int yabai_main(int argc, char **argv);
 #include "../sa.h"
 #include "../event_loop.h"
 #include "../event_signal.h"
+#include "../mission_control.h"
 #include "../workspace.h"
 #include "../rule.h"
 #include "../display.h"

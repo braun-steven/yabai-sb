@@ -5,12 +5,6 @@
 #undef HASHTABLE_IMPLEMENTATION
 
 #include "sa.m"
-#include "mission_control.c"
-#include "event_handlers.c"
-#include "event_handlers_window.c"
-#include "event_handlers_space.c"
-#include "event_handlers_mouse.c"
-#include "event_handlers_system.c"
 #include "workspace.m"
 #include "rule.c"
 #include "display.c"

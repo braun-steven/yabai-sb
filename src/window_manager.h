@@ -251,6 +251,25 @@ void window_manager_remove_one_shot_rules(struct window_manager *wm);
 uint64_t window_manager_origin_space(struct window_manager *wm, struct window *window);
 struct window **window_manager_add_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int *count);
 bool window_manager_add_existing_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int refresh_index);
+
+//
+// NOTE: The index of an application in applications_to_refresh (or -1), and its removal, for Swift, which cannot
+// expand the sbuffer macros.
+//
+
+static inline int window_manager_application_refresh_index(struct window_manager *wm, struct application *application)
+{
+    for (int i = 0; i < buf_len(wm->applications_to_refresh); ++i) {
+        if (application == wm->applications_to_refresh[i]) return i;
+    }
+
+    return -1;
+}
+
+static inline void window_manager_remove_application_refresh(struct window_manager *wm, int index)
+{
+    buf_del(wm->applications_to_refresh, index);
+}
 enum window_op_error window_manager_apply_grid(struct space_manager *sm, struct window_manager *wm, struct window *window, unsigned r, unsigned c, unsigned x, unsigned y, unsigned w, unsigned h);
 void window_manager_purify_window(struct window_manager *wm, struct window *window);
 void window_manager_make_window_floating(struct space_manager *sm, struct window_manager *wm, struct window *window, bool should_float, bool force);

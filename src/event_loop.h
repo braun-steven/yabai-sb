@@ -1,8 +1,6 @@
 #ifndef EVENT_LOOP_H
 #define EVENT_LOOP_H
 
-#define EVENT_HANDLER(event_type) void EVENT_HANDLER_##event_type(void *context, int param1)
-
 #define EVENT_TYPE_LIST \
     EVENT_TYPE_ENTRY(APPLICATION_LAUNCHED) \
     EVENT_TYPE_ENTRY(APPLICATION_TERMINATED) \
@@ -56,15 +54,24 @@ enum event_type
 };
 
 //
-// NOTE: The event loop is Swift (Sources/Yabai/EventLoop.swift): event_loop_post maps an event to the Event enum and
-// queues it on the serial queue of the @WM actor. Any thread may post an event. The handlers stay C until P8 of the port,
-// and the Swift loop calls them by these names.
+// NOTE: The event loop and the handlers are Swift (Sources/Yabai/EventLoop.swift, EventHandlers*.swift): event_loop_post
+// maps an event to the Event enum and queues it on the serial queue of the @WM actor. Any thread may post an event.
 //
 
-#define EVENT_TYPE_ENTRY(value) EVENT_HANDLER(value);
-    EVENT_TYPE_LIST
-#undef EVENT_TYPE_ENTRY
-
 void event_loop_post(enum event_type type, void *context, int param1);
+
+//
+// NOTE: The flags that producers on other threads set for the handlers, Swift Atomics in EventHandlers.swift. The C code
+// that sets or reads them calls these until it is Swift.
+//
+
+void pending_window_focus_set(bool value);
+bool pending_window_focus(void);
+void pending_gesture_set(bool value);
+void last_gesture_time_set(uint64_t time);
+void pending_mouse_dragged_add(void);
+void pending_mouse_moved_add(void);
+
+void update_window_notifications(void);
 
 #endif

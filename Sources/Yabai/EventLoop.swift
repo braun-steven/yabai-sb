@@ -7,7 +7,7 @@ import YabaiC
 // the mouse event tap, the socket thread) only post events; the handlers run one at a time on the serial queue of the
 // @WM actor, in the order the events were posted. After each handler the signals it pushed run, and the temporary
 // storage is reset. Events never go through Task {}: a task could run them out of order. Ported from src/event_loop.c
-// (a worker thread draining a lock-free queue); the handlers stay C until P8 of the port.
+// (a worker thread draining a lock-free queue); the handlers are in EventHandlers*.swift.
 //
 
 /// The actor of the window manager state. Its executor is the serial queue of the event loop.
@@ -45,8 +45,8 @@ actor WM
 
 //
 // NOTE: @unchecked Sendable: a producer gives up the object when it posts the event, and from then on only the event
-// loop uses it, as with the C queue. The handler owns the object: it releases a retained CF object (the AX element of
-// a new window, a mouse event), and the C structs belong to their managers.
+// loop uses it, as with the C queue. The handler owns the object: handle takes the retained CF object (the AX element
+// of a new window, a mouse event) with takeRetainedValue, and the C structs belong to their managers.
 //
 
 /// A C object (a process, a window) or a retained CF object that a producer hands to the handler of its event.
@@ -133,21 +133,6 @@ private func id64(_ context: UnsafeMutableRawPointer?) -> UInt64
     UInt64(UInt(bitPattern: context))
 }
 
-private func context(_ id: UInt32) -> UnsafeMutableRawPointer?
-{
-    UnsafeMutableRawPointer(bitPattern: Int(id))
-}
-
-private func context(_ id: UInt64) -> UnsafeMutableRawPointer?
-{
-    UnsafeMutableRawPointer(bitPattern: UInt(id))
-}
-
-private func context(_ pid: pid_t) -> UnsafeMutableRawPointer?
-{
-    UnsafeMutableRawPointer(bitPattern: Int(pid))
-}
-
 private func handoff<T>(_ context: UnsafeMutableRawPointer?, _ type: T.Type) -> Handoff<UnsafeMutablePointer<T>>
 {
     Handoff(value: context!.assumingMemoryBound(to: T.self))
@@ -212,52 +197,53 @@ func event_loop_post(_ type: event_type, _ context: UnsafeMutableRawPointer?, _ 
     EventLoop.post(event)
 }
 
-/// Runs the C handler of an event with the context and param1 it was posted with.
+/// Runs the handler of an event. The retained CF objects are taken here, so they are released when the handler
+/// returns.
 @WM private func handle(_ event: Event)
 {
     switch event {
-    case .applicationLaunched(let process):          EVENT_HANDLER_APPLICATION_LAUNCHED(UnsafeMutableRawPointer(process.value), 0)
-    case .applicationTerminated(let process):        EVENT_HANDLER_APPLICATION_TERMINATED(UnsafeMutableRawPointer(process.value), 0)
-    case .applicationFrontSwitched(let process):     EVENT_HANDLER_APPLICATION_FRONT_SWITCHED(UnsafeMutableRawPointer(process.value), 0)
-    case .applicationVisible(let pid):               EVENT_HANDLER_APPLICATION_VISIBLE(context(pid), 0)
-    case .applicationHidden(let pid):                EVENT_HANDLER_APPLICATION_HIDDEN(context(pid), 0)
-    case .windowCreated(let element):                EVENT_HANDLER_WINDOW_CREATED(element.value.toOpaque(), 0)
-    case .windowDestroyed(let window):               EVENT_HANDLER_WINDOW_DESTROYED(UnsafeMutableRawPointer(window.value), 0)
-    case .windowFocused(let wid):                    EVENT_HANDLER_WINDOW_FOCUSED(context(wid), 0)
-    case .windowFocusDeferred(let wid):              EVENT_HANDLER_WINDOW_FOCUS_DEFERRED(context(wid), 0)
-    case .windowMoved(let wid):                      EVENT_HANDLER_WINDOW_MOVED(context(wid), 0)
-    case .windowResized(let wid):                    EVENT_HANDLER_WINDOW_RESIZED(context(wid), 0)
-    case .windowMinimized(let window):               EVENT_HANDLER_WINDOW_MINIMIZED(UnsafeMutableRawPointer(window.value), 0)
-    case .windowDeminimized(let window):             EVENT_HANDLER_WINDOW_DEMINIMIZED(UnsafeMutableRawPointer(window.value), 0)
-    case .windowTitleChanged(let wid):               EVENT_HANDLER_WINDOW_TITLE_CHANGED(context(wid), 0)
-    case .slsWindowOrdered(let wid):                 EVENT_HANDLER_SLS_WINDOW_ORDERED(context(wid), 0)
-    case .slsWindowDestroyed(let wid):               EVENT_HANDLER_SLS_WINDOW_DESTROYED(context(wid), 0)
-    case .slsSpaceCreated(let sid):                  EVENT_HANDLER_SLS_SPACE_CREATED(context(sid), 0)
-    case .slsSpaceDestroyed(let sid):                EVENT_HANDLER_SLS_SPACE_DESTROYED(context(sid), 0)
-    case .spaceChanged:                              EVENT_HANDLER_SPACE_CHANGED(nil, 0)
-    case .displayAdded(let did):                     EVENT_HANDLER_DISPLAY_ADDED(context(did), 0)
-    case .displayRemoved(let did):                   EVENT_HANDLER_DISPLAY_REMOVED(context(did), 0)
-    case .displayMoved(let did):                     EVENT_HANDLER_DISPLAY_MOVED(context(did), 0)
-    case .displayResized(let did):                   EVENT_HANDLER_DISPLAY_RESIZED(context(did), 0)
-    case .displayChanged:                            EVENT_HANDLER_DISPLAY_CHANGED(nil, 0)
-    case .mouseDown(let event, let modifiers):       EVENT_HANDLER_MOUSE_DOWN(event.value.toOpaque(), modifiers)
-    case .mouseUp(let event):                        EVENT_HANDLER_MOUSE_UP(event.value.toOpaque(), 0)
-    case .mouseDragged(let event):                   EVENT_HANDLER_MOUSE_DRAGGED(event.value.toOpaque(), 0)
-    case .mouseMoved(let event, let modifiers):      EVENT_HANDLER_MOUSE_MOVED(event.value.toOpaque(), modifiers)
-    case .tabBarClicked(let wid):                    EVENT_HANDLER_TAB_BAR_CLICKED(context(wid), 0)
-    case .missionControlShowAllWindows:              EVENT_HANDLER_MISSION_CONTROL_SHOW_ALL_WINDOWS(nil, 0)
-    case .missionControlShowFrontWindows:            EVENT_HANDLER_MISSION_CONTROL_SHOW_FRONT_WINDOWS(nil, 0)
-    case .missionControlShowDesktop:                 EVENT_HANDLER_MISSION_CONTROL_SHOW_DESKTOP(nil, 0)
-    case .missionControlEnter:                       EVENT_HANDLER_MISSION_CONTROL_ENTER(nil, 0)
-    case .missionControlCheckForExit:                EVENT_HANDLER_MISSION_CONTROL_CHECK_FOR_EXIT(nil, 0)
-    case .missionControlExit:                        EVENT_HANDLER_MISSION_CONTROL_EXIT(nil, 0)
-    case .dockDidRestart:                            EVENT_HANDLER_DOCK_DID_RESTART(nil, 0)
-    case .menuOpened(let wid):                       EVENT_HANDLER_MENU_OPENED(context(wid), 0)
-    case .menuClosed:                                EVENT_HANDLER_MENU_CLOSED(nil, 0)
-    case .menuBarHiddenChanged:                      EVENT_HANDLER_MENU_BAR_HIDDEN_CHANGED(nil, 0)
-    case .dockDidChangePref:                         EVENT_HANDLER_DOCK_DID_CHANGE_PREF(nil, 0)
-    case .systemWoke:                                EVENT_HANDLER_SYSTEM_WOKE(nil, 0)
-    case .spaceLayoutReconcile(let generation):      EVENT_HANDLER_SPACE_LAYOUT_RECONCILE(nil, generation)
-    case .daemonMessage(let sockfd):                 EVENT_HANDLER_DAEMON_MESSAGE(nil, sockfd)
+    case .applicationLaunched(let process):          applicationLaunched(process.value)
+    case .applicationTerminated(let process):        applicationTerminated(process.value)
+    case .applicationFrontSwitched(let process):     applicationFrontSwitched(process.value)
+    case .applicationVisible(let pid):               applicationVisible(pid)
+    case .applicationHidden(let pid):                applicationHidden(pid)
+    case .windowCreated(let element):                windowCreated(element.value.takeRetainedValue())
+    case .windowDestroyed(let window):               windowDestroyed(window.value)
+    case .windowFocused(let wid):                    windowFocused(wid)
+    case .windowFocusDeferred(let wid):              windowFocusDeferred(wid)
+    case .windowMoved(let wid):                      windowMoved(wid)
+    case .windowResized(let wid):                    windowResized(wid)
+    case .windowMinimized(let window):               windowMinimized(window.value)
+    case .windowDeminimized(let window):             windowDeminimized(window.value)
+    case .windowTitleChanged(let wid):               windowTitleChanged(wid)
+    case .slsWindowOrdered(let wid):                 slsWindowOrdered(wid)
+    case .slsWindowDestroyed(let wid):               slsWindowDestroyed(wid)
+    case .slsSpaceCreated(let sid):                  slsSpaceCreated(sid)
+    case .slsSpaceDestroyed(let sid):                slsSpaceDestroyed(sid)
+    case .spaceChanged:                              spaceChanged()
+    case .displayAdded(let did):                     displayAdded(did)
+    case .displayRemoved(let did):                   displayRemoved(did)
+    case .displayMoved(let did):                     displayMoved(did)
+    case .displayResized(let did):                   displayResized(did)
+    case .displayChanged:                            displayChanged()
+    case .mouseDown(let event, let modifiers):       mouseDown(event.value.takeRetainedValue(), modifiers)
+    case .mouseUp(let event):                        mouseUp(event.value.takeRetainedValue())
+    case .mouseDragged(let event):                   mouseDragged(event.value.takeRetainedValue())
+    case .mouseMoved(let event, _):                  mouseMoved(event.value.takeRetainedValue())
+    case .tabBarClicked(let wid):                    tabBarClicked(wid)
+    case .missionControlShowAllWindows:              missionControlShowAllWindows()
+    case .missionControlShowFrontWindows:            missionControlShowFrontWindows()
+    case .missionControlShowDesktop:                 missionControlShowDesktop()
+    case .missionControlEnter:                       missionControlEnter()
+    case .missionControlCheckForExit:                missionControlCheckForExit()
+    case .missionControlExit:                        missionControlExit()
+    case .dockDidRestart:                            dockDidRestart()
+    case .menuOpened:                                menuOpened()
+    case .menuClosed:                                menuClosed()
+    case .menuBarHiddenChanged:                      menuBarHiddenChanged()
+    case .dockDidChangePref:                         dockDidChangePref()
+    case .systemWoke:                                systemWoke()
+    case .spaceLayoutReconcile(let generation):      spaceLayoutReconcile(generation)
+    case .daemonMessage(let sockfd):                 daemon_message_handle(sockfd)
     }
 }

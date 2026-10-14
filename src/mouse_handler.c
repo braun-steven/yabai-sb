@@ -1,8 +1,3 @@
-extern volatile bool __pending_gesture;
-extern volatile uint64_t __last_gesture_time;
-extern volatile uint32_t __pending_mouse_moved;
-extern volatile uint32_t __pending_mouse_dragged;
-
 static inline uint8_t mouse_mod_from_cgflags(uint32_t cgflags)
 {
     uint8_t flags = 0;
@@ -30,10 +25,10 @@ static void mouse_handle_dock_gesture(CGEventRef event)
 
     int phase = CGEventGetIntegerValueField(event, kCGEventGesturePhase);
     if (phase == kCGSGesturePhaseBegan) {
-        __atomic_store_n(&__pending_gesture, true, __ATOMIC_RELEASE);
+        pending_gesture_set(true);
     } else if (phase == kCGSGesturePhaseEnded || phase == kCGSGesturePhaseCancelled) {
-        __atomic_store_n(&__pending_gesture, false, __ATOMIC_RELEASE);
-        __atomic_store_n(&__last_gesture_time, read_os_timer(), __ATOMIC_RELEASE);
+        pending_gesture_set(false);
+        last_gesture_time_set(read_os_timer());
     }
 }
 
@@ -92,14 +87,14 @@ static MOUSE_HANDLER(mouse_handler)
         if (type == kCGEventLeftMouseDragged && mouse_state->consume_tab_click) return NULL;
 
         mouse_state->drag_detected = true;
-        __atomic_add_fetch(&__pending_mouse_dragged, 1, __ATOMIC_ACQ_REL);
+        pending_mouse_dragged_add();
         event_loop_post(MOUSE_DRAGGED, (void *) CFRetain(event), 0);
     } break;
     case kCGEventMouseMoved: {
         uint8_t mod = mouse_mod_from_cgflags(CGEventGetFlags(event));
         if (mod == mouse_state->modifier) return event;
 
-        __atomic_add_fetch(&__pending_mouse_moved, 1, __ATOMIC_ACQ_REL);
+        pending_mouse_moved_add();
         event_loop_post(MOUSE_MOVED, (void *) CFRetain(event), mod);
     } break;
     case kCGSEventDockControl: {

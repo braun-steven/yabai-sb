@@ -145,9 +145,10 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   only the new part: `tail -c +<size+1> /tmp/yabai_$USER.err.log | grep -E "Sanitizer|runtime error|SUMMARY"`.
 - Look at the pid in each report (`==12345==` or `pid=12345`). Reports from pids other than the daemon's
   come from processes it forked, e.g. the process that runs signal commands.
-- Known TSan noise: two "data races" in `event_handlers.c` (the first `debug` line of `APPLICATION_LAUNCHED`
-  reading `process->name`/`pid` written by `process_create`). The process is handed over through the
-  event queue, which TSan does not model; treat them as false positives.
+- Former TSan noise: two "data races" in the C `APPLICATION_LAUNCHED` handler (its first `debug` line
+  reading `process->name`/`pid` written by `process_create`), from the C event queue, which TSan did not
+  model. The handler is `applicationLaunched` in `Sources/Yabai/EventHandlers.swift` now and the queue is
+  dispatch, which TSan models; they have not shown up since the Swift event loop (P7). A report there is new.
 - Fixed on `fix-left-out-findings`: the forked signal process called `exit()`, which ran CoreSpotlight's
   PowerLog finalizers in a fork of a multithreaded process and crashed (`_os_log_find` /
   `_dispatch_mgr_queue_push` under `exit` < `event_signal_flush`). It then used `_exit()`; since P7 of the

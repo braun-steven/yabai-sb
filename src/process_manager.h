@@ -29,6 +29,15 @@ struct process_manager
     ProcessSerialNumber finder_psn;
 };
 
+//
+// NOTE: terminated and ns_application are also written on other threads. Swift has no atomics on C memory, so the
+// handlers read and write them through these.
+//
+
+static inline bool process_is_terminated(struct process *process) { return __atomic_load_n(&process->terminated, __ATOMIC_RELAXED); }
+static inline void *process_ns_application(struct process *process) { return __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED); }
+static inline void process_set_ns_application(struct process *process, void *ns_application) { __atomic_store_n(&process->ns_application, ns_application, __ATOMIC_RELEASE); }
+
 void process_destroy(struct process *process);
 struct process *process_manager_find_process(struct process_manager *pm, ProcessSerialNumber *psn);
 bool process_manager_begin(struct process_manager *pm);

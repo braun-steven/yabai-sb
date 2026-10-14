@@ -59,7 +59,6 @@ struct display_label *display_manager_get_display_for_label(struct display_manag
 bool display_manager_remove_label_for_display(struct display_manager *dm, uint32_t did);
 void display_manager_set_label_for_display(struct display_manager *dm, uint32_t did, char *label);
 bool display_manager_query_displays(FILE *rsp, uint64_t flags);
-CFStringRef display_manager_main_display_uuid(void);
 uint32_t display_manager_main_display_id(void);
 CFStringRef display_manager_active_display_uuid(void);
 uint32_t display_manager_active_display_id(void);
@@ -83,7 +82,6 @@ CGRect display_manager_menu_bar_rect(uint32_t did);
 bool display_manager_dock_hidden(void);
 int display_manager_dock_orientation(void);
 CGRect display_manager_dock_rect(void);
-bool display_manager_active_display_is_animating(void);
 bool display_manager_display_is_animating(uint32_t did);
 int display_manager_active_display_count(void);
 uint32_t *display_manager_active_display_list(int *count);

@@ -1321,23 +1321,6 @@ enum space_layout_result space_manager_reconcile_space_layout(struct space_manag
     return result == SPACE_OP_ERROR_SUCCESS ? SPACE_LAYOUT_RESULT_PERFORMED : SPACE_LAYOUT_RESULT_FAILED;
 }
 
-void space_manager_assign_process_to_space(pid_t pid, uint64_t sid)
-{
-    SLSProcessAssignToSpace(g_connection, pid, sid);
-}
-
-void space_manager_assign_process_to_all_spaces(pid_t pid)
-{
-    SLSProcessAssignToAllSpaces(g_connection, pid);
-}
-
-bool space_manager_is_window_on_active_space(struct window *window)
-{
-    uint64_t sid = space_manager_active_space();
-    bool result = space_manager_is_window_on_space(sid, window);
-    return result;
-}
-
 bool space_manager_is_window_on_space(uint64_t sid, struct window *window)
 {
     int space_count;

@@ -95,11 +95,6 @@ inline bool space_is_fullscreen(uint64_t sid)
     return SLSSpaceGetType(g_connection, sid) == 4;
 }
 
-inline bool space_is_system(uint64_t sid)
-{
-    return SLSSpaceGetType(g_connection, sid) == 2;
-}
-
 inline bool space_is_visible(uint64_t sid)
 {
     return sid == display_space_id(space_display_id(sid));

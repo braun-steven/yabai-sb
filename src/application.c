@@ -85,18 +85,6 @@ void application_unobserve(struct application *application)
     }
 }
 
-uint32_t application_main_window(struct application *application)
-{
-    CFTypeRef window_ref = NULL;
-    AXUIElementCopyAttributeValue(application->ref, kAXMainWindowAttribute, &window_ref);
-    if (!window_ref) return 0;
-
-    uint32_t window_id = ax_window_id(window_ref);
-    CFRelease(window_ref);
-
-    return window_id;
-}
-
 uint32_t application_focused_window(struct application *application)
 {
     CFTypeRef window_ref = NULL;

@@ -187,34 +187,6 @@ inline uint64_t display_space_id(uint32_t did)
     return sid;
 }
 
-int display_space_count(uint32_t did)
-{
-    int space_count = 0;
-
-    CFStringRef uuid = display_uuid(did);
-    if (!uuid) goto out;
-
-    CFArrayRef display_spaces_ref = SLSCopyManagedDisplaySpaces(g_connection);
-    if (!display_spaces_ref) goto err;
-
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
-    for (int i = 0; i < display_spaces_count; ++i) {
-        CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
-        CFStringRef identifier = CFDictionaryGetValue(display_ref, CFSTR("Display Identifier"));
-        if (!CFEqual(uuid, identifier)) continue;
-
-        CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-        space_count = CFArrayGetCount(spaces_ref);
-        break;
-    }
-
-    CFRelease(display_spaces_ref);
-err:
-    CFRelease(uuid);
-out:
-    return space_count;
-}
-
 uint64_t *display_space_list(uint32_t did, int *count)
 {
     uint64_t *space_list = NULL;

@@ -77,12 +77,6 @@ void display_manager_set_label_for_display(struct display_manager *dm, uint32_t 
     }));
 }
 
-CFStringRef display_manager_main_display_uuid(void)
-{
-    uint32_t did = display_manager_main_display_id();
-    return display_uuid(did);
-}
-
 uint32_t display_manager_main_display_id(void)
 {
     return CGMainDisplayID();
@@ -388,24 +382,6 @@ CGRect display_manager_dock_rect(void)
     CGRect bounds = {0};
     SLSGetDockRectWithReason(g_connection, &bounds, &reason);
     return bounds;
-}
-
-bool display_manager_active_display_is_animating(void)
-{
-    if (workspace_is_macos_bigsur()   ||
-        workspace_is_macos_monterey() ||
-        workspace_is_macos_ventura())
-    {
-        CFStringRef uuid = display_manager_active_display_uuid();
-        assert(uuid);
-
-        bool result = SLSManagedDisplayIsAnimating(g_connection, uuid);
-        CFRelease(uuid);
-
-        return result;
-    }
-
-    return false; // This does not return a correct result on modern macOS versions.
 }
 
 bool display_manager_display_is_animating(uint32_t did)

@@ -71,7 +71,6 @@ struct view *space_manager_query_view(struct space_manager *sm, uint64_t sid);
 struct view *space_manager_find_view(struct space_manager *sm, uint64_t sid);
 void space_manager_refresh_view(struct space_manager *sm, uint64_t sid);
 void space_manager_mark_view_invalid(struct space_manager *sm,  uint64_t sid);
-void space_manager_mark_view_dirty(struct space_manager *sm,  uint64_t sid);
 void space_manager_untile_window(struct view *view, struct window *window);
 struct view *space_manager_tile_window_on_space_with_insertion_point(struct space_manager *sm, struct window *window, uint64_t sid, uint32_t insertion_point);
 struct view *space_manager_tile_window_on_space(struct space_manager *sm, struct window *window, uint64_t sid);
@@ -123,9 +122,6 @@ bool space_manager_parse_space_layout(char *text, int length, struct space_layou
 void space_manager_space_layout_targets(struct space_layout *layout, int builtin, int *target);
 uint64_t space_manager_space_layout_move_candidate(uint64_t *space_list, bool *user_list, int space_count, uint64_t visible_sid, bool from_end);
 enum space_layout_result space_manager_reconcile_space_layout(struct space_manager *sm);
-void space_manager_assign_process_to_space(pid_t pid, uint64_t sid);
-void space_manager_assign_process_to_all_spaces(pid_t pid);
-bool space_manager_is_window_on_active_space(struct window *window);
 bool space_manager_is_window_on_space(uint64_t sid, struct window *window);
 void space_manager_mark_spaces_invalid_for_display(struct space_manager *sm, uint32_t did);
 void space_manager_mark_spaces_invalid(struct space_manager *sm);

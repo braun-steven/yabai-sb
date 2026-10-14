@@ -456,17 +456,6 @@ static inline void daemon_fail(FILE *rsp, char *fmt, ...)
     va_end(ap);
 }
 
-__unused static inline void daemon_deprecated(FILE *rsp, char *fmt, ...)
-{
-    if (!rsp) return;
-
-    va_list ap;
-    va_start(ap, fmt);
-    fprintf(rsp, "deprecation warning: ");
-    vfprintf(rsp, fmt, ap);
-    va_end(ap);
-}
-
 static void parse_key_value_pair(char *token, char **key, char **value, bool *exclusion)
 {
     *key = token;

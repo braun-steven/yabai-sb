@@ -110,13 +110,9 @@ uint64_t process_manager_active_space_for_psn(int connection)
         uint32_t wid = SLSWindowIteratorGetWindowID(iterator);
         int level = SLSWindowIteratorGetLevel(iterator);
 
-        if (parent_wid == 0) {
-            if (level == 0 || level == 3 || level == 8) {
-                if (((attributes & 0x2) || (tags & 0x400000000000000)) && (((tags & 0x1)) || ((tags & 0x2) && (tags & 0x80000000)))) {
-                    sid = window_space(wid);
-                    break;
-                }
-            }
+        if (space_window_is_user_window(parent_wid, level, tags, attributes)) {
+            sid = window_space(wid);
+            break;
         }
     }
 

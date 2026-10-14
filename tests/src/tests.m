@@ -22,6 +22,7 @@ typedef TEST_SIG(function);
 #include "message.c"
 #include "window_info.c"
 #include "window_rules.c"
+#include "space_window.c"
 #include "event_signal.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
@@ -75,6 +76,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_validity)                                \
     TEST_ENTRY(window_one_shot_rules)                          \
     TEST_ENTRY(space_known_focus)                              \
+    TEST_ENTRY(space_window_user_predicates)                   \
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \
     TEST_ENTRY(border_edge_frames_split)                       \

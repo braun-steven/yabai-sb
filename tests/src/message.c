@@ -406,3 +406,30 @@ TEST_FUNC(message_query_target,
     TEST_CHECK(message_test_query_target("--everything", &target, &response), false);
     TEST_CHECK(strstr(response, "unknown option '--everything' given to command '--windows'") != NULL, true);
 });
+
+static enum command_result message_test_window_tree_command(char *command_text, char *message, char **response)
+{
+    char *cursor = message;
+    struct token domain = message_test_token(DOMAIN_WINDOW);
+    struct token command = message_test_token(command_text);
+
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    enum command_result result = window_command_tree(rsp, domain, command, &cursor, NULL);
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+TEST_FUNC(message_window_command_groups,
+{
+    char *response;
+
+    // NOTE: commands of other groups are left to them
+    TEST_CHECK(message_test_window_tree_command("--focus", "\0", &response), COMMAND_UNKNOWN);
+    TEST_CHECK(response[0], '\0');
+
+    // NOTE: an invalid value stops the remaining commands of the message
+    TEST_CHECK(message_test_window_tree_command("--layout", "stacked\0", &response), COMMAND_STOP);
+    TEST_CHECK(strstr(response, "unknown value 'stacked' given to command '--layout'") != NULL, true);
+});

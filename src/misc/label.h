@@ -2,61 +2,28 @@
 #define LABEL_H
 
 //
-// NOTE: A label names a display or a space (id). A list holds each id and each name at most once;
-// it owns the names.
+// NOTE: A label names a display or a space (id). A list holds each id and each name at most once.
+// The lists are Swift (LabelList in Sources/YabaiCore/Label.swift); these functions are implemented in
+// Sources/Yabai/Shims/LabelShims.swift. C holds a list as an opaque reference: NULL is an empty list, the first
+// label_set creates it, and nothing frees it, because the managers own their lists while the daemon runs.
 //
 
-struct label
-{
-    uint64_t id;
-    char *label;
-};
+struct label_list;
 
-static inline struct label *label_find_id(struct label *list, uint64_t id)
-{
-    for (int i = 0; i < buf_len(list); ++i) {
-        if (list[i].id == id) return &list[i];
-    }
-
-    return NULL;
-}
-
-static inline struct label *label_find_name(struct label *list, char *name)
-{
-    for (int i = 0; i < buf_len(list); ++i) {
-        if (string_equals(list[i].label, name)) return &list[i];
-    }
-
-    return NULL;
-}
-
-static inline void label_remove_at(struct label **list, struct label *label)
-{
-    free(label->label);
-    buf_del(*list, label - *list);
-}
-
-static inline bool label_remove_id(struct label **list, uint64_t id)
-{
-    struct label *label = label_find_id(*list, id);
-    if (!label) return false;
-
-    label_remove_at(list, label);
-    return true;
-}
+// the name of id in temporary storage, or NULL
+char *label_find_id(struct label_list *list, uint64_t id);
+bool label_find_name(struct label_list *list, char *name, uint64_t *id);
+bool label_remove_id(struct label_list *list, uint64_t id);
 
 //
 // NOTE: Takes ownership of name. A name that labels another id moves to this id.
 //
 
-static inline void label_set(struct label **list, uint64_t id, char *name)
-{
-    label_remove_id(list, id);
+void label_set(struct label_list **list, uint64_t id, char *name);
 
-    struct label *label = label_find_name(*list, name);
-    if (label) label_remove_at(list, label);
-
-    buf_push(*list, ((struct label) { .id = id, .label = name }));
-}
+// the label of id, if any, moves to new_id
+void label_replace_id(struct label_list *list, uint64_t id, uint64_t new_id);
+// the labels of a and b trade places
+void label_swap_ids(struct label_list *list, uint64_t a, uint64_t b);
 
 #endif

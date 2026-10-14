@@ -11,8 +11,7 @@ typedef TEST_SIG(function);
 #define TEST_FUNC(name, code) static TEST_SIG(name) { char *test_name = #name; bool result = true; {code} return result; }
 #define TEST_CHECK(r, e) if ((r) != (e)) { printf("                   \e[1;33m%s\e[m\e[1;31m#%d %s == %s\e[m \e[1;31m(%d == %d)\e[m\n", test_name, __LINE__, #r, #e, r, e); result = false; }
 
-#include "area.c"
-#include "space_layout.c"
+#include "space_list.c"
 #include "auto_padding.c"
 #include "tree.c"
 #include "tree_view.c"
@@ -23,18 +22,11 @@ typedef TEST_SIG(function);
 #include "window_info.c"
 #include "window_rules.c"
 #include "space_window.c"
-#include "label.c"
 #include "event_signal.c"
 #include "golden.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
-    TEST_ENTRY(display_area_is_in_direction)                   \
-    TEST_ENTRY(closest_display_in_direction)                   \
-    TEST_ENTRY(space_layout_parse)                             \
-    TEST_ENTRY(space_layout_targets)                           \
-    TEST_ENTRY(space_move_replacement)                         \
-    TEST_ENTRY(space_layout_move_candidate)                    \
     TEST_ENTRY(space_list_navigation)                          \
     TEST_ENTRY(auto_padding_applies)                           \
     TEST_ENTRY(auto_padding_tiled_count)                \
@@ -80,7 +72,6 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_one_shot_rules)                          \
     TEST_ENTRY(space_known_focus)                              \
     TEST_ENTRY(space_window_user_predicates)                   \
-    TEST_ENTRY(label_list)                                     \
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \
     TEST_ENTRY(mouse_resize_handle)                            \
@@ -102,7 +93,6 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_selectors)                              \
     TEST_ENTRY(message_query_target)                           \
     TEST_ENTRY(message_signal_parse)                           \
-    TEST_ENTRY(json_string_escaping)                           \
     TEST_ENTRY(rule_effects_combine)                           \
     TEST_ENTRY(window_rules_combine_matching)                  \
     TEST_ENTRY(window_rules_manage_round)                      \

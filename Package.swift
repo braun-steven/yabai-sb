@@ -49,9 +49,13 @@ let package = Package(
                 .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
             ]
         ),
+        // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
+        .target(
+            name: "YabaiCore"
+        ),
         .executableTarget(
             name: "Yabai",
-            dependencies: ["CPrivate", "YabaiC"],
+            dependencies: ["CPrivate", "YabaiC", "YabaiCore"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", Context.packageDirectory + "/assets/Info.plist"] + sdk)
             ]
@@ -59,6 +63,7 @@ let package = Package(
         // tests/, not Tests/: on a case-insensitive file system both would be the directory of the C test harness
         .testTarget(
             name: "YabaiCoreTests",
+            dependencies: ["YabaiCore"],
             path: "tests/YabaiCoreTests",
             resources: [.copy("Golden")]
         )

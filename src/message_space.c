@@ -47,7 +47,7 @@ static void handle_domain_display(FILE *rsp, struct token domain, char *message)
             if (label) {
                 label_set(&g_display_manager.labels, acting_did, label);
             } else {
-                if (!label_remove_id(&g_display_manager.labels, acting_did)) {
+                if (!label_remove_id(g_display_manager.labels, acting_did)) {
                     daemon_fail(rsp, "the selected display was not associated with a label!\n");
                 }
             }
@@ -262,7 +262,7 @@ static enum command_result space_command_layout(FILE *rsp, struct token domain, 
             if (label) {
                 label_set(&g_space_manager.labels, acting_sid, label);
             } else {
-                if (!label_remove_id(&g_space_manager.labels, acting_sid)) {
+                if (!label_remove_id(g_space_manager.labels, acting_sid)) {
                     daemon_fail(rsp, "the selected space was not associated with a label!\n");
                 }
             }

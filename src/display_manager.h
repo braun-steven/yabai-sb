@@ -45,7 +45,7 @@ struct display_manager
     bool builtin_last;
     enum external_bar_mode mode;
 
-    struct label *labels;
+    struct label_list *labels;
 };
 
 bool display_manager_query_displays(FILE *rsp, uint64_t flags);

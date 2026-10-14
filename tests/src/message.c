@@ -344,13 +344,6 @@ TEST_FUNC(message_signal_parse,
     event_signal_destroy(&signal);
 });
 
-TEST_FUNC(json_string_escaping,
-{
-    TEST_CHECK(strcmp(json_string(NULL), ""), 0);
-    TEST_CHECK(strcmp(json_string("plain"), "plain"), 0);
-    TEST_CHECK(strcmp(json_string("say \"hi\"\n"), "say \\\"hi\\\"\\n"), 0);
-});
-
 static struct rule_effects rule_effects_test_space(uint64_t sid, bool follow)
 {
     struct rule_effects effects = { .sid = sid, .manage = RULE_PROP_OFF };

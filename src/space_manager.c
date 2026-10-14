@@ -612,11 +612,7 @@ static enum space_op_error space_manager_swap_space_with_space_on_display(uint64
         space_manager_move_window_list_to_space(a_sid, b_window_list, b_window_list_count);
     }
 
-    for (int i = 0; i < buf_len(g_space_manager.labels); ++i) {
-        struct label *label = &g_space_manager.labels[i];
-        if      (label->id == a_sid) label->id = b_sid;
-        else if (label->id == b_sid) label->id = a_sid;
-    }
+    label_swap_ids(g_space_manager.labels, a_sid, b_sid);
 
     view_update(a_view);
     view_update(b_view);
@@ -711,28 +707,6 @@ enum space_op_error space_manager_move_space_to_space(uint64_t acting_sid, uint6
     }
 
     return success ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION;
-}
-
-uint64_t space_manager_move_space_replacement(uint64_t *space_list, bool *user_list, int space_count, uint64_t sid, uint64_t visible_sid)
-{
-    if (sid != visible_sid) return 0;
-
-    uint64_t prev_sid = 0;
-    for (int i = 0; i < space_count; ++i) {
-        if (space_list[i] == sid) {
-            if (prev_sid) return prev_sid;
-
-            for (int j = i + 1; j < space_count; ++j) {
-                if (user_list[j]) return space_list[j];
-            }
-
-            return 0;
-        }
-
-        if (user_list[i]) prev_sid = space_list[i];
-    }
-
-    return 0;
 }
 
 static bool *space_manager_user_list(uint64_t *space_list, int space_count)
@@ -1012,8 +986,7 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
                 table_remove(&sm->view, &view->sid);
                 CFRelease(view->uuid);
 
-                struct label *label = label_find_id(sm->labels, view->sid);
-                if (label) label->id = sid;
+                label_replace_id(sm->labels, view->sid, sid);
 
                 view->sid = sid;
                 view->uuid = CFRetain(uuid);

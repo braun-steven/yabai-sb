@@ -257,79 +257,13 @@ static inline bool string_equals(const char *a, const char *b)
     return a && b && strcmp(a, b) == 0;
 }
 
-static inline char *ts_string_escape(char *s)
-{
-    char *cursor = s;
-    int num_replacements = 0;
-
-    while (*cursor) {
-        if ((*cursor == '"') ||
-            (*cursor == '\\') ||
-            (*cursor == '\b') ||
-            (*cursor == '\f') ||
-            (*cursor == '\n') ||
-            (*cursor == '\r') ||
-            (*cursor == '\t')) {
-            ++num_replacements;
-        } else if (*cursor >= 0x00 && *cursor <= 0x1f) {
-            num_replacements += 5;
-        }
-
-        ++cursor;
-    }
-
-    if (num_replacements == 0) return NULL;
-
-    int size_in_bytes = (int)(cursor - s) + num_replacements;
-    char *result = ts_alloc_unaligned(sizeof(char) * (size_in_bytes+1));
-    result[size_in_bytes] = '\0';
-
-    for (char *dst = result, *cursor = s; *cursor; ++cursor) {
-        if (*cursor == '"') {
-            *dst++ = '\\';
-            *dst++ = '"';
-        } else if (*cursor == '\\') {
-            *dst++ = '\\';
-            *dst++ = '\\';
-        } else if (*cursor == '\b') {
-            *dst++ = '\\';
-            *dst++ = 'b';
-        } else if (*cursor == '\f') {
-            *dst++ = '\\';
-            *dst++ = 'f';
-        } else if (*cursor == '\n') {
-            *dst++ = '\\';
-            *dst++ = 'n';
-        } else if (*cursor == '\r') {
-            *dst++ = '\\';
-            *dst++ = 'r';
-        } else if (*cursor == '\t') {
-            *dst++ = '\\';
-            *dst++ = 't';
-        } else if (*cursor >= 0x00 && *cursor <= 0x1f) {
-            *dst++ = '\\';
-            *dst++ = 'u';
-            snprintf(dst, 5, "%04x", (int)*cursor);
-            dst += 4;
-        } else {
-            *dst++ = *cursor;
-        }
-    }
-
-    return result;
-}
-
 //
 // NOTE: A string for a json value: escaped when needed, and empty for NULL.
 //
 
-static inline char *json_string(char *s)
-{
-    if (!s) return "";
-
-    char *escaped = ts_string_escape(s);
-    return escaped ? escaped : s;
-}
+// implemented in Sources/Yabai/Shims/JSONShims.swift (JSON.escape in Sources/YabaiCore/JSON.swift); the result is
+// the string itself or temporary storage.
+char *json_string(char *s);
 
 static inline CF_RETURNS_RETAINED CFNumberRef CFNUM32(int32_t num)
 {

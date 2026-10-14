@@ -102,4 +102,22 @@ static inline void ts_reset(void)
     g_temp_storage.used = 0;
 }
 
+//
+// NOTE: Swift allocates temporary storage only through this function, and sees only its declaration. Swift emits
+// its own copy of every header function it calls, and those copies cannot link against g_temp_storage, which
+// is static in the unity build.
+//
+
+#ifdef __swift__
+char *ts_string_from_bytes(const void *bytes, uint64_t length);
+#else
+char *ts_string_from_bytes(const void *bytes, uint64_t length)
+{
+    char *result = ts_alloc_unaligned(length + 1);
+    if (length) memcpy(result, bytes, length);
+    result[length] = '\0';
+    return result;
+}
+#endif
+
 #endif

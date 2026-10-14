@@ -29,8 +29,8 @@ static char *display_uuid_ts(uint32_t did)
 
 static char *display_label_string(uint32_t did)
 {
-    struct label *display_label = label_find_id(g_display_manager.labels, did);
-    return display_label ? json_string(display_label->label) : "";
+    char *display_label = label_find_id(g_display_manager.labels, did);
+    return display_label ? json_string(display_label) : "";
 }
 
 //

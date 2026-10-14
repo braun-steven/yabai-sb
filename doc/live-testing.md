@@ -6,8 +6,8 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- `make -C tests` builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/Yabai/` but
-  `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan, then the golden
+- `make -C tests` builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/YabaiCore/` and of
+  `Sources/Yabai/` but `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan, then the golden
   IPC replay (`tests/src/golden.c`). The test build is warning-free; any warning is new. Check with
   `make -C tests 2>&1 | grep -c "warning:"`. `make test` runs `swift test` first.
 - The golden replay runs on a daemon state without displays, spaces or windows, but in this process: a command

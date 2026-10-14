@@ -116,8 +116,7 @@ void space_manager_refresh_view(struct space_manager *sm, uint64_t sid)
     struct view *view = space_manager_find_view(sm, sid);
     if (view->layout == VIEW_FLOAT) return;
 
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 }
 
 void space_manager_mark_view_invalid(struct space_manager *sm,  uint64_t sid)
@@ -215,27 +214,30 @@ bool space_manager_set_gap_for_space(struct space_manager *sm, uint64_t sid, int
         view->window_gap = add_and_clamp_to_zero(view->window_gap, gap);
     }
 
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
+
+    return true;
+}
+
+static bool space_manager_toggle_view_flag(struct space_manager *sm, uint64_t sid, enum view_flag flag)
+{
+    struct view *view = space_manager_find_view(sm, sid);
+    if (view->layout == VIEW_FLOAT) return false;
+
+    if (view_check_flag(view, flag)) {
+        view_clear_flag(view, flag);
+    } else {
+        view_set_flag(view, flag);
+    }
+
+    view_update_and_flush(view);
 
     return true;
 }
 
 bool space_manager_toggle_gap_for_space(struct space_manager *sm, uint64_t sid)
 {
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_FLOAT) return false;
-
-    if (view_check_flag(view, VIEW_ENABLE_GAP)) {
-        view_clear_flag(view, VIEW_ENABLE_GAP);
-    } else {
-        view_set_flag(view, VIEW_ENABLE_GAP);
-    }
-
-    view_update(view);
-    view_flush(view);
-
-    return true;
+    return space_manager_toggle_view_flag(sm, sid, VIEW_ENABLE_GAP);
 }
 
 void space_manager_toggle_mission_control(uint64_t sid)
@@ -273,8 +275,7 @@ void space_manager_set_spacing_for_all_spaces(struct space_manager *sm, enum vie
     table_for (struct view *view, sm->view, {
         if (!view_check_flag(view, flag)) {
             *view_spacing(view, flag) = value;
-            view_update(view);
-            view_flush(view);
+            view_update_and_flush(view);
         }
     })
 }
@@ -286,8 +287,7 @@ static void space_manager_apply_auto_padding(struct view *view, bool auto_paddin
     view->auto_padding = auto_padding;
     if (view->layout == VIEW_FLOAT) return;
 
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 }
 
 void space_manager_set_auto_padding_for_all_spaces(struct space_manager *sm, bool auto_padding)
@@ -324,61 +324,51 @@ bool space_manager_set_padding_for_space(struct space_manager *sm, uint64_t sid,
         view->right_padding  = add_and_clamp_to_zero(view->right_padding, right);
     }
 
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 
     return true;
 }
 
 bool space_manager_toggle_padding_for_space(struct space_manager *sm, uint64_t sid)
 {
+    return space_manager_toggle_view_flag(sm, sid, VIEW_ENABLE_PADDING);
+}
+
+static struct view *space_manager_find_tree_view(struct space_manager *sm, uint64_t sid)
+{
     struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout == VIEW_FLOAT) return false;
-
-    if (view_check_flag(view, VIEW_ENABLE_PADDING)) {
-        view_clear_flag(view, VIEW_ENABLE_PADDING);
-    } else {
-        view_set_flag(view, VIEW_ENABLE_PADDING);
-    }
-
-    view_update(view);
-    view_flush(view);
-
-    return true;
+    return view->layout == VIEW_TREE && view->tree ? view : NULL;
 }
 
 bool space_manager_rotate_space(struct space_manager *sm, uint64_t sid, int degrees)
 {
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout != VIEW_TREE || !view->tree) return false;
+    struct view *view = space_manager_find_tree_view(sm, sid);
+    if (!view) return false;
 
     tree_rotate(view->tree, degrees);
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 
     return true;
 }
 
 bool space_manager_mirror_space(struct space_manager *sm, uint64_t sid, enum window_split axis)
 {
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout != VIEW_TREE || !view->tree) return false;
+    struct view *view = space_manager_find_tree_view(sm, sid);
+    if (!view) return false;
 
     tree_mirror(view->tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL);
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 
     return true;
 }
 
 bool space_manager_balance_space(struct space_manager *sm, uint64_t sid)
 {
-    struct view *view = space_manager_find_view(sm, sid);
-    if (view->layout != VIEW_TREE || !view->tree) return false;
+    struct view *view = space_manager_find_tree_view(sm, sid);
+    if (!view) return false;
 
     tree_balance(view->tree);
-    view_update(view);
-    view_flush(view);
+    view_update_and_flush(view);
 
     return true;
 }

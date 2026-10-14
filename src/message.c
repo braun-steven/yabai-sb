@@ -1608,8 +1608,7 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             } else if (view) {
                 view_set_flag(view, flag);
                 *spacing = value.int_value;
-                view_update(view);
-                view_flush(view);
+                view_update_and_flush(view);
             } else {
                 space_manager_set_spacing_for_all_spaces(&g_space_manager, flag, value.int_value);
             }

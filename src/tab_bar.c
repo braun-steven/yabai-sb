@@ -1091,8 +1091,7 @@ void tab_bar_refresh_all(void)
     table_for (struct view *view, g_space_manager.view, {
         if (view->layout == VIEW_TREE) {
             if (view->tree) tree_release_bars(view->tree);
-            view_update(view);
-            view_flush(view);
+            view_update_and_flush(view);
         }
     })
 

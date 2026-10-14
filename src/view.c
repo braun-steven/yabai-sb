@@ -273,6 +273,12 @@ void view_update(struct view *view)
     view_update_with_auto_padding(view, view_auto_padding_applies(view->layout, view->auto_padding, view_tiled_count(view)));
 }
 
+void view_update_and_flush(struct view *view)
+{
+    view_update(view);
+    view_flush(view);
+}
+
 struct view *view_create(uint64_t sid)
 {
     struct view *view = malloc(sizeof(struct view));

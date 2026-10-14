@@ -108,16 +108,13 @@ void rule_reapply_all(void)
 
 bool rule_reapply_by_index(int index)
 {
-    for (int i = 0; i < buf_len(g_window_manager.rules); ++i) {
-        if (i == index) {
-            if (!rule_check_flag(&g_window_manager.rules[i], RULE_ONE_SHOT)) {
-                rule_apply(&g_window_manager.rules[i]);
-            }
-            return true;
-        }
+    if (index < 0 || index >= buf_len(g_window_manager.rules)) return false;
+
+    if (!rule_check_flag(&g_window_manager.rules[index], RULE_ONE_SHOT)) {
+        rule_apply(&g_window_manager.rules[index]);
     }
 
-    return false;
+    return true;
 }
 
 bool rule_reapply_by_label(char *label)
@@ -158,15 +155,11 @@ void rule_add(struct rule *rule)
 
 bool rule_remove_by_index(int index)
 {
-    for (int i = 0; i < buf_len(g_window_manager.rules); ++i) {
-        if (i == index) {
-            rule_destroy(&g_window_manager.rules[i]);
-            buf_del(g_window_manager.rules, i);
-            return true;
-        }
-    }
+    if (index < 0 || index >= buf_len(g_window_manager.rules)) return false;
 
-    return false;
+    rule_destroy(&g_window_manager.rules[index]);
+    buf_del(g_window_manager.rules, index);
+    return true;
 }
 
 bool rule_remove_by_label(char *label)

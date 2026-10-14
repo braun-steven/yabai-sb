@@ -365,3 +365,17 @@ TEST_FUNC(message_config_values,
     memcpy(g_window_manager.scratchpad_grid, grid, sizeof(grid));
     g_window_manager.window_animation_duration = duration;
 });
+
+TEST_FUNC(message_window_layout_values,
+{
+    TEST_CHECK(parse_window_layout(message_test_token("tabbed")), WINDOW_LAYOUT_TABBED);
+    TEST_CHECK(parse_window_layout(message_test_token("toggle-split")), WINDOW_LAYOUT_TOGGLE_SPLIT);
+    TEST_CHECK(parse_window_layout(message_test_token("stacked")), -1);
+
+    int orientation = 0;
+    TEST_CHECK(parse_split_orientation(message_test_token("vertical"), &orientation), true);
+    TEST_CHECK(orientation, CON_VERTICAL);
+    TEST_CHECK(parse_split_orientation(message_test_token("toggle"), &orientation), true);
+    TEST_CHECK(orientation, -1);
+    TEST_CHECK(parse_split_orientation(message_test_token("diagonal"), &orientation), false);
+});

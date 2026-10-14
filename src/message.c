@@ -1872,6 +1872,43 @@ static void handle_domain_space(FILE *rsp, struct token domain, char *message)
     }
 }
 
+static enum window_op_error window_tree_focus(struct window *window, int tree_direction)
+{
+    if (tree_direction == TREE_FOCUS_PARENT) return window_manager_tree_focus_parent(&g_window_manager, window);
+    if (tree_direction == TREE_FOCUS_CHILD)  return window_manager_tree_focus_child(&g_window_manager, window);
+    return window_manager_tree_focus_direction(&g_window_manager, window, tree_direction);
+}
+
+static int parse_window_layout(struct token value)
+{
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TABBED))    return WINDOW_LAYOUT_TABBED;
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLIT))     return WINDOW_LAYOUT_SPLIT;
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TOGGLE))    return WINDOW_LAYOUT_TOGGLE;
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITH))    return WINDOW_LAYOUT_SPLITH;
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITV))    return WINDOW_LAYOUT_SPLITV;
+    if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TGL_SPLIT)) return WINDOW_LAYOUT_TOGGLE_SPLIT;
+    return -1;
+}
+
+//
+// NOTE: -1 toggles the orientation of the parent container.
+//
+
+static bool parse_split_orientation(struct token value, int *orientation)
+{
+    if (token_equals(value, ARGUMENT_WINDOW_SPLIT_H)) {
+        *orientation = CON_HORIZONTAL;
+    } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_V)) {
+        *orientation = CON_VERTICAL;
+    } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_TOGGLE)) {
+        *orientation = -1;
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 static void window_toggle_float(struct window *window)           { window_manager_make_window_floating(&g_space_manager, &g_window_manager, window, !window_check_flag(window, WINDOW_FLOAT), false); }
 static void window_toggle_sticky(struct window *window)          { window_manager_make_window_sticky(&g_space_manager, &g_window_manager, window, !window_check_flag(window, WINDOW_STICKY)); }
 static void window_toggle_split(struct window *window)           { space_manager_toggle_window_split(&g_space_manager, window); }
@@ -1943,16 +1980,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             if (tree_direction) {
                 get_token(&message);
 
-                enum window_op_error result;
-                if (tree_direction == TREE_FOCUS_PARENT) {
-                    result = window_manager_tree_focus_parent(&g_window_manager, acting_window);
-                } else if (tree_direction == TREE_FOCUS_CHILD) {
-                    result = window_manager_tree_focus_child(&g_window_manager, acting_window);
-                } else {
-                    result = window_manager_tree_focus_direction(&g_window_manager, acting_window, tree_direction);
-                }
-
-                if (result != WINDOW_OP_ERROR_SUCCESS) {
+                if (window_tree_focus(acting_window, tree_direction) != WINDOW_OP_ERROR_SUCCESS) {
                     daemon_fail(rsp, "could not locate a container to focus.\n");
                     return;
                 }
@@ -2066,21 +2094,8 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             }
         } else if (token_equals(command, COMMAND_WINDOW_LAYOUT)) {
             struct token value = get_token(&message);
-            enum window_layout layout;
-
-            if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TABBED)) {
-                layout = WINDOW_LAYOUT_TABBED;
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLIT)) {
-                layout = WINDOW_LAYOUT_SPLIT;
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TOGGLE)) {
-                layout = WINDOW_LAYOUT_TOGGLE;
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITH)) {
-                layout = WINDOW_LAYOUT_SPLITH;
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_SPLITV)) {
-                layout = WINDOW_LAYOUT_SPLITV;
-            } else if (token_equals(value, ARGUMENT_WINDOW_LAYOUT_TGL_SPLIT)) {
-                layout = WINDOW_LAYOUT_TOGGLE_SPLIT;
-            } else {
+            int layout = parse_window_layout(value);
+            if (layout == -1) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
                 return;
             }
@@ -2089,14 +2104,7 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
         } else if (token_equals(command, COMMAND_WINDOW_SPLIT)) {
             struct token value = get_token(&message);
             int orientation;
-
-            if (token_equals(value, ARGUMENT_WINDOW_SPLIT_H)) {
-                orientation = CON_HORIZONTAL;
-            } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_V)) {
-                orientation = CON_VERTICAL;
-            } else if (token_equals(value, ARGUMENT_WINDOW_SPLIT_TOGGLE)) {
-                orientation = -1;
-            } else {
+            if (!parse_split_orientation(value, &orientation)) {
                 daemon_fail_unknown_value(rsp, domain, command, value);
                 return;
             }
@@ -2192,35 +2200,18 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }
-        } else if (token_equals(command, COMMAND_WINDOW_RAISE)) {
+        } else if (token_equals(command, COMMAND_WINDOW_RAISE) || token_equals(command, COMMAND_WINDOW_LOWER)) {
+            bool raise = token_equals(command, COMMAND_WINDOW_RAISE);
             struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-            uint32_t selector_wid = 0;
+            uint32_t relative_wid = 0;
 
             if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    selector_wid = selector.window->id;
-                } else {
-                    return;
-                }
+                if (!selector.did_parse || !selector.window) return;
+                relative_wid = selector.window->id;
             }
 
-            if (!scripting_addition_order_window(acting_window->id, 1, selector_wid)) {
-                daemon_fail(rsp, "could not raise window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
-            }
-        } else if (token_equals(command, COMMAND_WINDOW_LOWER)) {
-            struct selector selector = parse_window_selector(rsp, &message, acting_window, true);
-            uint32_t selector_wid = 0;
-
-            if (token_is_valid(selector.token)) {
-                if (selector.did_parse && selector.window) {
-                    selector_wid = selector.window->id;
-                } else {
-                    return;
-                }
-            }
-
-            if (!scripting_addition_order_window(acting_window->id, -1, selector_wid)) {
-                daemon_fail(rsp, "could not lower window with id '%d' due to an error with the scripting-addition.\n", acting_window->id);
+            if (!scripting_addition_order_window(acting_window->id, raise ? 1 : -1, relative_wid)) {
+                daemon_fail(rsp, "could not %s window with id '%d' due to an error with the scripting-addition.\n", raise ? "raise" : "lower", acting_window->id);
             }
         } else if (token_equals(command, COMMAND_WINDOW_SCRATCHPAD)) {
             char *label;

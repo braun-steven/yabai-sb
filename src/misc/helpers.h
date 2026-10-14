@@ -224,6 +224,18 @@ static inline char *json_bool(bool value)
     return value ? "true" : "false";
 }
 
+//
+// NOTE: Prints a "key":value pair when property is selected by flags, separated from the previous pair.
+// Expects the locals rsp, flags and separator (initially ""), and only evaluates the value when the
+// property is selected, because some values are expensive to query.
+//
+
+#define JSON_PROPERTY(property, format, ...) \
+    if (flags & (property)) { fprintf(rsp, "%s\t" format, separator, __VA_ARGS__); separator = ",\n"; }
+
+#define JSON_FRAME_FORMAT "{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}"
+#define JSON_FRAME_VALUES(frame) (frame).origin.x, (frame).origin.y, (frame).size.width, (frame).size.height
+
 static inline struct rgba_color rgba_color_from_hex(uint32_t color)
 {
     struct rgba_color result;

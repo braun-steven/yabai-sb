@@ -17,83 +17,61 @@ static DISPLAY_EVENT_HANDLER(display_handler)
 }
 #pragma clang diagnostic pop
 
+static char *display_uuid_ts(uint32_t did)
+{
+    CFStringRef uuid_ref = display_uuid(did);
+    if (!uuid_ref) return "<unknown>";
+
+    char *uuid = ts_cfstring_copy(uuid_ref);
+    CFRelease(uuid_ref);
+    return uuid ? uuid : "<unknown>";
+}
+
+static char *display_label_string(uint32_t did)
+{
+    struct display_label *display_label = display_manager_get_label_for_display(&g_display_manager, did);
+    return display_label ? display_label->label : "";
+}
+
+//
+// NOTE: The Mission Control indices of the spaces of a display as a json array, in temporary storage.
+//
+
+static char *display_space_index_list_json(uint32_t did)
+{
+    int count = 0;
+    uint64_t *space_list = display_space_list(did, &count);
+    if (!space_list) count = 0;
+
+    int size = 3 + count * 12;
+    char *result = ts_alloc_unaligned(size);
+    int length = snprintf(result, size, "[");
+
+    int first_mci = count ? space_manager_mission_control_index(space_list[0]) : 0;
+    for (int i = 0; i < count; ++i) {
+        length += snprintf(result + length, size - length, "%s%d", i ? ", " : "", first_mci + i);
+    }
+
+    snprintf(result + length, size - length, "]");
+    return result;
+}
+
 void display_serialize(FILE *rsp, uint32_t did, uint64_t flags)
 {
     TIME_FUNCTION;
 
     if (flags == 0x0) flags |= ~flags;
 
-    bool did_output = false;
+    char *separator = "";
     fprintf(rsp, "{\n");
 
-    if (flags & DISPLAY_PROPERTY_ID) {
-        fprintf(rsp, "\t\"id\":%d", did);
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_UUID) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *uuid = NULL;
-        CFStringRef uuid_ref = display_uuid(did);
-        if (uuid_ref) {
-            uuid = ts_cfstring_copy(uuid_ref);
-            CFRelease(uuid_ref);
-        }
-
-        fprintf(rsp, "\t\"uuid\":\"%s\"", uuid ? uuid : "<unknown>");
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_INDEX) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"index\":%d", display_manager_display_id_arrangement(did));
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_LABEL) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        struct display_label *display_label = display_manager_get_label_for_display(&g_display_manager, did);
-        fprintf(rsp, "\t\"label\":\"%s\"", display_label ? display_label->label : "");
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_FRAME) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        CGRect frame = CGDisplayBounds(did);
-        fprintf(rsp, "\t\"frame\":{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_SPACES) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int count;
-        uint64_t *space_list = display_space_list(did, &count);
-
-        fprintf(rsp, "\t\"spaces\":[");
-        if (space_list) {
-            int first_mci = space_manager_mission_control_index(space_list[0]);
-            for (int i = 0; i < count; ++i) {
-                if (i < count - 1) {
-                    fprintf(rsp, "%d, ", first_mci + i);
-                } else {
-                    fprintf(rsp, "%d", first_mci + i);
-                }
-            }
-        }
-        fprintf(rsp, "]");
-        did_output = true;
-    }
-
-    if (flags & DISPLAY_PROPERTY_HAS_FOCUS) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-focus\":%s", json_bool(did == g_display_manager.current_display_id));
-    }
+    JSON_PROPERTY(DISPLAY_PROPERTY_ID,        "\"id\":%d", did);
+    JSON_PROPERTY(DISPLAY_PROPERTY_UUID,      "\"uuid\":\"%s\"", display_uuid_ts(did));
+    JSON_PROPERTY(DISPLAY_PROPERTY_INDEX,     "\"index\":%d", display_manager_display_id_arrangement(did));
+    JSON_PROPERTY(DISPLAY_PROPERTY_LABEL,     "\"label\":\"%s\"", display_label_string(did));
+    JSON_PROPERTY(DISPLAY_PROPERTY_FRAME,     "\"frame\":" JSON_FRAME_FORMAT, JSON_FRAME_VALUES(CGDisplayBounds(did)));
+    JSON_PROPERTY(DISPLAY_PROPERTY_SPACES,    "\"spaces\":%s", display_space_index_list_json(did));
+    JSON_PROPERTY(DISPLAY_PROPERTY_HAS_FOCUS, "\"has-focus\":%s", json_bool(did == g_display_manager.current_display_id));
 
     fprintf(rsp, "\n}");
 }

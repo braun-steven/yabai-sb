@@ -258,43 +258,38 @@ void window_info_serialize(FILE *rsp, struct window_info *info, uint64_t flags)
     char *separator = "";
     fprintf(rsp, "{\n");
 
-#define WINDOW_INFO_FIELD(property, format, ...) \
-    if (flags & property) { fprintf(rsp, "%s\t" format, separator, __VA_ARGS__); separator = ",\n"; }
-
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ID,                  "\"id\":%d", info->id);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_PID,                 "\"pid\":%d", info->pid);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_APP,                 "\"app\":\"%s\"", json_string(info->app));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_TITLE,               "\"title\":\"%s\"", json_string(info->title));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SCRATCHPAD,          "\"scratchpad\":\"%s\"", json_string(info->scratchpad));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_FRAME,               "\"frame\":{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}", info->frame.origin.x, info->frame.origin.y, info->frame.size.width, info->frame.size.height);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ROLE,                "\"role\":\"%s\"", json_string(info->role));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUBROLE,             "\"subrole\":\"%s\"", json_string(info->subrole));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ROOT_WINDOW,         "\"root-window\":%s", json_bool(info->is_root));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_DISPLAY,             "\"display\":%d", info->display);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SPACE,               "\"space\":%d", info->space);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_LEVEL,               "\"level\":%d", info->level);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUB_LEVEL,           "\"sub-level\":%d", info->sub_level);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_LAYER,               "\"layer\":\"%s\"", window_layer(info->level));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUB_LAYER,           "\"sub-layer\":\"%s\"", window_layer(info->sub_level));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_OPACITY,             "\"opacity\":%.4f", info->opacity);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SPLIT_TYPE,          "\"split-type\":\"%s\"", window_split_str[info->split]);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_STACK_INDEX,         "\"stack-index\":%d", info->stack_index);
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_CAN_MOVE,            "\"can-move\":%s", json_bool(info->can_move));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_CAN_RESIZE,          "\"can-resize\":%s", json_bool(info->can_resize));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_FOCUS,           "\"has-focus\":%s", json_bool(info->has_focus));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_SHADOW,          "\"has-shadow\":%s", json_bool(info->has_shadow));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_PARENT_ZOOM,     "\"has-parent-zoom\":%s", json_bool(info->has_parent_zoom));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM, "\"has-fullscreen-zoom\":%s", json_bool(info->has_fullscreen_zoom));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_AX_REFERENCE,    "\"has-ax-reference\":%s", json_bool(info->has_ax_reference));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_FULLSCREEN,       "\"is-native-fullscreen\":%s", json_bool(info->is_fullscreen));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_VISIBLE,          "\"is-visible\":%s", json_bool(info->is_visible));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_MINIMIZED,        "\"is-minimized\":%s", json_bool(info->is_minimized));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_HIDDEN,           "\"is-hidden\":%s", json_bool(info->is_hidden));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_FLOATING,         "\"is-floating\":%s", json_bool(info->is_floating));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_STICKY,           "\"is-sticky\":%s", json_bool(info->is_sticky));
-    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_GRABBED,          "\"is-grabbed\":%s", json_bool(info->is_grabbed));
-
-#undef WINDOW_INFO_FIELD
+    JSON_PROPERTY(WINDOW_PROPERTY_ID,                  "\"id\":%d", info->id);
+    JSON_PROPERTY(WINDOW_PROPERTY_PID,                 "\"pid\":%d", info->pid);
+    JSON_PROPERTY(WINDOW_PROPERTY_APP,                 "\"app\":\"%s\"", json_string(info->app));
+    JSON_PROPERTY(WINDOW_PROPERTY_TITLE,               "\"title\":\"%s\"", json_string(info->title));
+    JSON_PROPERTY(WINDOW_PROPERTY_SCRATCHPAD,          "\"scratchpad\":\"%s\"", json_string(info->scratchpad));
+    JSON_PROPERTY(WINDOW_PROPERTY_FRAME,               "\"frame\":" JSON_FRAME_FORMAT, JSON_FRAME_VALUES(info->frame));
+    JSON_PROPERTY(WINDOW_PROPERTY_ROLE,                "\"role\":\"%s\"", json_string(info->role));
+    JSON_PROPERTY(WINDOW_PROPERTY_SUBROLE,             "\"subrole\":\"%s\"", json_string(info->subrole));
+    JSON_PROPERTY(WINDOW_PROPERTY_ROOT_WINDOW,         "\"root-window\":%s", json_bool(info->is_root));
+    JSON_PROPERTY(WINDOW_PROPERTY_DISPLAY,             "\"display\":%d", info->display);
+    JSON_PROPERTY(WINDOW_PROPERTY_SPACE,               "\"space\":%d", info->space);
+    JSON_PROPERTY(WINDOW_PROPERTY_LEVEL,               "\"level\":%d", info->level);
+    JSON_PROPERTY(WINDOW_PROPERTY_SUB_LEVEL,           "\"sub-level\":%d", info->sub_level);
+    JSON_PROPERTY(WINDOW_PROPERTY_LAYER,               "\"layer\":\"%s\"", window_layer(info->level));
+    JSON_PROPERTY(WINDOW_PROPERTY_SUB_LAYER,           "\"sub-layer\":\"%s\"", window_layer(info->sub_level));
+    JSON_PROPERTY(WINDOW_PROPERTY_OPACITY,             "\"opacity\":%.4f", info->opacity);
+    JSON_PROPERTY(WINDOW_PROPERTY_SPLIT_TYPE,          "\"split-type\":\"%s\"", window_split_str[info->split]);
+    JSON_PROPERTY(WINDOW_PROPERTY_STACK_INDEX,         "\"stack-index\":%d", info->stack_index);
+    JSON_PROPERTY(WINDOW_PROPERTY_CAN_MOVE,            "\"can-move\":%s", json_bool(info->can_move));
+    JSON_PROPERTY(WINDOW_PROPERTY_CAN_RESIZE,          "\"can-resize\":%s", json_bool(info->can_resize));
+    JSON_PROPERTY(WINDOW_PROPERTY_HAS_FOCUS,           "\"has-focus\":%s", json_bool(info->has_focus));
+    JSON_PROPERTY(WINDOW_PROPERTY_HAS_SHADOW,          "\"has-shadow\":%s", json_bool(info->has_shadow));
+    JSON_PROPERTY(WINDOW_PROPERTY_HAS_PARENT_ZOOM,     "\"has-parent-zoom\":%s", json_bool(info->has_parent_zoom));
+    JSON_PROPERTY(WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM, "\"has-fullscreen-zoom\":%s", json_bool(info->has_fullscreen_zoom));
+    JSON_PROPERTY(WINDOW_PROPERTY_HAS_AX_REFERENCE,    "\"has-ax-reference\":%s", json_bool(info->has_ax_reference));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_FULLSCREEN,       "\"is-native-fullscreen\":%s", json_bool(info->is_fullscreen));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_VISIBLE,          "\"is-visible\":%s", json_bool(info->is_visible));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_MINIMIZED,        "\"is-minimized\":%s", json_bool(info->is_minimized));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_HIDDEN,           "\"is-hidden\":%s", json_bool(info->is_hidden));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_FLOATING,         "\"is-floating\":%s", json_bool(info->is_floating));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_STICKY,           "\"is-sticky\":%s", json_bool(info->is_sticky));
+    JSON_PROPERTY(WINDOW_PROPERTY_IS_GRABBED,          "\"is-grabbed\":%s", json_bool(info->is_grabbed));
 
     fprintf(rsp, "\n}");
 }

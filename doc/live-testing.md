@@ -42,6 +42,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
+| `ipc_compare.sh` | ~70 IPC commands that only query, fail while parsing, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
 Rules for the user's machine:

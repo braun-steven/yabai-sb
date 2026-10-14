@@ -3015,12 +3015,13 @@ uint32_t window_manager_tree_focus_candidate(struct window_manager *wm, struct v
     //
     // NOTE: macOS often focuses another window of the application before the window is reported as
     // destroyed. The window then is the previously focused one, and the choice of macOS is replaced.
+    // That window can be on another space or display, so a window of the same application counts too.
     //
 
     bool was_focused = window->id == wm->focused_window_id;
     if (!was_focused && window->id == wm->last_window_id) {
         struct window *focused = window_manager_find_window(wm, wm->focused_window_id);
-        was_focused = focused && window_manager_find_tree_view(wm, focused) == view;
+        was_focused = focused && (focused->application == window->application || window_manager_find_tree_view(wm, focused) == view);
     }
 
     if (!was_focused) return 0;

@@ -329,7 +329,6 @@ static EVENT_HANDLER(APPLICATION_TERMINATED)
 
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
         if (view) {
-
             untile_window_batched(view, window);
             view_list[view_count++] = view;
         }

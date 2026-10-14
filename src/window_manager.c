@@ -677,6 +677,45 @@ out:
 }
 #pragma clang diagnostic pop
 
+//
+// NOTE: A window that is still animating continues from where its running animation is: the new
+// proxy starts at the target of the old one and replaces it on screen, and the old animation is
+// told to skip the window.
+//
+
+static void window_animation_take_over(struct window_animation *animation, struct window_animation *existing_animation)
+{
+    __atomic_store_n(&existing_animation->skip, true, __ATOMIC_RELEASE);
+
+    animation->proxy.frame.origin.x    = (int)(existing_animation->proxy.tx);
+    animation->proxy.frame.origin.y    = (int)(existing_animation->proxy.ty);
+    animation->proxy.frame.size.width  = (int)(existing_animation->proxy.tw);
+    animation->proxy.frame.size.height = (int)(existing_animation->proxy.th);
+    animation->proxy.tx                = (int)(existing_animation->proxy.tx);
+    animation->proxy.ty                = (int)(existing_animation->proxy.ty);
+    animation->proxy.tw                = (int)(existing_animation->proxy.tw);
+    animation->proxy.th                = (int)(existing_animation->proxy.th);
+    animation->proxy.level             = existing_animation->proxy.level;
+    animation->proxy.sub_level         = existing_animation->proxy.sub_level;
+    animation->proxy.image             = existing_animation->proxy.image
+                                       ? (CGImageRef) CFRetain(existing_animation->proxy.image)
+                                       : NULL;
+    __asm__ __volatile__ ("" ::: "memory");
+
+    float alpha = 1.0f;
+    SLSGetWindowAlpha(animation->cid, animation->wid, &alpha);
+    window_manager_create_window_proxy(animation->cid, alpha, &animation->proxy);
+
+    CFTypeRef transaction = SLSTransactionCreate(animation->cid);
+    SLSTransactionOrderWindowGroup(transaction, animation->proxy.id, 1, animation->wid);
+    SLSTransactionSetWindowSystemAlpha(transaction, existing_animation->proxy.id, 0);
+    SLSTransactionCommit(transaction, 0);
+    CFRelease(transaction);
+
+    table_remove(&g_window_manager.window_animations_table, &animation->wid);
+    window_manager_destroy_window_proxy(existing_animation->cid, &existing_animation->proxy);
+}
+
 void window_manager_animate_window_list_async(struct window_capture *window_list, int window_count)
 {
     struct window_animation_context *context = malloc(sizeof(struct window_animation_context));
@@ -707,35 +746,7 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
 
         struct window_animation *existing_animation = table_find(&g_window_manager.window_animations_table, &context->animation_list[i].wid);
         if (existing_animation) {
-            __atomic_store_n(&existing_animation->skip, true, __ATOMIC_RELEASE);
-
-            context->animation_list[i].proxy.frame.origin.x    = (int)(existing_animation->proxy.tx);
-            context->animation_list[i].proxy.frame.origin.y    = (int)(existing_animation->proxy.ty);
-            context->animation_list[i].proxy.frame.size.width  = (int)(existing_animation->proxy.tw);
-            context->animation_list[i].proxy.frame.size.height = (int)(existing_animation->proxy.th);
-            context->animation_list[i].proxy.tx                = (int)(existing_animation->proxy.tx);
-            context->animation_list[i].proxy.ty                = (int)(existing_animation->proxy.ty);
-            context->animation_list[i].proxy.tw                = (int)(existing_animation->proxy.tw);
-            context->animation_list[i].proxy.th                = (int)(existing_animation->proxy.th);
-            context->animation_list[i].proxy.level             = existing_animation->proxy.level;
-            context->animation_list[i].proxy.sub_level         = existing_animation->proxy.sub_level;
-            context->animation_list[i].proxy.image             = existing_animation->proxy.image
-                                                               ? (CGImageRef) CFRetain(existing_animation->proxy.image)
-                                                               : NULL;
-            __asm__ __volatile__ ("" ::: "memory");
-
-            float alpha = 1.0f;
-            SLSGetWindowAlpha(context->animation_connection, context->animation_list[i].wid, &alpha);
-            window_manager_create_window_proxy(context->animation_connection, alpha, &context->animation_list[i].proxy);
-
-            CFTypeRef transaction = SLSTransactionCreate(context->animation_connection);
-            SLSTransactionOrderWindowGroup(transaction, context->animation_list[i].proxy.id, 1, context->animation_list[i].wid);
-            SLSTransactionSetWindowSystemAlpha(transaction, existing_animation->proxy.id, 0);
-            SLSTransactionCommit(transaction, 0);
-            CFRelease(transaction);
-
-            table_remove(&g_window_manager.window_animations_table, &context->animation_list[i].wid);
-            window_manager_destroy_window_proxy(existing_animation->cid, &existing_animation->proxy);
+            window_animation_take_over(&context->animation_list[i], existing_animation);
         } else {
             pthread_t thread;
             if (pthread_create(&thread, NULL, &window_manager_build_window_proxy_thread_proc, &context->animation_list[i]) == 0) {

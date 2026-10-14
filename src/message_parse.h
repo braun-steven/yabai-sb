@@ -111,8 +111,6 @@ bool token_value_float(struct token_value value, float *result);
 void daemon_fail_unknown_command(FILE *rsp, struct token domain, struct token command);
 void daemon_fail_unknown_option(FILE *rsp, struct token domain, struct token command, struct token option);
 void daemon_fail_unknown_value(FILE *rsp, struct token domain, struct token command, struct token value);
-bool parse_config_bool(FILE *rsp, struct token domain, struct token command, char **message, bool *flag);
-bool parse_config_choice(FILE *rsp, struct token domain, struct token command, char **message, const char **names, int first, int last, int current, int *choice);
 int parse_layer(char *value);
 uint8_t parse_value_type(char *type);
 uint8_t parse_resize_handle(char *handle);

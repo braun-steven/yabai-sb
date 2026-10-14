@@ -224,32 +224,6 @@ func daemon_fail_unknown_value(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: tok
     response.write(to: rsp)
 }
 
-@_cdecl("parse_config_bool")
-func parse_config_bool(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ flag: UnsafeMutablePointer<Bool>) -> Bool
-{
-    var response = Response()
-    var source = CMessage(cursor: message)
-    defer { response.write(to: rsp) }
-    return parseConfigBool(&response, Token(domain), Token(command), &source, &flag.pointee)
-}
-
-@_cdecl("parse_config_choice")
-func parse_config_choice(_ rsp: UnsafeMutablePointer<FILE>?, _ domain: token, _ command: token, _ message: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ names: UnsafeMutablePointer<UnsafePointer<CChar>?>, _ first: Int32, _ last: Int32, _ current: Int32, _ choice: UnsafeMutablePointer<Int32>) -> Bool
-{
-    let count = Int(max(last, current)) + 1
-    let names = (0..<count).map { names[$0].map { String(cString: $0) } }
-
-    var response = Response()
-    var source = CMessage(cursor: message)
-    var selected = Int(choice.pointee)
-    defer { response.write(to: rsp) }
-
-    guard parseConfigChoice(&response, Token(domain), Token(command), &source, names: names, first: Int(first), last: Int(last), current: Int(current), &selected) else { return false }
-
-    choice.pointee = Int32(selected)
-    return true
-}
-
 //
 // NOTE: The values of LAYER_* (src/misc/macros.h). Swift does not import the macros that name the CGWindowLevelKey
 // constants.

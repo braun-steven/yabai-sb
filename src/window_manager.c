@@ -301,6 +301,23 @@ void window_manager_add_managed_window(struct window_manager *wm, struct window 
 // 'window --focus parent' when there is one, and on the window otherwise.
 //
 
+//
+// NOTE: Takes a window out of the tree of its view and gives it the shadow and layer of an unmanaged window.
+//
+
+void window_manager_unmanage_window(struct window_manager *wm, struct view *view, struct window *window)
+{
+    space_manager_untile_window(view, window);
+    window_manager_remove_managed_window(wm, window->id);
+    window_manager_purify_window(wm, window);
+}
+
+void window_manager_manage_window(struct space_manager *sm, struct window_manager *wm, struct window *window, uint64_t sid, uint32_t insertion_point)
+{
+    struct view *view = space_manager_tile_window_on_space_with_insertion_point(sm, window, sid, insertion_point);
+    window_manager_add_managed_window(wm, window, view);
+}
+
 struct view *window_manager_find_tree_view(struct window_manager *wm, struct window *window)
 {
     struct view *view = window ? window_manager_find_managed_window(wm, window) : NULL;
@@ -1904,9 +1921,7 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
 
     struct view *b_view = window_manager_find_managed_window(wm, b);
     if (b_view) {
-        space_manager_untile_window(b_view, b);
-        window_manager_remove_managed_window(wm, b->id);
-        window_manager_purify_window(wm, b);
+        window_manager_unmanage_window(wm, b_view, b);
     } else if (window_check_flag(b, WINDOW_FLOAT)) {
         if (!window_manager_is_window_eligible(b)) return WINDOW_OP_ERROR_INVALID_DST_NODE;
         window_clear_flag(b, WINDOW_FLOAT);
@@ -2077,9 +2092,7 @@ void window_manager_send_window_to_space(struct space_manager *sm, struct window
 
     struct view *view = window_manager_find_managed_window(wm, window);
     if (view) {
-        space_manager_untile_window(view, window);
-        window_manager_remove_managed_window(wm, window->id);
-        window_manager_purify_window(wm, window);
+        window_manager_unmanage_window(wm, view, window);
     }
 
     space_manager_move_window_to_space(dst_sid, window);
@@ -2087,8 +2100,7 @@ void window_manager_send_window_to_space(struct space_manager *sm, struct window
     SLSSpaceSetFrontPSN(g_connection, dst_sid, window->application->psn);
 
     if (window_manager_should_manage_window(window)) {
-        struct view *view = space_manager_tile_window_on_space(sm, window, dst_sid);
-        window_manager_add_managed_window(wm, window, view);
+        window_manager_manage_window(sm, wm, window, dst_sid, 0);
     }
 
     border_refresh_space(src_sid);
@@ -2169,9 +2181,7 @@ void window_manager_make_window_floating(struct space_manager *sm, struct window
     if (should_float) {
         struct view *view = window_manager_find_managed_window(wm, window);
         if (view) {
-            space_manager_untile_window(view, window);
-            window_manager_remove_managed_window(wm, window->id);
-            window_manager_purify_window(wm, window);
+            window_manager_unmanage_window(wm, view, window);
         }
         window_set_flag(window, WINDOW_FLOAT);
     } else {
@@ -2179,8 +2189,7 @@ void window_manager_make_window_floating(struct space_manager *sm, struct window
 
         if (!window_check_flag(window, WINDOW_STICKY)) {
             if ((window_manager_should_manage_window(window)) && (!window_manager_find_managed_window(wm, window))) {
-                struct view *view = space_manager_tile_window_on_space(sm, window, space_manager_active_space());
-                window_manager_add_managed_window(wm, window, view);
+                window_manager_manage_window(sm, wm, window, space_manager_active_space(), 0);
             }
         }
     }
@@ -2196,9 +2205,7 @@ void window_manager_make_window_sticky(struct space_manager *sm, struct window_m
         if (scripting_addition_set_sticky(window->id, true)) {
             struct view *view = window_manager_find_managed_window(wm, window);
             if (view) {
-                space_manager_untile_window(view, window);
-                window_manager_remove_managed_window(wm, window->id);
-                window_manager_purify_window(wm, window);
+                window_manager_unmanage_window(wm, view, window);
             }
             window_set_flag(window, WINDOW_STICKY);
         }
@@ -2208,8 +2215,7 @@ void window_manager_make_window_sticky(struct space_manager *sm, struct window_m
 
             if (!window_check_flag(window, WINDOW_FLOAT)) {
                 if ((window_manager_should_manage_window(window)) && (!window_manager_find_managed_window(wm, window))) {
-                    struct view *view = space_manager_tile_window_on_space(sm, window, space_manager_active_space());
-                    window_manager_add_managed_window(wm, window, view);
+                    window_manager_manage_window(sm, wm, window, space_manager_active_space(), 0);
                 }
             }
         }

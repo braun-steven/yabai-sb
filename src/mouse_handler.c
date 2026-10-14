@@ -238,12 +238,9 @@ static void mouse_drop_no_target(struct space_manager *sm, struct window_manager
         return;
     }
 
-    space_manager_untile_window(src_view, window);
-    window_manager_remove_managed_window(wm, window->id);
-    window_manager_purify_window(wm, window);
+    window_manager_unmanage_window(wm, src_view, window);
 
-    struct view *view = space_manager_tile_window_on_space(sm, window, dst_view->sid);
-    window_manager_add_managed_window(wm, window, view);
+    window_manager_manage_window(sm, wm, window, dst_view->sid, 0);
 }
 
 //
@@ -287,12 +284,9 @@ void mouse_drop(struct space_manager *sm, struct window_manager *wm, struct mous
         dst_con->insert_dir = direction;
         dst_view->insertion_point = dst_window->id;
 
-        space_manager_untile_window(src_view, src_window);
-        window_manager_remove_managed_window(wm, src_window->id);
-        window_manager_purify_window(wm, src_window);
+        window_manager_unmanage_window(wm, src_view, src_window);
 
-        struct view *view = space_manager_tile_window_on_space(sm, src_window, dst_view->sid);
-        window_manager_add_managed_window(wm, src_window, view);
+        window_manager_manage_window(sm, wm, src_window, dst_view->sid, 0);
     }
 }
 

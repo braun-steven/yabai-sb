@@ -194,6 +194,8 @@ struct window *window_manager_find_last_window_in_stack(struct space_manager *sm
 struct window *window_manager_find_recent_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window);
 struct window *window_manager_find_window_in_stack(struct space_manager *sm, struct window_manager *wm, struct window *window, int index);
 enum window_op_error window_manager_set_window_layout(struct window_manager *wm, struct window *window, enum window_layout layout);
+void window_manager_unmanage_window(struct window_manager *wm, struct view *view, struct window *window);
+void window_manager_manage_window(struct space_manager *sm, struct window_manager *wm, struct window *window, uint64_t sid, uint32_t insertion_point);
 struct view *window_manager_find_tree_view(struct window_manager *wm, struct window *window);
 enum window_op_error window_manager_tree_focus_direction(struct window_manager *wm, struct window *window, int direction);
 enum window_op_error window_manager_tree_focus_parent(struct window_manager *wm, struct window *window);

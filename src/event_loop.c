@@ -565,8 +565,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
             sid = space_manager_cursor_space();
         }
 
-        struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, sid);
-        window_manager_add_managed_window(&g_window_manager, window, view);
+        window_manager_manage_window(&g_space_manager, &g_window_manager, window, sid, 0);
     }
 
     if (window_manager_is_window_eligible(window)) {
@@ -754,16 +753,13 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     if (!was_fullscreen && is_fullscreen) {
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
         if (view) {
-            space_manager_untile_window(view, window);
-            window_manager_remove_managed_window(&g_window_manager, window->id);
-            window_manager_purify_window(&g_window_manager, window);
+            window_manager_unmanage_window(&g_window_manager, view, window);
         }
     } else if (was_fullscreen && !is_fullscreen) {
         window_manager_wait_for_native_fullscreen_transition(window);
 
         if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-            struct view *view = space_manager_tile_window_on_space(&g_space_manager, window, window_space(window->id));
-            window_manager_add_managed_window(&g_window_manager, window, view);
+            window_manager_manage_window(&g_space_manager, &g_window_manager, window, window_space(window->id), 0);
         }
     } else if (!was_fullscreen == !is_fullscreen) {
         if (g_mouse_state.current_action == MOUSE_MODE_MOVE && g_mouse_state.window == window) {
@@ -803,9 +799,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
     }
 
     if (view) {
-        space_manager_untile_window(view, window);
-        window_manager_remove_managed_window(&g_window_manager, window->id);
-        window_manager_purify_window(&g_window_manager, window);
+        window_manager_unmanage_window(&g_window_manager, view, window);
         window_manager_tree_focus_after_close(&g_window_manager, view, next_focus);
     }
 
@@ -833,8 +827,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
         if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
             struct window *last_window = window_manager_find_window(&g_window_manager, g_window_manager.last_window_id);
             uint32_t insertion_point = last_window && last_window->application->pid != window->application->pid ? last_window->id : 0;
-            struct view *view = space_manager_tile_window_on_space_with_insertion_point(&g_space_manager, window, sid, insertion_point);
-            window_manager_add_managed_window(&g_window_manager, window, view);
+            window_manager_manage_window(&g_space_manager, &g_window_manager, window, sid, insertion_point);
         }
     } else {
         debug("%s: window %s %d is deminimized on inactive space\n", __FUNCTION__, window->application->name, window->id);

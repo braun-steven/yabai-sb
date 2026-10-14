@@ -172,6 +172,18 @@ TEST_FUNC(message_rule_parse,
     TEST_CHECK(strstr(response, "unsupported token '!' (exclusion) given for key 'label'") != NULL, true);
     rule_destroy(&rule);
 
+    // NOTE: a repeated key replaces the earlier value, including its exclusion
+    TEST_CHECK(MESSAGE_TEST_RULE("app!=a\0app=^b$\0label=x\0label=y\0", &rule, &response), true);
+    TEST_CHECK(strcmp(rule.app, "^b$"), 0);
+    TEST_CHECK(rule_check_flag(&rule, RULE_APP_VALID) != 0, true);
+    TEST_CHECK(rule_check_flag(&rule, RULE_APP_EXCLUDE) != 0, false);
+    TEST_CHECK(strcmp(rule.label, "y"), 0);
+    rule_destroy(&rule);
+
+    TEST_CHECK(MESSAGE_TEST_RULE("app=x\0app=(\0", &rule, &response), false);
+    TEST_CHECK(rule_check_flag(&rule, RULE_APP_VALID) != 0, false);
+    rule_destroy(&rule);
+
     TEST_CHECK(MESSAGE_TEST_RULE("manage=on\0colour=red\0", &rule, &response), false);
     TEST_CHECK(strstr(response, "unknown key 'colour'") != NULL, true);
     TEST_CHECK(strstr(response, "missing required key-value pair") != NULL, true);

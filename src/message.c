@@ -893,9 +893,22 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
     }
 }
 
+//
+// NOTE: When a key is given more than once, the last value wins; the earlier one is freed.
+//
+
+static void parse_rule_string(char **field, char *value)
+{
+    if (*field) free(*field);
+    *field = string_copy(value);
+}
+
 static bool parse_rule_pattern(struct rule *rule, char *value, bool exclusion, char **pattern, regex_t *regex, enum rule_flag valid_flag, enum rule_flag exclude_flag)
 {
-    *pattern = string_copy(value);
+    if (rule_check_flag(rule, valid_flag)) regfree(regex);
+    rule_clear_flag(rule, valid_flag | exclude_flag);
+
+    parse_rule_string(pattern, value);
     if (exclusion) rule_set_flag(rule, exclude_flag);
     if (regcomp(regex, value, REG_EXTENDED) != 0) return false;
 
@@ -914,6 +927,18 @@ static bool parse_rule_prop(char *value, int *prop)
     }
 
     return true;
+}
+
+//
+// NOTE: A display or space value that starts with '^' also makes the window's space follow (focus) it.
+//
+
+static char *parse_rule_follow_prefix(struct rule *rule, char *value)
+{
+    if (value[0] != ARGUMENT_RULE_VALUE_SPACE) return value;
+
+    rule_effects_set_flag(&rule->effects, RULE_FOLLOW_SPACE);
+    return value + 1;
 }
 
 static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct token token)
@@ -941,7 +966,7 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
         bool valid_pattern = true;
 
         if (string_equals(key, ARGUMENT_RULE_KEY_LABEL)) {
-            rule->label = string_copy(value);
+            parse_rule_string(&rule->label, value);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SCRATCHPAD)) {
             for (int i = 0; i < array_count(reserved_window_identifiers); ++i) {
                 if (string_equals(value, reserved_window_identifiers[i])) {
@@ -951,7 +976,7 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
             }
 
             if (valid_value) {
-                rule->effects.scratchpad = string_copy(value);
+                parse_rule_string(&rule->effects.scratchpad, value);
                 rule->effects.manage = RULE_PROP_OFF;
             }
         } else if (string_equals(key, ARGUMENT_RULE_KEY_APP)) {
@@ -967,11 +992,7 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
             is_filter = true;
             valid_pattern = parse_rule_pattern(rule, value, exclusion, &rule->subrole, &rule->subrole_regex, RULE_SUBROLE_VALID, RULE_SUBROLE_EXCLUDE);
         } else if (string_equals(key, ARGUMENT_RULE_KEY_DISPLAY)) {
-            if (value[0] == ARGUMENT_RULE_VALUE_SPACE) {
-                ++value;
-                rule_effects_set_flag(&rule->effects, RULE_FOLLOW_SPACE);
-            }
-
+            value = parse_rule_follow_prefix(rule, value);
             struct selector selector = parse_display_selector(rsp, &value, display_manager_active_display_id(), false);
             if (selector.did_parse && selector.did) {
                 rule->effects.did = selector.did;
@@ -979,11 +1000,7 @@ static bool parse_rule(FILE *rsp, char **message, struct rule *rule, struct toke
                 did_parse = false;
             }
         } else if (string_equals(key, ARGUMENT_RULE_KEY_SPACE)) {
-            if (value[0] == ARGUMENT_RULE_VALUE_SPACE) {
-                ++value;
-                rule_effects_set_flag(&rule->effects, RULE_FOLLOW_SPACE);
-            }
-
+            value = parse_rule_follow_prefix(rule, value);
             struct selector selector = parse_space_selector(rsp, &value, space_manager_active_space(), false);
             if (selector.did_parse && selector.sid) {
                 rule->effects.sid = selector.sid;

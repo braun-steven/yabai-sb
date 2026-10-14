@@ -18,7 +18,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | Phase | Title | Status | Last commit | Notes |
 |---|---|---|---|---|
 | P0 | Branch, SwiftPM skeleton, baselines | [x] | 1c5bee6 | layout deviates from the plan, see Target architecture |
-| P1 | macOS 27 / arm64 cleanup (still C) | [ ] | | |
+| P1 | macOS 27 / arm64 cleanup (still C) | [L] | 174b5b8 | waits for the user's SA reload (OSAX_VERSION 2.1.34); steps in the Handoff log |
 | P2 | CPrivate module + Platform wrappers | [ ] | | |
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [ ] | | |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [ ] | | |
@@ -62,11 +62,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 ### Package layout (repo root)
 As built in P0 (it deviates from the first plan; see the P0 Handoff log entry for why):
 ```
-Package.swift            // swift-tools-version 6.2, Swift 6 language mode. platforms [.macOS("12.0")] until P1 sets "27.0".
+Package.swift            // swift-tools-version 6.2, Swift 6 language mode. platforms [.macOS("27.0")] (since P1).
 src/                     // TEMPORARY C target YabaiC (path "src"): sources manifest.m + osax/payload_bin.c + osax/loader_bin.c.
   include/yabai_c.h      //   every header of the unity build; module.modulemap makes it the module YabaiC for Swift.
                          //   Shrinks every phase, deleted in P14 (except src/osax, which moves to osax/).
-  osax/                  // unchanged ObjC payload/loader, built by the makefile only (arm64e); its _bin.c are YabaiC sources
+  osax/                  // ObjC payload/loader (macOS 27 only since P1), built by the makefile only (arm64e); its _bin.c are YabaiC sources
 Sources/
   CPrivate/              // (P2) C target: include/CPrivate.h (from src/misc/extern.h; keep CF_RETURNS_RETAINED, add CF_ASSUME_NONNULL
                          // and _Nullable), include/module.modulemap, macho_dlsym.c (from src/misc/macho_dlsym.h)
@@ -76,7 +76,7 @@ tests/YabaiCoreTests/    // Swift Testing (import Testing) and Golden/. Not Test
                          // Tests/ would be the C harness tests/.
 tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sources/Yabai but main.swift
 ```
-- **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. `--arch arm64 --arch x86_64` gives a universal binary in one build.
+- **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. Since P1 the makefile builds `--arch arm64` only (`ARCHS`).
 - **Linker settings** (unsafeFlags is fine in a root package): `-F/System/Library/PrivateFrameworks -framework SkyLight` on YabaiC; `-sectcreate __TEXT __info_plist assets/Info.plist` and `-isysroot $SDKROOT` (see pitfalls) on `Yabai`.
 - **YabaiC** compiles with `-fno-objc-arc`, C11 and the warnings of today's makefile, without `-fvisibility=hidden` (see pitfalls).
 
@@ -380,3 +380,30 @@ Append one entry per session, newest last. Template:
   - Bench medians depend on the layout state: right after `live.py run` the P0 build measured rotate 55 ms, right after a restart 150 ms. V5 step 2 now prescribes the like-for-like procedure.
 - Pitfalls added to "Swift conventions and pitfalls": Swift Build prelinks C targets (no `-fvisibility=hidden`); Swift Build's extra warnings; SDK version of the binary; Swift imports C headers with ARC; case-insensitive `Tests/`. The section is close to a page; P1 may move it into a skill.
 - Waiting on user: nothing
+
+### 2026-10-14 P1 [L]
+- Commits: 174b5b8 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (nothing newer on master)
+- Done: steps 1–4. The user chose to drop x86_64.
+  - Every `workspace_is_macos_*`, `@available`, `__builtin_available` and `majorVersion` branch is gone, keeping the newest path; so are `SUPPORTED_MACOS_VERSION_LIST`, `workspace_use_macos_space_workaround` and every `__x86_64__` path. Code that only the old paths used went with them: `tab_bar_window_list`, `border_window_list`, the 1204 Mission Control notification, the `SLSMoveWindowsToManagedSpace` space move, `SLSGetWindowLevel`.
+  - `display_manager_display_is_animating` always returned false since Sonoma, so it is deleted with its 13 callers, `SPACE_OP_ERROR_DISPLAY_IS_ANIMATING` and its `daemon_fail` text ("…the display is in the middle of an animation."), which macOS 27 could never print. The golden capture did not contain it (145/145 unchanged).
+  - `SLSWindowIteratorGetCornerRadii` (macOS 26+) is now declared in `extern.h` (`CF_RETURNS_RETAINED`) and called directly instead of through `dlsym`.
+  - OSAX: `arm64_payload.m` keeps only the macOS 27 values (checked against 3b463fc "macOS 27 offsets"; the getters take no arguments now), `x64_payload.m` and the x86 paths of `loader.m`/`payload.m` are deleted, `verify_os_version` accepts only macOS 27, the `macOSSequoia` flag is gone, `OSAX_VERSION` is 2.1.34.
+  - `MACOS_MIN = 27.0` / `ARCHS = arm64` (makefile, OSAX `-arch arm64e` only), `.macOS("27.0")` in `Package.swift`, 27.0 in `tests/makefile`. The `CVDisplayLink*` calls and payload's `getsegbyname` (deprecated since 13) are wrapped in `-Wdeprecated-declarations` pragmas with a NOTE. `TabBarGlass.swift` has no availability checks left.
+  - `AGENTS.md` (build, OSAX, version gating) and `doc/payload-updates.md` describe the macOS 27 / arm64 layout.
+- Resume at: the user's scripting-addition reload, then next phase (P2). For the reload, the P1 build (with payload 2.1.34) must be installed: `bash scripts/live-tests/deploy.sh install`, the user runs `sudo ~/.local/bin/yabai --load-sa` twice in a real terminal, then `python3 scripts/live-tests/sa_version.py` must print `payload 2.1.34 attrib 0x5f`, then `live.py setup` → `extra P1-sa` → `cleanup`, then `deploy.sh restore` and check `sa_version.py` again (the restored master binary ships payload 2.1.33). Then set P1 to `[x]`.
+- Open @_cdecl shims / C structs still shared: unchanged (tab_bar_glass_* entry points; `yabai_main`)
+- Tests: C remaining 82, Swift added 0 (total ported 0/82); golden replay 145/145, `goldenCaptureCoversEveryCommand` passes
+- Measurements:
+  - Lines (git ls-files; ObjC includes `manifest.m`, OSAX all of `src/osax`, Swift includes the tests): C 15,897 · headers 4,193 · ObjC 1,027 · OSAX 1,435 · Swift 498 · C tests 2,918
+  - Release `bin/yabai` (arm64 only): 849,384 B (P0 universal: 1,954,568 B)
+  - `make install`: 7.2 s from an empty `.build` (P0: 8.5 s, two architectures)
+  - V1 all four variants warning-free; V3 37 warnings, the known count
+  - V5 with Dock still on payload 2.1.33 (new daemon against the old payload): `run` 28/28, `extra` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 11 ms), `launch` 3/3; asan `run` 28/28 with no reports; tsan `run` 28/28 with no reports; crash reports 28 before and after. Signal spot check (`window_focused`) passes. `deploy.sh restore` done.
+  - Bench (V5 step 2, same windows): P1 tab focus 36.9 / 34.5, rotate 154.0 / 154.2, split focus 33.2 / 31.1 ms; installed build 33.3 / 35.9, 156.3 / 151.9, 33.5 / 32.7 ms.
+- Deviations from plan / surprises:
+  - `space_manager_swap_space_with_space_on_display` and `window_manager_wait_for_native_fullscreen_transition` lost the parameters that only the deleted checks used.
+  - The README still lists the old supported versions; that is P14's README update.
+  - The Bash tool keeps the working directory between calls: after `cd scripts/live-tests && python3 live.py …`, the next `bash scripts/live-tests/deploy.sh` fails. Run the harness in a subshell, `(cd scripts/live-tests && python3 live.py …)`. Added to `doc/live-testing.md`.
+- Pitfalls added to "Swift conventions and pitfalls": none (the working-directory note is in `doc/live-testing.md`)
+- Waiting on user: the scripting-addition reload (see Resume at)

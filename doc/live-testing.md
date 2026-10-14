@@ -90,7 +90,9 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   `tsan`). The user allowed exactly that command (`Bash(bash scripts/live-tests/deploy.sh:*)` in the
   git-ignored `.claude/settings.local.json`). The auto-mode classifier blocks every other way of
   replacing `~/.local/bin/yabai`; don't work around it. Run the script by this exact command: from the
-  repository root, without `cd` or other commands chained in front of it.
+  repository root, without `cd` or other commands chained in front of it. The shell keeps its working
+  directory between tool calls, so run the harness in a subshell, `(cd scripts/live-tests && python3 live.py …)`,
+  or the next `deploy.sh` call fails with "No such file or directory".
 - The first deploy backs up the installed binary to `~/.local/state/yabai/yabai.before-deploy`; later
   deploys keep that backup. When you are done testing, run `bash scripts/live-tests/deploy.sh restore`,
   which puts the backup back, checks it with `cmp` and deletes it. Never leave a test build installed,
@@ -109,6 +111,8 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 - A test build cannot load its payload by itself (sudoers, see above), so Dock keeps the old payload.
   That is the moment to test how a new daemon behaves with an old payload, which ignores unknown
   opcodes. Do it before reloading.
+- `--load-sa` installs the payload of the binary at `~/.local/bin/yabai`, so a reload of a new payload
+  needs the test build installed (`deploy.sh install`) while the user runs it; `deploy.sh restore` afterwards.
 - Reloading takes the user two runs of `! sudo ~/.local/bin/yabai --load-sa` (full path; `sudo`'s PATH
   may not include `~/.local/bin`). The first run installs the new payload files and restarts Dock. The
   `dock_did_restart` signal in the yabairc would inject the payload into the new Dock, but its

@@ -81,3 +81,22 @@ TEST_FUNC(tab_bar_title_fits,
     TEST_CHECK(tab_bar_test_fitted_width("Untitled Document", 50.0) <= 50.0, true);
     TEST_CHECK(tab_bar_test_fitted_width("Untitled Document", full) == full, true);
 });
+
+TEST_FUNC(tab_bar_slots_cover_bar,
+{
+    CGRect area = CGRectMake(10, 0, 100, 20);
+
+    // NOTE: slots are whole pixels without gaps, and the last one takes the rest
+    CGRect first = tab_bar_slot(area, 0, 3);
+    CGRect second = tab_bar_slot(area, 1, 3);
+    CGRect last = tab_bar_slot(area, 2, 3);
+
+    TEST_CHECK((int) first.origin.x, 10);
+    TEST_CHECK((int) first.size.width, 33);
+    TEST_CHECK((int) second.origin.x, 43);
+    TEST_CHECK((int) (second.origin.x + second.size.width), (int) last.origin.x);
+    TEST_CHECK((int) (last.origin.x + last.size.width), 110);
+
+    CGRect single = tab_bar_slot(area, 0, 1);
+    TEST_CHECK((int) single.size.width, 100);
+});

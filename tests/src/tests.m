@@ -80,6 +80,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_window_toggle_lookup)                   \
     TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(message_client_encoding)                        \
+    TEST_ENTRY(message_selectors)                              \
     TEST_ENTRY(window_info_serialize_selected)                 \
     TEST_ENTRY(window_info_tree_fields)                        \
     TEST_ENTRY(event_signal_filter_properties)                 \

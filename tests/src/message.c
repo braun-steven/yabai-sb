@@ -205,3 +205,57 @@ TEST_FUNC(message_client_encoding,
 
     free(message);
 });
+
+static struct selector message_test_selector(char kind, char *text, char **response)
+{
+    char *cursor = text;
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+
+    struct selector result;
+    if (kind == 'w')      result = parse_window_selector(rsp, &cursor, NULL, false);
+    else if (kind == 'd') result = parse_display_selector(rsp, &cursor, 0, false);
+    else                  result = parse_space_selector(rsp, &cursor, 0, true);
+
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+TEST_FUNC(message_selectors,
+{
+    char *response;
+
+    struct selector window = message_test_selector('w', "east\0", &response);
+    TEST_CHECK(window.did_parse, true);
+    TEST_CHECK(window.window == NULL, true);
+    TEST_CHECK(strstr(response, "could not locate the selected window.") != NULL, true);
+
+    window = message_test_selector('w', "stack.bogus\0", &response);
+    TEST_CHECK(strstr(response, "could not locate the selected window.") != NULL, true);
+
+    window = message_test_selector('w', "bogus\0", &response);
+    TEST_CHECK(window.did_parse, false);
+    TEST_CHECK(strstr(response, "value 'bogus' is not a valid option for WINDOW_SEL") != NULL, true);
+
+    struct selector display = message_test_selector('d', "next\0", &response);
+    TEST_CHECK(strstr(response, "could not locate the selected display.") != NULL, true);
+
+    display = message_test_selector('d', "unlabeled\0", &response);
+    TEST_CHECK(display.did_parse, false);
+    TEST_CHECK(strstr(response, "is not a valid option for DISPLAY_SEL") != NULL, true);
+
+    // NOTE: an optional selector that is missing does not report an error
+    struct selector space = message_test_selector('s', "\0", &response);
+    TEST_CHECK(space.did_parse, false);
+    TEST_CHECK(response[0], '\0');
+
+    uint64_t last_space_id = g_space_manager.last_space_id;
+    g_space_manager.last_space_id = 77;
+    space = message_test_selector('s', "recent\0", &response);
+    TEST_CHECK((int) space.sid, 77);
+    g_space_manager.last_space_id = last_space_id;
+
+    TEST_CHECK(parse_direction(message_test_token("west")), DIR_WEST);
+    TEST_CHECK(parse_direction(message_test_token("up")), 0);
+});

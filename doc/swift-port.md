@@ -2,7 +2,7 @@
 
 > **How to use this file (every agent, every session)**
 > 1. This plan lives in the repo as `doc/swift-port.md` on branch `swift-port` (P0 copies it there). Always work from that copy, never from `master`.
-> 2. Read **Context**, **Parity contract**, **Target architecture**, **Agent rules** and **Verification checklist** once.
+> 2. Read **Context**, **Parity contract**, **Target architecture**, **Agent rules**, **Swift conventions and pitfalls** and **Verification checklist** once.
 > 3. In the **Status board**, find the first phase that is not `[x]`. If it is `[~]`, resume from its last **Handoff log** entry.
 > 4. Do only that phase. Its steps, "Done when" and handoff duties are in **Phases**.
 > 5. Before you stop, even mid-phase:
@@ -140,6 +140,34 @@ src/osax/                // unchanged ObjC payload/loader (moved to osax/ in P14
   - Write the new SHA in the Handoff log.
 - **Commits:** small, on `swift-port`, with concise imperative subjects (repo style). No README "Fork changes" entries until P14.
 - **Long output:** delegate noisy commands (full test runs, builds, logs) to the `output-summarizer` subagent, per the user's global instructions.
+- **Pitfalls:** when something costs you real time, add it to **Swift conventions and pitfalls** below in the same commit. Note it in the Handoff log too.
+
+## Swift conventions and pitfalls
+Read this before writing Swift. Keep each entry to a few lines with a pointer to an example. If this section grows past about a page, move it into a project skill under `.claude/skills/` and leave a pointer here.
+
+**Toolchain.** Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent features (SwiftPM concurrency defaults, `isolated deinit`, `Mutex`/`Atomic`, custom executors), trust `swift --version`, the compiler diagnostics and the SDK interfaces over memory. When unsure, try it in a scratch file first.
+
+**Conventions**
+- **Performance:** prefer `final class` and structs on hot paths (mouse drag, animations, tree updates). Avoid existentials (`any P`) and closures that capture state in loops there.
+- **Isolation:**
+  - `@MainActor` only for AppKit code.
+  - Window manager state is `@WM`.
+  - Plain value types are `Sendable` without annotations.
+- **Unit tests:** Swift Testing (`import Testing`, `@Test`, `#expect`, `#require`). Name a test after the C `TEST_FUNC` it replaces, so the ledger stays countable.
+- **Errors:**
+  - Command handlers `throw CommandError.fail(...)`.
+  - Platform wrappers return optionals or `Bool` like the C code did. Don't invent new error types for AX/SkyLight failures.
+- **Style:** keep the C file's order of functions in the Swift file, so diffs against the C original stay readable during review.
+
+**Pitfalls learned so far**
+- **CF types in C structs** import as `Unmanaged<T>?` unless the header has nullability annotations. Wrap the header in `CF_ASSUME_NONNULL_BEGIN/END` and mark the optional fields `_Nullable` (example: `src/tab_bar_glass.h`). Then take each value once with `takeUnretainedValue()` and let C free the struct.
+- **Who frees a C struct's CF objects:** either Swift takes the +1 references (`takeRetainedValue()`) and C only frees the memory, or Swift retains (`takeUnretainedValue()`) and C releases. Pick one per struct and write it in the header's NOTE. The pilot uses the second way (`tab_bar_glass_snapshot_free`).
+- **Swift runtime rpath:** a C/ObjC-driven link of Swift objects needs `-Wl,-rpath,/usr/lib/swift`. Otherwise `@rpath/libswift_Concurrency.dylib` is weak-linked and silently missing, and `MainActor.assumeIsolated` crashes. Check with `DYLD_PRINT_LIBRARIES=1 bin/yabai --version 2>&1 | grep Concurrency`. SwiftPM-linked executables get this right on their own; re-check after P0.
+- **Missing `.pch` warnings:** a bridging header compiled by `swiftc` leaves debug info pointing at a temporary PCH, and dsymutil warns "`….pch: No such file or directory`". Use `-disable-bridging-pch`, or a module map, which is the SwiftPM default.
+- **Autolinking:** `import AppKit` autolinks dozens of `libswift*` overlays. That is harmless (they are in the OS); don't try to trim them.
+- **`@_cdecl` functions** must use C-representable types only (`UnsafeMutableRawPointer`, `UnsafeMutablePointer<cstruct>`, integers, `Bool`). Pass Swift objects through C as `Unmanaged.passRetained(obj).toOpaque()`, and balance that with exactly one `release()` (example: `tab_bar_glass_create` / `tab_bar_glass_destroy`).
+- **Main-queue blocks that use a Swift object** must capture it strongly, like the ObjC blocks retained it. The last pending block then releases the object, on the main queue. Release the C-held reference right after posting the final block (`tab_bar_glass_destroy`).
+- **Static analysis of the unity build:** clang's analyzer skips functions in `#include`d files unless you pass `-analyzer-opt-analyze-headers`. `make analyze` already does.
 
 ## Verification checklist (referenced by the phases)
 - **V1 Build:** `make`, `make install`, `make asan` and `make tsan` succeed with no warnings, and `bin/yabai --version` runs.
@@ -295,6 +323,7 @@ Append one entry per session, newest last. Template:
 - Tests: C remaining <n>, Swift added <n> (total ported <n>/82)
 - Measurements: <lines, size, build time, bench medians if run>
 - Deviations from plan / surprises: <…>
+- Pitfalls added to "Swift conventions and pitfalls": <titles, or none>
 - Waiting on user: <scripting-addition reload, questions>
 ```
 

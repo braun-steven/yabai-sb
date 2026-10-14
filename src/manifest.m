@@ -54,6 +54,7 @@
 #include "misc/timer.h"
 #include "misc/macho_dlsym.h"
 #include "misc/sbuffer.h"
+#include "misc/label.h"
 #define HASHTABLE_IMPLEMENTATION
 #include "misc/hashtable.h"
 #undef HASHTABLE_IMPLEMENTATION

@@ -899,7 +899,7 @@ static EVENT_HANDLER(SLS_SPACE_DESTROYED)
     struct view *view = table_find(&g_space_manager.view, &sid);
     if (view) {
         debug("%s: %lld\n", __FUNCTION__, sid);
-        space_manager_remove_label_for_space(&g_space_manager, sid);
+        label_remove_id(&g_space_manager.labels, sid);
         table_remove(&g_space_manager.view, &sid);
         view_destroy(view);
         free(view);
@@ -994,7 +994,7 @@ static EVENT_HANDLER(DISPLAY_REMOVED)
 {
     uint32_t did = (uint32_t)(intptr_t) context;
     debug("%s: %d\n", __FUNCTION__, did);
-    display_manager_remove_label_for_display(&g_display_manager, did);
+    label_remove_id(&g_display_manager.labels, did);
     window_manager_handle_display_add_and_remove(&g_space_manager, &g_window_manager, display_manager_main_display_id());
     space_layout_schedule(1.0, true);
     event_signal_push(SIGNAL_DISPLAY_REMOVED, context);

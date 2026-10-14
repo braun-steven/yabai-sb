@@ -1,12 +1,6 @@
 #ifndef SPACE_MANAGER
 #define SPACE_MANAGER
 
-struct space_label
-{
-    uint64_t sid;
-    char *label;
-};
-
 struct space_manager
 {
     struct table view;
@@ -23,7 +17,7 @@ struct space_manager
     enum tree_orientation tree_default_orientation;
     bool tree_workspace_tabbed;
     bool tree_autotiling;
-    struct space_label *labels;
+    struct label *labels;
     bool skip_window_focus_animation;
     struct space_layout space_layout[SPACE_LAYOUT_MAX];
     int space_layout_count;
@@ -81,10 +75,6 @@ uint64_t space_manager_next_space(uint64_t sid);
 uint64_t space_manager_first_space(void);
 uint64_t space_manager_last_space(void);
 uint64_t space_manager_active_space(void);
-struct space_label *space_manager_get_label_for_space(struct space_manager *sm, uint64_t sid);
-struct space_label *space_manager_get_space_for_label(struct space_manager *sm, char *label);
-bool space_manager_remove_label_for_space(struct space_manager *sm, uint64_t sid);
-void space_manager_set_label_for_space(struct space_manager *sm, uint64_t sid, char *label);
 void space_manager_set_layout_for_space(struct space_manager *sm, uint64_t sid, enum view_type type);
 bool space_manager_set_gap_for_space(struct space_manager *sm, uint64_t sid, int type, int gap);
 bool space_manager_toggle_gap_for_space(struct space_manager *sm, uint64_t sid);

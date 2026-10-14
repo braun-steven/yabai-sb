@@ -120,63 +120,6 @@ void space_manager_untile_window(struct view *view, struct window *window)
     if (view_remove_window(view, window)) view_flush(view);
 }
 
-struct space_label *space_manager_get_label_for_space(struct space_manager *sm, uint64_t sid)
-{
-    for (int i = 0; i < buf_len(sm->labels); ++i) {
-        struct space_label *space_label = &sm->labels[i];
-        if (space_label->sid == sid) {
-            return space_label;
-        }
-    }
-
-    return NULL;
-}
-
-struct space_label *space_manager_get_space_for_label(struct space_manager *sm, char *label)
-{
-    for (int i = 0; i < buf_len(sm->labels); ++i) {
-        struct space_label *space_label = &sm->labels[i];
-        if (string_equals(label, space_label->label)) {
-            return space_label;
-        }
-    }
-
-    return NULL;
-}
-
-bool space_manager_remove_label_for_space(struct space_manager *sm, uint64_t sid)
-{
-    for (int i = 0; i < buf_len(sm->labels); ++i) {
-        struct space_label *space_label = &sm->labels[i];
-        if (space_label->sid == sid) {
-            free(space_label->label);
-            buf_del(sm->labels, i);
-            return true;
-        }
-    }
-
-    return false;
-}
-
-void space_manager_set_label_for_space(struct space_manager *sm, uint64_t sid, char *label)
-{
-    space_manager_remove_label_for_space(sm, sid);
-
-    for (int i = 0; i < buf_len(sm->labels); ++i) {
-        struct space_label *space_label = &sm->labels[i];
-        if (string_equals(space_label->label, label)) {
-            free(space_label->label);
-            buf_del(sm->labels, i);
-            break;
-        }
-    }
-
-    buf_push(sm->labels, ((struct space_label) {
-        .sid   = sid,
-        .label = label
-    }));
-}
-
 void space_manager_set_layout_for_space(struct space_manager *sm, uint64_t sid, enum view_type layout)
 {
     struct view *view = space_manager_find_view(sm, sid);
@@ -681,9 +624,9 @@ static enum space_op_error space_manager_swap_space_with_space_on_display(uint32
     }
 
     for (int i = 0; i < buf_len(g_space_manager.labels); ++i) {
-        struct space_label *label = &g_space_manager.labels[i];
-        if      (label->sid == a_sid) label->sid = b_sid;
-        else if (label->sid == b_sid) label->sid = a_sid;
+        struct label *label = &g_space_manager.labels[i];
+        if      (label->id == a_sid) label->id = b_sid;
+        else if (label->id == b_sid) label->id = a_sid;
     }
 
     view_update(a_view);
@@ -1107,8 +1050,8 @@ void space_manager_handle_display_add(struct space_manager *sm, uint32_t did)
                 table_remove(&sm->view, &view->sid);
                 CFRelease(view->uuid);
 
-                struct space_label *label = space_manager_get_label_for_space(sm, view->sid);
-                if (label) label->sid = sid;
+                struct label *label = label_find_id(sm->labels, view->sid);
+                if (label) label->id = sid;
 
                 view->sid = sid;
                 view->uuid = CFRetain(uuid);

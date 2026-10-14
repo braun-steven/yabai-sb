@@ -862,9 +862,9 @@ static struct selector parse_display_selector(FILE *rsp, char **message, uint32_
         } else if (token_equals(token, ARGUMENT_COMMON_SEL_MOUSE)) {
             result.did = display_selector_require(rsp, display_manager_cursor_display_id(), "display containing cursor");
         } else {
-            struct display_label *display_label = display_manager_get_display_for_label(&g_display_manager, value.string_value);
+            struct label *display_label = label_find_name(g_display_manager.labels, value.string_value);
             if (display_label) {
-                result.did = display_label->did;
+                result.did = display_label->id;
             } else {
                 result.did_parse = false;
                 daemon_fail(rsp, "value '%.*s' is not a valid option for DISPLAY_SEL\n", token.length, token.text);
@@ -915,9 +915,9 @@ static struct selector parse_space_selector(FILE *rsp, char **message, uint64_t 
         } else if (token_equals(token, ARGUMENT_COMMON_SEL_MOUSE)) {
             result.sid = space_selector_require(rsp, space_manager_cursor_space(), "space containing cursor");
         } else {
-            struct space_label *space_label = space_manager_get_space_for_label(&g_space_manager, value.string_value);
+            struct label *space_label = label_find_name(g_space_manager.labels, value.string_value);
             if (space_label) {
-                result.sid = space_label->sid;
+                result.sid = space_label->id;
             } else {
                 result.did_parse = false;
                 daemon_fail(rsp, "value '%.*s' is not a valid option for SPACE_SEL\n", token.length, token.text);

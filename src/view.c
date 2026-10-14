@@ -146,7 +146,7 @@ static char *view_uuid_string(struct view *view)
 
 static char *view_label_string(struct view *view)
 {
-    struct space_label *space_label = space_manager_get_label_for_space(&g_space_manager, view->sid);
+    struct label *space_label = label_find_id(g_space_manager.labels, view->sid);
     return space_label ? json_string(space_label->label) : "";
 }
 

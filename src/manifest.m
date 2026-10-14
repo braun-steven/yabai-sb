@@ -87,6 +87,8 @@
 #include "event_signal.c"
 #include "workspace.m"
 #include "rule.c"
+#include "message_parse.c"
+#include "message_config.c"
 #include "message.c"
 #include "display.c"
 #include "space.c"

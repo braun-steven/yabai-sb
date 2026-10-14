@@ -113,6 +113,8 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   opcodes. Do it before reloading.
 - `--load-sa` installs the payload of the binary at `~/.local/bin/yabai`, so a reload of a new payload
   needs the test build installed (`deploy.sh install`) while the user runs it; `deploy.sh restore` afterwards.
+  The restored binary matches the sudoers rule, so its yabairc puts its own payload back when it starts
+  (check with `sa_version.py`).
 - Reloading takes the user two runs of `! sudo ~/.local/bin/yabai --load-sa` (full path; `sudo`'s PATH
   may not include `~/.local/bin`). The first run installs the new payload files and restarts Dock. The
   `dock_did_restart` signal in the yabairc would inject the payload into the new Dock, but its

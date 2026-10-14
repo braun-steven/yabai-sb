@@ -18,7 +18,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | Phase | Title | Status | Last commit | Notes |
 |---|---|---|---|---|
 | P0 | Branch, SwiftPM skeleton, baselines | [x] | 1c5bee6 | layout deviates from the plan, see Target architecture |
-| P1 | macOS 27 / arm64 cleanup (still C) | [L] | 174b5b8 | waits for the user's SA reload (OSAX_VERSION 2.1.34); steps in the Handoff log |
+| P1 | macOS 27 / arm64 cleanup (still C) | [x] | 174b5b8 | OSAX 2.1.34, reloaded by the user and live-checked |
 | P2 | CPrivate module + Platform wrappers | [ ] | | |
 | P3 | YabaiCore: geometry, labels, space_layout math, JSON writer | [ ] | | |
 | P4 | YabaiCore: message tokens/selectors/values, rule parsing | [ ] | | |
@@ -407,3 +407,15 @@ Append one entry per session, newest last. Template:
   - The Bash tool keeps the working directory between calls: after `cd scripts/live-tests && python3 live.py …`, the next `bash scripts/live-tests/deploy.sh` fails. Run the harness in a subshell, `(cd scripts/live-tests && python3 live.py …)`. Added to `doc/live-testing.md`.
 - Pitfalls added to "Swift conventions and pitfalls": none (the working-directory note is in `doc/live-testing.md`)
 - Waiting on user: the scripting-addition reload (see Resume at)
+
+### 2026-10-14 P1 [x]
+- Commits: the commit that adds this entry, on swift-port (code unchanged since 174b5b8)
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the scripting-addition reload. With the P1 build installed the user ran `sudo ~/.local/bin/yabai --load-sa` twice; `sa_version.py` printed `payload 2.1.34 attrib 0x5f`. `live.py setup` → `extra P1-sa` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 12 ms, Dock pid unchanged) → `cleanup`. No new crash reports (28). `deploy.sh restore` done.
+- Resume at: next phase (P2)
+- Open @_cdecl shims / C structs still shared: unchanged (tab_bar_glass_* entry points; `yabai_main`)
+- Tests: C remaining 82, Swift added 0 (total ported 0/82)
+- Measurements: see the P1 [L] entry
+- Deviations from plan / surprises: after `deploy.sh restore` Dock was back on payload 2.1.33 without a user step: the restored master binary matches the `--load-sa` sudoers rule, so its yabairc reinstalls its own payload when yabai starts. Added to `doc/live-testing.md`. A port build's payload therefore only stays loaded while a port build is installed.
+- Pitfalls added to "Swift conventions and pitfalls": none
+- Waiting on user: nothing

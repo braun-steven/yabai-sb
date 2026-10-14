@@ -362,6 +362,17 @@ TEST_FUNC(message_config_values,
     TEST_CHECK(strcmp(message_test_run_config("window_opacity_duration\0" "1\0window_opacity_duration\0"), "1.000000\n"), 0);
     g_window_manager.window_opacity_duration = opacity_duration;
 
+    // NOTE: only the menubar accepts an opacity of 0
+    TEST_CHECK(strstr(message_test_run_config("active_window_opacity\0" "0\0"), "unknown value '0'") != NULL, true);
+    TEST_CHECK(strstr(message_test_run_config("menubar_opacity\0" "1.5\0"), "unknown value '1.5'") != NULL, true);
+    TEST_CHECK(strstr(message_test_run_config("normal_window_opacity\0half\0"), "unknown value 'half'") != NULL, true);
+
+    bool workspace_tabbed = g_space_manager.tree_workspace_tabbed;
+    TEST_CHECK(strcmp(message_test_run_config("tree_workspace_layout\0tabbed\0tree_workspace_layout\0"), "tabbed\n"), 0);
+    TEST_CHECK(strcmp(message_test_run_config("tree_workspace_layout\0default\0tree_workspace_layout\0"), "default\n"), 0);
+    TEST_CHECK(strstr(message_test_run_config("tree_workspace_layout\0stacked\0"), "unknown value 'stacked'") != NULL, true);
+    g_space_manager.tree_workspace_tabbed = workspace_tabbed;
+
     memcpy(g_window_manager.scratchpad_grid, grid, sizeof(grid));
     g_window_manager.window_animation_duration = duration;
 });

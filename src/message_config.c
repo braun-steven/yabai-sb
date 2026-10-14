@@ -120,6 +120,27 @@ static bool config_space_layout(FILE *rsp, struct token domain, struct token com
 // NOTE: Animations need the scripting addition and Screen Recording permission; 0 turns them off.
 //
 
+//
+// NOTE: An opacity is printed with 4 decimals. Only the menubar accepts 0 (allow_zero), windows need an
+// opacity above 0.
+//
+
+static bool config_opacity(FILE *rsp, struct token domain, struct token command, char **message, float current, bool allow_zero, float *opacity)
+{
+    struct token_value value = token_to_value(get_token(message));
+    if (value.type == TOKEN_TYPE_INVALID) {
+        fprintf(rsp, "%.4f\n", current);
+        return false;
+    }
+
+    if (token_value_float(value, opacity) && (allow_zero ? in_range_ii(*opacity, 0.0f, 1.0f) : in_range_ei(*opacity, 0.0f, 1.0f))) {
+        return true;
+    }
+
+    daemon_fail_unknown_value(rsp, domain, command, value.token);
+    return false;
+}
+
 static void config_animation_duration(FILE *rsp, struct token domain, struct token command, char **message)
 {
     struct token_value value = token_to_value(get_token(message));
@@ -426,35 +447,14 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             int choice;
             if (parse_config_choice(rsp, domain, command, &message, purify_mode_str, PURIFY_DISABLED, PURIFY_ALWAYS, g_window_manager.purify_mode, &choice)) window_manager_set_purify_mode(&g_window_manager, choice);
         } else if (token_equals(command, COMMAND_CONFIG_MENUBAR_OPACITY)) {
-            struct token_value value = token_to_value(get_token(&message));
             float opacity;
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%.4f\n", g_window_manager.menubar_opacity);
-            } else if (token_value_float(value, &opacity) && in_range_ii(opacity, 0.0f, 1.0f)) {
-                window_manager_set_menubar_opacity(&g_window_manager, opacity);
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
+            if (config_opacity(rsp, domain, command, &message, g_window_manager.menubar_opacity, true, &opacity)) window_manager_set_menubar_opacity(&g_window_manager, opacity);
         } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY)) {
-            struct token_value value = token_to_value(get_token(&message));
             float opacity;
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%.4f\n", g_window_manager.active_window_opacity);
-            } else if (token_value_float(value, &opacity) && in_range_ei(opacity, 0.0f, 1.0f)) {
-                window_manager_set_active_window_opacity(&g_window_manager, opacity);
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
+            if (config_opacity(rsp, domain, command, &message, g_window_manager.active_window_opacity, false, &opacity)) window_manager_set_active_window_opacity(&g_window_manager, opacity);
         } else if (token_equals(command, COMMAND_CONFIG_NORMAL_WINDOW_OPACITY)) {
-            struct token_value value = token_to_value(get_token(&message));
             float opacity;
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%.4f\n", g_window_manager.normal_window_opacity);
-            } else if (token_value_float(value, &opacity) && in_range_ei(opacity, 0.0f, 1.0f)) {
-                window_manager_set_normal_window_opacity(&g_window_manager, opacity);
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
+            if (config_opacity(rsp, domain, command, &message, g_window_manager.normal_window_opacity, false, &opacity)) window_manager_set_normal_window_opacity(&g_window_manager, opacity);
         } else if (token_equals(command, COMMAND_CONFIG_INSERT_FEEDBACK_COLOR)) {
             struct token_value value = token_to_value(get_token(&message));
             if (value.type == TOKEN_TYPE_INVALID) {
@@ -486,16 +486,9 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
             int choice;
             if (parse_config_choice(rsp, domain, command, &message, tree_orientation_str, TREE_ORIENTATION_AUTO, TREE_ORIENTATION_VERTICAL, g_space_manager.tree_default_orientation, &choice)) g_space_manager.tree_default_orientation = choice;
         } else if (token_equals(command, COMMAND_CONFIG_TREE_WORKSPACE_LAYOUT)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", g_space_manager.tree_workspace_tabbed ? ARGUMENT_CONFIG_TREE_TABBED : ARGUMENT_CONFIG_TREE_DEFAULT);
-            } else if (token_equals(value, ARGUMENT_CONFIG_TREE_DEFAULT)) {
-                g_space_manager.tree_workspace_tabbed = false;
-            } else if (token_equals(value, ARGUMENT_CONFIG_TREE_TABBED)) {
-                g_space_manager.tree_workspace_tabbed = true;
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
-            }
+            static const char *workspace_layout_str[] = { ARGUMENT_CONFIG_TREE_DEFAULT, ARGUMENT_CONFIG_TREE_TABBED };
+            int choice;
+            if (parse_config_choice(rsp, domain, command, &message, workspace_layout_str, 0, 1, g_space_manager.tree_workspace_tabbed, &choice)) g_space_manager.tree_workspace_tabbed = choice;
         } else if (token_equals(command, COMMAND_CONFIG_TREE_AUTOTILING)) {
             parse_config_bool(rsp, domain, command, &message, &g_space_manager.tree_autotiling);
         } else if (token_equals(command, COMMAND_CONFIG_FOCUS_WRAPPING)) {

@@ -36,7 +36,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `live.py cleanup` | quits the test apps, resets config, shows space 11 on display 2, focuses the window recorded by `setup` |
 | `bench.py <label>` | medians for tab focus, rotate, split focus |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
-| `deploy.sh [install\|asan\|tsan]` | builds, signs, installs and restarts a test build (run by the user, see below) |
+| `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
@@ -82,15 +82,17 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 
 ## Deploying a test build
 
-- The auto-mode permission classifier blocks the agent from replacing `~/.local/bin/yabai` ("Production
-  Deploy"), even after the user agrees in chat. Don't work around it. Ask the user to run
-  `! bash scripts/live-tests/deploy.sh install` (or `asan`, `tsan`) themselves, or to add a
-  Bash allow rule for that script.
-- Before the first deploy, back up the installed binary yourself:
-  `cp -p ~/.local/bin/yabai ~/.local/state/yabai/yabai.before-<topic>`. At the end, the user either
-  restores it (`! cp -p <backup> ~/.local/bin/yabai && ~/.local/bin/yabai --restart-service`) or deploys
-  the branch with `! update-yabai-fork`. Never leave a test build installed. Delete the backup only after
-  confirming with `cmp` which binary is installed.
+- Agents deploy test builds themselves with `bash scripts/live-tests/deploy.sh install` (or `asan`,
+  `tsan`). The user allowed exactly that command (`Bash(bash scripts/live-tests/deploy.sh:*)` in the
+  git-ignored `.claude/settings.local.json`). The auto-mode classifier blocks every other way of
+  replacing `~/.local/bin/yabai`; don't work around it. Run the script by this exact command: from the
+  repository root, without `cd` or other commands chained in front of it.
+- The first deploy backs up the installed binary to `~/.local/state/yabai/yabai.before-deploy`; later
+  deploys keep that backup. When you are done testing, run `bash scripts/live-tests/deploy.sh restore`,
+  which puts the backup back, checks it with `cmp` and deletes it. Never leave a test build installed,
+  unless the user takes over (e.g. the long-lived `swift-port` branch, see `doc/swift-port.md`). The user
+  deploys a branch for good with `update-yabai-fork` in a real terminal (it needs `sudo`).
+- Tell the user after each deploy: it restarts yabai and resets their layouts (see above).
 - `deploy.sh` signs with the `yabai-cert` identity (`3A6E8695…`), so the Accessibility permission is
   kept. Check with `codesign -d -r- ~/.local/bin/yabai`.
 - Expected noise in `/tmp/yabai_$USER.err.log` while a test build is installed:

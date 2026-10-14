@@ -20,6 +20,7 @@ typedef TEST_SIG(function);
 #include "border.c"
 #include "message.c"
 #include "window_info.c"
+#include "event_signal.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -77,7 +78,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_window_toggle_lookup)                   \
     TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(window_info_serialize_selected)                 \
-    TEST_ENTRY(window_info_tree_fields)
+    TEST_ENTRY(window_info_tree_fields)                        \
+    TEST_ENTRY(event_signal_filter_properties)                 \
+    TEST_ENTRY(event_signal_args)
 
 static struct {
     char *name;

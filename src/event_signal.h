@@ -91,11 +91,14 @@ static const char *signal_type_str[] =
 #define SIGNAL_PROP_YES 1
 #define SIGNAL_PROP_NO  2
 
+#define EVENT_SIGNAL_ARG_SIZE 128
+
 struct event_signal
 {
     enum signal_type type;
-    char *arg_name[4];
+    const char *arg_name[4];
     char *arg_value[4];
+    int arg_count;
     char *app;
     char *title;
     int active;

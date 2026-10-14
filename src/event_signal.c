@@ -5,8 +5,27 @@ extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
 
+static inline bool event_signal_regex_mismatch(bool valid, regex_t *regex, bool exclude, char *text)
+{
+    return regex_match(valid, regex, text) == (exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO);
+}
+
+static inline bool event_signal_active_mismatch(struct event_signal *es, struct signal *signal)
+{
+    return signal->active != SIGNAL_PROP_UD && es->active != (signal->active == SIGNAL_PROP_YES);
+}
+
+//
+// NOTE: Returns true when the signal does not apply to the event. Each event type only reports the
+// properties (app, title, active) that its signals can filter on.
+//
+
 static bool event_signal_filter(struct event_signal *es, struct signal *signal)
 {
+    bool app = false;
+    bool title = false;
+    bool active = false;
+
     switch (es->type) {
     default: return false;
 
@@ -14,47 +33,31 @@ static bool event_signal_filter(struct event_signal *es, struct signal *signal)
     case SIGNAL_APPLICATION_ACTIVATED:
     case SIGNAL_APPLICATION_DEACTIVATED:
     case SIGNAL_APPLICATION_VISIBLE: {
-        int regex_match_app = signal->app_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        return regex_match(signal->app_regex_valid, &signal->app_regex, es->app) == regex_match_app;
+        app = true;
     } break;
     case SIGNAL_APPLICATION_TERMINATED:
     case SIGNAL_APPLICATION_HIDDEN:
     case SIGNAL_WINDOW_DESTROYED: {
-        int regex_match_app = signal->app_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        bool app_no_match = regex_match(signal->app_regex_valid, &signal->app_regex, es->app) == regex_match_app;
-
-        bool active = signal->active == SIGNAL_PROP_UD;
-        if (!active) active = es->active == (signal->active == SIGNAL_PROP_YES);
-
-        return app_no_match || !active;
+        app = active = true;
     } break;
     case SIGNAL_WINDOW_CREATED:
     case SIGNAL_WINDOW_FOCUSED:
     case SIGNAL_WINDOW_DEMINIMIZED: {
-        int regex_match_app = signal->app_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        bool app_no_match = regex_match(signal->app_regex_valid, &signal->app_regex, es->app) == regex_match_app;
-
-        int regex_match_title = signal->title_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        bool title_no_match = regex_match(signal->title_regex_valid, &signal->title_regex, es->title) == regex_match_title;
-
-        return app_no_match || title_no_match;
+        app = title = true;
     } break;
     case SIGNAL_WINDOW_MOVED:
     case SIGNAL_WINDOW_RESIZED:
     case SIGNAL_WINDOW_MINIMIZED:
     case SIGNAL_WINDOW_TITLE_CHANGED: {
-        int regex_match_app = signal->app_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        bool app_no_match = regex_match(signal->app_regex_valid, &signal->app_regex, es->app) == regex_match_app;
-
-        int regex_match_title = signal->title_regex_exclude ? REGEX_MATCH_YES : REGEX_MATCH_NO;
-        bool title_no_match = regex_match(signal->title_regex_valid, &signal->title_regex, es->title) == regex_match_title;
-
-        bool active = signal->active == SIGNAL_PROP_UD;
-        if (!active) active = es->active == (signal->active == SIGNAL_PROP_YES);
-
-        return app_no_match || title_no_match || !active;
+        app = title = active = true;
     } break;
     }
+
+    if (app && event_signal_regex_mismatch(signal->app_regex_valid, &signal->app_regex, signal->app_regex_exclude, es->app))             return true;
+    if (title && event_signal_regex_mismatch(signal->title_regex_valid, &signal->title_regex, signal->title_regex_exclude, es->title)) return true;
+    if (active && event_signal_active_mismatch(es, signal))                                                                          return true;
+
+    return false;
 }
 
 void event_signal_flush(void)
@@ -83,10 +86,9 @@ void event_signal_flush(void)
             int pid = fork();
             if (pid) continue;
 
-            if (es->arg_name[0]) setenv(es->arg_name[0], es->arg_value[0], 1);
-            if (es->arg_name[1]) setenv(es->arg_name[1], es->arg_value[1], 1);
-            if (es->arg_name[2]) setenv(es->arg_name[2], es->arg_value[2], 1);
-            if (es->arg_name[3]) setenv(es->arg_name[3], es->arg_value[3], 1);
+            for (int k = 0; k < es->arg_count; ++k) {
+                setenv(es->arg_name[k], es->arg_value[k], 1);
+            }
 
             char *exec[] = { "/usr/bin/env", "sh", "-c", signal->command, NULL};
             execvp(exec[0], exec);
@@ -103,26 +105,38 @@ void event_signal_flush(void)
     _exit(EXIT_SUCCESS);
 }
 
+//
+// NOTE: The values of the environment variables of a signal command live in temporary storage.
+//
+
+__attribute__((format(printf, 3, 4)))
+static void event_signal_add_arg(struct event_signal *es, const char *name, const char *format, ...)
+{
+    assert(es->arg_count < (int) array_count(es->arg_name));
+
+    char *value = ts_alloc_unaligned(EVENT_SIGNAL_ARG_SIZE);
+    va_list ap;
+    va_start(ap, format);
+    vsnprintf(value, EVENT_SIGNAL_ARG_SIZE, format, ap);
+    va_end(ap);
+
+    es->arg_name[es->arg_count] = name;
+    es->arg_value[es->arg_count] = value;
+    ++es->arg_count;
+}
+
 void event_signal_push(enum signal_type type, void *context)
 {
     int signal_count = buf_len(g_signal_event[type]);
     if (!signal_count) return;
 
-    uint64_t arg_size = 128;
     uint64_t size = sizeof(struct event_signal);
 
     uint64_t used = __sync_fetch_and_add(&g_signal_storage.used, size);
     struct event_signal *es = g_signal_storage.memory + used;
 
-    es->type         = type;
-    es->arg_name[0]  = NULL;
-    es->arg_name[1]  = NULL;
-    es->arg_name[2]  = NULL;
-    es->arg_name[3]  = NULL;
-    es->arg_value[0] = NULL;
-    es->arg_value[1] = NULL;
-    es->arg_value[2] = NULL;
-    es->arg_value[3] = NULL;
+    memset(es, 0, size);
+    es->type = type;
 
     switch (type) {
     default: break;
@@ -133,22 +147,14 @@ void event_signal_push(enum signal_type type, void *context)
     case SIGNAL_APPLICATION_VISIBLE: {
         struct application *application = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_PROCESS_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", application->pid);
+        event_signal_add_arg(es, "YABAI_PROCESS_ID", "%d", application->pid);
 
         es->app = application->name;
     } break;
     case SIGNAL_APPLICATION_TERMINATED: {
         struct application *application = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_PROCESS_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", application->pid);
+        event_signal_add_arg(es, "YABAI_PROCESS_ID", "%d", application->pid);
 
         es->app = ts_string_copy(application->name);
 
@@ -168,24 +174,13 @@ void event_signal_push(enum signal_type type, void *context)
         }
     } break;
     case SIGNAL_APPLICATION_FRONT_SWITCHED: {
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-        es->arg_name[1]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[1] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_PROCESS_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", g_process_manager.front_pid);
-        snprintf(es->arg_name[1],  arg_size, "%s", "YABAI_RECENT_PROCESS_ID");
-        snprintf(es->arg_value[1], arg_size, "%d", g_process_manager.last_front_pid);
+        event_signal_add_arg(es, "YABAI_PROCESS_ID", "%d", g_process_manager.front_pid);
+        event_signal_add_arg(es, "YABAI_RECENT_PROCESS_ID", "%d", g_process_manager.last_front_pid);
     } break;
     case SIGNAL_APPLICATION_HIDDEN: {
         struct application *application = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_PROCESS_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", application->pid);
+        event_signal_add_arg(es, "YABAI_PROCESS_ID", "%d", application->pid);
 
         es->app = application->name;
         es->active = g_process_manager.front_pid == application->pid;
@@ -195,11 +190,7 @@ void event_signal_push(enum signal_type type, void *context)
     case SIGNAL_WINDOW_DEMINIMIZED: {
         struct window *window = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_WINDOW_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", window->id);
+        event_signal_add_arg(es, "YABAI_WINDOW_ID", "%d", window->id);
 
         es->app   = window->application->name;
         es->title = window_title_ts(window);
@@ -207,11 +198,7 @@ void event_signal_push(enum signal_type type, void *context)
     case SIGNAL_WINDOW_DESTROYED: {
         struct window *window = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_WINDOW_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", window->id);
+        event_signal_add_arg(es, "YABAI_WINDOW_ID", "%d", window->id);
 
         es->app = window->application ? ts_string_copy(window->application->name) : "<unknown>";
         es->active = g_window_manager.focused_window_id == window->id;
@@ -222,11 +209,7 @@ void event_signal_push(enum signal_type type, void *context)
     case SIGNAL_WINDOW_TITLE_CHANGED: {
         struct window *window = context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_WINDOW_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", window->id);
+        event_signal_add_arg(es, "YABAI_WINDOW_ID", "%d", window->id);
 
         es->app   = window->application->name;
         es->title = window_title_ts(window);
@@ -236,24 +219,13 @@ void event_signal_push(enum signal_type type, void *context)
         uint64_t sid = (uint64_t)(uintptr_t) context;
         int index    = space_manager_mission_control_index(sid);
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-        es->arg_name[1]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[1] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s",   "YABAI_SPACE_ID");
-        snprintf(es->arg_value[0], arg_size, "%lld", sid);
-        snprintf(es->arg_name[1],  arg_size, "%s",   "YABAI_SPACE_INDEX");
-        snprintf(es->arg_value[1], arg_size, "%d",   index);
+        event_signal_add_arg(es, "YABAI_SPACE_ID", "%lld", sid);
+        event_signal_add_arg(es, "YABAI_SPACE_INDEX", "%d", index);
     } break;
     case SIGNAL_SPACE_DESTROYED: {
         uint64_t sid = (uint64_t)(uintptr_t) context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s",   "YABAI_SPACE_ID");
-        snprintf(es->arg_value[0], arg_size, "%lld", sid);
+        event_signal_add_arg(es, "YABAI_SPACE_ID", "%lld", sid);
     } break;
     case SIGNAL_SPACE_CHANGED: {
         uint64_t sid        = g_space_manager.current_space_id;
@@ -262,25 +234,11 @@ void event_signal_push(enum signal_type type, void *context)
         int index        = space_manager_mission_control_index(sid);
         int recent_index = space_manager_mission_control_index(recent_sid);
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-        es->arg_name[1]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[1] = ts_alloc_unaligned(arg_size);
+        event_signal_add_arg(es, "YABAI_SPACE_ID", "%lld", sid);
+        event_signal_add_arg(es, "YABAI_RECENT_SPACE_ID", "%lld", recent_sid);
 
-        es->arg_name[2]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[2] = ts_alloc_unaligned(arg_size);
-        es->arg_name[3]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[3] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s",   "YABAI_SPACE_ID");
-        snprintf(es->arg_value[0], arg_size, "%lld", sid);
-        snprintf(es->arg_name[1],  arg_size, "%s",   "YABAI_RECENT_SPACE_ID");
-        snprintf(es->arg_value[1], arg_size, "%lld", recent_sid);
-
-        snprintf(es->arg_name[2],  arg_size, "%s", "YABAI_SPACE_INDEX");
-        snprintf(es->arg_value[2], arg_size, "%d", index);
-        snprintf(es->arg_name[3],  arg_size, "%s", "YABAI_RECENT_SPACE_INDEX");
-        snprintf(es->arg_value[3], arg_size, "%d", recent_index);
+        event_signal_add_arg(es, "YABAI_SPACE_INDEX", "%d", index);
+        event_signal_add_arg(es, "YABAI_RECENT_SPACE_INDEX", "%d", recent_index);
     } break;
     case SIGNAL_DISPLAY_ADDED:
     case SIGNAL_DISPLAY_MOVED:
@@ -288,24 +246,13 @@ void event_signal_push(enum signal_type type, void *context)
         uint32_t did = (uint32_t)(uintptr_t) context;
         int index    = display_manager_display_id_arrangement(did);
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-        es->arg_name[1]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[1] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_DISPLAY_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", did);
-        snprintf(es->arg_name[1],  arg_size, "%s", "YABAI_DISPLAY_INDEX");
-        snprintf(es->arg_value[1], arg_size, "%d", index);
+        event_signal_add_arg(es, "YABAI_DISPLAY_ID", "%d", did);
+        event_signal_add_arg(es, "YABAI_DISPLAY_INDEX", "%d", index);
     } break;
     case SIGNAL_DISPLAY_REMOVED: {
         uint32_t did = (uint32_t)(uintptr_t) context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_DISPLAY_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", did);
+        event_signal_add_arg(es, "YABAI_DISPLAY_ID", "%d", did);
     } break;
     case SIGNAL_DISPLAY_CHANGED: {
         uint32_t did        = g_display_manager.current_display_id;
@@ -314,35 +261,17 @@ void event_signal_push(enum signal_type type, void *context)
         int index        = display_manager_display_id_arrangement(did);
         int recent_index = display_manager_display_id_arrangement(recent_did);
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-        es->arg_name[1]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[1] = ts_alloc_unaligned(arg_size);
+        event_signal_add_arg(es, "YABAI_DISPLAY_ID", "%d", did);
+        event_signal_add_arg(es, "YABAI_RECENT_DISPLAY_ID", "%d", recent_did);
 
-        es->arg_name[2]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[2] = ts_alloc_unaligned(arg_size);
-        es->arg_name[3]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[3] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_DISPLAY_ID");
-        snprintf(es->arg_value[0], arg_size, "%d", did);
-        snprintf(es->arg_name[1],  arg_size, "%s", "YABAI_RECENT_DISPLAY_ID");
-        snprintf(es->arg_value[1], arg_size, "%d", recent_did);
-
-        snprintf(es->arg_name[2],  arg_size, "%s", "YABAI_DISPLAY_INDEX");
-        snprintf(es->arg_value[2], arg_size, "%d", index);
-        snprintf(es->arg_name[3],  arg_size, "%s", "YABAI_RECENT_DISPLAY_INDEX");
-        snprintf(es->arg_value[3], arg_size, "%d", recent_index);
+        event_signal_add_arg(es, "YABAI_DISPLAY_INDEX", "%d", index);
+        event_signal_add_arg(es, "YABAI_RECENT_DISPLAY_INDEX", "%d", recent_index);
     } break;
     case SIGNAL_MISSION_CONTROL_ENTER:
     case SIGNAL_MISSION_CONTROL_EXIT: {
         enum mission_control_mode mode = (enum mission_control_mode)(uintptr_t) context;
 
-        es->arg_name[0]  = ts_alloc_unaligned(arg_size);
-        es->arg_value[0] = ts_alloc_unaligned(arg_size);
-
-        snprintf(es->arg_name[0],  arg_size, "%s", "YABAI_MISSION_CONTROL_MODE");
-        snprintf(es->arg_value[0], arg_size, "%s", mission_control_mode_str[mode]);
+        event_signal_add_arg(es, "YABAI_MISSION_CONTROL_MODE", "%s", mission_control_mode_str[mode]);
     } break;
     }
 }

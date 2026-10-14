@@ -1550,6 +1550,20 @@ struct window **window_manager_find_application_windows(struct window_manager *w
     return window_list;
 }
 
+//
+// NOTE(asmvik): Print window information when debug_output is enabled.
+// Useful for identifying and creating rules if this window should in fact be managed.
+//
+
+static void window_manager_debug_window_info(struct window *window)
+{
+    if (!g_verbose) return;
+
+    fprintf(stdout, "window info: \n");
+    window_serialize(stdout, window, 0);
+    fprintf(stdout, "\n");
+}
+
 struct window *window_manager_create_and_add_window(struct space_manager *sm, struct window_manager *wm, struct application *application, AXUIElementRef window_ref, uint32_t window_id, bool one_shot_rules)
 {
     struct window *window = window_create(application, window_ref, window_id);
@@ -1607,14 +1621,14 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
             window_manager_purify_window(wm, window);
             window_manager_set_window_opacity(wm, window, wm->normal_window_opacity);
 
-            if (application->is_hidden)                              goto out;
-            if (window_check_flag(window, WINDOW_MINIMIZE))          goto out;
-            if (window_check_flag(window, WINDOW_FULLSCREEN))        goto out;
-            if (window_check_rule_flag(window, WINDOW_RULE_MANAGED)) goto out;
+            if (application->is_hidden)                              return window;
+            if (window_check_flag(window, WINDOW_MINIMIZE))          return window;
+            if (window_check_flag(window, WINDOW_FULLSCREEN))        return window;
+            if (window_check_rule_flag(window, WINDOW_RULE_MANAGED)) return window;
 
             if (window_check_rule_flag(window, WINDOW_RULE_FULLSCREEN)) {
                 window_clear_rule_flag(window, WINDOW_RULE_FULLSCREEN);
-                goto out;
+                return window;
             }
 
             if (window_is_sticky(window->id) ||
@@ -1627,34 +1641,14 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
         } else {
             debug("%s ignoring incorrectly marked window %s %d\n", __FUNCTION__, window->application->name, window->id);
             window_set_flag(window, WINDOW_FLOAT);
-
-            //
-            // NOTE(asmvik): Print window information when debug_output is enabled.
-            // Useful for identifying and creating rules if this window should in fact be managed.
-            //
-
-            if (g_verbose) {
-                fprintf(stdout, "window info: \n");
-                window_serialize(stdout, window, 0);
-                fprintf(stdout, "\n");
-            }
+            window_manager_debug_window_info(window);
         }
     } else {
         debug("%s ignoring child window %s %d\n", __FUNCTION__, window->application->name, window->id);
         window_set_flag(window, WINDOW_FLOAT);
-
-        //
-        // NOTE(asmvik): Print window information when debug_output is enabled.
-        //
-
-        if (g_verbose) {
-            fprintf(stdout, "window info: \n");
-            window_serialize(stdout, window, 0);
-            fprintf(stdout, "\n");
-        }
+        window_manager_debug_window_info(window);
     }
 
-out:
     return window;
 }
 
@@ -1719,13 +1713,88 @@ static uint32_t *window_manager_existing_application_window_list(struct applicat
     return space_list ? space_window_list_for_connection(space_list, space_count, application ? application->connection : 0, window_count, true) : NULL;
 }
 
+static uint32_t *window_manager_unresolved_windows(struct window_manager *wm, uint32_t *window_list, int window_count)
+{
+    uint32_t *result = NULL;
+
+    for (int i = 0; i < window_count; ++i) {
+        if (!window_manager_find_window(wm, window_list[i])) {
+            ts_buf_push(result, window_list[i]);
+        }
+    }
+
+    return result;
+}
+
+//
+// NOTE(asmvik): MacOS API does not return AXUIElementRef of windows on inactive spaces.
+// However, we can just brute-force the element_id and create the AXUIElementRef ourselves.
+// Every window that is found is removed from the unresolved list.
+//
+// :Attribution
+// https://github.com/decodism
+// https://github.com/lwouis/alt-tab-macos/issues/1324#issuecomment-2631035482
+//
+
+static void window_manager_add_windows_by_element_id(struct space_manager *sm, struct window_manager *wm, struct application *application, uint32_t *unresolved)
+{
+    CFMutableDataRef data_ref = CFDataCreateMutable(NULL, 0x14);
+    CFDataIncreaseLength(data_ref, 0x14);
+
+    uint8_t *data = CFDataGetMutableBytePtr(data_ref);
+    *(uint32_t *) (data + 0x0) = application->pid;
+    *(uint32_t *) (data + 0x8) = 0x636f636f;
+
+    for (uint64_t element_id = 0; element_id < 0x7fff; ++element_id) {
+        int unresolved_count = ts_buf_len(unresolved);
+        if (unresolved_count == 0) break;
+
+        memcpy(data+0xc, &element_id, sizeof(uint64_t));
+        AXUIElementRef element_ref = _AXUIElementCreateWithRemoteToken(data_ref);
+
+        if (!element_ref) continue;
+
+        const void *role = NULL;
+        AXError error = AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
+
+        //
+        // NOTE: An application that does not respond makes every attempt wait for the
+        // messaging timeout, so give up on it instead of trying all element ids.
+        //
+
+        if (error == kAXErrorCannotComplete) {
+            CFRelease(element_ref);
+            break;
+        }
+
+        bool consumed = false;
+
+        if (role) {
+            uint32_t element_wid = CFEqual(role, kAXWindowRole) ? ax_window_id(element_ref) : 0;
+
+            for (int i = 0; element_wid && i < unresolved_count; ++i) {
+                if (unresolved[i] == element_wid) {
+                    ts_buf_del(unresolved, i);
+                    window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
+                    consumed = true;
+                    break;
+                }
+            }
+
+            CFRelease(role);
+        }
+
+        if (!consumed) CFRelease(element_ref);
+    }
+
+    CFRelease(data_ref);
+}
+
 bool window_manager_add_existing_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int refresh_index)
 {
-    bool result = false;
-
     int global_window_count;
     uint32_t *global_window_list = window_manager_existing_application_window_list(application, &global_window_count);
-    if (!global_window_list) return result;
+    if (!global_window_list) return false;
 
     CFArrayRef window_list_ref = application_window_list(application);
     int window_count = window_list_ref ? CFArrayGetCount(window_list_ref) : 0;
@@ -1755,124 +1824,33 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
         }
     }
 
-    if (global_window_count != window_count-empty_count) {
-        if (refresh_index == -1) {
-            bool missing_window = false;
-            uint32_t *app_window_list = NULL;
+    if (window_list_ref) CFRelease(window_list_ref);
 
-            for (int i = 0; i < global_window_count; ++i) {
-                struct window *window = window_manager_find_window(wm, global_window_list[i]);
-                if (!window) {
-                    missing_window = true;
-                    ts_buf_push(app_window_list, global_window_list[i]);
-                }
-            }
+    bool resolved = global_window_count == window_count-empty_count;
+    if (!resolved) {
+        uint32_t *unresolved = window_manager_unresolved_windows(wm, global_window_list, global_window_count);
+        resolved = ts_buf_len(unresolved) == 0;
 
-            if (missing_window) {
-                debug("%s: %s has %d windows that are not yet resolved, attempting workaround\n", __FUNCTION__, application->name, ts_buf_len(app_window_list));
+        if (!resolved && refresh_index == -1) {
+            debug("%s: %s has %d windows that are not yet resolved, attempting workaround\n", __FUNCTION__, application->name, ts_buf_len(unresolved));
+            window_manager_add_windows_by_element_id(sm, wm, application, unresolved);
 
-                //
-                // NOTE(asmvik): MacOS API does not return AXUIElementRef of windows on inactive spaces.
-                // However, we can just brute-force the element_id and create the AXUIElementRef ourselves.
-                //
-                // :Attribution
-                // https://github.com/decodism
-                // https://github.com/lwouis/alt-tab-macos/issues/1324#issuecomment-2631035482
-                //
-
-                CFMutableDataRef data_ref = CFDataCreateMutable(NULL, 0x14);
-                CFDataIncreaseLength(data_ref, 0x14);
-
-                uint8_t *data = CFDataGetMutableBytePtr(data_ref);
-                *(uint32_t *) (data + 0x0) = application->pid;
-                *(uint32_t *) (data + 0x8) = 0x636f636f;
-
-                for (uint64_t element_id = 0; element_id < 0x7fff; ++element_id) {
-                    int app_window_list_len = ts_buf_len(app_window_list);
-                    if (app_window_list_len == 0) break;
-
-                    memcpy(data+0xc, &element_id, sizeof(uint64_t));
-                    AXUIElementRef element_ref = _AXUIElementCreateWithRemoteToken(data_ref);
-
-                    if (!element_ref) continue;
-
-                    const void *role = NULL;
-                    AXError error = AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
-
-                    //
-                    // NOTE: An application that does not respond makes every attempt wait for the
-                    // messaging timeout, so give up on it instead of trying all element ids.
-                    //
-
-                    if (error == kAXErrorCannotComplete) {
-                        CFRelease(element_ref);
-                        break;
-                    }
-
-                    bool consumed = false;
-
-                    if (role) {
-                        if (CFEqual(role, kAXWindowRole)) {
-                            uint32_t element_wid = ax_window_id(element_ref);
-                            bool matched = false;
-
-                            if (element_wid != 0) {
-                                for (int i = 0; i < app_window_list_len; ++i) {
-                                    if (app_window_list[i] == element_wid) {
-                                        matched = true;
-                                        ts_buf_del(app_window_list, i);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (matched) {
-                                window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
-                                consumed = true;
-                            }
-                        }
-
-                        CFRelease(role);
-                    }
-
-                    if (!consumed) CFRelease(element_ref);
-                }
-
-                CFRelease(data_ref);
-            }
-
-            if (ts_buf_len(app_window_list) > 0) {
+            if (ts_buf_len(unresolved) > 0) {
                 debug("%s: workaround failed to resolve all windows for %s\n", __FUNCTION__, application->name);
                 buf_push(wm->applications_to_refresh, application);
             } else {
                 debug("%s: workaround resolved all windows for %s\n", __FUNCTION__, application->name);
             }
-        } else {
-            bool missing_window = false;
 
-            for (int i = 0; i < global_window_count; ++i) {
-                struct window *window = window_manager_find_window(wm, global_window_list[i]);
-                if (!window) {
-                    missing_window = true;
-                    break;
-                }
-            }
-
-            if (!missing_window) {
-                debug("%s: all windows for %s are now resolved\n", __FUNCTION__, application->name);
-                buf_del(wm->applications_to_refresh, refresh_index);
-                result = true;
-            }
+            return false;
         }
-    } else if (refresh_index != -1) {
-        debug("%s: all windows for %s are now resolved\n", __FUNCTION__, application->name);
-        buf_del(wm->applications_to_refresh, refresh_index);
-        result = true;
     }
 
-    if (window_list_ref) CFRelease(window_list_ref);
+    if (!resolved || refresh_index == -1) return false;
 
-    return result;
+    debug("%s: all windows for %s are now resolved\n", __FUNCTION__, application->name);
+    buf_del(wm->applications_to_refresh, refresh_index);
+    return true;
 }
 
 enum window_op_error window_manager_set_window_insertion(struct space_manager *sm, struct window *window, int direction)

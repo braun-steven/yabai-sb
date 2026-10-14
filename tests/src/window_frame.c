@@ -191,3 +191,37 @@ TEST_FUNC(application_launch_retry_backoff,
     TEST_CHECK(attempts, APPLICATION_LAUNCH_MAX_ATTEMPTS);
     TEST_CHECK(total > 30.0f && total < 40.0f, true);
 });
+
+static uint32_t *unresolved_window_ids(struct window_manager *wm, int *count)
+{
+    static uint32_t window_list[] = { 11, 12, 13, 14 };
+    uint32_t *result = window_manager_unresolved_windows(wm, window_list, array_count(window_list));
+    *count = ts_buf_len(result);
+    return result;
+}
+
+TEST_FUNC(window_unresolved_list,
+{
+    struct window_manager wm = {0};
+    table_init(&wm.window, 16, hash_wm, compare_wm);
+
+    struct window a = { .id = 12 };
+    struct window b = { .id = 14 };
+    window_manager_add_window(&wm, &a);
+    window_manager_add_window(&wm, &b);
+
+    int count;
+    uint32_t *unresolved = unresolved_window_ids(&wm, &count);
+    TEST_CHECK(count, 2);
+    TEST_CHECK(unresolved[0], 11);
+    TEST_CHECK(unresolved[1], 13);
+
+    struct window c = { .id = 11 };
+    struct window d = { .id = 13 };
+    window_manager_add_window(&wm, &c);
+    window_manager_add_window(&wm, &d);
+    TEST_CHECK(unresolved_window_ids(&wm, &count) == NULL, true);
+    TEST_CHECK(count, 0);
+
+    table_free(&wm.window);
+});

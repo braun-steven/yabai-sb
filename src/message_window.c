@@ -389,6 +389,7 @@ static enum command_result window_command_property(FILE *rsp, struct token domai
         } else if (parse_label(rsp, token, LABEL_WINDOW, &label)) {
             if (label) {
                 if (!window_manager_set_scratchpad_for_window(&g_window_manager, acting_window, label)) {
+                    free(label);
                     daemon_fail(rsp, "the given scratchpad is already assigned to a different window!\n");
                 }
             } else {

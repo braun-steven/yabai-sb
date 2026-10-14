@@ -1283,6 +1283,151 @@ static enum view_flag spacing_for_command(struct token command)
     return 0;
 }
 
+//
+// NOTE: The window_border options. Returns false when command is not one of them.
+//
+
+static bool config_border(FILE *rsp, struct token domain, struct token command, char **message)
+{
+    if (token_equals(command, COMMAND_CONFIG_BORDER)) {
+        if (parse_config_bool(rsp, domain, command, message, &g_window_manager.enable_window_border)) border_refresh_all();
+    } else if (token_equals(command, COMMAND_CONFIG_BORDER_HIDE_SINGLE)) {
+        if (parse_config_bool(rsp, domain, command, message, &g_window_manager.window_border_hide_single)) border_refresh_all();
+    } else if (token_equals(command, COMMAND_CONFIG_BORDER_WIDTH)) {
+        struct token_value value = token_to_value(get_token(message));
+        float width;
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "%.4f\n", g_window_manager.window_border_width);
+        } else if (token_value_float(value, &width) && width > 0.0f) {
+            g_window_manager.window_border_width = width;
+            border_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR) || token_equals(command, COMMAND_CONFIG_NORMAL_BORDER_COLOR)) {
+        struct rgba_color *color = token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR)
+                                 ? &g_window_manager.active_window_border_color
+                                 : &g_window_manager.normal_window_border_color;
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "0x%x\n", color->p);
+        } else if (value.type == TOKEN_TYPE_U32) {
+            *color = rgba_color_from_hex(value.u32_value);
+            border_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
+//
+// NOTE: The tab_bar options. Returns false when command is not one of them.
+//
+
+static bool config_tab_bar(FILE *rsp, struct token domain, struct token command, char **message)
+{
+    if (token_equals(command, COMMAND_CONFIG_TAB_BAR)) {
+        if (parse_config_bool(rsp, domain, command, message, &g_window_manager.enable_tab_bar)) tab_bar_refresh_all();
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_HEIGHT)) {
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "%d\n", g_window_manager.tab_bar_height);
+        } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
+            g_window_manager.tab_bar_height = value.int_value;
+            tab_bar_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_OFFSET)) {
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "%d\n", g_window_manager.tab_bar_offset);
+        } else if (value.type == TOKEN_TYPE_INT) {
+            g_window_manager.tab_bar_offset = value.int_value;
+            tab_bar_refresh_all();
+        } else if (value.type == TOKEN_TYPE_FLOAT && value.float_value == (int) value.float_value) {
+            g_window_manager.tab_bar_offset = (int) value.float_value;
+            tab_bar_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_ICONS)) {
+        if (parse_config_bool(rsp, domain, command, message, &g_window_manager.tab_bar_icons)) tab_bar_redraw_all();
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_STYLE)) {
+        struct token value = get_token(message);
+        enum tab_bar_style style;
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "%s\n", tab_bar_style_str[g_window_manager.tab_bar_style]);
+        } else if (tab_bar_parse_style(value.text, &style)) {
+            g_window_manager.tab_bar_style = style;
+            tab_bar_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_BACKDROP)) {
+        struct token value = get_token(message);
+        enum tab_bar_backdrop backdrop;
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "%s\n", tab_bar_backdrop_str[g_window_manager.tab_bar_backdrop]);
+        } else if (tab_bar_parse_backdrop(value.text, &backdrop)) {
+            g_window_manager.tab_bar_backdrop = backdrop;
+            tab_bar_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_CARD_PADDING)) {
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "%d\n", g_window_manager.tab_bar_card_padding);
+        } else if (value.type == TOKEN_TYPE_INT && value.int_value >= 0) {
+            g_window_manager.tab_bar_card_padding = value.int_value;
+            tab_bar_refresh_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_WINDOW_RADIUS)) {
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "%d\n", g_window_manager.tab_bar_window_radius);
+        } else if (value.type == TOKEN_TYPE_INT && value.int_value >= 0) {
+            g_window_manager.tab_bar_window_radius = value.int_value;
+            tab_bar_redraw_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FONT)) {
+        struct token value = get_token(message);
+        if (!token_is_valid(value)) {
+            fprintf(rsp, "%s\n", g_window_manager.tab_bar_font_name ? g_window_manager.tab_bar_font_name : "");
+        } else if (tab_bar_set_font(value.text)) {
+            tab_bar_redraw_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value);
+        }
+    } else if (tab_bar_color_for_command(command)) {
+        struct rgba_color *color = tab_bar_color_for_command(command);
+        struct token_value value = token_to_value(get_token(message));
+        if (value.type == TOKEN_TYPE_INVALID) {
+            fprintf(rsp, "0x%x\n", color->p);
+        } else if (value.type == TOKEN_TYPE_U32) {
+            *color = rgba_color_from_hex(value.u32_value);
+            bool *custom = tab_bar_color_custom_for_command(command);
+            if (custom) *custom = true;
+            tab_bar_redraw_all();
+        } else {
+            daemon_fail_unknown_value(rsp, domain, command, value.token);
+        }
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 static void handle_domain_config(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
@@ -1301,6 +1446,9 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
     }
 
     for (; token_is_valid(command); command = get_token(&message)) {
+        if (config_border(rsp, domain, command, &message))  continue;
+        if (config_tab_bar(rsp, domain, command, &message)) continue;
+
         if (token_equals(command, COMMAND_CONFIG_DEBUG_OUTPUT)) {
             parse_config_bool(rsp, domain, command, &message, &g_verbose);
         } else if (token_equals(command, COMMAND_CONFIG_MFF)) {
@@ -1395,125 +1543,6 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 fprintf(rsp, "0x%x\n", g_window_manager.insert_feedback_color.p);
             } else if (value.type == TOKEN_TYPE_U32 && value.u32_value) {
                 g_window_manager.insert_feedback_color = rgba_color_from_hex(value.u32_value);
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_BORDER)) {
-            if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.enable_window_border)) border_refresh_all();
-        } else if (token_equals(command, COMMAND_CONFIG_BORDER_HIDE_SINGLE)) {
-            if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.window_border_hide_single)) border_refresh_all();
-        } else if (token_equals(command, COMMAND_CONFIG_BORDER_WIDTH)) {
-            struct token_value value = token_to_value(get_token(&message));
-            float width;
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%.4f\n", g_window_manager.window_border_width);
-            } else if (token_value_float(value, &width) && width > 0.0f) {
-                g_window_manager.window_border_width = width;
-                border_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR) || token_equals(command, COMMAND_CONFIG_NORMAL_BORDER_COLOR)) {
-            struct rgba_color *color = token_equals(command, COMMAND_CONFIG_ACTIVE_BORDER_COLOR)
-                                     ? &g_window_manager.active_window_border_color
-                                     : &g_window_manager.normal_window_border_color;
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "0x%x\n", color->p);
-            } else if (value.type == TOKEN_TYPE_U32) {
-                *color = rgba_color_from_hex(value.u32_value);
-                border_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR)) {
-            if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.enable_tab_bar)) tab_bar_refresh_all();
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_HEIGHT)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%d\n", g_window_manager.tab_bar_height);
-            } else if (value.type == TOKEN_TYPE_INT && value.int_value > 0) {
-                g_window_manager.tab_bar_height = value.int_value;
-                tab_bar_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_OFFSET)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%d\n", g_window_manager.tab_bar_offset);
-            } else if (value.type == TOKEN_TYPE_INT) {
-                g_window_manager.tab_bar_offset = value.int_value;
-                tab_bar_refresh_all();
-            } else if (value.type == TOKEN_TYPE_FLOAT && value.float_value == (int) value.float_value) {
-                g_window_manager.tab_bar_offset = (int) value.float_value;
-                tab_bar_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_ICONS)) {
-            if (parse_config_bool(rsp, domain, command, &message, &g_window_manager.tab_bar_icons)) tab_bar_redraw_all();
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_STYLE)) {
-            struct token value = get_token(&message);
-            enum tab_bar_style style;
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", tab_bar_style_str[g_window_manager.tab_bar_style]);
-            } else if (tab_bar_parse_style(value.text, &style)) {
-                g_window_manager.tab_bar_style = style;
-                tab_bar_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_BACKDROP)) {
-            struct token value = get_token(&message);
-            enum tab_bar_backdrop backdrop;
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", tab_bar_backdrop_str[g_window_manager.tab_bar_backdrop]);
-            } else if (tab_bar_parse_backdrop(value.text, &backdrop)) {
-                g_window_manager.tab_bar_backdrop = backdrop;
-                tab_bar_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_CARD_PADDING)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%d\n", g_window_manager.tab_bar_card_padding);
-            } else if (value.type == TOKEN_TYPE_INT && value.int_value >= 0) {
-                g_window_manager.tab_bar_card_padding = value.int_value;
-                tab_bar_refresh_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_WINDOW_RADIUS)) {
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "%d\n", g_window_manager.tab_bar_window_radius);
-            } else if (value.type == TOKEN_TYPE_INT && value.int_value >= 0) {
-                g_window_manager.tab_bar_window_radius = value.int_value;
-                tab_bar_redraw_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value.token);
-            }
-        } else if (token_equals(command, COMMAND_CONFIG_TAB_BAR_FONT)) {
-            struct token value = get_token(&message);
-            if (!token_is_valid(value)) {
-                fprintf(rsp, "%s\n", g_window_manager.tab_bar_font_name ? g_window_manager.tab_bar_font_name : "");
-            } else if (tab_bar_set_font(value.text)) {
-                tab_bar_redraw_all();
-            } else {
-                daemon_fail_unknown_value(rsp, domain, command, value);
-            }
-        } else if (tab_bar_color_for_command(command)) {
-            struct rgba_color *color = tab_bar_color_for_command(command);
-            struct token_value value = token_to_value(get_token(&message));
-            if (value.type == TOKEN_TYPE_INVALID) {
-                fprintf(rsp, "0x%x\n", color->p);
-            } else if (value.type == TOKEN_TYPE_U32) {
-                *color = rgba_color_from_hex(value.u32_value);
-                bool *custom = tab_bar_color_custom_for_command(command);
-                if (custom) *custom = true;
-                tab_bar_redraw_all();
             } else {
                 daemon_fail_unknown_value(rsp, domain, command, value.token);
             }

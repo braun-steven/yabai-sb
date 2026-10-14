@@ -83,6 +83,45 @@ static char *window_property_str[] =
 #undef WINDOW_PROPERTY_ENTRY
 };
 
+//
+// NOTE: The values reported by `query --windows`, collected from a window yabai tracks or from the
+// window server alone (see window_info_for_window and window_info_for_window_id).
+//
+
+struct window_info
+{
+    uint32_t id;
+    pid_t pid;
+    char *app;
+    char *title;
+    char *scratchpad;
+    CGRect frame;
+    char *role;
+    char *subrole;
+    bool is_root;
+    int display;
+    int space;
+    int level;
+    int sub_level;
+    float opacity;
+    enum window_split split;
+    int stack_index;
+    bool can_move;
+    bool can_resize;
+    bool has_focus;
+    bool has_shadow;
+    bool has_parent_zoom;
+    bool has_fullscreen_zoom;
+    bool has_ax_reference;
+    bool is_fullscreen;
+    bool is_visible;
+    bool is_minimized;
+    bool is_hidden;
+    bool is_floating;
+    bool is_sticky;
+    bool is_grabbed;
+};
+
 struct window
 {
     struct application *application;
@@ -137,7 +176,11 @@ CFStringRef window_display_uuid(uint32_t wid);
 uint32_t window_display_id(uint32_t wid);
 uint64_t window_space(uint32_t wid);
 uint64_t *window_space_list(uint32_t wid, int *count);
+struct window_info window_info_for_window(struct window *window, uint64_t flags);
+struct window_info window_info_for_window_id(uint32_t wid, uint64_t flags);
+void window_info_serialize(FILE *rsp, struct window_info *info, uint64_t flags);
 void window_serialize(FILE *rsp, struct window *window, uint64_t flags);
+void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags);
 char *window_property_title_ts(uint32_t wid);
 char *window_title_ts(struct window *window);
 CFStringRef window_title(struct window *window);

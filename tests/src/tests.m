@@ -19,6 +19,7 @@ typedef TEST_SIG(function);
 #include "window_frame.c"
 #include "border.c"
 #include "message.c"
+#include "window_info.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -70,7 +71,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(border_tabbed_container_area)                   \
     TEST_ENTRY(message_config_bool)                            \
     TEST_ENTRY(message_config_choice)                          \
-    TEST_ENTRY(message_config_options)
+    TEST_ENTRY(message_config_options)                         \
+    TEST_ENTRY(window_info_serialize_selected)                 \
+    TEST_ENTRY(window_info_tree_fields)
 
 static struct {
     char *name;

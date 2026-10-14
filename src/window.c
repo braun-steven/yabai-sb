@@ -118,588 +118,201 @@ static inline const char *window_layer(int level)
     return "unknown";
 }
 
-void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags)
+static inline bool window_property_wanted(uint64_t flags, uint64_t properties)
 {
-    TIME_FUNCTION;
+    return (flags & properties) != 0;
+}
 
-    if (flags == 0x0) flags |= ~flags;
+static void window_info_set_space(struct window_info *info, uint64_t sid, uint64_t flags)
+{
+    if (flags & WINDOW_PROPERTY_DISPLAY) info->display = display_manager_display_id_arrangement(space_display_id(sid));
+    if (flags & WINDOW_PROPERTY_SPACE)   info->space   = space_manager_mission_control_index(sid);
+}
 
-    int connection;
-    pid_t pid;
-    uint64_t sid;
-    int level;
-    int sub_level;
+static void window_info_set_levels(struct window_info *info, uint32_t wid, uint64_t flags)
+{
+    if (window_property_wanted(flags, WINDOW_PROPERTY_LEVEL | WINDOW_PROPERTY_LAYER))         info->level     = window_level(wid);
+    if (window_property_wanted(flags, WINDOW_PROPERTY_SUB_LEVEL | WINDOW_PROPERTY_SUB_LAYER)) info->sub_level = window_sub_level(wid);
+    if (flags & WINDOW_PROPERTY_OPACITY)    info->opacity    = window_opacity(wid);
+    if (flags & WINDOW_PROPERTY_HAS_SHADOW) info->has_shadow = window_shadow(wid);
+}
 
-    if ((flags & WINDOW_PROPERTY_PID) ||
-        (flags & WINDOW_PROPERTY_APP)) {
-        SLSGetWindowOwner(g_connection, wid, &connection);
-        SLSConnectionGetPID(connection, &pid);
+static void window_info_set_tree(struct window_info *info, struct con *con)
+{
+    if (!con) return;
+
+    if (con->parent) {
+        if (con->parent->layout == CON_SPLITH) info->split = SPLIT_Y;
+        if (con->parent->layout == CON_SPLITV) info->split = SPLIT_X;
     }
 
-    if ((flags & WINDOW_PROPERTY_DISPLAY) ||
-        (flags & WINDOW_PROPERTY_SPACE) ||
-        (flags & WINDOW_PROPERTY_IS_FULLSCREEN)) {
-        sid = window_space(wid);
+    struct con *tab = con;
+    while (tab->parent && tab->parent->layout != CON_TABBED) tab = tab->parent;
+    info->stack_index = tab->parent ? con_index(tab)+1 : 0;
+
+    info->has_parent_zoom = con->zoom == CON_ZOOM_PARENT;
+    info->has_fullscreen_zoom = con->zoom == CON_ZOOM_FULLSCREEN;
+}
+
+//
+// NOTE: Only the properties selected by flags are queried, because some of them are slow (AX) calls.
+//
+
+struct window_info window_info_for_window(struct window *window, uint64_t flags)
+{
+    struct window_info info = {
+        .id               = window->id,
+        .pid              = window->application->pid,
+        .app              = window->application->name,
+        .scratchpad       = window->scratchpad ? window->scratchpad : "",
+        .frame            = window->frame,
+        .is_root          = window->is_root,
+        .has_focus        = window->id == g_window_manager.focused_window_id,
+        .has_ax_reference = true,
+        .is_fullscreen    = window_check_flag(window, WINDOW_FULLSCREEN),
+        .is_minimized     = window_check_flag(window, WINDOW_MINIMIZE),
+        .is_hidden        = window->application->is_hidden,
+        .is_floating      = window_check_flag(window, WINDOW_FLOAT),
+        .is_grabbed       = window == g_mouse_state.window
+    };
+
+    if (flags & WINDOW_PROPERTY_TITLE)      info.title      = window_title_ts(window);
+    if (flags & WINDOW_PROPERTY_ROLE)       info.role       = window_role_ts(window);
+    if (flags & WINDOW_PROPERTY_SUBROLE)    info.subrole    = window_subrole_ts(window);
+    if (flags & WINDOW_PROPERTY_CAN_MOVE)   info.can_move   = window_can_move(window);
+    if (flags & WINDOW_PROPERTY_CAN_RESIZE) info.can_resize = window_can_resize(window);
+    window_info_set_levels(&info, window->id, flags);
+
+    uint64_t sid = 0;
+    if (window_property_wanted(flags, WINDOW_PROPERTY_DISPLAY | WINDOW_PROPERTY_SPACE | WINDOW_PROPERTY_IS_VISIBLE)) {
+        sid = window_space(window->id);
+        window_info_set_space(&info, sid, flags);
     }
 
-    if ((flags & WINDOW_PROPERTY_LEVEL) ||
-        (flags & WINDOW_PROPERTY_LAYER)) {
-        level = window_level(wid);
+    if (window_property_wanted(flags, WINDOW_PROPERTY_SPLIT_TYPE | WINDOW_PROPERTY_STACK_INDEX | WINDOW_PROPERTY_HAS_PARENT_ZOOM | WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM)) {
+        struct view *view = window_manager_find_managed_window(&g_window_manager, window);
+        window_info_set_tree(&info, view ? tree_view_find_window(view, window->id) : NULL);
     }
 
-    if ((flags & WINDOW_PROPERTY_SUB_LEVEL) ||
-        (flags & WINDOW_PROPERTY_SUB_LAYER)) {
-        sub_level = window_sub_level(wid);
-    }
-
-    bool did_output = false;
-    fprintf(rsp, "{\n");
-
-    if (flags & WINDOW_PROPERTY_ID) {
-        fprintf(rsp, "\t\"id\":%d", wid);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_PID) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"pid\":%d", pid);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_APP) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        static char process_name[PROC_PIDPATHINFO_MAXSIZE];
-        proc_name(pid, process_name, sizeof(process_name));
-
-        char *app = process_name;
-        char *escaped_app = ts_string_escape(app);
-
-        fprintf(rsp, "\t\"app\":\"%s\"", escaped_app ? escaped_app : app);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_TITLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *title = window_property_title_ts(wid);
-        char *escaped_title = ts_string_escape(title);
-
-        fprintf(rsp, "\t\"title\":\"%s\"", escaped_title ? escaped_title : title);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SCRATCHPAD) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"scratchpad\":\"%s\"", "");
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_FRAME) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        CGRect frame;
-        SLSGetWindowBounds(g_connection, wid, &frame);
-
-        fprintf(rsp, "\t\"frame\":{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}", frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_ROLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"role\":\"%s\"", "");
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUBROLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"subrole\":\"%s\"", "");
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_ROOT_WINDOW) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        uint32_t parent_wid = window_parent(wid);
-        fprintf(rsp, "\t\"root-window\":%s", json_bool(parent_wid == 0));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_DISPLAY) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int display = display_manager_display_id_arrangement(space_display_id(sid));
-        fprintf(rsp, "\t\"display\":%d", display);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPACE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int space = space_manager_mission_control_index(sid);
-        fprintf(rsp, "\t\"space\":%d", space);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_LEVEL) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"level\":%d", level);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUB_LEVEL) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"sub-level\":%d", sub_level);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_LAYER) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        const char *layer = window_layer(level);
-        fprintf(rsp, "\t\"layer\":\"%s\"", layer);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUB_LAYER) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        const char *sub_layer = window_layer(sub_level);
-        fprintf(rsp, "\t\"sub-layer\":\"%s\"", sub_layer);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_OPACITY) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        float opacity = window_opacity(wid);
-        fprintf(rsp, "\t\"opacity\":%.4f", opacity);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPLIT_TYPE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"split-type\":\"%s\"", window_split_str[0]);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_STACK_INDEX) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"stack-index\":%d", 0);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_CAN_MOVE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"can-move\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_CAN_RESIZE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"can-resize\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_FOCUS) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-focus\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_SHADOW) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-shadow\":%s", json_bool(window_shadow(wid)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-parent-zoom\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-fullscreen-zoom\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_AX_REFERENCE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-ax-reference\":%s", json_bool(false));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_FULLSCREEN) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        bool is_fullscreen = space_is_fullscreen(sid);
-        fprintf(rsp, "\t\"is-native-fullscreen\":%s", json_bool(is_fullscreen));
-        did_output = true;
+    if (window_property_wanted(flags, WINDOW_PROPERTY_IS_VISIBLE | WINDOW_PROPERTY_IS_STICKY)) {
+        info.is_sticky = window_check_flag(window, WINDOW_STICKY) || window_is_sticky(window->id);
     }
 
     if (flags & WINDOW_PROPERTY_IS_VISIBLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-visible\":%s", json_bool(false));
-        did_output = true;
+        uint8_t ordered_in = 0;
+        SLSWindowIsOrderedIn(g_connection, window->id, &ordered_in);
+        info.is_visible = ordered_in && !info.is_minimized && !info.is_hidden && (info.is_sticky || space_is_visible(sid));
     }
 
-    if (flags & WINDOW_PROPERTY_IS_MINIMIZED) {
-        if (did_output) fprintf(rsp, ",\n");
+    return info;
+}
 
-        fprintf(rsp, "\t\"is-minimized\":%s", json_bool(false));
-        did_output = true;
+//
+// NOTE: Windows that yabai has no AX reference for only report what the window server knows.
+//
+
+struct window_info window_info_for_window_id(uint32_t wid, uint64_t flags)
+{
+    static char process_name[PROC_PIDPATHINFO_MAXSIZE];
+
+    struct window_info info = {
+        .id         = wid,
+        .app        = process_name,
+        .scratchpad = "",
+        .role       = "",
+        .subrole    = ""
+    };
+
+    if (window_property_wanted(flags, WINDOW_PROPERTY_PID | WINDOW_PROPERTY_APP)) {
+        int connection;
+        SLSGetWindowOwner(g_connection, wid, &connection);
+        SLSConnectionGetPID(connection, &info.pid);
+        if (flags & WINDOW_PROPERTY_APP) proc_name(info.pid, process_name, sizeof(process_name));
     }
 
-    if (flags & WINDOW_PROPERTY_IS_HIDDEN) {
-        if (did_output) fprintf(rsp, ",\n");
+    if (flags & WINDOW_PROPERTY_TITLE)       info.title     = window_property_title_ts(wid);
+    if (flags & WINDOW_PROPERTY_FRAME)       SLSGetWindowBounds(g_connection, wid, &info.frame);
+    if (flags & WINDOW_PROPERTY_ROOT_WINDOW) info.is_root   = window_parent(wid) == 0;
+    if (flags & WINDOW_PROPERTY_IS_STICKY)   info.is_sticky = window_is_sticky(wid);
+    window_info_set_levels(&info, wid, flags);
 
-        fprintf(rsp, "\t\"is-hidden\":%s", json_bool(false));
-        did_output = true;
+    if (window_property_wanted(flags, WINDOW_PROPERTY_DISPLAY | WINDOW_PROPERTY_SPACE | WINDOW_PROPERTY_IS_FULLSCREEN)) {
+        uint64_t sid = window_space(wid);
+        window_info_set_space(&info, sid, flags);
+        if (flags & WINDOW_PROPERTY_IS_FULLSCREEN) info.is_fullscreen = space_is_fullscreen(sid);
     }
 
-    if (flags & WINDOW_PROPERTY_IS_FLOATING) {
-        if (did_output) fprintf(rsp, ",\n");
+    return info;
+}
 
-        fprintf(rsp, "\t\"is-floating\":%s", json_bool(false));
-        did_output = true;
-    }
+static inline char *json_string(char *s)
+{
+    char *escaped = ts_string_escape(s);
+    return escaped ? escaped : s;
+}
 
-    if (flags & WINDOW_PROPERTY_IS_STICKY) {
-        if (did_output) fprintf(rsp, ",\n");
+void window_info_serialize(FILE *rsp, struct window_info *info, uint64_t flags)
+{
+    TIME_FUNCTION;
 
-        bool is_sticky = window_is_sticky(wid);
-        fprintf(rsp, "\t\"is-sticky\":%s", json_bool(is_sticky));
-        did_output = true;
-    }
+    char *separator = "";
+    fprintf(rsp, "{\n");
 
-    if (flags & WINDOW_PROPERTY_IS_GRABBED) {
-        if (did_output) fprintf(rsp, ",\n");
+#define WINDOW_INFO_FIELD(property, format, ...) \
+    if (flags & property) { fprintf(rsp, "%s\t" format, separator, __VA_ARGS__); separator = ",\n"; }
 
-        fprintf(rsp, "\t\"is-grabbed\":%s", json_bool(false));
-    }
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ID,                  "\"id\":%d", info->id);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_PID,                 "\"pid\":%d", info->pid);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_APP,                 "\"app\":\"%s\"", json_string(info->app));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_TITLE,               "\"title\":\"%s\"", json_string(info->title));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SCRATCHPAD,          "\"scratchpad\":\"%s\"", json_string(info->scratchpad));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_FRAME,               "\"frame\":{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}", info->frame.origin.x, info->frame.origin.y, info->frame.size.width, info->frame.size.height);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ROLE,                "\"role\":\"%s\"", json_string(info->role));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUBROLE,             "\"subrole\":\"%s\"", json_string(info->subrole));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_ROOT_WINDOW,         "\"root-window\":%s", json_bool(info->is_root));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_DISPLAY,             "\"display\":%d", info->display);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SPACE,               "\"space\":%d", info->space);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_LEVEL,               "\"level\":%d", info->level);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUB_LEVEL,           "\"sub-level\":%d", info->sub_level);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_LAYER,               "\"layer\":\"%s\"", window_layer(info->level));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SUB_LAYER,           "\"sub-layer\":\"%s\"", window_layer(info->sub_level));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_OPACITY,             "\"opacity\":%.4f", info->opacity);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_SPLIT_TYPE,          "\"split-type\":\"%s\"", window_split_str[info->split]);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_STACK_INDEX,         "\"stack-index\":%d", info->stack_index);
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_CAN_MOVE,            "\"can-move\":%s", json_bool(info->can_move));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_CAN_RESIZE,          "\"can-resize\":%s", json_bool(info->can_resize));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_FOCUS,           "\"has-focus\":%s", json_bool(info->has_focus));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_SHADOW,          "\"has-shadow\":%s", json_bool(info->has_shadow));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_PARENT_ZOOM,     "\"has-parent-zoom\":%s", json_bool(info->has_parent_zoom));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM, "\"has-fullscreen-zoom\":%s", json_bool(info->has_fullscreen_zoom));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_HAS_AX_REFERENCE,    "\"has-ax-reference\":%s", json_bool(info->has_ax_reference));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_FULLSCREEN,       "\"is-native-fullscreen\":%s", json_bool(info->is_fullscreen));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_VISIBLE,          "\"is-visible\":%s", json_bool(info->is_visible));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_MINIMIZED,        "\"is-minimized\":%s", json_bool(info->is_minimized));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_HIDDEN,           "\"is-hidden\":%s", json_bool(info->is_hidden));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_FLOATING,         "\"is-floating\":%s", json_bool(info->is_floating));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_STICKY,           "\"is-sticky\":%s", json_bool(info->is_sticky));
+    WINDOW_INFO_FIELD(WINDOW_PROPERTY_IS_GRABBED,          "\"is-grabbed\":%s", json_bool(info->is_grabbed));
+
+#undef WINDOW_INFO_FIELD
 
     fprintf(rsp, "\n}");
 }
 
 void window_serialize(FILE *rsp, struct window *window, uint64_t flags)
 {
-    TIME_FUNCTION;
-
     if (flags == 0x0) flags |= ~flags;
 
-    uint64_t sid;
-    int level;
-    int sub_level;
-    struct view *view;
-    struct con *con = NULL;
-    bool is_minimized;
-    bool is_sticky;
-
-    if ((flags & WINDOW_PROPERTY_DISPLAY) ||
-        (flags & WINDOW_PROPERTY_SPACE) ||
-        (flags & WINDOW_PROPERTY_IS_VISIBLE)) {
-        sid = window_space(window->id);
-    }
-
-    if ((flags & WINDOW_PROPERTY_LEVEL) ||
-        (flags & WINDOW_PROPERTY_LAYER)) {
-        level = window_level(window->id);
-    }
-
-    if ((flags & WINDOW_PROPERTY_SUB_LEVEL) ||
-        (flags & WINDOW_PROPERTY_SUB_LAYER)) {
-        sub_level = window_sub_level(window->id);
-    }
-
-    if ((flags & WINDOW_PROPERTY_SPLIT_TYPE) ||
-        (flags & WINDOW_PROPERTY_STACK_INDEX) ||
-        (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) ||
-        (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM)) {
-        view = window_manager_find_managed_window(&g_window_manager, window);
-        con = view ? tree_view_find_window(view, window->id) : NULL;
-    }
-
-    if ((flags & WINDOW_PROPERTY_IS_VISIBLE) ||
-        (flags & WINDOW_PROPERTY_IS_MINIMIZED)) {
-        is_minimized = window_check_flag(window, WINDOW_MINIMIZE);
-    }
-
-    if ((flags & WINDOW_PROPERTY_IS_VISIBLE) ||
-        (flags & WINDOW_PROPERTY_IS_STICKY)) {
-        is_sticky = window_check_flag(window, WINDOW_STICKY) || window_is_sticky(window->id);
-    }
-
-    bool did_output = false;
-    fprintf(rsp, "{\n");
-
-    if (flags & WINDOW_PROPERTY_ID) {
-        fprintf(rsp, "\t\"id\":%d", window->id);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_PID) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"pid\":%d", window->application->pid);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_APP) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *app = window->application->name;
-        char *escaped_app = ts_string_escape(app);
-
-        fprintf(rsp, "\t\"app\":\"%s\"", escaped_app ? escaped_app : app);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_TITLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *title = window_title_ts(window);
-        char *escaped_title = ts_string_escape(title);
-
-        fprintf(rsp, "\t\"title\":\"%s\"", escaped_title ? escaped_title : title);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SCRATCHPAD) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"scratchpad\":\"%s\"", window->scratchpad ? window->scratchpad : "");
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_FRAME) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"frame\":{\n\t\t\"x\":%.4f,\n\t\t\"y\":%.4f,\n\t\t\"w\":%.4f,\n\t\t\"h\":%.4f\n\t}", window->frame.origin.x, window->frame.origin.y, window->frame.size.width, window->frame.size.height);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_ROLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *role = window_role_ts(window);
-        fprintf(rsp, "\t\"role\":\"%s\"", role);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUBROLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        char *subrole = window_subrole_ts(window);
-        fprintf(rsp, "\t\"subrole\":\"%s\"", subrole);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_ROOT_WINDOW) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"root-window\":%s", json_bool(window->is_root));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_DISPLAY) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int display = display_manager_display_id_arrangement(space_display_id(sid));
-        fprintf(rsp, "\t\"display\":%d", display);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPACE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int space = space_manager_mission_control_index(sid);
-        fprintf(rsp, "\t\"space\":%d", space);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_LEVEL) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"level\":%d", level);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUB_LEVEL) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"sub-level\":%d", sub_level);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_LAYER) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        const char *layer = window_layer(level);
-        fprintf(rsp, "\t\"layer\":\"%s\"", layer);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SUB_LAYER) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        const char *sub_layer = window_layer(sub_level);
-        fprintf(rsp, "\t\"sub-layer\":\"%s\"", sub_layer);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_OPACITY) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        float opacity = window_opacity(window->id);
-        fprintf(rsp, "\t\"opacity\":%.4f", opacity);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_SPLIT_TYPE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        enum window_split split = SPLIT_NONE;
-        if (con && con->parent) split = con->parent->layout == CON_SPLITH ? SPLIT_Y : con->parent->layout == CON_SPLITV ? SPLIT_X : SPLIT_NONE;
-        fprintf(rsp, "\t\"split-type\":\"%s\"", window_split_str[split]);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_STACK_INDEX) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        int stack_index = 0;
-        if (con) {
-            struct con *tab = con;
-            while (tab->parent && tab->parent->layout != CON_TABBED) tab = tab->parent;
-            stack_index = tab->parent ? con_index(tab)+1 : 0;
-        }
-        fprintf(rsp, "\t\"stack-index\":%d", stack_index);
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_CAN_MOVE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"can-move\":%s", json_bool(window_can_move(window)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_CAN_RESIZE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"can-resize\":%s", json_bool(window_can_resize(window)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_FOCUS) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-focus\":%s", json_bool(window->id == g_window_manager.focused_window_id));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_SHADOW) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-shadow\":%s", json_bool(window_shadow(window->id)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_PARENT_ZOOM) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        bool zoom_parent = con && con->zoom == CON_ZOOM_PARENT;
-        fprintf(rsp, "\t\"has-parent-zoom\":%s", json_bool(zoom_parent));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_FULLSCREEN_ZOOM) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        bool zoom_fullscreen = con && con->zoom == CON_ZOOM_FULLSCREEN;
-        fprintf(rsp, "\t\"has-fullscreen-zoom\":%s", json_bool(zoom_fullscreen));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_HAS_AX_REFERENCE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"has-ax-reference\":%s", json_bool(true));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_FULLSCREEN) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-native-fullscreen\":%s", json_bool(window_check_flag(window, WINDOW_FULLSCREEN)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_VISIBLE) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        uint8_t ordered_in = 0;
-        SLSWindowIsOrderedIn(g_connection, window->id, &ordered_in);
-
-        bool visible = ordered_in && !is_minimized && !window->application->is_hidden && (is_sticky || space_is_visible(sid));
-        fprintf(rsp, "\t\"is-visible\":%s", json_bool(visible));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_MINIMIZED) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-minimized\":%s", json_bool(is_minimized));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_HIDDEN) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-hidden\":%s", json_bool(window->application->is_hidden));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_FLOATING) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-floating\":%s", json_bool(window_check_flag(window, WINDOW_FLOAT)));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_STICKY) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        fprintf(rsp, "\t\"is-sticky\":%s", json_bool(is_sticky));
-        did_output = true;
-    }
-
-    if (flags & WINDOW_PROPERTY_IS_GRABBED) {
-        if (did_output) fprintf(rsp, ",\n");
-
-        bool grabbed = window == g_mouse_state.window;
-        fprintf(rsp, "\t\"is-grabbed\":%s", json_bool(grabbed));
-    }
-
-    fprintf(rsp, "\n}");
+    struct window_info info = window_info_for_window(window, flags);
+    window_info_serialize(rsp, &info, flags);
+}
+
+void window_nonax_serialize(FILE *rsp, uint32_t wid, uint64_t flags)
+{
+    if (flags == 0x0) flags |= ~flags;
+
+    struct window_info info = window_info_for_window_id(wid, flags);
+    window_info_serialize(rsp, &info, flags);
 }
 
 char *window_property_title_ts(uint32_t wid)

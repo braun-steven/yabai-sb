@@ -1422,11 +1422,7 @@ static EVENT_HANDLER(DOCK_DID_RESTART)
 
     scripting_addition_payload_changed();
 
-    if (workspace_is_macos_monterey() ||
-        workspace_is_macos_ventura() ||
-        workspace_is_macos_sonoma() ||
-        workspace_is_macos_sequoia() ||
-        workspace_is_macos_tahoe()) {
+    if (workspace_is_macos_monterey_or_newer()) {
         mission_control_unobserve();
         mission_control_observe();
     }

@@ -23,6 +23,16 @@ static inline bool workspace_is_macos_sequoia_or_newer(void)
     return workspace_is_macos_sequoia() || workspace_is_macos_tahoe();
 }
 
+static inline bool workspace_is_macos_ventura_or_newer(void)
+{
+    return workspace_is_macos_ventura() || workspace_is_macos_sonoma() || workspace_is_macos_sequoia_or_newer();
+}
+
+static inline bool workspace_is_macos_monterey_or_newer(void)
+{
+    return workspace_is_macos_monterey() || workspace_is_macos_ventura_or_newer();
+}
+
 @interface workspace_context : NSObject {
 }
 - (id)init;

@@ -1488,17 +1488,6 @@ static EVENT_HANDLER(SYSTEM_WOKE)
     event_signal_push(SIGNAL_SYSTEM_WOKE, NULL);
 }
 
-void space_layout_schedule(double delay, bool reset_passes)
-{
-    if (!g_space_manager.space_layout_count) return;
-    if (reset_passes) g_space_manager.space_layout_passes = 0;
-
-    uint32_t gen = ++g_space_manager.space_layout_gen;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-        event_loop_post(&g_event_loop, SPACE_LAYOUT_RECONCILE, NULL, (int) gen);
-    });
-}
-
 static EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
 {
     if ((uint32_t) param1 != g_space_manager.space_layout_gen) return;
@@ -1514,7 +1503,7 @@ static EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)
         return;
     }
 
-    enum space_layout_result result = space_manager_reconcile_space_layout(&g_space_manager);
+    enum space_layout_result result = space_layout_reconcile(&g_space_manager);
     if (result == SPACE_LAYOUT_RESULT_PERFORMED) {
         space_layout_schedule(0.5, false);
     } else if (result == SPACE_LAYOUT_RESULT_FAILED) {

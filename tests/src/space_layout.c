@@ -1,6 +1,6 @@
 static bool parse_layout(char *text, struct space_layout *layout)
 {
-    return space_manager_parse_space_layout(text, strlen(text), layout);
+    return space_layout_parse(text, strlen(text), layout);
 }
 
 TEST_FUNC(space_layout_parse,
@@ -39,34 +39,34 @@ TEST_FUNC(space_layout_targets,
     int target[SPACE_LAYOUT_MAX];
 
     parse_layout("10:5", &layout);
-    space_manager_space_layout_targets(&layout, -1, target);
+    space_layout_targets(&layout, -1, target);
     TEST_CHECK(target[0], 10);
     TEST_CHECK(target[1], 5);
 
     parse_layout("10:5:1b", &layout);
 
-    space_manager_space_layout_targets(&layout, 2, target);
+    space_layout_targets(&layout, 2, target);
     TEST_CHECK(target[0], 10);
     TEST_CHECK(target[1], 5);
     TEST_CHECK(target[2], 1);
 
-    space_manager_space_layout_targets(&layout, 0, target);
+    space_layout_targets(&layout, 0, target);
     TEST_CHECK(target[0], 1);
     TEST_CHECK(target[1], 10);
     TEST_CHECK(target[2], 5);
 
-    space_manager_space_layout_targets(&layout, 1, target);
+    space_layout_targets(&layout, 1, target);
     TEST_CHECK(target[0], 10);
     TEST_CHECK(target[1], 1);
     TEST_CHECK(target[2], 5);
 
-    space_manager_space_layout_targets(&layout, -1, target);
+    space_layout_targets(&layout, -1, target);
     TEST_CHECK(target[0], 10);
     TEST_CHECK(target[1], 5);
     TEST_CHECK(target[2], 1);
 
     parse_layout("1b:10:5", &layout);
-    space_manager_space_layout_targets(&layout, 2, target);
+    space_layout_targets(&layout, 2, target);
     TEST_CHECK(target[0], 10);
     TEST_CHECK(target[1], 5);
     TEST_CHECK(target[2], 1);
@@ -96,7 +96,7 @@ static int move_candidate(char *mask, uint64_t visible_sid, bool from_end)
     uint64_t space_list[16];
     bool user_list[16];
     int count = space_test_lists(mask, space_list, user_list);
-    return (int) space_manager_space_layout_move_candidate(space_list, user_list, count, visible_sid, from_end);
+    return (int) space_layout_move_candidate(space_list, user_list, count, visible_sid, from_end);
 }
 
 TEST_FUNC(space_move_replacement,

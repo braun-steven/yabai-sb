@@ -7,22 +7,6 @@ struct space_label
     char *label;
 };
 
-#define SPACE_LAYOUT_MAX 8
-
-struct space_layout
-{
-    int count;
-    int target[SPACE_LAYOUT_MAX];
-    int builtin_index;
-};
-
-enum space_layout_result
-{
-    SPACE_LAYOUT_RESULT_DONE,
-    SPACE_LAYOUT_RESULT_PERFORMED,
-    SPACE_LAYOUT_RESULT_FAILED,
-};
-
 struct space_manager
 {
     struct table view;
@@ -127,10 +111,6 @@ uint64_t space_manager_move_space_replacement(uint64_t *space_list, bool *user_l
 enum space_op_error space_manager_move_space_to_display(struct space_manager *sm, uint64_t sid, uint32_t did);
 enum space_op_error space_manager_destroy_space(uint64_t sid);
 enum space_op_error space_manager_add_space(uint64_t sid);
-bool space_manager_parse_space_layout(char *text, int length, struct space_layout *layout);
-void space_manager_space_layout_targets(struct space_layout *layout, int builtin, int *target);
-uint64_t space_manager_space_layout_move_candidate(uint64_t *space_list, bool *user_list, int space_count, uint64_t visible_sid, bool from_end);
-enum space_layout_result space_manager_reconcile_space_layout(struct space_manager *sm);
 bool space_manager_is_window_on_space(uint64_t sid, struct window *window);
 void space_manager_mark_spaces_invalid_for_display(struct space_manager *sm, uint32_t did);
 void space_manager_mark_spaces_invalid(struct space_manager *sm);

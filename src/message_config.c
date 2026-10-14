@@ -78,7 +78,7 @@ static bool config_space_layout(FILE *rsp, struct token domain, struct token com
     int spec_length = 0;
 
     while (token_is_valid(value) && value.text[0] >= '0' && value.text[0] <= '9') {
-        if (layout_count == SPACE_LAYOUT_MAX || !space_manager_parse_space_layout(value.text, value.length, &layout_list[layout_count])) {
+        if (layout_count == SPACE_LAYOUT_MAX || !space_layout_parse(value.text, value.length, &layout_list[layout_count])) {
             daemon_fail(rsp, "invalid value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
             return false;
         }

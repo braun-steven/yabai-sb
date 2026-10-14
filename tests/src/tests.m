@@ -93,7 +93,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_info_serialize_selected)                 \
     TEST_ENTRY(window_info_tree_fields)                        \
     TEST_ENTRY(event_signal_filter_properties)                 \
-    TEST_ENTRY(event_signal_args)
+    TEST_ENTRY(event_signal_args)                              \
+    TEST_ENTRY(event_signal_describe_spaces)
 
 static struct {
     char *name;

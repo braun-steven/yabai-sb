@@ -125,25 +125,30 @@ static void event_signal_add_arg(struct event_signal *es, const char *name, cons
     ++es->arg_count;
 }
 
-void event_signal_push(enum signal_type type, void *context)
-{
-    int signal_count = buf_len(g_signal_event[type]);
-    if (!signal_count) return;
+//
+// NOTE: The signals of an event are stored until event_signal_flush runs their commands. A signal that
+// does not fit is dropped.
+//
 
+static struct event_signal *event_signal_reserve(enum signal_type type)
+{
     uint64_t size = sizeof(struct event_signal);
 
     uint64_t used = __sync_fetch_and_add(&g_signal_storage.used, size);
     if (used + size > g_signal_storage.size) {
         __sync_fetch_and_sub(&g_signal_storage.used, size);
         debug("%s: too many signals in one event, dropping %s\n", __FUNCTION__, signal_type_str[type]);
-        return;
+        return NULL;
     }
 
     struct event_signal *es = g_signal_storage.memory + used;
-
     memset(es, 0, size);
     es->type = type;
+    return es;
+}
 
+static void event_signal_describe_application(struct event_signal *es, enum signal_type type, void *context)
+{
     switch (type) {
     default: break;
 
@@ -191,6 +196,14 @@ void event_signal_push(enum signal_type type, void *context)
         es->app = application->name;
         es->active = g_process_manager.front_pid == application->pid;
     } break;
+    }
+}
+
+static void event_signal_describe_window(struct event_signal *es, enum signal_type type, void *context)
+{
+    switch (type) {
+    default: break;
+
     case SIGNAL_WINDOW_CREATED:
     case SIGNAL_WINDOW_FOCUSED:
     case SIGNAL_WINDOW_DEMINIMIZED: {
@@ -221,6 +234,14 @@ void event_signal_push(enum signal_type type, void *context)
         es->title = window_title_ts(window);
         es->active = g_window_manager.focused_window_id == window->id;
     } break;
+    }
+}
+
+static void event_signal_describe_space(struct event_signal *es, enum signal_type type, void *context)
+{
+    switch (type) {
+    default: break;
+
     case SIGNAL_SPACE_CREATED: {
         uint64_t sid = (uint64_t)(uintptr_t) context;
         int index    = space_manager_mission_control_index(sid);
@@ -246,6 +267,14 @@ void event_signal_push(enum signal_type type, void *context)
         event_signal_add_arg(es, "YABAI_SPACE_INDEX", "%d", index);
         event_signal_add_arg(es, "YABAI_RECENT_SPACE_INDEX", "%d", recent_index);
     } break;
+    }
+}
+
+static void event_signal_describe_display(struct event_signal *es, enum signal_type type, void *context)
+{
+    switch (type) {
+    default: break;
+
     case SIGNAL_DISPLAY_ADDED:
     case SIGNAL_DISPLAY_MOVED:
     case SIGNAL_DISPLAY_RESIZED: {
@@ -273,11 +302,59 @@ void event_signal_push(enum signal_type type, void *context)
         event_signal_add_arg(es, "YABAI_DISPLAY_INDEX", "%d", index);
         event_signal_add_arg(es, "YABAI_RECENT_DISPLAY_INDEX", "%d", recent_index);
     } break;
+    }
+}
+
+static void event_signal_describe_mission_control(struct event_signal *es, void *context)
+{
+    enum mission_control_mode mode = (enum mission_control_mode)(uintptr_t) context;
+    event_signal_add_arg(es, "YABAI_MISSION_CONTROL_MODE", "%s", mission_control_mode_str[mode]);
+}
+
+void event_signal_push(enum signal_type type, void *context)
+{
+    if (!buf_len(g_signal_event[type])) return;
+
+    struct event_signal *es = event_signal_reserve(type);
+    if (!es) return;
+
+    switch (type) {
+    default: break;
+
+    case SIGNAL_APPLICATION_LAUNCHED:
+    case SIGNAL_APPLICATION_ACTIVATED:
+    case SIGNAL_APPLICATION_DEACTIVATED:
+    case SIGNAL_APPLICATION_VISIBLE:
+    case SIGNAL_APPLICATION_TERMINATED:
+    case SIGNAL_APPLICATION_FRONT_SWITCHED:
+    case SIGNAL_APPLICATION_HIDDEN: {
+        event_signal_describe_application(es, type, context);
+    } break;
+    case SIGNAL_WINDOW_CREATED:
+    case SIGNAL_WINDOW_FOCUSED:
+    case SIGNAL_WINDOW_DEMINIMIZED:
+    case SIGNAL_WINDOW_DESTROYED:
+    case SIGNAL_WINDOW_MOVED:
+    case SIGNAL_WINDOW_RESIZED:
+    case SIGNAL_WINDOW_MINIMIZED:
+    case SIGNAL_WINDOW_TITLE_CHANGED: {
+        event_signal_describe_window(es, type, context);
+    } break;
+    case SIGNAL_SPACE_CREATED:
+    case SIGNAL_SPACE_DESTROYED:
+    case SIGNAL_SPACE_CHANGED: {
+        event_signal_describe_space(es, type, context);
+    } break;
+    case SIGNAL_DISPLAY_ADDED:
+    case SIGNAL_DISPLAY_MOVED:
+    case SIGNAL_DISPLAY_RESIZED:
+    case SIGNAL_DISPLAY_REMOVED:
+    case SIGNAL_DISPLAY_CHANGED: {
+        event_signal_describe_display(es, type, context);
+    } break;
     case SIGNAL_MISSION_CONTROL_ENTER:
     case SIGNAL_MISSION_CONTROL_EXIT: {
-        enum mission_control_mode mode = (enum mission_control_mode)(uintptr_t) context;
-
-        event_signal_add_arg(es, "YABAI_MISSION_CONTROL_MODE", "%s", mission_control_mode_str[mode]);
+        event_signal_describe_mission_control(es, context);
     } break;
     }
 }

@@ -47,3 +47,17 @@ TEST_FUNC(event_signal_args,
     TEST_CHECK(strcmp(es.arg_name[1], "YABAI_SPACE_INDEX"), 0);
     TEST_CHECK(strcmp(es.arg_value[1], "3"), 0);
 });
+
+TEST_FUNC(event_signal_describe_spaces,
+{
+    struct event_signal es = {0};
+    event_signal_describe_space(&es, SIGNAL_SPACE_DESTROYED, (void *)(uintptr_t) 1234);
+    TEST_CHECK(es.arg_count, 1);
+    TEST_CHECK(strcmp(es.arg_name[0], "YABAI_SPACE_ID"), 0);
+    TEST_CHECK(strcmp(es.arg_value[0], "1234"), 0);
+
+    struct event_signal display = {0};
+    event_signal_describe_display(&display, SIGNAL_DISPLAY_REMOVED, (void *)(uintptr_t) 5);
+    TEST_CHECK(display.arg_count, 1);
+    TEST_CHECK(strcmp(display.arg_value[0], "5"), 0);
+});

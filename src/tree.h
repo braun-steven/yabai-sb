@@ -164,6 +164,7 @@ void tree_view_attach_from_direction(struct view *view, struct con *con, int dir
 bool tree_remove_window(struct view *view, struct window *window);
 uint32_t *tree_view_window_list(struct view *view, int *window_count);
 int tree_view_tiled_count(struct view *view);
+bool tree_window_border_area(struct view *view, uint32_t window_id, struct area *window_area, struct area *border_area, int *radius);
 struct area tree_con_frame(struct view *view, struct con *con);
 bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame);
 void tree_flush(struct view *view);

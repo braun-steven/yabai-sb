@@ -221,7 +221,13 @@ Global Settings
 *window_border* ['<BOOL_SEL>']::
     Draw a border around each window, in the active color for the focused window and in the normal color otherwise. +
     The border sits outside the window frame and is ordered right below the window. It is shown for standard windows,
-    and hidden while a window is minimized, hidden, in native fullscreen or animated.
+    and hidden while a window is minimized, hidden, in native fullscreen or animated. +
+    The border of the active tab of a tabbed container goes around the whole container, tab bar and backdrop card
+    included; windows of hidden tabs have no border.
+
+*window_border_hide_single* ['<BOOL_SEL>']::
+    Hide the border while a window is alone on its space. A tabbed container counts as one window, like for
+    *auto_padding*, and scratchpads do not count.
 
 *window_border_width* ['<FLOAT_SEL>']::
     Width of the window border in points.

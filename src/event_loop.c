@@ -538,7 +538,7 @@ static EVENT_HANDLER(APPLICATION_VISIBLE)
     }
 
     for (int i = 0; i < window_count; ++i) {
-        border_refresh(window_list[i]);
+        border_refresh_window_space(window_list[i]);
     }
 
     event_signal_push(SIGNAL_APPLICATION_VISIBLE, application);
@@ -602,7 +602,7 @@ static EVENT_HANDLER(APPLICATION_HIDDEN)
     }
 
     for (int i = 0; i < window_count; ++i) {
-        border_refresh(window_list[i]);
+        border_refresh_window_space(window_list[i]);
     }
 
     event_signal_push(SIGNAL_APPLICATION_HIDDEN, application);
@@ -655,7 +655,7 @@ static EVENT_HANDLER(WINDOW_CREATED)
         event_signal_push(SIGNAL_WINDOW_CREATED, window);
     }
 
-    border_refresh(window);
+    border_refresh_window_space(window);
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
@@ -691,6 +691,10 @@ static EVENT_HANDLER(WINDOW_DESTROYED)
     window_manager_remove_window(&g_window_manager, window->id);
     window_unobserve(window);
     window_destroy(window);
+
+    if (g_window_manager.window_border_hide_single) {
+        border_refresh_space(g_space_manager.current_space_id);
+    }
 
     if (workspace_is_macos_sequoia() || workspace_is_macos_tahoe()) {
         update_window_notifications();
@@ -843,7 +847,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     bool windowed_fullscreen = CGRectEqualToRect(window->windowed_frame, window->frame);
     window->frame = new_frame;
 
-    if (was_fullscreen != is_fullscreen) border_refresh(window);
+    if (was_fullscreen != is_fullscreen) border_refresh_window_space(window);
 
     if (!was_fullscreen && is_fullscreen) {
         struct view *view = window_manager_find_managed_window(&g_window_manager, window);
@@ -919,7 +923,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
         window_manager_tree_focus_after_close(&g_window_manager, view, next_focus);
     }
 
-    border_refresh(window);
+    border_refresh_window_space(window);
     event_signal_push(SIGNAL_WINDOW_MINIMIZED, window);
 }
 
@@ -971,7 +975,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
         window_manager_remove_lost_focused_event(&g_window_manager, window->id);
     }
 
-    border_refresh(window);
+    border_refresh_window_space(window);
     event_signal_push(SIGNAL_WINDOW_DEMINIMIZED, window);
 }
 

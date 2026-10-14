@@ -2126,7 +2126,8 @@ void window_manager_send_window_to_space(struct space_manager *sm, struct window
         window_manager_add_managed_window(wm, window, view);
     }
 
-    border_refresh(window);
+    border_refresh_space(src_sid);
+    border_refresh_window_space(window);
 }
 
 enum window_op_error window_manager_apply_grid(struct space_manager *sm, struct window_manager *wm, struct window *window, unsigned r, unsigned c, unsigned x, unsigned y, unsigned w, unsigned h)
@@ -2525,7 +2526,7 @@ out:
         window_manager_hide_other_scratchpad_windows(wm, window);
     }
 
-    border_refresh(window);
+    border_refresh_window_space(window);
 
     return true;
 }
@@ -2772,6 +2773,7 @@ void window_manager_init(struct window_manager *wm)
     wm->window_animation_easing = ease_out_circ_type;
     wm->insert_feedback_color = rgba_color_from_hex(0xffd75f5f);
     wm->enable_window_border = false;
+    wm->window_border_hide_single = false;
     wm->window_border_width = 4.0f;
     wm->active_window_border_color = rgba_color_from_hex(0xffe1e3e4);
     wm->normal_window_border_color = rgba_color_from_hex(0xff494d64);

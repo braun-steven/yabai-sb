@@ -329,6 +329,15 @@ Draw a border around each window, in the active color for the focused window and
 .br
 The border sits outside the window frame and is ordered right below the window. It is shown for standard windows,
 and hidden while a window is minimized, hidden, in native fullscreen or animated.
+.br
+The border of the active tab of a tabbed container goes around the whole container, tab bar and backdrop card
+included; windows of hidden tabs have no border.
+.RE
+.sp
+\fBwindow_border_hide_single\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Hide the border while a window is alone on its space. A tabbed container counts as one window, like for
+\fBauto_padding\fP, and scratchpads do not count.
 .RE
 .sp
 \fBwindow_border_width\fP [\fI<FLOAT_SEL>\fP]

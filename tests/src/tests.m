@@ -64,7 +64,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(space_known_focus)                              \
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \
-    TEST_ENTRY(border_edge_frames_split)
+    TEST_ENTRY(border_edge_frames_split)                       \
+    TEST_ENTRY(border_tabbed_container_area)
 
 static struct {
     char *name;

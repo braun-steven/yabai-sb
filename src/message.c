@@ -37,6 +37,7 @@ extern bool g_verbose;
 #define COMMAND_CONFIG_INSERT_FEEDBACK_COLOR "insert_feedback_color"
 #define COMMAND_CONFIG_BORDER                "window_border"
 #define COMMAND_CONFIG_BORDER_WIDTH          "window_border_width"
+#define COMMAND_CONFIG_BORDER_HIDE_SINGLE    "window_border_hide_single"
 #define COMMAND_CONFIG_ACTIVE_BORDER_COLOR   "active_window_border_color"
 #define COMMAND_CONFIG_NORMAL_BORDER_COLOR   "normal_window_border_color"
 #define COMMAND_CONFIG_TAB_BAR               "tab_bar"
@@ -1471,6 +1472,19 @@ static void handle_domain_config(FILE *rsp, struct token domain, char *message)
                 border_refresh_all();
             } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
                 g_window_manager.enable_window_border = true;
+                border_refresh_all();
+            } else {
+                daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);
+            }
+        } else if (token_equals(command, COMMAND_CONFIG_BORDER_HIDE_SINGLE)) {
+            struct token value = get_token(&message);
+            if (!token_is_valid(value)) {
+                fprintf(rsp, "%s\n", bool_str[g_window_manager.window_border_hide_single]);
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_OFF)) {
+                g_window_manager.window_border_hide_single = false;
+                border_refresh_all();
+            } else if (token_equals(value, ARGUMENT_COMMON_VAL_ON)) {
+                g_window_manager.window_border_hide_single = true;
                 border_refresh_all();
             } else {
                 daemon_fail(rsp, "unknown value '%.*s' given to command '%.*s' for domain '%.*s'\n", value.length, value.text, command.length, command.text, domain.length, domain.text);

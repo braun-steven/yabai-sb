@@ -49,6 +49,22 @@ static inline void border_table_init(void)
 }
 
 //
+// NOTE: The frame the ring goes around: the bounds of the window, grown by the insets of the container it wraps
+// (the tab bars of a tabbed container), and the corner radius of that frame.
+//
+
+static inline CGRect border_target_frame(struct border *border, CGRect bounds)
+{
+    return (CGRect) {{ bounds.origin.x - border->inset_left, bounds.origin.y - border->inset_top },
+                     { bounds.size.width + border->inset_left + border->inset_right, bounds.size.height + border->inset_top + border->inset_bottom }};
+}
+
+static inline float border_target_radius(struct border *border)
+{
+    return border->container_radius > 0 ? border->container_radius : border->radius;
+}
+
+//
 // NOTE: Splits the ring around the frame into the frames of the four edge windows. The ring is width wide and its
 // outer corners have a radius of radius + width, so the top and bottom edges must be that tall to hold a corner.
 // The left and right edges reach one point under the window, like the inner edge of the ring, so that no gap shows
@@ -160,8 +176,9 @@ static void border_draw_edge(struct border *border, int index, struct rgba_color
     CGRect ring = { CGPointZero, outer.size };
     CGRect inner = CGRectInset(ring, border->width + 1.0f, border->width + 1.0f);
 
-    float outer_radius = min(border->radius + border->width, min(ring.size.width, ring.size.height) * 0.5f);
-    float inner_radius = min(border->radius, min(inner.size.width, inner.size.height) * 0.5f);
+    float radius = border_target_radius(border);
+    float outer_radius = min(radius + border->width, min(ring.size.width, ring.size.height) * 0.5f);
+    float inner_radius = min(radius, min(inner.size.width, inner.size.height) * 0.5f);
 
     CGContextSaveGState(context);
     CGContextTranslateCTM(context, outer.origin.x - edge.origin.x, (edge.origin.y + edge.size.height) - (outer.origin.y + outer.size.height));
@@ -248,19 +265,22 @@ static void border_update_locked(struct border *border)
         return;
     }
 
-    CGRect frame;
-    if (SLSGetWindowBounds(g_connection, border->wid, &frame) != kCGErrorSuccess) {
+    CGRect bounds;
+    if (SLSGetWindowBounds(g_connection, border->wid, &bounds) != kCGErrorSuccess) {
         border_hide_locked(border);
         return;
     }
 
+    CGRect frame = border_target_frame(border, bounds);
+    float radius = border_target_radius(border);
     struct rgba_color color = border->focused ? border_settings.active_color : border_settings.normal_color;
-    bool resized = !CGSizeEqualToSize(frame.size, border->frame.size) || border->width != border_settings.width;
+    bool resized = !CGSizeEqualToSize(frame.size, border->frame.size) || border->width != border_settings.width || radius != border->drawn_radius;
     bool recolored = color.p != border->color;
 
     border->frame = frame;
     border->width = border_settings.width;
-    border_edge_frames(frame, border->width, border->radius, border->edge);
+    border->drawn_radius = radius;
+    border_edge_frames(frame, border->width, radius, border->edge);
 
     SLSDisableUpdate(g_connection);
 
@@ -323,15 +343,45 @@ static bool border_should_show(struct window *window)
 }
 
 //
-// NOTE: Called on the event loop whenever the state of the window that decides about its border may have changed:
-// creation, focus, (de)minimize, hide/unhide of its application, native fullscreen and moves to another space.
+// NOTE: The number of windows that count for window_border_hide_single on a space: the tiled windows, where a tabbed
+// container counts as one like for auto_padding, and the visible floating windows. Scratchpads do not count.
 //
 
-void border_refresh(struct window *window)
+static int border_space_window_count(uint64_t sid)
+{
+    struct view *view = space_manager_find_view(&g_space_manager, sid);
+    int count = view && view->layout == VIEW_TREE ? tree_view_tiled_count(view) : 0;
+
+    table_for (struct window *window, g_window_manager.window, {
+        if (window->scratchpad || !border_should_show(window)) continue;
+        if (window_manager_find_managed_window(&g_window_manager, window)) continue;
+        if (window_space(window->id) != sid) continue;
+
+        uint8_t ordered_in = 0;
+        SLSWindowIsOrderedIn(g_connection, window->id, &ordered_in);
+        if (ordered_in) ++count;
+    })
+
+    return count;
+}
+
+static void border_refresh_with_count(struct window *window, uint64_t sid, int window_count)
 {
     if (!window || !window->id) return;
 
-    bool enabled = g_window_manager.enable_window_border && border_should_show(window);
+    struct area window_area, border_area;
+    int container_radius;
+    struct view *view = window_manager_find_managed_window(&g_window_manager, window);
+
+    bool enabled = g_window_manager.enable_window_border &&
+                   border_should_show(window) &&
+                   tree_window_border_area(view, window->id, &window_area, &border_area, &container_radius);
+
+    if (enabled && g_window_manager.window_border_hide_single && !window->scratchpad) {
+        if (window_count < 0) window_count = border_space_window_count(sid ? sid : window_space(window->id));
+        enabled = window_count > 1;
+    }
+
     bool focused = g_window_manager.focused_window_id == window->id;
 
     pthread_mutex_lock(&border_lock);
@@ -355,6 +405,15 @@ void border_refresh(struct window *window)
         added = !border->enabled && enabled;
         border->enabled = enabled;
         border->focused = focused;
+
+        if (enabled) {
+            border->inset_top    = window_area.y - border_area.y;
+            border->inset_left   = window_area.x - border_area.x;
+            border->inset_bottom = (border_area.y + border_area.h) - (window_area.y + window_area.h);
+            border->inset_right  = (border_area.x + border_area.w) - (window_area.x + window_area.w);
+            border->container_radius = container_radius;
+        }
+
         border_update_locked(border);
     }
 
@@ -365,10 +424,66 @@ void border_refresh(struct window *window)
     }
 }
 
+//
+// NOTE: Called on the event loop whenever the state of the window that decides about its border may have changed,
+// e.g. its focus. Changes that can also affect the borders of the other windows on the space (a window appears or
+// disappears, a container changes) refresh the whole space instead.
+//
+
+void border_refresh(struct window *window)
+{
+    border_refresh_with_count(window, 0, -1);
+}
+
+void border_refresh_space(uint64_t sid)
+{
+    if (!sid) return;
+
+    int window_count = g_window_manager.window_border_hide_single ? border_space_window_count(sid) : 0;
+
+    table_for (struct window *window, g_window_manager.window, {
+        if (window_space(window->id) == sid) border_refresh_with_count(window, sid, window_count);
+    })
+}
+
+void border_refresh_window_space(struct window *window)
+{
+    if (!window || !window->id) return;
+
+    uint64_t sid = window_space(window->id);
+    if (g_window_manager.window_border_hide_single && sid) {
+        border_refresh_space(sid);
+    } else {
+        border_refresh(window);
+    }
+}
+
 void border_refresh_all(void)
 {
+    uint64_t sid_list[64];
+    int count_list[64];
+    int sid_count = 0;
+
     table_for (struct window *window, g_window_manager.window, {
-        border_refresh(window);
+        uint64_t sid = window_space(window->id);
+        int window_count = -1;
+
+        if (g_window_manager.window_border_hide_single && sid) {
+            for (int j = 0; j < sid_count; ++j) {
+                if (sid_list[j] == sid) { window_count = count_list[j]; break; }
+            }
+
+            if (window_count < 0) {
+                window_count = border_space_window_count(sid);
+                if (sid_count < (int) array_count(sid_list)) {
+                    sid_list[sid_count] = sid;
+                    count_list[sid_count] = window_count;
+                    ++sid_count;
+                }
+            }
+        }
+
+        border_refresh_with_count(window, sid, window_count);
     })
 }
 
@@ -419,16 +534,17 @@ void border_window_moved(uint32_t wid)
     struct border *border = table_find(&border_table, &wid);
     if (!border || !border->shown) goto out;
 
-    CGRect frame;
-    if (SLSGetWindowBounds(g_connection, wid, &frame) != kCGErrorSuccess) goto out;
+    CGRect bounds;
+    if (SLSGetWindowBounds(g_connection, wid, &bounds) != kCGErrorSuccess) goto out;
 
+    CGRect frame = border_target_frame(border, bounds);
     if (!CGSizeEqualToSize(frame.size, border->frame.size)) {
         border_update_locked(border);
         goto out;
     }
 
     border->frame = frame;
-    border_edge_frames(frame, border->width, border->radius, border->edge);
+    border_edge_frames(frame, border->width, border->drawn_radius, border->edge);
 
     SLSDisableUpdate(g_connection);
     for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {

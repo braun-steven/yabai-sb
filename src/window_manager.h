@@ -124,6 +124,7 @@ struct window_manager
     int window_animation_easing;
     struct rgba_color insert_feedback_color;
     bool enable_window_border;
+    bool window_border_hide_single;
     float window_border_width;
     struct rgba_color active_window_border_color;
     struct rgba_color normal_window_border_color;

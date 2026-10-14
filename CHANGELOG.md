@@ -16,7 +16,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Layout *tree* arranges windows in an i3-style container tree with *splith*, *splitv* and *tabbed* containers, configured by *tree_default_orientation*, *tree_workspace_layout* and *focus_wrapping*
 - Config *tree_autotiling* splits the focused window along its longer side when a new window opens next to it, like the i3 autotiling script
 - Tabbed containers get an i3-style tab bar with window titles and click-to-focus, configured by *tab_bar*, *tab_bar_height*, *tab_bar_font* and the *tab_bar_\*_color* options
-- Config *window_border* draws a border around each window, configured by *window_border_width*, *active_window_border_color* and *normal_window_border_color*
+- Config *window_border* draws a border around each window, configured by *window_border_width*, *active_window_border_color* and *normal_window_border_color*; the border of a tabbed container goes around the whole container
+- Config *window_border_hide_single* hides the border of a window that is alone on its space
 - Config *tab_bar_offset* sets the space between a tab bar and the windows of its container; a negative value lets the windows reach under the bar
 - Config *tab_bar_icons* draws the application icon left of the title in each window tab
 - Config *tab_bar_style* draws tab bars in the Liquid Glass material of macOS 26 (`glass`, default), tinted with the *tab_bar_\*_color* colors, or as flat i3 tabs (`i3`). *tab_bar_font* accepts `system:<size>`, which is the new default

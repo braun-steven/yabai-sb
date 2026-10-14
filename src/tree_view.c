@@ -315,24 +315,27 @@ static bool tree_contains_window(struct con *con, uint32_t window_id)
     return window_id && tree_find_window(con, window_id) != NULL;
 }
 
+//
+// NOTE: A zoomed window covers the bars of the containers it belongs to, and a fullscreen
+// window covers every bar on the space.
+//
+
+static bool tree_bar_is_shown(struct con *con)
+{
+    return tab_bar_is_enabled() &&
+           con->layout == CON_TABBED &&
+           con->child_count > 0 &&
+           con->area.h > 2 * g_window_manager.tab_bar_height &&
+           tree_con_is_visible(con) &&
+           !tree_has_zoom(con, CON_ZOOM_NONE) &&
+           !tree_has_zoom(tree_root_of(con), CON_ZOOM_FULLSCREEN);
+}
+
 static void tree_render_bar(void *owner)
 {
     struct con *con = owner;
 
-    //
-    // NOTE: A zoomed window covers the bars of the containers it belongs to, and a fullscreen
-    // window covers every bar on the space.
-    //
-
-    bool show = tab_bar_is_enabled() &&
-                con->layout == CON_TABBED &&
-                con->child_count > 0 &&
-                con->area.h > 2 * g_window_manager.tab_bar_height &&
-                tree_con_is_visible(con) &&
-                !tree_has_zoom(con, CON_ZOOM_NONE) &&
-                !tree_has_zoom(tree_root_of(con), CON_ZOOM_FULLSCREEN);
-
-    if (!show) {
+    if (!tree_bar_is_shown(con)) {
         tab_bar_hide(&con->render.tab_bar);
         return;
     }
@@ -364,6 +367,40 @@ static void tree_render_bar(void *owner)
     for (int i = 0; i < entry_count; ++i) {
         if (entry_list[i].title) CFRelease(entry_list[i].title);
     }
+}
+
+//
+// NOTE: The area a window border wraps. A window in a tabbed container is wrapped together with the bars of the
+// containers it is the active tab of, i.e. the whole container, around its backdrop card when it has one (then
+// radius is the corner radius of the card, otherwise 0 for the radius of the window). A window that is not in the
+// tree gets empty areas, i.e. a border around the window itself. Returns false for a window of a hidden tab, which
+// gets no border.
+//
+
+bool tree_window_border_area(struct view *view, uint32_t window_id, struct area *window_area, struct area *border_area, int *radius)
+{
+    *window_area = (struct area) {0};
+    *border_area = (struct area) {0};
+    *radius = 0;
+
+    struct con *leaf = view && view->tree ? tree_view_find_window(view, window_id) : NULL;
+    if (!leaf) return true;
+    if (!tree_con_is_visible(leaf)) return false;
+
+    struct con *outer = NULL;
+    for (struct con *con = leaf; con->parent && con->parent->layout == CON_TABBED && tree_bar_is_shown(con->parent); con = con->parent) {
+        outer = con->parent;
+    }
+
+    *window_area = leaf->area;
+    *border_area = outer ? outer->area : leaf->area;
+
+    if (outer) {
+        int inset = tree_bar_card_inset(outer->area, g_window_manager.tab_bar_height, tree_bar_inset());
+        if (inset > 0) *radius = g_window_manager.tab_bar_window_radius + inset;
+    }
+
+    return true;
 }
 
 void tree_render_bars(struct con *con)
@@ -480,6 +517,8 @@ void tree_flush(struct view *view)
 
     struct con *insert = view->insertion_point ? tree_find_window(view->tree, view->insertion_point) : NULL;
     if (insert && insert->insert_dir) tree_feedback_show(insert, insert->insert_dir);
+
+    border_refresh_space(view->sid);
 }
 
 void tree_window_did_receive_focus(struct view *view, uint32_t window_id)

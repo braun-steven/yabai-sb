@@ -173,6 +173,18 @@ struct view
 #define view_clear_flag(v, x) ((v)->flags &= ~(x))
 #define view_set_flag(v, x)   ((v)->flags |=  (x))
 
+static inline int *view_spacing(struct view *view, enum view_flag flag)
+{
+    switch (flag) {
+    case VIEW_TOP_PADDING:    return &view->top_padding;
+    case VIEW_BOTTOM_PADDING: return &view->bottom_padding;
+    case VIEW_LEFT_PADDING:   return &view->left_padding;
+    case VIEW_RIGHT_PADDING:  return &view->right_padding;
+    case VIEW_WINDOW_GAP:     return &view->window_gap;
+    default:                  assert(0); return NULL;
+    }
+}
+
 void view_add_window(struct view *view, struct window *window, uint32_t insertion_point);
 bool view_remove_window(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);

@@ -32,7 +32,7 @@ enum animation_easing_type
     EASING_TYPE_COUNT
 };
 
-static char *animation_easing_type_str[] =
+static const char *animation_easing_type_str[] =
 {
 #define ANIMATION_EASING_TYPE_ENTRY(value) [value##_type] = #value,
     ANIMATION_EASING_TYPE_LIST

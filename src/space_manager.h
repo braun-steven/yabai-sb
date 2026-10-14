@@ -48,6 +48,18 @@ struct space_manager
     int space_layout_passes;
 };
 
+static inline int *space_manager_spacing(struct space_manager *sm, enum view_flag flag)
+{
+    switch (flag) {
+    case VIEW_TOP_PADDING:    return &sm->top_padding;
+    case VIEW_BOTTOM_PADDING: return &sm->bottom_padding;
+    case VIEW_LEFT_PADDING:   return &sm->left_padding;
+    case VIEW_RIGHT_PADDING:  return &sm->right_padding;
+    case VIEW_WINDOW_GAP:     return &sm->window_gap;
+    default:                  assert(0); return NULL;
+    }
+}
+
 enum space_op_error
 {
     SPACE_OP_ERROR_SUCCESS              = 0,
@@ -94,11 +106,7 @@ bool space_manager_toggle_gap_for_space(struct space_manager *sm, uint64_t sid);
 void space_manager_toggle_mission_control(uint64_t sid);
 void space_manager_toggle_show_desktop(uint64_t sid);
 void space_manager_set_layout_for_all_spaces(struct space_manager *sm, enum view_type layout);
-void space_manager_set_window_gap_for_all_spaces(struct space_manager *sm, int window_gap);
-void space_manager_set_top_padding_for_all_spaces(struct space_manager *sm, int top_padding);
-void space_manager_set_bottom_padding_for_all_spaces(struct space_manager *sm, int bottom_padding);
-void space_manager_set_left_padding_for_all_spaces(struct space_manager *sm, int left_padding);
-void space_manager_set_right_padding_for_all_spaces(struct space_manager *sm, int right_padding);
+void space_manager_set_spacing_for_all_spaces(struct space_manager *sm, enum view_flag flag, int value);
 void space_manager_set_auto_padding_for_all_spaces(struct space_manager *sm, bool auto_padding);
 void space_manager_set_auto_padding_for_space(struct space_manager *sm, uint64_t sid, bool auto_padding);
 bool space_manager_set_padding_for_space(struct space_manager *sm, uint64_t sid, int type, int top, int bottom, int left, int right);

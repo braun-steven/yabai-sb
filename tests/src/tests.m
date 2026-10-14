@@ -18,6 +18,7 @@ typedef TEST_SIG(function);
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
+#include "message.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -65,7 +66,10 @@ typedef TEST_SIG(function);
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \
     TEST_ENTRY(border_edge_frames_split)                       \
-    TEST_ENTRY(border_tabbed_container_area)
+    TEST_ENTRY(border_tabbed_container_area)                   \
+    TEST_ENTRY(message_config_bool)                            \
+    TEST_ENTRY(message_config_choice)                          \
+    TEST_ENTRY(message_config_options)
 
 static struct {
     char *name;

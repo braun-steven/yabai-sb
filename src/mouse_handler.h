@@ -82,7 +82,7 @@ struct mouse_state
     int feedback_dir;
 };
 
-static char *mouse_mod_str[] =
+static const char *mouse_mod_str[] =
 {
     [MOUSE_MOD_NONE]  = "none",
     [MOUSE_MOD_ALT]   = "alt",
@@ -92,7 +92,7 @@ static char *mouse_mod_str[] =
     [MOUSE_MOD_FN]    = "fn",
 };
 
-static char *mouse_mode_str[] =
+static const char *mouse_mode_str[] =
 {
     [MOUSE_MODE_NONE]   = "none",
     [MOUSE_MODE_MOVE]   = "move",

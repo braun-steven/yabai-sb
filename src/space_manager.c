@@ -267,60 +267,12 @@ void space_manager_set_layout_for_all_spaces(struct space_manager *sm, enum view
     })
 }
 
-void space_manager_set_window_gap_for_all_spaces(struct space_manager *sm, int window_gap)
+void space_manager_set_spacing_for_all_spaces(struct space_manager *sm, enum view_flag flag, int value)
 {
-    sm->window_gap = window_gap;
+    *space_manager_spacing(sm, flag) = value;
     table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_WINDOW_GAP)) {
-            view->window_gap = window_gap;
-            view_update(view);
-            view_flush(view);
-        }
-    })
-}
-
-void space_manager_set_top_padding_for_all_spaces(struct space_manager *sm, int top_padding)
-{
-    sm->top_padding = top_padding;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_TOP_PADDING)) {
-            view->top_padding = top_padding;
-            view_update(view);
-            view_flush(view);
-        }
-    })
-}
-
-void space_manager_set_bottom_padding_for_all_spaces(struct space_manager *sm, int bottom_padding)
-{
-    sm->bottom_padding = bottom_padding;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_BOTTOM_PADDING)) {
-            view->bottom_padding = bottom_padding;
-            view_update(view);
-            view_flush(view);
-        }
-    })
-}
-
-void space_manager_set_left_padding_for_all_spaces(struct space_manager *sm, int left_padding)
-{
-    sm->left_padding = left_padding;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_LEFT_PADDING)) {
-            view->left_padding = left_padding;
-            view_update(view);
-            view_flush(view);
-        }
-    })
-}
-
-void space_manager_set_right_padding_for_all_spaces(struct space_manager *sm, int right_padding)
-{
-    sm->right_padding = right_padding;
-    table_for (struct view *view, sm->view, {
-        if (!view_check_flag(view, VIEW_RIGHT_PADDING)) {
-            view->right_padding = right_padding;
+        if (!view_check_flag(view, flag)) {
+            *view_spacing(view, flag) = value;
             view_update(view);
             view_flush(view);
         }

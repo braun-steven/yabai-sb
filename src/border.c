@@ -28,6 +28,19 @@ static struct {
     struct rgba_color normal_color;
 } border_settings;
 
+//
+// NOTE: Within a batch, borders that are turned on or off are shown and hidden only at its end. The windows of a
+// tabbed container share the ring around the container, so a tab switch turns off the border of one tab and turns on
+// the same ring for the other. Edges that are ordered in again stay blank for a few frames, so instead of hiding one
+// ring and showing the other, the edges of the shown ring are handed over to the new tab (border_hand_over_locked).
+//
+
+static int border_batch_depth;
+static uint32_t border_show_list[64];
+static int border_show_count;
+static uint32_t border_hide_list[64];
+static int border_hide_count;
+
 static CFArrayRef (*border_corner_radii_func)(CFTypeRef iterator);
 static bool border_corner_radii_resolved;
 
@@ -378,6 +391,54 @@ static void border_update_locked(struct border *border, int what)
     border->shown = true;
 }
 
+//
+// NOTE: Gives the shown edges of from to the border to, which goes around the same frame, and the hidden edges of to
+// to from. The edges stay ordered in and are only moved below the window of to, which shares the level and the space
+// of the window of from, and redrawn when the color differs, all within one update of the screen.
+//
+
+static void border_hand_over_locked(struct border *from, struct border *to)
+{
+    struct border edges = *to;
+
+    memcpy(to->id, from->id, sizeof(to->id));
+    memcpy(to->context, from->context, sizeof(to->context));
+    memcpy(to->edge, from->edge, sizeof(to->edge));
+    to->frame = from->frame;
+    to->sid = from->sid;
+    to->drawn_radius = from->drawn_radius;
+    to->width = from->width;
+    to->color = from->color;
+    to->sticky = from->sticky;
+    to->level = from->level;
+    to->sub_level = from->sub_level;
+    to->shown = true;
+
+    memcpy(from->id, edges.id, sizeof(from->id));
+    memcpy(from->context, edges.context, sizeof(from->context));
+    memcpy(from->edge, edges.edge, sizeof(from->edge));
+    from->frame = edges.frame;
+    from->sid = edges.sid;
+    from->drawn_radius = edges.drawn_radius;
+    from->width = edges.width;
+    from->color = edges.color;
+    from->sticky = edges.sticky;
+    from->level = edges.level;
+    from->sub_level = edges.sub_level;
+    from->shown = false;
+
+    SLSDisableUpdate(g_connection);
+    border_update_locked(to, BORDER_UPDATE_FRAME);
+    if (to->shown) {
+        for (int i = 0; i < BORDER_EDGE_COUNT; ++i) {
+            if (to->edge[i].size.width > 0 && to->edge[i].size.height > 0) {
+                SLSOrderWindow(g_connection, to->id[i], -1, to->wid);
+            }
+        }
+    }
+    SLSReenableUpdate(g_connection);
+}
+
 static bool border_should_show(struct window *window)
 {
     if (!window->is_eligible)                             return false;
@@ -454,6 +515,7 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
         float inset_bottom = enabled ? (border_area.y + border_area.h) - (window_area.y + window_area.h) : border->inset_bottom;
         float inset_right  = enabled ? (border_area.x + border_area.w) - (window_area.x + window_area.w) : border->inset_right;
         float radius       = enabled ? container_radius : border->container_radius;
+        CGRect area        = enabled ? (CGRect) {{ border_area.x, border_area.y }, { border_area.w, border_area.h }} : border->area;
 
         //
         // NOTE: Nothing to do when the state of the border is unchanged; moves and resizes of the window reach the
@@ -479,8 +541,13 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
         border->inset_bottom = inset_bottom;
         border->inset_right = inset_right;
         border->container_radius = radius;
+        border->area = area;
 
-        if (changed) {
+        if (changed && !enabled && border->shown && border_batch_depth > 0 && border_hide_count < (int) array_count(border_hide_list)) {
+            border_hide_list[border_hide_count++] = border->wid;
+        } else if (changed && enabled && !border->shown && border_batch_depth > 0 && border_show_count < (int) array_count(border_show_list)) {
+            border_show_list[border_show_count++] = border->wid;
+        } else if (changed) {
             border_update_locked(border, BORDER_UPDATE_ALL);
         } else if (recolored) {
             border_update_locked(border, BORDER_UPDATE_COLOR);
@@ -492,6 +559,49 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
     if (added && !workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
         update_window_notifications();
     }
+}
+
+void border_begin_batch(void)
+{
+    ++border_batch_depth;
+}
+
+void border_end_batch(void)
+{
+    if (--border_batch_depth > 0) return;
+
+    pthread_mutex_lock(&border_lock);
+
+    for (int i = 0; i < border_show_count; ++i) {
+        struct border *border = table_find(&border_table, &border_show_list[i]);
+        if (!border || !border->enabled || border->shown) continue;
+
+        struct border *shown = NULL;
+        if (border_settings.enabled && !border->suspended && border->area.size.width > 0) {
+            for (int j = 0; j < border_hide_count; ++j) {
+                struct border *other = table_find(&border_table, &border_hide_list[j]);
+                if (other && !other->enabled && other->shown && CGRectEqualToRect(other->area, border->area)) {
+                    shown = other;
+                    break;
+                }
+            }
+        }
+
+        if (shown) {
+            border_hand_over_locked(shown, border);
+        } else {
+            border_update_locked(border, BORDER_UPDATE_ALL);
+        }
+    }
+
+    for (int i = 0; i < border_hide_count; ++i) {
+        struct border *border = table_find(&border_table, &border_hide_list[i]);
+        if (border && !border->enabled) border_hide_locked(border);
+    }
+
+    border_show_count = 0;
+    border_hide_count = 0;
+    pthread_mutex_unlock(&border_lock);
 }
 
 //
@@ -515,6 +625,8 @@ void border_refresh_space(uint64_t sid)
 {
     if (!sid) return;
 
+    border_begin_batch();
+
     if (g_window_manager.window_border_hide_single) {
         int window_count = border_space_window_count(sid);
 
@@ -522,6 +634,7 @@ void border_refresh_space(uint64_t sid)
             if (window_space(window->id) == sid) border_refresh_with_count(window, sid, window_count);
         })
 
+        border_end_batch();
         return;
     }
 
@@ -555,6 +668,8 @@ void border_refresh_space(uint64_t sid)
     for (int i = 0; i < window_count; ++i) {
         border_refresh_with_count(window_manager_find_window(&g_window_manager, window_list[i]), sid, 0);
     }
+
+    border_end_batch();
 }
 
 void border_refresh_window_space(struct window *window)

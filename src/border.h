@@ -16,6 +16,7 @@ struct border
     CGContextRef context[BORDER_EDGE_COUNT];
     CGRect edge[BORDER_EDGE_COUNT];
     CGRect frame;
+    CGRect area;
     uint64_t sid;
     float radius;
     float container_radius;
@@ -36,6 +37,8 @@ struct border
 };
 
 void border_edge_frames(CGRect frame, float width, float radius, CGRect *edge);
+void border_begin_batch(void);
+void border_end_batch(void);
 void border_refresh(struct window *window);
 void border_refresh_all(void);
 void border_refresh_space(uint64_t sid);

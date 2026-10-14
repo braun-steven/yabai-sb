@@ -87,10 +87,14 @@ static void window_did_receive_focus(struct window_manager *wm, struct mouse_sta
 
     if (prev_focused_window_id != window->id) {
         tab_bar_refresh_for_window(prev_focused_window_id);
-        border_refresh(window_manager_find_window(wm, prev_focused_window_id));
     }
 
+    border_begin_batch();
+    if (prev_focused_window_id != window->id) {
+        border_refresh(window_manager_find_window(wm, prev_focused_window_id));
+    }
     border_refresh(window);
+    border_end_batch();
 }
 
 #pragma clang diagnostic push

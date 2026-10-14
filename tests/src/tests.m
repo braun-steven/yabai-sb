@@ -85,6 +85,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_window_toggle_lookup)                   \
     TEST_ENTRY(message_window_layout_values)                   \
     TEST_ENTRY(message_window_command_groups)                  \
+    TEST_ENTRY(message_space_command_groups)                   \
     TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(message_client_encoding)                        \
     TEST_ENTRY(message_selectors)                              \

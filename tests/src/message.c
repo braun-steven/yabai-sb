@@ -433,3 +433,30 @@ TEST_FUNC(message_window_command_groups,
     TEST_CHECK(message_test_window_tree_command("--layout", "stacked\0", &response), COMMAND_STOP);
     TEST_CHECK(strstr(response, "unknown value 'stacked' given to command '--layout'") != NULL, true);
 });
+
+static enum command_result message_test_space_layout_command(char *command_text, char *message, char **response)
+{
+    char *cursor = message;
+    struct token domain = message_test_token(DOMAIN_SPACE);
+    struct token command = message_test_token(command_text);
+
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    enum command_result result = space_command_layout(rsp, domain, command, &cursor, 1);
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+TEST_FUNC(message_space_command_groups,
+{
+    char *response;
+
+    TEST_CHECK(message_test_space_layout_command("--focus", "\0", &response), COMMAND_UNKNOWN);
+
+    TEST_CHECK(message_test_space_layout_command("--rotate", "45\0", &response), COMMAND_DONE);
+    TEST_CHECK(strstr(response, "unknown value '45' given to command '--rotate'") != NULL, true);
+
+    TEST_CHECK(message_test_space_layout_command("--mirror", "z-axis\0", &response), COMMAND_DONE);
+    TEST_CHECK(strstr(response, "unknown value 'z-axis' given to command '--mirror'") != NULL, true);
+});

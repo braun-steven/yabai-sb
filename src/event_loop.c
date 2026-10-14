@@ -453,10 +453,16 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
             window_manager_set_window_opacity(&g_window_manager, focused_window, g_window_manager.normal_window_opacity);
         }
 
-        g_window_manager.last_window_id = g_window_manager.focused_window_id;
+        uint32_t prev_focused_window_id = g_window_manager.focused_window_id;
+        g_window_manager.last_window_id = prev_focused_window_id;
         g_window_manager.focused_window_id = 0;
         g_window_manager.focused_window_psn = application->psn;
         g_mouse_state.ffm_window_id = 0;
+
+        if (prev_focused_window_id) {
+            tab_bar_refresh_for_window(prev_focused_window_id);
+            border_refresh(focused_window);
+        }
         return;
     }
 

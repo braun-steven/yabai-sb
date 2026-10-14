@@ -9,12 +9,6 @@ extern struct window_manager g_window_manager;
 #define TAB_BAR_ICON_PIXEL_SIZE 64.0f
 #define TAB_BAR_GLASS_ICON_SIZE 16.0f
 #define TAB_BAR_GLASS_ICON_SPACING 6.0f
-#define TAB_BAR_GLASS_TRACK_MARGIN 2.0f
-#define TAB_BAR_GLASS_PILL_INSET 2.0f
-#define TAB_BAR_GLASS_TRACK_TINT_ALPHA 0.4f
-#define TAB_BAR_GLASS_PILL_TINT_ALPHA 0.8f
-#define TAB_BAR_GLASS_BACKDROP_TINT_ALPHA 0.4f
-#define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
 
 //
 // NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
@@ -204,7 +198,7 @@ static CTLineRef tab_bar_create_fitted_line(CFStringRef title, CFDictionaryRef a
 // The title is truncated first; the icon is dropped only when the tab is too narrow for it.
 //
 
-static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass, CFStringRef title, CGImageRef icon, CGRect rect, struct rgba_color color)
+void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass, CFStringRef title, CGImageRef icon, CGRect rect, CGColorRef color)
 {
     double max_width = rect.size.width - 2.0f * TAB_BAR_TITLE_PADDING;
     if (max_width <= 0) return;
@@ -220,14 +214,12 @@ static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass,
 
     CTLineRef line = NULL;
     CFDictionaryRef attributes = NULL;
-    CGColorRef text_color = NULL;
     CGFloat ascent = 0, descent = 0;
     double text_width = 0;
 
     if (title) {
-        text_color = tab_bar_cgcolor(color);
         const void *keys[] = { kCTFontAttributeName, kCTForegroundColorAttributeName };
-        const void *values[] = { font, text_color };
+        const void *values[] = { font, color };
         attributes = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
         line = tab_bar_create_fitted_line(title, attributes, text_max_width);
@@ -264,7 +256,6 @@ static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass,
     }
 
     if (attributes) CFRelease(attributes);
-    if (text_color) CGColorRelease(text_color);
 }
 
 CFStringRef tab_bar_copy_title(uint32_t wid)
@@ -315,14 +306,6 @@ static inline void tab_bar_fill(CGContextRef context, CGRect rect, struct rgba_c
     CGContextFillRect(context, rect);
 }
 
-static inline CGRect tab_bar_slot(CGRect area, int index, int count)
-{
-    float width = area.size.width / count;
-    float x0 = area.origin.x + (int)(index * width);
-    float x1 = index == count - 1 ? area.origin.x + area.size.width : area.origin.x + (int)((index + 1) * width);
-    return (CGRect) {{x0, area.origin.y}, {x1 - x0, area.size.height}};
-}
-
 static void tab_bar_state_colors(enum tab_bar_state state, struct rgba_color *background, struct rgba_color *text)
 {
     switch (state) {
@@ -362,7 +345,9 @@ static void tab_bar_draw_i3(CGContextRef context, CGRect bounds, struct tab_bar_
         }
 
         if (entry_list[i].title || entry_list[i].icon) {
-            tab_bar_draw_title(context, g_window_manager.tab_bar_font, false, entry_list[i].title, entry_list[i].icon, tab, text);
+            CGColorRef text_color = tab_bar_cgcolor(text);
+            tab_bar_draw_title(context, g_window_manager.tab_bar_font, false, entry_list[i].title, entry_list[i].icon, tab, text_color);
+            CGColorRelease(text_color);
         }
     }
 }

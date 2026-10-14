@@ -17,14 +17,6 @@ static const char *tab_bar_style_str[] =
     "i3"
 };
 
-enum tab_bar_backdrop
-{
-    TAB_BAR_BACKDROP_OFF,
-    TAB_BAR_BACKDROP_GLASS,
-    TAB_BAR_BACKDROP_BLUR,
-    TAB_BAR_BACKDROP_COUNT
-};
-
 static const char *tab_bar_backdrop_str[] =
 {
     "off",

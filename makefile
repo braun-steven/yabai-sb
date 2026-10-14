@@ -17,6 +17,11 @@ YABAI_SRC      = ./src/manifest.m $(OSAX_SRC)
 OSAX_PATH      = ./src/osax
 OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch x86_64 -arch arm64e
 INFO_PLIST     = $(ASSET_PATH)/Info.plist
+SWIFT_SRC      = ./src/tab_bar_glass.swift
+SWIFT_FLAGS    = -swift-version 6 -parse-as-library -module-name yabai -import-objc-header ./src/tab_bar_glass.h -disable-bridging-pch -emit-object
+SWIFT_VARIANT  = -g -Onone
+SWIFT_OBJ      = $(BUILD_PATH)/tab_bar_glass.o
+SWIFT_LINK     = -L$(shell xcrun --show-sdk-path)/usr/lib/swift -L$(shell dirname $(shell xcrun -f swiftc))/../lib/swift/macosx -Wl,-rpath,/usr/lib/swift
 BINS           = $(BUILD_PATH)/yabai
 
 .PHONY: all asan tsan install test analyze man icon archive publish sign clean-build clean FORCE
@@ -24,12 +29,15 @@ BINS           = $(BUILD_PATH)/yabai
 all: $(BINS)
 
 asan: VARIANT_FLAGS = -g -O0 -fsanitize=address,undefined
+asan: SWIFT_VARIANT = -g -Onone -sanitize=address
 asan: $(BINS)
 
 tsan: VARIANT_FLAGS = -g -O0 -fsanitize=thread,undefined
+tsan: SWIFT_VARIANT = -g -Onone -sanitize=thread
 tsan: $(BINS)
 
 install: VARIANT_FLAGS = -DNDEBUG -O3
+install: SWIFT_VARIANT = -O
 install: $(BINS)
 
 test:
@@ -81,9 +89,14 @@ clean: clean-build
 # always relink from scratch: the variants share one output path, and the unity build takes seconds.
 # The old bin/ (incl. a stale yabai.dSYM) is removed here instead of by a clean-build prerequisite,
 # which would race with the compile under make -j.
-$(BUILD_PATH)/yabai: $(YABAI_SRC) FORCE
+# the AppKit side of the glass tab bars is Swift: one object per architecture, merged into a universal object.
+$(BUILD_PATH)/yabai: $(YABAI_SRC) $(SWIFT_SRC) FORCE
 	rm -rf $(BUILD_PATH)
 	mkdir -p $(BUILD_PATH)
-	xcrun clang $(YABAI_SRC) $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) -o $@
+	xcrun swiftc $(SWIFT_SRC) $(SWIFT_FLAGS) $(SWIFT_VARIANT) -target x86_64-apple-macos$(MACOS_MIN) -o $(SWIFT_OBJ).x86_64
+	xcrun swiftc $(SWIFT_SRC) $(SWIFT_FLAGS) $(SWIFT_VARIANT) -target arm64-apple-macos$(MACOS_MIN) -o $(SWIFT_OBJ).arm64
+	xcrun lipo -create $(SWIFT_OBJ).x86_64 $(SWIFT_OBJ).arm64 -output $(SWIFT_OBJ)
+	xcrun clang $(YABAI_SRC) $(SWIFT_OBJ) $(BUILD_FLAGS) $(CLI_FLAGS) $(FRAMEWORK_PATH) $(FRAMEWORK) $(SWIFT_LINK) -o $@
+	rm -f $(SWIFT_OBJ) $(SWIFT_OBJ).x86_64 $(SWIFT_OBJ).arm64
 
 FORCE:

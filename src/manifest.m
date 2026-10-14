@@ -63,6 +63,7 @@
 #include "osax/common.h"
 
 #include "view.h"
+#include "tab_bar_glass.h"
 #include "tab_bar.h"
 #include "tree.h"
 #include "sa.h"
@@ -103,7 +104,7 @@
 #include "space.c"
 #include "view.c"
 #include "tab_bar.c"
-#include "tab_bar_glass.m"
+#include "tab_bar_glass.c"
 #include "tree.c"
 #include "tree_view.c"
 #include "window.c"

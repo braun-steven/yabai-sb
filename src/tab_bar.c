@@ -974,7 +974,7 @@ void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t abo
         tab_bar_glass_render(bar, above_wid, entry_list, entry_count);
     }
 
-    if (above_changed && !workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
+    if (above_changed && !workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 
@@ -1021,7 +1021,7 @@ void tab_bar_release(struct tab_bar *bar)
     bar->owner = owner;
     bar->redraw = redraw;
 
-    if (!workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
+    if (!workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 

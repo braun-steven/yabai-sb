@@ -572,7 +572,7 @@ static void border_refresh_with_count(struct window *window, uint64_t sid, int w
 
     pthread_mutex_unlock(&border_lock);
 
-    if (added && !workspace_is_macos_sequoia() && !workspace_is_macos_tahoe()) {
+    if (added && !workspace_is_macos_sequoia_or_newer()) {
         update_window_notifications();
     }
 }

@@ -182,6 +182,28 @@ static CTLineRef tab_bar_create_line(CFStringRef text, CFDictionaryRef attribute
 // The title is truncated first; the icon is dropped only when the tab is too narrow for it.
 //
 
+//
+// NOTE: A title that is wider than max_width ends in an ellipsis.
+//
+
+static CTLineRef tab_bar_create_fitted_line(CFStringRef title, CFDictionaryRef attributes, double max_width)
+{
+    CTLineRef line = tab_bar_create_line(title, attributes);
+    if (CTLineGetTypographicBounds(line, NULL, NULL, NULL) <= max_width) return line;
+
+    UniChar ellipsis_char = 0x2026;
+    CFStringRef ellipsis = CFStringCreateWithCharacters(NULL, &ellipsis_char, 1);
+    CTLineRef token = tab_bar_create_line(ellipsis, attributes);
+    CTLineRef truncated = CTLineCreateTruncatedLine(line, max_width, kCTLineTruncationEnd, token);
+    CFRelease(token);
+    CFRelease(ellipsis);
+
+    if (!truncated) return line;
+
+    CFRelease(line);
+    return truncated;
+}
+
 static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass, CFStringRef title, CGImageRef icon, CGRect rect, struct rgba_color color)
 {
     double max_width = rect.size.width - 2.0f * TAB_BAR_TITLE_PADDING;
@@ -208,21 +230,7 @@ static void tab_bar_draw_title(CGContextRef context, CTFontRef font, bool glass,
         const void *values[] = { font, text_color };
         attributes = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-        line = tab_bar_create_line(title, attributes);
-        if (CTLineGetTypographicBounds(line, NULL, NULL, NULL) > text_max_width) {
-            UniChar ellipsis_char = 0x2026;
-            CFStringRef ellipsis = CFStringCreateWithCharacters(NULL, &ellipsis_char, 1);
-            CTLineRef token = tab_bar_create_line(ellipsis, attributes);
-            CTLineRef truncated = CTLineCreateTruncatedLine(line, text_max_width, kCTLineTruncationEnd, token);
-            CFRelease(token);
-            CFRelease(ellipsis);
-
-            if (truncated) {
-                CFRelease(line);
-                line = truncated;
-            }
-        }
-
+        line = tab_bar_create_fitted_line(title, attributes, text_max_width);
         text_width = CTLineGetTypographicBounds(line, &ascent, &descent, NULL);
     }
 

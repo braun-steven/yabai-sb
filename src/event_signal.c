@@ -133,6 +133,12 @@ void event_signal_push(enum signal_type type, void *context)
     uint64_t size = sizeof(struct event_signal);
 
     uint64_t used = __sync_fetch_and_add(&g_signal_storage.used, size);
+    if (used + size > g_signal_storage.size) {
+        __sync_fetch_and_sub(&g_signal_storage.used, size);
+        debug("%s: too many signals in one event, dropping %s\n", __FUNCTION__, signal_type_str[type]);
+        return;
+    }
+
     struct event_signal *es = g_signal_storage.memory + used;
 
     memset(es, 0, size);

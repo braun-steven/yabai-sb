@@ -46,7 +46,6 @@ char g_socket_file[MAXLEN];
 char g_config_file[4096];
 char g_lock_file[MAXLEN];
 
-mach_port_t g_bs_port;
 int g_connection;
 bool g_verbose;
 pid_t g_pid;
@@ -153,7 +152,6 @@ static inline bool configure_settings_and_acquire_lock(void)
     CGSetLocalEventsSuppressionInterval(0.0f);
     CGEnableEventStateCombining(false);
     mouse_state_init(&g_mouse_state);
-    task_get_special_port(mach_task_self(), TASK_BOOTSTRAP_PORT, &g_bs_port);
 
 #if 0
     hook_nsobject_autorelease();

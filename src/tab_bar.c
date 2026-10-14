@@ -114,17 +114,6 @@ static void tab_bar_publish_hits(void)
     pthread_mutex_unlock(&tab_bar_hit_lock);
 }
 
-static bool tab_bar_connection_is_jankyborders(int cid)
-{
-    char process_name[PROC_PIDPATHINFO_MAXSIZE];
-
-    pid_t pid = 0;
-    SLSConnectionGetPID(cid, &pid);
-    if (proc_name(pid, process_name, sizeof(process_name)) <= 0) return false;
-
-    return strcmp(process_name, "borders") == 0;
-}
-
 //
 // NOTE: The bar only sits right above the window it belongs to, so windows ordered in front of that
 // window (menu bar extras, Control Center, notifications, floating windows) may cover it. A click goes
@@ -138,9 +127,6 @@ static bool tab_bar_is_covered_at_point(CGPoint point, uint32_t above_wid)
     int window_cid = 0;
 
     SLSFindWindowAndOwner(g_connection, 0, 1, 0, &point, &window_point, &window_id, &window_cid);
-    while (window_id && window_cid != g_connection && tab_bar_connection_is_jankyborders(window_cid)) {
-        SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-    }
 
     if (!window_id || window_cid == g_connection || window_id == above_wid) return false;
 

@@ -1,4 +1,3 @@
-extern mach_port_t g_bs_port;
 extern uint8_t *g_event_bytes;
 extern struct event_loop g_event_loop;
 extern void *g_workspace_context;
@@ -514,34 +513,6 @@ void window_manager_resize_window(struct window *window, float width, float heig
     CFRelease(size_ref);
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-field-initializers"
-static inline void window_manager_notify_jankyborders(struct window_animation *animation_list, int animation_count, uint32_t event, bool skip, bool wait)
-{
-    mach_port_t port;
-    if (g_bs_port && bootstrap_look_up(g_bs_port, "git.felix.jbevent", &port) == KERN_SUCCESS) {
-        struct {
-            uint32_t event;
-            uint32_t count;
-            uint32_t proxy_wid[512];
-            uint32_t real_wid[512];
-        } data = { event, 0 };
-
-        for (int i = 0; i < animation_count && (int) data.count < array_count(data.proxy_wid); ++i) {
-            if (skip && __atomic_load_n(&animation_list[i].skip, __ATOMIC_RELAXED)) continue;
-
-            data.proxy_wid[data.count] = animation_list[i].proxy.id;
-            data.real_wid[data.count]  = animation_list[i].wid;
-
-            ++data.count;
-        }
-
-        mach_send(port, &data, sizeof(data));
-        if (wait) usleep(20000);
-    }
-}
-#pragma clang diagnostic pop
-
 static void window_manager_create_window_proxy(int animation_connection, float alpha, struct window_proxy *proxy)
 {
     if (!proxy->image) return;
@@ -666,7 +637,6 @@ static CVReturn window_manager_animate_window_list_thread_proc(CVDisplayLinkRef 
     }
 
     SLSDisableUpdate(context->animation_connection);
-    window_manager_notify_jankyborders(context->animation_list, context->animation_count, 1326, true, true);
     scripting_addition_swap_window_proxy_out(context->animation_list, context->animation_count);
     for (int i = 0; i < animation_count; ++i) {
         if (__atomic_load_n(&context->animation_list[i].skip, __ATOMIC_RELAXED)) continue;
@@ -740,8 +710,6 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
             float alpha = 1.0f;
             SLSGetWindowAlpha(context->animation_connection, context->animation_list[i].wid, &alpha);
             window_manager_create_window_proxy(context->animation_connection, alpha, &context->animation_list[i].proxy);
-            window_manager_notify_jankyborders(&context->animation_list[i], 1, 1325, true, false);
-            window_manager_notify_jankyborders(existing_animation, 1, 1326, false, false);
 
             CFTypeRef transaction = SLSTransactionCreate(context->animation_connection);
             SLSTransactionOrderWindowGroup(transaction, context->animation_list[i].proxy.id, 1, context->animation_list[i].wid);
@@ -776,10 +744,6 @@ void window_manager_animate_window_list_async(struct window_capture *window_list
     for (int i = 0; i < context->animation_count; ++i) {
         border_suspend(context->animation_list[i].wid, true);
     }
-    });
-
-    TIME_BODY(window_manager_animate_window_list_async___notify_jb, {
-    window_manager_notify_jankyborders(context->animation_list, context->animation_count, 1325, true, false);
     });
 
     TIME_BODY(window_manager_animate_window_list_async___set_frame, {
@@ -1188,17 +1152,6 @@ struct window *window_manager_find_window_on_space_by_rank_filtering_window(stru
     return result;
 }
 
-static inline bool window_manager_window_connection_is_jankyborders(int window_cid)
-{
-    static char process_name[PROC_PIDPATHINFO_MAXSIZE];
-
-    pid_t window_pid = 0;
-    SLSConnectionGetPID(window_cid, &window_pid);
-    proc_name(window_pid, process_name, sizeof(process_name));
-
-    return strcmp(process_name, "borders") == 0;
-}
-
 struct window *window_manager_find_window_at_point_filtering_window(struct window_manager *wm, CGPoint point, uint32_t filter_wid)
 {
     CGPoint window_point;
@@ -1206,12 +1159,7 @@ struct window *window_manager_find_window_at_point_filtering_window(struct windo
     int window_cid;
 
     SLSFindWindowAndOwner(g_connection, filter_wid, -1, 0, &point, &window_point, &window_id, &window_cid);
-    if (g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-
-    if (window_manager_window_connection_is_jankyborders(window_cid)) {
-        SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-        if (g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-    }
+    while (window_id && g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
 
     return window_manager_find_window(wm, window_id);
 }
@@ -1223,12 +1171,7 @@ struct window *window_manager_find_window_at_point(struct window_manager *wm, CG
     int window_cid;
 
     SLSFindWindowAndOwner(g_connection, 0, 1, 0, &point, &window_point, &window_id, &window_cid);
-    if (g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-
-    if (window_manager_window_connection_is_jankyborders(window_cid)) {
-        SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-        if (g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
-    }
+    while (window_id && g_connection == window_cid) SLSFindWindowAndOwner(g_connection, window_id, -1, 0, &point, &window_point, &window_id, &window_cid);
 
     return window_manager_find_window(wm, window_id);
 }

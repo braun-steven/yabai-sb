@@ -710,6 +710,32 @@ bool window_is_unknown(struct window *window)
     return result;
 }
 
+//
+// NOTE: Windows report other roles and capabilities while they are minimized or in native fullscreen,
+// so these cached properties are read again whenever that state changes.
+//
+
+void window_refresh_ax_properties(struct window *window)
+{
+    if (window_ax_can_move(window)) {
+        window_set_flag(window, WINDOW_MOVABLE);
+    } else {
+        window_clear_flag(window, WINDOW_MOVABLE);
+    }
+
+    if (window_ax_can_resize(window)) {
+        window_set_flag(window, WINDOW_RESIZABLE);
+    } else {
+        window_clear_flag(window, WINDOW_RESIZABLE);
+    }
+
+    if (window->role) CFRelease(window->role);
+    window->role = window_ax_role(window);
+
+    if (window->subrole) CFRelease(window->subrole);
+    window->subrole = window_ax_subrole(window);
+}
+
 struct window *window_create(struct application *application, AXUIElementRef window_ref, uint32_t window_id)
 {
     struct window *window = malloc(sizeof(struct window));
@@ -720,8 +746,6 @@ struct window *window_create(struct application *application, AXUIElementRef win
     window->id = window_id;
     window->id_ptr = &window->id;
     window->frame = window_ax_frame(window);
-    window->role = window_ax_role(window);
-    window->subrole = window_ax_subrole(window);
     window->title = window_title(window);
     window->is_root = !window_parent(window->id) || window_is_root(window);
 
@@ -733,13 +757,7 @@ struct window *window_create(struct application *application, AXUIElementRef win
         window_set_flag(window, WINDOW_MINIMIZE);
     }
 
-    if (window_ax_can_move(window)) {
-        window_set_flag(window, WINDOW_MOVABLE);
-    }
-
-    if (window_ax_can_resize(window)) {
-        window_set_flag(window, WINDOW_RESIZABLE);
-    }
+    window_refresh_ax_properties(window);
 
     if ((window_is_fullscreen(window)) ||
         (space_is_fullscreen(window_space(window->id)))) {

@@ -743,23 +743,7 @@ static EVENT_HANDLER(WINDOW_RESIZED)
     }
 
     if (was_fullscreen != is_fullscreen) {
-        if (window_ax_can_move(window)) {
-            window_set_flag(window, WINDOW_MOVABLE);
-        } else {
-            window_clear_flag(window, WINDOW_MOVABLE);
-        }
-
-        if (window_ax_can_resize(window)) {
-            window_set_flag(window, WINDOW_RESIZABLE);
-        } else {
-            window_clear_flag(window, WINDOW_RESIZABLE);
-        }
-
-        if (window->role) CFRelease(window->role);
-        window->role = window_ax_role(window);
-
-        if (window->subrole) CFRelease(window->subrole);
-        window->subrole = window_ax_subrole(window);
+        window_refresh_ax_properties(window);
     }
 
     bool windowed_fullscreen = CGRectEqualToRect(window->windowed_frame, window->frame);
@@ -809,23 +793,7 @@ static EVENT_HANDLER(WINDOW_MINIMIZED)
     debug("%s: %s %d\n", __FUNCTION__, window->application->name, window->id);
     window_set_flag(window, WINDOW_MINIMIZE);
 
-    if (window_ax_can_move(window)) {
-        window_set_flag(window, WINDOW_MOVABLE);
-    } else {
-        window_clear_flag(window, WINDOW_MOVABLE);
-    }
-
-    if (window_ax_can_resize(window)) {
-        window_set_flag(window, WINDOW_RESIZABLE);
-    } else {
-        window_clear_flag(window, WINDOW_RESIZABLE);
-    }
-
-    if (window->role) CFRelease(window->role);
-    window->role = window_ax_role(window);
-
-    if (window->subrole) CFRelease(window->subrole);
-    window->subrole = window_ax_subrole(window);
+    window_refresh_ax_properties(window);
 
     struct view *view = window_manager_find_managed_window(&g_window_manager, window);
     uint32_t next_focus = view ? window_manager_tree_focus_candidate(&g_window_manager, view, window) : 0;
@@ -857,23 +825,7 @@ static EVENT_HANDLER(WINDOW_DEMINIMIZED)
 
     window_clear_flag(window, WINDOW_MINIMIZE);
 
-    if (window_ax_can_move(window)) {
-        window_set_flag(window, WINDOW_MOVABLE);
-    } else {
-        window_clear_flag(window, WINDOW_MOVABLE);
-    }
-
-    if (window_ax_can_resize(window)) {
-        window_set_flag(window, WINDOW_RESIZABLE);
-    } else {
-        window_clear_flag(window, WINDOW_RESIZABLE);
-    }
-
-    if (window->role) CFRelease(window->role);
-    window->role = window_ax_role(window);
-
-    if (window->subrole) CFRelease(window->subrole);
-    window->subrole = window_ax_subrole(window);
+    window_refresh_ax_properties(window);
 
     uint64_t sid = space_manager_active_space();
     if (space_manager_is_window_on_space(sid, window)) {

@@ -212,6 +212,7 @@ bool window_level_is_standard(struct window *window);
 bool window_is_unknown(struct window *window);
 bool window_observe(struct window *window);
 void window_unobserve(struct window *window);
+void window_refresh_ax_properties(struct window *window);
 struct window *window_create(struct application *application, AXUIElementRef window_ref, uint32_t window_id);
 void window_destroy(struct window *window);
 

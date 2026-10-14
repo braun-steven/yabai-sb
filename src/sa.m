@@ -477,13 +477,7 @@ bool scripting_addition_move_space_to_display(uint64_t src_sid, uint64_t dst_sid
 
 bool scripting_addition_move_space_after_space(uint64_t src_sid, uint64_t dst_sid, bool focus)
 {
-    uint64_t dummy_sid = 0;
-    sa_payload_init();
-    pack(src_sid);
-    pack(dst_sid);
-    pack(dummy_sid);
-    pack(focus);
-    return sa_payload_send(SA_OPCODE_SPACE_MOVE);
+    return scripting_addition_move_space_to_display(src_sid, dst_sid, 0, focus);
 }
 
 bool scripting_addition_move_window(uint32_t wid, int x, int y)

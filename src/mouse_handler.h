@@ -122,7 +122,7 @@ static const char *mouse_mode_str[] =
 };
 
 void mouse_window_info_populate(struct mouse_state *ms, struct mouse_window_info *info);
-enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, bool allow_center, struct window *dst_window, CGPoint point);
+enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, struct window *dst_window, CGPoint point);
 void mouse_feedback_clear(struct mouse_state *ms);
 void mouse_drag(struct mouse_state *ms, struct view *dst_view, struct window *dst_window, CGPoint point);
 void mouse_drop(struct space_manager *sm, struct window_manager *wm, struct mouse_state *ms, struct view *src_view, struct view *dst_view, struct window *src_window, struct window *dst_window, CGPoint point);

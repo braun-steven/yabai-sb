@@ -130,7 +130,7 @@ void mouse_window_info_populate(struct mouse_state *ms, struct mouse_window_info
     info->changed_size     = info->changed_w || info->changed_h;
 }
 
-enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, bool allow_center, struct window *dst_window, CGPoint point)
+enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, struct window *dst_window, CGPoint point)
 {
     CGRect  f    = dst_window->frame;
     CGPoint wp   = { point.x - f.origin.x, point.y - f.origin.y };
@@ -140,7 +140,7 @@ enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, bool 
     CGPoint b[3] = {{ f.size.width, f.size.height }, { 0.5f * f.size.width, 0.5f * f.size.height }, { 0.0f, f.size.height }};
     CGPoint l[3] = {{ 0.0f, f.size.height }, { 0.5f * f.size.width, 0.5f * f.size.height }, { 0.0f, 0.0f }};
 
-    if ((CGRectContainsPoint(c, wp)) && allow_center) {
+    if (CGRectContainsPoint(c, wp)) {
         return ms->drop_action == MOUSE_MODE_STACK ? MOUSE_DROP_ACTION_STACK : MOUSE_DROP_ACTION_SWAP;
     } else if (triangle_contains_point(t, wp)) {
         return MOUSE_DROP_ACTION_WARP_TOP;
@@ -226,7 +226,7 @@ void mouse_drag(struct mouse_state *ms, struct view *dst_view, struct window *ds
         return;
     }
 
-    int direction = mouse_drop_action_direction(mouse_determine_drop_action(ms, true, dst_window, point));
+    int direction = mouse_drop_action_direction(mouse_determine_drop_action(ms, dst_window, point));
     if (ms->feedback_wid == dst_window->id && ms->feedback_dir == direction) return;
 
     mouse_feedback_clear(ms);
@@ -265,7 +265,7 @@ void mouse_drop(struct space_manager *sm, struct window_manager *wm, struct mous
         return;
     }
 
-    enum mouse_drop_action drop_action = mouse_determine_drop_action(ms, true, dst_window, point);
+    enum mouse_drop_action drop_action = mouse_determine_drop_action(ms, dst_window, point);
     int direction = mouse_drop_action_direction(drop_action);
 
     if (drop_action == MOUSE_DROP_ACTION_NONE) {
@@ -314,6 +314,7 @@ bool mouse_handler_begin(struct mouse_state *mouse_state, uint32_t mask)
     if (!CGEventTapIsEnabled(mouse_state->handle)) {
         CFMachPortInvalidate(mouse_state->handle);
         CFRelease(mouse_state->handle);
+        __atomic_store_n(&mouse_state->handle, NULL, __ATOMIC_RELEASE);
         return false;
     }
 

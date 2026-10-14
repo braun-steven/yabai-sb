@@ -272,3 +272,24 @@ TEST_FUNC(mouse_resize_handle,
     TEST_CHECK(mouse_resize_direction(frame, CGPointMake(110, 150)), HANDLE_LEFT);
     TEST_CHECK(mouse_resize_direction(frame, CGPointMake(200, 150)), 0);
 });
+
+static struct window mouse_drop_test_window(void)
+{
+    return (struct window) { .frame = CGRectMake(100, 100, 200, 100) };
+}
+
+TEST_FUNC(mouse_drop_action_regions,
+{
+    struct window window = mouse_drop_test_window();
+    struct mouse_state ms = { .drop_action = MOUSE_MODE_SWAP };
+
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(200, 150)), MOUSE_DROP_ACTION_SWAP);
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(200, 105)), MOUSE_DROP_ACTION_WARP_TOP);
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(295, 150)), MOUSE_DROP_ACTION_WARP_RIGHT);
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(200, 195)), MOUSE_DROP_ACTION_WARP_BOTTOM);
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(105, 150)), MOUSE_DROP_ACTION_WARP_LEFT);
+
+    // NOTE: mouse_drop_action stack makes the center a tab of the window instead
+    ms.drop_action = MOUSE_MODE_STACK;
+    TEST_CHECK(mouse_determine_drop_action(&ms, &window, CGPointMake(200, 150)), MOUSE_DROP_ACTION_STACK);
+});

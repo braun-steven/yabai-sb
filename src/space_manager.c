@@ -408,15 +408,21 @@ void space_manager_toggle_window_split(struct space_manager *sm, struct window *
     window_manager_set_window_layout(&g_window_manager, window, WINDOW_LAYOUT_TOGGLE_SPLIT);
 }
 
-int space_manager_mission_control_index(uint64_t sid)
+//
+// NOTE: Every space in the order Mission Control numbers them, display by display. The list lives in
+// temporary storage.
+//
+
+static uint64_t *space_manager_mission_control_space_list(int *count)
 {
-    uint64_t result = 0;
-    int desktop_cnt = 1;
+    *count = 0;
 
     CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
+    if (!display_spaces_ref) return NULL;
 
+    uint64_t *space_list = NULL;
     int display_spaces_count = CFArrayGetCount(display_spaces_ref);
+
     for (int i = 0; i < display_spaces_count; ++i) {
         CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
         CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
@@ -425,47 +431,53 @@ int space_manager_mission_control_index(uint64_t sid)
         for (int j = 0; j < spaces_count; ++j) {
             CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, j);
             CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-            CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &result);
-            if (sid == result) goto out;
 
-            ++desktop_cnt;
+            uint64_t sid = 0;
+            CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &sid);
+            ts_buf_push(space_list, sid);
         }
     }
 
-    desktop_cnt = 0;
-out:
     CFRelease(display_spaces_ref);
-    return desktop_cnt;
+    *count = ts_buf_len(space_list);
+    return space_list;
+}
+
+static inline int space_list_index_of(uint64_t *space_list, int space_count, uint64_t sid)
+{
+    for (int i = 0; i < space_count; ++i) {
+        if (space_list[i] == sid) return i;
+    }
+
+    return -1;
+}
+
+//
+// NOTE: Returns the space offset positions from sid in the list, or 0 when sid is not in the list or
+// the position is outside of it.
+//
+
+static inline uint64_t space_list_neighbour(uint64_t *space_list, int space_count, uint64_t sid, int offset)
+{
+    int index = space_list_index_of(space_list, space_count, sid);
+    if (index == -1) return 0;
+
+    index += offset;
+    return in_range_ie(index, 0, space_count) ? space_list[index] : 0;
+}
+
+int space_manager_mission_control_index(uint64_t sid)
+{
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return space_list_index_of(space_list, space_count, sid) + 1;
 }
 
 uint64_t space_manager_mission_control_space(int desktop_id)
 {
-    uint64_t result = 0;
-    int desktop_cnt = 1;
-
-    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
-
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
-    for (int i = 0; i < display_spaces_count; ++i) {
-        CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
-        CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-        int spaces_count = CFArrayGetCount(spaces_ref);
-
-        for (int j = 0; j < spaces_count; ++j) {
-            CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, j);
-            CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-            CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &result);
-            if (desktop_cnt == desktop_id) goto out;
-
-            ++desktop_cnt;
-        }
-    }
-
-    result = 0;
-out:
-    CFRelease(display_spaces_ref);
-    return result;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return in_range_ii(desktop_id, 1, space_count) ? space_list[desktop_id-1] : 0;
 }
 
 uint64_t space_manager_cursor_space(void)
@@ -476,98 +488,30 @@ uint64_t space_manager_cursor_space(void)
 
 uint64_t space_manager_prev_space(uint64_t sid)
 {
-    uint64_t p_sid = 0;
-    uint64_t n_sid = 0;
-
-    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
-
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
-    for (int i = 0; i < display_spaces_count; ++i) {
-        CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
-        CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-        int spaces_count = CFArrayGetCount(spaces_ref);
-
-        for (int j = 0; j < spaces_count; ++j) {
-            CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, j);
-            CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-            CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &n_sid);
-            if (n_sid == sid) goto out;
-
-            p_sid = n_sid;
-        }
-    }
-
-out:
-    CFRelease(display_spaces_ref);
-    return p_sid != sid ? p_sid : 0;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return space_list_neighbour(space_list, space_count, sid, -1);
 }
 
 uint64_t space_manager_next_space(uint64_t sid)
 {
-    uint64_t n_sid = 0;
-    bool found_sid = false;
-
-    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
-
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
-    for (int i = 0; i < display_spaces_count; ++i) {
-        CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, i);
-        CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-        int spaces_count = CFArrayGetCount(spaces_ref);
-
-        for (int j = 0; j < spaces_count; ++j) {
-            CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, j);
-            CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-            CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &n_sid);
-            if (found_sid) goto out;
-
-            found_sid = n_sid == sid;
-        }
-    }
-
-out:
-    CFRelease(display_spaces_ref);
-    return n_sid != sid ? n_sid : 0;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return space_list_neighbour(space_list, space_count, sid, 1);
 }
 
 uint64_t space_manager_first_space(void)
 {
-    uint64_t sid = 0;
-
-    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
-
-    CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, 0);
-    CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-
-    CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, 0);
-    CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-    CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &sid);
-
-    CFRelease(display_spaces_ref);
-    return sid;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return space_count ? space_list[0] : 0;
 }
 
 uint64_t space_manager_last_space(void)
 {
-    uint64_t sid = 0;
-
-    CFArrayRef display_spaces_ref = display_manager_copy_managed_display_spaces();
-    if (!display_spaces_ref) return 0;
-
-    int display_spaces_count = CFArrayGetCount(display_spaces_ref);
-    CFDictionaryRef display_ref = CFArrayGetValueAtIndex(display_spaces_ref, display_spaces_count-1);
-    CFArrayRef spaces_ref = CFDictionaryGetValue(display_ref, CFSTR("Spaces"));
-    int spaces_count = CFArrayGetCount(spaces_ref);
-
-    CFDictionaryRef space_ref = CFArrayGetValueAtIndex(spaces_ref, spaces_count-1);
-    CFNumberRef sid_ref = CFDictionaryGetValue(space_ref, CFSTR("id64"));
-    CFNumberGetValue(sid_ref, CFNumberGetType(sid_ref), &sid);
-
-    CFRelease(display_spaces_ref);
-    return sid;
+    int space_count;
+    uint64_t *space_list = space_manager_mission_control_space_list(&space_count);
+    return space_count ? space_list[space_count-1] : 0;
 }
 
 //

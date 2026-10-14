@@ -13,7 +13,7 @@ final class LabelListBox
     var list = LabelList()
 }
 
-private func labelList(_ list: OpaquePointer?) -> LabelListBox?
+func labelList(_ list: OpaquePointer?) -> LabelListBox?
 {
     list.map { Unmanaged<LabelListBox>.fromOpaque(UnsafeRawPointer($0)).takeUnretainedValue() }
 }

@@ -49,20 +49,23 @@ static void window_toggle_pip(struct window *window)             { window_manage
 
 typedef void window_toggle_func(struct window *window);
 
-static const struct {
-    char *value;
-    window_toggle_func *toggle;
-} window_toggle_list[] = {
-    { ARGUMENT_WINDOW_TOGGLE_FLOAT,    window_toggle_float },
-    { ARGUMENT_WINDOW_TOGGLE_STICKY,   window_toggle_sticky },
-    { ARGUMENT_WINDOW_TOGGLE_SHADOW,   window_manager_toggle_window_shadow },
-    { ARGUMENT_WINDOW_TOGGLE_SPLIT,    window_toggle_split },
-    { ARGUMENT_WINDOW_TOGGLE_PARENT,   window_toggle_zoom_parent },
-    { ARGUMENT_WINDOW_TOGGLE_FULLSC,   window_toggle_zoom_fullscreen },
-    { ARGUMENT_WINDOW_TOGGLE_WINDOWED, window_manager_toggle_window_windowed_fullscreen },
-    { ARGUMENT_WINDOW_TOGGLE_NATIVE,   window_manager_toggle_window_native_fullscreen },
-    { ARGUMENT_WINDOW_TOGGLE_EXPOSE,   window_manager_toggle_window_expose },
-    { ARGUMENT_WINDOW_TOGGLE_PIP,      window_toggle_pip }
+//
+// NOTE: The functions of the values of 'window --toggle', in the order of WindowToggle (Sources/YabaiCore/MessageParse.swift),
+// whose index window_toggle_index returns.
+//
+
+static window_toggle_func *window_toggle_list[] =
+{
+    window_toggle_float,
+    window_toggle_sticky,
+    window_manager_toggle_window_shadow,
+    window_toggle_split,
+    window_toggle_zoom_parent,
+    window_toggle_zoom_fullscreen,
+    window_manager_toggle_window_windowed_fullscreen,
+    window_manager_toggle_window_native_fullscreen,
+    window_manager_toggle_window_expose,
+    window_toggle_pip
 };
 
 //
@@ -71,13 +74,8 @@ static const struct {
 
 static window_toggle_func *window_toggle_for_value(struct token value)
 {
-    for (int i = 0; i < array_count(window_toggle_list); ++i) {
-        if (token_equals(value, window_toggle_list[i].value)) {
-            return window_toggle_list[i].toggle;
-        }
-    }
-
-    return NULL;
+    int index = window_toggle_index(value);
+    return index >= 0 && index < array_count(window_toggle_list) ? window_toggle_list[index] : NULL;
 }
 
 //

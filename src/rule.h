@@ -65,6 +65,7 @@ static inline void rule_effects_clear_flag(struct rule_effects *e, enum rule_eff
 static inline void rule_effects_set_flag(struct rule_effects *e, enum rule_effects_flag x) { e->flags |= x; }
 
 void rule_serialize(FILE *rsp, struct rule *rule, int index);
+// implemented in Sources/Yabai/Shims/MessageShims.swift (RuleEffects.combine in Sources/YabaiCore/Rule.swift)
 void rule_combine_effects(struct rule_effects *rule_effects, struct rule_effects *result);
 void rule_reapply_all(void);
 bool rule_reapply_by_index(int index);

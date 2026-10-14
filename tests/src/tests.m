@@ -79,21 +79,12 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_child_windows_collect)                   \
     TEST_ENTRY(border_edge_frames_split)                       \
     TEST_ENTRY(border_tabbed_container_area)                   \
-    TEST_ENTRY(message_config_bool)                            \
-    TEST_ENTRY(message_config_choice)                          \
     TEST_ENTRY(message_config_options)                         \
     TEST_ENTRY(message_config_values)                          \
-    TEST_ENTRY(message_window_toggle_lookup)                   \
     TEST_ENTRY(message_window_layout_values)                   \
     TEST_ENTRY(message_window_command_groups)                  \
     TEST_ENTRY(message_space_command_groups)                   \
-    TEST_ENTRY(message_label_reserved)                         \
-    TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(message_client_encoding)                        \
-    TEST_ENTRY(message_selectors)                              \
-    TEST_ENTRY(message_query_target)                           \
-    TEST_ENTRY(message_signal_parse)                           \
-    TEST_ENTRY(rule_effects_combine)                           \
     TEST_ENTRY(window_rules_combine_matching)                  \
     TEST_ENTRY(window_rules_manage_round)                      \
     TEST_ENTRY(window_info_serialize_selected)                 \

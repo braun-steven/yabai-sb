@@ -1,0 +1,274 @@
+import Darwin
+
+//
+// NOTE: The tokens of a client message and the response the daemon writes. A message is a list of null-separated tokens
+// that ends with an empty token (client_encode_message in src/yabai.c). Tokens and responses are bytes, so that a failure
+// response echoes a token byte for byte, like the "%.*s" of the C version. Ported from src/message_parse.c.
+//
+
+/// `struct token`: one argument of a message. Invalid when empty (`token_is_valid`).
+public struct Token: Sendable
+{
+    public var bytes: ArraySlice<UInt8>
+
+    public init(_ bytes: ArraySlice<UInt8>)
+    {
+        self.bytes = bytes
+    }
+
+    public init(_ bytes: some Collection<UInt8>)
+    {
+        self.bytes = ArraySlice(bytes)
+    }
+
+    public init(_ text: String)
+    {
+        self.bytes = ArraySlice(text.utf8)
+    }
+
+    /// `token_is_valid`
+    public var isValid: Bool { !bytes.isEmpty }
+
+    /// The token as a string; bytes that are not UTF-8 become U+FFFD.
+    public var string: String { String(decoding: bytes, as: UTF8.self) }
+
+    /// `token_equals`: byte for byte, not by canonical equivalence like String ==.
+    public func equals(_ match: String) -> Bool
+    {
+        bytes.elementsEqual(match.utf8)
+    }
+
+    /// `token_prefix`
+    public func hasPrefix(_ match: String) -> Bool
+    {
+        bytes.starts(with: match.utf8)
+    }
+
+    /// The token without its first count bytes.
+    public func dropFirst(_ count: Int) -> Token
+    {
+        Token(bytes.dropFirst(count))
+    }
+
+    //
+    // NOTE: Like C, the digits are summed in an int that wraps around on overflow (two's complement), and a hexadecimal
+    // value in a uint32_t.
+    //
+
+    /// `token_is_positive_integer`: true for an empty token.
+    public var positiveInteger: Int32?
+    {
+        var value: Int32 = 0
+        for byte in bytes {
+            guard byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") else { return nil }
+            value = value &* 10 &+ Int32(byte - UInt8(ascii: "0"))
+        }
+        return value
+    }
+
+    /// `token_is_hexadecimal`: 0x or 0X followed by at least one hexadecimal digit.
+    public var hexadecimal: UInt32?
+    {
+        guard bytes.count > 2 else { return nil }
+
+        let start = bytes.startIndex
+        guard bytes[start] == UInt8(ascii: "0") && (bytes[start + 1] == UInt8(ascii: "x") || bytes[start + 1] == UInt8(ascii: "X")) else { return nil }
+
+        var value: UInt32 = 0
+        for byte in bytes.dropFirst(2) {
+            let digit: UInt8
+            switch byte {
+            case UInt8(ascii: "0")...UInt8(ascii: "9"): digit = byte - UInt8(ascii: "0")
+            case UInt8(ascii: "a")...UInt8(ascii: "f"): digit = byte - UInt8(ascii: "a") + 10
+            case UInt8(ascii: "A")...UInt8(ascii: "F"): digit = byte - UInt8(ascii: "A") + 10
+            default: return nil
+            }
+            value = value &* 16 &+ UInt32(digit)
+        }
+        return value
+    }
+
+    /// `token_is_float`: what strtof accepts (leading spaces, exponents, inf, nan, hexadecimal floats), with nothing left over.
+    public var float: Float?
+    {
+        withCString { text in
+            var end: UnsafeMutablePointer<CChar>? = nil
+            let value = strtof(text, &end)
+            guard let end, end.pointee == 0 else { return nil }
+            return value
+        }
+    }
+
+    /// Calls body with the token as a null-terminated C string. A token never contains a null byte.
+    public func withCString<R>(_ body: (UnsafePointer<CChar>) -> R) -> R
+    {
+        var text = bytes.map { CChar(bitPattern: $0) }
+        text.append(0)
+        return text.withUnsafeBufferPointer { body($0.baseAddress!) }
+    }
+
+    /// sscanf on the token, e.g. `token.scan("%d:%d", &a, &b)`; returns the number of assigned conversions.
+    public func scan(_ format: String, _ arguments: CVarArg...) -> Int32
+    {
+        withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } }
+    }
+
+    /// `token_to_value`
+    public var value: TokenValue
+    {
+        guard isValid else { return .invalid }
+        if let value = positiveInteger { return .int(value) }
+        if let value = hexadecimal     { return .u32(value) }
+        if let value = float           { return .float(value) }
+        return .string(self)
+    }
+}
+
+/// `struct token_value`. C also had TOKEN_TYPE_UNKNOWN, which token_to_value could not return for a valid token.
+public enum TokenValue: Sendable
+{
+    case invalid
+    case int(Int32)
+    case u32(UInt32)
+    case float(Float)
+    case string(Token)
+
+    //
+    // NOTE: Float options also accept integers, which token_to_value reports as TOKEN_TYPE_INT.
+    //
+
+    /// `token_value_float`
+    public var floatValue: Float?
+    {
+        switch self {
+        case .float(let value): return value
+        case .int(let value):   return Float(value)
+        default:                return nil
+        }
+    }
+}
+
+/// Where the parsers take the next token from: a `Message`, or the C cursor of a message while the handlers are C.
+public protocol TokenSource
+{
+    mutating func next() -> Token
+}
+
+/// A client message, read token by token like `get_token` does.
+public struct Message: TokenSource, Sendable
+{
+    private let bytes: [UInt8]
+    private var position = 0
+
+    public init(_ bytes: [UInt8])
+    {
+        self.bytes = bytes
+    }
+
+    /// A message from text with the null separators written out, e.g. "--focus\0east\0".
+    public init(_ text: String)
+    {
+        self.bytes = Array(text.utf8)
+    }
+
+    //
+    // NOTE: The token ends at the next null byte. The cursor moves past that null byte only when another token follows,
+    // so an empty token (two null bytes) ends the message, and every call after the end returns an empty token.
+    //
+
+    /// `get_token`
+    public mutating func next() -> Token
+    {
+        let start = position
+        var end = start
+        while end < bytes.count && bytes[end] != 0 { end += 1 }
+
+        position = end
+        if end + 1 < bytes.count && bytes[end + 1] != 0 { position = end + 1 }
+
+        return Token(bytes[start..<end])
+    }
+
+    /// The next token, without moving the cursor.
+    public func peek() -> Token
+    {
+        var message = self
+        return message.next()
+    }
+}
+
+/// The text of a response, built with string interpolation. A token is written as its bytes, a number as "%d" would.
+public struct ResponseText: ExpressibleByStringInterpolation, Sendable
+{
+    public var bytes: [UInt8] = []
+
+    public init(stringLiteral value: String)
+    {
+        bytes = Array(value.utf8)
+    }
+
+    public init(stringInterpolation: Interpolation)
+    {
+        bytes = stringInterpolation.bytes
+    }
+
+    public struct Interpolation: StringInterpolationProtocol, Sendable
+    {
+        var bytes: [UInt8] = []
+
+        public init(literalCapacity: Int, interpolationCount: Int)
+        {
+            bytes.reserveCapacity(literalCapacity + 16 * interpolationCount)
+        }
+
+        public mutating func appendLiteral(_ literal: String)   { bytes += literal.utf8 }
+        public mutating func appendInterpolation(_ token: Token) { bytes += token.bytes }
+        public mutating func appendInterpolation(_ text: String) { bytes += text.utf8 }
+        public mutating func appendInterpolation(_ value: Int32) { bytes += String(value).utf8 }
+        public mutating func appendInterpolation(_ value: Int)   { bytes += String(value).utf8 }
+    }
+}
+
+/// The response to a message (`FILE *rsp`).
+public struct Response: Sendable
+{
+    /// `FAILURE_MESSAGE` (src/misc/macros.h): the first byte of a failure, which makes the client exit with an error.
+    public static let failureByte: UInt8 = 0x07
+
+    public var bytes: [UInt8] = []
+
+    public init() {}
+
+    /// The response as a string, for tests.
+    public var text: String { String(decoding: bytes, as: UTF8.self) }
+
+    public mutating func write(_ text: ResponseText)
+    {
+        bytes += text.bytes
+    }
+
+    /// `daemon_fail`
+    public mutating func fail(_ text: ResponseText)
+    {
+        bytes.append(Response.failureByte)
+        bytes += text.bytes
+    }
+
+    /// `daemon_fail_unknown_command`
+    public mutating func failUnknownCommand(_ domain: Token, _ command: Token)
+    {
+        fail("unknown command '\(command)' for domain '\(domain)'\n")
+    }
+
+    /// `daemon_fail_unknown_option`
+    public mutating func failUnknownOption(_ domain: Token, _ command: Token, _ option: Token)
+    {
+        fail("unknown option '\(option)' given to command '\(command)' for domain '\(domain)'\n")
+    }
+
+    /// `daemon_fail_unknown_value`
+    public mutating func failUnknownValue(_ domain: Token, _ command: Token, _ value: Token)
+    {
+        fail("unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+    }
+}

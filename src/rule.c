@@ -50,44 +50,6 @@ void rule_serialize(FILE *rsp, struct rule *rule, int index)
             (uint32_t)(rule->effects.flags << 16) | (uint32_t)rule->flags);
 }
 
-void rule_combine_effects(struct rule_effects *effects, struct rule_effects *result)
-{
-    if (effects->did) result->did = effects->did;
-    if (effects->sid) result->sid = effects->sid;
-
-    if (effects->did || effects->sid) {
-        if (rule_effects_check_flag(effects, RULE_FOLLOW_SPACE)) {
-            rule_effects_set_flag(result, RULE_FOLLOW_SPACE);
-        } else {
-            rule_effects_clear_flag(result, RULE_FOLLOW_SPACE);
-        }
-    }
-
-    if (rule_effects_check_flag(effects, RULE_OPACITY) && in_range_ii(effects->opacity, 0.0f, 1.0f)) {
-        result->opacity = effects->opacity;
-        rule_effects_set_flag(result, RULE_OPACITY);
-    }
-
-    if (rule_effects_check_flag(effects, RULE_LAYER)) {
-        result->layer = effects->layer;
-        rule_effects_set_flag(result, RULE_LAYER);
-    }
-
-    if (effects->scratchpad) {
-        if (result->scratchpad) free(result->scratchpad);
-        result->scratchpad = string_copy(effects->scratchpad);
-    }
-
-    if (effects->manage     != RULE_PROP_UD) result->manage     = effects->manage;
-    if (effects->sticky     != RULE_PROP_UD) result->sticky     = effects->sticky;
-    if (effects->mff        != RULE_PROP_UD) result->mff        = effects->mff;
-    if (effects->fullscreen != RULE_PROP_UD) result->fullscreen = effects->fullscreen;
-
-    if (effects->grid[0] != 0 && effects->grid[1] != 0) {
-        memcpy(result->grid, effects->grid, sizeof(result->grid));
-    }
-}
-
 void rule_reapply_all(void)
 {
     table_for (struct window *window, g_window_manager.window, {

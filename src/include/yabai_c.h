@@ -88,6 +88,7 @@ int yabai_main(int argc, char **argv);
 #include "../window_manager.h"
 #include "../border.h"
 #include "../mouse_handler.h"
+#include "../message_parse.h"
 
 
 // the entry point of the daemon and the client in yabai.c, called by main.swift

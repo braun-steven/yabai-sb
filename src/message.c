@@ -635,6 +635,59 @@ static void handle_domain_window(FILE *rsp, struct token domain, char *message)
     }
 }
 
+enum query_target_type
+{
+    QUERY_TARGET_ALL,
+    QUERY_TARGET_DISPLAY,
+    QUERY_TARGET_SPACE,
+    QUERY_TARGET_WINDOW
+};
+
+struct query_target
+{
+    enum query_target_type type;
+    uint32_t did;
+    uint64_t sid;
+    struct window *window;
+};
+
+//
+// NOTE: The optional '--display|--space|--window [SEL]' of a query, which defaults to the active one.
+// Without the option a query covers everything. Returns false when the option or its selector is invalid.
+//
+
+static bool parse_query_target(FILE *rsp, struct token domain, struct token command, char **message, struct properties properties, struct query_target *target)
+{
+    struct token option = properties.did_parse ? get_token(message) : properties.token;
+    memset(target, 0, sizeof(struct query_target));
+
+    if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
+        target->type = QUERY_TARGET_DISPLAY;
+        target->did = display_manager_active_display_id();
+        return parse_optional_display_selector(rsp, message, &target->did);
+    }
+
+    if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
+        target->type = QUERY_TARGET_SPACE;
+        target->sid = space_manager_active_space();
+        return parse_optional_space_selector(rsp, message, &target->sid);
+    }
+
+    if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
+        target->type = QUERY_TARGET_WINDOW;
+        target->window = window_manager_acting_window(&g_window_manager);
+        return parse_optional_window_selector(rsp, message, &target->window);
+    }
+
+    if (token_is_valid(option)) {
+        daemon_fail_unknown_option(rsp, domain, command, option);
+        return false;
+    }
+
+    target->type = QUERY_TARGET_ALL;
+    return true;
+}
+
 static void handle_domain_query(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
@@ -644,96 +697,66 @@ static void handle_domain_query(FILE *rsp, struct token domain, char *message)
         struct properties properties = parse_properties(rsp, get_token(&message), display_property_val, display_property_str, array_count(display_property_str));
         if (properties.did_error) return;
 
-        struct token option = properties.did_parse ? get_token(&message) : properties.token;
-        if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
-            uint32_t acting_did = display_manager_active_display_id();
-            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
+        struct query_target target;
+        if (!parse_query_target(rsp, domain, command, &message, properties, &target)) return;
 
-            display_serialize(rsp, acting_did, properties.flags);
-            fprintf(rsp, "\n");
-        } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
-            uint64_t acting_sid = space_manager_active_space();
-            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
-
-            display_serialize(rsp, space_display_id(acting_sid), properties.flags);
-            fprintf(rsp, "\n");
-        } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
-            struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
-
-            if (acting_window) {
-                display_serialize(rsp, window_display_id(acting_window->id), properties.flags);
+        switch (target.type) {
+        case QUERY_TARGET_ALL:     display_manager_query_displays(rsp, properties.flags); break;
+        case QUERY_TARGET_DISPLAY: display_serialize(rsp, target.did, properties.flags); fprintf(rsp, "\n"); break;
+        case QUERY_TARGET_SPACE:   display_serialize(rsp, space_display_id(target.sid), properties.flags); fprintf(rsp, "\n"); break;
+        case QUERY_TARGET_WINDOW: {
+            if (target.window) {
+                display_serialize(rsp, window_display_id(target.window->id), properties.flags);
                 fprintf(rsp, "\n");
             } else {
                 daemon_fail(rsp, "could not find window to retrieve display details.\n");
             }
-        } else if (token_is_valid(option)) {
-            daemon_fail_unknown_option(rsp, domain, command, option);
-        } else {
-            display_manager_query_displays(rsp, properties.flags);
+        } break;
         }
     } else if (token_equals(command, COMMAND_QUERY_SPACES)) {
         struct properties properties = parse_properties(rsp, get_token(&message), space_property_val, space_property_str, array_count(space_property_str));
         if (properties.did_error) return;
 
-        struct token option = properties.did_parse ? get_token(&message) : properties.token;
-        if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
-            uint32_t acting_did = display_manager_active_display_id();
-            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
+        struct query_target target;
+        if (!parse_query_target(rsp, domain, command, &message, properties, &target)) return;
 
-            if (!space_manager_query_spaces_for_display(rsp, acting_did, properties.flags)) {
-                daemon_fail(rsp, "could not retrieve spaces for display.\n");
-            }
-        } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
-            uint64_t acting_sid = space_manager_active_space();
-            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
-
-            if (!space_manager_query_space(rsp, acting_sid, properties.flags)) {
-                daemon_fail(rsp, "could not retrieve space details.\n");
-            }
-        } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
-            struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
-
-            if (acting_window) {
-                space_manager_query_spaces_for_window(rsp, acting_window, properties.flags);
+        switch (target.type) {
+        case QUERY_TARGET_ALL: {
+            if (!space_manager_query_spaces_for_displays(rsp, properties.flags)) daemon_fail(rsp, "could not retrieve spaces for displays.\n");
+        } break;
+        case QUERY_TARGET_DISPLAY: {
+            if (!space_manager_query_spaces_for_display(rsp, target.did, properties.flags)) daemon_fail(rsp, "could not retrieve spaces for display.\n");
+        } break;
+        case QUERY_TARGET_SPACE: {
+            if (!space_manager_query_space(rsp, target.sid, properties.flags)) daemon_fail(rsp, "could not retrieve space details.\n");
+        } break;
+        case QUERY_TARGET_WINDOW: {
+            if (target.window) {
+                space_manager_query_spaces_for_window(rsp, target.window, properties.flags);
             } else {
                 daemon_fail(rsp, "could not find window to retrieve space details.\n");
             }
-        } else if (token_is_valid(option)) {
-            daemon_fail_unknown_option(rsp, domain, command, option);
-        } else if (!space_manager_query_spaces_for_displays(rsp, properties.flags)) {
-            daemon_fail(rsp, "could not retrieve spaces for displays.\n");
+        } break;
         }
     } else if (token_equals(command, COMMAND_QUERY_WINDOWS)) {
         struct properties properties = parse_properties(rsp, get_token(&message), window_property_val, window_property_str, array_count(window_property_str));
         if (properties.did_error) return;
 
-        struct token option = properties.did_parse ? get_token(&message) : properties.token;
-        if (token_equals(option, ARGUMENT_QUERY_DISPLAY)) {
-            uint32_t acting_did = display_manager_active_display_id();
-            if (!parse_optional_display_selector(rsp, &message, &acting_did)) return;
+        struct query_target target;
+        if (!parse_query_target(rsp, domain, command, &message, properties, &target)) return;
 
-            window_manager_query_windows_for_display(rsp, acting_did, properties.flags);
-        } else if (token_equals(option, ARGUMENT_QUERY_SPACE)) {
-            uint64_t acting_sid = space_manager_active_space();
-            if (!parse_optional_space_selector(rsp, &message, &acting_sid)) return;
-
-            window_manager_query_windows_for_spaces(rsp, &acting_sid, 1, properties.flags);
-        } else if (token_equals(option, ARGUMENT_QUERY_WINDOW)) {
-            struct window *acting_window = window_manager_acting_window(&g_window_manager);
-            if (!parse_optional_window_selector(rsp, &message, &acting_window)) return;
-
-            if (acting_window) {
-                window_serialize(rsp, acting_window, properties.flags);
+        switch (target.type) {
+        case QUERY_TARGET_ALL:     window_manager_query_windows_for_displays(rsp, properties.flags); break;
+        case QUERY_TARGET_DISPLAY: window_manager_query_windows_for_display(rsp, target.did, properties.flags); break;
+        case QUERY_TARGET_SPACE:   window_manager_query_windows_for_spaces(rsp, &target.sid, 1, properties.flags); break;
+        case QUERY_TARGET_WINDOW: {
+            if (target.window) {
+                window_serialize(rsp, target.window, properties.flags);
                 fprintf(rsp, "\n");
             } else {
                 daemon_fail(rsp, "could not retrieve window details.\n");
             }
-        } else if (token_is_valid(option)) {
-            daemon_fail_unknown_option(rsp, domain, command, option);
-        } else {
-            window_manager_query_windows_for_displays(rsp, properties.flags);
+        } break;
         }
     } else if (token_equals(command, COMMAND_QUERY_TREE)) {
         uint64_t acting_sid = space_manager_active_space();

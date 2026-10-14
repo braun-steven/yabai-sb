@@ -87,6 +87,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_rule_parse)                             \
     TEST_ENTRY(message_client_encoding)                        \
     TEST_ENTRY(message_selectors)                              \
+    TEST_ENTRY(message_query_target)                           \
     TEST_ENTRY(message_signal_parse)                           \
     TEST_ENTRY(json_string_escaping)                           \
     TEST_ENTRY(rule_effects_combine)                           \

@@ -379,3 +379,30 @@ TEST_FUNC(message_window_layout_values,
     TEST_CHECK(orientation, -1);
     TEST_CHECK(parse_split_orientation(message_test_token("diagonal"), &orientation), false);
 });
+
+static bool message_test_query_target(char *option, struct query_target *target, char **response)
+{
+    char *cursor = "\0";
+    struct properties properties = { .token = message_test_token(option) };
+    struct token domain = message_test_token(DOMAIN_QUERY);
+    struct token command = message_test_token("--windows");
+
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    bool result = parse_query_target(rsp, domain, command, &cursor, properties, target);
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+TEST_FUNC(message_query_target,
+{
+    struct query_target target;
+    char *response;
+
+    TEST_CHECK(message_test_query_target("", &target, &response), true);
+    TEST_CHECK(target.type, QUERY_TARGET_ALL);
+
+    TEST_CHECK(message_test_query_target("--everything", &target, &response), false);
+    TEST_CHECK(strstr(response, "unknown option '--everything' given to command '--windows'") != NULL, true);
+});

@@ -13,7 +13,7 @@
 >    A new agent with no other context must be able to continue from here.
 
 ## Status board
-Legend: `[ ]` not started · `[~]` in progress · `[L]` code done, waiting for the user's live run · `[x]` done.
+Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-checked, waiting only for a user step (a `sudo` scripting-addition reload) · `[x]` done.
 
 | Phase | Title | Status | Last commit | Notes |
 |---|---|---|---|---|
@@ -33,7 +33,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done, waiting for t
 | P13 | Border, tab bars, animation, mouse, SA client | [ ] | | |
 | P14 | Remove C, docs, final verification | [ ] | | |
 
-**Rule for `[L]`:** the next phase may start while a phase waits for the user's live run. Never have more than two phases in `[L]`: stop and ask the user to run the live checks first.
+**Rule for `[L]`:** the next phase may start while a phase waits for the user. Never have more than two phases in `[L]`: stop and ask the user to do the pending steps first.
 
 ## Context
 - The Swift pilot moved the AppKit side of the glass tab bars to Swift: branch `swift-pilot-tab-bar-glass`, commit `69b9085`, files `src/tab_bar_glass.{swift,c,h}`. The user liked it and wants all of yabai in Swift.
@@ -130,7 +130,11 @@ src/osax/                // unchanged ObjC payload/loader (moved to osax/ in P14
   - no warnings; `make install` uses `-warnings-as-errors`
   - `@unchecked Sendable` and `nonisolated(unsafe)` only with a NOTE explaining why
 - **No new package dependencies.**
-- **Live checks:** the user runs every deploy (`scripts/live-tests/deploy.sh <variant>` or `! update-yabai-fork`, from a real terminal because sudo needs a TTY). Ask them, then set the phase to `[L]` until they report back.
+- **Live checks are done by the agent, without the user:**
+  - Deploy with exactly `bash scripts/live-tests/deploy.sh <install|asan|tsan>`, run from the repository root with nothing chained in front. The user allowed only that command; the auto-mode classifier blocks any other way of replacing `~/.local/bin/yabai`, so don't work around it.
+  - The first deploy backs up the installed binary. At the end of every session run `bash scripts/live-tests/deploy.sh restore`, unless the user said to keep the port build installed.
+  - Each deploy restarts yabai and resets all layouts, and `live.py` moves windows on spaces 4, 5 and 12. Tell the user before you start a live run and after each deploy.
+  - **Still needs the user:** reloading the scripting addition (`sudo ~/.local/bin/yabai --load-sa`, twice, in a real terminal; see `doc/live-testing.md`). It is only needed when `OSAX_VERSION` changes. Before asking, test the new daemon against the old payload, then set the phase to `[L]` until the user reports the reload.
 - **Sync with master at the start of every phase:**
   - Use `git log <last-synced>..master -- src tests doc` and port or merge each fix. While a file is still C, `git merge master` is fine.
   - Write the new SHA in the Handoff log.
@@ -144,14 +148,15 @@ src/osax/                // unchanged ObjC payload/loader (moved to osax/ in P14
   - Keep the test ledger in the Handoff log: C tests left + Swift tests added. It must reach "82 ported" by P14.
 - **V3 Analyzer:** `make analyze` keeps its known 37 false positives while C exists. Triage new ones.
 - **V4 Golden IPC (from P6):** `swift test --filter Golden` passes, with byte-identical responses.
-- **V5 Live (the user runs it):**
+- **V5 Live (the agent runs it):**
   1. `deploy.sh install`, then from `scripts/live-tests`: `live.py setup` → `run <phase>` → `extra <phase>` → `cleanup` → `launch <phase>`
   2. `bench.py <phase>`, within 10% of the P0 baseline
   3. `crashes.py`, with no new reports
   4. Once per phase with `deploy.sh asan` and `deploy.sh tsan`: a short `live.py run`
+  5. At the end of the session: `deploy.sh restore` (see Agent rules)
 - **V6 Manual spot checks** for what the phase touched: glass tab bars (backdrop glass and blur), borders, scratchpads, rules, signals (`yabai -m signal --add event=window_focused action='echo $YABAI_WINDOW_ID >> /tmp/x'`), `--load-sa` after `killall Dock`.
 
-A phase is `[x]` only when V1–V3 (and V4 from P6 on) pass and the user reported V5 green.
+A phase is `[x]` only when V1–V3 (and V4 from P6 on) and V5 pass, and any scripting-addition reload it needed was done by the user.
 
 ## Phases
 
@@ -174,7 +179,7 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) pass and the user reporte
    - `wc -l` per language
    - release binary size
    - `make install` time
-   - the user's `bench.py` medians on `master`
+   - `bench.py` medians of the installed `master` build (run them before the first deploy; record `~/.local/bin/yabai --version`)
 8. **Golden capture:** while the C IPC is still in place, write `Tests/YabaiCoreTests/Golden/commands.txt` (~60 commands covering every domain) and record the expected responses from the C implementation. The capture method is your choice, e.g. a `-DGOLDEN` test entry in `tests/src/tests.m` that runs the message handlers on fixture managers. P6 replays these.
 - **Done when:** V1, V2, V3, V5 (the binary behaves like the pilot). Status `[x]`.
 
@@ -187,7 +192,7 @@ A phase is `[x]` only when V1–V3 (and V4 from P6 on) pass and the user reporte
 3. In `src/osax/`:
    - keep only the macOS 27 pattern/offset branches in `arm64_payload.m`, after checking them with `bash scripts/payload-history.sh`
    - delete `x64_payload.m` if approved, and the x86 paths in `loader.m`/`payload.m`
-   - bump `OSAX_VERSION`
+   - bump `OSAX_VERSION`; this phase needs the user's scripting-addition reload (see Agent rules)
 4. Set `MACOS_MIN = 27.0` everywhere, including `tests/makefile`.
 - **Done when:** V1–V3, V5 (especially `live.py extra`: the SA space switches).
 
@@ -290,7 +295,7 @@ Append one entry per session, newest last. Template:
 - Tests: C remaining <n>, Swift added <n> (total ported <n>/82)
 - Measurements: <lines, size, build time, bench medians if run>
 - Deviations from plan / surprises: <…>
-- Waiting on user: <live run variants, questions>
+- Waiting on user: <scripting-addition reload, questions>
 ```
 
 ### 2026-10-14 P0 [~]
@@ -303,4 +308,4 @@ Append one entry per session, newest last. Template:
 - Measurements (pilot, before P0): release bin/yabai 1,952,344 B (master 1,836,856 B); make install 6.8 s (master 5.6 s);
   make analyze 37 known false positives
 - Deviations from plan / surprises: none yet
-- Waiting on user: bench.py baseline on master (P0 step 7)
+- Waiting on user: nothing (agents deploy and run the live checks themselves since 4754520)

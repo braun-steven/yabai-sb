@@ -259,3 +259,46 @@ TEST_FUNC(message_selectors,
     TEST_CHECK(parse_direction(message_test_token("west")), DIR_WEST);
     TEST_CHECK(parse_direction(message_test_token("up")), 0);
 });
+
+static bool message_test_parse_signal(const char *message, size_t size, struct signal *signal, enum signal_type *type, char **response)
+{
+    memcpy(message_test_rule_buffer, message, size);
+    char *cursor = message_test_rule_buffer;
+
+    memset(message_test_response, 0, sizeof(message_test_response));
+    FILE *rsp = fmemopen(message_test_response, sizeof(message_test_response), "w");
+    memset(signal, 0, sizeof(struct signal));
+    bool result = parse_signal(rsp, &cursor, signal, type);
+    fclose(rsp);
+    *response = message_test_response;
+    return result;
+}
+
+#define MESSAGE_TEST_SIGNAL(m, signal, type, response) message_test_parse_signal(m, sizeof(m), signal, type, response)
+
+TEST_FUNC(message_signal_parse,
+{
+    struct signal signal;
+    enum signal_type type;
+    char *response;
+
+    TEST_CHECK(MESSAGE_TEST_SIGNAL("event=window_focused\0app!=^Finder$\0action=echo hi\0active=yes\0", &signal, &type, &response), true);
+    TEST_CHECK(type, SIGNAL_WINDOW_FOCUSED);
+    TEST_CHECK(signal.app_regex_valid, true);
+    TEST_CHECK(signal.app_regex_exclude, true);
+    TEST_CHECK(signal.active, SIGNAL_PROP_YES);
+    TEST_CHECK(strcmp(signal.command, "echo hi"), 0);
+    TEST_CHECK(response[0], '\0');
+    event_signal_destroy(&signal);
+
+    TEST_CHECK(MESSAGE_TEST_SIGNAL("event=nope\0action=x\0", &signal, &type, &response), false);
+    TEST_CHECK(strstr(response, "invalid value 'nope' for key 'event'") != NULL, true);
+    TEST_CHECK(strstr(response, "missing required") == NULL, true);
+    event_signal_destroy(&signal);
+
+    TEST_CHECK(MESSAGE_TEST_SIGNAL("label!=x\0", &signal, &type, &response), false);
+    TEST_CHECK(strstr(response, "missing required key-value pair 'event=..'") != NULL, true);
+    TEST_CHECK(strstr(response, "missing required key-value pair 'action=..'") != NULL, true);
+    TEST_CHECK(strstr(response, "unsupported token '!' (exclusion) given for key 'label'") != NULL, true);
+    event_signal_destroy(&signal);
+});

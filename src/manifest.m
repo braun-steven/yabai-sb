@@ -104,6 +104,8 @@
 #include "space_manager.c"
 #include "window_animation.c"
 #include "window_manager.c"
+#include "window_manager_rules.c"
+#include "window_manager_scratchpad.c"
 #include "window_manager_tree.c"
 #include "border.c"
 #include "mouse_handler.c"

@@ -21,6 +21,7 @@ typedef TEST_SIG(function);
 #include "border.c"
 #include "message.c"
 #include "window_info.c"
+#include "window_rules.c"
 #include "event_signal.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
@@ -93,6 +94,8 @@ typedef TEST_SIG(function);
     TEST_ENTRY(message_signal_parse)                           \
     TEST_ENTRY(json_string_escaping)                           \
     TEST_ENTRY(rule_effects_combine)                           \
+    TEST_ENTRY(window_rules_combine_matching)                  \
+    TEST_ENTRY(window_rules_manage_round)                      \
     TEST_ENTRY(window_info_serialize_selected)                 \
     TEST_ENTRY(window_info_tree_fields)                        \
     TEST_ENTRY(event_signal_filter_properties)                 \

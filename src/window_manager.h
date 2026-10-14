@@ -269,7 +269,7 @@ void window_manager_toggle_window_expose(struct window *window);
 void window_manager_toggle_window_pip(struct space_manager *sm, struct window *window);
 bool window_manager_toggle_scratchpad_window_by_label(struct window_manager *wm, char *label);
 void window_manager_set_scratchpad_layers(struct window_manager *wm);
-bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct window *window, int forced_mode);
+bool window_manager_toggle_scratchpad_window(struct window_manager *wm, struct window *window);
 bool window_manager_set_scratchpad_for_window(struct window_manager *wm, struct window *window, char *label);
 bool window_manager_remove_scratchpad_for_window(struct window_manager *wm, struct window *window, bool unfloat);
 void window_manager_scratchpad_recover_windows(void);

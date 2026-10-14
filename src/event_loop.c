@@ -1215,6 +1215,105 @@ out:
     CFRelease(context);
 }
 
+//
+// NOTE(asmvik): Look for a window with role AXSheet or AXDrawer
+// and forward focus to it because we are not allowed to focus the main
+// window in these cases.
+//
+
+static struct window *ffm_window_to_focus(struct window *window)
+{
+    CFArrayRef window_list = SLSCopyAssociatedWindows(g_connection, window->id);
+    if (!window_list) return window;
+
+    struct window *result = window;
+    int window_count = CFArrayGetCount(window_list);
+
+    for (int i = 0; i < window_count; ++i) {
+        uint32_t child_wid;
+        CFNumberGetValue(CFArrayGetValueAtIndex(window_list, i), kCFNumberSInt32Type, &child_wid);
+        struct window *child = window_manager_find_window(&g_window_manager, child_wid);
+        if (!child) continue;
+
+        CFTypeRef role = window_role(child);
+        if (!role) continue;
+
+        bool valid = CFEqual(role, kAXSheetRole) || CFEqual(role, kAXDrawerRole);
+        CFRelease(role);
+
+        if (valid) {
+            result = child;
+            break;
+        }
+    }
+
+    CFRelease(window_list);
+    return result;
+}
+
+//
+// NOTE(asmvik): If any **floating** window would be fully occluded by
+// autoraising the window below the cursor we do not actually perform the
+// focus change, as it is likely that the user is trying to reach for the
+// smaller window that sits on top of the window we would otherwise raise.
+//
+
+static bool ffm_raise_would_occlude_floating_window(struct window *window)
+{
+    int window_count;
+    uint32_t *window_list = space_window_list(g_space_manager.current_space_id, &window_count, false);
+    if (!window_list) return false;
+
+    int level = window_level(window->id);
+    int sub_level = window_sub_level(window->id);
+
+    for (int i = 0; i < window_count; ++i) {
+        uint32_t wid = window_list[i];
+        if (wid == window->id) break;
+
+        struct window *sub_window = window_manager_find_window(&g_window_manager, wid);
+        if (!sub_window) continue;
+
+        if (!window_check_flag(sub_window, WINDOW_FLOAT))   continue;
+        if (level != window_level(sub_window->id))         continue;
+        if (sub_level != window_sub_level(sub_window->id)) continue;
+
+        if (CGRectContainsRect(window->frame, sub_window->frame)) return true;
+    }
+
+    return false;
+}
+
+static void ffm_focus_window(struct window *window)
+{
+    if (window->id == g_window_manager.focused_window_id) return;
+    if (!window_manager_is_window_eligible(window))       return;
+
+    if (g_window_manager.ffm_mode == FFM_AUTOFOCUS) {
+        window = ffm_window_to_focus(window);
+        window_manager_focus_window_without_raise(&window->application->psn, window->id);
+        g_mouse_state.ffm_window_id = window->id;
+    } else if (g_window_manager.ffm_mode == FFM_AUTORAISE) {
+        if (ffm_raise_would_occlude_floating_window(window)) return;
+
+        window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
+        g_mouse_state.ffm_window_id = window->id;
+    }
+}
+
+static void ffm_focus_display_at_point(CGPoint point)
+{
+    uint32_t cursor_did = display_manager_point_display_id(point);
+    if (g_display_manager.current_display_id == cursor_did) return;
+
+    CGRect bounds = display_bounds_constrained(cursor_did, false);
+    if (!cgrect_contains_point(bounds, point)) return;
+
+    uint32_t wid = display_manager_focus_display_with_window_at_point(point);
+    if (!wid) display_manager_set_active_display_id(cursor_did);
+    g_mouse_state.ffm_window_id = wid;
+}
+
 static EVENT_HANDLER(MOUSE_MOVED)
 {
     if (mouse_event_is_stale(&__pending_mouse_moved)) goto out;
@@ -1232,92 +1331,9 @@ static EVENT_HANDLER(MOUSE_MOVED)
     struct window *window = window_manager_find_window_at_point(&g_window_manager, point);
 
     if (window) {
-        if (window->id == g_window_manager.focused_window_id) goto out;
-        if (!window_manager_is_window_eligible(window))       goto out;
-
-        if (g_window_manager.ffm_mode == FFM_AUTOFOCUS) {
-
-            //
-            // NOTE(asmvik): Look for a window with role AXSheet or AXDrawer
-            // and forward focus to it because we are not allowed to focus the main
-            // window in these cases.
-            //
-
-            CFArrayRef window_list = SLSCopyAssociatedWindows(g_connection, window->id);
-            if (window_list) {
-                int window_count = CFArrayGetCount(window_list);
-
-                uint32_t child_wid;
-                for (int i = 0; i < window_count; ++i) {
-                    CFNumberGetValue(CFArrayGetValueAtIndex(window_list, i), kCFNumberSInt32Type, &child_wid);
-                    struct window *child = window_manager_find_window(&g_window_manager, child_wid);
-                    if (!child) continue;
-
-                    CFTypeRef role = window_role(child);
-                    if (!role) continue;
-
-                    bool valid = CFEqual(role, kAXSheetRole) || CFEqual(role, kAXDrawerRole);
-                    CFRelease(role);
-
-                    if (valid) {
-                        window = child;
-                        break;
-                    }
-                }
-
-                CFRelease(window_list);
-            }
-
-            window_manager_focus_window_without_raise(&window->application->psn, window->id);
-            g_mouse_state.ffm_window_id = window->id;
-        } else if (g_window_manager.ffm_mode == FFM_AUTORAISE) {
-
-            //
-            // NOTE(asmvik): If any **floating** window would be fully occluded by
-            // autoraising the window below the cursor we do not actually perform the
-            // focus change, as it is likely that the user is trying to reach for the
-            // smaller window that sits on top of the window we would otherwise raise.
-            //
-
-            bool occludes_window = false;
-
-            int window_count;
-            uint32_t *window_list = space_window_list(g_space_manager.current_space_id, &window_count, false);
-
-            if (window_list) {
-                for (int i = 0; i < window_count; ++i) {
-                    uint32_t wid = window_list[i];
-                    if (wid == window->id) break;
-
-                    struct window *sub_window = window_manager_find_window(&g_window_manager, wid);
-                    if (!sub_window) continue;
-
-                    if (!window_check_flag(sub_window, WINDOW_FLOAT))                     continue;
-                    if (window_level(window->id) != window_level(sub_window->id))         continue;
-                    if (window_sub_level(window->id) != window_sub_level(sub_window->id)) continue;
-
-                    if (CGRectContainsRect(window->frame, sub_window->frame)) {
-                        occludes_window = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!occludes_window) {
-                window_manager_focus_window_with_raise(&window->application->psn, window->id, window->ref);
-                g_mouse_state.ffm_window_id = window->id;
-            }
-        }
+        ffm_focus_window(window);
     } else {
-        uint32_t cursor_did = display_manager_point_display_id(point);
-        if (g_display_manager.current_display_id == cursor_did) goto out;
-
-        CGRect bounds = display_bounds_constrained(cursor_did, false);
-        if (!cgrect_contains_point(bounds, point)) goto out;
-
-        uint32_t wid = display_manager_focus_display_with_window_at_point(point);
-        if (!wid) display_manager_set_active_display_id(cursor_did);
-        g_mouse_state.ffm_window_id = wid;
+        ffm_focus_display_at_point(point);
     }
 
 out:

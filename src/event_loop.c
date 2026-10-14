@@ -251,17 +251,6 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
     struct window **window_list = window_manager_add_application_windows(&g_space_manager, &g_window_manager, application, &window_count);
     uint32_t prev_window_id = g_window_manager.focused_window_id;
 
-    uint64_t sid;
-    bool default_origin = g_window_manager.window_origin_mode == WINDOW_ORIGIN_DEFAULT;
-
-    if (!default_origin) {
-        if (g_window_manager.window_origin_mode == WINDOW_ORIGIN_FOCUSED) {
-            sid = g_space_manager.current_space_id;
-        } else /* if (g_window_manager.window_origin_mode == WINDOW_ORIGIN_CURSOR) */ {
-            sid = space_manager_cursor_space();
-        }
-    }
-
     int view_count = 0;
     struct view **view_list = ts_alloc_list(struct view *, window_count);
 
@@ -269,9 +258,7 @@ static EVENT_HANDLER(APPLICATION_LAUNCHED)
         struct window *window = window_list[i];
 
         if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-            if (default_origin) sid = window_space(window->id);
-
-            struct view *view = space_manager_find_view(&g_space_manager, sid);
+            struct view *view = space_manager_find_view(&g_space_manager, window_manager_origin_space(&g_window_manager, window));
             if (view->layout != VIEW_FLOAT) {
                 tile_window_batched(view, window, prev_window_id);
                 view_list[view_count++] = view;
@@ -543,29 +530,10 @@ static EVENT_HANDLER(WINDOW_CREATED)
     struct window *window = window_manager_create_and_add_window(&g_space_manager, &g_window_manager, application, context, window_id, true);
     if (!window) return;
 
-    int rule_len = buf_len(g_window_manager.rules);
-    for (int i = 0; i < rule_len; ++i) {
-        if (rule_check_flag(&g_window_manager.rules[i], RULE_ONE_SHOT_REMOVE)) {
-            rule_destroy(&g_window_manager.rules[i]);
-            if (buf_del(g_window_manager.rules, i)) {
-                --i;
-                --rule_len;
-            }
-        }
-    }
+    window_manager_remove_one_shot_rules(&g_window_manager);
 
     if (window_manager_should_manage_window(window) && !window_manager_find_managed_window(&g_window_manager, window)) {
-        uint64_t sid;
-
-        if (g_window_manager.window_origin_mode == WINDOW_ORIGIN_DEFAULT) {
-            sid = window_space(window->id);
-        } else if (g_window_manager.window_origin_mode == WINDOW_ORIGIN_FOCUSED) {
-            sid = g_space_manager.current_space_id;
-        } else /* if (g_window_manager.window_origin_mode == WINDOW_ORIGIN_CURSOR) */ {
-            sid = space_manager_cursor_space();
-        }
-
-        window_manager_manage_window(&g_space_manager, &g_window_manager, window, sid, 0);
+        window_manager_manage_window(&g_space_manager, &g_window_manager, window, window_manager_origin_space(&g_window_manager, window), 0);
     }
 
     if (window_manager_is_window_eligible(window)) {

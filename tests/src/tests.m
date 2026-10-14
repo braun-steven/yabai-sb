@@ -67,6 +67,7 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_pending_focus)                           \
     TEST_ENTRY(window_unresolved_list)                         \
     TEST_ENTRY(window_validity)                                \
+    TEST_ENTRY(window_one_shot_rules)                          \
     TEST_ENTRY(space_known_focus)                              \
     TEST_ENTRY(application_launch_retry_backoff)               \
     TEST_ENTRY(mouse_event_coalescing)                         \

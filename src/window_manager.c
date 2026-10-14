@@ -1669,6 +1669,34 @@ struct window *window_manager_create_and_add_window(struct space_manager *sm, st
     return window;
 }
 
+//
+// NOTE: One-shot rules are marked when they were applied to a window, and removed once all windows that
+// were created together have been checked.
+//
+
+void window_manager_remove_one_shot_rules(struct window_manager *wm)
+{
+    for (int i = 0; i < buf_len(wm->rules); ++i) {
+        if (rule_check_flag(&wm->rules[i], RULE_ONE_SHOT_REMOVE)) {
+            rule_destroy(&wm->rules[i]);
+            if (buf_del(wm->rules, i)) --i;
+        }
+    }
+}
+
+//
+// NOTE: The space a new window is managed on, as selected by window_origin_display.
+//
+
+uint64_t window_manager_origin_space(struct window_manager *wm, struct window *window)
+{
+    switch (wm->window_origin_mode) {
+    case WINDOW_ORIGIN_FOCUSED: return g_space_manager.current_space_id;
+    case WINDOW_ORIGIN_CURSOR:  return space_manager_cursor_space();
+    default:                    return window_space(window->id);
+    }
+}
+
 struct window **window_manager_add_application_windows(struct space_manager *sm, struct window_manager *wm, struct application *application, int *count)
 {
     *count = 0;
@@ -1688,16 +1716,7 @@ struct window **window_manager_add_application_windows(struct space_manager *sm,
         if (window) list[(*count)++] = window;
     }
 
-    int rule_len = buf_len(wm->rules);
-    for (int i = 0; i < rule_len; ++i) {
-        if (rule_check_flag(&wm->rules[i], RULE_ONE_SHOT_REMOVE)) {
-            rule_destroy(&wm->rules[i]);
-            if (buf_del(wm->rules, i)) {
-                --i;
-                --rule_len;
-            }
-        }
-    }
+    window_manager_remove_one_shot_rules(wm);
 
     CFRelease(window_list);
     return list;

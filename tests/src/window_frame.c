@@ -238,3 +238,24 @@ TEST_FUNC(window_validity,
     // NOTE: only one caller may claim the destruction of a window
     TEST_CHECK(window_invalidate(&window), false);
 });
+
+static struct rule one_shot_test_rule(uint16_t flags, char *label)
+{
+    return (struct rule) { .flags = flags, .label = string_copy(label) };
+}
+
+TEST_FUNC(window_one_shot_rules,
+{
+    struct window_manager wm = {0};
+    buf_push(wm.rules, one_shot_test_rule(RULE_ONE_SHOT | RULE_ONE_SHOT_REMOVE, "a"));
+    buf_push(wm.rules, one_shot_test_rule(0, "b"));
+    buf_push(wm.rules, one_shot_test_rule(RULE_ONE_SHOT | RULE_ONE_SHOT_REMOVE, "c"));
+    buf_push(wm.rules, one_shot_test_rule(RULE_ONE_SHOT | RULE_ONE_SHOT_REMOVE, "d"));
+
+    window_manager_remove_one_shot_rules(&wm);
+    TEST_CHECK(buf_len(wm.rules), 1);
+    TEST_CHECK(strcmp(wm.rules[0].label, "b"), 0);
+
+    rule_destroy(&wm.rules[0]);
+    buf_free(wm.rules);
+});

@@ -193,31 +193,6 @@ static EVENT_HANDLER(DAEMON_MESSAGE)
 {
     TIME_FUNCTION;
 
-    FILE *rsp         = NULL;
-    int bytes_read    = 0;
-    int bytes_to_read = 0;
-
-    if (read(param1, &bytes_to_read, sizeof(int)) == sizeof(int)) {
-        char *message = ts_alloc_unaligned(bytes_to_read);
-
-        do {
-            int cur_read = read(param1, message+bytes_read, bytes_to_read-bytes_read);
-            if (cur_read <= 0) break;
-
-            bytes_read += cur_read;
-        } while (bytes_read < bytes_to_read);
-
-        if ((bytes_read == bytes_to_read) && (rsp = fdopen(param1, "w"))) {
-            debug_message(__FUNCTION__, message);
-            handle_message(rsp, message);
-
-            fflush(rsp);
-            fclose(rsp);
-
-            return;
-        }
-    }
-
-    socket_close(param1);
+    daemon_message_handle(param1);
 }
 #pragma clang diagnostic pop

@@ -15,6 +15,7 @@ struct sa_window_order
 
 int scripting_addition_load(void);
 void scripting_addition_payload_changed(void);
+bool scripting_addition_is_sip_friendly(void);
 int scripting_addition_uninstall(void);
 
 bool scripting_addition_create_space(uint64_t sid);

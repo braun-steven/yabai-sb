@@ -298,7 +298,7 @@ static int scripting_addition_perform_validation(void)
     return 0;
 }
 
-static bool scripting_addition_is_sip_friendly(void)
+bool scripting_addition_is_sip_friendly(void)
 {
     uint32_t config = 0;
     csr_get_active_config(&config);

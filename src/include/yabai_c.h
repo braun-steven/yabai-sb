@@ -17,7 +17,7 @@
 
 #include <arm_neon.h>
 
-// the entry point of the daemon and the client in yabai.c, called by main.swift
+// the entry point of the daemon in yabai.c, called by main.swift (which runs the client itself)
 int yabai_main(int argc, char **argv);
 
 #include <stdio.h>
@@ -76,7 +76,6 @@ int yabai_main(int argc, char **argv);
 #include "../event_signal.h"
 #include "../workspace.h"
 #include "../rule.h"
-#include "../message.h"
 #include "../display.h"
 #include "../space.h"
 #include "../window.h"
@@ -89,9 +88,10 @@ int yabai_main(int argc, char **argv);
 #include "../border.h"
 #include "../mouse_handler.h"
 #include "../message_parse.h"
+#include "../message.h"
 
 
-// the entry point of the daemon and the client in yabai.c, called by main.swift
+// the entry point of the daemon in yabai.c, called by main.swift (which runs the client itself)
 int yabai_main(int argc, char **argv);
 
 #endif

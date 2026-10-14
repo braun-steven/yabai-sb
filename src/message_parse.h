@@ -5,7 +5,7 @@
 // NOTE: The types of the message parsers that the handlers of message*.c share with the Swift port. The parsers are
 // Swift (Sources/YabaiCore/Message.swift, MessageParse.swift and Rule.swift); the shims that keep the C signatures are
 // in Sources/Yabai/Shims/MessageShims.swift. get_token, the token comparisons, daemon_fail and the failures of space
-// and window operations stay in message_parse.c until the handlers are Swift (P5, P6); Message.next() is get_token's twin.
+// and window operations stay in message_parse.c until the handlers are Swift (P6); Message.next() is get_token's twin.
 //
 
 struct token
@@ -89,13 +89,19 @@ struct query_target
 // to mutable C globals, so the shims take their addresses through these functions.
 //
 
+extern struct event_loop g_event_loop;
 extern struct display_manager g_display_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
+extern struct mouse_state g_mouse_state;
+extern bool g_verbose;
 
 static inline struct display_manager *display_manager_global(void) { return &g_display_manager; }
 static inline struct space_manager *space_manager_global(void) { return &g_space_manager; }
 static inline struct window_manager *window_manager_global(void) { return &g_window_manager; }
+static inline struct event_loop *event_loop_global(void) { return &g_event_loop; }
+static inline struct mouse_state *mouse_state_global(void) { return &g_mouse_state; }
+static inline bool *verbose_global(void) { return &g_verbose; }
 
 struct token get_token(char **message);
 

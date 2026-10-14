@@ -9,8 +9,6 @@
 #define SERVICE_START_OPT       "--start-service"
 #define SERVICE_RESTART_OPT     "--restart-service"
 #define SERVICE_STOP_OPT        "--stop-service"
-#define CLIENT_OPT_LONG         "--message"
-#define CLIENT_OPT_SHRT         "-m"
 #define CONFIG_OPT_LONG         "--config"
 #define CONFIG_OPT_SHRT         "-c"
 #define DEBUG_VERBOSE_OPT_LONG  "--verbose"
@@ -49,90 +47,6 @@ char g_lock_file[MAXLEN];
 int g_connection;
 bool g_verbose;
 pid_t g_pid;
-
-//
-// NOTE: The message is the arguments argv[1..argc-1], each followed by a null byte, and an empty
-// argument at the end, prefixed with the length of that payload. The daemon reads it with get_token.
-//
-
-static char *client_encode_message(int argc, char **argv, int *size)
-{
-    int payload_length = 1;
-    for (int i = 1; i < argc; ++i) payload_length += strlen(argv[i]) + 1;
-
-    *size = sizeof(int) + payload_length;
-    char *message = malloc(*size);
-    memcpy(message, &payload_length, sizeof(int));
-
-    char *cursor = message + sizeof(int);
-    for (int i = 1; i < argc; ++i) {
-        int length = strlen(argv[i]);
-        memcpy(cursor, argv[i], length);
-        cursor += length;
-        *cursor++ = '\0';
-    }
-    *cursor = '\0';
-
-    return message;
-}
-
-static int client_send_message(int argc, char **argv)
-{
-    if (argc <= 1) {
-        error("yabai-msg: no arguments given! abort..\n");
-    }
-
-    char *user = getenv("USER");
-    if (!user) {
-        error("yabai-msg: 'env USER' not set! abort..\n");
-    }
-
-    int message_size;
-    char *message = client_encode_message(argc, argv, &message_size);
-
-    int sockfd;
-    char socket_file[MAXLEN];
-    snprintf(socket_file, sizeof(socket_file), SOCKET_PATH_FMT, user);
-
-    if (!socket_open(&sockfd)) {
-        error("yabai-msg: failed to open socket..\n");
-    }
-
-    if (!socket_connect(sockfd, socket_file)) {
-        error("yabai-msg: failed to connect to socket..\n");
-    }
-
-    for (int sent = 0; sent < message_size;) {
-        ssize_t bytes = send(sockfd, message + sent, message_size - sent, 0);
-        if (bytes == -1) error("yabai-msg: failed to send data..\n");
-        sent += bytes;
-    }
-
-    shutdown(sockfd, SHUT_WR);
-    free(message);
-
-    int result = EXIT_SUCCESS;
-    FILE *output = stdout;
-    int bytes_read = 0;
-    char rsp[BUFSIZ];
-
-    while ((bytes_read = read(sockfd, rsp, sizeof(rsp)-1)) > 0) {
-        rsp[bytes_read] = '\0';
-
-        if (rsp[0] == FAILURE_MESSAGE[0]) {
-            result = EXIT_FAILURE;
-            output = stderr;
-            fprintf(output, "%s", rsp + 1);
-            fflush(output);
-        } else {
-            fprintf(output, "%s", rsp);
-            fflush(output);
-        }
-    }
-
-    socket_close(sockfd);
-    return result;
-}
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -188,6 +102,10 @@ static inline bool configure_settings_and_acquire_lock(void)
 }
 #pragma clang diagnostic pop
 
+//
+// NOTE: --message / -m never gets here: main.swift runs the client (Sources/Yabai/IPC/Client.swift).
+//
+
 static void parse_arguments(int argc, char **argv)
 {
     if ((string_equals(argv[1], HELP_OPT_LONG)) ||
@@ -215,11 +133,6 @@ static void parse_arguments(int argc, char **argv)
         (string_equals(argv[1], VERSION_OPT_SHRT))) {
         fprintf(stdout, "yabai-v%d.%d.%d\n", MAJOR, MINOR, PATCH);
         exit(EXIT_SUCCESS);
-    }
-
-    if ((string_equals(argv[1], CLIENT_OPT_LONG)) ||
-        (string_equals(argv[1], CLIENT_OPT_SHRT))) {
-        exit(client_send_message(argc-1, argv+1));
     }
 
     if (string_equals(argv[1], SCRPT_ADD_UNINSTALL_OPT)) {

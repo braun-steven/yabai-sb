@@ -2,7 +2,8 @@
 # Runs IPC commands that only query, fail before acting, or change the daemon's own state (labeled rules and signals,
 # removed again), and prints each response with its exit code. Run it on the installed build and on a test build,
 # each right after a restart, and diff the outputs: `--display mouse` follows the cursor, and a long-running daemon can
-# hold stale space ids in its rules. Usage: bash ipc_compare.sh > out.txt
+# hold stale space ids in its rules. The config commands only read options, fail, or set an option of the yabairc to
+# the value it already has. Usage: bash ipc_compare.sh > out.txt
 Y=~/.local/bin/yabai
 
 run() {
@@ -77,3 +78,80 @@ run display --label west
 run space 99 --focus
 run display 9 --focus
 run bogus --domain
+
+# P5: the config domain and the client
+for option in debug_output mouse_follows_focus focus_follows_mouse display_arrangement_order builtin_display_last \
+    window_origin_display window_opacity window_opacity_duration window_animation_duration window_animation_easing \
+    window_shadow menubar_opacity active_window_opacity normal_window_opacity insert_feedback_color window_border \
+    window_border_width window_border_hide_single active_window_border_color normal_window_border_color tab_bar \
+    tab_bar_height tab_bar_offset tab_bar_font tab_bar_icons tab_bar_style tab_bar_backdrop tab_bar_card_padding \
+    tab_bar_window_radius tab_bar_focused_color tab_bar_focused_text_color tab_bar_inactive_color \
+    tab_bar_inactive_text_color tab_bar_unfocused_color tab_bar_unfocused_text_color tab_bar_backdrop_color \
+    top_padding bottom_padding left_padding right_padding layout window_gap auto_padding tree_default_orientation \
+    tree_workspace_layout tree_autotiling focus_wrapping mouse_modifier mouse_action1 mouse_action2 mouse_drop_action \
+    external_bar skip_window_focus_animation space_layout scratchpad_exclusive scratchpad_raise scratchpad_below \
+    scratchpad_grid; do
+    run config "$option"
+done
+run config --space 4 layout
+run config --space 4 top_padding
+run config --space 4 window_gap
+run config --space 4 auto_padding
+run config --space 4 space_layout 15
+run config --space 99 layout
+run config --space bogus layout
+run config --space
+run config mouse_modifier focus_wrapping tab_bar_height
+run config mouse_modifier bogus_option tab_bar_height
+run config mouse_follows_focus maybe
+run config focus_follows_mouse sometimes
+run config display_arrangement_order diagonal
+run config window_animation_duration fast
+run config window_animation_easing ease_in_nothing
+run config window_shadow sometimes
+run config menubar_opacity 1.5
+run config active_window_opacity 0
+run config normal_window_opacity -0.5
+run config insert_feedback_color 0x0
+run config insert_feedback_color red
+run config window_border_width 0
+run config active_window_border_color 255
+run config tab_bar_height 0
+run config tab_bar_offset 2.5
+run config tab_bar_offset nan
+run config tab_bar_style round
+run config tab_bar_backdrop frosted
+run config tab_bar_card_padding -1
+run config tab_bar_window_radius 1.5
+run config tab_bar_font
+run config tab_bar_focused_color green
+run config top_padding 1.5
+run config window_gap -1
+run config layout bsp
+run config tree_default_orientation diagonal
+run config tree_workspace_layout stacked
+run config mouse_modifier none
+run config mouse_action1 swap
+run config mouse_drop_action move
+run config external_bar some:1:2
+run config external_bar toolong:1:2
+run config external_bar all:x
+run config space_layout 10::5
+run config space_layout 0
+run config space_layout 1b:2b
+run config space_layout 15 15
+run config space_layout 1 2 3 4 5 6 7 8 9
+run config space_layout bogus
+run config scratchpad_grid 0:4:1:1:2:2
+run config scratchpad_grid 4:4
+run config mouse_follows_focus off focus_follows_mouse off window_origin_display focused window_shadow off
+run config mouse_modifier alt mouse_action1 move mouse_action2 resize mouse_drop_action swap
+run config scratchpad_grid 40:40:1:1:38:38 scratchpad_grid
+run config tree_default_orientation auto tree_workspace_layout default focus_wrapping on tree_autotiling off
+run config tab_bar_height 24 tab_bar_offset 2 tab_bar_focused_color 0xff285577 tab_bar_focused_color
+run config space_layout 15 10:5 10:5:1b space_layout
+run config external_bar all:0:0 external_bar
+run config insert_feedback_color 0xffd75f5f window_opacity_duration 0.25 window_opacity_duration
+run query --spaces id,index,label,display,windows
+printf '$ (no -m arguments)\n'; out=$("$Y" -m 2>&1); printf '%s\n[exit %d]\n' "$out" "$?"
+printf '$ (USER unset)\n'; out=$(env -u USER "$Y" -m query --spaces 2>&1); printf '%s\n[exit %d]\n' "$out" "$?"

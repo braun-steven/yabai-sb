@@ -152,6 +152,9 @@ public enum TokenValue: Sendable
 public protocol TokenSource
 {
     mutating func next() -> Token
+
+    /// The next token, without moving the cursor.
+    func peek() -> Token
 }
 
 /// A client message, read token by token like `get_token` does.
@@ -195,6 +198,32 @@ public struct Message: TokenSource, Sendable
         var message = self
         return message.next()
     }
+}
+
+/// The domains of a message (`DOMAIN_*`, src/message_parse.c).
+public enum Domain
+{
+    public static let config  = "config"
+    public static let display = "display"
+    public static let space   = "space"
+    public static let window  = "window"
+    public static let query   = "query"
+    public static let rule    = "rule"
+    public static let signal  = "signal"
+}
+
+/// printf: the arguments formatted as the C version's fprintf did, e.g. `cFormat("%.4f", Double(value))`.
+public func cFormat(_ format: String, _ arguments: CVarArg...) -> String
+{
+    var buffer = [CChar](repeating: 0, count: 64)
+    let length = Int(withVaList(arguments) { vsnprintf(&buffer, buffer.count, format, $0) })
+
+    if length >= buffer.count {
+        buffer = [CChar](repeating: 0, count: length + 1)
+        _ = withVaList(arguments) { vsnprintf(&buffer, buffer.count, format, $0) }
+    }
+
+    return String(decoding: buffer[0..<max(length, 0)].map { UInt8(bitPattern: $0) }, as: UTF8.self)
 }
 
 /// The text of a response, built with string interpolation. A token is written as its bytes, a number as "%d" would.

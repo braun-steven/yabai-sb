@@ -148,7 +148,7 @@ def row_order():
 
 def run(label):
     print(f"== {label} ==")
-    pid = sh("pgrep -x yabai").stdout.strip()
+    pid = sh("pgrep -ox yabai").stdout.strip()
     y(f"space --focus {SPACE}"); time.sleep(0.5)
     ws = space_windows()
     if len(ws) < 6: record("setup", False, f"only {len(ws)} windows"); return
@@ -306,13 +306,13 @@ def run(label):
     y(f"space --focus {SPACE}"); time.sleep(0.5)
     check_layout("layout after native fullscreen")
 
-    alive = sh("pgrep -x yabai").stdout.strip()
+    alive = sh("pgrep -ox yabai").stdout.strip()
     record("daemon still running (same pid)", alive == pid, f"{pid} -> {alive}")
 
 def extra(label):
     # Checks for the scripting-addition, active-space and container-move changes.
     print(f"== {label} (extra) ==")
-    pid = sh("pgrep -x yabai").stdout.strip()
+    pid = sh("pgrep -ox yabai").stdout.strip()
     y(f"space --focus {SPACE}"); time.sleep(0.5)
     ws = space_windows()
     if len(ws) < 6: record("setup", False, f"only {len(ws)} windows"); return
@@ -408,7 +408,7 @@ def extra(label):
     flatten_row()
     check_layout("layout after the window came back")
 
-    alive = sh("pgrep -x yabai").stdout.strip()
+    alive = sh("pgrep -ox yabai").stdout.strip()
     record("daemon still running (same pid)", alive == pid, f"{pid} -> {alive}")
 
 LAUNCH_WATCH = 120.0

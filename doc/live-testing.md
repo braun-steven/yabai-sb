@@ -105,7 +105,8 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 - Expected noise in `/tmp/yabai_$USER.err.log` while a test build is installed:
   `sudo: a terminal is required…` (the sudoers rule for `--load-sa` is pinned to the hash of the binary
   that `update-yabai-fork` installed) and `yabairc: line 164: 0xff285577: command not found`.
-- `pgrep -x yabai` can briefly list two pids: the second is a `yabai -m` client from the yabairc.
+- `pgrep -x yabai` can list two pids for several seconds after a restart: the second is a `yabai -m` client from the
+  yabairc (e.g. `config layout tree` lays out every space again). `live.py` therefore checks the oldest, `pgrep -ox yabai`.
 
 ## Scripting addition
 

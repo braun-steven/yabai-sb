@@ -533,3 +533,30 @@ private func spaceEffects(_ sid: UInt64, _ follow: Bool) -> RuleEffects
     #expect(!combined.flags.contains(.opacity))
     #expect(combined.scratchpad == "notes")
 }
+
+@Test("message_client_encoding")
+func messageClientEncoding()
+{
+    let message = ClientMessage.encode(["window", "--focus", "", "east"].map { Array($0.utf8) })
+
+    let payloadLength = message.prefix(4).withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
+    #expect(message.count == 4 + Int(payloadLength))
+    #expect(payloadLength == 6 + 7 + 0 + 4 + 4 + 1)
+
+    var tokens = Message(Array(message.dropFirst(4)))
+    #expect(tokens.next().equals("window"))
+    #expect(tokens.next().equals("--focus"))
+
+    // NOTE: an empty argument looks like the end of the message, so the daemon stops reading there
+    #expect(!tokens.next().isValid)
+    #expect(!tokens.next().isValid)
+    #expect(message.suffix(6) == Array("east\0\0".utf8))
+}
+
+@Test func cFormatMatchesPrintf()
+{
+    #expect(cFormat("%f", 0.25) == "0.250000")
+    #expect(cFormat("%.4f", 1.0) == "1.0000")
+    #expect(cFormat("%d:%u", Int32(-7), UInt32(7)) == "-7:7")
+    #expect(cFormat("%100d", Int32(1)) == String(repeating: " ", count: 99) + "1")
+}

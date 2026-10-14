@@ -2,7 +2,7 @@
 // NOTE: The handlers of the display and space domains.
 //
 
-static void handle_domain_display(FILE *rsp, struct token domain, char *message)
+void handle_domain_display(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
 
@@ -274,7 +274,7 @@ static enum command_result space_command_layout(FILE *rsp, struct token domain, 
     return COMMAND_DONE;
 }
 
-static void handle_domain_space(FILE *rsp, struct token domain, char *message)
+void handle_domain_space(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
 

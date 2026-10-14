@@ -40,6 +40,12 @@ struct CMessage: TokenSource
     {
         Token(get_token(cursor))
     }
+
+    func peek() -> Token
+    {
+        var copy = cursor.pointee
+        return Token(get_token(&copy))
+    }
 }
 
 extension Response
@@ -49,6 +55,28 @@ extension Response
     {
         guard let rsp, !bytes.isEmpty else { return }
         _ = bytes.withUnsafeBufferPointer { fwrite($0.baseAddress, 1, $0.count, rsp) }
+    }
+
+    /// Appends what body writes into the FILE it is given: the response of a handler that is still C.
+    mutating func appendWritten(by body: (UnsafeMutablePointer<FILE>) -> Void)
+    {
+        let buffer = UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>.allocate(capacity: 1)
+        let size = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+        buffer.initialize(to: nil)
+        size.initialize(to: 0)
+        defer {
+            free(buffer.pointee)
+            buffer.deallocate()
+            size.deallocate()
+        }
+
+        guard let file = open_memstream(buffer, size) else { return }
+        body(file)
+        fclose(file)
+
+        if let written = buffer.pointee {
+            bytes += UnsafeRawBufferPointer(start: written, count: size.pointee)
+        }
     }
 }
 
@@ -549,4 +577,18 @@ func parse_signal(_ rsp: UnsafeMutablePointer<FILE>?, _ message: UnsafeMutablePo
     result.pointee.command = mallocString(parsed.command)
     result.pointee.label = mallocString(parsed.label)
     return didParse
+}
+
+/// The C entry point of ClientMessage.encode, for the golden replay of the C tests (tests/src/golden.c), which frees the
+/// message. argv[0] is the program, as in the C version.
+@_cdecl("client_encode_message")
+func client_encode_message(_ argc: Int32, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>, _ size: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<CChar>
+{
+    let arguments = (1..<Int(argc)).map { Array(UnsafeRawBufferPointer(start: argv[$0]!, count: strlen(argv[$0]!))) }
+    let message = ClientMessage.encode(arguments)
+
+    size.pointee = Int32(message.count)
+    let result = malloc(message.count)!
+    message.withUnsafeBytes { result.copyMemory(from: $0.baseAddress!, byteCount: $0.count) }
+    return result.bindMemory(to: CChar.self, capacity: message.count)
 }

@@ -16,7 +16,6 @@
 #include "workspace.m"
 #include "rule.c"
 #include "message_parse.c"
-#include "message_config.c"
 #include "message_space.c"
 #include "message_window.c"
 #include "message.c"

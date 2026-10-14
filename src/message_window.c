@@ -403,7 +403,7 @@ static enum command_result window_command_property(FILE *rsp, struct token domai
     return COMMAND_DONE;
 }
 
-static void handle_domain_window(FILE *rsp, struct token domain, char *message)
+void handle_domain_window(FILE *rsp, struct token domain, char *message)
 {
     TIME_FUNCTION;
 

@@ -8,14 +8,15 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `Package.swift`: the SwiftPM package that builds the binary; the makefile drives it.
 - `src/`: yabai implementation (C/Objective-C). Only `src/manifest.m` is compiled; see Architecture.
 - `src/include/`: `yabai_c.h`, every header of the unity build, which Swift imports as the module `YabaiC`.
-- `Sources/Yabai/`: the Swift code (`main.swift` calls `yabai_main` in `yabai.c`).
+- `Sources/Yabai/`: the Swift code (`main.swift` runs the client for `-m`, otherwise calls `yabai_main` in `yabai.c`).
+- `Sources/Yabai/IPC/`: the client (`Client.swift`), the socket of the daemon and the dispatch of a message to its domain (`MessageLoop.swift`), and the config domain (`MessageConfig.swift`).
 - `Sources/Yabai/Platform/`: Swift wrappers of the private SkyLight, AX and CoreDock calls, and `macho_find_symbol` (`MachO.swift`, called by C through `@_cdecl`).
 - `Sources/Yabai/Shims/`: the `@_cdecl` entry points through which the C code calls ported `YabaiCore` code (the C prototypes stay in the headers, with a pointer to the shim).
 - `Sources/YabaiCore/`: the Swift library of pure logic without window server access (geometry, labels, `space_layout` math, the JSON writer, the message tokens, value parsers, selectors and rule/signal parsing), unit-tested by `tests/YabaiCoreTests/`.
 - `Sources/CPrivate/`: the C module that declares the private framework functions (`include/CPrivate.h`, with nullability); the unity build includes it through `yabai_c.h`, and Swift imports it as `CPrivate`.
 - `src/misc/`: shared helpers (macros, logging, timers, etc.).
 - `src/osax/`: scripting-addition payload/loader sources used for elevated features.
-- `tests/`: small C test harness (no external framework), the golden IPC capture (`tests/YabaiCoreTests/Golden/`) and the Swift tests (`tests/YabaiCoreTests/`, not `Tests/`: the file system is case-insensitive).
+- `tests/`: small C test harness (no external framework), the golden IPC capture (`tests/YabaiCoreTests/Golden/`) and the Swift tests (`tests/YabaiCoreTests/` for `YabaiCore`, `tests/YabaiTests/` for the code of `Sources/Yabai` through `@testable import Yabai`; not `Tests/`: the file system is case-insensitive).
 - `doc/`: Asciidoc source and generated manpage, plus `payload-updates.md` and `live-testing.md`.
 - `examples/`: sample config files (e.g. `examples/yabairc`).
 - `assets/`: icons, banner, plist.
@@ -56,8 +57,8 @@ There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`w
 
 **Single-threaded event loop.** `event_loop.c` runs one worker thread that drains a queue of `struct event` items. Event types are an X-macro list (`EVENT_TYPE_LIST` in `event_loop.h`), and handlers are written as `static EVENT_HANDLER(NAME)` in `event_handlers.c` (applications) and `event_handlers_{window,space,mouse,system}.c`. Producers on other threads only post events: AX observers, SkyLight connection callbacks, the NSWorkspace notifications in `workspace.m`, the mouse event tap in `mouse_handler.c`, and the IPC thread. State changes should happen inside handlers, not in callbacks. To add an event, add an entry to the list and write its handler.
 
-**IPC / CLI.** The same binary is both the daemon and the client. `yabai -m ...` sends its arguments over the Unix socket `/tmp/yabai_$USER.socket`. In the daemon, the message thread in `message.c` accepts the connection and posts a `DAEMON_MESSAGE` event. The command is then parsed on the event loop by `handle_domain_{config,display,space,window,query,rule,signal}`: `handle_domain_config` is in `message_config.c`, `handle_domain_{display,space}` in `message_space.c`, `handle_domain_window` in `message_window.c`, the others in `message.c`. All of them read tokens with `get_token` and fail with `daemon_fail` (`message_parse.c`); the value parsers, selectors, labels, properties and rule/signal parsing are Swift (`Sources/YabaiCore/Message*.swift`, `Rule.swift`), called through the shims in `Sources/Yabai/Shims/MessageShims.swift` with the C signatures of `src/message_parse.h`. The response is written to a `FILE *rsp` backed by the socket. A new command needs:
-- its command and argument strings in `message_parse.c`, and its parsing in the handler of its domain
+**IPC / CLI.** The same binary is both the daemon and the client. `yabai -m ...` (`Sources/Yabai/IPC/Client.swift`, run by `main.swift`) sends its arguments over the Unix socket `/tmp/yabai_$USER.socket`. In the daemon, the message thread in `Sources/Yabai/IPC/MessageLoop.swift` accepts the connection and posts a `DAEMON_MESSAGE` event. On the event loop, `daemon_message_handle` reads the message, `handleMessage` dispatches it by domain, and the response is sent when the handler returns. The config domain is Swift (`Sources/Yabai/IPC/MessageConfig.swift`, writing into a `Response`); `handle_domain_{display,space}` are in `message_space.c`, `handle_domain_window` in `message_window.c`, the others in `message.c`, and they write into a `FILE *rsp` that `Response.appendWritten` captures. The C handlers read tokens with `get_token` and fail with `daemon_fail` (`message_parse.c`); the value parsers, selectors, labels, properties and rule/signal parsing are Swift (`Sources/YabaiCore/Message*.swift`, `Rule.swift`), called through the shims in `Sources/Yabai/Shims/MessageShims.swift` with the C signatures of `src/message_parse.h`. A new command needs:
+- its command and argument strings in `message_parse.c` (for the config domain, in `enum Config` of `MessageConfig.swift`), and its parsing in the handler of its domain
 - documentation in `doc/yabai.asciidoc` (then `make man`)
 - usually a `CHANGELOG.md` entry under `[Unreleased]`, with an issue link
 

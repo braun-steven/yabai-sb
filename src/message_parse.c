@@ -1,7 +1,8 @@
 //
 // NOTE: The protocol of the messages of the client: the domains, commands and arguments, the tokens a
-// message is made of, and the failure responses. The handlers of the domains are in message_config.c and
-// message.c. The values, labels, properties and selectors are parsed by the Swift port (src/message_parse.h).
+// message is made of, and the failure responses. The handlers of the domains are in message_space.c,
+// message_window.c and message.c; the config domain is Swift (Sources/Yabai/IPC/MessageConfig.swift). The
+// values, labels, properties and selectors are parsed by the Swift port (src/message_parse.h).
 //
 
 extern struct event_loop g_event_loop;
@@ -11,106 +12,13 @@ extern struct window_manager g_window_manager;
 extern struct mouse_state g_mouse_state;
 extern bool g_verbose;
 
-#define DOMAIN_CONFIG  "config"
-#define DOMAIN_DISPLAY "display"
+//
+// NOTE: The domains are dispatched by handleMessage (Sources/Yabai/IPC/MessageLoop.swift); the tests of the space and
+// window handlers still name theirs.
+//
+
 #define DOMAIN_SPACE   "space"
 #define DOMAIN_WINDOW  "window"
-#define DOMAIN_QUERY   "query"
-#define DOMAIN_RULE    "rule"
-#define DOMAIN_SIGNAL  "signal"
-
-/* --------------------------------DOMAIN CONFIG-------------------------------- */
-#define COMMAND_CONFIG_DEBUG_OUTPUT          "debug_output"
-#define COMMAND_CONFIG_MFF                   "mouse_follows_focus"
-#define COMMAND_CONFIG_FFM                   "focus_follows_mouse"
-#define COMMAND_CONFIG_DISPLAY_ORDER         "display_arrangement_order"
-#define COMMAND_CONFIG_BUILTIN_LAST          "builtin_display_last"
-#define COMMAND_CONFIG_WINDOW_ORIGIN         "window_origin_display"
-#define COMMAND_CONFIG_OPACITY               "window_opacity"
-#define COMMAND_CONFIG_OPACITY_DURATION      "window_opacity_duration"
-#define COMMAND_CONFIG_ANIMATION_DURATION    "window_animation_duration"
-#define COMMAND_CONFIG_ANIMATION_EASING      "window_animation_easing"
-#define COMMAND_CONFIG_SHADOW                "window_shadow"
-#define COMMAND_CONFIG_MENUBAR_OPACITY       "menubar_opacity"
-#define COMMAND_CONFIG_ACTIVE_WINDOW_OPACITY "active_window_opacity"
-#define COMMAND_CONFIG_NORMAL_WINDOW_OPACITY "normal_window_opacity"
-#define COMMAND_CONFIG_INSERT_FEEDBACK_COLOR "insert_feedback_color"
-#define COMMAND_CONFIG_BORDER                "window_border"
-#define COMMAND_CONFIG_BORDER_WIDTH          "window_border_width"
-#define COMMAND_CONFIG_BORDER_HIDE_SINGLE    "window_border_hide_single"
-#define COMMAND_CONFIG_ACTIVE_BORDER_COLOR   "active_window_border_color"
-#define COMMAND_CONFIG_NORMAL_BORDER_COLOR   "normal_window_border_color"
-#define COMMAND_CONFIG_TAB_BAR               "tab_bar"
-#define COMMAND_CONFIG_TAB_BAR_HEIGHT        "tab_bar_height"
-#define COMMAND_CONFIG_TAB_BAR_OFFSET        "tab_bar_offset"
-#define COMMAND_CONFIG_TAB_BAR_FONT          "tab_bar_font"
-#define COMMAND_CONFIG_TAB_BAR_ICONS         "tab_bar_icons"
-#define COMMAND_CONFIG_TAB_BAR_STYLE         "tab_bar_style"
-#define COMMAND_CONFIG_TAB_BAR_BACKDROP      "tab_bar_backdrop"
-#define COMMAND_CONFIG_TAB_BAR_CARD_PADDING  "tab_bar_card_padding"
-#define COMMAND_CONFIG_TAB_BAR_WINDOW_RADIUS "tab_bar_window_radius"
-#define COMMAND_CONFIG_TAB_BAR_FOCUSED_COLOR          "tab_bar_focused_color"
-#define COMMAND_CONFIG_TAB_BAR_FOCUSED_TEXT_COLOR     "tab_bar_focused_text_color"
-#define COMMAND_CONFIG_TAB_BAR_INACTIVE_COLOR         "tab_bar_inactive_color"
-#define COMMAND_CONFIG_TAB_BAR_INACTIVE_TEXT_COLOR    "tab_bar_inactive_text_color"
-#define COMMAND_CONFIG_TAB_BAR_UNFOCUSED_COLOR        "tab_bar_unfocused_color"
-#define COMMAND_CONFIG_TAB_BAR_UNFOCUSED_TEXT_COLOR   "tab_bar_unfocused_text_color"
-#define COMMAND_CONFIG_TAB_BAR_BACKDROP_COLOR         "tab_bar_backdrop_color"
-#define COMMAND_CONFIG_TOP_PADDING           "top_padding"
-#define COMMAND_CONFIG_BOTTOM_PADDING        "bottom_padding"
-#define COMMAND_CONFIG_LEFT_PADDING          "left_padding"
-#define COMMAND_CONFIG_RIGHT_PADDING         "right_padding"
-#define COMMAND_CONFIG_LAYOUT                "layout"
-#define COMMAND_CONFIG_WINDOW_GAP            "window_gap"
-#define COMMAND_CONFIG_AUTO_PADDING          "auto_padding"
-#define COMMAND_CONFIG_TREE_ORIENTATION      "tree_default_orientation"
-#define COMMAND_CONFIG_TREE_WORKSPACE_LAYOUT "tree_workspace_layout"
-#define COMMAND_CONFIG_TREE_AUTOTILING       "tree_autotiling"
-#define COMMAND_CONFIG_FOCUS_WRAPPING        "focus_wrapping"
-#define COMMAND_CONFIG_MOUSE_MOD             "mouse_modifier"
-#define COMMAND_CONFIG_MOUSE_ACTION1         "mouse_action1"
-#define COMMAND_CONFIG_MOUSE_ACTION2         "mouse_action2"
-#define COMMAND_CONFIG_MOUSE_DROP_ACTION     "mouse_drop_action"
-#define COMMAND_CONFIG_EXTERNAL_BAR          "external_bar"
-#define COMMAND_CONFIG_SKIP_SPACE_ANIMATION  "skip_window_focus_animation"
-#define COMMAND_CONFIG_SPACE_LAYOUT          "space_layout"
-#define COMMAND_CONFIG_SCRATCHPAD_EXCLUSIVE  "scratchpad_exclusive"
-#define COMMAND_CONFIG_SCRATCHPAD_RAISE      "scratchpad_raise"
-#define COMMAND_CONFIG_SCRATCHPAD_BELOW      "scratchpad_below"
-#define COMMAND_CONFIG_SCRATCHPAD_GRID       "scratchpad_grid"
-
-#define SELECTOR_CONFIG_SPACE                "--space"
-
-#define ARGUMENT_CONFIG_FFM_AUTOFOCUS         "autofocus"
-#define ARGUMENT_CONFIG_FFM_AUTORAISE         "autoraise"
-#define ARGUMENT_CONFIG_DISPLAY_ORDER_DEFAULT "default"
-#define ARGUMENT_CONFIG_DISPLAY_ORDER_X       "horizontal"
-#define ARGUMENT_CONFIG_DISPLAY_ORDER_Y       "vertical"
-#define ARGUMENT_CONFIG_WINDOW_ORIGIN_DEFAULT "default"
-#define ARGUMENT_CONFIG_WINDOW_ORIGIN_FOCUSED "focused"
-#define ARGUMENT_CONFIG_WINDOW_ORIGIN_CURSOR  "cursor"
-#define ARGUMENT_CONFIG_SHADOW_FLT            "float"
-#define ARGUMENT_CONFIG_LAYOUT_FLOAT          "float"
-#define ARGUMENT_CONFIG_LAYOUT_TREE           "tree"
-#define ARGUMENT_CONFIG_TREE_DEFAULT          "default"
-#define ARGUMENT_CONFIG_TREE_TABBED           "tabbed"
-#define ARGUMENT_CONFIG_FOCUS_WRAPPING_FORCE  "force"
-#define ARGUMENT_CONFIG_TREE_VERTICAL         "vertical"
-#define ARGUMENT_CONFIG_TREE_HORIZONTAL       "horizontal"
-#define ARGUMENT_CONFIG_TREE_AUTO             "auto"
-#define ARGUMENT_CONFIG_MOUSE_MOD_ALT         "alt"
-#define ARGUMENT_CONFIG_MOUSE_MOD_SHIFT       "shift"
-#define ARGUMENT_CONFIG_MOUSE_MOD_CMD         "cmd"
-#define ARGUMENT_CONFIG_MOUSE_MOD_CTRL        "ctrl"
-#define ARGUMENT_CONFIG_MOUSE_MOD_FN          "fn"
-#define ARGUMENT_CONFIG_MOUSE_ACTION_MOVE     "move"
-#define ARGUMENT_CONFIG_MOUSE_ACTION_RESIZE   "resize"
-#define ARGUMENT_CONFIG_MOUSE_ACTION_SWAP     "swap"
-#define ARGUMENT_CONFIG_MOUSE_ACTION_STACK    "stack"
-#define ARGUMENT_CONFIG_EXTERNAL_BAR_MAIN     "main"
-#define ARGUMENT_CONFIG_EXTERNAL_BAR_ALL      "all"
-#define ARGUMENT_CONFIG_EXTERNAL_BAR          "%5[^:]:%d:%d"
-/* ----------------------------------------------------------------------------- */
 
 /* --------------------------------DOMAIN DISPLAY------------------------------- */
 #define COMMAND_DISPLAY_FOCUS "--focus"

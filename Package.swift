@@ -66,6 +66,12 @@ let package = Package(
             dependencies: ["YabaiCore"],
             path: "tests/YabaiCoreTests",
             resources: [.copy("Golden")]
+        ),
+        // the code of the daemon that needs the C managers (the IPC handlers), through @testable import Yabai
+        .testTarget(
+            name: "YabaiTests",
+            dependencies: ["Yabai", "YabaiC", "YabaiCore"],
+            path: "tests/YabaiTests"
         )
     ],
     swiftLanguageModes: [.v6],

@@ -920,17 +920,18 @@ static EVENT_HANDLER(SLS_SPACE_DESTROYED)
     }
 }
 
-static EVENT_HANDLER(SPACE_CHANGED)
-{
-    g_space_manager.last_space_id = g_space_manager.current_space_id;
-    g_space_manager.current_space_id = space_manager_active_space();
+//
+// NOTE: Brings the menu bar, the windows of the applications and the layout of the current space up to
+// date after the active space or display changed.
+//
 
+static void refresh_current_space(void)
+{
     if (g_window_manager.menubar_opacity != 1.0f) {
         float alpha = space_is_fullscreen(g_space_manager.current_space_id) ? 1.0f : g_window_manager.menubar_opacity;
         SLSSetMenuBarInsetAndAlpha(g_connection, 0, 1, alpha);
     }
 
-    debug("%s: %lld\n", __FUNCTION__, g_space_manager.current_space_id);
     struct view *view = space_manager_find_view(&g_space_manager, g_space_manager.current_space_id);
 
     if (space_manager_refresh_application_windows(&g_space_manager)) {
@@ -952,6 +953,15 @@ static EVENT_HANDLER(SPACE_CHANGED)
             view_flush(view);
         }
     }
+}
+
+static EVENT_HANDLER(SPACE_CHANGED)
+{
+    g_space_manager.last_space_id = g_space_manager.current_space_id;
+    g_space_manager.current_space_id = space_manager_active_space();
+
+    debug("%s: %lld\n", __FUNCTION__, g_space_manager.current_space_id);
+    refresh_current_space();
 
     event_signal_push(SIGNAL_SPACE_CHANGED, NULL);
 }
@@ -976,33 +986,8 @@ static EVENT_HANDLER(DISPLAY_CHANGED)
         return;
     }
 
-    if (g_window_manager.menubar_opacity != 1.0f) {
-        float alpha = space_is_fullscreen(g_space_manager.current_space_id) ? 1.0f : g_window_manager.menubar_opacity;
-        SLSSetMenuBarInsetAndAlpha(g_connection, 0, 1, alpha);
-    }
-
     debug("%s: %d %lld\n", __FUNCTION__, g_display_manager.current_display_id, g_space_manager.current_space_id);
-    struct view *view = space_manager_find_view(&g_space_manager, g_space_manager.current_space_id);
-
-    if (space_manager_refresh_application_windows(&g_space_manager)) {
-        struct window *focused_window = window_manager_focused_window(&g_window_manager);
-        if (focused_window && window_manager_find_lost_focused_event(&g_window_manager, focused_window->id)) {
-            window_did_receive_focus(&g_window_manager, &g_mouse_state, focused_window);
-            window_manager_remove_lost_focused_event(&g_window_manager, focused_window->id);
-        }
-    }
-
-    if (!mission_control_is_active() && space_is_user(g_space_manager.current_space_id)) {
-        window_manager_validate_and_check_for_windows_on_space(&g_space_manager, &g_window_manager, g_space_manager.current_space_id);
-
-        if (view_is_invalid(view)) {
-            view_update(view);
-        }
-
-        if (view_is_dirty(view)) {
-            view_flush(view);
-        }
-    }
+    refresh_current_space();
 
     event_signal_push(SIGNAL_DISPLAY_CHANGED, NULL);
 }

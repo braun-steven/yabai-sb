@@ -76,11 +76,11 @@ final class WorkspaceContext: NSObject, Sendable
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?)
     {
         if keyPath == KeyPath.activationPolicy {
-            let process = context!.assumingMemoryBound(to: YabaiC.process.self)
+            let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
             if process_is_terminated_acquire(process) { return }
 
             let result = (change?[.newKey] as? NSNumber)?.int32Value ?? 0
-            if result != process.pointee.policy {
+            if result != process.policy {
                 //
                 // :WorstApiEverMade
                 //
@@ -92,14 +92,14 @@ final class WorkspaceContext: NSObject, Sendable
 
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.activationPolicy, context)
 
-                process.pointee.policy = result
+                process.policy = result
                 debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(describe(process))\n")
                 EventLoop.post(.applicationLaunched(Handoff(value: process)))
             }
         }
 
         if keyPath == KeyPath.finishedLaunching {
-            let process = context!.assumingMemoryBound(to: YabaiC.process.self)
+            let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
             if process_is_terminated_acquire(process) { return }
 
             let result = (change?[.newKey] as? NSNumber)?.int32Value ?? 0
@@ -168,7 +168,6 @@ final class WorkspaceContext: NSObject, Sendable
 private let workspaceContext = WorkspaceContext()
 
 /// `workspace_event_handler_begin`: called by yabai_main on the main thread, before the event loop starts.
-@_cdecl("workspace_event_handler_begin")
 func workspace_event_handler_begin() -> Bool
 {
     _ = workspaceContext
@@ -178,15 +177,22 @@ func workspace_event_handler_begin() -> Bool
 //
 // NOTE: process->ns_application holds the NSRunningApplication at +1 (passRetained), from
 // workspace_application_create_running_ns_application until workspace_application_destroy_running_ns_application.
+// The context of the key-value observations is the process, unretained: its observations are removed when the process
+// terminates (workspace_application_unobserve), before the handler of APPLICATION_TERMINATED releases it.
 //
 
-/// `workspace_application_create_running_ns_application`: the retained NSRunningApplication of the process, or nil.
-func workspace_application_create_running_ns_application(_ process: UnsafeMutablePointer<process>) -> UnsafeMutableRawPointer?
+private func observationContext(_ process: Process) -> UnsafeMutableRawPointer
 {
-    return NSRunningApplication(processIdentifier: process.pointee.pid).map { Unmanaged.passRetained($0).toOpaque() }
+    return Unmanaged.passUnretained(process).toOpaque()
 }
 
-private func runningApplication(_ process: UnsafeMutablePointer<process>) -> NSRunningApplication?
+/// `workspace_application_create_running_ns_application`: the retained NSRunningApplication of the process, or nil.
+func workspace_application_create_running_ns_application(_ process: Process) -> UnsafeMutableRawPointer?
+{
+    return NSRunningApplication(processIdentifier: process.pid).map { Unmanaged.passRetained($0).toOpaque() }
+}
+
+private func runningApplication(_ process: Process) -> NSRunningApplication?
 {
     return process_ns_application(process).map { Unmanaged<NSRunningApplication>.fromOpaque($0).takeUnretainedValue() }
 }
@@ -196,13 +202,13 @@ private func runningApplication(_ process: UnsafeMutablePointer<process>) -> NSR
 // registered observations, so failures are ignored.
 //
 
-private func workspaceApplicationRemoveObserver(_ application: NSRunningApplication, _ process: UnsafeMutablePointer<process>, _ keyPath: String)
+private func workspaceApplicationRemoveObserver(_ application: NSRunningApplication, _ process: Process, _ keyPath: String)
 {
-    NSObjectRemoveObserverC(application, workspaceContext, keyPath, UnsafeMutableRawPointer(process))
+    NSObjectRemoveObserverC(application, workspaceContext, keyPath, observationContext(process))
 }
 
 /// `workspace_application_destroy_running_ns_application`
-func workspace_application_destroy_running_ns_application(_ process: UnsafeMutablePointer<process>)
+func workspace_application_destroy_running_ns_application(_ process: Process)
 {
     guard let pointer = process_ns_application(process) else { return }
     let application = Unmanaged<NSRunningApplication>.fromOpaque(pointer)
@@ -232,28 +238,28 @@ func workspace_application_destroy_running_ns_application(_ process: UnsafeMutab
     application.release()
 }
 
-private func workspaceApplicationAddObserver(_ process: UnsafeMutablePointer<process>, _ keyPath: String)
+private func workspaceApplicationAddObserver(_ process: Process, _ keyPath: String)
 {
     if let application = runningApplication(process) {
-        application.addObserver(workspaceContext, forKeyPath: keyPath, options: [.initial, .new], context: UnsafeMutableRawPointer(process))
+        application.addObserver(workspaceContext, forKeyPath: keyPath, options: [.initial, .new], context: observationContext(process))
     } else {
         debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(describe(process))\n")
     }
 }
 
 /// `workspace_application_observe_finished_launching`
-func workspace_application_observe_finished_launching(_ process: UnsafeMutablePointer<process>)
+func workspace_application_observe_finished_launching(_ process: Process)
 {
     workspaceApplicationAddObserver(process, KeyPath.finishedLaunching)
 }
 
 /// `workspace_application_observe_activation_policy`: window_manager_begin calls it for a process that is not observable.
-func workspace_application_observe_activation_policy(_ process: UnsafeMutablePointer<process>)
+func workspace_application_observe_activation_policy(_ process: Process)
 {
     workspaceApplicationAddObserver(process, KeyPath.activationPolicy)
 }
 
-private func workspaceApplicationRemoveObserverIfObserved(_ process: UnsafeMutablePointer<process>, _ keyPath: String)
+private func workspaceApplicationRemoveObserverIfObserved(_ process: Process, _ keyPath: String)
 {
     if let application = runningApplication(process), application.observationInfo != nil {
         workspaceApplicationRemoveObserver(application, process, keyPath)
@@ -261,19 +267,19 @@ private func workspaceApplicationRemoveObserverIfObserved(_ process: UnsafeMutab
 }
 
 /// `workspace_application_unobserve_finished_launching`
-func workspace_application_unobserve_finished_launching(_ process: UnsafeMutablePointer<process>)
+func workspace_application_unobserve_finished_launching(_ process: Process)
 {
     workspaceApplicationRemoveObserverIfObserved(process, KeyPath.finishedLaunching)
 }
 
 /// `workspace_application_unobserve_activation_policy`
-func workspace_application_unobserve_activation_policy(_ process: UnsafeMutablePointer<process>)
+func workspace_application_unobserve_activation_policy(_ process: Process)
 {
     workspaceApplicationRemoveObserverIfObserved(process, KeyPath.activationPolicy)
 }
 
 /// `workspace_application_unobserve`: called by the process handler when the process terminates.
-func workspace_application_unobserve(_ process: UnsafeMutablePointer<process>)
+func workspace_application_unobserve(_ process: Process)
 {
     if let application = runningApplication(process) {
         workspaceApplicationRemoveObserver(application, process, KeyPath.activationPolicy)
@@ -282,19 +288,19 @@ func workspace_application_unobserve(_ process: UnsafeMutablePointer<process>)
 }
 
 /// `workspace_application_is_observable`: whether the process is a regular application; stores its policy.
-func workspace_application_is_observable(_ process: UnsafeMutablePointer<process>) -> Bool
+func workspace_application_is_observable(_ process: Process) -> Bool
 {
     if let application = runningApplication(process) {
-        process.pointee.policy = Int32(application.activationPolicy.rawValue)
-        return process.pointee.policy == Int32(NSApplication.ActivationPolicy.regular.rawValue)
+        process.policy = Int32(application.activationPolicy.rawValue)
+        return process.policy == Int32(NSApplication.ActivationPolicy.regular.rawValue)
     } else {
-        process.pointee.policy = Int32(NSApplication.ActivationPolicy.prohibited.rawValue)
+        process.policy = Int32(NSApplication.ActivationPolicy.prohibited.rawValue)
         return false
     }
 }
 
 /// `workspace_application_is_finished_launching`
-func workspace_application_is_finished_launching(_ process: UnsafeMutablePointer<process>) -> Bool
+func workspace_application_is_finished_launching(_ process: Process) -> Bool
 {
     return runningApplication(process)?.isFinishedLaunching ?? false
 }

@@ -17,8 +17,7 @@ typealias View = UnsafeMutablePointer<view>
 typealias Application = UnsafeMutablePointer<application>
 
 //
-// NOTE: Set by producers on other threads and read by the handlers. The C code that sets or reads them goes through the
-// @_cdecl functions below until it is Swift.
+// NOTE: Set by producers on other threads and read by the handlers.
 //
 
 /// `__pending_window_focus`
@@ -39,37 +38,31 @@ let pendingMouseMoved = Atomic<UInt32>(0)
 /// `__pending_mouse_dragged`
 let pendingMouseDragged = Atomic<UInt32>(0)
 
-@_cdecl("pending_window_focus_set")
 func pending_window_focus_set(_ value: Bool)
 {
     pendingWindowFocus.store(value, ordering: .releasing)
 }
 
-@_cdecl("pending_window_focus")
 func pending_window_focus() -> Bool
 {
     pendingWindowFocus.load(ordering: .acquiring)
 }
 
-@_cdecl("pending_gesture_set")
 func pending_gesture_set(_ value: Bool)
 {
     pendingGesture.store(value, ordering: .releasing)
 }
 
-@_cdecl("last_gesture_time_set")
 func last_gesture_time_set(_ time: UInt64)
 {
     lastGestureTime.store(time, ordering: .releasing)
 }
 
-@_cdecl("pending_mouse_dragged_add")
 func pending_mouse_dragged_add()
 {
     _ = pendingMouseDragged.wrappingAdd(1, ordering: .acquiringAndReleasing)
 }
 
-@_cdecl("pending_mouse_moved_add")
 func pending_mouse_moved_add()
 {
     _ = pendingMouseMoved.wrappingAdd(1, ordering: .acquiringAndReleasing)
@@ -92,29 +85,12 @@ func cName(_ string: UnsafeMutablePointer<CChar>?) -> String
 }
 
 /// The name and pid of a process, as the debug output prints them (`%s (%d)`).
-func describe(_ process: UnsafeMutablePointer<process>) -> String
+func describe(_ process: Process) -> String
 {
-    "\(cName(process.pointee.name)) (\(process.pointee.pid))"
-}
-
-/// `table_for`: the values of a C hash table (src/misc/hashtable.h), in the order of its buckets.
-func tableValues<T>(_ hashTable: table, as type: T.Type) -> [UnsafeMutablePointer<T>]
-{
-    var result: [UnsafeMutablePointer<T>] = []
-
-    for i in 0..<Int(hashTable.capacity) {
-        var entry = hashTable.buckets[i]
-        while let current = entry {
-            if let value = current.pointee.value { result.append(value.assumingMemoryBound(to: T.self)) }
-            entry = current.pointee.next
-        }
-    }
-
-    return result
+    "\(cName(process.name)) (\(process.pid))"
 }
 
 /// `update_window_notifications`. yabai_main calls it before the event loop runs, so it is not @WM.
-@_cdecl("update_window_notifications")
 func update_window_notifications()
 {
     let wm = window_manager_global()
@@ -251,19 +227,19 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     attempt < applicationLaunchMaxAttempts
 }
 
-@WM private func applicationLaunchRetry(_ process: UnsafeMutablePointer<process>)
+@WM private func applicationLaunchRetry(_ process: Process)
 {
-    if !applicationLaunchCanRetry(process.pointee.launch_attempts) {
-        process.pointee.launch_given_up = true
-        debug("application_launch_retry: giving up on \(describe(process)) after \(process.pointee.launch_attempts) attempts\n")
+    if !applicationLaunchCanRetry(process.launch_attempts) {
+        process.launch_given_up = true
+        debug("application_launch_retry: giving up on \(describe(process)) after \(process.launch_attempts) attempts\n")
         return
     }
 
-    let delay = applicationLaunchRetryDelay(process.pointee.launch_attempts)
-    process.pointee.launch_attempts += 1
-    debug("application_launch_retry: retrying \(describe(process)) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.pointee.launch_attempts))\n")
+    let delay = applicationLaunchRetryDelay(process.launch_attempts)
+    process.launch_attempts += 1
+    debug("application_launch_retry: retrying \(describe(process)) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launch_attempts))\n")
 
-    let psn = process.pointee.psn
+    let psn = process.psn
     DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(delay * Float(NSEC_PER_SEC)))) {
         var psn = psn
         if let process = process_manager_find_process(process_manager_global(), &psn) {
@@ -273,13 +249,13 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 }
 
 /// `EVENT_HANDLER(APPLICATION_LAUNCHED)`
-@WM func applicationLaunched(_ process: UnsafeMutablePointer<process>)
+@WM func applicationLaunched(_ process: Process)
 {
     let wm = window_manager_global()
 
     if process_is_terminated(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) terminated during launch\n")
-        window_manager_remove_lost_front_switched_event(wm, process.pointee.pid)
+        window_manager_remove_lost_front_switched_event(wm, process.pid)
         return
     }
 
@@ -325,7 +301,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     // simply ignore the event..
     //
 
-    if window_manager_find_application(wm, process.pointee.pid) != nil { return }
+    if window_manager_find_application(wm, process.pid) != nil { return }
     let application = application_create(process)
 
     if !application_observe(application) {
@@ -339,16 +315,16 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         return
     }
 
-    if window_manager_find_lost_front_switched_event(wm, process.pointee.pid) {
+    if window_manager_find_lost_front_switched_event(wm, process.pid) {
         EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
-        window_manager_remove_lost_front_switched_event(wm, process.pointee.pid)
+        window_manager_remove_lost_front_switched_event(wm, process.pid)
     }
 
     debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process))\n")
     window_manager_add_application(wm, application)
     eventSignalPush(.applicationLaunched, UnsafeMutableRawPointer(application))
-    process.pointee.launch_attempts = 0
-    process.pointee.launch_given_up = false
+    process.launch_attempts = 0
+    process.launch_given_up = false
 
     let windows = window_manager_add_application_windows(space_manager_global(), wm, application)
     tileWindowsBatched(windows, wm.focused_window_id, true)
@@ -361,14 +337,14 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 }
 
 /// `EVENT_HANDLER(APPLICATION_TERMINATED)`
-@WM func applicationTerminated(_ process: UnsafeMutablePointer<process>)
+@WM func applicationTerminated(_ process: Process)
 {
     defer { process_destroy(process) }
 
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    guard let application = window_manager_find_application(wm, process.pointee.pid) else {
+    guard let application = window_manager_find_application(wm, process.pid) else {
         debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process)) (not observed)\n")
         return
     }
@@ -420,7 +396,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 // (e.g. by cmd-tab) brings that space to front without the space switch animation.
 //
 
-@WM private func applicationFrontSwitchedFocusSpace(_ application: Application, _ process: UnsafeMutablePointer<process>)
+@WM private func applicationFrontSwitchedFocusSpace(_ application: Application, _ process: Process)
 {
     let psnSid = process_manager_active_space_for_psn(application.pointee.connection)
 
@@ -432,7 +408,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
         if psnSid != 0 && !space_is_visible(psnSid) {
-            SLSSpaceSetFrontPSN(connection_global(), psnSid, process.pointee.psn)
+            SLSSpaceSetFrontPSN(connection_global(), psnSid, process.psn)
             space_manager_focus_space_using_gesture(space_display_id(psnSid), psnSid)
         }
     }
@@ -473,18 +449,18 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 }
 
 /// `EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)`
-@WM func applicationFrontSwitched(_ process: UnsafeMutablePointer<process>)
+@WM func applicationFrontSwitched(_ process: Process)
 {
     let wm = window_manager_global()
     let pm = process_manager_global()
 
-    guard let application = window_manager_find_application(wm, process.pointee.pid) else {
-        window_manager_add_lost_front_switched_event(wm, process.pointee.pid)
+    guard let application = window_manager_find_application(wm, process.pid) else {
+        window_manager_add_lost_front_switched_event(wm, process.pid)
 
-        if process.pointee.launch_given_up {
+        if process.launch_given_up {
             debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process)) was activated, trying to observe it again\n")
-            process.pointee.launch_attempts = 0
-            process.pointee.launch_given_up = false
+            process.launch_attempts = 0
+            process.launch_given_up = false
             EventLoop.post(.applicationLaunched(Handoff(value: process)))
         }
 
@@ -503,7 +479,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     eventSignalPush(.applicationActivated, UnsafeMutableRawPointer(application))
     pm.switch_event_time = GetCurrentEventTime()
     pm.last_front_pid = pm.front_pid
-    pm.front_pid = process.pointee.pid
+    pm.front_pid = process.pid
     eventSignalPush(.applicationFrontSwitched, nil)
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)

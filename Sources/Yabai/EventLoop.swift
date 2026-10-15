@@ -58,9 +58,9 @@ struct Handoff<Value>: @unchecked Sendable
 /// `enum event_type` (src/event_loop.h), with the context and param1 of each event as associated values.
 enum Event: Sendable
 {
-    case applicationLaunched(Handoff<UnsafeMutablePointer<process>>)
-    case applicationTerminated(Handoff<UnsafeMutablePointer<process>>)
-    case applicationFrontSwitched(Handoff<UnsafeMutablePointer<process>>)
+    case applicationLaunched(Handoff<Process>)
+    case applicationTerminated(Handoff<Process>)
+    case applicationFrontSwitched(Handoff<Process>)
     case applicationVisible(pid: pid_t)
     case applicationHidden(pid: pid_t)
     case windowCreated(Handoff<Unmanaged<AXUIElement>>)
@@ -116,85 +116,6 @@ enum EventLoop
             }
         }
     }
-}
-
-//
-// NOTE: The C producers pass an id as the context pointer ((void *)(intptr_t) wid) and the handlers convert it back
-// the same way, so these conversions only have to round-trip.
-//
-
-private func id32(_ context: UnsafeMutableRawPointer?) -> UInt32
-{
-    UInt32(truncatingIfNeeded: Int(bitPattern: context))
-}
-
-private func id64(_ context: UnsafeMutableRawPointer?) -> UInt64
-{
-    UInt64(UInt(bitPattern: context))
-}
-
-private func handoff<T>(_ context: UnsafeMutableRawPointer?, _ type: T.Type) -> Handoff<UnsafeMutablePointer<T>>
-{
-    Handoff(value: context!.assumingMemoryBound(to: T.self))
-}
-
-private func handoff<T: AnyObject>(_ context: UnsafeMutableRawPointer?, _ type: T.Type) -> Handoff<Unmanaged<T>>
-{
-    Handoff(value: Unmanaged<T>.fromOpaque(context!))
-}
-
-/// The C entry point of `EventLoop.post`: maps the type, context and param1 of a C producer to an Event.
-@_cdecl("event_loop_post")
-func event_loop_post(_ type: event_type, _ context: UnsafeMutableRawPointer?, _ param1: Int32)
-{
-    let event: Event = switch type {
-    case APPLICATION_LAUNCHED:               .applicationLaunched(handoff(context, process.self))
-    case APPLICATION_TERMINATED:             .applicationTerminated(handoff(context, process.self))
-    case APPLICATION_FRONT_SWITCHED:         .applicationFrontSwitched(handoff(context, process.self))
-    case APPLICATION_VISIBLE:                .applicationVisible(pid: pid_t(truncatingIfNeeded: Int(bitPattern: context)))
-    case APPLICATION_HIDDEN:                 .applicationHidden(pid: pid_t(truncatingIfNeeded: Int(bitPattern: context)))
-    case WINDOW_CREATED:                     .windowCreated(handoff(context, AXUIElement.self))
-    case WINDOW_DESTROYED:                   .windowDestroyed(handoff(context, window.self))
-    case WINDOW_FOCUSED:                     .windowFocused(windowID: id32(context))
-    case WINDOW_FOCUS_DEFERRED:              .windowFocusDeferred(windowID: id32(context))
-    case WINDOW_MOVED:                       .windowMoved(windowID: id32(context))
-    case WINDOW_RESIZED:                     .windowResized(windowID: id32(context))
-    case WINDOW_MINIMIZED:                   .windowMinimized(handoff(context, window.self))
-    case WINDOW_DEMINIMIZED:                 .windowDeminimized(handoff(context, window.self))
-    case WINDOW_TITLE_CHANGED:               .windowTitleChanged(windowID: id32(context))
-    case SLS_WINDOW_ORDERED:                 .slsWindowOrdered(windowID: id32(context))
-    case SLS_WINDOW_DESTROYED:               .slsWindowDestroyed(windowID: id32(context))
-    case SLS_SPACE_CREATED:                  .slsSpaceCreated(spaceID: id64(context))
-    case SLS_SPACE_DESTROYED:                .slsSpaceDestroyed(spaceID: id64(context))
-    case SPACE_CHANGED:                      .spaceChanged
-    case DISPLAY_ADDED:                      .displayAdded(displayID: id32(context))
-    case DISPLAY_REMOVED:                    .displayRemoved(displayID: id32(context))
-    case DISPLAY_MOVED:                      .displayMoved(displayID: id32(context))
-    case DISPLAY_RESIZED:                    .displayResized(displayID: id32(context))
-    case DISPLAY_CHANGED:                    .displayChanged
-    case MOUSE_DOWN:                         .mouseDown(handoff(context, CGEvent.self), modifiers: param1)
-    case MOUSE_UP:                           .mouseUp(handoff(context, CGEvent.self))
-    case MOUSE_DRAGGED:                      .mouseDragged(handoff(context, CGEvent.self))
-    case MOUSE_MOVED:                        .mouseMoved(handoff(context, CGEvent.self), modifiers: param1)
-    case TAB_BAR_CLICKED:                    .tabBarClicked(windowID: id32(context))
-    case MISSION_CONTROL_SHOW_ALL_WINDOWS:   .missionControlShowAllWindows
-    case MISSION_CONTROL_SHOW_FRONT_WINDOWS: .missionControlShowFrontWindows
-    case MISSION_CONTROL_SHOW_DESKTOP:       .missionControlShowDesktop
-    case MISSION_CONTROL_ENTER:              .missionControlEnter
-    case MISSION_CONTROL_CHECK_FOR_EXIT:     .missionControlCheckForExit
-    case MISSION_CONTROL_EXIT:               .missionControlExit
-    case DOCK_DID_RESTART:                   .dockDidRestart
-    case MENU_OPENED:                        .menuOpened(windowID: id32(context))
-    case MENU_CLOSED:                        .menuClosed
-    case MENU_BAR_HIDDEN_CHANGED:            .menuBarHiddenChanged
-    case DOCK_DID_CHANGE_PREF:               .dockDidChangePref
-    case SYSTEM_WOKE:                        .systemWoke
-    case SPACE_LAYOUT_RECONCILE:             .spaceLayoutReconcile(generation: param1)
-    case DAEMON_MESSAGE:                     .daemonMessage(sockfd: param1)
-    default:                                 preconditionFailure("unknown event type \(type.rawValue)")
-    }
-
-    EventLoop.post(event)
 }
 
 /// Runs the handler of an event. The retained CF objects are taken here, so they are released when the handler

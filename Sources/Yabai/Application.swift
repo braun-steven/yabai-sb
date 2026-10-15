@@ -162,14 +162,14 @@ func application_window_list(_ target: UnsafeMutablePointer<application>) -> CFA
 //
 
 /// `application_create`
-func application_create(_ process: UnsafeMutablePointer<process>) -> UnsafeMutablePointer<application>
+func application_create(_ process: Process) -> UnsafeMutablePointer<application>
 {
     let result = calloc(1, MemoryLayout<application>.size)!.bindMemory(to: application.self, capacity: 1)
 
-    result.pointee.ref = Unmanaged.passRetained(AXUIElementCreateApplication(process.pointee.pid))
-    result.pointee.psn = process.pointee.psn
-    result.pointee.pid = process.pointee.pid
-    result.pointee.name = process.pointee.name
+    result.pointee.ref = Unmanaged.passRetained(AXUIElementCreateApplication(process.pid))
+    result.pointee.psn = process.psn
+    result.pointee.pid = process.pid
+    result.pointee.name = process.name
     result.pointee.is_hidden = application_is_hidden(result)
 
     var psn = result.pointee.psn

@@ -1,6 +1,7 @@
 import Carbon
 import Foundation
 import CPrivate
+import Synchronization
 import YabaiC
 import YabaiCore
 
@@ -9,10 +10,42 @@ import YabaiCore
 // only keeps the process table and posts events; the handlers run on the event loop. Ported from src/process_manager.c.
 //
 
+/// `struct process`: the process owns the malloc'ed name, which its application borrows.
+final class Process
+{
+    var psn: ProcessSerialNumber
+    var pid: pid_t
+    var name: UnsafeMutablePointer<CChar>!
+
+    //
+    // NOTE: terminated and ns_application (the NSRunningApplication at +1) are also written on other threads, and read
+    // through the functions below. The key-value observer reads terminated with acquire, as workspace.m did.
+    //
+
+    let ns_application = Atomic<UnsafeMutableRawPointer?>(nil)
+    var policy: Int32 = 0
+    var launch_attempts: Int32 = 0
+    var launch_given_up = false
+    let terminated = Atomic<Bool>(false)
+
+    init(psn: ProcessSerialNumber, pid: pid_t, name: UnsafeMutablePointer<CChar>)
+    {
+        self.psn = psn
+        self.pid = pid
+        self.name = name
+    }
+}
+
+func process_is_terminated(_ process: Process) -> Bool { process.terminated.load(ordering: .relaxed) }
+func process_is_terminated_acquire(_ process: Process) -> Bool { process.terminated.load(ordering: .acquiring) }
+func process_set_terminated(_ process: Process, _ terminated: Bool) { process.terminated.store(terminated, ordering: .releasing) }
+func process_ns_application(_ process: Process) -> UnsafeMutableRawPointer? { process.ns_application.load(ordering: .relaxed) }
+func process_set_ns_application(_ process: Process, _ application: UnsafeMutableRawPointer?) { process.ns_application.store(application, ordering: .releasing) }
+
 /// `struct process_manager`
 final class ProcessManager
 {
-    var process = Table<ProcessSerialNumber, UnsafeMutablePointer<process>>(capacity: 125, hash: { UInt($0.lowLongOfPSN) }, equals: { a, b in
+    var process = Table<ProcessSerialNumber, Process>(capacity: 125, hash: { UInt($0.lowLongOfPSN) }, equals: { a, b in
         var a = a, b = b
         return psn_equals(&a, &b)
     })
@@ -46,7 +79,7 @@ private let processNameBlacklist =
 // 'XPC!'
 private let processTypeXPC: OSType = 0x58504321
 
-private func processCreate(_ psn: ProcessSerialNumber, _ pid: pid_t) -> UnsafeMutablePointer<process>?
+private func processCreate(_ psn: ProcessSerialNumber, _ pid: pid_t) -> Process?
 {
     let processType = ProcessGetTypeC(psn)
 
@@ -69,8 +102,7 @@ private func processCreate(_ psn: ProcessSerialNumber, _ pid: pid_t) -> UnsafeMu
         return nil
     }
 
-    let result = malloc(MemoryLayout<process>.size)!.bindMemory(to: process.self, capacity: 1)
-    result.initialize(to: process(psn: psn, pid: pid, name: processName, ns_application: nil, policy: 0, launch_attempts: 0, launch_given_up: false, terminated: false))
+    let result = Process(psn: psn, pid: pid, name: processName)
     process_set_terminated(result, false)
     process_set_ns_application(result, workspace_application_create_running_ns_application(result))
     return result
@@ -135,7 +167,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
 
         guard let process = processCreate(psn, pid) else { return noErr }
 
-        pm.process.add(process.pointee.psn, process)
+        pm.process.add(process.psn, process)
         EventLoop.post(.applicationLaunched(Handoff(value: process)))
     case kEventAppTerminated:
         guard let process = process_manager_find_process(pm, &psn) else { return noErr }
@@ -173,12 +205,12 @@ private func processManagerAddRunningProcesses(_ pm: ProcessManager)
 
         guard let process = processCreate(psn, pid) else { continue }
 
-        if strcmp(process.pointee.name, "Finder") == 0 {
+        if strcmp(process.name, "Finder") == 0 {
             debug("process_manager_add_running_processes: \(describe(process)) was found! caching psn..\n")
             pm.finder_psn = psn
         }
 
-        pm.process.add(process.pointee.psn, process)
+        pm.process.add(process.psn, process)
     }
 }
 
@@ -214,15 +246,15 @@ func process_manager_begin(_ pm: ProcessManager) -> Bool
 }
 
 /// `process_manager_find_process`
-func process_manager_find_process(_ pm: ProcessManager, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> UnsafeMutablePointer<process>?
+func process_manager_find_process(_ pm: ProcessManager, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> Process?
 {
     return pm.process.find(psn.pointee)
 }
 
 /// `process_destroy`
-func process_destroy(_ process: UnsafeMutablePointer<process>)
+func process_destroy(_ process: Process)
 {
     workspace_application_destroy_running_ns_application(process)
-    free(process.pointee.name)
-    free(process)
+    free(process.name)
+    process.name = nil
 }

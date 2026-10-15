@@ -27,7 +27,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [x] | c1854e6 | `rule --list`/`signal --list` json stays C until P11/P7; golden replay is a Swift test |
 | P7 | `@WM` actor, event loop, signals | [x] | b36d9e2 | handlers stay C, called from `handle` in EventLoop.swift; signal commands use posix_spawn (no fork in Swift) |
 | P8 | Event handlers + Mission Control | [x] | f8b995a | `mouse_drop_action_regions` moves to P13 with `mouse_handler.c` |
-| P9 | Display + space model | [ ] | | |
+| P9 | Display + space model | [x] | 91b5393 | `struct view`, `space_manager`, `display_manager` and the view table stay C until their last C users (P11–P13) |
 | P10 | Process, application, workspace | [ ] | | |
 | P11 | Window + window_manager* | [ ] | | |
 | P12 | Tree + tree_view | [ ] | | |
@@ -607,3 +607,46 @@ Append one entry per session, newest last. Template:
 - Deviations from plan / surprises: none
 - Pitfalls added to "Swift conventions and pitfalls": none
 - Waiting on user: nothing (the `ffm_window_to_focus` over-release on master is still reported, not fixed)
+
+### 2026-10-15 P9 [x]
+- Commits: 91b5393 (code), then the commit that adds this entry, on swift-port
+- Master synced to: 4754520 (`git log 4754520..master -- src tests doc` is empty; nothing newer on master)
+- Done: the port of the six files and their tests, V1–V6 except the two checks in Waiting on user. The struct conversion is partial, see Deviations.
+  - Ported, C names kept as `@_cdecl` with the C signatures (the prototypes stay in the headers, each with an "implemented in" line):
+    - `display.c` → `Display.swift`: `display_handler` (`displayReconfigured`), `display_uuid`/`display_id`, `display_bounds_constrained`, `display_center`, `display_space_id`, `display_space_list`.
+    - `display_manager.c` → `DisplayManager.swift`: arrangement (the `CFArraySortValues` comparator, so ties sort as before), builtin_display_last, the closest display, focus, `display_manager_begin`.
+    - `space.c` → `Space.swift`: `space_window_list_for_connection` (NULL on a failed query, NULL with count 0 on an empty one), `space_window_list`, `space_is_user`/`fullscreen`/`visible`.
+    - `view.c` → `View.swift`: the view functions, with `view_root_area` as an internal helper (it was static).
+    - `space_layout.c` → `SpaceLayout.swift`: `space_layout_reconcile`, `space_layout_schedule`.
+    - `space_manager.c` → `SpaceManager.swift`: everything else, in the C order; `space_manager_can_use_known_focus` is internal (the test uses it).
+  - Pure YabaiCore: `SpaceWindow.swift` (the predicates of `space.h`), `SpaceList.indexOf`/`neighbour` (`SpaceList.swift`), `ViewArea.swift` (`autoPaddingApplies`, `rootArea`, `windowGap`).
+  - Platform: `SLS` wrappers for the display, cursor, dock and Platform calls (`SkyLight.swift`); `SLS.windows` now returns nil on failure, which `space_window_list_for_connection` needs (NULL with the count untouched, versus an empty list). `SLS.bridgedMoveWindows` runs `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]` through objc_msgSend (dlsym).
+  - `CPrivate.h`: `SLSHasBridgedWindowOperation`/`SLSPerformBridgedWindowOperation` (Swift 6 rejects the C function pointer), `CGPostMouseEventC` (CGPostMouseEvent is unavailable to Swift).
+  - C side: the six `.c` files and `tests/src/{space_list,auto_padding,space_window}.c` are deleted; `window_manager.h` gains `window_manager_application_refresh_count`/`_at` (sbuffer access); `ts.h` gains `ts_list_from_bytes` (aligned temporary lists for C callers).
+  - Tests: `space_list_navigation`, `space_window_user_predicates`, `auto_padding_applies`, `auto_padding_root_area` (YabaiCoreTests); `auto_padding_tiled_count`, `auto_padding_gap`, `auto_padding_split_in_tab` (`tests/YabaiTests/ViewTests.swift`, in DaemonState because they build trees); `space_known_focus` (`tests/YabaiTests/SpaceManagerTests.swift`).
+  - AGENTS.md (the file list of the display and space logic), `doc/live-testing.md` (the setup/cleanup order and the Swift test pointers), the swift-port-conventions skill (pitfalls below).
+- Resume at: next phase (P10). `workspace_display_notch_height` (workspace.m, P10) is still called from `display_bounds_constrained`.
+- Open @_cdecl shims / C structs still shared: the P8 list, minus the C files; plus the P9 shims in `display.h`, `display_manager.h`, `space.h`, `view.h`, `space_layout.h` and `space_manager.h`. `space_manager_move_space_replacement` (SpaceLayoutShims) has no caller left: SpaceManager.swift uses `SpaceList.moveReplacement` directly. C structs still shared: `struct view` (tree.c, tree_view.c, window_manager*.c, border.c, tab_bar.c, mouse_handler.c, rule.c), `struct space_manager` (`g_space_manager`: border.c, rule.c, window_manager*.c, tab_bar.c, yabai.c), `struct display_manager` (`g_display_manager`: window_manager*.c, mouse_handler.c, rule.c, yabai.c), `struct space_layout` (inside space_manager), and the view table `struct table view` (walked by tab_bar.c's `table_for`).
+- Tests: C remaining 42, Swift added 8 (total ported 40/82). `make test`: Swift YabaiTests 17 tests in 5 suites and YabaiCoreTests 41 tests pass; the C harness 42 succeeded, 0 failed (ASan/UBSan). Golden replay (`goldenReplay`, 145 commands, byte-identical) and `goldenCaptureCoversEveryCommand` pass.
+- Measurements:
+  - Lines (`git ls-files`; Swift counts the new untracked files too): C 8,077 (P8: 9,993) · headers 3,620 (P8: 3,628) · ObjC 1,007 · OSAX 1,435 · Swift 12,465 in 70 files (P8: 9,970) · C tests 1,364.
+  - Release `bin/yabai`: 1,437,432 B (P8: 1,401,816 B). `make install`: 1.4 s incremental (a fresh build time was not measured).
+  - V1: `make`, `make install` (warnings as errors), `make asan`, `make tsan` exit 0 with no warnings; `bin/yabai --version` = yabai-v7.1.25.
+  - V3: `make analyze` reports 10 warnings, all in files this phase did not touch (`tree.c`, `tree_view.c`, `window_manager.c`, `window_animation.c`, `sa.m`, `notify.h`, `helpers.h`). The P8 list was not kept, so I could not diff it line by line; the drop from 32 comes from the C paths that now end in Swift.
+  - V5: `run` 28/28, `extra` 14/14 (+1 SKIP: hotkey disabled; 50 space switches, median 17 ms, Dock pid unchanged), `launch` 3/3 (13 attempts, gave up; queries median 11 ms, max 1007 ms). ASan `run` 28/28 after a `cleanup` + `setup` (first try 25/28, see Deviations), TSan `run` 28/28. No sanitizer reports; crash reports 15 before and after.
+  - Bench (V5 step 2, the same windows: setup → P9 install → P9-A/B → restore → base-A/B): P9 tab focus 21.1 / 22.6, rotate 150.1 / 156.1, split focus 19.8 / 20.5 ms; master 20.5 / 20.5, 160.9 / 161.0, 20.3 / 20.1 ms. Tab focus is +7% on the two-run medians (+10% in run B); the rest is at or below master. `deploy.sh restore` done (master 1,997,680 B back in place).
+  - V6: `ipc_compare.sh` (255 commands) is byte-identical between the P9 release build and the master build on the same state (no change between the two captures). A labeled `space_changed` signal fires once per focus (`13 5` for `space --focus 5`, `14 4` back). The window send "send to visible space on other display" passes in `run`.
+- Deviations from plan / surprises:
+  - The plan says to convert `struct view` and the display/space manager state into Swift classes. Not done: their C users (P11–P13) read the fields, and the Target architecture rule converts a struct when its last C user is Swift. The Swift code works on the C structs through pointers, as the P8 handlers do.
+  - Naming: the functions keep their C names as `@_cdecl` (bridge rule 1), not the `FooBar.baz` naming. Two use Swift names, `spaceManagerFindView` and `viewCreate` (with `@_cdecl`), because a Swift function returning `View` made every Swift caller of the C import (which returns `View!`) ambiguous.
+  - `static inline` predicates of `space.h` moved to YabaiCore (`SpaceWindow`); `space_window_is_user_window` remains a C-visible shim for process_manager.c.
+  - Small behavior edges (none seen live): `display_manager_set_active_display_id` does nothing for an unknown display (C passed a NULL uuid to SLS); `display_manager_focus_display_with_window_at_point` uses owner connection 0 when SLS does not answer (C read an uninitialized value). `view_destroy` still does not free the struct, as before.
+  - The first ASan `run` gave 25/28 (a row of 10 tiled windows where the checks expect 5; focus checks one window off). The cause was the harness: `setup` stacked on the windows that the benches and IPC captures had left on space 4. After `cleanup` and `setup` it was 28/28. Written in `doc/live-testing.md`.
+  - The `output-summarizer` subagent refused to run `make` (it writes `bin/` and `.build/`). I ran the builds myself with the output in the scratchpad logs and read only the error lines.
+  - Test target: `YabaiC` and `@testable import Yabai` both export `view_auto_padding_applies`, so the test calls `Yabai.view_auto_padding_applies`.
+  - Not run (see Waiting on user): `space --display` moves (`space_manager_move_space_to_display`) and `space_layout_reconcile` on a display add or remove. Both change the user's space order on the two displays.
+- Pitfalls added to "Swift conventions and pitfalls": a Swift `@_cdecl` function with its C prototype's name (ambiguity, test targets); `@discardableResult` lost on shadowing; anonymous and `CF_ENUM` C types; C calls that are unavailable to Swift (`CGPostMouseEvent`, the `CGEvent` functions) through a CPrivate wrapper; global `let`s of C function-pointer types; `sel_registerName` returns `Selector`; C comparator callbacks receive optional pointers.
+- Waiting on user (V6 checks that need your displays, not run):
+  - Unplug and replug the external display: `space_layout_reconcile` should bring the spaces back to the count of the layout, if your `space_layout` option is set. The log shows its steps as `space_layout_reconcile:` lines when debug output is on.
+  - Move one of your spaces to the other display and back with `yabai -m space <n> --display <d>`. Each move changes the order of the spaces on both displays, so choose a space the harness uses (4–8 or 12–14) or do it yourself.
+  - No scripting-addition reload is needed: `sa.m` and `OSAX_VERSION` are unchanged.

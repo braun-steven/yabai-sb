@@ -3,8 +3,8 @@ import PackageDescription
 
 //
 // NOTE: The makefile drives this package (make, make install, make asan, make tsan, make test); see AGENTS.md. yabai is
-// Swift (Sources/Yabai, Sources/YabaiCore); the C targets only declare the private framework functions (CPrivate) and
-// hold the scripting-addition binaries (OSAX).
+// Swift (Sources/Yabai, Sources/YabaiCore); CPrivate provides private API declarations, unavailable-API wrappers and
+// notifications, while OSAX holds the scripting-addition binaries.
 //
 
 //

@@ -32,13 +32,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P11 | Window + window_manager* | [x] | e5f4110 | `struct window` and `window_manager` stay C until their last C users (P12, P13); `window_frame_*` tests belong to `window_animation.c` (P13) |
 | P12 | Tree + tree_view | [x] | acc7b04 | `struct con` stays C until P13 (mouse_handler.c, border.c, tab_bar.c use it); the `final class Con` conversion moves there |
 | P13 | Border, tab bars, animation, mouse, SA client | [x] | 88f84a5 | all 82 original tests ported; shared-model/bridge cleanup remains for P14 |
-| P14 | Remove C, docs, final verification | [~] | 180fa43 | model shims removed; docs rewritten; V1/V2/V4 pass (103 tests, byte-identical golden); full live verification and final report in progress |
+| P14 | Remove C, docs, final verification | [x] | 012edf9 | models and docs complete; full release/ASan/TSan verification passes; 103 tests and byte-identical golden; original binary restored; final report in the last handoff entry |
 
 **Rule for `[L]`:** the next phase may start while a phase waits for the user. Never have more than two phases in `[L]`: stop and ask the user to do the pending steps first.
 
 ## Context
 - The Swift pilot moved the AppKit side of the glass tab bars to Swift: branch `swift-pilot-tab-bar-glass`, commit `69b9085`, files `src/tab_bar_glass.{swift,c,h}`. The user liked it and wants all of yabai in Swift.
-- Today's codebase: ~16k lines of C, 4k of headers, 1.6k ObjC, 2k OSAX, and 82 unit tests in `tests/src/`.
+- Pre-port codebase: ~16k lines of C, 4k of headers, 1.6k ObjC, 2k OSAX, and 82 unit tests in `tests/src/`.
 - **Decisions made by the user (do not re-open):**
   - Minimum **macOS 27**. Drop older code paths. Assume arm64-only: P1 asks the user once before deleting x86_64.
   - **SwiftPM** builds the binary. A **thin `makefile`** keeps the existing entry points.
@@ -803,3 +803,44 @@ Append one entry per session, newest last. Template:
   - The process table is read on the event loop and changed by the Carbon handler on the main thread without a lock, as in C.
 - Pitfalls (add to AGENTS.md / the skill in the docs step): a C function and an enum tag with the same name (`con_orientation`) collide in Swift, so the enum type is `ConOrientation`; a class property named like its type needs the module prefix (`Yabai.area()`); C structs imported with an unlabeled `init(_ rawValue:)` lose it as Swift structs (tests use `rawValue:`); C pointer fields map best to IUO properties (`Window!`, `UnsafeMutablePointer<CChar>!`) so call sites keep compiling; a temporary `var pointee: Self { self }` lets pointer-style call sites compile while a struct becomes a class; removing a target's `import YabaiC` also removes the CPrivate/Cocoa re-exports (add `import CPrivate`/`AppKit`); `git add` with one missing pathspec stages nothing.
 - Waiting on user: nothing yet; the docs step must ask about committing their AGENTS.md section and about a README "Fork changes" line.
+
+### 2026-10-15 P14 [x] (final verification)
+- Commits: `180fa43` removes the temporary model `.pointee` shims; `3deaedc` documents the Swift build/architecture; `012edf9` updates AGENTS.md and live-helper pitfalls; then the commit recording this report and the Package.swift comment correction. All on `swift-port`.
+- Master synced to: `4754520`; `git log 4754520..master -- src tests doc` remains empty. No merge into master performed.
+- Done:
+  - Removed the five identity `.pointee` properties from Window, Application, View, Con and TabBar and converted the remaining class call sites/tests. Real pointer dereferences (rules, effects, out-parameters and C strings) remain. No model `@_cdecl` bridges or `import YabaiC` remain.
+  - Rewrote AGENTS.md's structure, build, testing and architecture guidance; updated README requirements/build instructions, payload paths/symbols, live-testing instructions, the Swift conventions skill and this plan's current architecture/checklist. Bridge-era skill entries are explicitly historical.
+  - V1: `make`, `make install`, `make asan`, `make tsan` all pass without warnings; each binary runs `--version` (`yabai-v7.1.25`). Release is arm64, minimum OS 27.0, SDK 27.0; verification host macOS 27.0.1 (26A434), Swift 6.4.
+  - V2/V4: `make test` passes all 103 tests (62 YabaiTests + 41 YabaiCoreTests); focused Golden passes both tests. Golden responses remain byte-identical, never re-recorded. Ledger: all 82 original C tests ported, C remaining 0.
+  - V3: not applicable after deleting YabaiC and `make analyze`.
+  - V5 release: `run` 28/28, `extra` 14/14 (+1 SKIP, native Ctrl+Right disabled), `launch` 3/3. Same daemon pid 32958 through release run/extra and spot checks. Relayout mean/max 82.1/135.2 ms; tab switch mean 21.6 ms; sweep query max 39.8 ms. Fifty space switches median 9 ms, Dock pid unchanged, footprint 51 MB; frozen-front space switches 8/10 ms; tabbed-container cross-display warp 133/168 ms, swap 85 ms. Launch: 13 attempts over 120 s, gaps rise from 1.1 to 6.3 s, then give up; queries median/max 9/1030 ms (409 requests); activated application managed.
+  - V5 ASan: runtime confirmed in vmmap, `run` 28/28, same pid 35243; no new AddressSanitizer/UBSan diagnostics. V5 TSan: runtime confirmed, `run` 28/28, same pid 36262; no new ThreadSanitizer/UBSan diagnostics. New stderr scanned from byte offsets 16342 (ASan) and 16506 (TSan). Crash reports stayed 18 throughout baseline, release, sanitizers and final restore.
+  - V6: 15 spot checks pass, covering signal environment/window id, rule add/list/remove, scratchpad assignment/hide/show, and tab clicks in glass/glass, glass/blur, glass/off and i3/off. Screenshots inspected with borders enabled; temporary config restored. Nested tabbed containers render and focus the expected tab in all four variants.
+  - Paired live IPC after restarts: 243/255 response blocks exact; all 255 exit codes match, all 137 errors byte-identical, JSON key order and window-list id order match. Twelve dynamic query responses differ (five space, five window, two tree queries): last-window, selected/focused window, frames, split direction and tree arrangement. These live captures cannot alone establish layout equivalence; the fixed golden replay is byte-identical and live frame checks pass.
+  - Final `deploy.sh restore` completed (binary checked with cmp, backup removed), original daemon running, all test applications closed. Active Dock payload remains 2.1.33, attributes 0x5f; the port was tested against it. Embedded OSAX_VERSION stays 2.1.34: P14 changed only the embedded build path, with old-path rebuilding previously proving identical bytes. No scripting-addition reload or Dock restart was needed. All deploys reset the user's space layouts.
+- Final measurements against P0:
+
+  | Measure | P0 | P14 |
+  |---|---|---|
+  | Tracked source lines, excluding generated arrays | C 16,061; headers 4,301; ObjC 1,056; OSAX 2,076; Swift 446; C tests 2,918 | Swift Sources 20,355 + tests 3,168 = 23,523; remaining C/ObjC/headers: CPrivate 395 + OSAX 1,613 = 2,008 |
+  | Release binary | 1,954,568 B (universal) | 1,586,024 B (arm64); P1's arm64-only binary was 849,384 B |
+  | Clean release build | 8.5 s (empty `.build`) | 17.97 s (`make clean` then `make install`, including OSAX regeneration; Swift build 16.01 s) |
+  | Unchanged release build | 1.6 s | 1.44 s |
+
+  Bench uses the prescribed same-window sequence: setup → P14 install → P14-A/B → restore → base-A/B. The table lists individual A/B medians in ms; percentages compare their means. Same-session baseline is the original installed build.
+
+  | Operation | P0 installed baseline (A/B) | P14 (A/B) | Same-session baseline (A/B) | P14 vs P0 / same-session |
+  |---|---|---|---|---|
+  | Tab focus | 30.8 / 31.5 | 32.6 / 32.7 | 29.5 / 29.9 | +4.82% / +9.93% |
+  | Rotate | 150.5 / 147.2 | 124.3 / 135.6 | 133.0 / 139.0 | −12.70% / −4.45% |
+  | Split focus | 30.3 / 28.7 | 31.6 / 30.8 | 30.0 / 29.6 | +5.76% / +4.70% |
+
+  Median regressions satisfy the 10% contract against both baselines. P14 rotate-A had a 612.2 ms p90 spike (mean 160.9 ms); rotate-B p90 was 152.9 ms. This tail outlier is recorded rather than hidden by the median comparison. Size/build-time comparisons span the P0 universal-to-arm64 change and are not architecture-normalized.
+- Known deviations retained from the port:
+  - CPrivate includes fixed-signature unavailable/deprecated-API wrappers and MRR notifications, beyond the initial declarations-only plan. OSAX remains ObjC/C.
+  - Swift Table preserves the C bucket/insertion/rehash order instead of using Dictionary. Rules remain Swift value structs behind heap pointers. Some C-derived function/type names and IUO fields remain for one-to-one behavior; optional folder/name cleanup is not required for parity.
+  - ARC retains models until the last event/reference drops them; destroy functions still release their platform resources. Con.parent is weak. The process table keeps the original Carbon-main-thread/event-loop access pattern without a new lock; the live TSan run reported no race, which is not proof that all possible interleavings are safe.
+  - Config execution uses posix_spawn rather than fork/execvp, because Swift cannot fork; an exec failure is reported like the former fork failure. P13's defensive rejection of incomplete SA replies and safe handling of absent capture/drop resources remain.
+- Pitfalls recorded in AGENTS.md, the conventions skill and live-testing notes: Swift enum/function and property/type name collisions, explicit rawValue initializers/imports, pointer-to-class migration, byte fixture types, and live helper assumptions (`focus_follows_mouse` getter `disabled` restores as `off`; current-space focus errors; tabbed containers can be nested).
+- User changes: the exact original 77 added Codex/conventions lines in AGENTS.md are still unstaged and preserved. The architecture rewrite was committed using an index snapshot excluding those additions. Asked whether to include them and whether to add a README Fork changes entry; with no answer during verification, kept the additions unstaged and left that list unchanged.
+- Resume at: no remaining implementation or verification work for P14. Ask the user whether to merge `swift-port` into `master`; merge only on their explicit instruction. Optional pending preferences: committing the 77 local AGENTS.md lines and adding the proposed README Swift-port entry.

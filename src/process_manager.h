@@ -1,9 +1,6 @@
 #ifndef PROCESS_MANAGER_H
 #define PROCESS_MANAGER_H
 
-#define PROCESS_EVENT_HANDLER(name) OSStatus name(EventHandlerCallRef ref, EventRef event, void *context)
-typedef PROCESS_EVENT_HANDLER(process_event_handler);
-
 struct process
 {
     ProcessSerialNumber psn;
@@ -31,16 +28,16 @@ struct process_manager
 
 //
 // NOTE: terminated and ns_application are also written on other threads. Swift has no atomics on C memory, so the
-// handlers read and write them through these.
+// handlers read and write them through these. The key-value observer reads terminated with acquire, as workspace.m did.
 //
 
 static inline bool process_is_terminated(struct process *process) { return __atomic_load_n(&process->terminated, __ATOMIC_RELAXED); }
+static inline bool process_is_terminated_acquire(struct process *process) { return __atomic_load_n(&process->terminated, __ATOMIC_ACQUIRE); }
+static inline void process_set_terminated(struct process *process, bool terminated) { __atomic_store_n(&process->terminated, terminated, __ATOMIC_RELEASE); }
 static inline void *process_ns_application(struct process *process) { return __atomic_load_n(&process->ns_application, __ATOMIC_RELAXED); }
 static inline void process_set_ns_application(struct process *process, void *ns_application) { __atomic_store_n(&process->ns_application, ns_application, __ATOMIC_RELEASE); }
 
-void process_destroy(struct process *process);
-struct process *process_manager_find_process(struct process_manager *pm, ProcessSerialNumber *psn);
+// implemented in Sources/Yabai/ProcessManager.swift
 bool process_manager_begin(struct process_manager *pm);
-uint64_t process_manager_active_space_for_psn(int connection);
 
 #endif

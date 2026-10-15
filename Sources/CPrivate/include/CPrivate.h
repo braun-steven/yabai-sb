@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <mach/mach.h>
 #include <ApplicationServices/ApplicationServices.h>
+#ifdef __OBJC__
+#include <Foundation/Foundation.h>
+#endif
 
 // NOTE: The macro has no nullability, because a single annotated pointer makes clang require one on every pointer of the
 // file that defines the callback.
@@ -58,7 +61,59 @@ static inline void CGPostMouseEventC(CGPoint point, bool updateCursor, bool butt
 {
     CGPostMouseEvent(point, updateCursor, 1, buttonDown);
 }
+
+//
+// NOTE: The Process Manager functions are deprecated since macOS 10.9, which makes them unavailable to Swift. These
+// wrappers keep the calls of process_manager.c and application.c for ProcessManager.swift and Application.swift.
+//
+
+static inline OSErr ProcessGetNextC(ProcessSerialNumber *psn)
+{
+    return GetNextProcess(psn);
+}
+
+static inline pid_t ProcessGetPIDC(ProcessSerialNumber psn)
+{
+    pid_t pid = 0;
+    GetProcessPID(&psn, &pid);
+    return pid;
+}
+
+// the processType of GetProcessInformation, 0 if the call fails
+static inline OSType ProcessGetTypeC(ProcessSerialNumber psn)
+{
+    ProcessInfoRec process_info = { .processInfoLength = sizeof(ProcessInfoRec) };
+    GetProcessInformation(&psn, &process_info);
+    return process_info.processType;
+}
+
+static inline CFStringRef _Nullable ProcessCopyNameC(ProcessSerialNumber psn)
+{
+    CFStringRef process_name_ref = NULL;
+    CopyProcessName(&psn, &process_name_ref);
+    return process_name_ref;
+}
+
+static inline bool ProcessIsVisibleC(ProcessSerialNumber psn)
+{
+    return IsProcessVisible(&psn) != 0;
+}
 #pragma clang diagnostic pop
+
+#ifdef __OBJC__
+//
+// NOTE: Removing a key-value observation that is not registered throws an NSException, and Swift cannot catch one
+// (it would end the process). Workspace.swift removes its observations through this wrapper, which ignores the
+// exception as workspace.m did.
+//
+
+static inline void NSObjectRemoveObserverC(NSObject *object, NSObject *observer, NSString *key_path, void *_Nullable context)
+{
+    @try {
+        [object removeObserver:observer forKeyPath:key_path context:context];
+    } @catch (NSException * __unused exception) {}
+}
+#endif
 
 extern mach_port_t mig_get_special_reply_port(void);
 extern void mig_dealloc_special_reply_port(mach_port_t port);

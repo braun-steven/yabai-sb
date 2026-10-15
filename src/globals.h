@@ -13,7 +13,6 @@ extern struct window_manager g_window_manager;
 extern struct mouse_state g_mouse_state;
 extern bool g_verbose;
 extern int g_connection;
-extern void *g_workspace_context;
 
 static inline struct process_manager *process_manager_global(void) { return &g_process_manager; }
 static inline struct display_manager *display_manager_global(void) { return &g_display_manager; }
@@ -22,7 +21,6 @@ static inline struct window_manager *window_manager_global(void) { return &g_win
 static inline struct mouse_state *mouse_state_global(void) { return &g_mouse_state; }
 static inline bool *verbose_global(void) { return &g_verbose; }
 static inline int connection_global(void) { return g_connection; }
-static inline void *workspace_context_global(void) { return g_workspace_context; }
 static inline enum mission_control_mode *mission_control_mode_global(void) { return &g_mission_control_mode; }
 static inline FILE *stdout_global(void) { return stdout; }
 static inline char **environ_global(void) { return *_NSGetEnviron(); }

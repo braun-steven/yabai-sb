@@ -27,7 +27,6 @@ struct display_manager g_display_manager;
 struct window_manager g_window_manager;
 struct space_manager g_space_manager;
 struct mouse_state g_mouse_state;
-void *g_workspace_context;
 
 enum mission_control_mode g_mission_control_mode;
 double g_cv_host_clock_frequency;
@@ -204,7 +203,7 @@ int yabai_main(int argc, char **argv)
         error("yabai: could not acquire lock-file! abort..\n");
     }
 
-    if (!workspace_event_handler_begin(&g_workspace_context)) {
+    if (!workspace_event_handler_begin()) {
         error("yabai: could not start workspace context! abort..\n");
     }
 

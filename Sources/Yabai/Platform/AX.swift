@@ -6,6 +6,30 @@ import CPrivate
 // application takes to answer, up to the messaging timeout; the callers on the event loop accept that, like the C code.
 //
 
+/// The name of an AXError for the debug output, as `ax_error_str` (src/application.h) has it.
+func axErrorName(_ error: AXError) -> String
+{
+    switch error {
+    case .success:                           return "kAXErrorSuccess"
+    case .failure:                           return "kAXErrorFailure"
+    case .illegalArgument:                   return "kAXErrorIllegalArgument"
+    case .invalidUIElement:                  return "kAXErrorInvalidUIElement"
+    case .invalidUIElementObserver:          return "kAXErrorInvalidUIElementObserver"
+    case .cannotComplete:                    return "kAXErrorCannotComplete"
+    case .attributeUnsupported:              return "kAXErrorAttributeUnsupported"
+    case .actionUnsupported:                 return "kAXErrorActionUnsupported"
+    case .notificationUnsupported:           return "kAXErrorNotificationUnsupported"
+    case .notImplemented:                    return "kAXErrorNotImplemented"
+    case .notificationAlreadyRegistered:     return "kAXErrorNotificationAlreadyRegistered"
+    case .notificationNotRegistered:         return "kAXErrorNotificationNotRegistered"
+    case .apiDisabled:                       return "kAXErrorAPIDisabled"
+    case .noValue:                           return "kAXErrorNoValue"
+    case .parameterizedAttributeUnsupported: return "kAXErrorParameterizedAttributeUnsupported"
+    case .notEnoughPrecision:                return "kAXErrorNotEnoughPrecision"
+    @unknown default:                        return "\(error.rawValue)"
+    }
+}
+
 struct AXElement
 {
     let ref: AXUIElement

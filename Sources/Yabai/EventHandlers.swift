@@ -283,7 +283,6 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 @WM func applicationLaunched(_ process: UnsafeMutablePointer<process>)
 {
     let wm = window_manager_global()!
-    let workspaceContext = workspace_context_global()
 
     if process_is_terminated(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) terminated during launch\n")
@@ -304,7 +303,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     if !workspace_application_is_finished_launching(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) is not finished launching, subscribing to finishedLaunching changes\n")
-        workspace_application_observe_finished_launching(workspaceContext, process)
+        workspace_application_observe_finished_launching(process)
 
         //
         // NOTE(asmvik): Do this again in case of race-conditions between the previous check and key-value observation subscription.
@@ -312,12 +311,12 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         //
 
         if !workspace_application_is_finished_launching(process) { return }
-        workspace_application_unobserve_finished_launching(workspaceContext, process)
+        workspace_application_unobserve_finished_launching(process)
     }
 
     if !workspace_application_is_observable(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) is not observable, subscribing to activationPolicy changes\n")
-        workspace_application_observe_activation_policy(workspaceContext, process)
+        workspace_application_observe_activation_policy(process)
 
         //
         // NOTE(asmvik): Do this again in case of race-conditions between the previous check and key-value observation subscription.
@@ -325,7 +324,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         //
 
         if !workspace_application_is_observable(process) { return }
-        workspace_application_unobserve_activation_policy(workspaceContext, process)
+        workspace_application_unobserve_activation_policy(process)
     }
 
     //

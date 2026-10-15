@@ -1,9 +1,7 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 
-#define OBSERVER_CALLBACK(name) void name(AXObserverRef observer, AXUIElementRef element, CFStringRef notification, void *context)
-typedef OBSERVER_CALLBACK(observer_callback);
-
+// the bits of application->notification, in the order of the notifications of application_observe (Application.swift)
 #define AX_APPLICATION_WINDOW_CREATED_INDEX       0
 #define AX_APPLICATION_WINDOW_FOCUSED_INDEX       1
 #define AX_APPLICATION_WINDOW_MOVED_INDEX         2
@@ -43,28 +41,6 @@ static const char *ax_error_str[] =
     [-kAXErrorNotEnoughPrecision]                = "kAXErrorNotEnoughPrecision"
 };
 
-static const char *ax_application_notification_str[] =
-{
-    [AX_APPLICATION_WINDOW_CREATED_INDEX]       = "kAXCreatedNotification",
-    [AX_APPLICATION_WINDOW_FOCUSED_INDEX]       = "kAXFocusedWindowChangedNotification",
-    [AX_APPLICATION_WINDOW_MOVED_INDEX]         = "kAXWindowMovedNotification",
-    [AX_APPLICATION_WINDOW_RESIZED_INDEX]       = "kAXWindowResizedNotification",
-    [AX_APPLICATION_WINDOW_TITLE_CHANGED_INDEX] = "kAXTitleChangedNotification",
-    [AX_APPLICATION_WINDOW_MENU_OPENED_INDEX]   = "kAXMenuOpenedNotification",
-    [AX_APPLICATION_WINDOW_MENU_CLOSED_INDEX]   = "kAXMenuClosedNotification"
-};
-
-static CFStringRef ax_application_notification[] =
-{
-    [AX_APPLICATION_WINDOW_CREATED_INDEX]       = kAXCreatedNotification,
-    [AX_APPLICATION_WINDOW_FOCUSED_INDEX]       = kAXFocusedWindowChangedNotification,
-    [AX_APPLICATION_WINDOW_MOVED_INDEX]         = kAXWindowMovedNotification,
-    [AX_APPLICATION_WINDOW_RESIZED_INDEX]       = kAXWindowResizedNotification,
-    [AX_APPLICATION_WINDOW_TITLE_CHANGED_INDEX] = kAXTitleChangedNotification,
-    [AX_APPLICATION_WINDOW_MENU_OPENED_INDEX]   = kAXMenuOpenedNotification,
-    [AX_APPLICATION_WINDOW_MENU_CLOSED_INDEX]   = kAXMenuClosedNotification
-};
-
 struct application
 {
     AXUIElementRef ref;
@@ -80,8 +56,7 @@ struct application
     bool ax_retry;
 };
 
-bool application_is_frontmost(struct application *application);
-bool application_is_hidden(struct application *application);
+// implemented in Sources/Yabai/Application.swift
 uint32_t application_focused_window(struct application *application);
 CF_RETURNS_RETAINED CFArrayRef application_window_list(struct application *application);
 bool application_observe(struct application *application);

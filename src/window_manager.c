@@ -1,4 +1,3 @@
-extern void *g_workspace_context;
 extern struct process_manager g_process_manager;
 extern struct mouse_state g_mouse_state;
 
@@ -1299,7 +1298,7 @@ void window_manager_begin(struct space_manager *sm, struct window_manager *wm)
             }
         } else {
             debug("%s: %s (%d) is not observable, subscribing to activationPolicy changes\n", __FUNCTION__, process->name, process->pid);
-            workspace_application_observe_activation_policy(g_workspace_context, process);
+            workspace_application_observe_activation_policy(process);
         }
     })
     [pool drain];

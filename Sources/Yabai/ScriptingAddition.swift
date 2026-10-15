@@ -1,9 +1,25 @@
 import AppKit
 import Darwin
 import CPrivate
-import YabaiC
+import OSAX
 
 // Ported from src/sa.m. The payload protocol and its native integer/float layout are unchanged.
+
+//
+// NOTE: The socket of the payload. The daemon sets it at startup (configure_settings_and_acquire_lock), before any
+// other thread runs, and --load-sa or --uninstall-sa sets it for the user of sudo before it connects.
+//
+
+/// `g_sa_socket_file`
+nonisolated(unsafe) var g_sa_socket_file = ""
+
+/// `struct sa_window_order`: a window ordered relative to another one; the payload gets the fields one by one.
+struct sa_window_order
+{
+    var a_wid: UInt32
+    var order: Int32
+    var b_wid: UInt32
+}
 
 private enum SAPath
 {
@@ -127,7 +143,7 @@ private func scriptingAdditionSetSocketPath() -> Bool
     let parsed = sscanfUIntC(value, &uid)
     guard parsed == 1, let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return false }
     let path = "/tmp/yabai-sa_\(String(cString: name)).socket"
-    _ = path.withCString { strlcpy(sa_socket_path(), $0, Int(MAXLEN)) }
+    g_sa_socket_file = path
     return true
 }
 
@@ -174,7 +190,7 @@ private func scriptingAdditionRequestHandshake() -> (version: [UInt8], attribute
     var sockfd: Int32 = 0
     guard socket_open(&sockfd) else { return nil }
     defer { socket_close(sockfd) }
-    guard socket_connect(sockfd, sa_socket_path()) else { return nil }
+    guard socket_connect(sockfd, g_sa_socket_file) else { return nil }
     let bytes: [UInt8] = [1, 0, UInt8(SA_OPCODE_HANDSHAKE.rawValue)]
     guard bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, 3, 0) }) != -1 else { return nil }
     var response = [UInt8](repeating: 0, count: Int(BUFSIZ))
@@ -230,7 +246,6 @@ private func machLoaderInjectPayload() -> Bool
     return result & 0x7f == 0 && (result >> 8) & 0xff == 0
 }
 
-@_cdecl("scripting_addition_uninstall")
 func scripting_addition_uninstall() -> Int32
 {
     if !scripting_addition_is_sip_friendly() {
@@ -247,7 +262,6 @@ func scripting_addition_uninstall() -> Int32
     return scriptingAdditionRemove() ? 0 : -1
 }
 
-@_cdecl("scripting_addition_load")
 func scripting_addition_load() -> Int32
 {
     autoreleasepool {
@@ -313,7 +327,7 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
     var sockfd: Int32 = 0
     guard socket_open(&sockfd) else { return false }
     defer { socket_close(sockfd) }
-    guard socket_connect(sockfd, sa_socket_path()), bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, bytes.count, 0) }) != -1 else { return false }
+    guard socket_connect(sockfd, g_sa_socket_file), bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, bytes.count, 0) }) != -1 else { return false }
     var dummy: UInt8 = 0
     recv(sockfd, &dummy, 1, 0)
     return true
@@ -424,8 +438,8 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 
 @WM private var saPayloadCurrent = -1
 
-@_cdecl("scripting_addition_payload_changed")
-func scriptingAdditionPayloadChanged()
+/// `scripting_addition_payload_changed`
+func scripting_addition_payload_changed()
 {
     WM.assumeIsolated { saPayloadCurrent = -1 }
 }

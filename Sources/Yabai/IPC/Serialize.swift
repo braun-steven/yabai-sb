@@ -1,6 +1,7 @@
 import CoreGraphics
 import Darwin
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //
@@ -23,9 +24,9 @@ func string(_ cString: UnsafePointer<CChar>?) -> String?
 }
 
 /// The name of a label of a display or space, escaped for json; "" when it has none.
-private func labelJSON(_ list: OpaquePointer?, _ id: UInt64) -> String
+private func labelJSON(_ list: LabelList, _ id: UInt64) -> String
 {
-    labelList(list)?.list.find(id: id).map { JSON.string($0.name) } ?? ""
+    list.find(id: id).map { JSON.string($0.name) } ?? ""
 }
 
 /// A list of ids or indices as a json array, separated by ", ".

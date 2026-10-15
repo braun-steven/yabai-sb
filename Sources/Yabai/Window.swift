@@ -1,7 +1,6 @@
 import ApplicationServices
 import CPrivate
 import Synchronization
-import YabaiC
 
 //
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.

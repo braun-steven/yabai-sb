@@ -1,6 +1,7 @@
 import CoreGraphics
 import Darwin
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //
@@ -570,7 +571,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     if configTabBar(&rsp, domain, command, &message) { return true }
 
     if command.equals(Config.debugOutput) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &verbose_global()!.pointee)
+        _ = parseConfigBool(&rsp, domain, command, &message, &g_verbose)
     } else if command.equals(Config.mff) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.enable_mff)
     } else if command.equals(Config.ffm) {

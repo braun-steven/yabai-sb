@@ -1,9 +1,7 @@
-import YabaiC
 import YabaiCore
 
 //
-// NOTE: The C entry point of the SpaceLayout parser (Sources/YabaiCore), and the conversion of `struct space_layout`,
-// which stays C inside `struct space_manager` while C code reads its fields.
+// NOTE: The SpaceLayout parser (Sources/YabaiCore) for `struct space_layout`, the fixed-size layouts of the space manager.
 //
 
 extension SpaceLayout
@@ -15,7 +13,7 @@ extension SpaceLayout
     }
 }
 
-@_cdecl("space_layout_parse")
+/// `space_layout_parse`
 func space_layout_parse(_ text: UnsafeMutablePointer<CChar>, _ length: Int32, _ layout: UnsafeMutablePointer<space_layout>) -> Bool
 {
     guard let parsed = SpaceLayout(parsing: UnsafeRawBufferPointer(start: text, count: Int(length))) else {

@@ -1,7 +1,7 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //
@@ -22,7 +22,7 @@ final class DisplayManager
     var builtin_last = false
     var mode = EXTERNAL_BAR_OFF
 
-    var labels: OpaquePointer?
+    var labels = LabelList()
 }
 
 //

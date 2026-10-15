@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //
@@ -12,7 +12,7 @@ final class View
 {
     var uuid: CFString?
     var sid: UInt64 = 0
-    var area = YabaiC.area()
+    var area = Yabai.area()
     var tree: Con!
     var insertion_point: UInt32 = 0
     var layout = VIEW_DEFAULT

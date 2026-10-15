@@ -30,6 +30,10 @@ filter=1
 show_rev=""
 
 default_files=(
+  osax/payload.m
+  osax/arm64_payload.m
+  osax/loader.m
+  Sources/Yabai/ScriptingAddition.swift
   src/osax/payload.m
   src/osax/arm64_payload.m
   src/osax/x64_payload.m

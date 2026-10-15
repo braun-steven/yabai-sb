@@ -1,6 +1,7 @@
 import Carbon
 import Darwin
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //

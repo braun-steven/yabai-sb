@@ -1,6 +1,5 @@
 import AppKit
 import CPrivate
-import YabaiC
 
 //
 // NOTE: The NSWorkspace, distributed and local notifications that yabai follows, and the key-value observations of the

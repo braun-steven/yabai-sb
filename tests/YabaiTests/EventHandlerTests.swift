@@ -2,7 +2,7 @@ import CoreGraphics
 import Synchronization
 import Testing
 @testable import Yabai
-import YabaiC
+import CPrivate
 
 @Test("mouse_event_coalescing")
 func mouseEventCoalescing()

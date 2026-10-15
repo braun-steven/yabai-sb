@@ -1,6 +1,6 @@
 import ApplicationServices
+import CPrivate
 import Synchronization
-import YabaiC
 
 // Ported from src/mouse_handler.c. The event tap runs on the main run loop and only posts events.
 

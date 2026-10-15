@@ -1,4 +1,4 @@
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 // NOTE: The tree fixtures of the former C tests (tree_test_leaf and tree_test_split of tests/src/tree.c), shared

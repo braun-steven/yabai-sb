@@ -1,8 +1,8 @@
 /bin
 /tests/bin
 /archive
-/src/osax/loader_bin.c
-/src/osax/payload_bin.c
+/osax/loader_bin.c
+/osax/payload_bin.c
 /scripts/live-tests/bounds
 /scripts/live-tests/mouse
 /scripts/live-tests/freeze

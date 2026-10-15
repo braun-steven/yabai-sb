@@ -1,17 +1,36 @@
 import CPrivate
 import Darwin
-import YabaiC
 
 //
 // NOTE: The output of src/misc/log.h and src/misc/notify.h for Swift, which cannot call the variadic C functions.
 // debug writes to the stdout of C, so the lines keep their order with the C debug output.
 //
 
+/// `g_verbose`: set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
+nonisolated(unsafe) var g_verbose = false
+
 /// `debug`: writes the text to stdout when the daemon runs with --verbose (or debug_output on).
 func debug(_ text: @autoclosure () -> String)
 {
-    guard verbose_global()!.pointee else { return }
+    guard g_verbose else { return }
     fputs(text(), stdout_global())
+}
+
+/// `debug_message`: the prefix and the null-separated tokens of a message, up to the empty token that ends it.
+func debug_message(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
+{
+    guard g_verbose, var message else { return }
+
+    fputs("\(prefix):", stdout_global())
+
+    while message.pointee != 0 {
+        fputs(" ", stdout_global())
+        fputs(message, stdout_global())
+        message += strlen(message) + 1
+    }
+
+    putc(0x0a, stdout_global())
+    fflush(stdout_global())
 }
 
 /// `warn`

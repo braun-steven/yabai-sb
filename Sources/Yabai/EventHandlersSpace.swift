@@ -1,5 +1,6 @@
 import CoreGraphics
-import YabaiC
+import AppKit
+import CPrivate
 
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays
@@ -40,7 +41,7 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 
     if let view = sm.view.find(sid) {
         debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid))\n")
-        _ = label_remove_id(sm.labels, sid)
+        _ = sm.labels.remove(id: sid)
         sm.view.remove(sid)
         view_destroy(view)
         eventSignalPush(.spaceDestroyed, signalContext(sid))
@@ -143,7 +144,7 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 @WM func displayRemoved(_ did: UInt32)
 {
     debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
-    _ = label_remove_id(display_manager_global().labels, UInt64(did))
+    _ = display_manager_global().labels.remove(id: UInt64(did))
     window_manager_handle_display_add_and_remove(space_manager_global(), window_manager_global(), display_manager_main_display_id())
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayRemoved, signalContext(did))

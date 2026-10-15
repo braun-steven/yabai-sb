@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 // NOTE: Ported from tests/src/window_frame.c and tests/src/window_rules.c. The window managers of these tests are local,
@@ -103,9 +103,9 @@ private func oneShotTestRule(_ flags: rule_flag, _ label: String) -> rule
     let wm = windowManagerCreate()
     defer { windowManagerFree(wm) }
 
-    let remove = rule_flag(RULE_ONE_SHOT.rawValue | RULE_ONE_SHOT_REMOVE.rawValue)
+    let remove = rule_flag(rawValue: RULE_ONE_SHOT.rawValue | RULE_ONE_SHOT_REMOVE.rawValue)
     window_manager_add_rule(wm, oneShotTestRule(remove, "a"))
-    window_manager_add_rule(wm, oneShotTestRule(rule_flag(0), "b"))
+    window_manager_add_rule(wm, oneShotTestRule(rule_flag(rawValue: 0), "b"))
     window_manager_add_rule(wm, oneShotTestRule(remove, "c"))
     window_manager_add_rule(wm, oneShotTestRule(remove, "d"))
 
@@ -169,16 +169,16 @@ private struct WindowStrings
     defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: without a subrole pattern a rule does not match a dialog
-    var any = windowRulesTestRule("^Safari$", nil, rule_flag(0))
+    var any = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
     any.effects.sid = 4
     window_manager_add_rule(wm, any)
 
-    var dialog = windowRulesTestRule("^Safari$", "^AXDialog$", rule_flag(0))
+    var dialog = windowRulesTestRule("^Safari$", "^AXDialog$", rule_flag(rawValue: 0))
     dialog.effects.sticky = RULE_PROP_ON
     dialog.effects.scratchpad = strdup("notes")
     window_manager_add_rule(wm, dialog)
 
-    var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$", rule_flag(0))
+    var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$", rule_flag(rawValue: 0))
     otherApp.effects.mff = RULE_PROP_ON
     window_manager_add_rule(wm, otherApp)
 
@@ -224,11 +224,11 @@ private struct WindowStrings
     defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: in the manage round only rules that make a window managed are limited to standard windows
-    var manage = windowRulesTestRule("^Safari$", nil, rule_flag(0))
+    var manage = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
     manage.effects.manage = RULE_PROP_ON
     window_manager_add_rule(wm, manage)
 
-    var effectsOnly = windowRulesTestRule("^Safari$", nil, rule_flag(0))
+    var effectsOnly = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
     effectsOnly.effects.sticky = RULE_PROP_ON
     window_manager_add_rule(wm, effectsOnly)
 

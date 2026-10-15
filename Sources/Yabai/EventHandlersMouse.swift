@@ -1,6 +1,7 @@
 import ApplicationServices
 import Foundation
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //

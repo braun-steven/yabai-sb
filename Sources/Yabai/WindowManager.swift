@@ -2,7 +2,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 import CPrivate
-import YabaiC
+import AppKit
 
 //
 // NOTE: The windows of yabai: the tables of applications, windows and managed windows, the commands on windows (move,

@@ -1,6 +1,6 @@
 import ApplicationServices
 import Testing
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 @Test("mouse_drop_action_regions")

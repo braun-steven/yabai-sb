@@ -1,5 +1,4 @@
 import Foundation
-import YabaiC
 
 //
 // NOTE: `yabai -m` / `yabai --message` is the client (IPC/Client.swift); everything else is the daemon and its other

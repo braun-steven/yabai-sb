@@ -1,6 +1,6 @@
 import ApplicationServices
 import CPrivate
-import YabaiC
+import AppKit
 
 //
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. Ported from

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <crt_externs.h>
 #include <ApplicationServices/ApplicationServices.h>
 #ifdef __OBJC__
@@ -109,6 +110,22 @@ static inline bool ProcessIsVisibleC(ProcessSerialNumber psn)
     return IsProcessVisible(&psn) != 0;
 }
 
+// psn_equals (helpers.h)
+static inline bool ProcessSameC(ProcessSerialNumber *a, ProcessSerialNumber *b)
+{
+    Boolean result;
+    SameProcess(a, b, &result);
+    return result == 1;
+}
+
+// read_os_timer (helpers.h): the time since boot in nanoseconds; AbsoluteToNanoseconds is deprecated since macOS 10.8
+static inline uint64_t ReadOSTimerC(void)
+{
+    uint64_t result = mach_absolute_time();
+    Nanoseconds nano = AbsoluteToNanoseconds(*(AbsoluteTime *) &result);
+    return *(uint64_t *) &nano;
+}
+
 // the event settings of the daemon at startup (Sources/Yabai/Yabai.swift); both functions are deprecated since macOS 10.6
 static inline void CGSetLocalEventsSuppressionIntervalC(CFTimeInterval seconds)
 {
@@ -167,6 +184,7 @@ static inline bool NSApplicationLoadC(void)
 }
 #endif
 
+extern int csr_get_active_config(uint32_t *config);
 extern mach_port_t mig_get_special_reply_port(void);
 extern void mig_dealloc_special_reply_port(mach_port_t port);
 

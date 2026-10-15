@@ -1,6 +1,6 @@
 import CoreGraphics
 import Foundation
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //

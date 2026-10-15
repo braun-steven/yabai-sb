@@ -1,6 +1,7 @@
 import CoreGraphics
 import Dispatch
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //

@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import CPrivate
-import YabaiC
+import AppKit
 
 //
 // NOTE: Finding windows for the window selectors: by stacking rank on a space, at a point, in a direction,

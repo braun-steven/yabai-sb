@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreFoundation
-import YabaiC
+import CPrivate
+import Foundation
 
 //
 // NOTE: The reconfiguration callback runs on a thread of the window server. It only posts events; the handlers change

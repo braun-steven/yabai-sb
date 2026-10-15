@@ -1,5 +1,5 @@
 import Testing
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 // NOTE: Ported from tests/src/window_frame.c (space_known_focus).

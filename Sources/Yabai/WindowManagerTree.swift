@@ -1,5 +1,6 @@
 import Foundation
-import YabaiC
+import AppKit
+import CPrivate
 
 //
 // NOTE: i3 navigation in the container tree of a space: focus and move in a direction, into the parent
@@ -216,7 +217,7 @@ func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ orienta
         orientation = Int32(parent.pointee.layout == CON_SPLITH ? CON_VERTICAL.rawValue : CON_HORIZONTAL.rawValue)
     }
 
-    tree_split(node, con_orientation(rawValue: UInt32(orientation)))
+    tree_split(node, ConOrientation(rawValue: UInt32(orientation)))
     windowManagerTreeApply(owner)
 
     return WINDOW_OP_ERROR_SUCCESS

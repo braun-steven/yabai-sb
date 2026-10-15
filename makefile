@@ -1,15 +1,13 @@
 MACOS_MIN      = 27.0
 FRAMEWORK_PATH = -F/System/Library/PrivateFrameworks
-WARN_FLAGS     = -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference
-COMMON_FLAGS   = -std=c11 $(WARN_FLAGS) -fvisibility=hidden -mmacosx-version-min=$(MACOS_MIN) -fno-objc-arc
 BUILD_PATH     = ./bin
 DOC_PATH       = ./doc
 SCRIPT_PATH    = ./scripts
 ASSET_PATH     = ./assets
 SMP_PATH       = ./examples
 ARCH_PATH      = ./archive
-OSAX_SRC       = ./src/osax/payload_bin.c ./src/osax/loader_bin.c
-OSAX_PATH      = ./src/osax
+OSAX_SRC       = ./osax/payload_bin.c ./osax/loader_bin.c
+OSAX_PATH      = ./osax
 OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch arm64e
 ARCHS          = arm64
 SWIFT_BUILD    = swift build --product yabai $(foreach arch,$(ARCHS),--arch $(arch))
@@ -19,7 +17,7 @@ BINS           = $(BUILD_PATH)/yabai
 # Package.swift reads it to stamp the right SDK version into the binary
 export SDKROOT := $(shell xcrun --show-sdk-path)
 
-.PHONY: all asan tsan install test analyze man icon archive publish sign clean-build clean FORCE
+.PHONY: all asan tsan install test man icon archive publish sign clean-build clean FORCE
 
 all: $(BINS)
 
@@ -36,12 +34,8 @@ install: $(BINS)
 test: $(OSAX_SRC)
 	swift test
 
-# every source file is #included into manifest.m, so the analyzer must be told to analyze included files
-analyze:
-	xcrun clang --analyze -Xclang -analyzer-opt-analyze-headers -Xclang -analyzer-output=text $(COMMON_FLAGS) -arch arm64 $(FRAMEWORK_PATH) -I ./Sources/CPrivate/include ./src/manifest.m -o /dev/null
-
 # payload.m #includes these, so a pattern/offset update must rebuild the payload
-$(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/arm64_payload.m ./src/misc/hashtable.h
+$(OSAX_PATH)/payload_bin.c: $(OSAX_PATH)/payload.m $(OSAX_PATH)/common.h $(OSAX_PATH)/arm64_payload.m $(OSAX_PATH)/hashtable.h
 	xcrun clang $(OSAX_PATH)/payload.m -shared -fPIC $(OSAX_FLAGS) -o $(OSAX_PATH)/payload $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
 	xxd -i -a $(OSAX_PATH)/payload $@
 	rm -f $(OSAX_PATH)/payload

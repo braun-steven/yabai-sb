@@ -1,7 +1,7 @@
 import ApplicationServices
 import Foundation
 import CPrivate
-import YabaiC
+import AppKit
 
 //
 // NOTE: Discovering the windows of an application: creating a window applies the rules and decides whether
@@ -17,7 +17,7 @@ import YabaiC
 /// `window_manager_debug_window_info`
 private func windowManagerDebugWindowInfo(_ target: Window)
 {
-    guard verbose_global()!.pointee else { return }
+    guard g_verbose else { return }
 
     fputs("window info: \n", stdout_global())
     fputs(windowSerialize(target, 0), stdout_global())

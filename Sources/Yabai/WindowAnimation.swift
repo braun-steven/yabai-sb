@@ -3,7 +3,6 @@ import ApplicationServices
 import QuartzCore
 import Synchronization
 import CPrivate
-import YabaiC
 
 //
 // NOTE: Moving and resizing windows: frame requests that are grouped per application and skipped when

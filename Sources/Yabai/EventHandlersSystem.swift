@@ -1,7 +1,8 @@
 import CoreGraphics
 import Dispatch
 import Foundation
-import YabaiC
+import AppKit
+import CPrivate
 
 //
 // NOTE: The handlers of system events: Mission Control, the Dock, menus, the menu bar, waking from sleep,
@@ -11,7 +12,7 @@ import YabaiC
 /// Sets the Mission Control mode and pushes the signal of entering it.
 @WM private func missionControlShow(_ mode: mission_control_mode)
 {
-    mission_control_mode_global()!.pointee = mode
+    g_mission_control_mode = mode
     eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: UInt(mode.rawValue)))
 }
 
@@ -40,7 +41,7 @@ import YabaiC
 @WM func missionControlEnter()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_ENTER:\n")
-    mission_control_mode_global()!.pointee = MISSION_CONTROL_MODE_SHOW
+    g_mission_control_mode = MISSION_CONTROL_MODE_SHOW
 
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
         EventLoop.post(.missionControlCheckForExit)
@@ -88,19 +89,17 @@ import YabaiC
 
     let wm = window_manager_global()
     let sm = space_manager_global()
-    let mode = mission_control_mode_global()!
-
     if wm.menubar_opacity != 1.0 {
         let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    if mode.pointee == MISSION_CONTROL_MODE_SHOW || mode.pointee == MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS {
+    if g_mission_control_mode == MISSION_CONTROL_MODE_SHOW || g_mission_control_mode == MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS {
         window_manager_correct_for_mission_control_changes(sm, wm)
     }
 
-    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: UInt(mode.pointee.rawValue)))
-    mode.pointee = MISSION_CONTROL_MODE_INACTIVE
+    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: UInt(g_mission_control_mode.rawValue)))
+    g_mission_control_mode = MISSION_CONTROL_MODE_INACTIVE
 }
 
 /// `EVENT_HANDLER(DOCK_DID_RESTART)`

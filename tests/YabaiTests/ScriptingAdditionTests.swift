@@ -1,5 +1,6 @@
 import Testing
-import YabaiC
+import CPrivate
+import OSAX
 @testable import Yabai
 
 @Test func scriptingAdditionPayloadWireLayout()

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-import YabaiC
+import CPrivate
 import YabaiCore
 @testable import Yabai
 

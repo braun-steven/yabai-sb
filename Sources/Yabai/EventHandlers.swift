@@ -3,7 +3,7 @@ import Carbon
 import Dispatch
 import Foundation
 import Synchronization
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //

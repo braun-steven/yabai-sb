@@ -2,7 +2,6 @@ import AppKit
 import CoreText
 import Synchronization
 import CPrivate
-import YabaiC
 
 /// `struct tab_bar` (view.h): the bar window (id and context) of the i3 style, or the panel of the glass style (glass,
 /// the TabBarGlass owner at +1 from tab_bar_glass_create), and the tabs it shows. owner is the container that redraws

@@ -1,5 +1,5 @@
 import Darwin
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //

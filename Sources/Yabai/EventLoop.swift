@@ -1,12 +1,11 @@
 import ApplicationServices
 import Dispatch
-import YabaiC
 
 //
 // NOTE: The event loop. Producers on other threads (AX observers, SkyLight notify procs, the NSWorkspace notifications,
 // the mouse event tap, the socket thread) only post events; the handlers run one at a time on the serial queue of the
-// @WM actor, in the order the events were posted. After each handler the signals it pushed run, and the temporary
-// storage is reset. Events never go through Task {}: a task could run them out of order. Ported from src/event_loop.c
+// @WM actor, in the order the events were posted. After each handler the signals it pushed run. Events never go
+// through Task {}: a task could run them out of order. Ported from src/event_loop.c
 // (a worker thread draining a lock-free queue); the handlers are in EventHandlers*.swift.
 //
 
@@ -112,7 +111,6 @@ enum EventLoop
             WM.assumeIsolated {
                 handle(event)
                 eventSignalFlush()
-                ts_reset_storage()
             }
         }
     }

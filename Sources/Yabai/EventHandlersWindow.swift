@@ -1,5 +1,6 @@
 import ApplicationServices
-import YabaiC
+import AppKit
+import CPrivate
 
 //
 // NOTE: The handlers of window events: windows created, destroyed, focused, moved, resized, minimized

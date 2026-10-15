@@ -1,5 +1,6 @@
 import Darwin
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //
@@ -139,8 +140,8 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let parsed = parseLabel(&rsp, message.next(), .display)
         if parsed.valid {
             if let label = parsed.label {
-                labelSet(&dm.labels, UInt64(actingDid), label)
-            } else if !(labelList(dm.labels)?.list.remove(id: UInt64(actingDid)) ?? false) {
+                dm.labels.set(id: UInt64(actingDid), name: label.string)
+            } else if !dm.labels.remove(id: UInt64(actingDid)) {
                 rsp.fail("the selected display was not associated with a label!\n")
             }
         }
@@ -356,8 +357,8 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         let parsed = parseLabel(&rsp, message.next(), .space)
         if parsed.valid {
             if let label = parsed.label {
-                labelSet(&sm.labels, actingSid, label)
-            } else if !(labelList(sm.labels)?.list.remove(id: actingSid) ?? false) {
+                sm.labels.set(id: actingSid, name: label.string)
+            } else if !sm.labels.remove(id: actingSid) {
                 rsp.fail("the selected space was not associated with a label!\n")
             }
         }

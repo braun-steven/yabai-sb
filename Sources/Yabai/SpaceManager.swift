@@ -1,7 +1,7 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //
@@ -27,10 +27,10 @@ final class SpaceManager
     var tree_default_orientation = TREE_ORIENTATION_AUTO
     var tree_workspace_tabbed = false
     var tree_autotiling = false
-    var labels: OpaquePointer?
+    var labels = LabelList()
     var skip_window_focus_animation = false
-    var space_layout = (YabaiC.space_layout(), YabaiC.space_layout(), YabaiC.space_layout(), YabaiC.space_layout(),
-                        YabaiC.space_layout(), YabaiC.space_layout(), YabaiC.space_layout(), YabaiC.space_layout())
+    var space_layout = (Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(),
+                        Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout())
     var space_layout_count: Int32 = 0
     var space_layout_spec: UnsafeMutablePointer<CChar>?
     var space_layout_gen: UInt32 = 0
@@ -593,7 +593,7 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UIn
         moveWindows(bWindows, to: aSid)
     }
 
-    label_swap_ids(sm.labels, aSid, bSid)
+    sm.labels.swap(aSid, bSid)
 
     view_update(aView)
     view_update(bView)
@@ -936,7 +936,7 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: UInt32)
 
             sm.view.remove(target.sid)
 
-            label_replace_id(sm.labels, target.sid, sid)
+            sm.labels.replace(id: target.sid, with: sid)
 
             target.sid = sid
             target.uuid = uuid
@@ -958,7 +958,7 @@ func space_manager_init(_ sm: SpaceManager)
     sm.tree_default_orientation = TREE_ORIENTATION_AUTO
     sm.tree_workspace_tabbed = false
     sm.tree_autotiling = false
-    sm.labels = nil
+    sm.labels = LabelList()
     sm.skip_window_focus_animation = false
     //
     // NOTE: The table of views is keyed by the space id.

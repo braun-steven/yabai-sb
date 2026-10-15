@@ -1,12 +1,33 @@
 import ApplicationServices
+import CPrivate
 import Foundation
-import YabaiC
 
 //
 // NOTE: The notifications of the window server connection and the Mission Control notifications of the Dock. Both
-// callbacks run on the main thread and only post events (and move the borders, which border.c locks). Ported from
-// src/mission_control.c; the mode is still the C global g_mission_control_mode (src/mission_control.h).
+// callbacks run on the main thread and only post events (and move the borders, which Border.swift locks). Ported from
+// src/mission_control.c and src/mission_control.h.
 //
+
+/// `enum mission_control_mode`
+struct mission_control_mode: RawRepresentable, Equatable, Sendable
+{
+    var rawValue: UInt32
+}
+
+let MISSION_CONTROL_MODE_INACTIVE           = mission_control_mode(rawValue: 0)
+let MISSION_CONTROL_MODE_SHOW               = mission_control_mode(rawValue: 1)
+let MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS   = mission_control_mode(rawValue: 2)
+let MISSION_CONTROL_MODE_SHOW_FRONT_WINDOWS = mission_control_mode(rawValue: 3)
+let MISSION_CONTROL_MODE_SHOW_DESKTOP       = mission_control_mode(rawValue: 4)
+
+/// `g_mission_control_mode`: the handlers on the event loop own it, like the C global (see the NOTE of g_display_manager).
+nonisolated(unsafe) var g_mission_control_mode = MISSION_CONTROL_MODE_INACTIVE
+
+/// `mission_control_is_active`
+func mission_control_is_active() -> Bool
+{
+    return g_mission_control_mode != MISSION_CONTROL_MODE_INACTIVE
+}
 
 /// `connection_handler`: registered for each notification type by yabai_main.
 func connection_handler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)

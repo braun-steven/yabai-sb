@@ -1,6 +1,5 @@
 import Foundation
 import CPrivate
-import YabaiC
 
 //
 // NOTE: Scratchpads: windows with a label that are floated and toggled between hidden (ordered out)

@@ -2,7 +2,6 @@ import Carbon
 import Foundation
 import CPrivate
 import Synchronization
-import YabaiC
 import YabaiCore
 
 //

@@ -2,9 +2,9 @@
 import PackageDescription
 
 //
-// NOTE: The makefile drives this package (make, make install, make asan, make tsan, make test); see doc/swift-port.md.
-// The C target YabaiC is the unity build of src/ (manifest.m plus the generated scripting-addition byte arrays). It shrinks
-// while the port moves code to Swift, and Swift sees its headers through src/include/yabai_c.h.
+// NOTE: The makefile drives this package (make, make install, make asan, make tsan, make test); see AGENTS.md. yabai is
+// Swift (Sources/Yabai, Sources/YabaiCore); the C targets only declare the private framework functions (CPrivate) and
+// hold the scripting-addition binaries (OSAX).
 //
 
 //
@@ -24,34 +24,27 @@ let package = Package(
         .executable(name: "yabai", targets: ["Yabai"])
     ],
     targets: [
-        .target(
-            name: "YabaiC",
-            dependencies: ["CPrivate"],
-            path: "src",
-            sources: ["manifest.m", "osax/payload_bin.c", "osax/loader_bin.c"],
-            publicHeadersPath: "include",
-            cSettings: [
-                .unsafeFlags(warnings + ["-fno-objc-arc", "-F/System/Library/PrivateFrameworks"]),
-                .unsafeFlags(["-O3"], .when(configuration: .release)),
-                .define("NDEBUG", .when(configuration: .release))
-            ],
-            linkerSettings: [
-                .linkedFramework("Carbon"),
-                .linkedFramework("Cocoa"),
-                .linkedFramework("CoreServices")
-            ]
-        ),
         // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
         // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
         .target(
             name: "CPrivate",
             cSettings: [
-                .unsafeFlags(warnings + ["-fno-objc-arc"])
+                .unsafeFlags(warnings + ["-fno-objc-arc"]),
+                .unsafeFlags(["-O3"], .when(configuration: .release)),
+                .define("NDEBUG", .when(configuration: .release))
             ],
             linkerSettings: [
                 .linkedFramework("Cocoa"),
                 .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
             ]
+        ),
+        // the scripting addition: its opcodes (common.h) and the payload and loader binaries that the makefile builds
+        // (payload.m and loader.m are not sources of the package)
+        .target(
+            name: "OSAX",
+            path: "osax",
+            sources: ["payload_bin.c", "loader_bin.c"],
+            publicHeadersPath: "include"
         ),
         // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
         .target(
@@ -59,21 +52,24 @@ let package = Package(
         ),
         .executableTarget(
             name: "Yabai",
-            dependencies: ["CPrivate", "YabaiC", "YabaiCore"],
+            dependencies: ["CPrivate", "OSAX", "YabaiCore"],
             linkerSettings: [
+                .linkedFramework("Carbon"),
+                .linkedFramework("Cocoa"),
+                .linkedFramework("CoreServices"),
                 .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", Context.packageDirectory + "/assets/Info.plist"] + sdk)
             ]
         ),
-        // tests/, not Tests/: on a case-insensitive file system both would be the directory of the C test harness
+        // tests/, not Tests/: the file system is case-insensitive
         .testTarget(
             name: "YabaiCoreTests",
             dependencies: ["YabaiCore"],
             path: "tests/YabaiCoreTests"
         ),
-        // the code of the daemon that needs the C managers (the IPC handlers and the golden replay), through @testable import Yabai
+        // the code of the daemon (the IPC handlers, the managers and the golden replay), through @testable import Yabai
         .testTarget(
             name: "YabaiTests",
-            dependencies: ["Yabai", "YabaiC", "YabaiCore"],
+            dependencies: ["CPrivate", "OSAX", "Yabai", "YabaiCore"],
             path: "tests/YabaiTests",
             resources: [.copy("Golden")]
         )

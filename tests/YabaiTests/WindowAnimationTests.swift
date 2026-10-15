@@ -1,7 +1,7 @@
 import ApplicationServices
 import Foundation
 import Testing
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 @Test("window_frame_close")

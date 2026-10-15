@@ -1,6 +1,6 @@
 import CoreGraphics
 import Testing
-import YabaiC
+import CPrivate
 @testable import Yabai
 
 extension DaemonState

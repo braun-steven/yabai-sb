@@ -1,7 +1,6 @@
 import CoreGraphics
 import Foundation
 import CPrivate
-import YabaiC
 
 //
 // NOTE: Applies the container trees of Tree.swift to the screen: the tree of a view, window frames,

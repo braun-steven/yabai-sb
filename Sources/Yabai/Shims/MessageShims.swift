@@ -1,4 +1,5 @@
-import YabaiC
+import AppKit
+import CPrivate
 import YabaiCore
 
 //
@@ -91,7 +92,7 @@ struct CSelectorContext: SelectorContext
 
     func displayLabel(_ label: Token) -> UInt64?
     {
-        labelList(display_manager_global().labels)?.list.find(name: label.string)?.id
+        display_manager_global().labels.find(name: label.string)?.id
     }
 
     func space(_ query: SpaceQuery) -> UInt64
@@ -109,7 +110,7 @@ struct CSelectorContext: SelectorContext
 
     func spaceLabel(_ label: Token) -> UInt64?
     {
-        labelList(space_manager_global().labels)?.list.find(name: label.string)?.id
+        space_manager_global().labels.find(name: label.string)?.id
     }
 
     func window(_ query: WindowQuery<Window>) -> Window?

@@ -1,7 +1,7 @@
 import ApplicationServices
 import Dispatch
 import CPrivate
-import YabaiC
+import AppKit
 
 //
 // NOTE: Focusing windows through synthesized event records, and the window that commands act on. Ported from

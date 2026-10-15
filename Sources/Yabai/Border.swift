@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Synchronization
 import CPrivate
-import YabaiC
+import AppKit
 
 // NOTE: Four inline frames, like the C array; moves and resizes do not allocate or copy array storage.
 struct BorderEdges
@@ -136,7 +136,6 @@ func borderEdgeFrames(_ frame: CGRect, _ width: Float, _ radius: Float) -> Borde
                        right: CGRect(x: outer.minX + outer.width - CGFloat(sideWidth), y: outer.minY + CGFloat(topHeight), width: CGFloat(sideWidth), height: CGFloat(sideHeight)))
 }
 
-@_cdecl("border_edge_frames")
 func border_edge_frames(_ frame: CGRect, _ width: Float, _ radius: Float, _ edge: UnsafeMutablePointer<CGRect>!)
 {
     let frames = borderEdgeFrames(frame, width, radius)
@@ -476,10 +475,8 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCo
     }
 }
 
-@_cdecl("border_begin_batch")
 func border_begin_batch() { borderLock.withLock { $0.batchDepth += 1 } }
 
-@_cdecl("border_end_batch")
 func border_end_batch()
 {
     borderLock.withLock { state in
@@ -516,7 +513,6 @@ func border_refresh(_ target: Window!) { borderRefreshWithCount(target, 0, -1) }
 // the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
 // without asking the window server for the space of every window.
 //
-@_cdecl("border_refresh_space")
 func border_refresh_space(_ sid: UInt64)
 {
     if sid == 0 { return }
@@ -547,7 +543,6 @@ func border_refresh_window_space(_ target: Window!)
     else { border_refresh(target) }
 }
 
-@_cdecl("border_refresh_all")
 func border_refresh_all()
 {
     var counts: [UInt64: Int32] = [:]
@@ -565,7 +560,6 @@ func border_refresh_all()
     }
 }
 
-@_cdecl("border_remove")
 func border_remove(_ wid: UInt32)
 {
     borderLock.withLock { state in
@@ -577,7 +571,6 @@ func border_remove(_ wid: UInt32)
 // NOTE: A window that is animated is drawn by a proxy window in its place while the real window already sits at its
 // final frame, so its border is hidden for the duration of the animation and put back at the end.
 //
-@_cdecl("border_suspend")
 func border_suspend(_ wid: UInt32, _ suspended: Bool)
 {
     borderLock.withLock { state in
@@ -591,7 +584,6 @@ func border_suspend(_ wid: UInt32, _ suspended: Bool)
 //
 // NOTE: The handlers below run on the main thread, straight from the SkyLight notifications of the window.
 //
-@_cdecl("border_window_moved")
 func border_window_moved(_ wid: UInt32)
 {
     borderLock.withLock { state in
@@ -611,13 +603,9 @@ private func borderWindowUpdate(_ wid: UInt32, _ what: Int)
     }
 }
 
-@_cdecl("border_window_resized")
 func border_window_resized(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateFrame) }
-@_cdecl("border_window_ordered")
 func border_window_ordered(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateOrder) }
-@_cdecl("border_window_changed")
 func border_window_changed(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateAll) }
-@_cdecl("border_window_hidden")
 func border_window_hidden(_ wid: UInt32)
 {
     borderLock.withLock { state in

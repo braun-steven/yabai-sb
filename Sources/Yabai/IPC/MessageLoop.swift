@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import YabaiC
+import CPrivate
 import YabaiCore
 
 //
@@ -9,7 +9,6 @@ import YabaiCore
 // (daemon_message_handle). Ported from src/message.c and the DAEMON_MESSAGE handler of src/event_handlers_system.c.
 //
 
-@_cdecl("message_loop_begin")
 func message_loop_begin(_ socketPath: UnsafeMutablePointer<CChar>?) -> Bool
 {
     guard let socketPath else { return false }
@@ -77,7 +76,6 @@ private func messageLoopRun(_ listener: Int32) -> Never
 // guard against.
 //
 
-@_cdecl("daemon_message_handle")
 func daemon_message_handle(_ sockfd: Int32)
 {
     WM.assumeIsolated { daemonMessageHandle(sockfd) }

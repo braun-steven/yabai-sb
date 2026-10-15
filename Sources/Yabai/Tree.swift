@@ -1,5 +1,5 @@
+import CPrivate
 import Foundation
-import YabaiC
 
 //
 // NOTE: The container model and the i3 algorithms that work on it. Nothing here talks to the
@@ -49,7 +49,7 @@ final class Con
     var last_split = CON_SPLITH
     var percent: Float = 0
     var window_id: UInt32 = 0
-    var area = YabaiC.area()
+    var area = Yabai.area()
     var zoom = CON_ZOOM_NONE
     var selected = false
     var insert_dir: Int32 = 0
@@ -109,13 +109,13 @@ func con_is_leaf(_ node: Con) -> Bool
 }
 
 /// `con_orientation`
-func con_orientation(_ node: Con) -> con_orientation
+func con_orientation(_ node: Con) -> ConOrientation
 {
     return node.pointee.layout == CON_SPLITV ? CON_VERTICAL : CON_HORIZONTAL
 }
 
 /// `direction_orientation`
-private func directionOrientation(_ direction: Int32) -> con_orientation
+private func directionOrientation(_ direction: Int32) -> ConOrientation
 {
     return direction == DIR_NORTH || direction == DIR_SOUTH ? CON_VERTICAL : CON_HORIZONTAL
 }
@@ -127,7 +127,7 @@ private func directionIsBackward(_ direction: Int32) -> Bool
 }
 
 /// `orientation_layout`
-private func orientationLayout(_ orientation: con_orientation) -> con_layout
+private func orientationLayout(_ orientation: ConOrientation) -> con_layout
 {
     return orientation == CON_VERTICAL ? CON_SPLITV : CON_SPLITH
 }
@@ -704,7 +704,7 @@ func tree_next(_ node: Con, _ direction: Int32, _ wrapping: focus_wrapping, _ ha
 
 /// `tree_force_orientation`
 @discardableResult
-func tree_force_orientation(_ root: Con, _ orientation: con_orientation) -> Con
+func tree_force_orientation(_ root: Con, _ orientation: ConOrientation) -> Con
 {
     let split = conWrapChildren(root)
     root.pointee.layout = orientationLayout(orientation)
@@ -950,7 +950,7 @@ func tree_insert_relative(_ target: Con!, _ node: Con!, _ direction: Int32)
 //
 
 /// `tree_split`
-func tree_split(_ node: Con, _ orientation: con_orientation)
+func tree_split(_ node: Con, _ orientation: ConOrientation)
 {
     var node = node
     if node.pointee.parent == nil {
@@ -1202,7 +1202,7 @@ func tree_rotate(_ node: Con, _ degrees: Int32)
 }
 
 /// `tree_mirror`
-func tree_mirror(_ node: Con, _ orientation: con_orientation)
+func tree_mirror(_ node: Con, _ orientation: ConOrientation)
 {
     if conIsSplit(node) && con_orientation(node) == orientation {
         conReverseChildren(node)

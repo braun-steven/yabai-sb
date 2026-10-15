@@ -1,6 +1,5 @@
 import AppKit
 import CPrivate
-import YabaiC
 
 //
 // NOTE: The options of the daemon and its startup. `--message` / `-m` never gets here: main.swift runs the client
@@ -157,8 +156,7 @@ private func skyLightSymbol(_ name: String) -> UnsafeMutableRawPointer?
         error("yabai: 'env USER' not set! abort..\n")
     }
 
-    let saSocketFile = "/tmp/yabai-sa_\(user).socket"
-    _ = saSocketFile.withCString { strlcpy(sa_socket_path(), $0, Int(MAXLEN)) }
+    g_sa_socket_file = "/tmp/yabai-sa_\(user).socket"
     let lockFile = "/tmp/yabai_\(user).lock"
 
     NSApplicationLoadC()
@@ -245,7 +243,7 @@ private func parseArguments(_ arguments: [String]) -> String?
         let opt = arguments[i]
 
         if opt == debugVerboseOptionLong || opt == debugVerboseOptionShort {
-            verbose_global()!.pointee = true
+            g_verbose = true
         } else if opt == configOptionLong || opt == configOptionShort {
             guard i < arguments.count - 1 else { error("yabai: option '\(configOptionLong)|\(configOptionShort)' requires an argument!\n") }
             i += 1
@@ -279,10 +277,6 @@ private func parseArguments(_ arguments: [String]) -> String?
 
     if !(SLSGetSpaceManagementMode(SLSMainConnectionID()) == 1) {
         require("yabai: 'display has separate spaces' is disabled! abort..\n")
-    }
-
-    if !ts_init(8 * 1024 * 1024) {
-        error("yabai: could not allocate temporary storage! abort..\n")
     }
 
     if !configureSettingsAndAcquireLock() {

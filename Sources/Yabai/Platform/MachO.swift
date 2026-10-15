@@ -46,7 +46,6 @@ private func findSymtabCommand(_ header: UnsafePointer<mach_header_64>) -> symta
 
 /// Finds a symbol in the symbol table of a loaded image, including the symbols that it does not export, which dlsym
 /// cannot find. Ported from `macho_find_symbol` (src/misc/macho_dlsym.h); yabai.c calls it.
-@_cdecl("macho_find_symbol")
 func macho_find_symbol(_ targetImage: UnsafeMutablePointer<CChar>, _ targetSymbol: UnsafeMutablePointer<CChar>) -> UnsafeMutableRawPointer?
 {
     var slide: UInt = 0

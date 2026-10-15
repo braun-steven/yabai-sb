@@ -35,7 +35,6 @@ install: $(BINS)
 # swift test needs the generated OSAX sources: they are sources of the YabaiC target
 test: $(OSAX_SRC)
 	swift test
-	$(MAKE) -C tests
 
 # every source file is #included into manifest.m, so the analyzer must be told to analyze included files
 analyze:

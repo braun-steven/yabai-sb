@@ -220,7 +220,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     ms.feedback_dir = direction
 }
 
-@WM private func mouseDropNoTarget(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ srcView: View, _ dstView: View, _ target: Window)
+@WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ srcView: View, _ dstView: View, _ target: Window)
 {
     if srcView.pointee.sid == dstView.pointee.sid || dstView.pointee.layout == VIEW_FLOAT { view_flush(srcView); return }
     window_manager_unmanage_window(wm, srcView, target)
@@ -233,7 +233,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
 // window on that side of the other window.
 //
 
-@WM func mouse_drop(_ sm: UnsafeMutablePointer<space_manager>?, _ wm: UnsafeMutablePointer<window_manager>, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
+@WM func mouse_drop(_ sm: SpaceManager?, _ wm: UnsafeMutablePointer<window_manager>, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
 {
     mouse_feedback_clear(ms)
     guard let dstView else { view_flush(srcView); return }

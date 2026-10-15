@@ -36,13 +36,12 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(SLS_SPACE_DESTROYED)`
 @WM func slsSpaceDestroyed(_ sid: UInt64)
 {
-    let sm = space_manager_global()!
-    var key = sid
+    let sm = space_manager_global()
 
-    if let view = table_find(&sm.pointee.view, &key)?.assumingMemoryBound(to: View.Pointee.self) {
+    if let view = sm.view.find(sid) {
         debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid))\n")
-        _ = label_remove_id(sm.pointee.labels, sid)
-        table_remove(&sm.pointee.view, &key)
+        _ = label_remove_id(sm.labels, sid)
+        sm.view.remove(sid)
         view_destroy(view)
         free(view)
         eventSignalPush(.spaceDestroyed, signalContext(sid))
@@ -58,14 +57,14 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 @WM private func refreshCurrentSpace()
 {
     let wm = window_manager_global()!
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
     if wm.pointee.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.pointee.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
+        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    let view = space_manager_find_view(sm, sm.pointee.current_space_id)!
+    let view = space_manager_find_view(sm, sm.current_space_id)
 
     if space_manager_refresh_application_windows(sm) {
         if let focusedWindow = window_manager_focused_window(wm), window_manager_find_lost_focused_event(wm, focusedWindow.pointee.id) {
@@ -74,8 +73,8 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
         }
     }
 
-    if !mission_control_is_active() && space_is_user(sm.pointee.current_space_id) {
-        window_manager_validate_and_check_for_windows_on_space(sm, wm, sm.pointee.current_space_id)
+    if !mission_control_is_active() && space_is_user(sm.current_space_id) {
+        window_manager_validate_and_check_for_windows_on_space(sm, wm, sm.current_space_id)
 
         if view_is_invalid(view) {
             view_update(view)
@@ -90,12 +89,12 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(SPACE_CHANGED)`
 @WM func spaceChanged()
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
-    sm.pointee.last_space_id = sm.pointee.current_space_id
-    sm.pointee.current_space_id = space_manager_active_space()
+    sm.last_space_id = sm.current_space_id
+    sm.current_space_id = space_manager_active_space()
 
-    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.pointee.current_space_id))\n")
+    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.spaceChanged, nil)
@@ -105,7 +104,7 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 @WM func displayChanged()
 {
     let dm = display_manager_global()
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
     let newDid = display_manager_active_display_id()
     if dm.current_display_id == newDid {
@@ -116,16 +115,16 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
     dm.last_display_id = dm.current_display_id
     dm.current_display_id = newDid
 
-    sm.pointee.last_space_id = sm.pointee.current_space_id
-    sm.pointee.current_space_id = display_space_id(dm.current_display_id)
+    sm.last_space_id = sm.current_space_id
+    sm.current_space_id = display_space_id(dm.current_display_id)
 
-    let expectedDisplayID = space_display_id(sm.pointee.current_space_id)
+    let expectedDisplayID = space_display_id(sm.current_space_id)
     if dm.current_display_id != expectedDisplayID {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.pointee.current_space_id)) did not match \(expectedDisplayID)! ignoring event..\n")
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id)) did not match \(expectedDisplayID)! ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.pointee.current_space_id))\n")
+    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.displayChanged, nil)

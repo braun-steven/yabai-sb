@@ -176,7 +176,7 @@ func update_window_notifications()
         if window_manager_find_managed_window(wm, window) != nil { continue }
 
         let sid = newWindows ? window_manager_origin_space(wm, window) : window_space(window.pointee.id)
-        let view = space_manager_find_view(space_manager_global(), sid)!
+        let view = space_manager_find_view(space_manager_global(), sid)
         if view.pointee.layout == VIEW_FLOAT { continue }
 
         tileWindowBatched(view, window, insertionPoint)
@@ -491,7 +491,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         return
     }
 
-    if space_manager_global()!.pointee.skip_window_focus_animation {
+    if space_manager_global().skip_window_focus_animation {
         applicationFrontSwitchedFocusSpace(application, process)
     }
 

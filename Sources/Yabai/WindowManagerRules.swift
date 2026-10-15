@@ -24,7 +24,6 @@ func window_manager_query_window_rules(_ rsp: inout Response)
 }
 
 /// `window_manager_rule_matches_window`
-@_cdecl("window_manager_rule_matches_window")
 func window_manager_rule_matches_window(_ candidate: UnsafeMutablePointer<rule>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>) -> Bool
 {
     let regexMatchApp = rule_check_flag(candidate, RULE_APP_EXCLUDE) ? REGEX_MATCH_YES : REGEX_MATCH_NO
@@ -43,8 +42,7 @@ func window_manager_rule_matches_window(_ candidate: UnsafeMutablePointer<rule>,
 }
 
 /// `window_manager_apply_manage_rule_effects_to_window`
-@_cdecl("window_manager_apply_manage_rule_effects_to_window")
-func window_manager_apply_manage_rule_effects_to_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
+func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
 {
     if effects.pointee.manage == RULE_PROP_ON {
         window_set_rule_flag(target, WINDOW_RULE_MANAGED)
@@ -56,8 +54,7 @@ func window_manager_apply_manage_rule_effects_to_window(_ sm: UnsafeMutablePoint
 }
 
 /// `window_manager_apply_rule_effects_to_window`
-@_cdecl("window_manager_apply_rule_effects_to_window")
-func window_manager_apply_rule_effects_to_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
+func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
 {
     if effects.pointee.sid != 0 || effects.pointee.did != 0 {
         if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.pointee.id)) {
@@ -152,8 +149,7 @@ func window_manager_combine_matching_rule_effects(_ wm: UnsafeMutablePointer<win
 }
 
 /// `window_manager_apply_manage_rules_to_window`
-@_cdecl("window_manager_apply_manage_rules_to_window")
-func window_manager_apply_manage_rules_to_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 
@@ -165,8 +161,7 @@ func window_manager_apply_manage_rules_to_window(_ sm: UnsafeMutablePointer<spac
 }
 
 /// `window_manager_apply_rules_to_window`
-@_cdecl("window_manager_apply_rules_to_window")
-func window_manager_apply_rules_to_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 

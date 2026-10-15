@@ -72,7 +72,7 @@ private func treeBarInset() -> Int32
 /// `tree_default_layout`
 private func treeDefaultLayout(_ owner: View) -> con_layout
 {
-    switch space_manager_global().pointee.tree_default_orientation {
+    switch space_manager_global().tree_default_orientation {
     case TREE_ORIENTATION_HORIZONTAL: return CON_SPLITH
     case TREE_ORIENTATION_VERTICAL:   return CON_SPLITV
     default:                          break
@@ -195,7 +195,7 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
     if anchor == nil { anchor = tree_find_window(root, window_manager_global().pointee.focused_window_id) }
     if anchor == nil { anchor = tree_descend_focused(root) }
 
-    tree_open_con(root, node, anchor, space_manager_global().pointee.tree_autotiling)
+    tree_open_con(root, node, anchor, space_manager_global().tree_autotiling)
     treeFocusNewWindow(root, node, target.pointee.id)
 }
 

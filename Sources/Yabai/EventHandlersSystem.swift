@@ -87,11 +87,11 @@ import YabaiC
     debug("EVENT_HANDLER_MISSION_CONTROL_EXIT:\n")
 
     let wm = window_manager_global()!
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let mode = mission_control_mode_global()!
 
     if wm.pointee.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.pointee.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
+        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
@@ -180,18 +180,18 @@ import YabaiC
 /// `EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)`
 @WM func spaceLayoutReconcile(_ generation: Int32)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
-    if UInt32(bitPattern: generation) != sm.pointee.space_layout_gen { return }
-    if sm.pointee.space_layout_count == 0 { return }
+    if UInt32(bitPattern: generation) != sm.space_layout_gen { return }
+    if sm.space_layout_count == 0 { return }
 
     if mission_control_is_active() {
         space_layout_schedule(0.5, false)
         return
     }
 
-    sm.pointee.space_layout_passes += 1
-    if sm.pointee.space_layout_passes > 40 {
+    sm.space_layout_passes += 1
+    if sm.space_layout_passes > 40 {
         debug("EVENT_HANDLER_SPACE_LAYOUT_RECONCILE: giving up, layout did not converge\n")
         return
     }
@@ -202,6 +202,6 @@ import YabaiC
     } else if result == SPACE_LAYOUT_RESULT_FAILED {
         space_layout_schedule(1.0, false)
     } else {
-        sm.pointee.space_layout_passes = 0
+        sm.space_layout_passes = 0
     }
 }

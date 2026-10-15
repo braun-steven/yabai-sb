@@ -148,7 +148,7 @@ func describeSpace(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer
 
         es.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid))")
     case .spaceChanged:
-        let sm = space_manager_global()!.pointee
+        let sm = space_manager_global()
         let sid = sm.current_space_id
         let recentSid = sm.last_space_id
 

@@ -120,20 +120,20 @@ private let viewTypeNames = ["default", "float", "tree"]
 /// `view_serialize`
 func viewSerialize(_ view: UnsafeMutablePointer<view>, _ flags: UInt64) -> String
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let sid = view.pointee.sid
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
     json.property(SpaceProperty.id,           "\"id\":\(Int64(bitPattern: sid))")
     json.property(SpaceProperty.uuid,         "\"uuid\":\"\(viewUUID(view))\"")
     json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
-    json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.pointee.labels, sid))\"")
+    json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
     json.property(SpaceProperty.type,         "\"type\":\"\(viewTypeNames[Int(view.pointee.layout.rawValue)])\"")
     json.property(SpaceProperty.display,      "\"display\":\(display_manager_display_id_arrangement(space_display_id(sid)))")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)))")
     json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)))")
-    json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.pointee.current_space_id))")
+    json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.current_space_id))")
     json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(space_is_visible(sid)))")
     json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(space_is_fullscreen(sid)))")
 
@@ -155,7 +155,7 @@ func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: UInt64, _ flags: UInt6
 
 private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: UnsafeMutablePointer<UInt64>, _ spaceCount: Int32, _ flags: UInt64)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let spaces = (0..<Int(spaceCount)).compactMap { i in space_manager_query_view(sm, spaceList[i]).map { viewSerialize($0, flags) } }
     rsp.write("[\(spaces.joined(separator: ","))]\n")
 }

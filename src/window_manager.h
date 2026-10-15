@@ -141,30 +141,9 @@ struct window_manager
 };
 
 //
-// NOTE: The window manager is Swift (Sources/Yabai/WindowManager*.swift). struct window_manager stays C while
-// rule.c and the C startup code read its fields (model cleanup is P14). These are the
-// functions that C still calls.
+// NOTE: The window manager is Swift (Sources/Yabai/WindowManager*.swift). struct window_manager stays C until it is
+// a Swift class (P14).
 //
-
-// implemented in Sources/Yabai/WindowManagerRules.swift
-bool window_manager_rule_matches_window(struct rule *rule, struct window *window, char *window_title, char *window_role, char *window_subrole);
-void window_manager_apply_manage_rule_effects_to_window(struct space_manager *sm, struct window_manager *wm, struct window *window, struct rule_effects *effects);
-void window_manager_apply_rule_effects_to_window(struct space_manager *sm, struct window_manager *wm, struct window *window, struct rule_effects *effects);
-void window_manager_apply_manage_rules_to_window(struct space_manager *sm, struct window_manager *wm, struct window *window, char *window_title, char *window_role, char *window_subrole, bool one_shot_rules);
-void window_manager_apply_rules_to_window(struct space_manager *sm, struct window_manager *wm, struct window *window, char *window_title, char *window_role, char *window_subrole, bool one_shot_rules);
-
-// implemented in Sources/Yabai/WindowManager.swift
-bool window_manager_is_window_eligible(struct window *window);
-struct view *window_manager_find_managed_window(struct window_manager *wm, struct window *window);
-void window_manager_remove_managed_window(struct window_manager *wm, uint32_t wid);
-void window_manager_unmanage_window(struct window_manager *wm, struct view *view, struct window *window);
-void window_manager_manage_window(struct space_manager *sm, struct window_manager *wm, struct window *window, uint64_t sid, uint32_t insertion_point);
-enum window_op_error window_manager_resize_window_relative(struct window_manager *wm, struct window *window, int direction, float dx, float dy, bool animate);
-struct window *window_manager_find_window(struct window_manager *wm, uint32_t window_id);
-enum window_op_error window_manager_stack_window(struct space_manager *sm, struct window_manager *wm, struct window *a, struct window *b);
-enum window_op_error window_manager_swap_window(struct window_manager *wm, struct window *a, struct window *b);
-void window_manager_begin(struct space_manager *sm, struct window_manager *wm);
-void window_manager_init(struct window_manager *wm);
 
 //
 // NOTE: The sbuffers of the window manager (applications_to_refresh, rules, scratchpad_window) for Swift, which cannot

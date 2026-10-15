@@ -330,7 +330,7 @@ private func treeReapEmpty(_ node: Con) -> Con
 /// `con_apply_workspace_layout`
 private func conApplyWorkspaceLayout(_ node: Con)
 {
-    if !space_manager_global().pointee.tree_workspace_tabbed { return }
+    if !space_manager_global().tree_workspace_tabbed { return }
 
     guard let root = node.pointee.parent, root.pointee.parent == nil else { return }
     if !con_is_leaf(node) && node.pointee.layout == CON_TABBED { return }

@@ -10,7 +10,6 @@
 //
 
 struct window_manager g_window_manager;
-struct space_manager g_space_manager;
 
 enum mission_control_mode g_mission_control_mode;
 

@@ -34,17 +34,17 @@ extension DaemonState
             let enabled = wm.pointee.enable_tab_bar
             let height = wm.pointee.tab_bar_height
             let backdrop = wm.pointee.tab_bar_backdrop
-            let workspaceTabbed = space_manager_global().pointee.tree_workspace_tabbed
+            let workspaceTabbed = space_manager_global().tree_workspace_tabbed
             defer {
                 wm.pointee.enable_tab_bar = enabled
                 wm.pointee.tab_bar_height = height
                 wm.pointee.tab_bar_backdrop = backdrop
-                space_manager_global().pointee.tree_workspace_tabbed = workspaceTabbed
+                space_manager_global().tree_workspace_tabbed = workspaceTabbed
             }
             wm.pointee.enable_tab_bar = true
             wm.pointee.tab_bar_height = 24
             wm.pointee.tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
-            space_manager_global().pointee.tree_workspace_tabbed = false
+            space_manager_global().tree_workspace_tabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
             let root = Yabai.con_create(CON_SPLITH)!
             defer { Yabai.con_free(root) }

@@ -22,18 +22,18 @@ extension DaemonState
         func messageConfigOptions()
         {
             let wm = window_manager_global()!
-            let sm = space_manager_global()!
+            let sm = space_manager_global()
             let mouse = mouse_state_global()
 
             let mff = wm.pointee.enable_mff
             let modifier = mouse.modifier
             let wrapping = wm.pointee.focus_wrapping
-            let topPadding = sm.pointee.top_padding
+            let topPadding = sm.top_padding
             defer {
                 wm.pointee.enable_mff = mff
                 mouse.modifier = modifier
                 wm.pointee.focus_wrapping = wrapping
-                sm.pointee.top_padding = topPadding
+                sm.top_padding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
@@ -44,10 +44,10 @@ extension DaemonState
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
 
-            sm.pointee.top_padding = 7
+            sm.top_padding = 7
             #expect(runConfig("top_padding\0") == "7\n")
             #expect(runConfig("top_padding\0-1\0").contains("unknown value '-1'"))
-            #expect(sm.pointee.top_padding == 7)
+            #expect(sm.top_padding == 7)
 
             #expect(runConfig("not_an_option\0").contains("unknown command 'not_an_option'"))
         }
@@ -56,17 +56,17 @@ extension DaemonState
         func messageConfigValues()
         {
             let wm = window_manager_global()!
-            let sm = space_manager_global()!
+            let sm = space_manager_global()
 
             let grid = wm.pointee.scratchpad_grid
             let duration = wm.pointee.window_animation_duration
             let opacityDuration = wm.pointee.window_opacity_duration
-            let workspaceTabbed = sm.pointee.tree_workspace_tabbed
+            let workspaceTabbed = sm.tree_workspace_tabbed
             defer {
                 wm.pointee.scratchpad_grid = grid
                 wm.pointee.window_animation_duration = duration
                 wm.pointee.window_opacity_duration = opacityDuration
-                sm.pointee.tree_workspace_tabbed = workspaceTabbed
+                sm.tree_workspace_tabbed = workspaceTabbed
             }
 
             #expect(runConfig("scratchpad_grid\0off\0scratchpad_grid\0") == "off\n")

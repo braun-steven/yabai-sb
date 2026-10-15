@@ -100,7 +100,7 @@ func parseSplitOrientation(_ value: Token) -> Int32?
 /// `window_toggle_list`: what a value of `window --toggle` that is a window property does.
 private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let wm = window_manager_global()!
 
     switch toggle {
@@ -196,7 +196,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
 private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let wm = window_manager_global()!
     let context = CSelectorContext()
 
@@ -309,7 +309,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
 
 private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let wm = window_manager_global()!
 
     if command.equals(WindowCommand.grid) {

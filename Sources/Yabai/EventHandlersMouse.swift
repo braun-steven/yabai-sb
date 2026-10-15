@@ -260,7 +260,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     let wm = window_manager_global()!
 
     var windowCount: Int32 = 0
-    guard let windowIDs = space_window_list(space_manager_global()!.pointee.current_space_id, &windowCount, false) else { return false }
+    guard let windowIDs = space_window_list(space_manager_global().current_space_id, &windowCount, false) else { return false }
 
     let level = window_level(window.pointee.id)
     let subLevel = window_sub_level(window.pointee.id)

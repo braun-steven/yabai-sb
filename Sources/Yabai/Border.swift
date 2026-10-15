@@ -413,7 +413,7 @@ private func borderShouldShow(_ target: UnsafeMutablePointer<window>) -> Bool
 private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
-    var count = owner != nil && owner!.pointee.layout == VIEW_TREE ? tree_view_tiled_count(owner) : 0
+    var count = owner.pointee.layout == VIEW_TREE ? tree_view_tiled_count(owner) : 0
     for target in tableValues(window_manager_global().pointee.window, as: window.self) {
         if target.pointee.scratchpad != nil || !borderShouldShow(target) { continue }
         if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }
@@ -529,7 +529,8 @@ func border_refresh_space(_ sid: UInt64)
         return
     }
     var windows: [UInt32] = []
-    if let owner = space_manager_find_view(space_manager_global(), sid), owner.pointee.layout == VIEW_TREE { windows = treeViewWindowList(owner) }
+    let owner = space_manager_find_view(space_manager_global(), sid)
+    if owner.pointee.layout == VIEW_TREE { windows = treeViewWindowList(owner) }
     let capacity = windows.count + Int(window_manager_global().pointee.window.count)
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {

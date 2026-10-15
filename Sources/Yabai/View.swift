@@ -177,7 +177,7 @@ func viewCreate(_ sid: UInt64) -> View
     setViewFlag(target, VIEW_ENABLE_GAP)
 
     if space_is_user(target.pointee.sid) {
-        let sm = space_manager_global()!.pointee
+        let sm = space_manager_global()
 
         target.pointee.layout         = sm.layout
         target.pointee.top_padding    = sm.top_padding

@@ -53,7 +53,7 @@ extension DaemonState
         // attached to the workspace; the tests expect the default (Swift Testing creates the suite for each test)
         init()
         {
-            space_manager_global().pointee.tree_workspace_tabbed = false
+            space_manager_global().tree_workspace_tabbed = false
         }
 
         @Test("tree_attach_detach")
@@ -560,10 +560,10 @@ extension DaemonState
         @Test("tree_workspace_layout_tabbed")
         func treeWorkspaceLayoutTabbed()
         {
-            let sm = space_manager_global()!
-            let workspaceTabbed = sm.pointee.tree_workspace_tabbed
-            sm.pointee.tree_workspace_tabbed = true
-            defer { sm.pointee.tree_workspace_tabbed = workspaceTabbed }
+            let sm = space_manager_global()
+            let workspaceTabbed = sm.tree_workspace_tabbed
+            sm.tree_workspace_tabbed = true
+            defer { sm.tree_workspace_tabbed = workspaceTabbed }
 
             // the first window of an empty workspace opens in a tabbed container
             let root = Yabai.con_create(CON_SPLITH)!

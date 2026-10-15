@@ -24,7 +24,7 @@ private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Int
 private func windowManagerTreeFocusDisplay(_ wm: UnsafeMutablePointer<window_manager>, _ did: UInt32)
 {
     let sid = display_space_id(did)
-    let owner = spaceManagerFindView(space_manager_global(), sid)
+    let owner = space_manager_find_view(space_manager_global(), sid)
     let leaf = owner.pointee.layout == VIEW_TREE && owner.pointee.tree != nil ? tree_descend_focused(owner.pointee.tree) : nil
 
     if let leaf, con_is_leaf(leaf) {
@@ -100,12 +100,12 @@ func window_manager_tree_focus_child(_ wm: UnsafeMutablePointer<window_manager>,
 //
 
 /// `window_manager_tree_move_to_display`
-private func windowManagerTreeMoveToDisplay(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Int32)
+private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Int32)
 {
     tree_select(owner.pointee.tree, nil)
 
     let sid = display_space_id(did)
-    let dstView = spaceManagerFindView(sm, sid)
+    let dstView = space_manager_find_view(sm, sid)
 
     if dstView.pointee.layout == VIEW_TREE {
         let focus = tree_descend_focused(node)
@@ -147,7 +147,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: UnsafeMutablePointer<space_man
 }
 
 /// `window_manager_tree_move_direction`
-func window_manager_tree_move_direction(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32) -> window_op_error
+func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32) -> window_op_error
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }

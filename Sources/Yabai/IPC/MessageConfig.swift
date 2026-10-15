@@ -178,7 +178,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
 
 private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64) -> Bool
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
     if selSid != 0 {
         rsp.fail("command '\(command)' for domain '\(domain)' does not support the '\(Config.spaceSelector)' selector\n")
@@ -188,7 +188,7 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
     var value = message.next()
 
     if !value.isValid {
-        if let spec = sm.pointee.space_layout_spec {
+        if let spec = sm.space_layout_spec {
             rsp.write("\(Token(cString: spec))\n")
         } else {
             rsp.write("\(Argument.off)\n")
@@ -197,9 +197,9 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if value.equals(Argument.off) {
-        free(sm.pointee.space_layout_spec)
-        sm.pointee.space_layout_spec = nil
-        sm.pointee.space_layout_count = 0
+        free(sm.space_layout_spec)
+        sm.space_layout_spec = nil
+        sm.space_layout_count = 0
         return true
     }
 
@@ -244,13 +244,13 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
         return false
     }
 
-    withUnsafeMutableBytes(of: &sm.pointee.space_layout) { bytes in
+    withUnsafeMutableBytes(of: &sm.space_layout) { bytes in
         let layouts = bytes.bindMemory(to: space_layout.self)
         for (i, layout) in layoutList.enumerated() { layouts[i] = layout }
     }
-    sm.pointee.space_layout_count = Int32(layoutList.count)
-    free(sm.pointee.space_layout_spec)
-    sm.pointee.space_layout_spec = mallocString(spec)
+    sm.space_layout_count = Int32(layoutList.count)
+    free(sm.space_layout_spec)
+    sm.space_layout_spec = mallocString(spec)
     space_layout_schedule(0.0, true)
     return true
 }
@@ -307,11 +307,11 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
 
 private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let value = message.next()
 
     if !value.isValid {
-        let layout = selSid != 0 ? space_manager_find_view(sm, selSid)!.pointee.layout : sm.pointee.layout
+        let layout = selSid != 0 ? space_manager_find_view(sm, selSid).pointee.layout : sm.layout
         rsp.write("\(viewTypeNames[Int(layout.rawValue)])\n")
         return
     }
@@ -327,7 +327,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if !space_is_user(selSid) {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
     } else {
-        space_manager_find_view(sm, selSid)!.pointee.flags |= UInt64(VIEW_LAYOUT.rawValue)
+        space_manager_find_view(sm, selSid).pointee.flags |= UInt64(VIEW_LAYOUT.rawValue)
         space_manager_set_layout_for_space(sm, selSid, layout)
     }
 }
@@ -562,7 +562,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64) -> Bool
 {
     let wm = window_manager_global()!
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let dm = display_manager_global()
     let mouse = mouse_state_global()
 
@@ -605,7 +605,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.scratchpadGrid) {
         configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.pointee.skip_window_focus_animation)
+        _ = parseConfigBool(&rsp, domain, command, &message, &sm.skip_window_focus_animation)
     } else if command.equals(Config.spaceLayout) {
         if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
     } else if command.equals(Config.opacity) {
@@ -641,15 +641,15 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         _ = configColor(&rsp, domain, command, &message, &wm.pointee.insert_feedback_color, allowZero: false)
     } else if let flag = spacing(for: command) {
         let view = selSid != 0 ? space_manager_find_view(sm, selSid) : nil
-        let spacing = view.map { view_spacing($0, flag)! } ?? space_manager_spacing(sm, flag)!
+        let spacing = view.map { view_spacing($0, flag)!.pointee } ?? sm[keyPath: space_manager_spacing(flag)]
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(spacing.pointee)\n")
+            rsp.write("\(spacing)\n")
         case .int(let value):
             if let view {
                 view.pointee.flags |= UInt64(flag.rawValue)
-                spacing.pointee = value
+                view_spacing(view, flag)!.pointee = value
                 view_update_and_flush(view)
             } else {
                 space_manager_set_spacing_for_all_spaces(sm, flag, value)
@@ -660,25 +660,25 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.layout) {
         configLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.treeOrientation) {
-        if let choice = parseChoice(&rsp, domain, command, &message, treeOrientationNames, first: TREE_ORIENTATION_AUTO.rawValue, last: TREE_ORIENTATION_VERTICAL.rawValue, current: sm.pointee.tree_default_orientation.rawValue) {
-            sm.pointee.tree_default_orientation = tree_orientation(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, treeOrientationNames, first: TREE_ORIENTATION_AUTO.rawValue, last: TREE_ORIENTATION_VERTICAL.rawValue, current: sm.tree_default_orientation.rawValue) {
+            sm.tree_default_orientation = tree_orientation(rawValue: choice)
         }
     } else if command.equals(Config.treeWorkspaceLayout) {
-        if let choice = parseChoice(&rsp, domain, command, &message, workspaceLayoutNames, first: 0, last: 1, current: sm.pointee.tree_workspace_tabbed ? 1 : 0) {
-            sm.pointee.tree_workspace_tabbed = choice != 0
+        if let choice = parseChoice(&rsp, domain, command, &message, workspaceLayoutNames, first: 0, last: 1, current: sm.tree_workspace_tabbed ? 1 : 0) {
+            sm.tree_workspace_tabbed = choice != 0
         }
     } else if command.equals(Config.treeAutotiling) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.pointee.tree_autotiling)
+        _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
     } else if command.equals(Config.focusWrapping) {
         if let choice = parseChoice(&rsp, domain, command, &message, focusWrappingNames, first: FOCUS_WRAPPING_OFF.rawValue, last: FOCUS_WRAPPING_FORCE.rawValue, current: wm.pointee.focus_wrapping.rawValue) {
             wm.pointee.focus_wrapping = focus_wrapping(rawValue: choice)
         }
     } else if command.equals(Config.autoPadding) {
         if selSid != 0 {
-            var enabled = space_manager_find_view(sm, selSid)!.pointee.auto_padding
+            var enabled = space_manager_find_view(sm, selSid).pointee.auto_padding
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_space(sm, selSid, enabled) }
         } else {
-            var enabled = sm.pointee.auto_padding
+            var enabled = sm.auto_padding
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_all_spaces(sm, enabled) }
         }
     } else if command.equals(Config.mouseModifier) {

@@ -48,7 +48,6 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
 }
 
 /// `window_manager_is_window_eligible`
-@_cdecl("window_manager_is_window_eligible")
 func window_manager_is_window_eligible(_ target: Window) -> Bool
 {
     return target.pointee.is_root && (window_is_real(target) || window_check_rule_flag(target, WINDOW_RULE_MANAGED))
@@ -118,7 +117,6 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
 }
 
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
-@_cdecl("window_manager_find_managed_window")
 func window_manager_find_managed_window(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> View?
 {
     var key = target.pointee.id
@@ -126,7 +124,6 @@ func window_manager_find_managed_window(_ wm: UnsafeMutablePointer<window_manage
 }
 
 /// `window_manager_remove_managed_window`
-@_cdecl("window_manager_remove_managed_window")
 func window_manager_remove_managed_window(_ wm: UnsafeMutablePointer<window_manager>, _ wid: UInt32)
 {
     var key = wid
@@ -153,7 +150,6 @@ func window_manager_add_managed_window(_ wm: UnsafeMutablePointer<window_manager
 //
 
 /// `window_manager_unmanage_window`
-@_cdecl("window_manager_unmanage_window")
 func window_manager_unmanage_window(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ target: Window)
 {
     space_manager_untile_window(owner, target)
@@ -162,8 +158,7 @@ func window_manager_unmanage_window(_ wm: UnsafeMutablePointer<window_manager>, 
 }
 
 /// `window_manager_manage_window`
-@_cdecl("window_manager_manage_window")
-func window_manager_manage_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ sid: UInt64, _ insertionPoint: UInt32)
+func window_manager_manage_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ sid: UInt64, _ insertionPoint: UInt32)
 {
     let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
     window_manager_add_managed_window(wm, target, owner)
@@ -315,7 +310,6 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 }
 
 /// `window_manager_resize_window_relative`
-@_cdecl("window_manager_resize_window_relative")
 func window_manager_resize_window_relative(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> window_op_error
 {
     if let owner = window_manager_find_managed_window(wm, target) {
@@ -570,7 +564,6 @@ func window_manager_add_lost_focused_event(_ wm: UnsafeMutablePointer<window_man
 }
 
 /// `window_manager_find_window`
-@_cdecl("window_manager_find_window")
 func window_manager_find_window(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32) -> Window?
 {
     var key = windowID
@@ -621,11 +614,11 @@ func window_manager_find_application_windows(_ wm: UnsafeMutablePointer<window_m
 }
 
 /// `window_manager_set_window_insertion`
-func window_manager_set_window_insertion(_ sm: UnsafeMutablePointer<space_manager>, _ target: Window?, _ direction: Int32) -> window_op_error
+func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: Int32) -> window_op_error
 {
     guard let target else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
-    let owner = spaceManagerFindView(sm, window_space(target.pointee.id))
+    let owner = space_manager_find_view(sm, window_space(target.pointee.id))
     if owner.pointee.layout != VIEW_TREE || owner.pointee.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
     guard let node = tree_find_window(owner.pointee.tree, target.pointee.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -657,8 +650,7 @@ func window_manager_set_window_insertion(_ sm: UnsafeMutablePointer<space_manage
 //
 
 /// `window_manager_stack_window`
-@_cdecl("window_manager_stack_window")
-func window_manager_stack_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_stack_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
@@ -719,7 +711,7 @@ func window_manager_set_window_layout(_ wm: UnsafeMutablePointer<window_manager>
 //
 
 /// `window_manager_warp_window`
-func window_manager_warp_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_warp_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
@@ -750,7 +742,6 @@ func window_manager_warp_window(_ sm: UnsafeMutablePointer<space_manager>, _ wm:
 }
 
 /// `window_manager_swap_window`
-@_cdecl("window_manager_swap_window")
 func window_manager_swap_window(_ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
@@ -810,7 +801,7 @@ func window_manager_close_window(_ target: Window) -> Bool
 }
 
 /// `window_manager_send_window_to_space`
-func window_manager_send_window_to_space(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
+func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
 {
     let srcSid = window_space(target.pointee.id)
     if srcSid == dstSid { return }
@@ -841,7 +832,7 @@ func window_manager_send_window_to_space(_ sm: UnsafeMutablePointer<space_manage
 
 /// `window_manager_apply_grid`
 @discardableResult
-func window_manager_apply_grid(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ r: UInt32, _ c: UInt32, _ x: UInt32, _ y: UInt32, _ w: UInt32, _ h: UInt32) -> window_op_error
+func window_manager_apply_grid(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ r: UInt32, _ c: UInt32, _ x: UInt32, _ y: UInt32, _ w: UInt32, _ h: UInt32) -> window_op_error
 {
     if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -857,7 +848,7 @@ func window_manager_apply_grid(_ sm: UnsafeMutablePointer<space_manager>, _ wm: 
     if h > r &- y { h = r &- y }
 
     var bounds = display_bounds_constrained(did, false)
-    let dview = spaceManagerFindView(sm, display_space_id(did))
+    let dview = space_manager_find_view(sm, display_space_id(did))
 
     if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
         bounds.origin.x    += CGFloat(dview.pointee.left_padding)
@@ -895,7 +886,7 @@ func window_manager_apply_grid(_ sm: UnsafeMutablePointer<space_manager>, _ wm: 
 }
 
 /// `window_manager_make_window_floating`
-func window_manager_make_window_floating(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldFloat: Bool, _ force: Bool)
+func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldFloat: Bool, _ force: Bool)
 {
     if !window_manager_is_window_eligible(target) { return }
 
@@ -924,7 +915,7 @@ func window_manager_make_window_floating(_ sm: UnsafeMutablePointer<space_manage
 }
 
 /// `window_manager_make_window_sticky`
-func window_manager_make_window_sticky(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldSticky: Bool)
+func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldSticky: Bool)
 {
     if !window_manager_is_window_eligible(target) { return }
 
@@ -1067,13 +1058,13 @@ func window_manager_toggle_window_expose(_ target: Window)
 }
 
 /// `window_manager_toggle_window_pip`
-func window_manager_toggle_window_pip(_ sm: UnsafeMutablePointer<space_manager>, _ target: Window)
+func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 {
     let did = window_display_id(target.pointee.id)
     if did == 0 { return }
 
     let sid = display_space_id(did)
-    let dview = spaceManagerFindView(sm, sid)
+    let dview = space_manager_find_view(sm, sid)
 
     var bounds = display_bounds_constrained(did, false)
     if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
@@ -1171,9 +1162,9 @@ private func spaceWindows(_ sid: UInt64) -> [UInt32]?
 }
 
 /// `window_manager_validate_and_check_for_windows_on_space`
-func window_manager_validate_and_check_for_windows_on_space(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ sid: UInt64)
+func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ sid: UInt64)
 {
-    let owner = spaceManagerFindView(sm, sid)
+    let owner = space_manager_find_view(sm, sid)
     if owner.pointee.layout == VIEW_FLOAT { return }
 
     let windowList = spaceWindows(sid) ?? []
@@ -1195,7 +1186,7 @@ func window_manager_validate_and_check_for_windows_on_space(_ sm: UnsafeMutableP
 }
 
 /// `window_manager_correct_for_mission_control_changes`
-func window_manager_correct_for_mission_control_changes(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>)
 {
     var displayCount: Int32 = 0
     guard let displayList = display_manager_active_display_list(&displayCount) else { return }
@@ -1221,13 +1212,13 @@ func window_manager_correct_for_mission_control_changes(_ sm: UnsafeMutablePoint
 }
 
 /// `window_manager_handle_display_add_and_remove`
-func window_manager_handle_display_add_and_remove(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>, _ did: UInt32)
+func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ did: UInt32)
 {
     guard let spaceList = displaySpaces(did) else { return }
 
     for space in spaceList where space_is_user(space) {
         if let windowList = spaceWindows(space) {
-            let owner = spaceManagerFindView(sm, space)
+            let owner = space_manager_find_view(sm, space)
             if owner.pointee.layout != VIEW_FLOAT {
                 windowManagerCheckForWindowsOnSpace(wm, owner, windowList)
             }
@@ -1252,7 +1243,6 @@ func windowManagerTableInit(_ hashTable: UnsafeMutablePointer<table>)
 }
 
 /// `window_manager_init`
-@_cdecl("window_manager_init")
 func window_manager_init(_ wm: UnsafeMutablePointer<window_manager>)
 {
     let systemElement = AXUIElementCreateSystemWide()
@@ -1306,8 +1296,7 @@ func window_manager_init(_ wm: UnsafeMutablePointer<window_manager>)
 }
 
 /// `window_manager_begin`
-@_cdecl("window_manager_begin")
-func window_manager_begin(_ sm: UnsafeMutablePointer<space_manager>, _ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_begin(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>)
 {
     autoreleasepool {
         for candidate in process_manager_global().process.values {

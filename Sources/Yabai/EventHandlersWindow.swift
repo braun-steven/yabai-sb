@@ -71,7 +71,7 @@ import YabaiC
     window_destroy(window)
 
     if wm.pointee.window_border_hide_single {
-        border_refresh_space(space_manager_global()!.pointee.current_space_id)
+        border_refresh_space(space_manager_global().current_space_id)
     }
 
     update_window_notifications()
@@ -115,7 +115,7 @@ import YabaiC
 
     debug("EVENT_HANDLER_WINDOW_FOCUSED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
 
-    if space_manager_global()!.pointee.skip_window_focus_animation {
+    if space_manager_global().skip_window_focus_animation {
         let sid = window_space(window.pointee.id)
         if sid != 0 && !space_is_visible(sid) {
             SLSSpaceSetFrontPSN(connection_global(), sid, window.pointee.application.pointee.psn)

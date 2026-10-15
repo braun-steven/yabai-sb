@@ -65,7 +65,7 @@ func rule_serialize(_ rsp: inout Response, _ candidate: UnsafeMutablePointer<rul
 /// `rule_reapply_all`
 func rule_reapply_all()
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let wm = window_manager_global()!
 
     for target in tableValues(wm.pointee.window, as: window.self) where target.pointee.is_root {
@@ -116,7 +116,7 @@ func rule_reapply_by_label(_ label: UnsafePointer<CChar>) -> Bool
 /// `rule_apply`
 func rule_apply(_ candidate: UnsafeMutablePointer<rule>)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
     let wm = window_manager_global()!
 
     for target in tableValues(wm.pointee.window, as: window.self) where target.pointee.is_root {

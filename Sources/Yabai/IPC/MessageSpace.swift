@@ -262,7 +262,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
 
 func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: UInt64) -> CommandResult
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
     if command.equals(SpaceCommand.equalize) || command.equals(SpaceCommand.balance) {
         //
@@ -356,8 +356,8 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         let parsed = parseLabel(&rsp, message.next(), .space)
         if parsed.valid {
             if let label = parsed.label {
-                labelSet(&sm.pointee.labels, actingSid, label)
-            } else if !(labelList(sm.pointee.labels)?.list.remove(id: actingSid) ?? false) {
+                labelSet(&sm.labels, actingSid, label)
+            } else if !(labelList(sm.labels)?.list.remove(id: actingSid) ?? false) {
                 rsp.fail("the selected space was not associated with a label!\n")
             }
         }

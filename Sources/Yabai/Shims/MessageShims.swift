@@ -102,14 +102,14 @@ struct CSelectorContext: SelectorContext
         case .next(let sid):             space_manager_next_space(sid)
         case .first:                     space_manager_first_space()
         case .last:                      space_manager_last_space()
-        case .recent:                    space_manager_global().pointee.last_space_id
+        case .recent:                    space_manager_global().last_space_id
         case .cursor:                    space_manager_cursor_space()
         }
     }
 
     func spaceLabel(_ label: Token) -> UInt64?
     {
-        labelList(space_manager_global().pointee.labels)?.list.find(name: label.string)?.id
+        labelList(space_manager_global().labels)?.list.find(name: label.string)?.id
     }
 
     func window(_ query: WindowQuery<Window>) -> Window?

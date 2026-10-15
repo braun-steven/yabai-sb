@@ -22,12 +22,7 @@ enum space_layout_result
     SPACE_LAYOUT_RESULT_FAILED,
 };
 
-struct space_manager;
-
 // implemented in Sources/Yabai/Shims/SpaceLayoutShims.swift (SpaceLayout in Sources/YabaiCore/SpaceLayout.swift)
 bool space_layout_parse(char *text, int length, struct space_layout *layout);
-// implemented in Sources/Yabai/SpaceLayout.swift
-enum space_layout_result space_layout_reconcile(struct space_manager *sm);
-void space_layout_schedule(double delay, bool reset_passes);
 
 #endif

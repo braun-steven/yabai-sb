@@ -417,7 +417,7 @@ func tab_bar_refresh_for_window(_ wid: UInt32)
 @_cdecl("tab_bar_refresh_all")
 func tab_bar_refresh_all()
 {
-    for owner in tableValues(space_manager_global().pointee.view, as: view.self) where owner.pointee.layout == VIEW_TREE {
+    for owner in space_manager_global().view.values where owner.pointee.layout == VIEW_TREE {
         if let root = owner.pointee.tree { tree_release_bars(root) }
         view_update_and_flush(owner)
     }

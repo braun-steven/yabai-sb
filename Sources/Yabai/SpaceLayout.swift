@@ -38,8 +38,7 @@ private func spaceLayoutDestroyCandidate(_ did: UInt32) -> UInt64
 }
 
 /// `space_layout_reconcile`: performs one step that moves the user spaces towards the layout of the displays.
-@_cdecl("space_layout_reconcile")
-func space_layout_reconcile(_ sm: UnsafeMutablePointer<space_manager>) -> space_layout_result
+func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
 {
     let displayCount = display_manager_active_display_count()
     if displayCount < 1 || displayCount > SPACE_LAYOUT_MAX { return SPACE_LAYOUT_RESULT_DONE }
@@ -48,8 +47,8 @@ func space_layout_reconcile(_ sm: UnsafeMutablePointer<space_manager>) -> space_
     // NOTE: The C struct is a fixed array, which Swift sees as a tuple: the entries are read as values.
     //
 
-    let layouts = withUnsafeBytes(of: sm.pointee.space_layout) { bytes in
-        Array(bytes.bindMemory(to: space_layout.self).prefix(Int(sm.pointee.space_layout_count)))
+    let layouts = withUnsafeBytes(of: sm.space_layout) { bytes in
+        Array(bytes.bindMemory(to: space_layout.self).prefix(Int(sm.space_layout_count)))
     }
 
     guard let layout = layouts.first(where: { $0.count == displayCount }) else {
@@ -118,16 +117,15 @@ func space_layout_reconcile(_ sm: UnsafeMutablePointer<space_manager>) -> space_
 //
 
 /// `space_layout_schedule`: posts SPACE_LAYOUT_RECONCILE for the current generation after delay seconds.
-@_cdecl("space_layout_schedule")
 func space_layout_schedule(_ delay: Double, _ resetPasses: Bool)
 {
-    let sm = space_manager_global()!
+    let sm = space_manager_global()
 
-    if sm.pointee.space_layout_count == 0 { return }
-    if resetPasses { sm.pointee.space_layout_passes = 0 }
+    if sm.space_layout_count == 0 { return }
+    if resetPasses { sm.space_layout_passes = 0 }
 
-    sm.pointee.space_layout_gen &+= 1
-    let generation = sm.pointee.space_layout_gen
+    sm.space_layout_gen &+= 1
+    let generation = sm.space_layout_gen
 
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
         EventLoop.post(.spaceLayoutReconcile(generation: Int32(bitPattern: generation)))

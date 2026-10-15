@@ -61,6 +61,10 @@ Rules for the user's machine:
   and tell the user that their layouts were reset.
 - The native ctrl+←/→ space shortcuts are disabled (symbolic hotkeys 79/81), so the harness skips
   that check. Don't change the user's settings.
+- A config getter is not always valid setter input: `focus_follows_mouse` returns `disabled`, but
+  restore it with `off`. Focusing the already-focused space returns an error; guard that operation
+  in strict helpers. Locate tabbed containers recursively: a window's `--layout tabbed` can wrap
+  only that branch rather than change the workspace root.
 - While the screen is locked, AX reports no windows of any application (System Events too): a daemon that
   starts then spends tens of seconds in AX timeouts, `live.py run` finds no windows, and bench numbers drop
   because moves no longer apply. Check `CGSessionCopyCurrentDictionary()["CGSSessionScreenIsLocked"]`

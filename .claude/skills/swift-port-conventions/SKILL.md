@@ -32,6 +32,7 @@ P14 removed `src/`, YabaiC, the C test harness, temporary storage and all `@_cde
 - **Frame worker ownership:** retain AX references and copied app names until concurrent workers join; keep window ids in animations rather than references to mutable models (`WindowAnimation.swift`).
 - **Byte-array fixtures:** explicitly type `[UInt8]` when mixing typed bytes and untyped integer literals. Inferred `[Any]` silently gives raw-pointer APIs the wrong storage (`WindowAnimationTests.swift`).
 - **Git pathspecs:** `git add` with a missing pathspec stages nothing; check paths after deleting or moving targets.
+- **Live helper assumptions:** config getter output is not always setter syntax (`focus_follows_mouse`: `disabled` → `off`); focusing the current space fails. Locate tabbed containers recursively because `--layout tabbed` may wrap a branch, not the workspace root (see `doc/live-testing.md`).
 
 - **CF types in C structs** import as `Unmanaged<T>?` unless the header has nullability annotations. Wrap the header in `CF_ASSUME_NONNULL_BEGIN/END` and mark the optional fields `_Nullable` (example: `src/tab_bar_glass.h`). Then take each value once with `takeUnretainedValue()` and let C free the struct.
 - **Who frees a C struct's CF objects:** either Swift takes the +1 references (`takeRetainedValue()`) and C only frees the memory, or Swift retains (`takeUnretainedValue()`) and C releases. Pick one per struct and write it in the header's NOTE. The pilot uses the second way (`tab_bar_glass_snapshot_free`).

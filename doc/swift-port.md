@@ -31,7 +31,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P10 | Process, application, workspace | [x] | 5f6e386 | `struct process`, `process_manager` and `application` stay C until P11 (window*.c reads them); `g_workspace_context` is gone |
 | P11 | Window + window_manager* | [x] | e5f4110 | `struct window` and `window_manager` stay C until their last C users (P12, P13); `window_frame_*` tests belong to `window_animation.c` (P13) |
 | P12 | Tree + tree_view | [x] | acc7b04 | `struct con` stays C until P13 (mouse_handler.c, border.c, tab_bar.c use it); the `final class Con` conversion moves there |
-| P13 | Border, tab bars, animation, mouse, SA client | [x] | this commit | all 82 original tests ported; shared-model/bridge cleanup remains for P14 |
+| P13 | Border, tab bars, animation, mouse, SA client | [x] | 88f84a5 | all 82 original tests ported; shared-model/bridge cleanup remains for P14 |
 | P14 | Remove C, docs, final verification | [ ] | | |
 
 **Rule for `[L]`:** the next phase may start while a phase waits for the user. Never have more than two phases in `[L]`: stop and ask the user to do the pending steps first.
@@ -762,7 +762,7 @@ Append one entry per session, newest last. Template:
 - Waiting on user: nothing. No scripting-addition reload needed (`sa.m` and `OSAX_VERSION` unchanged). The deploys reset the trees of all spaces, and the installed build crashed once and was restarted by launchd (see Deviations).
 
 ### 2026-10-15 P13 [x]
-- Commits: the commit that adds this entry, on swift-port
+- Commits: 88f84a5 (code), then the commit that records this SHA, on swift-port
 - Master synced to: 4754520 (`git log 4754520..master -- src tests doc` is empty)
 - Done:
   - `border.c` → `Border.swift`: native border objects and settings behind a `Mutex`, four SkyLight edge windows, the original batching/handover and callback lock boundaries; edge-frame calculations use a fixed four-frame value to avoid allocating during moves.

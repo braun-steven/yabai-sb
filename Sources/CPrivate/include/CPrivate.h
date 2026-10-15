@@ -31,6 +31,35 @@ CF_ASSUME_NONNULL_BEGIN
 extern mach_port_t (*_Nullable CGSGetConnectionPortById)(int cid);
 extern int64_t (*_Nullable SLSPerformAsynchronousBridgedWindowManagementOperation)(void *operation);
 
+//
+// NOTE: Swift reads the function pointer above through these functions: Swift 6 rejects references to a C global
+// variable. The caller checks SLSHasBridgedWindowOperation first, as space_manager.c did.
+//
+
+static inline bool SLSHasBridgedWindowOperation(void)
+{
+    return SLSPerformAsynchronousBridgedWindowManagementOperation != NULL;
+}
+
+static inline int64_t SLSPerformBridgedWindowOperation(void *operation)
+{
+    return SLSPerformAsynchronousBridgedWindowManagementOperation(operation);
+}
+
+//
+// NOTE: The window server clicks at a point through CGPostMouseEvent, which is deprecated and marked unavailable for Swift.
+// The C wrapper keeps the call for the focus of a display (display_manager_focus_display, space_manager_focus_space_using_gesture),
+// with the arguments of the C code: one click, the cursor moved.
+//
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+static inline void CGPostMouseEventC(CGPoint point, bool updateCursor, bool buttonDown)
+{
+    CGPostMouseEvent(point, updateCursor, 1, buttonDown);
+}
+#pragma clang diagnostic pop
+
 extern mach_port_t mig_get_special_reply_port(void);
 extern void mig_dealloc_special_reply_port(mach_port_t port);
 extern AXUIElementRef _Nullable _AXUIElementCreateWithRemoteToken(CFDataRef data);

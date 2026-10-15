@@ -108,12 +108,14 @@ enum SLS
         return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self)
     }
 
-    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `space_window_list_for_connection` calls it.
-    static func windows(_ cid: Int32, owner: UInt32, spaces: [UInt64], options: UInt32) -> [UInt32]
+    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `space_window_list_for_connection` calls it. nil when
+    /// the call fails, which the caller must tell apart from an empty list.
+    static func windows(_ cid: Int32, owner: UInt32, spaces: [UInt64], options: UInt32) -> [UInt32]?
     {
         var setTags: UInt64 = 0
         var clearTags: UInt64 = 0
-        return ids(SLSCopyWindowsWithOptionsAndTags(cid, owner, cfArray(spaces: spaces), options, &setTags, &clearTags), as: UInt32.self)
+        guard let windows = SLSCopyWindowsWithOptionsAndTags(cid, owner, cfArray(spaces: spaces), options, &setTags, &clearTags) else { return nil }
+        return ids(windows, as: UInt32.self)
     }
 
     /// `SLSWindowQueryWindows`, `SLSWindowQueryResultCopyWindows` and the `SLSWindowIterator*` functions: the windows of
@@ -189,5 +191,113 @@ enum SLS
     static func spaceName(_ cid: Int32, _ sid: UInt64) -> String?
     {
         return SLSSpaceCopyName(cid, sid) as String?
+    }
+
+    /// `SLSSpaceCopyName`, for the views, which keep the name as a CFString (`view->uuid`).
+    static func spaceNameObject(_ cid: Int32, _ sid: UInt64) -> CFString?
+    {
+        return SLSSpaceCopyName(cid, sid)
+    }
+
+    /// `SLSCopyManagedDisplays`: the uuids of the displays in the order of the window server; nil when the call fails.
+    static func managedDisplays(_ cid: Int32) -> CFArray?
+    {
+        return SLSCopyManagedDisplays(cid)
+    }
+
+    /// `SLSSetActiveMenuBarDisplayIdentifier`, with the display as both the identifier and the repeat identifier.
+    static func setActiveMenuBarDisplay(_ cid: Int32, _ uuid: String)
+    {
+        SLSSetActiveMenuBarDisplayIdentifier(cid, uuid as CFString, uuid as CFString)
+    }
+
+    /// `SLSGetMenuBarAutohideEnabled`; false if the call fails, like `display_manager_menu_bar_hidden`.
+    static func menuBarAutohideEnabled(_ cid: Int32) -> Bool
+    {
+        var status: Int32 = 0
+        SLSGetMenuBarAutohideEnabled(cid, &status)
+        return status != 0
+    }
+
+    /// `SLSGetDisplayMenubarHeight`; 0 if the call fails.
+    static func displayMenuBarHeight(_ did: UInt32) -> UInt32
+    {
+        var height: UInt32 = 0
+        SLSGetDisplayMenubarHeight(did, &height)
+        return height
+    }
+
+    /// `SLSGetDockRectWithReason`; the zero rect if the call fails, like `display_manager_dock_rect`.
+    static func dockRect(_ cid: Int32) -> CGRect
+    {
+        var bounds = CGRect.zero
+        var reason: Int32 = 0
+        SLSGetDockRectWithReason(cid, &bounds, &reason)
+        return bounds
+    }
+
+    /// `SLSGetCurrentCursorLocation`; the zero point if the call fails.
+    static func cursorLocation(_ cid: Int32) -> CGPoint
+    {
+        var point = CGPoint.zero
+        SLSGetCurrentCursorLocation(cid, &point)
+        return point
+    }
+
+    /// `SLSGetConnectionPSN`: the process serial number of the process that owns a connection.
+    static func connectionPSN(_ cid: Int32) -> ProcessSerialNumber
+    {
+        var psn = ProcessSerialNumber()
+        SLSGetConnectionPSN(cid, &psn)
+        return psn
+    }
+
+    /// `_SLPSGetFrontProcess`: the process serial number of the frontmost process.
+    static func frontProcess() -> ProcessSerialNumber
+    {
+        var psn = ProcessSerialNumber()
+        _SLPSGetFrontProcess(&psn)
+        return psn
+    }
+
+    //
+    // NOTE: The bridged operation moves windows asynchronously, and the window server has it on macOS 27. yabai.c
+    // resolves its function pointer; Swift reads it through the accessors of CPrivate.h.
+    //
+
+    /// Whether `SLSPerformAsynchronousBridgedWindowManagementOperation` is resolved.
+    static var hasBridgedWindowOperation: Bool
+    {
+        return SLSHasBridgedWindowOperation()
+    }
+
+    /// `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]`, run through
+    /// `SLSPerformAsynchronousBridgedWindowManagementOperation` and released after the window server took it.
+    /// The Objective-C messages go through objc_msgSend, cast to the signature of each call as space_manager.c did.
+    static func bridgedMoveWindows(_ windows: [UInt32], toSpace sid: UInt64)
+    {
+        guard let cls = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation"),
+              let send = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "objc_msgSend") else { return }
+
+        typealias Alloc = @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?
+        typealias InitWithWindows = @convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer, UInt64) -> UnsafeMutableRawPointer?
+        let alloc = unsafeBitCast(send, to: Alloc.self)
+        let initWithWindows = unsafeBitCast(send, to: InitWithWindows.self)
+
+        let classObject = Unmanaged.passUnretained(cls as AnyObject).toOpaque()
+        let windowList = windows.map { NSNumber(value: Int32(bitPattern: $0)) } as NSArray
+
+        let selectorAlloc = unsafeBitCast(sel_registerName("alloc"), to: UnsafeMutableRawPointer.self)
+        let selectorInit = unsafeBitCast(sel_registerName("initWithWindows:spaceID:"), to: UnsafeMutableRawPointer.self)
+
+        guard let allocated = alloc(classObject, selectorAlloc),
+              let operation = initWithWindows(allocated, selectorInit,
+                                              Unmanaged.passUnretained(windowList).toOpaque(), sid) else { return }
+
+        withExtendedLifetime(windowList) {
+            _ = SLSPerformBridgedWindowOperation(operation)
+        }
+
+        Unmanaged<AnyObject>.fromOpaque(operation).release()
     }
 }

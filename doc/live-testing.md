@@ -16,12 +16,13 @@ point below was learned the hard way; read it before running anything live.
 - `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
   (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
   with "too many arguments provided to function-like macro invocation". Build fixtures in a static
-  helper function instead (see `known_focus_psn` in `tests/src/window_frame.c`).
+  helper function instead (see `knownFocusPSN` in `tests/YabaiTests/SpaceManagerTests.swift`; the C
+  tests are being ported, so new tests go to Swift).
 - `ts_buf_*` lists live in per-event temporary storage (`ts_init` in `tests.m`); there is no
   `ts_buf_free`. Reset a list with `list = NULL`.
 - Everything shares one translation unit, so `static` functions of any source file can be called from
-  a test. Make decisions testable by moving them into pure `static inline` helpers that take their
-  inputs as arguments (e.g. `space_manager_can_use_known_focus`, `application_launch_retry_delay`,
+  a test. Make decisions testable by moving them into pure helpers that take their inputs as arguments
+  (e.g. `space_manager_can_use_known_focus`, which is Swift since P9, `application_launch_retry_delay`,
   `tree_collect_window_order`), and keep the side effects in the caller.
 - Tree tests build containers with `con_create`, `tree_test_leaf` and `tree_test_split`
   (`tests/src/tree.c`) and set focus with `tree_focus`. In tests a tab bar has no glass panel, so
@@ -52,6 +53,10 @@ Rules for the user's machine:
 - Before `setup`, check `pgrep -lx TextEdit`, `"Script Editor"`, `Calculator`; if one runs, ask the
   user. `setup` records the focused window in `.focused-window` and `cleanup` focuses it again;
   `launch` needs the test apps closed, so it runs after a `cleanup`.
+- `setup` adds windows to the ones already on space 4, so run `cleanup` before every `setup`. After a
+  benchmark or an IPC capture (which leave their windows behind) a `setup` without `cleanup` gives 10
+  tiled windows where the checks expect 5: `tree is a flat row again`, `rapid focus east x3` and `autofocus
+  sweep ends on window under cursor` fail, with the same build that passes 28/28 on a clean space (P9, ASan).
 - Every deploy restarts yabai, and a restart loses the trees: all spaces, including the user's, come
   back as a flat splith row (tabbed containers are gone). Rebuild a test layout after each deploy,
   and tell the user that their layouts were reset.

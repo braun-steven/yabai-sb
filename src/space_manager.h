@@ -52,6 +52,7 @@ enum space_op_error
     SPACE_OP_ERROR_SCRIPTING_ADDITION   = 10,
 };
 
+// implemented in Sources/Yabai/SpaceManager.swift (and Space.swift, DisplayManager.swift for the lists they return)
 struct view *space_manager_query_view(struct space_manager *sm, uint64_t sid);
 struct view *space_manager_find_view(struct space_manager *sm, uint64_t sid);
 void space_manager_refresh_view(struct space_manager *sm, uint64_t sid);

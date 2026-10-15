@@ -270,6 +270,16 @@ static inline void window_manager_remove_application_refresh(struct window_manag
 {
     buf_del(wm->applications_to_refresh, index);
 }
+
+static inline int window_manager_application_refresh_count(struct window_manager *wm)
+{
+    return buf_len(wm->applications_to_refresh);
+}
+
+static inline struct application *window_manager_application_refresh_at(struct window_manager *wm, int index)
+{
+    return wm->applications_to_refresh[index];
+}
 enum window_op_error window_manager_apply_grid(struct space_manager *sm, struct window_manager *wm, struct window *window, unsigned r, unsigned c, unsigned x, unsigned y, unsigned w, unsigned h);
 void window_manager_purify_window(struct window_manager *wm, struct window *window);
 void window_manager_make_window_floating(struct space_manager *sm, struct window_manager *wm, struct window *window, bool should_float, bool force);

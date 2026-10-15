@@ -11,24 +11,15 @@ typedef TEST_SIG(function);
 #define TEST_FUNC(name, code) static TEST_SIG(name) { char *test_name = #name; bool result = true; {code} return result; }
 #define TEST_CHECK(r, e) if ((r) != (e)) { printf("                   \e[1;33m%s\e[m\e[1;31m#%d %s == %s\e[m \e[1;31m(%d == %d)\e[m\n", test_name, __LINE__, #r, #e, r, e); result = false; }
 
-#include "space_list.c"
-#include "auto_padding.c"
 #include "tree.c"
 #include "tree_view.c"
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
 #include "window_rules.c"
-#include "space_window.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
-    TEST_ENTRY(space_list_navigation)                          \
-    TEST_ENTRY(auto_padding_applies)                           \
-    TEST_ENTRY(auto_padding_tiled_count)                \
-    TEST_ENTRY(auto_padding_root_area)                         \
-    TEST_ENTRY(auto_padding_gap)                               \
-    TEST_ENTRY(auto_padding_split_in_tab)                      \
     TEST_ENTRY(tree_attach_detach)                             \
     TEST_ENTRY(tree_flatten)                                   \
     TEST_ENTRY(tree_focus_direction)                           \
@@ -65,8 +56,6 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_unresolved_list)                         \
     TEST_ENTRY(window_validity)                                \
     TEST_ENTRY(window_one_shot_rules)                          \
-    TEST_ENTRY(space_known_focus)                              \
-    TEST_ENTRY(space_window_user_predicates)                   \
     TEST_ENTRY(mouse_drop_action_regions)                      \
     TEST_ENTRY(window_child_windows_collect)                   \
     TEST_ENTRY(border_edge_frames_split)                       \

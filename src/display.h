@@ -1,8 +1,7 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#define DISPLAY_EVENT_HANDLER(name) void name(uint32_t did, CGDisplayChangeSummaryFlags flags, void *context)
-typedef DISPLAY_EVENT_HANDLER(display_callback);
+// implemented in Sources/Yabai/Display.swift
 
 CF_RETURNS_RETAINED CFStringRef display_uuid(uint32_t did);
 uint32_t display_id(CFStringRef uuid);

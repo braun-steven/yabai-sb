@@ -151,6 +151,7 @@ static inline int *view_spacing(struct view *view, enum view_flag flag)
     }
 }
 
+// implemented in Sources/Yabai/View.swift (the geometry is ViewArea in Sources/YabaiCore/ViewArea.swift)
 void view_add_window(struct view *view, struct window *window, uint32_t insertion_point);
 bool view_remove_window(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);

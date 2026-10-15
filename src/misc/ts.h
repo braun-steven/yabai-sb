@@ -103,13 +103,15 @@ static inline void ts_reset(void)
 }
 
 //
-// NOTE: Swift allocates temporary storage only through ts_string_from_bytes, and resets it after each event (the event
-// loop is Swift) through ts_reset_storage. It sees only their declarations: Swift emits its own copy of every header
-// function it calls, and those copies cannot link against g_temp_storage, which is static in the unity build.
+// NOTE: Swift allocates temporary storage only through ts_string_from_bytes and ts_list_from_bytes, and resets it after
+// each event (the event loop is Swift) through ts_reset_storage. It sees only their declarations: Swift emits its own
+// copy of every header function it calls, and those copies cannot link against g_temp_storage, which is static in the
+// unity build.
 //
 
 #ifdef __swift__
 char *ts_string_from_bytes(const void *bytes, uint64_t length);
+void *ts_list_from_bytes(const void *bytes, uint64_t length, uint64_t alignment);
 void ts_reset_storage(void);
 #else
 void ts_reset_storage(void)
@@ -122,6 +124,13 @@ char *ts_string_from_bytes(const void *bytes, uint64_t length)
     char *result = ts_alloc_unaligned(length + 1);
     if (length) memcpy(result, bytes, length);
     result[length] = '\0';
+    return result;
+}
+
+void *ts_list_from_bytes(const void *bytes, uint64_t length, uint64_t alignment)
+{
+    void *result = ts_alloc_aligned(alignment, length);
+    if (length) memcpy(result, bytes, length);
     return result;
 }
 #endif

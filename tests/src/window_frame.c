@@ -125,35 +125,6 @@ TEST_FUNC(window_pending_focus,
     table_free(&pending_focus_wm.window);
 });
 
-static ProcessSerialNumber known_focus_psn(uint32_t low)
-{
-    ProcessSerialNumber psn = {0};
-    psn.lowLongOfPSN = low;
-    return psn;
-}
-
-TEST_FUNC(space_known_focus,
-{
-    struct window_manager wm;
-    memset(&wm, 0, sizeof(wm));
-
-    ProcessSerialNumber owner = known_focus_psn(0x1234);
-    ProcessSerialNumber other = known_focus_psn(0x5678);
-    wm.focused_window_id = 42;
-    wm.focused_window_psn = owner;
-
-    //
-    // NOTE: The known focus is used only while the front process owns it and no focus change is pending.
-    //
-
-    TEST_CHECK(space_manager_can_use_known_focus(&owner, &wm, false), true);
-    TEST_CHECK(space_manager_can_use_known_focus(&other, &wm, false), false);
-    TEST_CHECK(space_manager_can_use_known_focus(&owner, &wm, true), false);
-
-    wm.focused_window_id = 0;
-    TEST_CHECK(space_manager_can_use_known_focus(&owner, &wm, false), false);
-});
-
 static uint32_t *unresolved_window_ids(struct window_manager *wm, int *count)
 {
     static uint32_t window_list[] = { 11, 12, 13, 14 };

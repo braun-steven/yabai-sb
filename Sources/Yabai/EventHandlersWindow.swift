@@ -9,7 +9,7 @@ import YabaiC
 /// `EVENT_HANDLER(WINDOW_CREATED)`: the element is the retained reference that the AX observer posted.
 @WM func windowCreated(_ element: AXUIElement)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     let windowID = ax_window_id(element)
     if windowID == 0 { return }
@@ -46,7 +46,7 @@ import YabaiC
         return
     }
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.pointee.application != nil ? cName(window.pointee.application.pointee.name) : "<unknown>") \(window.pointee.id)\n")
@@ -70,7 +70,7 @@ import YabaiC
     window_unobserve(window)
     window_destroy(window)
 
-    if wm.pointee.window_border_hide_single {
+    if wm.window_border_hide_single {
         border_refresh_space(space_manager_global().current_space_id)
     }
 
@@ -92,7 +92,7 @@ import YabaiC
 @WM func windowFocused(_ windowID: UInt32)
 {
     pendingWindowFocus.store(false, ordering: .releasing)
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     guard let window = window_manager_find_window(wm, windowID) else {
         window_manager_add_lost_focused_event(wm, windowID)
@@ -130,7 +130,7 @@ import YabaiC
 /// `EVENT_HANDLER(WINDOW_MOVED)`
 @WM func windowMoved(_ windowID: UInt32)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
@@ -170,7 +170,7 @@ import YabaiC
 /// `EVENT_HANDLER(WINDOW_RESIZED)`
 @WM func windowResized(_ windowID: UInt32)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
@@ -242,7 +242,7 @@ import YabaiC
 /// `EVENT_HANDLER(WINDOW_MINIMIZED)`
 @WM func windowMinimized(_ window: Window)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if !window_is_valid(window) {
         debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
@@ -257,8 +257,8 @@ import YabaiC
     let view = window_manager_find_managed_window(wm, window)
     let nextFocus = view.map { window_manager_tree_focus_candidate(wm, $0, window) } ?? 0
 
-    if window.pointee.id == wm.pointee.last_window_id {
-        wm.pointee.last_window_id = wm.pointee.focused_window_id
+    if window.pointee.id == wm.last_window_id {
+        wm.last_window_id = wm.focused_window_id
     }
 
     if let view {
@@ -273,7 +273,7 @@ import YabaiC
 /// `EVENT_HANDLER(WINDOW_DEMINIMIZED)`
 @WM func windowDeminimized(_ window: Window)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if !window_is_valid(window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
@@ -289,7 +289,7 @@ import YabaiC
     if space_manager_is_window_on_space(sid, window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.pointee.application.pointee.name)) \(window.pointee.id) is deminimized on active space\n")
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            let lastWindow = window_manager_find_window(wm, wm.pointee.last_window_id)
+            let lastWindow = window_manager_find_window(wm, wm.last_window_id)
             let insertionPoint = if let lastWindow, lastWindow.pointee.application.pointee.pid != window.pointee.application.pointee.pid { lastWindow.pointee.id } else { UInt32(0) }
             window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
         }

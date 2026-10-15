@@ -6,10 +6,8 @@
 // references to mutable C globals, so Swift takes their addresses through these functions.
 //
 
-extern struct window_manager g_window_manager;
 extern bool g_verbose;
 
-static inline struct window_manager *window_manager_global(void) { return &g_window_manager; }
 static inline bool *verbose_global(void) { return &g_verbose; }
 static inline enum mission_control_mode *mission_control_mode_global(void) { return &g_mission_control_mode; }
 

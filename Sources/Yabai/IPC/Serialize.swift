@@ -246,7 +246,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: UnsafeMutablePointer<co
 /// `window_info_for_window`
 func windowInfo(for window: UnsafeMutablePointer<window>, _ flags: UInt64) -> WindowInfo
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let application = window.pointee.application!
     let wid = window.pointee.id
 
@@ -257,7 +257,7 @@ func windowInfo(for window: UnsafeMutablePointer<window>, _ flags: UInt64) -> Wi
     info.scratchpad       = string(window.pointee.scratchpad) ?? ""
     info.frame            = window.pointee.frame
     info.isRoot           = window.pointee.is_root
-    info.hasFocus         = wid == wm.pointee.focused_window_id
+    info.hasFocus         = wid == wm.focused_window_id
     info.hasAXReference   = true
     info.isFullscreen     = window_check_flag(window, WINDOW_FULLSCREEN)
     info.isMinimized      = window_check_flag(window, WINDOW_MINIMIZE)
@@ -350,7 +350,7 @@ func windowNonAXSerialize(_ wid: UInt32, _ flags: UInt64) -> String
 /// `window_manager_query_windows_for_spaces`
 func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: UnsafeMutablePointer<UInt64>?, _ spaceCount: Int32, _ flags: UInt64)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     var windowCount: Int32 = 0
     let windowList = space_window_list_for_connection(spaceList, spaceCount, 0, &windowCount, true)
@@ -392,7 +392,7 @@ private func treeSerializeCon(_ output: inout String, _ view: UnsafeMutablePoint
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
     let layout = leaf ? "null" : "\"\(conLayoutNames[Int(node.pointee.layout.rawValue)])\""
     let percent = parent != nil ? node.pointee.percent : 1.0
-    let focused = leaf && node.pointee.window_id == window_manager_global().pointee.focused_window_id
+    let focused = leaf && node.pointee.window_id == window_manager_global().focused_window_id
 
     output += String(repeating: " ", count: depth)
     output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.pointee.window_id))"

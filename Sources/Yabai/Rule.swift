@@ -66,9 +66,9 @@ func rule_serialize(_ rsp: inout Response, _ candidate: UnsafeMutablePointer<rul
 func rule_reapply_all()
 {
     let sm = space_manager_global()
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
-    for target in tableValues(wm.pointee.window, as: window.self) where target.pointee.is_root {
+    for target in wm.window.values where target.pointee.is_root {
         let windowTitle = window_title_ts(target)!
         let windowRole = window_role_ts(target)!
         let windowSubrole = window_subrole_ts(target)!
@@ -85,7 +85,7 @@ func rule_reapply_all()
 /// `rule_reapply_by_index`
 func rule_reapply_by_index(_ index: Int32) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     if index < 0 || index >= window_manager_rule_count(wm) { return false }
 
     if !rule_check_flag(window_manager_rule_at(wm, index), RULE_ONE_SHOT) {
@@ -98,10 +98,10 @@ func rule_reapply_by_index(_ index: Int32) -> Bool
 /// `rule_reapply_by_label`
 func rule_reapply_by_label(_ label: UnsafePointer<CChar>) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     for i in 0..<window_manager_rule_count(wm) {
-        let candidate = window_manager_rule_at(wm, i)!
+        let candidate = window_manager_rule_at(wm, i)
         if string_equals(candidate.pointee.label, label) {
             if !rule_check_flag(candidate, RULE_ONE_SHOT) {
                 rule_apply(candidate)
@@ -117,9 +117,9 @@ func rule_reapply_by_label(_ label: UnsafePointer<CChar>) -> Bool
 func rule_apply(_ candidate: UnsafeMutablePointer<rule>)
 {
     let sm = space_manager_global()
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
-    for target in tableValues(wm.pointee.window, as: window.self) where target.pointee.is_root {
+    for target in wm.window.values where target.pointee.is_root {
         if window_manager_rule_matches_window(candidate, target, window_title_ts(target)!, window_role_ts(target)!, window_subrole_ts(target)!) {
             window_manager_apply_manage_rule_effects_to_window(sm, wm, target, &candidate.pointee.effects)
 
@@ -141,7 +141,7 @@ func rule_add(_ candidate: UnsafeMutablePointer<rule>)
 /// `rule_remove_by_index`
 func rule_remove_by_index(_ index: Int32) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     if index < 0 || index >= window_manager_rule_count(wm) { return false }
 
     rule_destroy(window_manager_rule_at(wm, index))
@@ -152,7 +152,7 @@ func rule_remove_by_index(_ index: Int32) -> Bool
 /// `rule_remove_by_label`
 func rule_remove_by_label(_ label: UnsafePointer<CChar>) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     for i in 0..<window_manager_rule_count(wm) {
         if string_equals(window_manager_rule_at(wm, i).pointee.label, label) {

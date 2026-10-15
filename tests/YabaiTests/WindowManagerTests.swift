@@ -6,21 +6,17 @@ import YabaiC
 // NOTE: Ported from tests/src/window_frame.c and tests/src/window_rules.c. The window managers of these tests are local,
 // so they do not touch the state of the daemon.
 
-/// A zeroed window manager with the window table, freed by windowManagerFree.
-private func windowManagerCreate() -> UnsafeMutablePointer<window_manager>
+/// A window manager with the defaults of its fields, released by windowManagerFree.
+private func windowManagerCreate() -> WindowManager
 {
-    let wm = UnsafeMutablePointer<window_manager>.allocate(capacity: 1)
-    wm.initialize(to: window_manager())
-    windowManagerTableInit(&wm.pointee.window)
-    return wm
+    return WindowManager()
 }
 
-private func windowManagerFree(_ wm: UnsafeMutablePointer<window_manager>)
+private func windowManagerFree(_ wm: WindowManager)
 {
     for i in 0..<window_manager_rule_count(wm) { rule_destroy(window_manager_rule_at(wm, i)) }
     window_manager_free_rules(wm)
-    table_free(&wm.pointee.window)
-    wm.deallocate()
+    wm.window.removeAll()
 }
 
 /// A zeroed window whose id_ptr points at its id, as window_create sets it.
@@ -46,19 +42,19 @@ private func windowCreate(_ id: UInt32, _ owner: UnsafeMutablePointer<applicatio
 
     window_manager_set_pending_focus(wm, 42)
     #expect(window_manager_pending_focus_window(wm) == target)
-    #expect(wm.pointee.pending_focus_window_id == 42)
+    #expect(wm.pending_focus_window_id == 42)
 
     //
     // NOTE: A pending focus expires, and is dropped for windows that no longer exist.
     //
 
-    wm.pointee.pending_focus_time = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
+    wm.pending_focus_time = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
     #expect(window_manager_pending_focus_window(wm) == nil)
-    #expect(wm.pointee.pending_focus_window_id == 0)
+    #expect(wm.pending_focus_window_id == 0)
 
     window_manager_set_pending_focus(wm, 7)
     #expect(window_manager_pending_focus_window(wm) == nil)
-    #expect(wm.pointee.pending_focus_window_id == 0)
+    #expect(wm.pending_focus_window_id == 0)
 }
 
 @Test("window_unresolved_list") func windowUnresolvedList()

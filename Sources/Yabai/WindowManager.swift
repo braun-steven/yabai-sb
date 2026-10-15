@@ -7,11 +7,171 @@ import YabaiC
 //
 // NOTE: The windows of yabai: the tables of applications, windows and managed windows, the commands on windows (move,
 // resize, layout, opacity, layer, shadow, fullscreen, minimize, close, send to a space) and the checks of the windows on
-// a space after Mission Control and display changes. Ported from src/window_manager.c. The state is window_manager
-// (g_window_manager), which stays C while C code reads its fields.
+// a space after Mission Control and display changes. Ported from src/window_manager.c.
 //
 
 typealias Con = UnsafeMutablePointer<con>
+
+/// `struct scratchpad`: the window manager owns the malloc'ed label.
+struct Scratchpad
+{
+    var label: UnsafeMutablePointer<CChar>
+    var window: Window
+}
+
+/// `struct window_manager`
+final class WindowManager
+{
+    var system_element: AXUIElement?
+    var application = Table<pid_t, Application>(capacity: 150)
+    var window = Table<UInt32, Window>(capacity: 150)
+    var managed_window = Table<UInt32, View>(capacity: 150)
+    var window_lost_focused_event = Table<UInt32, Bool>(capacity: 150)
+    var application_lost_front_switched_event = Table<pid_t, Bool>(capacity: 150)
+    var rules: [UnsafeMutablePointer<rule>] = []
+    var applications_to_refresh: [Application] = []
+    var focused_window_id: UInt32 = 0
+    var focused_window_psn = ProcessSerialNumber()
+    var pending_focus_window_id: UInt32 = 0
+    var pending_focus_time: UInt64 = 0
+    var last_window_id: UInt32 = 0
+    var enable_mff = false
+    var ffm_mode = FFM_DISABLED
+    var purify_mode = PURIFY_DISABLED
+    var window_origin_mode = WINDOW_ORIGIN_DEFAULT
+    var enable_window_opacity = false
+    var menubar_opacity: Float = 0
+    var active_window_opacity: Float = 0
+    var normal_window_opacity: Float = 0
+    var window_opacity_duration: Float = 0
+    var window_animation_duration: Float = 0
+    var window_animation_easing: Int32 = 0
+    var insert_feedback_color = rgba_color()
+    var enable_window_border = false
+    var window_border_hide_single = false
+    var window_border_width: Float = 0
+    var active_window_border_color = rgba_color()
+    var normal_window_border_color = rgba_color()
+    var focus_wrapping = FOCUS_WRAPPING_OFF
+    var enable_tab_bar = false
+    var tab_bar_height: Int32 = 0
+    var tab_bar_offset: Int32 = 0
+    var tab_bar_icons = false
+    var tab_bar_style = TAB_BAR_STYLE_GLASS
+    var tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
+    var tab_bar_card_padding: Int32 = 0
+    var tab_bar_window_radius: Int32 = 0
+    var tab_bar_font_name: UnsafeMutablePointer<CChar>!
+    var tab_bar_font: CTFont?
+    var tab_bar_focused_color = rgba_color()
+    var tab_bar_focused_text_color = rgba_color()
+    var tab_bar_inactive_color = rgba_color()
+    var tab_bar_inactive_text_color = rgba_color()
+    var tab_bar_unfocused_color = rgba_color()
+    var tab_bar_backdrop_color = rgba_color()
+    var tab_bar_unfocused_text_color = rgba_color()
+    var tab_bar_focused_color_custom = false
+    var tab_bar_inactive_color_custom = false
+    var tab_bar_unfocused_color_custom = false
+    var tab_bar_backdrop_color_custom = false
+    var scratchpad_window: [Scratchpad] = []
+    var scratchpad_exclusive = false
+    var scratchpad_raise = false
+    var scratchpad_below = false
+    var scratchpad_grid: (UInt32, UInt32, UInt32, UInt32, UInt32, UInt32) = (0, 0, 0, 0, 0, 0)
+}
+
+/// `g_window_manager` (see the NOTE of g_display_manager)
+nonisolated(unsafe) let g_window_manager = WindowManager()
+
+func window_manager_global() -> WindowManager
+{
+    g_window_manager
+}
+
+//
+// NOTE: The lists of the window manager that were sbuffers (applications_to_refresh, rules, scratchpad_window). Their
+// removal moves the last element into the hole, as buf_del did.
+//
+
+func window_manager_application_refresh_index(_ wm: WindowManager, _ owner: Application) -> Int32
+{
+    return wm.applications_to_refresh.firstIndex(of: owner).map { Int32($0) } ?? -1
+}
+
+func window_manager_remove_application_refresh(_ wm: WindowManager, _ index: Int32)
+{
+    wm.applications_to_refresh.swapAt(Int(index), wm.applications_to_refresh.count - 1)
+    wm.applications_to_refresh.removeLast()
+}
+
+func window_manager_application_refresh_count(_ wm: WindowManager) -> Int32
+{
+    return Int32(wm.applications_to_refresh.count)
+}
+
+func window_manager_application_refresh_at(_ wm: WindowManager, _ index: Int32) -> Application
+{
+    return wm.applications_to_refresh[Int(index)]
+}
+
+func window_manager_add_application_refresh(_ wm: WindowManager, _ owner: Application)
+{
+    wm.applications_to_refresh.append(owner)
+}
+
+func window_manager_rule_count(_ wm: WindowManager) -> Int32
+{
+    return Int32(wm.rules.count)
+}
+
+func window_manager_rule_at(_ wm: WindowManager, _ index: Int32) -> UnsafeMutablePointer<rule>
+{
+    return wm.rules[Int(index)]
+}
+
+/// Takes over the strings and patterns of the rule.
+func window_manager_add_rule(_ wm: WindowManager, _ value: rule)
+{
+    let stored = UnsafeMutablePointer<rule>.allocate(capacity: 1)
+    stored.initialize(to: value)
+    wm.rules.append(stored)
+}
+
+/// The caller destroys the rule first (rule_destroy).
+func window_manager_remove_rule(_ wm: WindowManager, _ index: Int32)
+{
+    let removed = wm.rules[Int(index)]
+    wm.rules.swapAt(Int(index), wm.rules.count - 1)
+    wm.rules.removeLast()
+    removed.deinitialize(count: 1)
+    removed.deallocate()
+}
+
+func window_manager_free_rules(_ wm: WindowManager)
+{
+    for stored in wm.rules {
+        stored.deinitialize(count: 1)
+        stored.deallocate()
+    }
+    wm.rules = []
+}
+
+func window_manager_scratchpad_count(_ wm: WindowManager) -> Int32
+{
+    return Int32(wm.scratchpad_window.count)
+}
+
+func window_manager_add_scratchpad(_ wm: WindowManager, _ label: UnsafeMutablePointer<CChar>, _ target: Window)
+{
+    wm.scratchpad_window.append(Scratchpad(label: label, window: target))
+}
+
+func window_manager_remove_scratchpad(_ wm: WindowManager, _ index: Int32)
+{
+    wm.scratchpad_window.swapAt(Int(index), wm.scratchpad_window.count - 1)
+    wm.scratchpad_window.removeLast()
+}
 
 // MOUSE_EVENT_MASK (mouse_handler.h, which Swift does not import: the macro is built from other macros)
 let mouseEventMask: UInt32 =
@@ -54,7 +214,7 @@ func window_manager_is_window_eligible(_ target: Window) -> Bool
 }
 
 /// `window_manager_set_focus_follows_mouse`
-func window_manager_set_focus_follows_mouse(_ wm: UnsafeMutablePointer<window_manager>, _ mode: ffm_mode)
+func window_manager_set_focus_follows_mouse(_ wm: WindowManager, _ mode: ffm_mode)
 {
     mouse_handler_end(mouse_state_global())
 
@@ -64,27 +224,27 @@ func window_manager_set_focus_follows_mouse(_ wm: UnsafeMutablePointer<window_ma
         mouse_handler_begin(mouse_state_global(), mouseEventMaskFFM)
     }
 
-    wm.pointee.ffm_mode = mode
+    wm.ffm_mode = mode
 }
 
 /// `window_manager_set_window_opacity_enabled`
-func window_manager_set_window_opacity_enabled(_ wm: UnsafeMutablePointer<window_manager>, _ enabled: Bool)
+func window_manager_set_window_opacity_enabled(_ wm: WindowManager, _ enabled: Bool)
 {
-    wm.pointee.enable_window_opacity = enabled
-    for target in tableValues(wm.pointee.window, as: window.self) where window_manager_is_window_eligible(target) {
+    wm.enable_window_opacity = enabled
+    for target in wm.window.values where window_manager_is_window_eligible(target) {
         window_manager_set_opacity(wm, target, enabled ? target.pointee.opacity : 1.0)
     }
 }
 
 /// `window_manager_center_mouse`
-func window_manager_center_mouse(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window)
+func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
 {
     if window_check_rule_flag(target, WINDOW_RULE_MFF) {
         if !window_check_rule_flag(target, WINDOW_RULE_MFF_VALUE) {
             return
         }
     } else {
-        if !wm.pointee.enable_mff {
+        if !wm.enable_mff {
             return
         }
     }
@@ -117,26 +277,23 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
 }
 
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
-func window_manager_find_managed_window(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> View?
+func window_manager_find_managed_window(_ wm: WindowManager, _ target: Window) -> View?
 {
-    var key = target.pointee.id
-    return table_find(&wm.pointee.managed_window, &key)?.assumingMemoryBound(to: view.self)
+    return wm.managed_window.find(target.pointee.id)
 }
 
 /// `window_manager_remove_managed_window`
-func window_manager_remove_managed_window(_ wm: UnsafeMutablePointer<window_manager>, _ wid: UInt32)
+func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: UInt32)
 {
-    var key = wid
-    table_remove(&wm.pointee.managed_window, &key)
+    wm.managed_window.remove(wid)
 }
 
 /// `window_manager_add_managed_window`
-func window_manager_add_managed_window(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ owner: View)
+func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ owner: View)
 {
     if owner.pointee.layout == VIEW_FLOAT { return }
 
-    var key = target.pointee.id
-    _table_add(&wm.pointee.managed_window, &key, Int32(MemoryLayout<UInt32>.size), owner)
+    wm.managed_window.add(target.pointee.id, owner)
     window_manager_purify_window(wm, target)
 }
 
@@ -150,7 +307,7 @@ func window_manager_add_managed_window(_ wm: UnsafeMutablePointer<window_manager
 //
 
 /// `window_manager_unmanage_window`
-func window_manager_unmanage_window(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ target: Window)
+func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target: Window)
 {
     space_manager_untile_window(owner, target)
     window_manager_remove_managed_window(wm, target.pointee.id)
@@ -158,14 +315,14 @@ func window_manager_unmanage_window(_ wm: UnsafeMutablePointer<window_manager>, 
 }
 
 /// `window_manager_manage_window`
-func window_manager_manage_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ sid: UInt64, _ insertionPoint: UInt32)
+func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: UInt64, _ insertionPoint: UInt32)
 {
     let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
     window_manager_add_managed_window(wm, target, owner)
 }
 
 /// `window_manager_find_tree_view`: the view of the window when it is managed on a space with a tree.
-func window_manager_find_tree_view(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?) -> View?
+func window_manager_find_tree_view(_ wm: WindowManager, _ target: Window?) -> View?
 {
     guard let target, let owner = window_manager_find_managed_window(wm, target) else { return nil }
     return owner.pointee.tree != nil ? owner : nil
@@ -174,7 +331,7 @@ func window_manager_find_tree_view(_ wm: UnsafeMutablePointer<window_manager>, _
 /// `window_manager_tree_acting_con`
 func windowManagerTreeActingCon(_ owner: View, _ target: Window) -> Con?
 {
-    if let selected = tree_find_selected(owner.pointee.tree), target.pointee.id == window_manager_global()!.pointee.focused_window_id { return selected }
+    if let selected = tree_find_selected(owner.pointee.tree), target.pointee.id == window_manager_global().focused_window_id { return selected }
     return tree_find_window(owner.pointee.tree, target.pointee.id)
 }
 
@@ -185,14 +342,14 @@ func windowManagerTreeApply(_ owner: View)
     // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
     //
 
-    if let focused = tree_find_window(owner.pointee.tree, window_manager_global()!.pointee.focused_window_id) { tree_focus(focused) }
+    if let focused = tree_find_window(owner.pointee.tree, window_manager_global().focused_window_id) { tree_focus(focused) }
 
     if !view_update_auto_padding(owner) { tree_view_update(owner) }
     view_flush(owner)
 }
 
 /// `window_manager_focus_window_id`
-func windowManagerFocusWindowID(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32)
+func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: UInt32)
 {
     if let target = window_manager_find_window(wm, windowID) {
         window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
@@ -207,7 +364,7 @@ func windowManagerFocusWindowID(_ wm: UnsafeMutablePointer<window_manager>, _ wi
 //
 
 /// `window_manager_tree_set_view`
-func windowManagerTreeSetView(_ wm: UnsafeMutablePointer<window_manager>, _ node: Con, _ owner: View) -> [UInt32]
+func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -> [UInt32]
 {
     var windowList: [UInt32] = []
     tree_collect_window_ids(node, &windowList)
@@ -242,7 +399,7 @@ func windowManagerTreeWaitForView(_ moveList: [UInt32], _ owner: View)
 //
 
 /// `window_manager_adjust_window_ratio`
-func window_manager_adjust_window_ratio(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ type: Int32, _ ratio: Float) -> window_op_error
+func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: Int32, _ ratio: Float) -> window_op_error
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -272,7 +429,7 @@ func window_manager_adjust_window_ratio(_ wm: UnsafeMutablePointer<window_manage
 }
 
 /// `window_manager_move_window_relative`
-func window_manager_move_window_relative(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ type: Int32, _ dx: Float, _ dy: Float) -> window_op_error
+func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: Int32, _ dx: Float, _ dy: Float) -> window_op_error
 {
     if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -310,7 +467,7 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 }
 
 /// `window_manager_resize_window_relative`
-func window_manager_resize_window_relative(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> window_op_error
+func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> window_op_error
 {
     if let owner = window_manager_find_managed_window(wm, target) {
         if direction == HANDLE_ABS || owner.pointee.tree == nil { return WINDOW_OP_ERROR_INVALID_OPERATION }
@@ -364,35 +521,35 @@ func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Fl
 }
 
 /// `window_manager_set_purify_mode`
-func window_manager_set_purify_mode(_ wm: UnsafeMutablePointer<window_manager>, _ mode: purify_mode)
+func window_manager_set_purify_mode(_ wm: WindowManager, _ mode: purify_mode)
 {
-    wm.pointee.purify_mode = mode
-    for target in tableValues(wm.pointee.window, as: window.self) where window_manager_is_window_eligible(target) {
+    wm.purify_mode = mode
+    for target in wm.window.values where window_manager_is_window_eligible(target) {
         window_manager_purify_window(wm, target)
     }
 }
 
 /// `window_manager_set_opacity`: opacity 0 means the opacity of the focus state (or 1 without window_opacity).
 @discardableResult
-func window_manager_set_opacity(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ opacity: Float) -> Bool
+func window_manager_set_opacity(_ wm: WindowManager, _ target: Window, _ opacity: Float) -> Bool
 {
     var opacity = opacity
 
     if opacity == 0.0 {
-        if wm.pointee.enable_window_opacity {
-            opacity = target.pointee.id == wm.pointee.focused_window_id ? wm.pointee.active_window_opacity : wm.pointee.normal_window_opacity
+        if wm.enable_window_opacity {
+            opacity = target.pointee.id == wm.focused_window_id ? wm.active_window_opacity : wm.normal_window_opacity
         } else {
             opacity = 1.0
         }
     }
 
-    return scripting_addition_set_opacity(target.pointee.id, opacity, wm.pointee.window_opacity_duration)
+    return scripting_addition_set_opacity(target.pointee.id, opacity, wm.window_opacity_duration)
 }
 
 /// `window_manager_set_window_opacity`
-func window_manager_set_window_opacity(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ opacity: Float)
+func window_manager_set_window_opacity(_ wm: WindowManager, _ target: Window, _ opacity: Float)
 {
-    if !wm.pointee.enable_window_opacity              { return }
+    if !wm.enable_window_opacity              { return }
     if !window_manager_is_window_eligible(target)     { return }
     if target.pointee.opacity != 0.0                  { return }
 
@@ -400,27 +557,27 @@ func window_manager_set_window_opacity(_ wm: UnsafeMutablePointer<window_manager
 }
 
 /// `window_manager_set_menubar_opacity`
-func window_manager_set_menubar_opacity(_ wm: UnsafeMutablePointer<window_manager>, _ opacity: Float)
+func window_manager_set_menubar_opacity(_ wm: WindowManager, _ opacity: Float)
 {
-    wm.pointee.menubar_opacity = opacity
+    wm.menubar_opacity = opacity
     SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, opacity)
 }
 
 /// `window_manager_set_active_window_opacity`
-func window_manager_set_active_window_opacity(_ wm: UnsafeMutablePointer<window_manager>, _ opacity: Float)
+func window_manager_set_active_window_opacity(_ wm: WindowManager, _ opacity: Float)
 {
-    wm.pointee.active_window_opacity = opacity
-    if let target = window_manager_focused_window(wm) { window_manager_set_window_opacity(wm, target, wm.pointee.active_window_opacity) }
+    wm.active_window_opacity = opacity
+    if let target = window_manager_focused_window(wm) { window_manager_set_window_opacity(wm, target, wm.active_window_opacity) }
 }
 
 /// `window_manager_set_normal_window_opacity`
-func window_manager_set_normal_window_opacity(_ wm: UnsafeMutablePointer<window_manager>, _ opacity: Float)
+func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Float)
 {
-    wm.pointee.normal_window_opacity = opacity
-    for target in tableValues(wm.pointee.window, as: window.self) {
-        if target.pointee.id == wm.pointee.focused_window_id { continue }
+    wm.normal_window_opacity = opacity
+    for target in wm.window.values {
+        if target.pointee.id == wm.focused_window_id { continue }
         if window_manager_is_window_eligible(target) {
-            window_manager_set_window_opacity(wm, target, wm.pointee.normal_window_opacity)
+            window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
         }
     }
 }
@@ -472,8 +629,8 @@ func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
     var childLayer = layer
 
     if layer == LAYER_AUTO {
-        let wm = window_manager_global()!
-        let below = window_manager_find_managed_window(wm, target) != nil || (wm.pointee.scratchpad_below && target.pointee.scratchpad != nil)
+        let wm = window_manager_global()
+        let below = window_manager_find_managed_window(wm, target) != nil || (wm.scratchpad_below && target.pointee.scratchpad != nil)
         parentLayer = below ? layerValue(.below) : layerValue(.normal)
         childLayer = layerValue(.normal)
     }
@@ -500,15 +657,15 @@ func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
 }
 
 /// `window_manager_purify_window`
-func window_manager_purify_window(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window)
+func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
 {
     let value: Bool
 
-    if wm.pointee.purify_mode == PURIFY_DISABLED {
+    if wm.purify_mode == PURIFY_DISABLED {
         value = true
-    } else if wm.pointee.purify_mode == PURIFY_MANAGED {
+    } else if wm.purify_mode == PURIFY_MANAGED {
         value = window_manager_find_managed_window(wm, target) == nil
-    } else /* if wm.pointee.purify_mode == PURIFY_ALWAYS */ {
+    } else /* if wm.purify_mode == PURIFY_ALWAYS */ {
         value = false
     }
 
@@ -522,95 +679,83 @@ func window_manager_purify_window(_ wm: UnsafeMutablePointer<window_manager>, _ 
 }
 
 /// `window_manager_find_lost_front_switched_event`
-func window_manager_find_lost_front_switched_event(_ wm: UnsafeMutablePointer<window_manager>, _ pid: pid_t) -> Bool
+func window_manager_find_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t) -> Bool
 {
-    var key = pid
-    return table_find(&wm.pointee.application_lost_front_switched_event, &key) != nil
+    return wm.application_lost_front_switched_event.find(pid) != nil
 }
 
 /// `window_manager_remove_lost_front_switched_event`
-func window_manager_remove_lost_front_switched_event(_ wm: UnsafeMutablePointer<window_manager>, _ pid: pid_t)
+func window_manager_remove_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t)
 {
-    var key = pid
-    table_remove(&wm.pointee.application_lost_front_switched_event, &key)
+    wm.application_lost_front_switched_event.remove(pid)
 }
 
 /// `window_manager_add_lost_front_switched_event`
-func window_manager_add_lost_front_switched_event(_ wm: UnsafeMutablePointer<window_manager>, _ pid: pid_t)
+func window_manager_add_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t)
 {
-    var key = pid
-    _table_add(&wm.pointee.application_lost_front_switched_event, &key, Int32(MemoryLayout<pid_t>.size), UnsafeMutableRawPointer(bitPattern: 1))
+    wm.application_lost_front_switched_event.add(pid, true)
 }
 
 /// `window_manager_find_lost_focused_event`
-func window_manager_find_lost_focused_event(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32) -> Bool
+func window_manager_find_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32) -> Bool
 {
-    var key = windowID
-    return table_find(&wm.pointee.window_lost_focused_event, &key) != nil
+    return wm.window_lost_focused_event.find(windowID) != nil
 }
 
 /// `window_manager_remove_lost_focused_event`
-func window_manager_remove_lost_focused_event(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32)
+func window_manager_remove_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32)
 {
-    var key = windowID
-    table_remove(&wm.pointee.window_lost_focused_event, &key)
+    wm.window_lost_focused_event.remove(windowID)
 }
 
 /// `window_manager_add_lost_focused_event`
-func window_manager_add_lost_focused_event(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32)
+func window_manager_add_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32)
 {
-    var key = windowID
-    _table_add(&wm.pointee.window_lost_focused_event, &key, Int32(MemoryLayout<UInt32>.size), UnsafeMutableRawPointer(bitPattern: 1))
+    wm.window_lost_focused_event.add(windowID, true)
 }
 
 /// `window_manager_find_window`
-func window_manager_find_window(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32) -> Window?
+func window_manager_find_window(_ wm: WindowManager, _ windowID: UInt32) -> Window?
 {
-    var key = windowID
-    return table_find(&wm.pointee.window, &key)?.assumingMemoryBound(to: window.self)
+    return wm.window.find(windowID)
 }
 
 /// `window_manager_remove_window`
-func window_manager_remove_window(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32)
+func window_manager_remove_window(_ wm: WindowManager, _ windowID: UInt32)
 {
     border_remove(windowID)
 
-    var key = windowID
-    table_remove(&wm.pointee.window, &key)
+    wm.window.remove(windowID)
 }
 
 /// `window_manager_add_window`
-func window_manager_add_window(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window)
+func window_manager_add_window(_ wm: WindowManager, _ target: Window)
 {
-    var key = target.pointee.id
-    _table_add(&wm.pointee.window, &key, Int32(MemoryLayout<UInt32>.size), target)
+    wm.window.add(target.pointee.id, target)
 }
 
 /// `window_manager_find_application`
-func window_manager_find_application(_ wm: UnsafeMutablePointer<window_manager>, _ pid: pid_t) -> Application?
+func window_manager_find_application(_ wm: WindowManager, _ pid: pid_t) -> Application?
 {
-    var key = pid
-    return table_find(&wm.pointee.application, &key)?.assumingMemoryBound(to: application.self)
+    return wm.application.find(pid)
 }
 
 /// `window_manager_remove_application`
-func window_manager_remove_application(_ wm: UnsafeMutablePointer<window_manager>, _ pid: pid_t)
+func window_manager_remove_application(_ wm: WindowManager, _ pid: pid_t)
 {
-    var key = pid
-    table_remove(&wm.pointee.application, &key)
+    wm.application.remove(pid)
 }
 
 /// `window_manager_add_application`
-func window_manager_add_application(_ wm: UnsafeMutablePointer<window_manager>, _ owner: Application)
+func window_manager_add_application(_ wm: WindowManager, _ owner: Application)
 {
-    var key = owner.pointee.pid
-    _table_add(&wm.pointee.application, &key, Int32(MemoryLayout<pid_t>.size), owner)
+    wm.application.add(owner.pointee.pid, owner)
 }
 
 /// `window_manager_find_application_windows`
-func window_manager_find_application_windows(_ wm: UnsafeMutablePointer<window_manager>, _ owner: Application) -> [Window]
+func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Application) -> [Window]
 {
-    return tableValues(wm.pointee.window, as: window.self).filter { $0.pointee.application == owner }
+    return wm.window.values.filter { $0.pointee.application == owner }
 }
 
 /// `window_manager_set_window_insertion`
@@ -650,7 +795,7 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 //
 
 /// `window_manager_stack_window`
-func window_manager_stack_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
@@ -684,7 +829,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<
 }
 
 /// `window_manager_set_window_layout`
-func window_manager_set_window_layout(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?, _ layout: window_layout) -> window_op_error
+func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ layout: window_layout) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -711,7 +856,7 @@ func window_manager_set_window_layout(_ wm: UnsafeMutablePointer<window_manager>
 //
 
 /// `window_manager_warp_window`
-func window_manager_warp_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
@@ -742,7 +887,7 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<w
 }
 
 /// `window_manager_swap_window`
-func window_manager_swap_window(_ wm: UnsafeMutablePointer<window_manager>, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
     if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
@@ -801,12 +946,12 @@ func window_manager_close_window(_ target: Window) -> Bool
 }
 
 /// `window_manager_send_window_to_space`
-func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
+func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
 {
     let srcSid = window_space(target.pointee.id)
     if srcSid == dstSid { return }
 
-    if space_is_visible(srcSid) && (movedByRule || wm.pointee.focused_window_id == target.pointee.id) {
+    if space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.pointee.id) {
         if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.pointee.id) {
             window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref.takeUnretainedValue())
         } else {
@@ -832,7 +977,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: UnsafeMutable
 
 /// `window_manager_apply_grid`
 @discardableResult
-func window_manager_apply_grid(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ r: UInt32, _ c: UInt32, _ x: UInt32, _ y: UInt32, _ w: UInt32, _ h: UInt32) -> window_op_error
+func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ r: UInt32, _ c: UInt32, _ x: UInt32, _ y: UInt32, _ w: UInt32, _ h: UInt32) -> window_op_error
 {
     if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -886,7 +1031,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<wi
 }
 
 /// `window_manager_make_window_floating`
-func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldFloat: Bool, _ force: Bool)
+func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ shouldFloat: Bool, _ force: Bool)
 {
     if !window_manager_is_window_eligible(target) { return }
 
@@ -915,7 +1060,7 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: UnsafeMutable
 }
 
 /// `window_manager_make_window_sticky`
-func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ shouldSticky: Bool)
+func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ shouldSticky: Bool)
 {
     if !window_manager_is_window_eligible(target) { return }
 
@@ -1007,7 +1152,7 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
 }
 
 /// `window_manager_toggle_window_zoom`
-private func windowManagerToggleWindowZoom(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ zoom: con_zoom)
+private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window, _ zoom: con_zoom)
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return }
 
@@ -1021,13 +1166,13 @@ private func windowManagerToggleWindowZoom(_ wm: UnsafeMutablePointer<window_man
 }
 
 /// `window_manager_toggle_window_zoom_parent`
-func window_manager_toggle_window_zoom_parent(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window)
+func window_manager_toggle_window_zoom_parent(_ wm: WindowManager, _ target: Window)
 {
     windowManagerToggleWindowZoom(wm, target, CON_ZOOM_PARENT)
 }
 
 /// `window_manager_toggle_window_zoom_fullscreen`
-func window_manager_toggle_window_zoom_fullscreen(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window)
+func window_manager_toggle_window_zoom_fullscreen(_ wm: WindowManager, _ target: Window)
 {
     windowManagerToggleWindowZoom(wm, target, CON_ZOOM_FULLSCREEN)
 }
@@ -1078,7 +1223,7 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 }
 
 /// `window_manager_validate_windows_on_space`
-private func windowManagerValidateWindowsOnSpace(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ windowList: [UInt32])
+private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [UInt32])
 {
     var viewWindowCount: Int32 = 0
     let viewWindowList = view_find_window_list(owner, &viewWindowCount)
@@ -1108,7 +1253,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: UnsafeMutablePointer<wind
 }
 
 /// `window_manager_check_for_windows_on_space`
-private func windowManagerCheckForWindowsOnSpace(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ windowList: [UInt32])
+private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [UInt32])
 {
     for windowID in windowList {
         guard let target = window_manager_find_window(wm, windowID), window_manager_should_manage_window(target) else { continue }
@@ -1162,7 +1307,7 @@ private func spaceWindows(_ sid: UInt64) -> [UInt32]?
 }
 
 /// `window_manager_validate_and_check_for_windows_on_space`
-func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ sid: UInt64)
+func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: WindowManager, _ sid: UInt64)
 {
     let owner = space_manager_find_view(sm, sid)
     if owner.pointee.layout == VIEW_FLOAT { return }
@@ -1186,14 +1331,14 @@ func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, 
 }
 
 /// `window_manager_correct_for_mission_control_changes`
-func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm: WindowManager)
 {
     var displayCount: Int32 = 0
     guard let displayList = display_manager_active_display_list(&displayCount) else { return }
     let displays = Array(UnsafeBufferPointer(start: displayList, count: Int(displayCount)))
 
-    let animationDuration = wm.pointee.window_animation_duration
-    wm.pointee.window_animation_duration = 0.0
+    let animationDuration = wm.window_animation_duration
+    wm.window_animation_duration = 0.0
 
     for did in displays {
         guard let spaceList = displaySpaces(did) else { continue }
@@ -1208,11 +1353,11 @@ func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm
         }
     }
 
-    wm.pointee.window_animation_duration = animationDuration
+    wm.window_animation_duration = animationDuration
 }
 
 /// `window_manager_handle_display_add_and_remove`
-func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ did: UInt32)
+func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: WindowManager, _ did: UInt32)
 {
     guard let spaceList = displaySpaces(did) else { return }
 
@@ -1236,67 +1381,65 @@ func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: Unsa
     }
 }
 
-/// `table_init` with `hash_wm` and `compare_wm`: the keys of the window manager tables are window ids and pids.
-func windowManagerTableInit(_ hashTable: UnsafeMutablePointer<table>)
-{
-    table_init(hashTable, 150, { key in UInt(key!.load(as: UInt32.self)) }, { a, b in a!.load(as: UInt32.self) == b!.load(as: UInt32.self) ? 1 : 0 })
-}
-
 /// `window_manager_init`
-func window_manager_init(_ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_init(_ wm: WindowManager)
 {
     let systemElement = AXUIElementCreateSystemWide()
     AXUIElementSetMessagingTimeout(systemElement, 1.0)
-    wm.pointee.system_element = Unmanaged.passRetained(systemElement)
+    wm.system_element = systemElement
 
-    wm.pointee.ffm_mode = FFM_DISABLED
-    wm.pointee.purify_mode = PURIFY_DISABLED
-    wm.pointee.window_origin_mode = WINDOW_ORIGIN_DEFAULT
-    wm.pointee.enable_mff = false
-    wm.pointee.enable_window_opacity = false
-    wm.pointee.menubar_opacity = 1.0
-    wm.pointee.active_window_opacity = 1.0
-    wm.pointee.normal_window_opacity = 1.0
-    wm.pointee.window_opacity_duration = 0.0
-    wm.pointee.window_animation_duration = 0.0
-    wm.pointee.window_animation_easing = Int32(ease_out_circ_type.rawValue)
-    wm.pointee.insert_feedback_color = rgba_color_from_hex(0xffd75f5f)
-    wm.pointee.enable_window_border = false
-    wm.pointee.window_border_hide_single = false
-    wm.pointee.window_border_width = 4.0
-    wm.pointee.active_window_border_color = rgba_color_from_hex(0xffe1e3e4)
-    wm.pointee.normal_window_border_color = rgba_color_from_hex(0xff494d64)
-    wm.pointee.focus_wrapping = FOCUS_WRAPPING_ON
-    wm.pointee.enable_tab_bar = true
-    wm.pointee.tab_bar_height = 24
-    wm.pointee.tab_bar_offset = 0
-    wm.pointee.tab_bar_icons = true
-    wm.pointee.tab_bar_style = TAB_BAR_STYLE_GLASS
-    wm.pointee.tab_bar_backdrop = TAB_BAR_BACKDROP_GLASS
-    wm.pointee.tab_bar_card_padding = 6
-    wm.pointee.tab_bar_window_radius = 16
-    wm.pointee.tab_bar_focused_color = rgba_color_from_hex(0xff285577)
-    wm.pointee.tab_bar_focused_text_color = rgba_color_from_hex(0xffffffff)
-    wm.pointee.tab_bar_inactive_color = rgba_color_from_hex(0xff5f676a)
-    wm.pointee.tab_bar_inactive_text_color = rgba_color_from_hex(0xffffffff)
-    wm.pointee.tab_bar_unfocused_color = rgba_color_from_hex(0xff222222)
-    wm.pointee.tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888)
-    wm.pointee.tab_bar_backdrop_color = rgba_color_from_hex(0xff48484a)
+    wm.ffm_mode = FFM_DISABLED
+    wm.purify_mode = PURIFY_DISABLED
+    wm.window_origin_mode = WINDOW_ORIGIN_DEFAULT
+    wm.enable_mff = false
+    wm.enable_window_opacity = false
+    wm.menubar_opacity = 1.0
+    wm.active_window_opacity = 1.0
+    wm.normal_window_opacity = 1.0
+    wm.window_opacity_duration = 0.0
+    wm.window_animation_duration = 0.0
+    wm.window_animation_easing = Int32(ease_out_circ_type.rawValue)
+    wm.insert_feedback_color = rgba_color_from_hex(0xffd75f5f)
+    wm.enable_window_border = false
+    wm.window_border_hide_single = false
+    wm.window_border_width = 4.0
+    wm.active_window_border_color = rgba_color_from_hex(0xffe1e3e4)
+    wm.normal_window_border_color = rgba_color_from_hex(0xff494d64)
+    wm.focus_wrapping = FOCUS_WRAPPING_ON
+    wm.enable_tab_bar = true
+    wm.tab_bar_height = 24
+    wm.tab_bar_offset = 0
+    wm.tab_bar_icons = true
+    wm.tab_bar_style = TAB_BAR_STYLE_GLASS
+    wm.tab_bar_backdrop = TAB_BAR_BACKDROP_GLASS
+    wm.tab_bar_card_padding = 6
+    wm.tab_bar_window_radius = 16
+    wm.tab_bar_focused_color = rgba_color_from_hex(0xff285577)
+    wm.tab_bar_focused_text_color = rgba_color_from_hex(0xffffffff)
+    wm.tab_bar_inactive_color = rgba_color_from_hex(0xff5f676a)
+    wm.tab_bar_inactive_text_color = rgba_color_from_hex(0xffffffff)
+    wm.tab_bar_unfocused_color = rgba_color_from_hex(0xff222222)
+    wm.tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888)
+    wm.tab_bar_backdrop_color = rgba_color_from_hex(0xff48484a)
     _ = TAB_BAR_DEFAULT_FONT.withCString { tab_bar_set_font(UnsafeMutablePointer(mutating: $0)) }
-    wm.pointee.scratchpad_exclusive = false
-    wm.pointee.scratchpad_raise = false
-    wm.pointee.scratchpad_below = false
-    wm.pointee.scratchpad_grid = (0, 0, 0, 0, 0, 0)
+    wm.scratchpad_exclusive = false
+    wm.scratchpad_raise = false
+    wm.scratchpad_below = false
+    wm.scratchpad_grid = (0, 0, 0, 0, 0, 0)
 
-    windowManagerTableInit(&wm.pointee.application)
-    windowManagerTableInit(&wm.pointee.window)
-    windowManagerTableInit(&wm.pointee.managed_window)
-    windowManagerTableInit(&wm.pointee.window_lost_focused_event)
-    windowManagerTableInit(&wm.pointee.application_lost_front_switched_event)
+    //
+    // NOTE: The tables of the window manager are keyed by window ids and pids (hash_wm and compare_wm).
+    //
+
+    wm.application = Table(capacity: 150)
+    wm.window = Table(capacity: 150)
+    wm.managed_window = Table(capacity: 150)
+    wm.window_lost_focused_event = Table(capacity: 150)
+    wm.application_lost_front_switched_event = Table(capacity: 150)
 }
 
 /// `window_manager_begin`
-func window_manager_begin(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
 {
     autoreleasepool {
         for candidate in process_manager_global().process.values {
@@ -1318,9 +1461,9 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_
     }
 
     if let target = window_manager_focused_window(wm) {
-        wm.pointee.last_window_id = target.pointee.id
-        wm.pointee.focused_window_id = target.pointee.id
-        wm.pointee.focused_window_psn = target.pointee.application.pointee.psn
-        window_manager_set_window_opacity(wm, target, wm.pointee.active_window_opacity)
+        wm.last_window_id = target.pointee.id
+        wm.focused_window_id = target.pointee.id
+        wm.focused_window_psn = target.pointee.application.pointee.psn
+        window_manager_set_window_opacity(wm, target, wm.active_window_opacity)
     }
 }

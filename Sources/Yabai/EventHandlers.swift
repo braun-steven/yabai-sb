@@ -117,10 +117,10 @@ func tableValues<T>(_ hashTable: table, as type: T.Type) -> [UnsafeMutablePointe
 @_cdecl("update_window_notifications")
 func update_window_notifications()
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
-    var windowIDs = tableValues(wm.pointee.window, as: window.self).map { $0.pointee.id }
+    var windowIDs = wm.window.values.map { $0.pointee.id }
 
     SLSRequestNotificationsForWindows(connection_global(), &windowIDs, Int32(windowIDs.count))
 }
@@ -167,7 +167,7 @@ func update_window_notifications()
 
 @WM private func tileWindowsBatched(_ windows: [Window], _ insertionPoint: UInt32, _ newWindows: Bool)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     var insertionPoint = insertionPoint
     var viewList: [View] = []
 
@@ -188,26 +188,26 @@ func update_window_notifications()
 }
 
 /// `window_did_receive_focus`
-@WM func windowDidReceiveFocus(_ wm: UnsafeMutablePointer<window_manager>, _ ms: MouseState, _ window: Window)
+@WM func windowDidReceiveFocus(_ wm: WindowManager, _ ms: MouseState, _ window: Window)
 {
-    let focusedWindow = window_manager_find_window(wm, wm.pointee.focused_window_id)
+    let focusedWindow = window_manager_find_window(wm, wm.focused_window_id)
     if let focusedWindow, focusedWindow != window, window_space(focusedWindow.pointee.id) == window_space(window.pointee.id) {
-        window_manager_set_window_opacity(wm, focusedWindow, window_manager_global()!.pointee.normal_window_opacity)
+        window_manager_set_window_opacity(wm, focusedWindow, window_manager_global().normal_window_opacity)
     }
 
-    window_manager_set_window_opacity(wm, window, wm.pointee.active_window_opacity)
+    window_manager_set_window_opacity(wm, window, wm.active_window_opacity)
 
-    if wm.pointee.focused_window_id != window.pointee.id {
+    if wm.focused_window_id != window.pointee.id {
         if ms.ffm_window_id != window.pointee.id {
             window_manager_center_mouse(wm, window)
         }
 
-        wm.pointee.last_window_id = wm.pointee.focused_window_id
+        wm.last_window_id = wm.focused_window_id
     }
 
-    let prevFocusedWindowID = wm.pointee.focused_window_id
-    wm.pointee.focused_window_id = window.pointee.id
-    wm.pointee.focused_window_psn = window.pointee.application.pointee.psn
+    let prevFocusedWindowID = wm.focused_window_id
+    wm.focused_window_id = window.pointee.id
+    wm.focused_window_psn = window.pointee.application.pointee.psn
     ms.ffm_window_id = 0
 
     //
@@ -215,7 +215,7 @@ func update_window_notifications()
     // cleared when the window that was asked to be focused reports it.
     //
 
-    if wm.pointee.pending_focus_window_id == window.pointee.id { wm.pointee.pending_focus_window_id = 0 }
+    if wm.pending_focus_window_id == window.pointee.id { wm.pending_focus_window_id = 0 }
 
     if let view = window_manager_find_managed_window(window_manager_global(), window), view.pointee.layout == VIEW_TREE {
         tree_window_did_receive_focus(view, window.pointee.id)
@@ -275,7 +275,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 /// `EVENT_HANDLER(APPLICATION_LAUNCHED)`
 @WM func applicationLaunched(_ process: UnsafeMutablePointer<process>)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if process_is_terminated(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) terminated during launch\n")
@@ -351,7 +351,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     process.pointee.launch_given_up = false
 
     let windows = window_manager_add_application_windows(space_manager_global(), wm, application)
-    tileWindowsBatched(windows, wm.pointee.focused_window_id, true)
+    tileWindowsBatched(windows, wm.focused_window_id, true)
 
     for window in windows where window_manager_is_window_eligible(window) {
         eventSignalPush(.windowCreated, UnsafeMutableRawPointer(window))
@@ -365,7 +365,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 {
     defer { process_destroy(process) }
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     guard let application = window_manager_find_application(wm, process.pointee.pid) else {
@@ -440,11 +440,11 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
 @WM @discardableResult private func dimFocusedWindow() -> Window?
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
-    let focusedWindow = window_manager_find_window(wm, wm.pointee.focused_window_id)
+    let focusedWindow = window_manager_find_window(wm, wm.focused_window_id)
     if let focusedWindow {
-        window_manager_set_window_opacity(wm, focusedWindow, wm.pointee.normal_window_opacity)
+        window_manager_set_window_opacity(wm, focusedWindow, wm.normal_window_opacity)
     }
 
     return focusedWindow
@@ -457,13 +457,13 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
 @WM private func applicationFrontSwitchedWithoutWindow(_ application: Application)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let focusedWindow = dimFocusedWindow()
 
-    let prevFocusedWindowID = wm.pointee.focused_window_id
-    wm.pointee.last_window_id = prevFocusedWindowID
-    wm.pointee.focused_window_id = 0
-    wm.pointee.focused_window_psn = application.pointee.psn
+    let prevFocusedWindowID = wm.focused_window_id
+    wm.last_window_id = prevFocusedWindowID
+    wm.focused_window_id = 0
+    wm.focused_window_psn = application.pointee.psn
     mouse_state_global().ffm_window_id = 0
 
     if prevFocusedWindowID != 0 {
@@ -475,7 +475,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 /// `EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)`
 @WM func applicationFrontSwitched(_ process: UnsafeMutablePointer<process>)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let pm = process_manager_global()
 
     guard let application = window_manager_find_application(wm, process.pointee.pid) else {
@@ -532,14 +532,14 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 /// `EVENT_HANDLER(APPLICATION_VISIBLE)`
 @WM func applicationVisible(_ pid: pid_t)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     guard let application = window_manager_find_application(wm, pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(cName(application.pointee.name))\n")
     application.pointee.is_hidden = false
 
     let windows = window_manager_find_application_windows(wm, application)
-    tileWindowsBatched(windows, wm.pointee.last_window_id, false)
+    tileWindowsBatched(windows, wm.last_window_id, false)
 
     for window in windows {
         border_refresh_window_space(window)
@@ -551,7 +551,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 /// `EVENT_HANDLER(APPLICATION_HIDDEN)`
 @WM func applicationHidden(_ pid: pid_t)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     guard let application = window_manager_find_application(wm, pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(cName(application.pointee.name))\n")

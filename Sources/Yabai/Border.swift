@@ -414,7 +414,7 @@ private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
     var count = owner.pointee.layout == VIEW_TREE ? tree_view_tiled_count(owner) : 0
-    for target in tableValues(window_manager_global().pointee.window, as: window.self) {
+    for target in window_manager_global().window.values {
         if target.pointee.scratchpad != nil || !borderShouldShow(target) { continue }
         if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }
         if window_space(target.pointee.id) != sid { continue }
@@ -426,22 +426,22 @@ private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
 private func borderRefreshWithCount(_ target: UnsafeMutablePointer<window>?, _ sid: UInt64, _ windowCount: Int32)
 {
     guard let target, target.pointee.id != 0 else { return }
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     var windowArea = area()
     var borderArea = area()
     var containerRadius: Int32 = 0
     let owner = window_manager_find_managed_window(wm, target)
-    var enabled = wm.pointee.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.pointee.id, &windowArea, &borderArea, &containerRadius)
-    if enabled && wm.pointee.window_border_hide_single && target.pointee.scratchpad == nil {
+    var enabled = wm.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.pointee.id, &windowArea, &borderArea, &containerRadius)
+    if enabled && wm.window_border_hide_single && target.pointee.scratchpad == nil {
         let count = windowCount < 0 ? borderSpaceWindowCount(sid != 0 ? sid : window_space(target.pointee.id)) : windowCount
         enabled = count > 1
     }
-    let focused = wm.pointee.focused_window_id == target.pointee.id
+    let focused = wm.focused_window_id == target.pointee.id
     borderLock.withLock { state in
-        state.settings.enabled = wm.pointee.enable_window_border
-        state.settings.width = wm.pointee.window_border_width
-        state.settings.activeColor = wm.pointee.active_window_border_color
-        state.settings.normalColor = wm.pointee.normal_window_border_color
+        state.settings.enabled = wm.enable_window_border
+        state.settings.width = wm.window_border_width
+        state.settings.activeColor = wm.active_window_border_color
+        state.settings.normalColor = wm.normal_window_border_color
         if state.borders[target.pointee.id] == nil && enabled {
             let border = Border(target.pointee.id)
             border.radius = borderWindowRadius(target.pointee.id)
@@ -523,15 +523,15 @@ func border_refresh_space(_ sid: UInt64)
     if sid == 0 { return }
     border_begin_batch()
     defer { border_end_batch() }
-    if window_manager_global().pointee.window_border_hide_single {
+    if window_manager_global().window_border_hide_single {
         let count = borderSpaceWindowCount(sid)
-        for target in tableValues(window_manager_global().pointee.window, as: window.self) where window_space(target.pointee.id) == sid { borderRefreshWithCount(target, sid, count) }
+        for target in window_manager_global().window.values where window_space(target.pointee.id) == sid { borderRefreshWithCount(target, sid, count) }
         return
     }
     var windows: [UInt32] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
     if owner.pointee.layout == VIEW_TREE { windows = treeViewWindowList(owner) }
-    let capacity = windows.count + Int(window_manager_global().pointee.window.count)
+    let capacity = windows.count + Int(window_manager_global().window.count)
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {
             if !windows.contains(border.wid) && windows.count < capacity { windows.append(border.wid) }
@@ -545,7 +545,7 @@ func border_refresh_window_space(_ target: UnsafeMutablePointer<window>!)
 {
     guard let target, target.pointee.id != 0 else { return }
     let sid = window_space(target.pointee.id)
-    if window_manager_global().pointee.window_border_hide_single && sid != 0 { border_refresh_space(sid) }
+    if window_manager_global().window_border_hide_single && sid != 0 { border_refresh_space(sid) }
     else { border_refresh(target) }
 }
 
@@ -553,10 +553,10 @@ func border_refresh_window_space(_ target: UnsafeMutablePointer<window>!)
 func border_refresh_all()
 {
     var counts: [UInt64: Int32] = [:]
-    for target in tableValues(window_manager_global().pointee.window, as: window.self) {
+    for target in window_manager_global().window.values {
         let sid = window_space(target.pointee.id)
         var count: Int32 = -1
-        if window_manager_global().pointee.window_border_hide_single && sid != 0 {
+        if window_manager_global().window_border_hide_single && sid != 0 {
             count = counts[sid] ?? -1
             if count < 0 {
                 count = borderSpaceWindowCount(sid)

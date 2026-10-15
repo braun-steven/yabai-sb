@@ -9,7 +9,6 @@
 // Sources/Yabai/Yabai.swift.
 //
 
-struct window_manager g_window_manager;
 
 enum mission_control_mode g_mission_control_mode;
 

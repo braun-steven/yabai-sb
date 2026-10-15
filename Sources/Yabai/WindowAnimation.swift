@@ -276,11 +276,11 @@ private func windowAnimationTakeOver(_ animation: WindowAnimation, _ existing: W
 
 private func windowManagerAnimateWindowListAsync(_ list: UnsafeMutablePointer<window_capture>, _ count: Int32)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     var connection: Int32 = 0
     SLSNewConnection(0, &connection)
-    let duration = wm.pointee.window_animation_duration
-    let easing = wm.pointee.window_animation_easing
+    let duration = wm.window_animation_duration
+    let easing = wm.window_animation_easing
     let animations = (0..<Int(count)).map { WindowAnimation(list[$0], connection: connection) }
     let workers = DispatchGroup()
     SLSDisableUpdate(connection)
@@ -358,7 +358,7 @@ func window_manager_animate_window_list(_ list: UnsafeMutablePointer<window_capt
     guard count > 0, let list else { return }
     let count = windowManagerFilterWindowFrames(list, count)
     if count == 0 { return }
-    if window_manager_global().pointee.window_animation_duration != 0 {
+    if window_manager_global().window_animation_duration != 0 {
         windowManagerAnimateWindowListAsync(list, count)
     } else {
         window_manager_set_window_frames(list, count)
@@ -368,7 +368,7 @@ func window_manager_animate_window_list(_ list: UnsafeMutablePointer<window_capt
 func window_manager_animate_window(_ capture: window_capture)
 {
     if !windowManagerWindowFrameNeedsUpdate(capture.window, capture.x, capture.y, capture.w, capture.h) { return }
-    if window_manager_global().pointee.window_animation_duration != 0 {
+    if window_manager_global().window_animation_duration != 0 {
         var capture = capture
         windowManagerAnimateWindowListAsync(&capture, 1)
     } else {

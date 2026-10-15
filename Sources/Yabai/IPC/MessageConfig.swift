@@ -120,7 +120,7 @@ private func parseChoice(_ rsp: inout Response, _ domain: Token, _ command: Toke
     return UInt32(choice)
 }
 
-private func tabBarColor(for command: Token) -> WritableKeyPath<window_manager, rgba_color>?
+private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, rgba_color>?
 {
     if command.equals(Config.tabBarFocusedColor)       { return \.tab_bar_focused_color }
     if command.equals(Config.tabBarFocusedTextColor)   { return \.tab_bar_focused_text_color }
@@ -132,7 +132,7 @@ private func tabBarColor(for command: Token) -> WritableKeyPath<window_manager, 
     return nil
 }
 
-private func tabBarColorCustom(for command: Token) -> WritableKeyPath<window_manager, Bool>?
+private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<WindowManager, Bool>?
 {
     if command.equals(Config.tabBarFocusedColor)   { return \.tab_bar_focused_color_custom }
     if command.equals(Config.tabBarInactiveColor)  { return \.tab_bar_inactive_color_custom }
@@ -143,18 +143,18 @@ private func tabBarColorCustom(for command: Token) -> WritableKeyPath<window_man
 
 private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let value = message.next()
 
     if !value.isValid {
-        let grid = withUnsafeBytes(of: wm.pointee.scratchpad_grid) { Array($0.bindMemory(to: UInt32.self)) }
+        let grid = withUnsafeBytes(of: wm.scratchpad_grid) { Array($0.bindMemory(to: UInt32.self)) }
         if grid[0] == 0 || grid[1] == 0 {
             rsp.write("\(Argument.off)\n")
         } else {
             rsp.write("\(grid.map { String($0) }.joined(separator: ":"))\n")
         }
     } else if value.equals(Argument.off) {
-        wm.pointee.scratchpad_grid = (0, 0, 0, 0, 0, 0)
+        wm.scratchpad_grid = (0, 0, 0, 0, 0, 0)
     } else {
         // NOTE: like the C version, "%d" writes into unsigned values, so a negative row or column count passes the check
         var grid = [UInt32](repeating: 0, count: 6)
@@ -163,7 +163,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
         }
 
         if count == 6 && grid[0] > 0 && grid[1] > 0 {
-            wm.pointee.scratchpad_grid = (grid[0], grid[1], grid[2], grid[3], grid[4], grid[5])
+            wm.scratchpad_grid = (grid[0], grid[1], grid[2], grid[3], grid[4], grid[5])
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
@@ -283,19 +283,19 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
 
 private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let token = message.next()
     let value = token.value
 
     if case .invalid = value {
-        rsp.write("\(cFormat("%f", Double(wm.pointee.window_animation_duration)))\n")
+        rsp.write("\(cFormat("%f", Double(wm.window_animation_duration)))\n")
     } else if let duration = value.floatValue {
         if duration == 0.0 {
-            wm.pointee.window_animation_duration = duration
+            wm.window_animation_duration = duration
         } else if !scripting_addition_is_sip_friendly() {
             rsp.fail("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
         } else if CGPreflightScreenCaptureAccess() {
-            wm.pointee.window_animation_duration = duration
+            wm.window_animation_duration = duration
         } else {
             rsp.fail("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
             CGRequestScreenCaptureAccess()
@@ -407,27 +407,27 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 
 private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if command.equals(Config.border) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.pointee.enable_window_border) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.enable_window_border) { border_refresh_all() }
     } else if command.equals(Config.borderHideSingle) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.pointee.window_border_hide_single) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.window_border_hide_single) { border_refresh_all() }
     } else if command.equals(Config.borderWidth) {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%.4f", Double(wm.pointee.window_border_width)))\n")
+            rsp.write("\(cFormat("%.4f", Double(wm.window_border_width)))\n")
         } else if let width = value.floatValue, width > 0.0 {
-            wm.pointee.window_border_width = width
+            wm.window_border_width = width
             border_refresh_all()
         } else {
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.activeBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.pointee.active_window_border_color) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.active_window_border_color) { border_refresh_all() }
     } else if command.equals(Config.normalBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.pointee.normal_window_border_color) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.normal_window_border_color) { border_refresh_all() }
     } else {
         return false
     }
@@ -441,17 +441,17 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
 private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if command.equals(Config.tabBar) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.pointee.enable_tab_bar) { tab_bar_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.enable_tab_bar) { tab_bar_refresh_all() }
     } else if command.equals(Config.tabBarHeight) {
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.pointee.tab_bar_height)\n")
+            rsp.write("\(wm.tab_bar_height)\n")
         case .int(let height) where height > 0:
-            wm.pointee.tab_bar_height = height
+            wm.tab_bar_height = height
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -460,25 +460,25 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.pointee.tab_bar_offset)\n")
+            rsp.write("\(wm.tab_bar_offset)\n")
         case .int(let offset):
-            wm.pointee.tab_bar_offset = offset
+            wm.tab_bar_offset = offset
             tab_bar_refresh_all()
         case .float(let offset) where offset == Float(cInt(offset)):
-            wm.pointee.tab_bar_offset = cInt(offset)
+            wm.tab_bar_offset = cInt(offset)
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarIcons) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.pointee.tab_bar_icons) { tab_bar_redraw_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.tab_bar_icons) { tab_bar_redraw_all() }
     } else if command.equals(Config.tabBarStyle) {
         let value = message.next()
         var style = tab_bar_style(rawValue: 0)
         if !value.isValid {
-            rsp.write("\(tabBarStyleNames[Int(wm.pointee.tab_bar_style.rawValue)])\n")
+            rsp.write("\(tabBarStyleNames[Int(wm.tab_bar_style.rawValue)])\n")
         } else if value.withCString({ tab_bar_parse_style(UnsafeMutablePointer(mutating: $0), &style) }) {
-            wm.pointee.tab_bar_style = style
+            wm.tab_bar_style = style
             tab_bar_refresh_all()
         } else {
             rsp.failUnknownValue(domain, command, value)
@@ -487,9 +487,9 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let value = message.next()
         var backdrop = tab_bar_backdrop(rawValue: 0)
         if !value.isValid {
-            rsp.write("\(tabBarBackdropNames[Int(wm.pointee.tab_bar_backdrop.rawValue)])\n")
+            rsp.write("\(tabBarBackdropNames[Int(wm.tab_bar_backdrop.rawValue)])\n")
         } else if value.withCString({ tab_bar_parse_backdrop(UnsafeMutablePointer(mutating: $0), &backdrop) }) {
-            wm.pointee.tab_bar_backdrop = backdrop
+            wm.tab_bar_backdrop = backdrop
             tab_bar_refresh_all()
         } else {
             rsp.failUnknownValue(domain, command, value)
@@ -498,9 +498,9 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.pointee.tab_bar_card_padding)\n")
+            rsp.write("\(wm.tab_bar_card_padding)\n")
         case .int(let padding) where padding >= 0:
-            wm.pointee.tab_bar_card_padding = padding
+            wm.tab_bar_card_padding = padding
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -509,9 +509,9 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.pointee.tab_bar_window_radius)\n")
+            rsp.write("\(wm.tab_bar_window_radius)\n")
         case .int(let radius) where radius >= 0:
-            wm.pointee.tab_bar_window_radius = radius
+            wm.tab_bar_window_radius = radius
             tab_bar_redraw_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -519,15 +519,15 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if command.equals(Config.tabBarFont) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(Token(cString: wm.pointee.tab_bar_font_name))\n")
+            rsp.write("\(Token(cString: wm.tab_bar_font_name))\n")
         } else if value.withCString({ tab_bar_set_font(UnsafeMutablePointer(mutating: $0)) }) {
             tab_bar_redraw_all()
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
     } else if let color = tabBarColor(for: command) {
-        if configColor(&rsp, domain, command, &message, &wm.pointee[keyPath: color]) {
-            if let custom = tabBarColorCustom(for: command) { wm.pointee[keyPath: custom] = true }
+        if configColor(&rsp, domain, command, &message, &wm[keyPath: color]) {
+            if let custom = tabBarColorCustom(for: command) { wm[keyPath: custom] = true }
             tab_bar_redraw_all()
         }
     } else {
@@ -561,7 +561,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 /// One command of the config domain. Returns false when the remaining commands must not be run.
 private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let sm = space_manager_global()
     let dm = display_manager_global()
     let mouse = mouse_state_global()
@@ -572,11 +572,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     if command.equals(Config.debugOutput) {
         _ = parseConfigBool(&rsp, domain, command, &message, &verbose_global()!.pointee)
     } else if command.equals(Config.mff) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.pointee.enable_mff)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.enable_mff)
     } else if command.equals(Config.ffm) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(ffmModeNames[Int(wm.pointee.ffm_mode.rawValue)])\n")
+            rsp.write("\(ffmModeNames[Int(wm.ffm_mode.rawValue)])\n")
         } else if value.equals(Argument.off) {
             window_manager_set_focus_follows_mouse(wm, FFM_DISABLED)
         } else if value.equals(Config.ffmAutofocus) {
@@ -593,15 +593,15 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.builtinLast) {
         if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
-        if let choice = parseChoice(&rsp, domain, command, &message, windowOriginModeNames, first: WINDOW_ORIGIN_DEFAULT.rawValue, last: WINDOW_ORIGIN_CURSOR.rawValue, current: wm.pointee.window_origin_mode.rawValue) {
-            wm.pointee.window_origin_mode = window_origin_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, windowOriginModeNames, first: WINDOW_ORIGIN_DEFAULT.rawValue, last: WINDOW_ORIGIN_CURSOR.rawValue, current: wm.window_origin_mode.rawValue) {
+            wm.window_origin_mode = window_origin_mode(rawValue: choice)
         }
     } else if command.equals(Config.scratchpadExclusive) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.pointee.scratchpad_exclusive)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_exclusive)
     } else if command.equals(Config.scratchpadRaise) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.pointee.scratchpad_raise)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_raise)
     } else if command.equals(Config.scratchpadBelow) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.pointee.scratchpad_below) { window_manager_set_scratchpad_layers(wm) }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_below) { window_manager_set_scratchpad_layers(wm) }
     } else if command.equals(Config.scratchpadGrid) {
         configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {
@@ -609,36 +609,36 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.spaceLayout) {
         if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
     } else if command.equals(Config.opacity) {
-        var enabled = wm.pointee.enable_window_opacity
+        var enabled = wm.enable_window_opacity
         if parseConfigBool(&rsp, domain, command, &message, &enabled) { window_manager_set_window_opacity_enabled(wm, enabled) }
     } else if command.equals(Config.opacityDuration) {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%f", Double(wm.pointee.window_opacity_duration)))\n")
+            rsp.write("\(cFormat("%f", Double(wm.window_opacity_duration)))\n")
         } else if let duration = value.floatValue {
-            wm.pointee.window_opacity_duration = duration
+            wm.window_opacity_duration = duration
         } else {
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.animationDuration) {
         configAnimationDuration(&rsp, domain, command, &message)
     } else if command.equals(Config.animationEasing) {
-        if let choice = parseChoice(&rsp, domain, command, &message, animationEasingNames, first: 0, last: EASING_TYPE_COUNT.rawValue - 1, current: wm.pointee.window_animation_easing) {
-            wm.pointee.window_animation_easing = Int32(choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, animationEasingNames, first: 0, last: EASING_TYPE_COUNT.rawValue - 1, current: wm.window_animation_easing) {
+            wm.window_animation_easing = Int32(choice)
         }
     } else if command.equals(Config.shadow) {
-        if let choice = parseChoice(&rsp, domain, command, &message, purifyModeNames, first: PURIFY_DISABLED.rawValue, last: PURIFY_ALWAYS.rawValue, current: wm.pointee.purify_mode.rawValue) {
+        if let choice = parseChoice(&rsp, domain, command, &message, purifyModeNames, first: PURIFY_DISABLED.rawValue, last: PURIFY_ALWAYS.rawValue, current: wm.purify_mode.rawValue) {
             window_manager_set_purify_mode(wm, purify_mode(rawValue: choice))
         }
     } else if command.equals(Config.menubarOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.pointee.menubar_opacity, allowZero: true) { window_manager_set_menubar_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menubar_opacity, allowZero: true) { window_manager_set_menubar_opacity(wm, opacity) }
     } else if command.equals(Config.activeWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.pointee.active_window_opacity, allowZero: false) { window_manager_set_active_window_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.active_window_opacity, allowZero: false) { window_manager_set_active_window_opacity(wm, opacity) }
     } else if command.equals(Config.normalWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.pointee.normal_window_opacity, allowZero: false) { window_manager_set_normal_window_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normal_window_opacity, allowZero: false) { window_manager_set_normal_window_opacity(wm, opacity) }
     } else if command.equals(Config.insertFeedbackColor) {
-        _ = configColor(&rsp, domain, command, &message, &wm.pointee.insert_feedback_color, allowZero: false)
+        _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
     } else if let flag = spacing(for: command) {
         let view = selSid != 0 ? space_manager_find_view(sm, selSid) : nil
         let spacing = view.map { view_spacing($0, flag)!.pointee } ?? sm[keyPath: space_manager_spacing(flag)]
@@ -670,8 +670,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.treeAutotiling) {
         _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
     } else if command.equals(Config.focusWrapping) {
-        if let choice = parseChoice(&rsp, domain, command, &message, focusWrappingNames, first: FOCUS_WRAPPING_OFF.rawValue, last: FOCUS_WRAPPING_FORCE.rawValue, current: wm.pointee.focus_wrapping.rawValue) {
-            wm.pointee.focus_wrapping = focus_wrapping(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, focusWrappingNames, first: FOCUS_WRAPPING_OFF.rawValue, last: FOCUS_WRAPPING_FORCE.rawValue, current: wm.focus_wrapping.rawValue) {
+            wm.focus_wrapping = focus_wrapping(rawValue: choice)
         }
     } else if command.equals(Config.autoPadding) {
         if selSid != 0 {

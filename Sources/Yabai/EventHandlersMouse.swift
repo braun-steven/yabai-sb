@@ -74,7 +74,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 
 @WM private func mouseDropTarget(_ point: CGPoint) -> (view: View?, window: Window?)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     let cursorSid = display_space_id(display_manager_point_display_id(point))
@@ -88,7 +88,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 /// `EVENT_HANDLER(MOUSE_UP)`
 @WM func mouseUp(_ event: CGEvent)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
     if mission_control_is_active() { return }
@@ -225,7 +225,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.pointee.id) else { return window }
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     for i in 0..<CFArrayGetCount(associatedWindows) {
         let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
@@ -257,7 +257,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmRaiseWouldOccludeFloatingWindow(_ window: Window) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     var windowCount: Int32 = 0
     guard let windowIDs = space_window_list(space_manager_global().current_space_id, &windowCount, false) else { return false }
@@ -283,17 +283,17 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmFocusWindow(_ window: Window)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    if window.pointee.id == wm.pointee.focused_window_id { return }
+    if window.pointee.id == wm.focused_window_id { return }
     if !window_manager_is_window_eligible(window)       { return }
 
-    if wm.pointee.ffm_mode == FFM_AUTOFOCUS {
+    if wm.ffm_mode == FFM_AUTOFOCUS {
         let target = ffmWindowToFocus(window)
         window_manager_focus_window_without_raise(&target.pointee.application.pointee.psn, target.pointee.id)
         ms.ffm_window_id = target.pointee.id
-    } else if wm.pointee.ffm_mode == FFM_AUTORAISE {
+    } else if wm.ffm_mode == FFM_AUTORAISE {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
         window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
@@ -317,11 +317,11 @@ private let mouseResizeThrottleMs: Float = 67.67
 /// `EVENT_HANDLER(MOUSE_MOVED)`
 @WM func mouseMoved(_ event: CGEvent)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     if mouseEventIsStale(pendingMouseMoved) { return }
 
-    if wm.pointee.ffm_mode == FFM_DISABLED                { return }
+    if wm.ffm_mode == FFM_DISABLED                { return }
     if mission_control_is_active()                        { return }
     if mouse_state_global().ffm_window_id != 0 { return }
 

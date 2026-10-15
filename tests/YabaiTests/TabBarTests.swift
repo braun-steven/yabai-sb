@@ -52,16 +52,16 @@ extension DaemonState
                 defer { free(text) }
                 return Yabai.tab_bar_set_font(text)
             }
-            let wm = window_manager_global()!
+            let wm = window_manager_global()
             #expect(set("system:13"))
-            #expect(String(cString: wm.pointee.tab_bar_font_name) == "system:13")
-            #expect(CTFontGetSize(wm.pointee.tab_bar_font!.takeUnretainedValue()) == 13)
+            #expect(String(cString: wm.tab_bar_font_name) == "system:13")
+            #expect(CTFontGetSize(wm.tab_bar_font!) == 13)
             #expect(set("Menlo:11"))
-            #expect(CTFontGetSize(wm.pointee.tab_bar_font!.takeUnretainedValue()) == 11)
+            #expect(CTFontGetSize(wm.tab_bar_font!) == 11)
             #expect(!set("system"))
             #expect(!set("system:0"))
             #expect(!set(":12"))
-            #expect(String(cString: wm.pointee.tab_bar_font_name) == "Menlo:11")
+            #expect(String(cString: wm.tab_bar_font_name) == "Menlo:11")
         }
 
         @Test("tab_bar_glass_tint_default")

@@ -42,7 +42,7 @@ private struct Snapshot: @unchecked Sendable
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
     init(_ bar: UnsafeMutablePointer<tab_bar>, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<tab_bar_entry>, _ count: Int32)
     {
-        let wm = window_manager_global()!.pointee
+        let wm = window_manager_global()
         frame = bar.pointee.frame
         card = bar.pointee.card
         backdrop = wm.tab_bar_backdrop
@@ -51,7 +51,7 @@ private struct Snapshot: @unchecked Sendable
         self.aboveWid = aboveWid
         level = window_level(aboveWid)
         subLevel = window_sub_level(aboveWid)
-        font = wm.tab_bar_font?.takeUnretainedValue()
+        font = wm.tab_bar_font
         let track = tab_bar_glass_tint(wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_color_custom, 0.4)
         trackTint = tabBarCGColor(track)
         backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tab_bar_backdrop_color, wm.tab_bar_backdrop_color_custom, 0.4))

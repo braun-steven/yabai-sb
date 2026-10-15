@@ -109,7 +109,7 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
 private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
     let target = context!.assumingMemoryBound(to: window.self)
-    let focusedWindowID = window_manager_global()!.pointee.focused_window_id
+    let focusedWindowID = window_manager_global().focused_window_id
 
     switch es.type {
     case .windowCreated, .windowFocused, .windowDeminimized:

@@ -12,7 +12,7 @@ import YabaiCore
 /// `window_manager_query_window_rules`: the json of `rule --list`.
 func window_manager_query_window_rules(_ rsp: inout Response)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let count = window_manager_rule_count(wm)
 
     rsp.write("[")
@@ -42,7 +42,7 @@ func window_manager_rule_matches_window(_ candidate: UnsafeMutablePointer<rule>,
 }
 
 /// `window_manager_apply_manage_rule_effects_to_window`
-func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
+func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
 {
     if effects.pointee.manage == RULE_PROP_ON {
         window_set_rule_flag(target, WINDOW_RULE_MANAGED)
@@ -54,7 +54,7 @@ func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm
 }
 
 /// `window_manager_apply_rule_effects_to_window`
-func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
+func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
 {
     if effects.pointee.sid != 0 || effects.pointee.did != 0 {
         if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.pointee.id)) {
@@ -126,12 +126,12 @@ private func windowManagerRuleSkipsNonstandardWindow(_ candidate: UnsafeMutableP
 //
 
 /// `window_manager_combine_matching_rule_effects`
-func window_manager_combine_matching_rule_effects(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool, _ manageRound: Bool, _ effects: UnsafeMutablePointer<rule_effects>) -> Bool
+func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool, _ manageRound: Bool, _ effects: UnsafeMutablePointer<rule_effects>) -> Bool
 {
     var match = false
 
     for i in 0..<window_manager_rule_count(wm) {
-        let candidate = window_manager_rule_at(wm, i)!
+        let candidate = window_manager_rule_at(wm, i)
 
         if !oneShotRules && rule_check_flag(candidate, RULE_ONE_SHOT) { continue }
         if !window_manager_rule_matches_window(candidate, target, windowTitle, windowRole, windowSubrole) { continue }
@@ -149,7 +149,7 @@ func window_manager_combine_matching_rule_effects(_ wm: UnsafeMutablePointer<win
 }
 
 /// `window_manager_apply_manage_rules_to_window`
-func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 
@@ -161,7 +161,7 @@ func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: Unsaf
 }
 
 /// `window_manager_apply_rules_to_window`
-func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 
@@ -178,11 +178,11 @@ func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: UnsafeMutabl
 //
 
 /// `window_manager_remove_one_shot_rules`: buf_del moves the last rule into the hole, which is checked again.
-func window_manager_remove_one_shot_rules(_ wm: UnsafeMutablePointer<window_manager>)
+func window_manager_remove_one_shot_rules(_ wm: WindowManager)
 {
     var i: Int32 = 0
     while i < window_manager_rule_count(wm) {
-        let candidate = window_manager_rule_at(wm, i)!
+        let candidate = window_manager_rule_at(wm, i)
         if rule_check_flag(candidate, RULE_ONE_SHOT_REMOVE) {
             rule_destroy(candidate)
             window_manager_remove_rule(wm, i)

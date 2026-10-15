@@ -21,7 +21,7 @@ private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Int
 //
 
 /// `window_manager_tree_focus_display`
-private func windowManagerTreeFocusDisplay(_ wm: UnsafeMutablePointer<window_manager>, _ did: UInt32)
+private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: UInt32)
 {
     let sid = display_space_id(did)
     let owner = space_manager_find_view(space_manager_global(), sid)
@@ -35,7 +35,7 @@ private func windowManagerTreeFocusDisplay(_ wm: UnsafeMutablePointer<window_man
 }
 
 /// `window_manager_tree_focus_direction`: without a window (no window has focus) it fails like for an unmanaged one.
-func window_manager_tree_focus_direction(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?, _ direction: Int32) -> window_op_error
+func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?, _ direction: Int32) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -43,7 +43,7 @@ func window_manager_tree_focus_direction(_ wm: UnsafeMutablePointer<window_manag
     let did = windowManagerTreeDisplayInDirection(owner, direction)
     var result: Con?
 
-    switch tree_next(node, direction, wm.pointee.focus_wrapping, did != 0, &result) {
+    switch tree_next(node, direction, wm.focus_wrapping, did != 0, &result) {
     case TREE_RESULT_DONE:
         guard let result, con_is_leaf(result) else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
         if result.pointee.window_id == target.pointee.id && con_is_leaf(node) { return WINDOW_OP_ERROR_INVALID_DST_NODE }
@@ -62,7 +62,7 @@ func window_manager_tree_focus_direction(_ wm: UnsafeMutablePointer<window_manag
 }
 
 /// `window_manager_tree_focus_parent`
-func window_manager_tree_focus_parent(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?) -> window_op_error
+func window_manager_tree_focus_parent(_ wm: WindowManager, _ target: Window?) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -75,7 +75,7 @@ func window_manager_tree_focus_parent(_ wm: UnsafeMutablePointer<window_manager>
 }
 
 /// `window_manager_tree_focus_child`
-func window_manager_tree_focus_child(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?) -> window_op_error
+func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> window_op_error
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -100,7 +100,7 @@ func window_manager_tree_focus_child(_ wm: UnsafeMutablePointer<window_manager>,
 //
 
 /// `window_manager_tree_move_to_display`
-private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Int32)
+private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Int32)
 {
     tree_select(owner.pointee.tree, nil)
 
@@ -147,7 +147,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: UnsafeMuta
 }
 
 /// `window_manager_tree_move_direction`
-func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32) -> window_op_error
+func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ direction: Int32) -> window_op_error
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -174,7 +174,7 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: UnsafeMutableP
 //
 
 /// `window_manager_tree_focus_candidate`
-func window_manager_tree_focus_candidate(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View?, _ target: Window) -> UInt32
+func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ target: Window) -> UInt32
 {
     guard let owner, owner.pointee.layout == VIEW_TREE else { return 0 }
 
@@ -184,9 +184,9 @@ func window_manager_tree_focus_candidate(_ wm: UnsafeMutablePointer<window_manag
     // That window can be on another space or display, so a window of the same application counts too.
     //
 
-    var wasFocused = target.pointee.id == wm.pointee.focused_window_id
-    if !wasFocused && target.pointee.id == wm.pointee.last_window_id {
-        if let focused = window_manager_find_window(wm, wm.pointee.focused_window_id) {
+    var wasFocused = target.pointee.id == wm.focused_window_id
+    if !wasFocused && target.pointee.id == wm.last_window_id {
+        if let focused = window_manager_find_window(wm, wm.focused_window_id) {
             wasFocused = focused.pointee.application == target.pointee.application || window_manager_find_tree_view(wm, focused) == owner
         }
     }
@@ -198,14 +198,14 @@ func window_manager_tree_focus_candidate(_ wm: UnsafeMutablePointer<window_manag
 }
 
 /// `window_manager_tree_focus_after_close`
-func window_manager_tree_focus_after_close(_ wm: UnsafeMutablePointer<window_manager>, _ owner: View, _ windowID: UInt32)
+func window_manager_tree_focus_after_close(_ wm: WindowManager, _ owner: View, _ windowID: UInt32)
 {
     if windowID == 0 || !space_is_visible(owner.pointee.sid) { return }
     windowManagerFocusWindowID(wm, windowID)
 }
 
 /// `window_manager_tree_split`: orientation -1 splits across the orientation of the parent.
-func window_manager_tree_split(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window?, _ orientation: Int32) -> window_op_error
+func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ orientation: Int32) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }

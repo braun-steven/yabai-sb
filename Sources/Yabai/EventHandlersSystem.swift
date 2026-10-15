@@ -86,12 +86,12 @@ import YabaiC
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_EXIT:\n")
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let sm = space_manager_global()
     let mode = mission_control_mode_global()!
 
-    if wm.pointee.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
+    if wm.menubar_opacity != 1.0 {
+        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
@@ -127,9 +127,9 @@ import YabaiC
     isMenuOpen += 1
 
     if isMenuOpen == 1 {
-        let wm = window_manager_global()!
-        ffmValue = wm.pointee.ffm_mode
-        wm.pointee.ffm_mode = FFM_DISABLED
+        let wm = window_manager_global()
+        ffmValue = wm.ffm_mode
+        wm.ffm_mode = FFM_DISABLED
     }
 }
 
@@ -140,7 +140,7 @@ import YabaiC
     isMenuOpen -= 1
 
     if isMenuOpen == 0 {
-        window_manager_global()!.pointee.ffm_mode = ffmValue
+        window_manager_global().ffm_mode = ffmValue
     } else if isMenuOpen < 0 {
         isMenuOpen = 0
     }
@@ -167,9 +167,9 @@ import YabaiC
 {
     debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
 
-    let wm = window_manager_global()!
-    if let focusedWindow = window_manager_find_window(wm, wm.pointee.focused_window_id) {
-        window_manager_set_window_opacity(wm, focusedWindow, wm.pointee.active_window_opacity)
+    let wm = window_manager_global()
+    if let focusedWindow = window_manager_find_window(wm, wm.focused_window_id) {
+        window_manager_set_window_opacity(wm, focusedWindow, wm.active_window_opacity)
         window_manager_center_mouse(wm, focusedWindow)
     }
 

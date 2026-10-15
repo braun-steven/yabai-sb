@@ -74,10 +74,10 @@ private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSer
 /// `window_manager_focus_window_without_raise`
 func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32)
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
-    if psn_equals(windowPsn, &wm.pointee.focused_window_psn) {
-        windowManagerPostFocusRecord(&wm.pointee.focused_window_psn, wm.pointee.focused_window_id, 0x02)
+    if psn_equals(windowPsn, &wm.focused_window_psn) {
+        windowManagerPostFocusRecord(&wm.focused_window_psn, wm.focused_window_id, 0x02)
 
         //
         // @hack
@@ -123,14 +123,14 @@ func window_manager_focus_window_with_raise(_ windowPsn: UnsafeMutablePointer<Pr
 }
 
 /// `window_manager_focused_application`
-func window_manager_focused_application(_ wm: UnsafeMutablePointer<window_manager>) -> Application?
+func window_manager_focused_application(_ wm: WindowManager) -> Application?
 {
     let psn = SLS.frontProcess()
     return window_manager_find_application(wm, ProcessGetPIDC(psn))
 }
 
 /// `window_manager_focused_window`
-func window_manager_focused_window(_ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_focused_window(_ wm: WindowManager) -> Window?
 {
     guard let owner = window_manager_focused_application(wm) else { return nil }
 
@@ -148,26 +148,26 @@ func window_manager_focused_window(_ wm: UnsafeMutablePointer<window_manager>) -
 private let pendingFocusTimeoutMs: Float = 500.0
 
 /// `window_manager_set_pending_focus`
-func window_manager_set_pending_focus(_ wm: UnsafeMutablePointer<window_manager>, _ windowID: UInt32)
+func window_manager_set_pending_focus(_ wm: WindowManager, _ windowID: UInt32)
 {
-    wm.pointee.pending_focus_window_id = windowID
-    wm.pointee.pending_focus_time = read_os_timer()
+    wm.pending_focus_window_id = windowID
+    wm.pending_focus_time = read_os_timer()
 }
 
 /// `window_manager_pending_focus_window`
-func window_manager_pending_focus_window(_ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_pending_focus_window(_ wm: WindowManager) -> Window?
 {
-    if wm.pointee.pending_focus_window_id == 0 { return nil }
+    if wm.pending_focus_window_id == 0 { return nil }
 
-    let dt = os_timer_ms_between(wm.pointee.pending_focus_time, read_os_timer())
-    let target = dt < pendingFocusTimeoutMs ? window_manager_find_window(wm, wm.pointee.pending_focus_window_id) : nil
-    if target == nil { wm.pointee.pending_focus_window_id = 0 }
+    let dt = os_timer_ms_between(wm.pending_focus_time, read_os_timer())
+    let target = dt < pendingFocusTimeoutMs ? window_manager_find_window(wm, wm.pending_focus_window_id) : nil
+    if target == nil { wm.pending_focus_window_id = 0 }
 
     return target
 }
 
 /// `window_manager_acting_window`
-func window_manager_acting_window(_ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_acting_window(_ wm: WindowManager) -> Window?
 {
     return window_manager_pending_focus_window(wm) ?? window_manager_focused_window(wm)
 }

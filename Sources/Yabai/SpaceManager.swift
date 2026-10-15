@@ -423,12 +423,12 @@ func space_manager_last_space() -> UInt64
 //
 
 /// `space_manager_can_use_known_focus`
-func space_manager_can_use_known_focus(_ front: UnsafeMutablePointer<ProcessSerialNumber>, _ wm: UnsafeMutablePointer<window_manager>, _ pendingFocus: Bool) -> Bool
+func space_manager_can_use_known_focus(_ front: UnsafeMutablePointer<ProcessSerialNumber>, _ wm: WindowManager, _ pendingFocus: Bool) -> Bool
 {
     if pendingFocus { return false }
-    if wm.pointee.focused_window_id == 0 { return false }
+    if wm.focused_window_id == 0 { return false }
 
-    return psn_equals(front, &wm.pointee.focused_window_psn)
+    return psn_equals(front, &wm.focused_window_psn)
 }
 
 /// `space_manager_focused_window`
@@ -436,11 +436,11 @@ private func spaceManagerFocusedWindow() -> UnsafeMutablePointer<window>?
 {
     var front = SLS.frontProcess()
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let pendingFocus = pending_window_focus()
 
     if space_manager_can_use_known_focus(&front, wm, pendingFocus) {
-        if let target = window_manager_find_window(wm, wm.pointee.focused_window_id) { return target }
+        if let target = window_manager_find_window(wm, wm.focused_window_id) { return target }
     }
 
     return window_manager_focused_window(wm)
@@ -567,11 +567,11 @@ func spaceUserList(_ spaces: [UInt64]) -> [Bool]
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
 private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UInt64) -> space_op_error
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let sm = space_manager_global()
 
-    let windowAnimationDuration = wm.pointee.window_animation_duration
-    wm.pointee.window_animation_duration = 0.0
+    let windowAnimationDuration = wm.window_animation_duration
+    wm.window_animation_duration = 0.0
 
     let aWindows = spaceWindowIDs(aSid)
     let bWindows = spaceWindowIDs(bSid)
@@ -608,7 +608,7 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UIn
     view_flush(aView)
     view_flush(bView)
 
-    wm.pointee.window_animation_duration = windowAnimationDuration
+    wm.window_animation_duration = windowAnimationDuration
     return SPACE_OP_ERROR_SUCCESS
 }
 
@@ -901,15 +901,15 @@ func space_manager_mark_spaces_invalid(_ sm: SpaceManager)
 /// `space_manager_refresh_application_windows`: adds the windows of the applications that have unresolved windows.
 func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
 
     var refreshCount = Int(window_manager_application_refresh_count(wm))
     if refreshCount == 0 { return false }
 
-    let windowCount = wm.pointee.window.count
+    let windowCount = wm.window.count
     var i = 0
     while i < refreshCount {
-        let application = window_manager_application_refresh_at(wm, Int32(i))!
+        let application = window_manager_application_refresh_at(wm, Int32(i))
         debug("space_manager_refresh_application_windows: \(String(cString: application.pointee.name)) has windows that are not yet resolved\n")
 
         if window_manager_add_existing_application_windows(sm, wm, application, Int32(i)) {
@@ -920,7 +920,7 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
         i += 1
     }
 
-    return windowCount != wm.pointee.window.count
+    return windowCount != wm.window.count
 }
 
 /// `space_manager_handle_display_add`: the views of the spaces of a new display keep their names, and take the new ids.

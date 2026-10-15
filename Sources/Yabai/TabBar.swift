@@ -39,11 +39,10 @@ func tab_bar_set_font(_ name: UnsafeMutablePointer<CChar>!) -> Bool
         font = CTFontCreateWithName(family, CGFloat(size), nil)
     }
     guard let font else { return false }
-    let wm = window_manager_global()!
-    wm.pointee.tab_bar_font?.release()
-    free(wm.pointee.tab_bar_font_name)
-    wm.pointee.tab_bar_font = .passRetained(font)
-    wm.pointee.tab_bar_font_name = strdup(name)
+    let wm = window_manager_global()
+    free(wm.tab_bar_font_name)
+    wm.tab_bar_font = font
+    wm.tab_bar_font_name = strdup(name)
     return true
 }
 
@@ -67,8 +66,8 @@ func tab_bar_parse_backdrop(_ name: UnsafeMutablePointer<CChar>!, _ backdrop: Un
 @_cdecl("tab_bar_is_enabled")
 func tab_bar_is_enabled() -> Bool
 {
-    let wm = window_manager_global()!
-    return wm.pointee.enable_tab_bar && wm.pointee.tab_bar_height > 0
+    let wm = window_manager_global()
+    return wm.enable_tab_bar && wm.tab_bar_height > 0
 }
 
 private func tabBarPublishHits()
@@ -198,7 +197,7 @@ func tabBarCopyTitle(_ wid: UInt32) -> Unmanaged<CFString>?
 @_cdecl("tab_bar_icon")
 func tabBarIcon(_ wid: UInt32) -> Unmanaged<CGImage>?
 {
-    guard window_manager_global().pointee.tab_bar_icons,
+    guard window_manager_global().tab_bar_icons,
           let target = window_manager_find_window(window_manager_global(), wid), let app = target.pointee.application else { return nil }
     if let icon = app.pointee.icon { return icon }
     autoreleasepool {
@@ -212,7 +211,7 @@ func tabBarIcon(_ wid: UInt32) -> Unmanaged<CGImage>?
 
 func tabBarStateColors(_ state: tab_bar_state) -> (rgba_color, rgba_color)
 {
-    let wm = window_manager_global()!.pointee
+    let wm = window_manager_global()
     switch state {
     case TAB_BAR_FOCUSED: return (wm.tab_bar_focused_color, wm.tab_bar_focused_text_color)
     case TAB_BAR_INACTIVE: return (wm.tab_bar_inactive_color, wm.tab_bar_inactive_text_color)
@@ -246,19 +245,19 @@ private func tabBarDraw(_ bar: UnsafeMutablePointer<tab_bar>, _ entries: UnsafeM
             context.fill(CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
         }
         if entry.title != nil || entry.icon != nil {
-            tab_bar_draw_title(context, window_manager_global().pointee.tab_bar_font?.takeUnretainedValue(), false, entry.title?.takeUnretainedValue(), entry.icon?.takeUnretainedValue(), tab, tabBarCGColor(text))
+            tab_bar_draw_title(context, window_manager_global().tab_bar_font, false, entry.title?.takeUnretainedValue(), entry.icon?.takeUnretainedValue(), tab, tabBarCGColor(text))
         }
     }
     context.flush()
 }
 
-private func tabBarUsesGlass() -> Bool { window_manager_global().pointee.tab_bar_style == TAB_BAR_STYLE_GLASS }
+private func tabBarUsesGlass() -> Bool { window_manager_global().tab_bar_style == TAB_BAR_STYLE_GLASS }
 
 @_cdecl("tab_bar_card_padding")
 func tab_bar_card_padding() -> Int32
 {
-    if !tabBarUsesGlass() || window_manager_global().pointee.tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
-    return window_manager_global().pointee.tab_bar_card_padding
+    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
+    return window_manager_global().tab_bar_card_padding
 }
 
 private func tabBarExists(_ bar: UnsafeMutablePointer<tab_bar>) -> Bool { bar.pointee.id != 0 || bar.pointee.glass != nil }
@@ -377,7 +376,7 @@ func tab_bar_release(_ bar: UnsafeMutablePointer<tab_bar>!)
 func tab_bar_card_id(_ bar: UnsafeMutablePointer<tab_bar>!) -> UInt32
 {
     if bar.pointee.hidden || bar.pointee.glass == nil { return 0 }
-    if !tabBarUsesGlass() || window_manager_global().pointee.tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
+    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
     return tab_bar_glass_panel_id(bar)
 }
 
@@ -403,9 +402,7 @@ func tab_bar_redraw_all()
 func tab_bar_refresh_for_window(_ wid: UInt32)
 {
     if wid == 0 { return }
-    var wid = wid
-    guard let raw = table_find(&window_manager_global().pointee.managed_window, &wid) else { return }
-    let owner = raw.assumingMemoryBound(to: view.self)
+    guard let owner = window_manager_global().managed_window.find(wid) else { return }
     if owner.pointee.layout != VIEW_TREE { return }
     tree_refresh_for_window(wid)
 }

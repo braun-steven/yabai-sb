@@ -11,7 +11,7 @@ import YabaiC
 
 /// `window_manager_find_window_on_space_by_rank_filtering_window`: the window with the rank (from 1, top first) among the
 /// known windows of the space, without filterWid.
-func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: UnsafeMutablePointer<window_manager>, _ sid: UInt64, _ rank: Int32, _ filterWid: UInt32) -> Window?
+func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: UInt64, _ rank: Int32, _ filterWid: UInt32) -> Window?
 {
     var count: Int32 = 0
     guard let windowList = space_window_list(sid, &count, false) else { return nil }
@@ -35,7 +35,7 @@ func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: UnsafeMu
 //
 
 /// `window_manager_find_window_at_point_from`
-private func windowManagerFindWindowAtPointFrom(_ wm: UnsafeMutablePointer<window_manager>, _ point: CGPoint, _ startWid: UInt32, _ order: Int32) -> Window?
+private func windowManagerFindWindowAtPointFrom(_ wm: WindowManager, _ point: CGPoint, _ startWid: UInt32, _ order: Int32) -> Window?
 {
     var point = point
     var windowPoint = CGPoint.zero
@@ -51,25 +51,25 @@ private func windowManagerFindWindowAtPointFrom(_ wm: UnsafeMutablePointer<windo
 }
 
 /// `window_manager_find_window_at_point_filtering_window`
-func window_manager_find_window_at_point_filtering_window(_ wm: UnsafeMutablePointer<window_manager>, _ point: CGPoint, _ filterWid: UInt32) -> Window?
+func window_manager_find_window_at_point_filtering_window(_ wm: WindowManager, _ point: CGPoint, _ filterWid: UInt32) -> Window?
 {
     return windowManagerFindWindowAtPointFrom(wm, point, filterWid, -1)
 }
 
 /// `window_manager_find_window_at_point`
-func window_manager_find_window_at_point(_ wm: UnsafeMutablePointer<window_manager>, _ point: CGPoint) -> Window?
+func window_manager_find_window_at_point(_ wm: WindowManager, _ point: CGPoint) -> Window?
 {
     return windowManagerFindWindowAtPointFrom(wm, point, 0, 1)
 }
 
 /// `window_manager_find_window_below_cursor`
-func window_manager_find_window_below_cursor(_ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_window_below_cursor(_ wm: WindowManager) -> Window?
 {
     return window_manager_find_window_at_point(wm, SLS.cursorLocation(connection_global()))
 }
 
 /// `window_manager_find_closest_managed_window_in_direction`
-func window_manager_find_closest_managed_window_in_direction(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ direction: Int32) -> Window?
+func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Int32) -> Window?
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return nil }
     guard let node = tree_find_window(owner.pointee.tree, target.pointee.id) else { return nil }
@@ -89,7 +89,7 @@ private func windowManagerActiveTreeView(_ sm: SpaceManager) -> View?
 }
 
 /// `window_manager_find_window_for_con`
-private func windowManagerFindWindowForCon(_ wm: UnsafeMutablePointer<window_manager>, _ node: Con?) -> Window?
+private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) -> Window?
 {
     guard let node, con_is_leaf(node) else { return nil }
     return window_manager_find_window(wm, node.pointee.window_id)
@@ -103,37 +103,37 @@ private func windowManagerActiveCon(_ sm: SpaceManager, _ target: Window) -> Con
 }
 
 /// `window_manager_find_prev_managed_window`
-func window_manager_find_prev_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_prev_managed_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     guard let node = windowManagerActiveCon(sm, target) else { return nil }
     return windowManagerFindWindowForCon(wm, tree_prev_leaf(node))
 }
 
 /// `window_manager_find_next_managed_window`
-func window_manager_find_next_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_next_managed_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     guard let node = windowManagerActiveCon(sm, target) else { return nil }
     return windowManagerFindWindowForCon(wm, tree_next_leaf(node))
 }
 
 /// `window_manager_find_first_managed_window`
-func window_manager_find_first_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_first_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
     return windowManagerFindWindowForCon(wm, tree_first_leaf(owner.pointee.tree))
 }
 
 /// `window_manager_find_last_managed_window`
-func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
     return windowManagerFindWindowForCon(wm, tree_last_leaf(owner.pointee.tree))
 }
 
 /// `window_manager_find_recent_managed_window`
-func window_manager_find_recent_managed_window(_ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_recent_managed_window(_ wm: WindowManager) -> Window?
 {
-    guard let target = window_manager_find_window(wm, wm.pointee.last_window_id) else { return nil }
+    guard let target = window_manager_find_window(wm, wm.last_window_id) else { return nil }
     if window_manager_find_managed_window(wm, target) == nil { return nil }
 
     return target
@@ -155,7 +155,7 @@ private func windowManagerFindTab(_ sm: SpaceManager, _ target: Window) -> (tab:
 }
 
 /// `window_manager_find_tab_window`
-private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ index: Int32, _ relative: Bool) -> Window?
+private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ index: Int32, _ relative: Bool) -> Window?
 {
     guard let found = windowManagerFindTab(sm, target) else { return nil }
     let (tab, tabbed) = found
@@ -167,31 +167,31 @@ private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: UnsafeMutableP
 }
 
 /// `window_manager_find_prev_window_in_stack`
-func window_manager_find_prev_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_prev_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     return windowManagerFindTabWindow(sm, wm, target, -1, true)
 }
 
 /// `window_manager_find_next_window_in_stack`
-func window_manager_find_next_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_next_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     return windowManagerFindTabWindow(sm, wm, target, 1, true)
 }
 
 /// `window_manager_find_first_window_in_stack`
-func window_manager_find_first_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_first_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     return windowManagerFindTabWindow(sm, wm, target, 0, false)
 }
 
 /// `window_manager_find_last_window_in_stack`
-func window_manager_find_last_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_last_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     return windowManagerFindTabWindow(sm, wm, target, Int32.max, false)
 }
 
 /// `window_manager_find_recent_window_in_stack`
-func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> Window?
+func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     guard let found = windowManagerFindTab(sm, target), found.tabbed.pointee.child_count >= 2 else { return nil }
     let (tab, tabbed) = found
@@ -201,14 +201,14 @@ func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: Unsafe
 }
 
 /// `window_manager_find_window_in_stack`: the tab at the index (from 1).
-func window_manager_find_window_in_stack(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ target: Window, _ index: Int32) -> Window?
+func window_manager_find_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ index: Int32) -> Window?
 {
     return windowManagerFindTabWindow(sm, wm, target, index - 1, false)
 }
 
 /// `window_manager_find_managed_window_by_area`: the visible leaf with the largest area (the first one), or the smallest
 /// (the last one).
-private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ largest: Bool) -> Window?
+private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: WindowManager, _ largest: Bool) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
 
@@ -232,13 +232,13 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Unsa
 }
 
 /// `window_manager_find_largest_managed_window`
-func window_manager_find_largest_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_largest_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     return windowManagerFindManagedWindowByArea(sm, wm, true)
 }
 
 /// `window_manager_find_smallest_managed_window`
-func window_manager_find_smallest_managed_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>) -> Window?
+func window_manager_find_smallest_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     return windowManagerFindManagedWindowByArea(sm, wm, false)
 }

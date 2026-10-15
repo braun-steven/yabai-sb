@@ -56,11 +56,11 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 
 @WM private func refreshCurrentSpace()
 {
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let sm = space_manager_global()
 
-    if wm.pointee.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.pointee.menubar_opacity
+    if wm.menubar_opacity != 1.0 {
+        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 

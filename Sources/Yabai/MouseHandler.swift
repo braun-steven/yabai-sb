@@ -156,7 +156,7 @@ func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CG
     return MOUSE_DROP_ACTION_NONE
 }
 
-@WM func mouse_drop_try_adjust_tree(_ wm: UnsafeMutablePointer<window_manager>, _ targetView: View, _ target: Window, _ info: UnsafeMutablePointer<mouse_window_info>)
+@WM func mouse_drop_try_adjust_tree(_ wm: WindowManager, _ targetView: View, _ target: Window, _ info: UnsafeMutablePointer<mouse_window_info>)
 {
     var success = true
     if info.pointee.changed_position {
@@ -195,7 +195,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
 @WM func mouse_feedback_clear(_ ms: MouseState)
 {
     if ms.feedback_wid == 0 { return }
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let target = window_manager_find_window(wm, ms.feedback_wid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
     if let container = mouseFindCon(targetView, target), container.pointee.insert_dir == 0 { tree_feedback_hide(container) }
@@ -220,7 +220,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     ms.feedback_dir = direction
 }
 
-@WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ srcView: View, _ dstView: View, _ target: Window)
+@WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
 {
     if srcView.pointee.sid == dstView.pointee.sid || dstView.pointee.layout == VIEW_FLOAT { view_flush(srcView); return }
     window_manager_unmanage_window(wm, srcView, target)
@@ -233,7 +233,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
 // window on that side of the other window.
 //
 
-@WM func mouse_drop(_ sm: SpaceManager?, _ wm: UnsafeMutablePointer<window_manager>, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
+@WM func mouse_drop(_ sm: SpaceManager?, _ wm: WindowManager, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
 {
     mouse_feedback_clear(ms)
     guard let dstView else { view_flush(srcView); return }

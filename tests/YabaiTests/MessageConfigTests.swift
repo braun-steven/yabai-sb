@@ -21,25 +21,25 @@ extension DaemonState
         @Test("message_config_options")
         func messageConfigOptions()
         {
-            let wm = window_manager_global()!
+            let wm = window_manager_global()
             let sm = space_manager_global()
             let mouse = mouse_state_global()
 
-            let mff = wm.pointee.enable_mff
+            let mff = wm.enable_mff
             let modifier = mouse.modifier
-            let wrapping = wm.pointee.focus_wrapping
+            let wrapping = wm.focus_wrapping
             let topPadding = sm.top_padding
             defer {
-                wm.pointee.enable_mff = mff
+                wm.enable_mff = mff
                 mouse.modifier = modifier
-                wm.pointee.focus_wrapping = wrapping
+                wm.focus_wrapping = wrapping
                 sm.top_padding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
-            #expect(wm.pointee.enable_mff)
+            #expect(wm.enable_mff)
             #expect(UInt32(mouse.modifier) == MOUSE_MOD_CTRL.rawValue)
-            #expect(wm.pointee.focus_wrapping == FOCUS_WRAPPING_FORCE)
+            #expect(wm.focus_wrapping == FOCUS_WRAPPING_FORCE)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
@@ -55,17 +55,17 @@ extension DaemonState
         @Test("message_config_values")
         func messageConfigValues()
         {
-            let wm = window_manager_global()!
+            let wm = window_manager_global()
             let sm = space_manager_global()
 
-            let grid = wm.pointee.scratchpad_grid
-            let duration = wm.pointee.window_animation_duration
-            let opacityDuration = wm.pointee.window_opacity_duration
+            let grid = wm.scratchpad_grid
+            let duration = wm.window_animation_duration
+            let opacityDuration = wm.window_opacity_duration
             let workspaceTabbed = sm.tree_workspace_tabbed
             defer {
-                wm.pointee.scratchpad_grid = grid
-                wm.pointee.window_animation_duration = duration
-                wm.pointee.window_opacity_duration = opacityDuration
+                wm.scratchpad_grid = grid
+                wm.window_animation_duration = duration
+                wm.window_opacity_duration = opacityDuration
                 sm.tree_workspace_tabbed = workspaceTabbed
             }
 

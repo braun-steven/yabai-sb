@@ -32,7 +32,7 @@ private func axElements(_ list: CFArray) -> [AXUIElement]
 
 /// `window_manager_create_and_add_window`: nil when the window is ignored (AXUnknown, or it cannot be observed).
 @discardableResult
-func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: Application, _ windowRef: AXUIElement, _ windowID: UInt32, _ oneShotRules: Bool) -> Window?
+func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ windowRef: AXUIElement, _ windowID: UInt32, _ oneShotRules: Bool) -> Window?
 {
     let target = window_create(owner, windowRef, windowID)
 
@@ -87,7 +87,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: UnsafeMutabl
             target.pointee.is_eligible = true
             window_manager_apply_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, oneShotRules)
             window_manager_purify_window(wm, target)
-            window_manager_set_window_opacity(wm, target, wm.pointee.normal_window_opacity)
+            window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
 
             if owner.pointee.is_hidden                                { return target }
             if window_check_flag(target, WINDOW_MINIMIZE)             { return target }
@@ -125,9 +125,9 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: UnsafeMutabl
 //
 
 /// `window_manager_origin_space`
-func window_manager_origin_space(_ wm: UnsafeMutablePointer<window_manager>, _ target: Window) -> UInt64
+func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> UInt64
 {
-    switch wm.pointee.window_origin_mode {
+    switch wm.window_origin_mode {
     case WINDOW_ORIGIN_FOCUSED: return space_manager_global().current_space_id
     case WINDOW_ORIGIN_CURSOR:  return space_manager_cursor_space()
     default:                    return window_space(target.pointee.id)
@@ -135,7 +135,7 @@ func window_manager_origin_space(_ wm: UnsafeMutablePointer<window_manager>, _ t
 }
 
 /// `window_manager_add_application_windows`: the windows of the AX list of the application that were not known yet.
-func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: Application) -> [Window]
+func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application) -> [Window]
 {
     guard let windowList = application_window_list(owner) else { return [] }
 
@@ -166,7 +166,7 @@ func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [UInt3
 }
 
 /// `window_manager_unresolved_windows`: the windows of the list that the window manager does not know.
-func window_manager_unresolved_windows(_ wm: UnsafeMutablePointer<window_manager>, _ windowList: [UInt32]) -> [UInt32]
+func window_manager_unresolved_windows(_ wm: WindowManager, _ windowList: [UInt32]) -> [UInt32]
 {
     return windowList.filter { window_manager_find_window(wm, $0) == nil }
 }
@@ -182,7 +182,7 @@ func window_manager_unresolved_windows(_ wm: UnsafeMutablePointer<window_manager
 //
 
 /// `window_manager_add_windows_by_element_id`
-private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: Application, _ unresolved: inout [UInt32])
+private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ unresolved: inout [UInt32])
 {
     var data = Data(count: 0x14)
     data.withUnsafeMutableBytes { bytes in
@@ -221,7 +221,7 @@ private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: Unsafe
 /// `window_manager_add_existing_application_windows`: true when the windows of an application in applications_to_refresh
 /// (at refreshIndex) are now all resolved; it is then removed from the list. With refreshIndex -1 (a new application),
 /// the application is added to the list when windows are still missing.
-func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: UnsafeMutablePointer<window_manager>, _ owner: Application, _ refreshIndex: Int32) -> Bool
+func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ refreshIndex: Int32) -> Bool
 {
     guard let globalWindowList = windowManagerExistingApplicationWindowList(owner) else { return false }
 

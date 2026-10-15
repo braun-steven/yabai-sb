@@ -60,7 +60,7 @@ func treeFeedbackDestroy(_ node: Con)
 /// `tree_bar_height`
 private func treeBarHeight() -> Int32
 {
-    return tab_bar_is_enabled() ? window_manager_global().pointee.tab_bar_height : 0
+    return tab_bar_is_enabled() ? window_manager_global().tab_bar_height : 0
 }
 
 /// `tree_bar_inset`
@@ -97,7 +97,7 @@ func tree_view_root(_ owner: View) -> Con
 func tree_view_update(_ owner: View!)
 {
     guard let root = owner.pointee.tree else { return }
-    tree_update(root, owner.pointee.area, view_window_gap(owner), treeBarHeight(), window_manager_global().pointee.tab_bar_offset, treeBarInset())
+    tree_update(root, owner.pointee.area, view_window_gap(owner), treeBarHeight(), window_manager_global().tab_bar_offset, treeBarInset())
 }
 
 /// `tree_unmanage_windows`
@@ -142,7 +142,7 @@ private func treeFocusNewWindow(_ root: Con, _ node: Con, _ windowID: UInt32)
 {
     tree_focus(node)
 
-    let focusedWindowID = window_manager_global().pointee.focused_window_id
+    let focusedWindowID = window_manager_global().focused_window_id
     if windowID != focusedWindowID, let focused = tree_find_window(root, focusedWindowID) {
         tree_focus(focused)
     }
@@ -192,7 +192,7 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
         anchor = selected
     }
 
-    if anchor == nil { anchor = tree_find_window(root, window_manager_global().pointee.focused_window_id) }
+    if anchor == nil { anchor = tree_find_window(root, window_manager_global().focused_window_id) }
     if anchor == nil { anchor = tree_descend_focused(root) }
 
     tree_open_con(root, node, anchor, space_manager_global().tree_autotiling)
@@ -361,7 +361,7 @@ private func treeBarIsShown(_ node: Con) -> Bool
     return tab_bar_is_enabled() &&
            node.pointee.layout == CON_TABBED &&
            node.pointee.child_count > 0 &&
-           node.pointee.area.h > Float(2 * window_manager_global().pointee.tab_bar_height) &&
+           node.pointee.area.h > Float(2 * window_manager_global().tab_bar_height) &&
            tree_con_is_visible(node) &&
            !treeHasZoom(node, CON_ZOOM_NONE) &&
            !treeHasZoom(treeRootOf(node), CON_ZOOM_FULLSCREEN)
@@ -385,9 +385,9 @@ private func treeRenderBar(_ node: Con)
         return
     }
 
-    let wm = window_manager_global()!
+    let wm = window_manager_global()
     let entryCount = min(node.pointee.child_count, TAB_BAR_MAX_ENTRY_COUNT)
-    let hasFocus = treeContainsWindow(node, wm.pointee.focused_window_id)
+    let hasFocus = treeContainsWindow(node, wm.focused_window_id)
     let active = node.pointee.focus[0]
 
     // NOTE: the titles stay alive in this array until tab_bar_render has drawn them
@@ -412,9 +412,9 @@ private func treeRenderBar(_ node: Con)
 
     let above = tree_descend_focused(node)
     let area = node.pointee.area
-    let inset = Float(tree_bar_card_inset(area, wm.pointee.tab_bar_height, treeBarInset()))
+    let inset = Float(tree_bar_card_inset(area, wm.tab_bar_height, treeBarInset()))
     let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-    let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.pointee.tab_bar_height))
+    let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tab_bar_height))
     entryList.withUnsafeMutableBufferPointer { entries in
         tab_bar_render(&node.pointee.render.tab_bar, frame, card, above?.pointee.window_id ?? 0, entries.baseAddress, entryCount)
     }
@@ -452,9 +452,9 @@ func tree_window_border_area(_ owner: View!, _ windowID: UInt32, _ windowArea: U
     borderArea.pointee = outer?.pointee.area ?? leaf.pointee.area
 
     if let outer {
-        let wm = window_manager_global()!
-        let inset = tree_bar_card_inset(outer.pointee.area, wm.pointee.tab_bar_height, treeBarInset())
-        if inset > 0 { radius.pointee = wm.pointee.tab_bar_window_radius + inset }
+        let wm = window_manager_global()
+        let inset = tree_bar_card_inset(outer.pointee.area, wm.tab_bar_height, treeBarInset())
+        if inset > 0 { radius.pointee = wm.tab_bar_window_radius + inset }
     }
 
     return true
@@ -609,8 +609,7 @@ func tree_refresh_for_window(_ windowID: UInt32)
 {
     if windowID == 0 { return }
 
-    var key = windowID
-    guard let owner = table_find(&window_manager_global().pointee.managed_window, &key)?.assumingMemoryBound(to: view.self) else { return }
+    guard let owner = window_manager_global().managed_window.find(windowID) else { return }
     if owner.pointee.layout != VIEW_TREE || owner.pointee.tree == nil { return }
 
     if space_is_visible(owner.pointee.sid) { tree_render_bars(owner.pointee.tree) }
@@ -656,7 +655,7 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
 
     // NOTE: the CGContext calls of the C code did nothing without a context
     let context = node.pointee.render.feedback_window.context?.takeUnretainedValue()
-    let color = window_manager_global().pointee.insert_feedback_color
+    let color = window_manager_global().insert_feedback_color
     context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != 0 ? 0.25 : 0.15)))
     context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
 

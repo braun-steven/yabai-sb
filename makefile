@@ -30,7 +30,7 @@ tsan: $(BINS)
 install: VARIANT_FLAGS = -c release -Xswiftc -warnings-as-errors
 install: $(BINS)
 
-# swift test needs the generated OSAX sources: they are sources of the YabaiC target
+# swift test needs the generated OSAX sources: they are sources of the OSAX target
 test: $(OSAX_SRC)
 	swift test
 

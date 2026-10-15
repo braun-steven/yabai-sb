@@ -23,6 +23,16 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **Style:** keep the C file's order of functions in the Swift file, so diffs against the C original stay readable during review.
 
 ## Pitfalls learned so far
+
+P14 removed `src/`, YabaiC, the C test harness, temporary storage and all `@_cdecl` model bridges. Entries below referring to those are historical migration notes, retained for comparing earlier commits. Current C/ObjC is limited to CPrivate (including `Notify.m`) and `osax/`; models are Swift classes and globals live with their managers. Ownership, import and concurrency rules still apply to CPrivate calls.
+
+- **Swift model conversion:** an enum tag can collide with a function (`ConOrientation` versus `con_orientation`); a property named like its type needs a module qualifier (`Yabai.area()`). Swift raw-value initializers use `rawValue:` explicitly. Former pointer fields may remain IUOs to preserve nil behavior; models have no `.pointee` shim.
+- **Explicit imports:** deleting `import YabaiC` also removes its Cocoa/CPrivate re-exports. Add `import AppKit` / `import CPrivate` where used.
+- **Query order:** `Table.swift` keeps the C hash-table bucket/insertion/rehash order. Replacing it with Dictionary changes query bytes.
+- **Frame worker ownership:** retain AX references and copied app names until concurrent workers join; keep window ids in animations rather than references to mutable models (`WindowAnimation.swift`).
+- **Byte-array fixtures:** explicitly type `[UInt8]` when mixing typed bytes and untyped integer literals. Inferred `[Any]` silently gives raw-pointer APIs the wrong storage (`WindowAnimationTests.swift`).
+- **Git pathspecs:** `git add` with a missing pathspec stages nothing; check paths after deleting or moving targets.
+
 - **CF types in C structs** import as `Unmanaged<T>?` unless the header has nullability annotations. Wrap the header in `CF_ASSUME_NONNULL_BEGIN/END` and mark the optional fields `_Nullable` (example: `src/tab_bar_glass.h`). Then take each value once with `takeUnretainedValue()` and let C free the struct.
 - **Who frees a C struct's CF objects:** either Swift takes the +1 references (`takeRetainedValue()`) and C only frees the memory, or Swift retains (`takeUnretainedValue()`) and C releases. Pick one per struct and write it in the header's NOTE. The pilot uses the second way (`tab_bar_glass_snapshot_free`).
 - **Swift runtime rpath:** a C/ObjC-driven link of Swift objects needs `-Wl,-rpath,/usr/lib/swift`. Otherwise `@rpath/libswift_Concurrency.dylib` is weak-linked and silently missing, and `MainActor.assumeIsolated` crashes. Check with `DYLD_PRINT_LIBRARIES=1 bin/yabai --version 2>&1 | grep Concurrency`. SwiftPM adds the rpath itself (checked in P0); it matters again only for the C test harness (`tests/makefile`).

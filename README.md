@@ -59,7 +59,7 @@ This is my personal fork of yabai, where I (and AI) implement features and bug f
 yabai is a window management utility that is designed to work as an extension to the built-in window manager of macOS.
 yabai allows you to control your windows, spaces and displays freely using an intuitive command line interface and optionally set user-defined keyboard shortcuts using [&nearr;&nbsp;skhd][gh-skhd] and other third-party software.
 
-The primary function of yabai is tiling window management; automatically modifying your window layout using a binary space partitioning algorithm to allow you to focus on the content of your windows without distractions.
+The primary function of this fork is tiling window management using an i3-style container tree, with horizontal, vertical and tabbed containers.
 Additional features of yabai include focus-follows-mouse, disabling animations for switching spaces, creating spaces past the limit of 16 spaces, and much more.
 
 ## Installation and Configuration
@@ -70,17 +70,17 @@ Additional features of yabai include focus-follows-mouse, disabling animations f
 
 ## Requirements and Caveats
 
+This fork targets macOS 27 on Apple Silicon. The daemon and client are Swift; only private API wrappers and the scripting addition remain C/Objective-C.
+
 Please read the below requirements carefully.
 Make sure you fulfil all of them before filing an issue.
 
 |Requirement|Note|
 |-:|:-|
-|Operating&nbsp;System&nbsp;Intel x86-64|Big Sur 11.0.0+, Monterey 12.0.0+, Ventura 13.0.0+, Sonoma 14.0.0+, Sequoia 15.0+, and Tahoe 26.0+ is supported.|
-|Operating&nbsp;System&nbsp;Apple Silicon|Monterey 12.0.0+, Ventura 13.0.0+, Sonoma 14.0.0+, Sequoia 15.0+, and Tahoe 26.0+ is supported.|
+|Operating&nbsp;System&nbsp;Apple Silicon|macOS 27; arm64 daemon/client and arm64e scripting addition. Intel builds are not supported by this fork.|
 |Accessibility&nbsp;API|yabai must be given permission to utilize the Accessibility API and will request access upon launch. The application must be restarted after access has been granted.|
 |Screen Recording|yabai must be given Screen Recording permission if and only if you want to enable window animations, and will request access when necessary. The application must be restarted after access has been granted.|
-|System&nbsp;Preferences&nbsp;(macOS 11.x, 12.x)|In the Mission Control pane, the setting "Displays have separate Spaces" must be enabled.|
-|System&nbsp;Settings&nbsp;(macOS 13.x, 14.x, 15.x, 26.x)|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Displays have separate Spaces" must be enabled.|
+|System&nbsp;Settings|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Displays have separate Spaces" must be enabled.|
 
 Please also take note of the following caveats.
 
@@ -90,10 +90,23 @@ Please also take note of the following caveats.
 |Code&nbsp;Signing|When building from source (or installing from HEAD), it is necessary to codesign the binary so it retains its accessibility and automation privileges when updated or rebuilt.|
 |Finder&nbsp;Desktop|Some people disable the Finder Desktop window using an undocumented defaults write command. This breaks focusing of empty spaces and should be avoided when using yabai. To re-activate the Finder Desktop, run: "defaults write com.apple.finder CreateDesktop -bool true".|
 |NSDocument-based&nbsp;Applications|Windows that utilize native macOS tabs such as Terminal and Finder, [do not behave correctly when creating tabs](https://github.com/asmvik/yabai/issues/68). Avoid creating tabs in these applications, consider alternatives that do not use NSDocument's tab system, or make these windows float using rules.|
-|System&nbsp;Preferences&nbsp;(macOS 11.x, 12.x)|In the Mission Control pane, the setting "Automatically rearrange Spaces based on most recent use" should be disabled for commands that rely on the ordering of spaces to work reliably.|
-|System&nbsp;Settings&nbsp;(macOS 13.x, 14.x, 15.x, 26.x)|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Automatically rearrange Spaces based on most recent use" should be disabled for commands that rely on the ordering of spaces to work reliably.|
-|System&nbsp;Settings&nbsp;(macOS 14.x, 15.x, 26.x)|In the Desktop & Dock tab, inside the Desktop & Stage Manager pane, the setting "Show Items On Desktop" should be enabled for display and space focus commands to work reliably in multi-display configurations.|
-|System&nbsp;Settings&nbsp;(macOS 14.x, 15.x, 26.x)|In the Desktop & Dock tab, inside the Desktop & Stage Manager pane, the setting "Click wallpaper to reveal Desktop" should be set to "Only in Stage Manager" for display and space focus commands to work reliably.|
+|System&nbsp;Settings|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Automatically rearrange Spaces based on most recent use" should be disabled for commands that rely on the ordering of spaces to work reliably.|
+|System&nbsp;Settings|In the Desktop & Dock tab, inside the Desktop & Stage Manager pane, the setting "Show Items On Desktop" should be enabled for display and space focus commands to work reliably in multi-display configurations.|
+|System&nbsp;Settings|In the Desktop & Dock tab, inside the Desktop & Stage Manager pane, the setting "Click wallpaper to reveal Desktop" should be set to "Only in Stage Manager" for display and space focus commands to work reliably.|
+
+## Building this fork
+
+Use the Xcode toolchain for macOS 27 (Swift 6.4). SwiftPM builds the executable; the makefile first builds and embeds the Objective-C scripting-addition payload and loader.
+
+```sh
+make                 # debug binary at bin/yabai
+make install         # optimized release binary at the same path
+make test            # Swift unit tests and byte-for-byte golden IPC replay
+make asan            # AddressSanitizer build
+make tsan            # ThreadSanitizer build
+```
+
+`make install` builds locally; it does not copy the binary into your PATH. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes build products and generated payload arrays. See [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
 ## License and Attribution
 

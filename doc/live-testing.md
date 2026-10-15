@@ -6,29 +6,25 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- Since P13 all 82 original C tests are Swift tests. `make -C tests` remains an empty C harness smoke check until P14.
-  It builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/YabaiCore/` and of
-  `Sources/Yabai/` but `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan. The golden
-  IPC replay is a Swift test (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`). The test build is warning-free; any warning is new. Check with
-  `make -C tests 2>&1 | grep -c "warning:"`. `make test` runs `swift test` first.
+- All 82 original C tests are Swift tests; P14 removed the C harness and YabaiC target.
+  `make test` generates the embedded OSAX arrays when needed, then runs `swift test` (103 tests at P14).
+  `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
+  Run a single test with `swift test --filter <name>`, or the golden IPC replay with
+  `swift test --filter Golden` (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`).
+  Builds must be warning-free; any warning is new. Sanitizer daemon builds are `make asan` / `make tsan`.
 - The golden replay runs on a daemon state without displays, spaces or windows, but in the test process: a command
   in `tests/YabaiTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
   real one. Only add commands that fail before they act, or that only change the daemon's own state.
-- `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
-  (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
-  with "too many arguments provided to function-like macro invocation". Build fixtures in a static
-  helper function instead (see `knownFocusPSN` in `tests/YabaiTests/SpaceManagerTests.swift`; all
-  tests now live in Swift).
-- Everything shares one translation unit, so `static` functions of any source file can be called from
-  a test. Make decisions testable by moving them into pure helpers that take their inputs as arguments
-  (e.g. `space_manager_can_use_known_focus`, which is Swift since P9, `application_launch_retry_delay`,
-  `treeCollectWindowOrder`, which are Swift), and keep the side effects in the caller.
+- Keep manager-mutating tests in the serialized `DaemonState` suite. Golden replay leaves config
+  on those globals; explicitly set any default a test depends on. Tests must not invoke window server side effects.
+- Make decisions testable through pure internal helpers taking explicit inputs (e.g.
+  `space_manager_can_use_known_focus`, `application_launch_retry_delay`, `treeCollectWindowOrder`),
+  keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
   `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar
-  has no glass panel, so `tab_bar_card_id` returns 0; `tree_con_is_visible` works. The Swift tests
-  have no temporary storage (`ts_init` runs only in the daemon and the C harness), so test the Swift
-  function that returns an array (`treeViewWindowList`), not its `@_cdecl` twin for C.
+  has no glass panel, so `tab_bar_card_id` returns 0; `tree_con_is_visible` works. Containers and views
+  are Swift classes; list helpers return arrays. Temporary storage and C-callable model shims are gone.
 
 ## The live harness
 

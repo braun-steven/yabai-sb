@@ -32,7 +32,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P11 | Window + window_manager* | [x] | e5f4110 | `struct window` and `window_manager` stay C until their last C users (P12, P13); `window_frame_*` tests belong to `window_animation.c` (P13) |
 | P12 | Tree + tree_view | [x] | acc7b04 | `struct con` stays C until P13 (mouse_handler.c, border.c, tab_bar.c use it); the `final class Con` conversion moves there |
 | P13 | Border, tab bars, animation, mouse, SA client | [x] | 88f84a5 | all 82 original tests ported; shared-model/bridge cleanup remains for P14 |
-| P14 | Remove C, docs, final verification | [~] | 955a4b1 | C target, C harness and `make analyze` gone; models are Swift classes; remaining: `.pointee` shims, docs, full V1–V6, final report (see the 2026-10-15 P14 entry) |
+| P14 | Remove C, docs, final verification | [~] | 180fa43 | model shims removed; docs rewritten; V1/V2/V4 pass (103 tests, byte-identical golden); full live verification and final report in progress |
 
 **Rule for `[L]`:** the next phase may start while a phase waits for the user. Never have more than two phases in `[L]`: stop and ask the user to do the pending steps first.
 
@@ -44,8 +44,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
   - **SwiftPM** builds the binary. A **thin `makefile`** keeps the existing entry points.
   - Long-lived branch **`swift-port`**. It merges into `master` only when the user says so after P14.
 - What stays non-Swift:
-  - the scripting addition (`src/osax/`, ObjC injected into Dock)
-  - the C module `CPrivate`, which only declares private framework functions
+  - the scripting addition (`osax/`, ObjC injected into Dock)
+  - the C module `CPrivate`: private declarations, wrappers for APIs Swift cannot call, and MRR notifications
 
 ## Parity contract (must hold after every phase)
 1. **CLI and socket protocol:**
@@ -60,68 +60,51 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 6. **Performance:** `scripts/live-tests/bench.py` medians stay within 10% of the P0 baseline (Handoff log, P0 entry). Measure the way the baseline was measured (V5 step 2): the numbers depend on the layout state far more than on the build.
 
 ## Target architecture
-### Package layout (repo root)
-As built in P0 (it deviates from the first plan; see the P0 Handoff log entry for why):
+### Package layout (repo root, after P14)
 ```
-Package.swift            // swift-tools-version 6.2, Swift 6 language mode. platforms [.macOS("27.0")] (since P1).
-src/                     // TEMPORARY C target YabaiC (path "src"): sources manifest.m + osax/payload_bin.c + osax/loader_bin.c.
-  include/yabai_c.h      //   every header of the unity build; module.modulemap makes it the module YabaiC for Swift.
-                         //   Shrinks every phase, deleted in P14 (except src/osax, which moves to osax/).
-  osax/                  // ObjC payload/loader (macOS 27 only since P1), built by the makefile only (arm64e); its _bin.c are YabaiC sources
+Package.swift            // Swift 6; macOS 27, arm64 executable
 Sources/
-  CPrivate/              // (P2) C target: include/CPrivate.h (from src/misc/extern.h, with CF_RETURNS_RETAINED, CF_ASSUME_NONNULL,
-                         // CF_IMPLICIT_BRIDGING and _Nullable), include/module.modulemap, CPrivate.c (the two function pointers
-                         // yabai.c resolves with macho_find_symbol). Links SkyLight.
-  YabaiCore/             // (P3) Swift library without window server access: pure, unit-tested logic
-  Yabai/                 // Swift executable: main.swift (runs the client for -m, otherwise calls yabai_main of yabai.c),
-                         // TabBarGlass.swift, Platform/ (P2: SkyLight, AX, CoreDock wrappers; MachO.swift = macho_find_symbol
-                         // via @_cdecl), Shims/ (@_cdecl entry points for C), IPC/ (P5: client, socket, dispatch, config domain)
-tests/YabaiCoreTests/    // Swift Testing (import Testing) and Golden/. Not Tests/: the file system is case-insensitive, and
-                         // Tests/ would be the C harness tests/.
-tests/YabaiTests/        // (P5) Swift Testing of the Yabai executable (@testable import Yabai): the IPC handlers on the C managers,
-                         // and (P6) the golden replay (Golden/); tests that touch the managers nest in the serialized suite DaemonState
-tests/src, tests/makefile // the C harness (deleted in P14); it links all of Sources/Yabai but main.swift
+  CPrivate/              // private declarations, resolved function pointers, unavailable-API wrappers, Notify.m (MRR)
+  YabaiCore/             // pure Swift logic without window server access
+  Yabai/                 // Swift daemon/client, models, IPC/, Platform/, and Swift conversions in Shims/
+                         // Definitions.swift = constants/value types; Helpers.swift = shared helpers
+osax/                    // arm64e payload/loader built by make; generated byte arrays compiled by the OSAX C target
+tests/YabaiCoreTests/    // Swift Testing of pure logic
+tests/YabaiTests/        // @testable import Yabai; serialized DaemonState and Golden/ IPC capture
 ```
-- **Build system:** SwiftPM 6.4 uses Swift Build. Products land in `.build/out/Products/<Debug|Release>`; the makefile copies them to `bin/`. Since P1 the makefile builds `--arch arm64` only (`ARCHS`).
-- **Linker settings** (unsafeFlags is fine in a root package): `-F/System/Library/PrivateFrameworks -framework SkyLight` on YabaiC; `-sectcreate __TEXT __info_plist assets/Info.plist` and `-isysroot $SDKROOT` (see pitfalls) on `Yabai`.
-- **YabaiC** compiles with `-fno-objc-arc`, C11 and the warnings of today's makefile, without `-fvisibility=hidden` (see pitfalls).
-
-### Two bridges while C and Swift coexist
-- **Swift → C:** `src/include/yabai_c.h` includes the system headers and every header of the unity build, in order; `src/manifest.m` includes it and then the `.c`/`.m` files. Swift (`import YabaiC`) sees all C structs and functions. Only non-`static` C functions can be called from Swift.
-- **C → Swift:**
-  1. Move a C function's body to Swift as `@_cdecl("same_name") func …` with the identical C signature.
-  2. Keep the prototype in its `.h` file and delete the C body.
-  3. C callers stay unchanged.
-- When every user of a C struct is Swift, convert the struct into a Swift class and delete the C struct and its `@_cdecl` shims. Record the open shims in the Handoff log.
+- **Build system:** the makefile generates OSAX arrays, then drives SwiftPM. Products land in `.build/out/Products/<Debug|Release>` and are copied to `bin/`. Every variant replaces `bin/`.
+- **Linker settings:** CPrivate links Cocoa and private SkyLight. Yabai links Carbon/Cocoa/CoreServices, embeds `assets/Info.plist` and passes `-isysroot $SDKROOT` to stamp the SDK correctly.
+- **Remaining C/ObjC:** CPrivate uses C11 and `-fno-objc-arc`; `osax/` retains the injected payload/loader. No YabaiC, unity build, C harness or `@_cdecl` model bridge remains. Earlier handoff entries describe their historical state.
+- **Models:** final classes use identity equality, ARC-owned CF resources and weak tree parents. Arrays replace sbuffers/temporary storage. `Table.swift` preserves the C hash-table iteration order for query parity. Rules remain Swift value structs behind explicit heap pointers.
 
 ### Concurrency model (replaces `event_loop.c`, `memory_pool.h`, `ts.h`)
 - **Global actor `@WM`** with a custom executor on a `DispatchSerialQueue` named `"yabai.wm"`. It owns managers, models and config.
 - **`EventLoop.post(_ event: Event)`** is `nonisolated` and callable from any thread. It does `queue.async { WM.assumeIsolated { handle(event); signals.flush() } }`.
   - The serial queue keeps events in FIFO order. **Never** use `Task {}` for events.
-  - `Event` is a `Sendable` enum: one case per entry of `EVENT_TYPE_LIST` (`src/event_loop.h`, 42 entries), with associated values instead of `context`/`param1`.
+  - `Event` is a `Sendable` enum with associated values. Add its dispatch case and handler together.
 - **Producers only post**, on their own threads:
-  - AX observers (`application.c`, `mission_control.c`; main run loop)
-  - SkyLight notify procs (`SLSRegisterConnectionNotifyProc`, `src/yabai.c`)
-  - NSWorkspace, distributed and KVO notifications (`workspace.m`)
-  - the mouse event tap (`mouse_handler.c`; main run loop)
-  - the IPC accept thread (`message.c`)
+  - AX observers (`Application.swift`, `MissionControl.swift`; main run loop)
+  - SkyLight notify procs (`SLSRegisterConnectionNotifyProc`, `Yabai.swift`)
+  - NSWorkspace, distributed and KVO notifications (`Workspace.swift`)
+  - the mouse event tap (`MouseHandler.swift`; main run loop)
+  - the IPC accept thread (`IPC/MessageLoop.swift`)
 - **`@MainActor`** owns AppKit (the glass tab bars). `dispatch_after(main)` calls become `DispatchQueue.main.asyncAfter`, which posts back to `@WM`.
 - **Cross-thread state** uses Synchronization `Mutex`/`Atomic`, with today's lock scopes:
-  - `border_lock` (`border.c`)
-  - `tab_bar_hit_lock` (`tab_bar.c`)
-  - `window_animations_lock` (`window_animation.c`)
+  - borders (`Border.swift`)
+  - tab-bar hit snapshots (`TabBar.swift`)
+  - animation proxies/takeover (`WindowAnimation.swift`)
   - the mouse state read by the event tap
-- **Animations:** `CVDisplayLink` becomes `NSScreen.displayLink(target:selector:)` / `CADisplayLink`. The proxy-building pthreads become a concurrent `DispatchQueue`.
+- **Animations:** `NSScreen.displayLink(target:selector:)` / `CADisplayLink` and concurrent dispatch workers; workers own AX references and copied application names.
 - **Blocking AX and SkyLight calls stay synchronous on `@WM`.** They can block about 1 s on frozen apps (`doc/live-testing.md`). Making them `async` would reorder events.
 
 ### Platform layer (`Sources/Yabai/Platform/`)
 - `SkyLight.swift`, `AX.swift` and `CoreDock.swift` wrap `CPrivate` and return Swift types, e.g. `SLS.spaces(forWindows: [UInt32]) -> [UInt64]` or `AXElement.title: String?`.
-- **`Unmanaged` appears only in this layer.** `cfarray_of_cfnumbers` becomes `ids as CFArray`.
+- CF ownership follows imported API annotations. Callback contexts and retained event handoffs also use `Unmanaged` with explicit ownership notes.
 - C callbacks are `@convention(c)` functions with an `Unmanaged` context or a global. Each one gets a NOTE on who owns the context and for how long.
 
 ### Model conventions
 - Containers:
-  - `struct table` → `[Key: Value]`
+  - `struct table` → `Table<Key, Value>` (same bucket/insertion/rehash order for query parity)
   - `sbuffer.h` lists → arrays
   - `*_str[]` tables → `enum X: String, CaseIterable`
   - `ts_*` temporary strings → plain `String`
@@ -164,10 +147,10 @@ Moved in P2 to the project skill `.claude/skills/swift-port-conventions/SKILL.md
 Run these through the `output-summarizer` subagent (see **Agent rules**, "Long output"). Record its answers in the Handoff log, not the raw output.
 - **V1 Build:** `make`, `make install`, `make asan` and `make tsan` succeed with no warnings, and `bin/yabai --version` runs.
 - **V2 Unit tests:**
-  - `make test` passes: it runs `swift test`, then the C tests and the golden IPC replay (`Golden IPC: 145 of 145 responses match` in P0).
+  - `make test` passes: it generates OSAX arrays if needed, then runs `swift test`, including golden IPC replay (145 responses captured in P0).
   - Keep the test ledger in the Handoff log: C tests left + Swift tests added. It must reach "82 ported" by P14. The golden replay and `goldenCaptureCoversEveryCommand` are not part of the 82.
-  - A response of the golden capture changes only when the phase changes behavior on purpose (it should not). Re-record with `GOLDEN_RECORD=1 make -C tests`, and explain each changed record in the Handoff log.
-- **V3 Analyzer:** `make analyze` keeps its known 37 false positives while C exists. Triage new ones.
+  - A response of the golden capture changes only when the phase changes behavior on purpose (it should not). Re-record with `GOLDEN_RECORD=1 swift test --filter Golden`, and explain each changed record in the Handoff log.
+- **V3 Analyzer:** historical unity-build check; P14 removed `make analyze` with YabaiC. V3 is no longer applicable.
 - **V4 Golden IPC (from P6):** `swift test --filter Golden` passes, with byte-identical responses.
 - **V5 Live (the agent runs it):**
   1. `deploy.sh install`, then from `scripts/live-tests`: `live.py setup` → `run <phase>` → `extra <phase>` → `cleanup` → `launch <phase>`

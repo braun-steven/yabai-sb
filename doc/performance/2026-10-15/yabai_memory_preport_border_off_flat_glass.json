@@ -1,0 +1,37 @@
+{
+  "label": "preport-border-off-flat-glass",
+  "sampled_utc": "2026-10-15T16:55:26Z",
+  "daemon": {
+    "pid": "38806",
+    "rss_bytes": 88195072,
+    "physical_footprint_bytes": 55993958
+  },
+  "dock": {
+    "pid": "27730",
+    "rss_bytes": 35504128,
+    "physical_footprint_bytes": 53057945
+  },
+  "window_server": {
+    "pid": "414",
+    "rss_bytes": 289177600,
+    "scope": "system-wide, noisy process metric"
+  },
+  "active_space": 4,
+  "config": {
+    "window_border": "off",
+    "window_border_width": "3.0000",
+    "active_window_border_color": "0xff51afef",
+    "normal_window_border_color": "0xff333333",
+    "window_animation_duration": "0.000000",
+    "focus_follows_mouse": "disabled",
+    "mouse_follows_focus": "off",
+    "tree_autotiling": "off",
+    "tree_workspace_layout": "default",
+    "tree_default_orientation": "horizontal",
+    "tab_bar": "on",
+    "tab_bar_style": "glass",
+    "tab_bar_height": "24",
+    "tab_bar_backdrop": "glass"
+  },
+  "window_count": 12
+}

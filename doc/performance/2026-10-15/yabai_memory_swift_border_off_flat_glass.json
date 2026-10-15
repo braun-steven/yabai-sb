@@ -1,0 +1,134 @@
+{
+  "label": "swift-flat-border-off",
+  "sampled_utc": "2026-10-15T17:05:57Z",
+  "daemon": {
+    "pid": "50214",
+    "rss_bytes": 87195648,
+    "physical_footprint_bytes": 47290777
+  },
+  "dock": {
+    "pid": "27730",
+    "rss_bytes": 38076416,
+    "physical_footprint_bytes": 54211379
+  },
+  "window_server": {
+    "pid": "414",
+    "rss_bytes": 310640640,
+    "scope": "system-wide, noisy process metric"
+  },
+  "active_space": 4,
+  "config": {
+    "window_border": "off",
+    "window_border_width": "3.0000",
+    "active_window_border_color": "0xff51afef",
+    "normal_window_border_color": "0xff333333",
+    "window_animation_duration": "0.000000",
+    "focus_follows_mouse": "disabled",
+    "mouse_follows_focus": "off",
+    "tree_autotiling": "off",
+    "tree_workspace_layout": "default",
+    "tree_default_orientation": "horizontal",
+    "tab_bar": "on",
+    "tab_bar_style": "glass",
+    "tab_bar_height": "24",
+    "tab_bar_backdrop": "glass"
+  },
+  "space4_tree": {
+    "type": "workspace",
+    "layout": "splith",
+    "percent": 1.0,
+    "window": 0,
+    "frame": {
+      "x": 10.0,
+      "y": 41.0,
+      "w": 2540.0,
+      "h": 1389.0
+    },
+    "focused": false,
+    "selected": false,
+    "visible": true,
+    "nodes": [
+      {
+        "type": "window",
+        "layout": null,
+        "percent": 0.2,
+        "window": 25262,
+        "frame": {
+          "x": 10.0,
+          "y": 41.0,
+          "w": 500.0,
+          "h": 1389.0
+        },
+        "focused": false,
+        "selected": false,
+        "visible": true,
+        "nodes": []
+      },
+      {
+        "type": "window",
+        "layout": null,
+        "percent": 0.2,
+        "window": 25225,
+        "frame": {
+          "x": 520.0,
+          "y": 41.0,
+          "w": 500.0,
+          "h": 1389.0
+        },
+        "focused": true,
+        "selected": false,
+        "visible": true,
+        "nodes": []
+      },
+      {
+        "type": "window",
+        "layout": null,
+        "percent": 0.2,
+        "window": 25231,
+        "frame": {
+          "x": 1030.0,
+          "y": 41.0,
+          "w": 500.0,
+          "h": 1389.0
+        },
+        "focused": false,
+        "selected": false,
+        "visible": true,
+        "nodes": []
+      },
+      {
+        "type": "window",
+        "layout": null,
+        "percent": 0.2,
+        "window": 25218,
+        "frame": {
+          "x": 1540.0,
+          "y": 41.0,
+          "w": 500.0,
+          "h": 1389.0
+        },
+        "focused": false,
+        "selected": false,
+        "visible": true,
+        "nodes": []
+      },
+      {
+        "type": "window",
+        "layout": null,
+        "percent": 0.2,
+        "window": 25254,
+        "frame": {
+          "x": 2050.0,
+          "y": 41.0,
+          "w": 500.0,
+          "h": 1389.0
+        },
+        "focused": false,
+        "selected": false,
+        "visible": true,
+        "nodes": []
+      }
+    ]
+  },
+  "window_count": 11
+}

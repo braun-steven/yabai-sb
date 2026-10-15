@@ -38,12 +38,45 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `live.py launch <label>` | launch-retry backoff for an app frozen right after launch; needs every test app closed |
 | `live.py cleanup` | quits the test apps, resets config, shows space 11 on display 2, focuses the window recorded by `setup` |
 | `bench.py <label>` | medians for tab focus, rotate, split focus |
+| `perf.py <label> --samples 50 --out <file>` | repeated CLI/socket latency, observed completion, binary identity and process memory |
+| `space_tail.py <label> --out <file>` | isolated alternating-space tail probe; distinguish confirmation queries between commands from command-only mode |
+| `border_perf.swift` | persistent ScreenCaptureKit pixel probe for visible focus-border changes and moving edges |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); compile it with `xcrun swiftc -O mirror.swift -o mirror` (the binary is ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
+
+### Comparing performance builds
+
+`perf.py <label> --samples 50 --out <results.json>` records raw timings, nearest-rank
+percentiles, failures, binary identity, tree/config state, RSS and physical footprint.
+Use the standard six-window fixture on space 4. Save configuration first; hold
+`tree_autotiling off`, `tree_workspace_layout default`, `tree_default_orientation horizontal`,
+`focus_follows_mouse off`, `mouse_follows_focus off` and `window_animation_duration 0`
+through every matched block. Rebuild a flat test tree with space 4's layout float → tree
+under these settings, then balance. Restore the user's configuration afterward.
+Autotiling on creates nested trees during reinsertion and invalidates flat-layout comparisons.
+
+The command metrics include CLI process startup; socket queries omit it. Observed completion
+metrics include polling and observer-helper startup, so they are upper bounds. Metrics labeled
+as pairs include both directions; do not present them as one move or resize. Run at least two
+blocks per build with the same fixture, then recheck the original build after restore for drift.
+
+`border_perf.swift` measures command-to-composited-border latency with a persistent
+ScreenCaptureKit stream. Compile it with `swiftc -O -warnings-as-errors -swift-version 6
+-parse-as-library border_perf.swift -o /tmp/yabai-border-perf`, then run
+`/tmp/yabai-border-perf <label> <results.json> 40` (focus) or append `move` (floating edge movement).
+It temporarily uses 6px red/blue borders and restores configuration. Move Calculator clear of
+the sampled edge midpoints (the live harness uses 2300,1150); an occluded pixel must fail
+calibration, not count as a fast update. ScreenCaptureKit's display timestamp measures the
+composited frame, not physical light output or internal border drawing CPU time. Keep capture
+stopped during the general latency/memory blocks to avoid adding capture overhead to them.
+The performance helpers reject a locked desktop before starting and before saving results.
+Discard any run spanning a lock; successful IPC commands alone do not prove that an AX action
+was applied. Keep explicit window ids matched across builds when comparing captured borders;
+query order can select a different blank document after a restart.
 
 Rules for the user's machine:
 

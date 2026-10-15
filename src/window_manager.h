@@ -158,8 +158,8 @@ struct window_manager
 };
 
 //
-// NOTE: The window manager is Swift (Sources/Yabai/WindowManager*.swift). struct window_manager stays C while tree.c,
-// tree_view.c, border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c read its fields. These are the
+// NOTE: The window manager is Swift (Sources/Yabai/WindowManager*.swift). struct window_manager stays C while
+// border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c read its fields. These are the
 // functions that C still calls.
 //
 

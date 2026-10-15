@@ -8,8 +8,6 @@
 #include "rule.c"
 #include "tab_bar.c"
 #include "tab_bar_glass.c"
-#include "tree.c"
-#include "tree_view.c"
 #include "window_animation.c"
 #include "border.c"
 #include "mouse_handler.c"

@@ -4,7 +4,7 @@ import YabaiC
 
 //
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
-// struct window stays C while tree.c, tree_view.c, border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c
+// struct window stays C while border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c
 // read it. Ported from src/window.c.
 //
 

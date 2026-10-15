@@ -214,9 +214,8 @@ func windowManagerFocusWindowID(_ wm: UnsafeMutablePointer<window_manager>, _ wi
 /// `window_manager_tree_set_view`
 func windowManagerTreeSetView(_ wm: UnsafeMutablePointer<window_manager>, _ node: Con, _ owner: View) -> [UInt32]
 {
-    var list: UnsafeMutablePointer<UInt32>?
-    tree_collect_window_ids(node, &list)
-    let windowList = Array(UnsafeBufferPointer(start: list, count: Int(ts_buf_count(list))))
+    var windowList: [UInt32] = []
+    tree_collect_window_ids(node, &windowList)
 
     var moveList: [UInt32] = []
     for windowID in windowList {

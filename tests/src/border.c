@@ -25,6 +25,22 @@ TEST_FUNC(border_edge_frames_split,
     TEST_CHECK((int) edge[BORDER_EDGE_LEFT].size.height, 0);
 });
 
+// NOTE: the tree fixtures of the former tests/src/tree.c (tree_test_leaf, tree_test_split), on the Swift tree
+static struct con *tree_test_leaf(struct con *parent, uint32_t window_id)
+{
+    struct con *con = con_create(CON_SPLITH);
+    con->window_id = window_id;
+    tree_attach(parent, con, -1);
+    return con;
+}
+
+static struct con *tree_test_split(struct con *parent, enum con_layout layout)
+{
+    struct con *con = con_create(layout);
+    tree_attach(parent, con, -1);
+    return con;
+}
+
 static struct area border_test_root_area(void)
 {
     return (struct area) { 0, 0, 1010, 810 };

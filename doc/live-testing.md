@@ -18,15 +18,16 @@ point below was learned the hard way; read it before running anything live.
   with "too many arguments provided to function-like macro invocation". Build fixtures in a static
   helper function instead (see `knownFocusPSN` in `tests/YabaiTests/SpaceManagerTests.swift`; the C
   tests are being ported, so new tests go to Swift).
-- `ts_buf_*` lists live in per-event temporary storage (`ts_init` in `tests.m`); there is no
-  `ts_buf_free`. Reset a list with `list = NULL`.
 - Everything shares one translation unit, so `static` functions of any source file can be called from
   a test. Make decisions testable by moving them into pure helpers that take their inputs as arguments
   (e.g. `space_manager_can_use_known_focus`, which is Swift since P9, `application_launch_retry_delay`,
-  `tree_collect_window_order`), and keep the side effects in the caller.
-- Tree tests build containers with `con_create`, `tree_test_leaf` and `tree_test_split`
-  (`tests/src/tree.c`) and set focus with `tree_focus`. In tests a tab bar has no glass panel, so
-  `tab_bar_card_id` returns 0; `tree_con_is_visible` works.
+  `treeCollectWindowOrder`, which are Swift), and keep the side effects in the caller.
+- Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
+  `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
+  `Yabai.tree_focus`; the C test of `border.c` keeps C copies of the two fixtures. In tests a tab bar
+  has no glass panel, so `tab_bar_card_id` returns 0; `tree_con_is_visible` works. The Swift tests
+  have no temporary storage (`ts_init` runs only in the daemon and the C harness), so test the Swift
+  function that returns an array (`treeViewWindowList`), not its `@_cdecl` twin for C.
 
 ## The live harness
 

@@ -69,7 +69,7 @@ enum tree_position
 };
 
 //
-// NOTE: What tree_view.c keeps on screen for a container: the tab that was ordered above the
+// NOTE: What TreeView.swift keeps on screen for a container: the tab that was ordered above the
 // others last (with the window and backdrop card it was ordered against), the outline window
 // and the tab bar.
 //
@@ -101,73 +101,31 @@ struct con
     struct con_render render;
 };
 
+//
+// NOTE: The tree is Swift (Sources/Yabai/Tree.swift, TreeView.swift). struct con stays C while mouse_handler.c,
+// border.c and tab_bar.c use it. These are the functions that C still calls (con_create, con_free, tree_attach,
+// tree_focus and tree_update for the C test of border.c).
+//
+
+// implemented in Sources/Yabai/Tree.swift
 struct con *con_create(enum con_layout layout);
 void con_free(struct con *con);
-bool con_is_leaf(struct con *con);
-enum con_orientation con_orientation(struct con *con);
-int con_index(struct con *con);
-
 void tree_attach(struct con *parent, struct con *con, int index);
 struct con *tree_detach(struct con *con);
-void tree_fix_percent(struct con *con);
 void tree_flatten(struct con *con);
 struct con *tree_find_window(struct con *root, uint32_t window_id);
-struct con *tree_find_selected(struct con *root);
-void tree_select(struct con *root, struct con *con);
-struct con *tree_focus_candidate(struct con *con);
-int tree_window_count(struct con *con);
-void tree_collect_window_ids(struct con *con, uint32_t **list);
-
-struct con *tree_first_leaf(struct con *con);
-struct con *tree_last_leaf(struct con *con);
-struct con *tree_next_leaf(struct con *con);
-struct con *tree_prev_leaf(struct con *con);
-struct con *tree_tabbed_ancestor(struct con *con);
-bool tree_con_is_visible(struct con *con);
-
 void tree_focus(struct con *con);
-struct con *tree_descend_focused(struct con *con);
-struct con *tree_descend_direction(struct con *con, int direction);
-enum tree_result tree_next(struct con *con, int direction, enum focus_wrapping wrapping, bool has_output, struct con **result);
-
-struct con *tree_force_orientation(struct con *root, enum con_orientation orientation);
-void tree_insert_con(struct con *con, struct con *target, enum tree_position position);
-enum tree_result tree_move(struct con *root, struct con *con, int direction, bool has_output);
 void tree_insert_relative(struct con *target, struct con *con, int direction);
-void tree_split(struct con *con, enum con_orientation orientation);
-void tree_autotile(struct con *target);
-void tree_open_con(struct con *root, struct con *con, struct con *target, bool autotile);
-void tree_attach_from_direction(struct con *root, struct con *con, int direction);
-void tree_set_layout(struct con *con, enum con_layout layout);
-enum con_layout tree_toggle_layout(struct con *con, bool split_only);
-bool tree_resize(struct con *con, int direction, float delta);
-void tree_balance(struct con *con);
-void tree_rotate(struct con *con, int degrees);
-void tree_mirror(struct con *con, enum con_orientation orientation);
-void tree_swap(struct con *a, struct con *b);
-int tree_bar_card_inset(struct area area, int bar_height, int bar_inset);
 void tree_update(struct con *con, struct area area, int gap, int bar_height, int bar_offset, int bar_inset);
-CFStringRef tree_copy_title(struct con *con);
 
-struct con *tree_view_root(struct view *view);
+// implemented in Sources/Yabai/TreeView.swift
 void tree_view_update(struct view *view);
-void tree_view_clear(struct view *view);
 struct con *tree_view_find_window(struct view *view, uint32_t window_id);
-void tree_add_window(struct view *view, struct window *window, uint32_t insertion_point);
-void tree_view_attach_from_direction(struct view *view, struct con *con, int direction);
-bool tree_remove_window(struct view *view, struct window *window);
 uint32_t *tree_view_window_list(struct view *view, int *window_count);
 int tree_view_tiled_count(struct view *view);
 bool tree_window_border_area(struct view *view, uint32_t window_id, struct area *window_area, struct area *border_area, int *radius);
-struct area tree_con_frame(struct view *view, struct con *con);
-bool tree_window_needs_flush(struct view *view, uint32_t window_id, CGRect frame);
-void tree_flush(struct view *view);
-void tree_render_bars(struct con *con);
 void tree_release_bars(struct con *con);
-void tree_raise_tabs(struct con *con, bool force);
-void tree_window_did_receive_focus(struct view *view, uint32_t window_id);
 void tree_refresh_for_window(uint32_t window_id);
-void tree_selection_show(struct con *con);
 void tree_feedback_show(struct con *con, int insert_dir);
 void tree_feedback_hide(struct con *con);
 

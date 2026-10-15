@@ -5,7 +5,7 @@ import YabaiCore
 
 //
 // NOTE: A view is the layout state of one space: its tree, its area and its padding and gap. Ported from src/view.c.
-// struct view stays C while the tree (tree.c, tree_view.c) and the window manager read its fields.
+// struct view stays C while border.c, tab_bar.c, mouse_handler.c and rule.c read its fields.
 //
 
 /// `view_check_flag`

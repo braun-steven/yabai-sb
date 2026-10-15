@@ -20,7 +20,7 @@ extension DaemonState
             let target = View.allocate(capacity: 1)
             target.initialize(to: view())
 
-            target.pointee.tree = con_create(CON_SPLITH)
+            target.pointee.tree = Yabai.con_create(CON_SPLITH)
             target.pointee.layout = VIEW_TREE
             target.pointee.auto_padding = true
             target.pointee.top_padding = 10
@@ -46,8 +46,8 @@ extension DaemonState
             #expect(view_tiled_count(target) == 1)
 
             // a tabbed container counts once, however many tabs it holds
-            let tabbed = con_create(CON_TABBED)!
-            tree_attach(target.pointee.tree, tabbed, -1)
+            let tabbed = Yabai.con_create(CON_TABBED)!
+            Yabai.tree_attach(target.pointee.tree, tabbed, -1)
             let b = treeTestLeaf(tabbed, 2)
             let c = treeTestLeaf(tabbed, 3)
             #expect(view_tiled_count(target) == 2)
@@ -72,7 +72,7 @@ extension DaemonState
             tabbed.pointee.layout = CON_SPLITH
             #expect(view_tiled_count(target) == 3)
 
-            con_free(target.pointee.tree)
+            Yabai.con_free(target.pointee.tree)
             target.pointee.tree = nil
             #expect(view_tiled_count(target) == 0)
         }
@@ -91,7 +91,7 @@ extension DaemonState
             #expect(view_window_gap(target) == 8)
 
             target.pointee.area = view_root_area(target, frame)
-            tree_view_update(target)
+            Yabai.tree_view_update(target)
             #expect(Int(a.pointee.area.x) == 30)
             #expect(Int(a.pointee.area.w) == 461)
             #expect(Int(b.pointee.area.x) == 30 + 461 + 8)
@@ -102,7 +102,7 @@ extension DaemonState
             #expect(view_window_gap(target) == 8)
 
             target.pointee.area = view_root_area(target, frame)
-            tree_view_update(target)
+            Yabai.tree_view_update(target)
             #expect(Int(a.pointee.area.x) == 0)
             #expect(Int(a.pointee.area.w) == 496)
             #expect(Int(b.pointee.area.x) == 496 + 8)
@@ -115,7 +115,7 @@ extension DaemonState
             clearViewFlag(target, VIEW_ENABLE_GAP)
             #expect(view_window_gap(target) == 0)
 
-            con_free(target.pointee.tree)
+            Yabai.con_free(target.pointee.tree)
         }
 
         @Test("auto_padding_split_in_tab")
@@ -125,8 +125,8 @@ extension DaemonState
             defer { target.deallocate() }
             target.pointee.tree.pointee.layout = CON_TABBED
 
-            let split = con_create(CON_SPLITH)!
-            tree_attach(target.pointee.tree, split, -1)
+            let split = Yabai.con_create(CON_SPLITH)!
+            Yabai.tree_attach(target.pointee.tree, split, -1)
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(split, 2)
 
@@ -136,13 +136,13 @@ extension DaemonState
             setViewFlag(target, VIEW_IS_UNPADDED)
 
             target.pointee.area = view_root_area(target, CGRect(x: 0, y: 0, width: 1000, height: 800))
-            tree_view_update(target)
+            Yabai.tree_view_update(target)
             #expect(Int(a.pointee.area.x) == 0)
             #expect(Int(a.pointee.area.w) == 496)
             #expect(Int(b.pointee.area.x) == 496 + 8)
             #expect(Int(b.pointee.area.x) + Int(b.pointee.area.w) == 1000)
 
-            con_free(target.pointee.tree)
+            Yabai.con_free(target.pointee.tree)
         }
     }
 }

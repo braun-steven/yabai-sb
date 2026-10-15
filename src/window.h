@@ -2,8 +2,8 @@
 #define WINDOW_H
 
 //
-// NOTE: The functions of struct window are Swift (Sources/Yabai/Window.swift). The struct stays C while tree.c,
-// tree_view.c, border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c read it. notification has the bits
+// NOTE: The functions of struct window are Swift (Sources/Yabai/Window.swift). The struct stays C while
+// border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c read it. notification has the bits
 // of the notifications of window_observe (minimized, deminimized, destroyed).
 //
 

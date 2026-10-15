@@ -14,8 +14,8 @@ extension DaemonState
         @Test("window_info_tree_fields")
         func windowInfoTreeFields()
         {
-            let root = con_create(CON_SPLITH)!
-            defer { con_free(root) }
+            let root = Yabai.con_create(CON_SPLITH)!
+            defer { Yabai.con_free(root) }
 
             let tabs = treeTestSplit(root, CON_TABBED)
             treeTestLeaf(tabs, 1)
@@ -44,8 +44,8 @@ extension DaemonState
         @Test("tree_view_serialize_tree")
         func treeViewSerializeTree()
         {
-            let root = con_create(CON_SPLITH)!
-            defer { con_free(root) }
+            let root = Yabai.con_create(CON_SPLITH)!
+            defer { Yabai.con_free(root) }
 
             let tabs = treeTestSplit(root, CON_TABBED)
             treeTestLeaf(tabs, 7)

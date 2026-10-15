@@ -11,38 +11,13 @@ typedef TEST_SIG(function);
 #define TEST_FUNC(name, code) static TEST_SIG(name) { char *test_name = #name; bool result = true; {code} return result; }
 #define TEST_CHECK(r, e) if ((r) != (e)) { printf("                   \e[1;33m%s\e[m\e[1;31m#%d %s == %s\e[m \e[1;31m(%d == %d)\e[m\n", test_name, __LINE__, #r, #e, r, e); result = false; }
 
-#include "tree.c"
-#include "tree_view.c"
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
-    TEST_ENTRY(tree_attach_detach)                             \
-    TEST_ENTRY(tree_flatten)                                   \
-    TEST_ENTRY(tree_focus_direction)                           \
-    TEST_ENTRY(tree_focus_tabbed)                              \
-    TEST_ENTRY(tree_move_within)                               \
-    TEST_ENTRY(tree_move_force_orientation)                    \
-    TEST_ENTRY(tree_move_tabbed)                               \
-    TEST_ENTRY(tree_split_layout)                              \
-    TEST_ENTRY(tree_insert_relative)                           \
-    TEST_ENTRY(tree_resize_update)                             \
-    TEST_ENTRY(tree_rotate_mirror_swap)                        \
-    TEST_ENTRY(tree_focus_candidate)                           \
-    TEST_ENTRY(tree_flatten_same_orientation)                  \
-    TEST_ENTRY(tree_autotiling)                                \
-    TEST_ENTRY(tree_set_layout_single_tab)                     \
-    TEST_ENTRY(tree_workspace_layout_tabbed)                   \
-    TEST_ENTRY(tree_insert_focus_order)                        \
-    TEST_ENTRY(tree_open_con_selected)                         \
-    TEST_ENTRY(tree_attach_from_direction)                     \
-    TEST_ENTRY(tree_window_order_collect)                      \
-    TEST_ENTRY(tree_window_ids_collect)                        \
-    TEST_ENTRY(tree_view_window_list_order)                    \
-    TEST_ENTRY(tree_view_zoom_frames)                          \
-    TEST_ENTRY(tab_bar_style_parse)                            \
+    TEST_ENTRY(tab_bar_style_parse)                           \
     TEST_ENTRY(tab_bar_backdrop_parse)                         \
     TEST_ENTRY(tab_bar_font_parse)                             \
     TEST_ENTRY(tab_bar_glass_tint_default)                     \

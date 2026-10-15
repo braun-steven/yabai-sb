@@ -41,6 +41,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `live.py cleanup` | quits the test apps, resets config, shows space 11 on display 2, focuses the window recorded by `setup` |
 | `bench.py <label>` | medians for tab focus, rotate, split focus |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
+| `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); compile it with `xcrun swiftc -O mirror.swift -o mirror` (the binary is ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
@@ -79,6 +80,13 @@ Rules for the user's machine:
 - Debug output (`yabai -m config debug_output on`) goes to stdout, i.e.
   `/tmp/yabai_$USER.out.log`, not the error log. It is flushed when the daemon logs the next message,
   so send a `yabai -m query ...` before reading it. Turn it off again afterwards.
+- To test a display removal and re-add (`space_layout` reconcile, `space_manager_handle_display_add`) without the
+  user unplugging a cable, mirror display 2 onto display 1: `./mirror 2 3 <stop file>` in the background (the
+  arguments are the `id`s of `query --displays`, mirrored first), wait until `query --displays` lists one display,
+  check, then `touch <stop file>` to unmirror. The mirror reverts when the tool exits, and after 240 s at the latest.
+  macOS moves the spaces of the mirrored display over, but merges its visible space into space 1; on unmirror it
+  moves them back and puts those windows on a new space (a new id). With `space_layout 15 10:5 10:5:1b` each
+  direction takes one reconcile pass (create one space, then destroy it), seen with `debug_output on` (P9 review).
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.

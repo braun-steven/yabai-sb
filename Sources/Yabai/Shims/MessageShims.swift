@@ -150,7 +150,7 @@ func layerValue(_ layer: WindowLayer) -> Int32
     }
 }
 
-private func windowLayer(_ layer: Int32) -> WindowLayer
+func windowLayer(_ layer: Int32) -> WindowLayer
 {
     WindowLayer.allCases.first { layerValue($0) == layer } ?? .auto
 }
@@ -203,7 +203,7 @@ extension RuleEffects
     }
 }
 
-@_cdecl("rule_combine_effects")
+/// `rule_combine_effects`
 func rule_combine_effects(_ effects: UnsafeMutablePointer<rule_effects>, _ result: UnsafeMutablePointer<rule_effects>)
 {
     var combined = RuleEffects(result.pointee)

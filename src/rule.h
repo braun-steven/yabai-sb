@@ -64,16 +64,9 @@ static inline bool rule_effects_check_flag(struct rule_effects *e, enum rule_eff
 static inline void rule_effects_clear_flag(struct rule_effects *e, enum rule_effects_flag x) { e->flags &= ~x; }
 static inline void rule_effects_set_flag(struct rule_effects *e, enum rule_effects_flag x) { e->flags |= x; }
 
-void rule_serialize(FILE *rsp, struct rule *rule, int index);
-// implemented in Sources/Yabai/Shims/MessageShims.swift (RuleEffects.combine in Sources/YabaiCore/Rule.swift)
-void rule_combine_effects(struct rule_effects *rule_effects, struct rule_effects *result);
-void rule_reapply_all(void);
-bool rule_reapply_by_index(int index);
-bool rule_reapply_by_label(char *label);
-void rule_apply(struct rule *rule);
-void rule_add(struct rule *rule);
-bool rule_remove_by_index(int index);
-bool rule_remove_by_label(char *label);
-void rule_destroy(struct rule *rule);
+//
+// NOTE: The functions of the rules are Swift (Sources/Yabai/Rule.swift, rule_combine_effects in
+// Sources/Yabai/Shims/MessageShims.swift).
+//
 
 #endif

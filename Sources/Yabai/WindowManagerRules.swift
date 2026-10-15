@@ -1,6 +1,7 @@
 import ApplicationServices
 import Foundation
 import YabaiC
+import YabaiCore
 
 //
 // NOTE: Applying rules to windows. A window passes through two rounds: the manage round decides whether
@@ -9,17 +10,17 @@ import YabaiC
 //
 
 /// `window_manager_query_window_rules`: the json of `rule --list`.
-func window_manager_query_window_rules(_ rsp: UnsafeMutablePointer<FILE>)
+func window_manager_query_window_rules(_ rsp: inout Response)
 {
     let wm = window_manager_global()!
     let count = window_manager_rule_count(wm)
 
-    fputs("[", rsp)
+    rsp.write("[")
     for i in 0..<count {
-        rule_serialize(rsp, window_manager_rule_at(wm, i), i)
-        if i < count - 1 { fputs(",", rsp) }
+        rule_serialize(&rsp, window_manager_rule_at(wm, i), i)
+        if i < count - 1 { rsp.write(",") }
     }
-    fputs("]\n", rsp)
+    rsp.write("]\n")
 }
 
 /// `window_manager_rule_matches_window`

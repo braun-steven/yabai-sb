@@ -169,7 +169,7 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
             rsp.fail("value '\(token)' is not a valid option for RULE_SEL\n")
         }
     } else if command.equals(RuleCommand.list) {
-        rsp.appendWritten { window_manager_query_window_rules($0) }
+        window_manager_query_window_rules(&rsp)
     } else {
         rsp.failUnknownCommand(domain, command)
     }

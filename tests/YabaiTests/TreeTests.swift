@@ -11,26 +11,26 @@ import CPrivate
 private func treeTestWindow(_ node: Con?) -> UInt32
 {
     guard let node, con_is_leaf(node) else { return 0 }
-    return node.pointee.window_id
+    return node.window_id
 }
 
 /// `tree_test_child`
 private func treeTestChild(_ node: Con, _ index: Int32) -> UInt32
 {
-    return index < node.pointee.child_count ? treeTestWindow(node.pointee.children[Int(index)]) : 0
+    return index < node.child_count ? treeTestWindow(node.children[Int(index)]) : 0
 }
 
 /// A share of space in percent, rounded like the C tests did.
 private func percent(_ node: Con, _ scale: Float = 100) -> Int32
 {
-    return Int32(node.pointee.percent * scale + 0.5)
+    return Int32(node.percent * scale + 0.5)
 }
 
 /// A leaf that is not part of a tree.
 private func treeTestCon(_ windowID: UInt32) -> Con
 {
     let node = Yabai.con_create(CON_SPLITH)!
-    node.pointee.window_id = windowID
+    node.window_id = windowID
     return node
 }
 
@@ -38,8 +38,8 @@ private func treeTestCon(_ windowID: UInt32) -> Con
 private func treeViewTestView(_ root: Con?) -> View
 {
     let target = View()
-    target.pointee.layout = VIEW_TREE
-    target.pointee.tree = root
+    target.layout = VIEW_TREE
+    target.tree = root
     return target
 }
 
@@ -62,7 +62,7 @@ extension DaemonState
             let a = treeTestLeaf(root, 1)
             let b = treeTestLeaf(root, 2)
 
-            #expect(root.pointee.child_count == 2)
+            #expect(root.child_count == 2)
             #expect(percent(a) == 50)
             #expect(percent(b) == 50)
 
@@ -73,15 +73,15 @@ extension DaemonState
             // detaching the last window of a container closes the container, but never the workspace
             let v = treeTestSplit(root, CON_SPLITV)
             let d = treeTestLeaf(v, 4)
-            #expect(root.pointee.child_count == 4)
+            #expect(root.child_count == 4)
             #expect(Yabai.tree_detach(d) == root)
             Yabai.con_free(d)
-            #expect(root.pointee.child_count == 3)
+            #expect(root.child_count == 3)
 
             #expect(Yabai.tree_detach(a) == root)
             #expect(Yabai.tree_detach(b) == root)
             #expect(Yabai.tree_detach(c) == root)
-            #expect(root.pointee.child_count == 0)
+            #expect(root.child_count == 0)
 
             Yabai.con_free(a)
             Yabai.con_free(b)
@@ -101,21 +101,21 @@ extension DaemonState
             treeTestLeaf(root, 3)
 
             Yabai.tree_flatten(root)
-            #expect(root.pointee.child_count == 3)
+            #expect(root.child_count == 3)
             #expect(treeTestChild(root, 0) == 1)
             #expect(treeTestChild(root, 1) == 2)
             #expect(treeTestChild(root, 2) == 3)
 
             var total: Float = 0.0
-            for i in 0..<Int(root.pointee.child_count) { total += root.children[i].percent }
+            for i in 0..<Int(root.child_count) { total += root.children[i].percent }
             #expect(Int32(total * 100 + 0.5) == 100)
 
             // a single split around a window is kept, so that the next window opens inside of it
             let w = treeTestSplit(root, CON_SPLITV)
             treeTestLeaf(w, 4)
             Yabai.tree_flatten(root)
-            #expect(root.pointee.child_count == 4)
-            #expect(root.pointee.children[3] == w)
+            #expect(root.child_count == 4)
+            #expect(root.children[3] == w)
 
             Yabai.con_free(root)
         }
@@ -212,8 +212,8 @@ extension DaemonState
 
             // and enters a neighbouring container, next to its last focused window
             #expect(tree_move(root, a, DIR_EAST, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.child_count == 2)
-            #expect(v.pointee.child_count == 3)
+            #expect(root.child_count == 2)
+            #expect(v.child_count == 3)
             #expect(treeTestChild(v, 0) == 3)
             #expect(treeTestChild(v, 1) == 4)
             #expect(treeTestChild(v, 2) == 1)
@@ -224,9 +224,9 @@ extension DaemonState
 
             // leaving the container at its edge places the window next to it in the workspace
             #expect(tree_move(root, a, DIR_EAST, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.child_count == 3)
+            #expect(root.child_count == 3)
             #expect(treeTestChild(root, 2) == 1)
-            #expect(v.pointee.child_count == 2)
+            #expect(v.child_count == 2)
 
             // at the edge of the workspace a display in that direction is used
             #expect(tree_move(root, a, DIR_EAST, true) == TREE_RESULT_OUTPUT)
@@ -244,15 +244,15 @@ extension DaemonState
             let b = treeTestLeaf(root, 2)
 
             #expect(tree_move(root, b, DIR_SOUTH, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.layout == CON_SPLITV)
-            #expect(root.pointee.child_count == 2)
-            #expect(root.children[0].pointee.layout == CON_SPLITH)
+            #expect(root.layout == CON_SPLITV)
+            #expect(root.child_count == 2)
+            #expect(root.children[0].layout == CON_SPLITH)
             #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(treeTestChild(root, 1) == 2)
 
             // moving it back up enters the horizontal container next to window 1, like i3 does
             #expect(tree_move(root, b, DIR_NORTH, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.child_count == 1)
+            #expect(root.child_count == 1)
             #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(treeTestChild(root.children[0], 1) == 2)
 
@@ -275,17 +275,17 @@ extension DaemonState
 
             // the first tab leaves the container to the west
             #expect(tree_move(root, c, DIR_WEST, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.child_count == 3)
+            #expect(root.child_count == 3)
             #expect(treeTestChild(root, 1) == 3)
-            #expect(t.pointee.child_count == 1)
+            #expect(t.child_count == 1)
 
             // and a window moving into the tabbed container becomes a tab
             #expect(tree_move(root, c, DIR_EAST, false) == TREE_RESULT_DONE)
-            #expect(t.pointee.child_count == 2)
+            #expect(t.child_count == 2)
             #expect(treeTestChild(t, 0) == 3)
             #expect(tree_move(root, a, DIR_EAST, false) == TREE_RESULT_DONE)
-            #expect(t.pointee.child_count == 3)
-            #expect(root.pointee.child_count == 1)
+            #expect(t.child_count == 3)
+            #expect(root.child_count == 1)
 
             Yabai.con_free(root)
         }
@@ -299,27 +299,27 @@ extension DaemonState
 
             // splitting wraps the window, so the next window opens below it
             tree_split(b, CON_VERTICAL)
-            let v = b.pointee.parent!
+            let v = b.parent!
             #expect(v != root)
-            #expect(v.pointee.layout == CON_SPLITV)
-            #expect(v.pointee.child_count == 1)
-            #expect(root.pointee.children[1] == v)
+            #expect(v.layout == CON_SPLITV)
+            #expect(v.child_count == 1)
+            #expect(root.children[1] == v)
 
             // splitting the only child again just changes the orientation
             tree_split(b, CON_HORIZONTAL)
-            #expect(b.pointee.parent == v)
-            #expect(v.pointee.layout == CON_SPLITH)
+            #expect(b.parent == v)
+            #expect(v.layout == CON_SPLITH)
 
             // tabbed on a workspace window wraps the workspace in a tabbed container
             tree_set_layout(a, CON_TABBED)
-            #expect(root.pointee.child_count == 1)
-            let t = a.pointee.parent!
-            #expect(t.pointee.layout == CON_TABBED)
-            #expect(t.pointee.parent == root)
+            #expect(root.child_count == 1)
+            let t = a.parent!
+            #expect(t.layout == CON_TABBED)
+            #expect(t.parent == root)
 
             // toggle returns to the last split layout, toggle split flips the orientation
             #expect(tree_toggle_layout(a, false) == CON_SPLITH)
-            #expect(t.pointee.layout == CON_SPLITH)
+            #expect(t.layout == CON_SPLITH)
             #expect(tree_toggle_layout(a, true) == CON_SPLITV)
             #expect(tree_toggle_layout(a, false) == CON_TABBED)
             #expect(tree_toggle_layout(a, false) == CON_SPLITV)
@@ -340,14 +340,14 @@ extension DaemonState
 
             // south of it splits the window
             Yabai.tree_insert_relative(b, treeTestCon(4), DIR_SOUTH)
-            #expect(b.pointee.parent.pointee.layout == CON_SPLITV)
-            #expect(treeTestChild(b.pointee.parent, 1) == 4)
+            #expect(b.parent.layout == CON_SPLITV)
+            #expect(treeTestChild(b.parent, 1) == 4)
 
             // stacking creates a tabbed container around the target
             Yabai.tree_insert_relative(a, treeTestCon(5), STACK)
-            #expect(a.pointee.parent.pointee.layout == CON_TABBED)
-            #expect(treeTestChild(a.pointee.parent, 1) == 5)
-            #expect(root.pointee.children[0] == a.pointee.parent)
+            #expect(a.parent.layout == CON_TABBED)
+            #expect(treeTestChild(a.parent, 1) == 5)
+            #expect(root.children[0] == a.parent)
 
             Yabai.con_free(root)
         }
@@ -364,39 +364,39 @@ extension DaemonState
             let full = area(x: 0, y: 0, w: 1010, h: 810)
 
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(a.pointee.area.w) == 500)
-            #expect(Int32(v.pointee.area.x) == 510)
-            #expect(Int32(b.pointee.area.h) == 400)
-            #expect(Int32(c.pointee.area.y) == 410)
+            #expect(Int32(a.area.w) == 500)
+            #expect(Int32(v.area.x) == 510)
+            #expect(Int32(b.area.h) == 400)
+            #expect(Int32(c.area.y) == 410)
 
             // growing the right edge of window 2 searches up to the horizontal split
             #expect(tree_resize(b, DIR_WEST, -100) == true)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(a.pointee.area.w) == 401)
+            #expect(Int32(a.area.w) == 401)
             #expect(tree_resize(a, DIR_WEST, 10) == false)
 
             // the children of a tabbed container share its area below the bar
             tree_set_layout(b, CON_TABBED)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(b.pointee.area.y) == 24)
-            #expect(Int32(c.pointee.area.y) == 24)
-            #expect(Int32(c.pointee.area.h) == 786)
+            #expect(Int32(b.area.y) == 24)
+            #expect(Int32(c.area.y) == 24)
+            #expect(Int32(c.area.h) == 786)
 
             // the bar offset moves them further down, or up under the bar when negative
             Yabai.tree_update(root, full, 10, 24, 6, 0)
-            #expect(Int32(c.pointee.area.y) == 30)
-            #expect(Int32(c.pointee.area.h) == 780)
+            #expect(Int32(c.area.y) == 30)
+            #expect(Int32(c.area.h) == 780)
             Yabai.tree_update(root, full, 10, 24, -30, 0)
-            #expect(Int32(c.pointee.area.y) == 0)
-            #expect(Int32(c.pointee.area.h) == 810)
+            #expect(Int32(c.area.y) == 0)
+            #expect(Int32(c.area.h) == 810)
 
             // a backdrop card insets the windows from every edge of the container, below the bar
             Yabai.tree_update(root, full, 10, 24, 4, 6)
-            #expect(Int32(c.pointee.area.x) == Int32(b.pointee.area.x))
-            #expect(Int32(c.pointee.area.x) == Int32(v.pointee.area.x) + 6)
-            #expect(Int32(c.pointee.area.w) == Int32(v.pointee.area.w) - 12)
-            #expect(Int32(c.pointee.area.y) == 6 + 24 + 4)
-            #expect(Int32(c.pointee.area.h) == 810 - 12 - 24 - 4)
+            #expect(Int32(c.area.x) == Int32(b.area.x))
+            #expect(Int32(c.area.x) == Int32(v.area.x) + 6)
+            #expect(Int32(c.area.w) == Int32(v.area.w) - 12)
+            #expect(Int32(c.area.y) == 6 + 24 + 4)
+            #expect(Int32(c.area.h) == 810 - 12 - 24 - 4)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
 
             // and resizing a tab skips the tabbed container
@@ -419,16 +419,16 @@ extension DaemonState
             treeTestLeaf(v, 3)
 
             tree_rotate(root, 90)
-            #expect(root.pointee.layout == CON_SPLITV)
-            #expect(v.pointee.layout == CON_SPLITH)
-            #expect(root.pointee.children[1] == a)
+            #expect(root.layout == CON_SPLITV)
+            #expect(v.layout == CON_SPLITH)
+            #expect(root.children[1] == a)
 
             tree_mirror(root, CON_HORIZONTAL)
             #expect(treeTestChild(v, 0) == 3)
 
             tree_swap(a, b)
-            #expect(root.pointee.children[1] == b)
-            #expect(a.pointee.parent == v)
+            #expect(root.children[1] == b)
+            #expect(a.parent == v)
 
             Yabai.con_free(root)
         }
@@ -465,15 +465,15 @@ extension DaemonState
             let h = treeTestSplit(root, CON_SPLITH)
             let a = treeTestLeaf(h, 1)
             treeTestLeaf(h, 2)
-            a.pointee.percent = 0.7
-            h.children[1].pointee.percent = 0.3
+            a.percent = 0.7
+            h.children[1].percent = 0.3
             Yabai.tree_focus(a)
 
             Yabai.tree_flatten(root)
-            #expect(root.pointee.child_count == 2)
+            #expect(root.child_count == 2)
             #expect(treeTestChild(root, 0) == 1)
             #expect(percent(a, 10) == 7)
-            #expect(root.pointee.focus[0] == a)
+            #expect(root.focus[0] == a)
 
             Yabai.con_free(root)
         }
@@ -485,32 +485,32 @@ extension DaemonState
             var root = Yabai.con_create(CON_SPLITV)!
             var a = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
-            a.pointee.area.w = 800
-            a.pointee.area.h = 400
+            a.area.w = 800
+            a.area.h = 400
 
             tree_autotile(a)
-            #expect(a.pointee.parent != root)
-            #expect(a.pointee.parent.pointee.layout == CON_SPLITH)
-            #expect(a.pointee.parent.pointee.parent == root)
+            #expect(a.parent != root)
+            #expect(a.parent.layout == CON_SPLITH)
+            #expect(a.parent.parent == root)
 
             // a tall window in a vertical split stays, the new window goes below it
             let b = root.children[1]
-            b.pointee.area.w = 400
-            b.pointee.area.h = 800
+            b.area.w = 400
+            b.area.h = 800
             tree_autotile(b)
-            #expect(b.pointee.parent == root)
+            #expect(b.parent == root)
             Yabai.con_free(root)
 
             // a tall window in a horizontal split is split on top of each other
             root = Yabai.con_create(CON_SPLITH)!
             a = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
-            a.pointee.area.w = 500
-            a.pointee.area.h = 1000
+            a.area.w = 500
+            a.area.h = 1000
 
             tree_autotile(a)
-            #expect(a.pointee.parent != root)
-            #expect(a.pointee.parent.pointee.layout == CON_SPLITV)
+            #expect(a.parent != root)
+            #expect(a.parent.layout == CON_SPLITV)
             Yabai.con_free(root)
 
             // a tab is never split
@@ -518,12 +518,12 @@ extension DaemonState
             let tabbed = treeTestSplit(root, CON_TABBED)
             a = treeTestLeaf(tabbed, 1)
             treeTestLeaf(tabbed, 2)
-            a.pointee.area.w = 500
-            a.pointee.area.h = 1000
+            a.area.w = 500
+            a.area.h = 1000
 
             tree_autotile(a)
-            #expect(a.pointee.parent == tabbed)
-            #expect(tabbed.pointee.layout == CON_TABBED)
+            #expect(a.parent == tabbed)
+            #expect(tabbed.layout == CON_TABBED)
             Yabai.con_free(root)
         }
 
@@ -536,22 +536,22 @@ extension DaemonState
             let t = treeTestSplit(root, CON_TABBED)
             let a = treeTestLeaf(t, 2)
             tree_split(a, CON_VERTICAL)
-            #expect(a.pointee.parent.pointee.parent == t)
-            #expect(a.pointee.parent.pointee.layout == CON_SPLITV)
+            #expect(a.parent.parent == t)
+            #expect(a.parent.layout == CON_SPLITV)
 
             // switching it to tabbed closes the redundant split instead of nesting a tabbed container, like i3
             tree_set_layout(a, CON_TABBED)
-            #expect(a.pointee.parent == t)
-            #expect(t.pointee.layout == CON_TABBED)
-            #expect(root.pointee.children[1] == t)
+            #expect(a.parent == t)
+            #expect(t.layout == CON_TABBED)
+            #expect(root.children[1] == t)
 
             // and toggling back and forth keeps a single container
             tree_toggle_layout(a, false)
-            #expect(t.pointee.layout == CON_SPLITV)
+            #expect(t.layout == CON_SPLITV)
             tree_toggle_layout(a, false)
-            #expect(t.pointee.layout == CON_TABBED)
-            #expect(a.pointee.parent == t)
-            #expect(t.pointee.parent == root)
+            #expect(t.layout == CON_TABBED)
+            #expect(a.parent == t)
+            #expect(t.parent == root)
 
             Yabai.con_free(root)
         }
@@ -568,21 +568,21 @@ extension DaemonState
             let root = Yabai.con_create(CON_SPLITH)!
             let a = treeTestCon(1)
             tree_open_con(root, a, nil, false)
-            #expect(root.pointee.child_count == 1)
-            #expect(root.children[0].pointee.layout == CON_TABBED)
-            let t = a.pointee.parent!
+            #expect(root.child_count == 1)
+            #expect(root.children[0].layout == CON_TABBED)
+            let t = a.parent!
 
             let b = treeTestCon(2)
             tree_open_con(root, b, a, false)
-            #expect(b.pointee.parent == t)
+            #expect(b.parent == t)
             Yabai.tree_focus(b)
 
             // a tab that moves out to the workspace gets its own tabbed container, like i3 workspace_layout
             #expect(tree_move(root, a, DIR_WEST, false) == TREE_RESULT_DONE)
-            #expect(root.pointee.child_count == 2)
-            #expect(root.children[0].pointee.layout == CON_TABBED)
+            #expect(root.child_count == 2)
+            #expect(root.children[0].layout == CON_TABBED)
             #expect(treeTestChild(root.children[0], 0) == 1)
-            #expect(root.pointee.children[1] == t)
+            #expect(root.children[1] == t)
 
             Yabai.con_free(root)
         }
@@ -604,15 +604,15 @@ extension DaemonState
 
             // a window that was focused less recently than the tabs does not become the active tab
             tree_insert_con(b, c, TREE_AFTER)
-            #expect(t.pointee.children[1] == b)
-            #expect(t.pointee.focus[0] == c)
+            #expect(t.children[1] == b)
+            #expect(t.focus[0] == c)
 
             // the focused window takes the focus with it
             Yabai.tree_focus(a)
             tree_insert_con(a, d, TREE_AFTER)
-            #expect(t.pointee.focus[0] == a)
-            #expect(root.pointee.focus[0] == t)
-            #expect(root.pointee.child_count == 2)
+            #expect(t.focus[0] == a)
+            #expect(root.focus[0] == t)
+            #expect(root.child_count == 2)
             #expect(tree_descend_focused(root) == a)
 
             Yabai.con_free(root)
@@ -632,14 +632,14 @@ extension DaemonState
             // a window opens after the selected container, not inside of it, like i3 and sway
             let e = treeTestCon(5)
             tree_open_con(root, e, v, false)
-            #expect(v.pointee.child_count == 2)
-            #expect(root.pointee.children[2] == e)
+            #expect(v.child_count == 2)
+            #expect(root.children[2] == e)
 
             // with the workspace selected it opens after its most recently focused child
             Yabai.tree_focus(a)
             let f = treeTestCon(6)
             tree_open_con(root, f, root, false)
-            #expect(root.pointee.children[1] == f)
+            #expect(root.children[1] == f)
 
             Yabai.con_free(root)
         }
@@ -657,26 +657,26 @@ extension DaemonState
 
             // along the layout of the workspace it arrives on the near side, with its structure
             tree_attach_from_direction(root, t, DIR_EAST)
-            #expect(root.pointee.children[0] == t)
-            #expect(t.pointee.child_count == 2)
-            #expect(root.pointee.focus[0] == t)
+            #expect(root.children[0] == t)
+            #expect(t.child_count == 2)
+            #expect(root.focus[0] == t)
 
             Yabai.tree_detach(t)
             tree_attach_from_direction(root, t, DIR_WEST)
-            #expect(root.pointee.children[2] == t)
+            #expect(root.children[2] == t)
 
             // across it, it arrives next to the window focused there
             Yabai.tree_detach(t)
             Yabai.tree_focus(x)
             tree_attach_from_direction(root, t, DIR_SOUTH)
-            #expect(root.pointee.child_count == 3)
-            #expect(root.pointee.children[1] == t)
+            #expect(root.child_count == 3)
+            #expect(root.children[1] == t)
 
             // an empty workspace takes it as it is
             let empty = Yabai.con_create(CON_SPLITH)!
             Yabai.tree_detach(t)
             tree_attach_from_direction(empty, t, DIR_NORTH)
-            #expect(empty.pointee.children[0] == t)
+            #expect(empty.children[0] == t)
             #expect(percent(t) == 100)
 
             Yabai.con_free(empty)
@@ -745,7 +745,7 @@ extension DaemonState
 
             // switching to the tab that holds 2 orders every other window of the container below it
             list = []
-            Yabai.tree_focus(t.pointee.children[0])
+            Yabai.tree_focus(t.children[0])
             treeCollectTabOrder(root, false, &list)
             #expect(list.count == 4)
             #expect(orderIs(list, 0, 3, -1, 2))
@@ -808,21 +808,21 @@ extension DaemonState
             let b = treeTestLeaf(root, 2)
             let target = treeViewTestView(root)
 
-            root.pointee.area  = area(x: 0,   y: 0, w: 1000, h: 800)
-            split.pointee.area = area(x: 0,   y: 0, w: 500,  h: 800)
-            a.pointee.area     = area(x: 0,   y: 0, w: 500,  h: 400)
-            b.pointee.area     = area(x: 500, y: 0, w: 500,  h: 800)
+            root.area  = area(x: 0,   y: 0, w: 1000, h: 800)
+            split.area = area(x: 0,   y: 0, w: 500,  h: 800)
+            a.area     = area(x: 0,   y: 0, w: 500,  h: 400)
+            b.area     = area(x: 500, y: 0, w: 500,  h: 800)
 
             #expect(treeHasZoom(root, CON_ZOOM_NONE) == false)
             #expect(Int32(tree_con_frame(target, a).h) == 400)
 
-            a.pointee.zoom = CON_ZOOM_PARENT
+            a.zoom = CON_ZOOM_PARENT
             #expect(treeHasZoom(root, CON_ZOOM_NONE) == true)
             #expect(treeHasZoom(root, CON_ZOOM_FULLSCREEN) == false)
             #expect(Int32(tree_con_frame(target, a).h) == 800)
             #expect(Int32(tree_con_frame(target, a).w) == 500)
 
-            a.pointee.zoom = CON_ZOOM_FULLSCREEN
+            a.zoom = CON_ZOOM_FULLSCREEN
             #expect(treeHasZoom(root, CON_ZOOM_FULLSCREEN) == true)
             #expect(Int32(tree_con_frame(target, a).w) == 1000)
 

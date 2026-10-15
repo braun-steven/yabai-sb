@@ -38,7 +38,6 @@ final class Window
     var scratchpad: UnsafeMutablePointer<CChar>!
 
     /// The window itself, for the code that still reads it like the C pointer.
-    var pointee: Window { self }
 }
 
 extension Window: Equatable

@@ -23,7 +23,6 @@ final class Application
     var ax_retry = false
 
     /// The application itself, for the code that still reads it like the C pointer.
-    var pointee: Application { self }
 }
 
 extension Application: Equatable

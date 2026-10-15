@@ -25,7 +25,6 @@ final class View
     var flags: UInt64 = 0
 
     /// The view itself, for the code that still reads it like the C pointer.
-    var pointee: View { self }
 }
 
 extension View: Equatable

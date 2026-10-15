@@ -54,7 +54,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
         case .space(let sid):   rsp.write("\(displaySerialize(space_display_id(sid), properties.flags))\n")
         case .window(let window):
             if let window {
-                rsp.write("\(displaySerialize(window_display_id(window.pointee.id), properties.flags))\n")
+                rsp.write("\(displaySerialize(window_display_id(window.id), properties.flags))\n")
             } else {
                 rsp.fail("could not find window to retrieve display details.\n")
             }

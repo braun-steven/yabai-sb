@@ -8,7 +8,7 @@ import CPrivate
 func treeTestLeaf(_ parent: Con, _ windowID: UInt32) -> Con
 {
     let node = Yabai.con_create(CON_SPLITH)!
-    node.pointee.window_id = windowID
+    node.window_id = windowID
     Yabai.tree_attach(parent, node, -1)
     return node
 }

@@ -241,8 +241,8 @@ private struct WindowStrings
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == true)
     #expect(effects.manage == RULE_PROP_ON)
 
-    free(owner.pointee.name)
-    owner.pointee.name = strdup("Mail")
+    free(owner.name)
+    owner.name = strdup("Mail")
     effects = rule_effects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == false)
 }

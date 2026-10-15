@@ -22,7 +22,6 @@ final class TabBar
     var redraw: (@convention(c) (UnsafeMutableRawPointer?) -> Void)?
 
     /// The bar itself, for the code that still reads it like the C pointer.
-    var pointee: TabBar { self }
 
     /// The empty bar of tab_bar_release, which keeps its owner and callback.
     func reset()

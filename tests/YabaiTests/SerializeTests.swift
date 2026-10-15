@@ -22,7 +22,7 @@ extension DaemonState
             let split = treeTestSplit(tabs, CON_SPLITV)
             let leaf = treeTestLeaf(split, 2)
             let side = treeTestLeaf(root, 3)
-            leaf.pointee.zoom = CON_ZOOM_PARENT
+            leaf.zoom = CON_ZOOM_PARENT
 
             var info = WindowInfo()
             windowInfoSetTree(&info, leaf)

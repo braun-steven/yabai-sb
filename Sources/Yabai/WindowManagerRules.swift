@@ -57,7 +57,7 @@ func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm
 func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: UnsafeMutablePointer<rule_effects>)
 {
     if effects.pointee.sid != 0 || effects.pointee.did != 0 {
-        if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.pointee.id)) {
+        if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.id)) {
             let sid = effects.pointee.sid != 0 ? effects.pointee.sid : display_space_id(effects.pointee.did)
             window_manager_send_window_to_space(sm, wm, target, sid, true)
             if rule_effects_check_flag(effects, RULE_FOLLOW_SPACE) || effects.pointee.fullscreen == RULE_PROP_ON {
@@ -85,12 +85,12 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
     }
 
     if rule_effects_check_flag(effects, RULE_OPACITY) && effects.pointee.opacity >= 0.0 && effects.pointee.opacity <= 1.0 {
-        target.pointee.opacity = effects.pointee.opacity
+        target.opacity = effects.pointee.opacity
         window_manager_set_opacity(wm, target, effects.pointee.opacity)
     }
 
     if effects.pointee.fullscreen == RULE_PROP_ON {
-        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
         window_set_rule_flag(target, WINDOW_RULE_FULLSCREEN)
     }
 

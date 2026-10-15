@@ -71,18 +71,18 @@ func displayID(_ uuid: String) -> UInt32
 @_cdecl("display_bounds_constrained")
 func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGRect
 {
-    let dm = display_manager_global()!
+    let dm = display_manager_global()
     var frame = CGDisplayBounds(did)
     var effectiveExtTopPadding: Int32 = 0
 
     if !ignoreExternalBar {
-        if (dm.pointee.mode == EXTERNAL_BAR_MAIN && did == display_manager_main_display_id()) ||
-           (dm.pointee.mode == EXTERNAL_BAR_ALL) {
-            effectiveExtTopPadding = dm.pointee.top_padding
+        if (dm.mode == EXTERNAL_BAR_MAIN && did == display_manager_main_display_id()) ||
+           (dm.mode == EXTERNAL_BAR_ALL) {
+            effectiveExtTopPadding = dm.top_padding
 
             frame.origin.y    += CGFloat(effectiveExtTopPadding)
             frame.size.height -= CGFloat(effectiveExtTopPadding)
-            frame.size.height -= CGFloat(dm.pointee.bottom_padding)
+            frame.size.height -= CGFloat(dm.bottom_padding)
         }
     }
 

@@ -84,14 +84,14 @@ struct CSelectorContext: SelectorContext
         case .next(let did):                  display_manager_next_display_id(did)
         case .first:                          display_manager_first_display_id()
         case .last:                           display_manager_last_display_id()
-        case .recent:                         display_manager_global().pointee.last_display_id
+        case .recent:                         display_manager_global().last_display_id
         case .cursor:                         display_manager_cursor_display_id()
         }
     }
 
     func displayLabel(_ label: Token) -> UInt64?
     {
-        labelList(display_manager_global().pointee.labels)?.list.find(name: label.string)?.id
+        labelList(display_manager_global().labels)?.list.find(name: label.string)?.id
     }
 
     func space(_ query: SpaceQuery) -> UInt64

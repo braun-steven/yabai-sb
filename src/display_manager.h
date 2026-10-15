@@ -33,21 +33,6 @@ static const char *external_bar_mode_str[] =
     "all"
 };
 
-struct display_manager
-{
-    uint32_t current_display_id;
-    uint32_t last_display_id;
-
-    int top_padding;
-    int bottom_padding;
-
-    enum display_arrangement_order order;
-    bool builtin_last;
-    enum external_bar_mode mode;
-
-    struct label_list *labels;
-};
-
 uint32_t display_manager_main_display_id(void);
 CF_RETURNS_RETAINED CFStringRef display_manager_active_display_uuid(void);
 uint32_t display_manager_active_display_id(void);
@@ -76,6 +61,5 @@ uint32_t display_manager_focus_display_with_window_at_point(CGPoint point);
 void display_manager_set_active_display_id(uint32_t did);
 void display_manager_focus_display(uint32_t did, uint64_t sid);
 enum space_op_error display_manager_focus_space(uint32_t did, uint64_t sid);
-bool display_manager_begin(struct display_manager *dm);
 
 #endif

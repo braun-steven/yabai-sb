@@ -10,7 +10,6 @@
 //
 
 struct process_manager g_process_manager;
-struct display_manager g_display_manager;
 struct window_manager g_window_manager;
 struct space_manager g_space_manager;
 struct mouse_state g_mouse_state;

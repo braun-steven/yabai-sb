@@ -96,7 +96,7 @@ extension Response
 
 func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
-    let dm = display_manager_global()!
+    let dm = display_manager_global()
     let context = CSelectorContext()
 
     let command: Token
@@ -139,8 +139,8 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let parsed = parseLabel(&rsp, message.next(), .display)
         if parsed.valid {
             if let label = parsed.label {
-                labelSet(&dm.pointee.labels, UInt64(actingDid), label)
-            } else if !(labelList(dm.pointee.labels)?.list.remove(id: UInt64(actingDid)) ?? false) {
+                labelSet(&dm.labels, UInt64(actingDid), label)
+            } else if !(labelList(dm.labels)?.list.remove(id: UInt64(actingDid)) ?? false) {
                 rsp.fail("the selected display was not associated with a label!\n")
             }
         }

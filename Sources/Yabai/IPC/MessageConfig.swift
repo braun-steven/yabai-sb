@@ -334,7 +334,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
 private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let dm = display_manager_global()!
+    let dm = display_manager_global()
     let value = message.next()
 
     var mode = [CChar](repeating: 0, count: 6)
@@ -347,15 +347,15 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if count != 3 {
-        rsp.write("\(externalBarModeNames[Int(dm.pointee.mode.rawValue)]):\(dm.pointee.top_padding):\(dm.pointee.bottom_padding)\n")
+        rsp.write("\(externalBarModeNames[Int(dm.mode.rawValue)]):\(dm.top_padding):\(dm.bottom_padding)\n")
         return
     }
 
     let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
     for (i, name) in externalBarModeNames.enumerated() where modeToken.equals(name) {
-        dm.pointee.mode = external_bar_mode(rawValue: UInt32(i))
-        dm.pointee.top_padding = top
-        dm.pointee.bottom_padding = bottom
+        dm.mode = external_bar_mode(rawValue: UInt32(i))
+        dm.top_padding = top
+        dm.bottom_padding = bottom
         space_manager_mark_spaces_invalid(space_manager_global())
         return
     }
@@ -563,7 +563,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
 {
     let wm = window_manager_global()!
     let sm = space_manager_global()!
-    let dm = display_manager_global()!
+    let dm = display_manager_global()
     let mouse = mouse_state_global()!
 
     if configBorder(&rsp, domain, command, &message)  { return true }
@@ -587,11 +587,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.displayOrder) {
-        if let choice = parseChoice(&rsp, domain, command, &message, displayArrangementOrderNames, first: DISPLAY_ARRANGEMENT_ORDER_DEFAULT.rawValue, last: DISPLAY_ARRANGEMENT_ORDER_Y.rawValue, current: dm.pointee.order.rawValue) {
-            dm.pointee.order = display_arrangement_order(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, displayArrangementOrderNames, first: DISPLAY_ARRANGEMENT_ORDER_DEFAULT.rawValue, last: DISPLAY_ARRANGEMENT_ORDER_Y.rawValue, current: dm.order.rawValue) {
+            dm.order = display_arrangement_order(rawValue: choice)
         }
     } else if command.equals(Config.builtinLast) {
-        if parseConfigBool(&rsp, domain, command, &message, &dm.pointee.builtin_last) { space_layout_schedule(0.0, true) }
+        if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
         if let choice = parseChoice(&rsp, domain, command, &message, windowOriginModeNames, first: WINDOW_ORIGIN_DEFAULT.rawValue, last: WINDOW_ORIGIN_CURSOR.rawValue, current: wm.pointee.window_origin_mode.rawValue) {
             wm.pointee.window_origin_mode = window_origin_mode(rawValue: choice)

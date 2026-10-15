@@ -57,16 +57,16 @@ private func displaySpaceIndexList(_ did: UInt32) -> String
 /// `display_serialize`
 func displaySerialize(_ did: UInt32, _ flags: UInt64) -> String
 {
-    let dm = display_manager_global()!
+    let dm = display_manager_global()
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
     json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did))")
     json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUIDText(did))\"")
     json.property(DisplayProperty.index,    "\"index\":\(display_manager_display_id_arrangement(did))")
-    json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.pointee.labels, UInt64(did)))\"")
+    json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.labels, UInt64(did)))\"")
     json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did)))
     json.property(DisplayProperty.spaces,   "\"spaces\":\(displaySpaceIndexList(did))")
-    json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.pointee.current_display_id))")
+    json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.current_display_id))")
 
     return json.finish()
 }

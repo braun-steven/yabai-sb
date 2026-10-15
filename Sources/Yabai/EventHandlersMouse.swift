@@ -304,7 +304,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 @WM private func ffmFocusDisplayAtPoint(_ point: CGPoint)
 {
     let cursorDid = display_manager_point_display_id(point)
-    if display_manager_global()!.pointee.current_display_id == cursorDid { return }
+    if display_manager_global().current_display_id == cursorDid { return }
 
     let bounds = display_bounds_constrained(cursorDid, false)
     if !cgrect_contains_point(bounds, point) { return }

@@ -6,9 +6,37 @@ import YabaiCore
 
 //
 // NOTE: The displays of yabai: their arrangement (display_arrangement_order and builtin_display_last), the menu bar and
-// the Dock that shrink their area, and the focus of a display. Ported from src/display_manager.c. The state is
-// display_manager (g_display_manager), which stays C while C code reads its fields.
+// the Dock that shrink their area, and the focus of a display. Ported from src/display_manager.c.
 //
+
+/// `struct display_manager`
+final class DisplayManager
+{
+    var current_display_id: UInt32 = 0
+    var last_display_id: UInt32 = 0
+
+    var top_padding: Int32 = 0
+    var bottom_padding: Int32 = 0
+
+    var order = DISPLAY_ARRANGEMENT_ORDER_DEFAULT
+    var builtin_last = false
+    var mode = EXTERNAL_BAR_OFF
+
+    var labels: OpaquePointer?
+}
+
+//
+// NOTE: The global singletons are created before the event loop starts. Like the C globals they replace, the event loop
+// owns them; the producers on other threads read only what they read in C, under the locks named where they do.
+//
+
+/// `g_display_manager`
+nonisolated(unsafe) let g_display_manager = DisplayManager()
+
+func display_manager_global() -> DisplayManager
+{
+    g_display_manager
+}
 
 /// `display_manager_main_display_id`
 @_cdecl("display_manager_main_display_id")
@@ -103,7 +131,7 @@ private func displayManagerUUIDIsBuiltin(_ value: Any?) -> Bool
 /// is set. display_spaces reads the uuid from the "Display Identifier" of each dictionary of the list.
 private func displayManagerOrderBuiltinLast<T>(_ list: [T], displaySpaces: Bool) -> [T]
 {
-    if !display_manager_global()!.pointee.builtin_last { return list }
+    if !display_manager_global().builtin_last { return list }
 
     for i in 0..<max(list.count - 1, 0) {
         let item = list[i]
@@ -136,7 +164,7 @@ private func displayManagerCopyArrangedDisplays() -> [String]?
     guard let displays = SLS.managedDisplays(connection_global()) else { return nil }
 
     let count = CFArrayGetCount(displays)
-    let order = display_manager_global()!.pointee.order
+    let order = display_manager_global().order
 
     var sorted = displays
     if count > 0 && order != DISPLAY_ARRANGEMENT_ORDER_DEFAULT {
@@ -416,15 +444,14 @@ func display_manager_focus_space(_ did: UInt32, _ sid: UInt64) -> space_op_error
 }
 
 /// `display_manager_begin`: reads the active display and registers the reconfiguration callback.
-@_cdecl("display_manager_begin")
-func display_manager_begin(_ dm: UnsafeMutablePointer<display_manager>) -> Bool
+func display_manager_begin(_ dm: DisplayManager) -> Bool
 {
-    dm.pointee.current_display_id = display_manager_active_display_id()
-    dm.pointee.last_display_id = dm.pointee.current_display_id
-    dm.pointee.order = DISPLAY_ARRANGEMENT_ORDER_DEFAULT
-    dm.pointee.mode = EXTERNAL_BAR_OFF
-    dm.pointee.top_padding = 0
-    dm.pointee.bottom_padding = 0
+    dm.current_display_id = display_manager_active_display_id()
+    dm.last_display_id = dm.current_display_id
+    dm.order = DISPLAY_ARRANGEMENT_ORDER_DEFAULT
+    dm.mode = EXTERNAL_BAR_OFF
+    dm.top_padding = 0
+    dm.bottom_padding = 0
 
     return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
 }

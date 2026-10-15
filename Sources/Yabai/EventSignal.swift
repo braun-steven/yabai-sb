@@ -180,7 +180,7 @@ func describeDisplay(_ es: inout PendingSignal, _ context: UnsafeMutableRawPoint
 
         es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did))")
     case .displayChanged:
-        let dm = display_manager_global()!.pointee
+        let dm = display_manager_global()
         let did = dm.current_display_id
         let recentDid = dm.last_display_id
 

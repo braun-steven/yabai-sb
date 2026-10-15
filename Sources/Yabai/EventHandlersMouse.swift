@@ -238,7 +238,7 @@ private let mouseResizeThrottleMs: Float = 67.67
         // released it here, one release too many.
         //
 
-        guard let role = window_role(child)?.takeUnretainedValue() else { continue }
+        guard let role = window_role(child) else { continue }
 
         if CFEqual(role, kAXSheetRole as CFString) || CFEqual(role, kAXDrawerRole as CFString) {
             return child

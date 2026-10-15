@@ -116,6 +116,7 @@ struct con *tree_find_selected(struct con *root);
 void tree_select(struct con *root, struct con *con);
 struct con *tree_focus_candidate(struct con *con);
 int tree_window_count(struct con *con);
+void tree_collect_window_ids(struct con *con, uint32_t **list);
 
 struct con *tree_first_leaf(struct con *con);
 struct con *tree_last_leaf(struct con *con);

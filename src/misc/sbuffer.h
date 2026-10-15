@@ -68,4 +68,10 @@ static void *ts_buf__grow_f(const void *buf, int new_len, int elem_size)
     return new_hdr->buf;
 }
 
+// NOTE: ts_buf_len for Swift, which cannot expand the macros.
+static inline int ts_buf_count(const void *buf)
+{
+    return ts_buf_len(buf);
+}
+
 #endif

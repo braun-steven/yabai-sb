@@ -97,13 +97,6 @@ func describe(_ process: UnsafeMutablePointer<process>) -> String
     "\(cName(process.pointee.name)) (\(process.pointee.pid))"
 }
 
-/// A list of windows that a C function returned with its count.
-func windowList(_ list: UnsafeMutablePointer<UnsafeMutablePointer<window>?>?, _ count: Int32) -> [Window]
-{
-    guard let list else { return [] }
-    return (0..<Int(count)).map { list[$0]! }
-}
-
 /// `table_for`: the values of a C hash table (src/misc/hashtable.h), in the order of its buckets.
 func tableValues<T>(_ hashTable: table, as type: T.Type) -> [UnsafeMutablePointer<T>]
 {
@@ -333,7 +326,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     //
 
     if window_manager_find_application(wm, process.pointee.pid) != nil { return }
-    let application = application_create(process)!
+    let application = application_create(process)
 
     if !application_observe(application) {
         let axRetry = application.pointee.ax_retry
@@ -357,8 +350,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     process.pointee.launch_attempts = 0
     process.pointee.launch_given_up = false
 
-    var windowCount: Int32 = 0
-    let windows = windowList(window_manager_add_application_windows(space_manager_global(), wm, application, &windowCount), windowCount)
+    let windows = window_manager_add_application_windows(space_manager_global(), wm, application)
     tileWindowsBatched(windows, wm.pointee.focused_window_id, true)
 
     for window in windows where window_manager_is_window_eligible(window) {
@@ -388,8 +380,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     let refreshIndex = window_manager_application_refresh_index(wm, application)
     if refreshIndex >= 0 { window_manager_remove_application_refresh(wm, refreshIndex) }
 
-    var windowCount: Int32 = 0
-    let windows = windowList(window_manager_find_application_windows(wm, application, &windowCount), windowCount)
+    let windows = window_manager_find_application_windows(wm, application)
     var viewList: [View] = []
 
     for window in windows {
@@ -518,7 +509,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     let refreshIndex = window_manager_application_refresh_index(wm, application)
     if refreshIndex >= 0 {
         debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(cName(application.pointee.name)) has windows that are not yet resolved\n")
-        window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
+        _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
     }
 
     let applicationFocusedWindowID = application_focused_window(application)
@@ -547,8 +538,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(cName(application.pointee.name))\n")
     application.pointee.is_hidden = false
 
-    var windowCount: Int32 = 0
-    let windows = windowList(window_manager_find_application_windows(wm, application, &windowCount), windowCount)
+    let windows = window_manager_find_application_windows(wm, application)
     tileWindowsBatched(windows, wm.pointee.last_window_id, false)
 
     for window in windows {
@@ -567,8 +557,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(cName(application.pointee.name))\n")
     application.pointee.is_hidden = true
 
-    var windowCount: Int32 = 0
-    let windows = windowList(window_manager_find_application_windows(wm, application, &windowCount), windowCount)
+    let windows = window_manager_find_application_windows(wm, application)
     var viewList: [View] = []
 
     for window in windows {

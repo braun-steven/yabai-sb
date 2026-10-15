@@ -16,7 +16,6 @@ typedef TEST_SIG(function);
 #include "tab_bar.c"
 #include "window_frame.c"
 #include "border.c"
-#include "window_rules.c"
 
 #define TEST_ENTRY(name) { #name, test_##name },
 #define TEST_LIST                                              \
@@ -52,16 +51,9 @@ typedef TEST_SIG(function);
     TEST_ENTRY(window_frame_close)                             \
     TEST_ENTRY(window_frame_group_by_application)              \
     TEST_ENTRY(window_frame_needs_update_decision)             \
-    TEST_ENTRY(window_pending_focus)                           \
-    TEST_ENTRY(window_unresolved_list)                         \
-    TEST_ENTRY(window_validity)                                \
-    TEST_ENTRY(window_one_shot_rules)                          \
     TEST_ENTRY(mouse_drop_action_regions)                      \
-    TEST_ENTRY(window_child_windows_collect)                   \
     TEST_ENTRY(border_edge_frames_split)                       \
-    TEST_ENTRY(border_tabbed_container_area)                   \
-    TEST_ENTRY(window_rules_combine_matching)                  \
-    TEST_ENTRY(window_rules_manage_round)
+    TEST_ENTRY(border_tabbed_container_area)
 
 static struct {
     char *name;

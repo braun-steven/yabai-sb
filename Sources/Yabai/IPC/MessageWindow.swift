@@ -64,7 +64,7 @@ extension Response
 
 private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> window_op_error
 {
-    let wm = window_manager_global()
+    let wm = window_manager_global()!
     switch focus {
     case .parent:                   return window_manager_tree_focus_parent(wm, window)
     case .child:                    return window_manager_tree_focus_child(wm, window)
@@ -100,8 +100,8 @@ func parseSplitOrientation(_ value: Token) -> Int32?
 /// `window_toggle_list`: what a value of `window --toggle` that is a window property does.
 private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 {
-    let sm = space_manager_global()
-    let wm = window_manager_global()
+    let sm = space_manager_global()!
+    let wm = window_manager_global()!
 
     switch toggle {
     case .float:              window_manager_make_window_floating(sm, wm, window, !window_check_flag(window, WINDOW_FLOAT), false)
@@ -141,7 +141,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref?.takeUnretainedValue())
+            window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
             window_manager_set_pending_focus(window_manager_global(), window.pointee.id)
         } else {
             rsp.fail("could not locate the window to act on!\n")
@@ -196,8 +196,8 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
 private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()
-    let wm = window_manager_global()
+    let sm = space_manager_global()!
+    let wm = window_manager_global()!
     let context = CSelectorContext()
 
     if command.equals(WindowCommand.display) {
@@ -273,7 +273,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
 
 func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = window_manager_global()!
 
     if command.equals(WindowCommand.layout) {
         let value = message.next()
@@ -309,8 +309,8 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
 
 private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()
-    let wm = window_manager_global()
+    let sm = space_manager_global()!
+    let wm = window_manager_global()!
 
     if command.equals(WindowCommand.grid) {
         var grid = Grid()
@@ -378,7 +378,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
 
 private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = window_manager_global()!
 
     if command.equals(WindowCommand.toggle) {
         //

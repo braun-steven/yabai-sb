@@ -21,25 +21,10 @@
                                              AX_APPLICATION_WINDOW_RESIZED |\
                                              AX_APPLICATION_WINDOW_TITLE_CHANGED)
 
-static const char *ax_error_str[] =
-{
-    [-kAXErrorSuccess]                           = "kAXErrorSuccess",
-    [-kAXErrorFailure]                           = "kAXErrorFailure",
-    [-kAXErrorIllegalArgument]                   = "kAXErrorIllegalArgument",
-    [-kAXErrorInvalidUIElement]                  = "kAXErrorInvalidUIElement",
-    [-kAXErrorInvalidUIElementObserver]          = "kAXErrorInvalidUIElementObserver",
-    [-kAXErrorCannotComplete]                    = "kAXErrorCannotComplete",
-    [-kAXErrorAttributeUnsupported]              = "kAXErrorAttributeUnsupported",
-    [-kAXErrorActionUnsupported]                 = "kAXErrorActionUnsupported",
-    [-kAXErrorNotificationUnsupported]           = "kAXErrorNotificationUnsupported",
-    [-kAXErrorNotImplemented]                    = "kAXErrorNotImplemented",
-    [-kAXErrorNotificationAlreadyRegistered]     = "kAXErrorNotificationAlreadyRegistered",
-    [-kAXErrorNotificationNotRegistered]         = "kAXErrorNotificationNotRegistered",
-    [-kAXErrorAPIDisabled]                       = "kAXErrorAPIDisabled",
-    [-kAXErrorNoValue]                           = "kAXErrorNoValue",
-    [-kAXErrorParameterizedAttributeUnsupported] = "kAXErrorParameterizedAttributeUnsupported",
-    [-kAXErrorNotEnoughPrecision]                = "kAXErrorNotEnoughPrecision"
-};
+//
+// NOTE: The functions of struct application are Swift (Sources/Yabai/Application.swift). The struct stays C while
+// tab_bar.c (icon) and window_animation.c (ref) read it.
+//
 
 struct application
 {
@@ -55,13 +40,5 @@ struct application
     bool is_hidden;
     bool ax_retry;
 };
-
-// implemented in Sources/Yabai/Application.swift
-uint32_t application_focused_window(struct application *application);
-CF_RETURNS_RETAINED CFArrayRef application_window_list(struct application *application);
-bool application_observe(struct application *application);
-void application_unobserve(struct application *application);
-struct application *application_create(struct process *process);
-void application_destroy(struct application *application);
 
 #endif

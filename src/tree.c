@@ -432,6 +432,22 @@ int tree_window_count(struct con *con)
     return count;
 }
 
+//
+// NOTE: The windows of the leaves of con, in the order of the tree, into the temporary buffer list.
+//
+
+void tree_collect_window_ids(struct con *con, uint32_t **list)
+{
+    if (con_is_leaf(con)) {
+        if (con->window_id) ts_buf_push(*list, con->window_id);
+        return;
+    }
+
+    for (int i = 0; i < con->child_count; ++i) {
+        tree_collect_window_ids(con->children[i], list);
+    }
+}
+
 struct con *tree_first_leaf(struct con *con)
 {
     while (con && !con_is_leaf(con)) {

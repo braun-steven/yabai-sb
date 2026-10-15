@@ -164,10 +164,10 @@ private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: Unsa
 @discardableResult
 func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: UnsafeMutablePointer<window>, _ flags: UInt64) -> Bool
 {
-    var spaceCount: Int32 = 0
-    guard let spaceList = window_space_list(window.pointee.id, &spaceCount) else { return false }
+    var spaceList = window_space_list(window.pointee.id)
+    if spaceList.isEmpty { return false }
 
-    spaceManagerQuerySpaceList(&rsp, spaceList, spaceCount, flags)
+    spaceList.withUnsafeMutableBufferPointer { spaceManagerQuerySpaceList(&rsp, $0.baseAddress!, Int32($0.count), flags) }
     return true
 }
 
@@ -345,17 +345,6 @@ func windowNonAXSerialize(_ wid: UInt32, _ flags: UInt64) -> String
 {
     let flags = flags == 0 ? ~flags : flags
     return windowInfo(forID: wid, flags).serialize(flags, layer: layerName)
-}
-
-/// The C entry point of windowSerialize, for the debug output of window_manager_discovery.c.
-@_cdecl("window_serialize")
-func window_serialize(_ rsp: UnsafeMutablePointer<FILE>?, _ window: UnsafeMutablePointer<window>?, _ flags: UInt64)
-{
-    guard let rsp, let window else { return }
-
-    var response = Response()
-    response.write("\(windowSerialize(window, flags))")
-    response.write(to: rsp)
 }
 
 /// `window_manager_query_windows_for_spaces`

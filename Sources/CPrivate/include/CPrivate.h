@@ -4,7 +4,7 @@
 //
 // NOTE: The private functions of SkyLight, HIServices and the mach runtime that yabai calls. The C unity build includes
 // this header through yabai_c.h, and Swift imports it as the module CPrivate; Sources/Yabai/Platform wraps it. CPrivate.c
-// only holds the function pointers that are resolved at runtime.
+// holds the function pointers that are resolved at runtime and SLSGetWindowSubLevelBounded.
 //
 // Ownership: inside CF_IMPLICIT_BRIDGING_ENABLED, functions with Copy or Create in their name return a +1 object, the
 // others a +0 one. A private function that returns a +1 object without Copy/Create in its name needs CF_RETURNS_RETAINED,
@@ -117,6 +117,16 @@ static inline void NSObjectRemoveObserverC(NSObject *object, NSObject *observer,
 
 extern mach_port_t mig_get_special_reply_port(void);
 extern void mig_dealloc_special_reply_port(mach_port_t port);
+
+//
+// NOTE: The sub-level of a window, asked from the window server with the message that SLSGetWindowSubLevel sends, but
+// with a bounded wait. False when CGSGetConnectionPortById was not resolved or the message failed; window_sub_level
+// (Sources/Yabai/Window.swift) then calls SLSGetWindowSubLevel. A C function in CPrivate.c, because Swift can neither
+// lay out the packed message nor read NDR_record and the function pointer (C globals); a static inline body here made
+// Swift emit its own NDR_record, a duplicate symbol in the release link.
+//
+
+bool SLSGetWindowSubLevelBounded(int cid, uint32_t wid, int *sub_level);
 extern AXUIElementRef _Nullable _AXUIElementCreateWithRemoteToken(CFDataRef data);
 extern AXError _AXUIElementGetWindow(AXUIElementRef ref, uint32_t *wid);
 extern int SLSMainConnectionID(void);

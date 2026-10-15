@@ -4,7 +4,7 @@ import YabaiC
 
 //
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. struct application stays
-// C while window*.c reads it. Ported from src/application.c.
+// C while tab_bar.c and window_animation.c read it. Ported from src/application.c.
 //
 
 // the notifications of application_observe, in the order of the bits of application->notification
@@ -72,7 +72,6 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
 
 /// `application_observe`: true if every notification of AX_APPLICATION_ALL is registered. Sets ax_retry when the
 /// application did not answer in time.
-@_cdecl("application_observe")
 func application_observe(_ target: UnsafeMutablePointer<application>) -> Bool
 {
     var observerRef: AXObserver?
@@ -106,7 +105,6 @@ func application_observe(_ target: UnsafeMutablePointer<application>) -> Bool
 }
 
 /// `application_unobserve`
-@_cdecl("application_unobserve")
 func application_unobserve(_ target: UnsafeMutablePointer<application>)
 {
     guard target.pointee.is_observing else { return }
@@ -126,7 +124,6 @@ func application_unobserve(_ target: UnsafeMutablePointer<application>)
 }
 
 /// `application_focused_window`: the id of the focused window of the application, or 0.
-@_cdecl("application_focused_window")
 func application_focused_window(_ target: UnsafeMutablePointer<application>) -> UInt32
 {
     var windowRef: CFTypeRef?
@@ -149,15 +146,14 @@ func application_is_hidden(_ target: UnsafeMutablePointer<application>) -> Bool
     return !ProcessIsVisibleC(target.pointee.psn)
 }
 
-/// `application_window_list`: the AX windows of the application at +1 (the prototype is CF_RETURNS_RETAINED), or NULL.
-@_cdecl("application_window_list")
-func applicationWindowListRetained(_ target: UnsafeMutablePointer<application>) -> Unmanaged<CFArray>?
+/// `application_window_list`: the AX windows of the application, or nil.
+func application_window_list(_ target: UnsafeMutablePointer<application>) -> CFArray?
 {
     var windowList: CFTypeRef?
     AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXWindowsAttribute as CFString, &windowList)
     guard let windowList else { return nil }
 
-    return Unmanaged.passRetained(unsafeDowncast(windowList, to: CFArray.self))
+    return unsafeDowncast(windowList, to: CFArray.self)
 }
 
 //
@@ -166,7 +162,6 @@ func applicationWindowListRetained(_ target: UnsafeMutablePointer<application>) 
 //
 
 /// `application_create`
-@_cdecl("application_create")
 func application_create(_ process: UnsafeMutablePointer<process>) -> UnsafeMutablePointer<application>
 {
     let result = calloc(1, MemoryLayout<application>.size)!.bindMemory(to: application.self, capacity: 1)
@@ -186,7 +181,6 @@ func application_create(_ process: UnsafeMutablePointer<process>) -> UnsafeMutab
 }
 
 /// `application_destroy`
-@_cdecl("application_destroy")
 func application_destroy(_ target: UnsafeMutablePointer<application>)
 {
     target.pointee.ref.release()

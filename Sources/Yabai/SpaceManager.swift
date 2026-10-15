@@ -872,14 +872,7 @@ func space_manager_add_space(_ sid: UInt64) -> space_op_error
 @_cdecl("space_manager_is_window_on_space")
 func space_manager_is_window_on_space(_ sid: UInt64, _ win: UnsafeMutablePointer<window>) -> Bool
 {
-    var spaceCount: Int32 = 0
-    guard let spaceList = window_space_list(win.pointee.id, &spaceCount) else { return false }
-
-    for i in 0..<Int(spaceCount) {
-        if sid == spaceList[i] { return true }
-    }
-
-    return false
+    return window_space_list(win.pointee.id).contains(sid)
 }
 
 /// `space_manager_mark_spaces_invalid_for_display`

@@ -248,7 +248,6 @@ func workspace_application_observe_finished_launching(_ process: UnsafeMutablePo
 }
 
 /// `workspace_application_observe_activation_policy`: window_manager_begin calls it for a process that is not observable.
-@_cdecl("workspace_application_observe_activation_policy")
 func workspace_application_observe_activation_policy(_ process: UnsafeMutablePointer<process>)
 {
     workspaceApplicationAddObserver(process, KeyPath.activationPolicy)
@@ -283,7 +282,6 @@ func workspace_application_unobserve(_ process: UnsafeMutablePointer<process>)
 }
 
 /// `workspace_application_is_observable`: whether the process is a regular application; stores its policy.
-@_cdecl("workspace_application_is_observable")
 func workspace_application_is_observable(_ process: UnsafeMutablePointer<process>) -> Bool
 {
     if let application = runningApplication(process) {

@@ -186,7 +186,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     }
 }
 
-@WM private func mouseFindCon(_ targetView: View?, _ target: Window?) -> UnsafeMutablePointer<con>?
+@WM private func mouseFindCon(_ targetView: View?, _ target: Window?) -> Con?
 {
     guard let targetView, let target else { return nil }
     return tree_view_find_window(targetView, target.pointee.id)

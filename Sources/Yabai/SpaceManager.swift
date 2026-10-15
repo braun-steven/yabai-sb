@@ -78,7 +78,7 @@ func space_manager_find_view(_ sm: SpaceManager, _ sid: UInt64) -> View
 {
     if let found = sm.view.find(sid) { return found }
 
-    let created = viewCreate(sid)
+    let created = view_create(sid)
     sm.view.add(sid, created)
     return created
 }
@@ -202,7 +202,7 @@ func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ flag: view_f
 
     for target in sm.view.values {
         if !hasViewFlag(target, flag) {
-            view_spacing(target, flag).pointee = value
+            target[keyPath: view_spacing(flag)] = value
             view_update_and_flush(target)
         }
     }
@@ -929,7 +929,7 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: UInt32)
     guard let spaceList = displaySpaces(did) else { return }
 
     var viewList: [View?] = sm.view.values.map { Optional($0) }
-    var uuidList: [CFString?] = viewList.map { $0?.pointee.uuid?.takeUnretainedValue() }
+    var uuidList: [CFString?] = viewList.map { $0?.uuid }
 
     for sid in spaceList {
         guard let uuid = SLS.spaceNameObject(connection_global(), sid) else { continue }
@@ -941,13 +941,12 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: UInt32)
             uuidList[j] = nil
             viewList[j] = nil
 
-            sm.view.remove(target.pointee.sid)
-            target.pointee.uuid?.release()
+            sm.view.remove(target.sid)
 
-            label_replace_id(sm.labels, target.pointee.sid, sid)
+            label_replace_id(sm.labels, target.sid, sid)
 
-            target.pointee.sid = sid
-            target.pointee.uuid = Unmanaged.passRetained(uuid)
+            target.sid = sid
+            target.uuid = uuid
 
             sm.view.add(sid, target)
             break
@@ -984,7 +983,7 @@ func space_manager_begin(_ sm: SpaceManager)
         guard let spaceList = displaySpaces(did) else { continue }
 
         for sid in spaceList {
-            sm.view.add(sid, viewCreate(sid))
+            sm.view.add(sid, view_create(sid))
         }
     }
 

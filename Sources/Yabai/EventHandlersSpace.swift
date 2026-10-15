@@ -43,7 +43,6 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
         _ = label_remove_id(sm.labels, sid)
         sm.view.remove(sid)
         view_destroy(view)
-        free(view)
         eventSignalPush(.spaceDestroyed, signalContext(sid))
         space_layout_schedule(1.0, false)
     }

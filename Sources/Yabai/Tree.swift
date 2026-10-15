@@ -4,7 +4,7 @@ import YabaiC
 //
 // NOTE: The container model and the i3 algorithms that work on it. Nothing here talks to the
 // window server, so that it can be tested on its own. TreeView.swift applies a tree to the screen.
-// Ported from src/tree.c. The containers stay the C struct con until the model/bridge cleanup in P14.
+// Ported from src/tree.c.
 //
 // The structure is only changed through a few primitives, like sway does it: con_insert and
 // con_unlink add and remove a child, con_replace puts a container in the place of another,
@@ -12,42 +12,94 @@ import YabaiC
 // and tree_reap_empty closes the containers that are left without children.
 //
 
+/// `struct feedback_window` (view.h): the outline of a container.
+struct FeedbackWindow
+{
+    var id: UInt32 = 0
+    var context: CGContext?
+}
+
+//
+// NOTE: What TreeView.swift keeps on screen for a container: the tab that was ordered above the
+// others last (with the window and backdrop card it was ordered against), the outline window
+// and the tab bar. raised is one of the children, and the tree clears it when the child leaves.
+//
+
+/// `struct con_render`
+struct ConRender
+{
+    weak var raised: Con!
+    var raised_anchor: UInt32 = 0
+    var raised_card: UInt32 = 0
+    var feedback_window = FeedbackWindow()
+    let tab_bar = TabBar()
+}
+
+//
+// NOTE: A container owns its children; parent is weak, like the plain pointer of the C struct that the children kept.
+//
+
+/// `struct con`
+final class Con
+{
+    weak var parent: Con!
+    var children: [Con] = []
+    var focus: [Con] = []
+    var layout = CON_SPLITH
+    var last_split = CON_SPLITH
+    var percent: Float = 0
+    var window_id: UInt32 = 0
+    var area = YabaiC.area()
+    var zoom = CON_ZOOM_NONE
+    var selected = false
+    var insert_dir: Int32 = 0
+    var render = ConRender()
+
+    var child_count: Int32 { Int32(children.count) }
+
+    /// The container itself, for the code that still reads it like the C pointer.
+    var pointee: Con { self }
+}
+
+extension Con: Equatable
+{
+    static func == (a: Con, b: Con) -> Bool { a === b }
+}
+
 // TREE_MIN_PERCENT
 private let treeMinPercent: Float = 0.05
 
 private func child(_ node: Con, _ index: Int32) -> Con
 {
-    return node.pointee.children[Int(index)]!
+    return node.children[Int(index)]
 }
 
 private func focusChild(_ node: Con, _ index: Int32) -> Con
 {
-    return node.pointee.focus[Int(index)]!
+    return node.focus[Int(index)]
 }
 
 /// `con_create`
-@_cdecl("con_create")
 func con_create(_ layout: con_layout) -> Con!
 {
-    let node = calloc(1, MemoryLayout<con>.size)!.assumingMemoryBound(to: con.self)
-    node.pointee.layout = layout
-    node.pointee.last_split = layout == CON_TABBED ? CON_SPLITH : layout
+    let node = Con()
+    node.layout = layout
+    node.last_split = layout == CON_TABBED ? CON_SPLITH : layout
     return node
 }
 
-/// `con_free`
-@_cdecl("con_free")
+/// `con_free`: releases the windows of the container and its descendants on screen (outline, tab bar); the containers
+/// go away with the last reference.
 func con_free(_ node: Con!)
 {
-    for i in 0..<node.pointee.child_count {
+    for i in 0..<node.child_count {
         con_free(child(node, i))
     }
 
     treeFeedbackDestroy(node)
-    tab_bar_release(&node.pointee.render.tab_bar)
-    free(node.pointee.children)
-    free(node.pointee.focus)
-    free(node)
+    tab_bar_release(node.render.tab_bar)
+    node.children = []
+    node.focus = []
 }
 
 /// `con_is_leaf`
@@ -110,20 +162,6 @@ private func conFocusIndex(_ node: Con) -> Int32
     return -1
 }
 
-/// `con_reserve`
-private func conReserve(_ node: Con, _ count: Int32)
-{
-    if count <= node.pointee.child_capacity { return }
-
-    var capacity = node.pointee.child_capacity != 0 ? node.pointee.child_capacity * 2 : 4
-    while capacity < count { capacity *= 2 }
-
-    let size = MemoryLayout<Con?>.stride * Int(capacity)
-    node.pointee.children = realloc(node.pointee.children, size)!.assumingMemoryBound(to: Con?.self)
-    node.pointee.focus = realloc(node.pointee.focus, size)!.assumingMemoryBound(to: Con?.self)
-    node.pointee.child_capacity = capacity
-}
-
 //
 // NOTE: i3 con_fix_percent. Children without a share get the average share of the others,
 // then the shares are normalised so that they add up to 1.
@@ -172,21 +210,15 @@ private let conFocusTail: Int32 = -1
 /// `con_insert`
 private func conInsert(_ parent: Con, _ node: Con, _ index: Int32, _ focusIndex: Int32)
 {
-    conReserve(parent, parent.pointee.child_count + 1)
-
-    let count = parent.pointee.child_count
-    let stride = MemoryLayout<Con?>.stride
+    let count = parent.child_count
 
     let index = index < 0 || index > count ? count : index
-    memmove(parent.pointee.children + Int(index) + 1, parent.pointee.children + Int(index), stride * Int(count - index))
-    parent.pointee.children[Int(index)] = node
+    parent.children.insert(node, at: Int(index))
 
     let focusIndex = focusIndex < 0 || focusIndex > count ? count : focusIndex
-    memmove(parent.pointee.focus + Int(focusIndex) + 1, parent.pointee.focus + Int(focusIndex), stride * Int(count - focusIndex))
-    parent.pointee.focus[Int(focusIndex)] = node
+    parent.focus.insert(node, at: Int(focusIndex))
 
-    parent.pointee.child_count += 1
-    node.pointee.parent = parent
+    node.parent = parent
 
     //
     // NOTE: The new windows have to be ordered with the tabs of every tabbed container
@@ -207,14 +239,11 @@ private func conUnlink(_ node: Con)
 
     let index = con_index(node)
     let focusIndex = conFocusIndex(node)
-    let count = parent.pointee.child_count
-    let stride = MemoryLayout<Con?>.stride
 
-    memmove(parent.pointee.children + Int(index), parent.pointee.children + Int(index) + 1, stride * Int(count - index - 1))
-    memmove(parent.pointee.focus + Int(focusIndex), parent.pointee.focus + Int(focusIndex) + 1, stride * Int(count - focusIndex - 1))
+    parent.children.remove(at: Int(index))
+    parent.focus.remove(at: Int(focusIndex))
 
-    parent.pointee.child_count -= 1
-    if parent.pointee.render.raised == node { parent.pointee.render.raised = nil }
+    if parent.render.raised == node { parent.render.raised = nil }
     node.pointee.parent = nil
 }
 
@@ -268,7 +297,7 @@ private func conReparentChildren(_ from: Con, _ to: Con, _ index: Int32, _ focus
     let index = index < 0 || index > to.pointee.child_count ? to.pointee.child_count : index
     let focusIndex = focusIndex < 0 || focusIndex > to.pointee.child_count ? to.pointee.child_count : focusIndex
 
-    let focus = Array(UnsafeBufferPointer(start: from.pointee.focus, count: Int(count)))
+    let focus = from.focus
 
     for i in 0..<count {
         let next = child(from, 0)
@@ -276,11 +305,13 @@ private func conReparentChildren(_ from: Con, _ to: Con, _ index: Int32, _ focus
         conInsert(to, next, index + i, conFocusTail)
     }
 
-    let stride = MemoryLayout<Con?>.stride
-    memmove(to.pointee.focus + Int(focusIndex + count), to.pointee.focus + Int(focusIndex), stride * Int(to.pointee.child_count - count - focusIndex))
-    for i in 0..<Int(count) {
-        to.pointee.focus[Int(focusIndex) + i] = focus[i]
-    }
+    //
+    // NOTE: The children were appended to the focus order; they take the place at the focus index instead, in their
+    // own focus order (the memmove of the C version).
+    //
+
+    to.focus.removeLast(Int(count))
+    to.focus.insert(contentsOf: focus, at: Int(focusIndex))
 }
 
 //
@@ -339,7 +370,6 @@ private func conApplyWorkspaceLayout(_ node: Con)
 }
 
 /// `tree_attach`
-@_cdecl("tree_attach")
 func tree_attach(_ parent: Con!, _ node: Con!, _ index: Int32)
 {
     node.pointee.percent = 0.0
@@ -353,7 +383,6 @@ func tree_attach(_ parent: Con!, _ node: Con!, _ index: Int32)
 //
 
 /// `tree_detach`
-@_cdecl("tree_detach")
 @discardableResult
 func tree_detach(_ node: Con!) -> Con!
 {
@@ -370,7 +399,6 @@ func tree_detach(_ node: Con!) -> Con!
 //
 
 /// `tree_flatten`
-@_cdecl("tree_flatten")
 func tree_flatten(_ node: Con!)
 {
     // NOTE: flattening a child can change the count, so it is read on every pass like the C loop did
@@ -416,7 +444,6 @@ func tree_flatten(_ node: Con!)
 }
 
 /// `tree_find_window`
-@_cdecl("tree_find_window")
 func tree_find_window(_ root: Con!, _ windowID: UInt32) -> Con!
 {
     guard let root, windowID != 0 else { return nil }
@@ -585,15 +612,14 @@ func tree_con_is_visible(_ node: Con) -> Bool
 }
 
 /// `tree_focus`
-@_cdecl("tree_focus")
 func tree_focus(_ node: Con!)
 {
     var node: Con = node
-    while let parent = node.pointee.parent {
+    while let parent = node.parent {
         let focusIndex = conFocusIndex(node)
 
-        memmove(parent.pointee.focus + 1, parent.pointee.focus, MemoryLayout<Con?>.stride * Int(focusIndex))
-        parent.pointee.focus[0] = node
+        parent.focus.remove(at: Int(focusIndex))
+        parent.focus.insert(node, at: 0)
         node = parent
     }
 }
@@ -760,8 +786,8 @@ func tree_insert_con(_ node: Con, _ target: Con, _ position: tree_position)
             if movesFocus && focusBefore {
                 let conFocus = conFocusIndex(conAncestor)
                 let targetFocus = conFocusIndex(targetAncestor)
-                memmove(lca.pointee.focus + Int(conFocus) + 1, lca.pointee.focus + Int(conFocus), MemoryLayout<Con?>.stride * Int(targetFocus - conFocus))
-                lca.pointee.focus[Int(conFocus)] = targetAncestor
+                lca.focus.remove(at: Int(targetFocus))
+                lca.focus.insert(targetAncestor, at: Int(conFocus))
             }
         }
 
@@ -886,7 +912,6 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Int32, _ hasOutput: Bool) 
 //
 
 /// `tree_insert_relative`
-@_cdecl("tree_insert_relative")
 func tree_insert_relative(_ target: Con!, _ node: Con!, _ direction: Int32)
 {
     if direction == STACK {
@@ -1237,7 +1262,6 @@ func tree_bar_card_inset(_ area: area, _ barHeight: Int32, _ barInset: Int32) ->
 }
 
 /// `tree_update`
-@_cdecl("tree_update")
 func tree_update(_ node: Con!, _ area: area, _ gap: Int32, _ barHeight: Int32, _ barOffset: Int32, _ barInset: Int32)
 {
     node.pointee.area = area

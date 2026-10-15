@@ -24,10 +24,10 @@ private func knownFocusPSN(_ low: UInt32) -> ProcessSerialNumber
     // NOTE: The known focus is used only while the front process owns it and no focus change is pending.
     //
 
-    #expect(space_manager_can_use_known_focus(&owner, wm,false) == true)
-    #expect(space_manager_can_use_known_focus(&other, wm,false) == false)
-    #expect(space_manager_can_use_known_focus(&owner, wm,true) == false)
+    #expect(space_manager_can_use_known_focus(&owner, wm, false) == true)
+    #expect(space_manager_can_use_known_focus(&other, wm, false) == false)
+    #expect(space_manager_can_use_known_focus(&owner, wm, true) == false)
 
     wm.focused_window_id = 0
-    #expect(space_manager_can_use_known_focus(&owner, wm,false) == false)
+    #expect(space_manager_can_use_known_focus(&owner, wm, false) == false)
 }

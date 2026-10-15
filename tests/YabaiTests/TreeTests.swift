@@ -37,8 +37,7 @@ private func treeTestCon(_ windowID: UInt32) -> Con
 /// `tree_view_test_view`
 private func treeViewTestView(_ root: Con?) -> View
 {
-    let target = View.allocate(capacity: 1)
-    target.initialize(to: view())
+    let target = View()
     target.pointee.layout = VIEW_TREE
     target.pointee.tree = root
     return target
@@ -108,7 +107,7 @@ extension DaemonState
             #expect(treeTestChild(root, 2) == 3)
 
             var total: Float = 0.0
-            for i in 0..<Int(root.pointee.child_count) { total += root.pointee.children[i]!.pointee.percent }
+            for i in 0..<Int(root.pointee.child_count) { total += root.children[i].percent }
             #expect(Int32(total * 100 + 0.5) == 100)
 
             // a single split around a window is kept, so that the next window opens inside of it
@@ -247,15 +246,15 @@ extension DaemonState
             #expect(tree_move(root, b, DIR_SOUTH, false) == TREE_RESULT_DONE)
             #expect(root.pointee.layout == CON_SPLITV)
             #expect(root.pointee.child_count == 2)
-            #expect(root.pointee.children[0]!.pointee.layout == CON_SPLITH)
-            #expect(treeTestChild(root.pointee.children[0]!, 0) == 1)
+            #expect(root.children[0].pointee.layout == CON_SPLITH)
+            #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(treeTestChild(root, 1) == 2)
 
             // moving it back up enters the horizontal container next to window 1, like i3 does
             #expect(tree_move(root, b, DIR_NORTH, false) == TREE_RESULT_DONE)
             #expect(root.pointee.child_count == 1)
-            #expect(treeTestChild(root.pointee.children[0]!, 0) == 1)
-            #expect(treeTestChild(root.pointee.children[0]!, 1) == 2)
+            #expect(treeTestChild(root.children[0], 0) == 1)
+            #expect(treeTestChild(root.children[0], 1) == 2)
 
             Yabai.con_free(root)
         }
@@ -467,7 +466,7 @@ extension DaemonState
             let a = treeTestLeaf(h, 1)
             treeTestLeaf(h, 2)
             a.pointee.percent = 0.7
-            h.pointee.children[1]!.pointee.percent = 0.3
+            h.children[1].pointee.percent = 0.3
             Yabai.tree_focus(a)
 
             Yabai.tree_flatten(root)
@@ -495,7 +494,7 @@ extension DaemonState
             #expect(a.pointee.parent.pointee.parent == root)
 
             // a tall window in a vertical split stays, the new window goes below it
-            let b = root.pointee.children[1]!
+            let b = root.children[1]
             b.pointee.area.w = 400
             b.pointee.area.h = 800
             tree_autotile(b)
@@ -570,7 +569,7 @@ extension DaemonState
             let a = treeTestCon(1)
             tree_open_con(root, a, nil, false)
             #expect(root.pointee.child_count == 1)
-            #expect(root.pointee.children[0]!.pointee.layout == CON_TABBED)
+            #expect(root.children[0].pointee.layout == CON_TABBED)
             let t = a.pointee.parent!
 
             let b = treeTestCon(2)
@@ -581,8 +580,8 @@ extension DaemonState
             // a tab that moves out to the workspace gets its own tabbed container, like i3 workspace_layout
             #expect(tree_move(root, a, DIR_WEST, false) == TREE_RESULT_DONE)
             #expect(root.pointee.child_count == 2)
-            #expect(root.pointee.children[0]!.pointee.layout == CON_TABBED)
-            #expect(treeTestChild(root.pointee.children[0]!, 0) == 1)
+            #expect(root.children[0].pointee.layout == CON_TABBED)
+            #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(root.pointee.children[1] == t)
 
             Yabai.con_free(root)
@@ -776,7 +775,7 @@ extension DaemonState
             #expect(list == [2, 3, 4])
 
             list = []
-            tree_collect_window_ids(v.pointee.children[1]!, &list)
+            tree_collect_window_ids(v.children[1], &list)
             #expect(list == [4])
 
             Yabai.con_free(root)
@@ -790,13 +789,11 @@ extension DaemonState
             for wid in UInt32(1)...10 { treeTestLeaf(tabs, wid) }
             for wid in UInt32(11)...20 { treeTestLeaf(root, wid) }
             let target = treeViewTestView(root)
-            defer { target.deallocate() }
 
             // NOTE: the C test checked that the list grows past its initial capacity; the list is an array now
             #expect(treeViewWindowList(target) == Array(UInt32(1)...20))
 
             let empty = treeViewTestView(nil)
-            defer { empty.deallocate() }
             #expect(treeViewWindowList(empty).isEmpty)
 
             Yabai.con_free(root)
@@ -810,7 +807,6 @@ extension DaemonState
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(root, 2)
             let target = treeViewTestView(root)
-            defer { target.deallocate() }
 
             root.pointee.area  = area(x: 0,   y: 0, w: 1000, h: 800)
             split.pointee.area = area(x: 0,   y: 0, w: 500,  h: 800)

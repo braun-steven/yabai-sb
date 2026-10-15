@@ -1,9 +1,6 @@
 #ifndef VIEW_H
 #define VIEW_H
 
-#define AX_ABS(a, b) (((a) - (b) < 0) ? (((a) - (b)) * -1) : ((a) - (b)))
-#define AX_DIFF(a, b) (AX_ABS(a, b) >= 1.5f)
-
 struct area
 {
     float x;
@@ -34,28 +31,7 @@ enum window_split
     SPLIT_X
 };
 
-struct feedback_window
-{
-    uint32_t id;
-    CGContextRef context;
-};
-
 #define TAB_BAR_MAX_ENTRY_COUNT 64
-struct tab_bar
-{
-    uint32_t id;
-    CGContextRef context;
-    CGRect frame;
-    CGRect card;
-    uint64_t sid;
-    uint32_t above_wid;
-    bool hidden;
-    int entry_count;
-    uint32_t entry_list[TAB_BAR_MAX_ENTRY_COUNT];
-    void *glass;
-    void *owner;
-    void (*redraw)(void *owner);
-};
 
 enum view_type
 {
@@ -80,54 +56,8 @@ enum view_flag
     VIEW_IS_UNPADDED    = 0x2000,
 };
 
-struct view
-{
-    CFStringRef uuid;
-    uint64_t sid;
-    struct area area;
-    struct con *tree;
-    uint32_t insertion_point;
-    enum view_type layout;
-    int top_padding;
-    int bottom_padding;
-    int left_padding;
-    int right_padding;
-    int window_gap;
-    bool auto_padding;
-    uint64_t flags;
-};
-
-#define view_check_flag(v, x) ((v)->flags  &  (x))
-#define view_clear_flag(v, x) ((v)->flags &= ~(x))
-#define view_set_flag(v, x)   ((v)->flags |=  (x))
-
-static inline int *view_spacing(struct view *view, enum view_flag flag)
-{
-    switch (flag) {
-    case VIEW_TOP_PADDING:    return &view->top_padding;
-    case VIEW_BOTTOM_PADDING: return &view->bottom_padding;
-    case VIEW_LEFT_PADDING:   return &view->left_padding;
-    case VIEW_RIGHT_PADDING:  return &view->right_padding;
-    case VIEW_WINDOW_GAP:     return &view->window_gap;
-    default:                  assert(0); return NULL;
-    }
-}
-
-// implemented in Sources/Yabai/View.swift (the geometry is ViewArea in Sources/YabaiCore/ViewArea.swift)
-uint32_t *view_find_window_list(struct view *view, int *window_count);
-
-int view_window_gap(struct view *view);
-bool view_auto_padding_applies(enum view_type layout, bool auto_padding, int tiled_count);
-int view_tiled_count(struct view *view);
-bool view_update_auto_padding(struct view *view);
-
-bool view_is_invalid(struct view *view);
-bool view_is_dirty(struct view *view);
-void view_flush(struct view *view);
-void view_update(struct view *view);
-void view_update_and_flush(struct view *view);
-struct view *view_create(uint64_t sid);
-void view_destroy(struct view *view);
-void view_clear(struct view *view);
+//
+// NOTE: The views are Swift (Sources/Yabai/View.swift; the geometry is ViewArea in Sources/YabaiCore/ViewArea.swift).
+//
 
 #endif

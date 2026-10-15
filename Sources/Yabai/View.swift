@@ -5,32 +5,69 @@ import YabaiCore
 
 //
 // NOTE: A view is the layout state of one space: its tree, its area and its padding and gap. Ported from src/view.c.
-// struct view stays C while border.c, tab_bar.c, mouse_handler.c and rule.c read its fields.
 //
+
+/// `struct view`
+final class View
+{
+    var uuid: CFString?
+    var sid: UInt64 = 0
+    var area = YabaiC.area()
+    var tree: Con!
+    var insertion_point: UInt32 = 0
+    var layout = VIEW_DEFAULT
+    var top_padding: Int32 = 0
+    var bottom_padding: Int32 = 0
+    var left_padding: Int32 = 0
+    var right_padding: Int32 = 0
+    var window_gap: Int32 = 0
+    var auto_padding = false
+    var flags: UInt64 = 0
+
+    /// The view itself, for the code that still reads it like the C pointer.
+    var pointee: View { self }
+}
+
+extension View: Equatable
+{
+    static func == (a: View, b: View) -> Bool { a === b }
+}
+
+/// `view_spacing`: the padding or gap of the view that flag names.
+func view_spacing(_ flag: view_flag) -> ReferenceWritableKeyPath<View, Int32>
+{
+    switch flag {
+    case VIEW_TOP_PADDING:    \.top_padding
+    case VIEW_BOTTOM_PADDING: \.bottom_padding
+    case VIEW_LEFT_PADDING:   \.left_padding
+    case VIEW_RIGHT_PADDING:  \.right_padding
+    case VIEW_WINDOW_GAP:     \.window_gap
+    default:                  preconditionFailure("view_spacing: \(flag.rawValue) is not a spacing")
+    }
+}
 
 /// `view_check_flag`
 func hasViewFlag(_ target: View, _ flag: view_flag) -> Bool
 {
-    return target.pointee.flags & UInt64(flag.rawValue) != 0
+    return target.flags & UInt64(flag.rawValue) != 0
 }
 
 /// `view_set_flag`
 func setViewFlag(_ target: View, _ flag: view_flag)
 {
-    target.pointee.flags |= UInt64(flag.rawValue)
+    target.flags |= UInt64(flag.rawValue)
 }
 
 /// `view_clear_flag`
 func clearViewFlag(_ target: View, _ flag: view_flag)
 {
-    target.pointee.flags &= ~UInt64(flag.rawValue)
+    target.flags &= ~UInt64(flag.rawValue)
 }
 
 /// `view_window_gap`
-@_cdecl("view_window_gap")
 func view_window_gap(_ target: View) -> Int32
 {
-    return ViewArea.windowGap(gapEnabled: hasViewFlag(target, VIEW_ENABLE_GAP), windowGap: target.pointee.window_gap)
+    return ViewArea.windowGap(gapEnabled: hasViewFlag(target, VIEW_ENABLE_GAP), windowGap: target.window_gap)
 }
 
 /// `view_add_window`
@@ -53,31 +90,27 @@ func view_remove_window(_ target: View, _ win: Window) -> Bool
 }
 
 /// `view_find_window_list`
-@_cdecl("view_find_window_list")
-func view_find_window_list(_ target: View, _ windowCount: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<UInt32>?
+func view_find_window_list(_ target: View) -> [UInt32]
 {
-    return tree_view_window_list(target, windowCount)
+    return treeViewWindowList(target)
 }
 
 /// `view_is_invalid`
-@_cdecl("view_is_invalid")
 func view_is_invalid(_ target: View) -> Bool
 {
     return !hasViewFlag(target, VIEW_IS_VALID)
 }
 
 /// `view_is_dirty`
-@_cdecl("view_is_dirty")
 func view_is_dirty(_ target: View) -> Bool
 {
     return hasViewFlag(target, VIEW_IS_DIRTY)
 }
 
 /// `view_flush`: lays out the tree when the space is visible, otherwise keeps the view dirty until it is.
-@_cdecl("view_flush")
 func view_flush(_ target: View)
 {
-    if space_is_visible(target.pointee.sid) {
+    if space_is_visible(target.sid) {
         tree_flush(target)
         clearViewFlag(target, VIEW_IS_DIRTY)
     } else {
@@ -86,14 +119,12 @@ func view_flush(_ target: View)
 }
 
 /// `view_auto_padding_applies`
-@_cdecl("view_auto_padding_applies")
 func view_auto_padding_applies(_ layout: view_type, _ autoPadding: Bool, _ tiledCount: Int32) -> Bool
 {
     return ViewArea.autoPaddingApplies(isTree: layout == VIEW_TREE, autoPadding: autoPadding, tiledCount: Int(tiledCount))
 }
 
 /// `view_tiled_count`
-@_cdecl("view_tiled_count")
 func view_tiled_count(_ target: View) -> Int32
 {
     return tree_view_tiled_count(target)
@@ -105,10 +136,10 @@ func view_root_area(_ target: View, _ frame: CGRect) -> area
     let root = ViewArea.rootArea(Area(frame),
                                  paddingEnabled: hasViewFlag(target, VIEW_ENABLE_PADDING),
                                  unpadded: hasViewFlag(target, VIEW_IS_UNPADDED),
-                                 top: target.pointee.top_padding,
-                                 bottom: target.pointee.bottom_padding,
-                                 left: target.pointee.left_padding,
-                                 right: target.pointee.right_padding)
+                                 top: target.top_padding,
+                                 bottom: target.bottom_padding,
+                                 left: target.left_padding,
+                                 right: target.right_padding)
 
     return area(x: root.x, y: root.y, w: root.w, h: root.h)
 }
@@ -122,9 +153,9 @@ private func view_update_with_auto_padding(_ target: View, _ unpadded: Bool)
         clearViewFlag(target, VIEW_IS_UNPADDED)
     }
 
-    let did = space_display_id(target.pointee.sid)
+    let did = space_display_id(target.sid)
     let frame = display_bounds_constrained(did, false)
-    target.pointee.area = view_root_area(target, frame)
+    target.area = view_root_area(target, frame)
 
     tree_view_update(target)
     setViewFlag(target, VIEW_IS_VALID)
@@ -137,10 +168,9 @@ private func view_update_with_auto_padding(_ target: View, _ unpadded: Bool)
 //
 
 /// `view_update_auto_padding`
-@_cdecl("view_update_auto_padding")
 func view_update_auto_padding(_ target: View) -> Bool
 {
-    let unpadded = view_auto_padding_applies(target.pointee.layout, target.pointee.auto_padding, view_tiled_count(target))
+    let unpadded = view_auto_padding_applies(target.layout, target.auto_padding, view_tiled_count(target))
     if unpadded == hasViewFlag(target, VIEW_IS_UNPADDED) { return false }
 
     view_update_with_auto_padding(target, unpadded)
@@ -148,14 +178,12 @@ func view_update_auto_padding(_ target: View) -> Bool
 }
 
 /// `view_update`
-@_cdecl("view_update")
 func view_update(_ target: View)
 {
-    view_update_with_auto_padding(target, view_auto_padding_applies(target.pointee.layout, target.pointee.auto_padding, view_tiled_count(target)))
+    view_update_with_auto_padding(target, view_auto_padding_applies(target.layout, target.auto_padding, view_tiled_count(target)))
 }
 
 /// `view_update_and_flush`
-@_cdecl("view_update_and_flush")
 func view_update_and_flush(_ target: View)
 {
     view_update(target)
@@ -163,49 +191,46 @@ func view_update_and_flush(_ target: View)
 }
 
 /// `view_create`: the view of a space, with the layout of the space manager for user spaces.
-@_cdecl("view_create")
-func viewCreate(_ sid: UInt64) -> View
+func view_create(_ sid: UInt64) -> View
 {
-    let target = calloc(1, MemoryLayout<view>.stride)!.bindMemory(to: view.self, capacity: 1)
+    let target = View()
 
-    target.pointee.sid = sid
-    target.pointee.uuid = SLS.spaceNameObject(connection_global(), sid).map { Unmanaged.passRetained($0) }
+    target.sid = sid
+    target.uuid = SLS.spaceNameObject(connection_global(), sid)
 
     setViewFlag(target, VIEW_ENABLE_PADDING)
     setViewFlag(target, VIEW_ENABLE_GAP)
 
-    if space_is_user(target.pointee.sid) {
+    if space_is_user(target.sid) {
         let sm = space_manager_global()
 
-        target.pointee.layout         = sm.layout
-        target.pointee.top_padding    = sm.top_padding
-        target.pointee.bottom_padding = sm.bottom_padding
-        target.pointee.left_padding   = sm.left_padding
-        target.pointee.right_padding  = sm.right_padding
-        target.pointee.window_gap     = sm.window_gap
-        target.pointee.auto_padding   = sm.auto_padding
+        target.layout         = sm.layout
+        target.top_padding    = sm.top_padding
+        target.bottom_padding = sm.bottom_padding
+        target.left_padding   = sm.left_padding
+        target.right_padding  = sm.right_padding
+        target.window_gap     = sm.window_gap
+        target.auto_padding   = sm.auto_padding
         view_update(target)
     } else {
-        target.pointee.layout = VIEW_FLOAT
+        target.layout = VIEW_FLOAT
     }
 
     return target
 }
 
 /// `view_clear`
-@_cdecl("view_clear")
 func view_clear(_ target: View)
 {
-    target.pointee.insertion_point = 0
+    target.insertion_point = 0
     tree_view_clear(target)
     view_update(target)
 }
 
-/// `view_destroy`: releases the name of the space. The struct itself is not freed, as before the port.
-@_cdecl("view_destroy")
+/// `view_destroy`: releases the name of the space.
 func view_destroy(_ target: View)
 {
     tree_view_clear(target)
 
-    target.pointee.uuid?.release()
+    target.uuid = nil
 }

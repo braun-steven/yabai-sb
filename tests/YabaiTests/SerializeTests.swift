@@ -50,19 +50,19 @@ extension DaemonState
             let tabs = treeTestSplit(root, CON_TABBED)
             treeTestLeaf(tabs, 7)
 
-            var testView = view()
+            let testView = View()
             testView.layout = VIEW_TREE
             testView.tree = root
 
             var response = Response()
-            #expect(treeSerialize(&response, &testView))
+            #expect(treeSerialize(&response, testView))
             #expect(response.text.hasPrefix("{\"type\":\"workspace\",\"layout\":\"splith\""))
             #expect(response.text.contains("{\"type\":\"container\",\"layout\":\"tabbed\""))
             #expect(response.text.contains("{\"type\":\"window\",\"layout\":null,\"percent\":1.0000,\"window\":7"))
 
             testView.layout = VIEW_FLOAT
             var floating = Response()
-            #expect(!treeSerialize(&floating, &testView))
+            #expect(!treeSerialize(&floating, testView))
             #expect(floating.bytes.isEmpty)
         }
     }

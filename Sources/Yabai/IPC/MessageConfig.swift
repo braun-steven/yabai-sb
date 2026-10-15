@@ -641,7 +641,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
     } else if let flag = spacing(for: command) {
         let view = selSid != 0 ? space_manager_find_view(sm, selSid) : nil
-        let spacing = view.map { view_spacing($0, flag)!.pointee } ?? sm[keyPath: space_manager_spacing(flag)]
+        let spacing = view.map { $0[keyPath: view_spacing(flag)] } ?? sm[keyPath: space_manager_spacing(flag)]
         let token = message.next()
         switch token.value {
         case .invalid:
@@ -649,7 +649,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         case .int(let value):
             if let view {
                 view.pointee.flags |= UInt64(flag.rawValue)
-                view_spacing(view, flag)!.pointee = value
+                view[keyPath: view_spacing(flag)] = value
                 view_update_and_flush(view)
             } else {
                 space_manager_set_spacing_for_all_spaces(sm, flag, value)

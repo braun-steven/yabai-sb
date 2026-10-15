@@ -17,8 +17,7 @@ extension DaemonState
         /// `auto_padding_view_init`: a tree view with padding and a gap, and auto_padding on.
         private func autoPaddingView() -> View
         {
-            let target = View.allocate(capacity: 1)
-            target.initialize(to: view())
+            let target = View()
 
             target.pointee.tree = Yabai.con_create(CON_SPLITH)
             target.pointee.layout = VIEW_TREE
@@ -38,7 +37,6 @@ extension DaemonState
         func autoPaddingTiledCount()
         {
             let target = autoPaddingView()
-            defer { target.deallocate() }
 
             #expect(view_tiled_count(target) == 0)
 
@@ -81,7 +79,6 @@ extension DaemonState
         func autoPaddingGap()
         {
             let target = autoPaddingView()
-            defer { target.deallocate() }
 
             let a = treeTestLeaf(target.pointee.tree, 1)
             let b = treeTestLeaf(target.pointee.tree, 2)
@@ -122,7 +119,6 @@ extension DaemonState
         func autoPaddingSplitInTab()
         {
             let target = autoPaddingView()
-            defer { target.deallocate() }
             target.pointee.tree.pointee.layout = CON_TABBED
 
             let split = Yabai.con_create(CON_SPLITH)!

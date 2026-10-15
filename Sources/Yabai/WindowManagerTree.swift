@@ -81,7 +81,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 
     guard let selected = tree_find_selected(owner.pointee.tree), selected.pointee.child_count != 0 else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
 
-    let child = selected.pointee.focus[0]!
+    let child = selected.focus[0]
     if con_is_leaf(child) {
         tree_select(owner.pointee.tree, nil)
         windowManagerFocusWindowID(wm, child.pointee.window_id)

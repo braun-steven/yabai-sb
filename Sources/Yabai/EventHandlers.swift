@@ -13,7 +13,6 @@ import YabaiCore
 // Ported from src/event_handlers.c.
 //
 
-typealias View = UnsafeMutablePointer<view>
 
 //
 // NOTE: Set by producers on other threads and read by the handlers.

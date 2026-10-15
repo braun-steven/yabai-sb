@@ -33,13 +33,6 @@ static inline CGRect tab_bar_slot(CGRect area, int index, int count)
     return (CGRect) {{x0, area.origin.y}, {x1 - x0, area.size.height}};
 }
 
-// implemented in Swift
-void *_Nullable tab_bar_glass_create(void);
-void tab_bar_glass_hide_panel(void *glass);
-void tab_bar_glass_order_above(void *glass, uint32_t wid);
-void tab_bar_glass_destroy(void *glass);
-uint32_t tab_bar_glass_id(void *glass);
-
 CF_ASSUME_NONNULL_END
 
 #endif

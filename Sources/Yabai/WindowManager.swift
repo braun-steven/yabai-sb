@@ -10,8 +10,6 @@ import YabaiC
 // a space after Mission Control and display changes. Ported from src/window_manager.c.
 //
 
-typealias Con = UnsafeMutablePointer<con>
-
 /// `struct scratchpad`: the window manager owns the malloc'ed label.
 struct Scratchpad
 {
@@ -1225,13 +1223,12 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 /// `window_manager_validate_windows_on_space`
 private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [UInt32])
 {
-    var viewWindowCount: Int32 = 0
-    let viewWindowList = view_find_window_list(owner, &viewWindowCount)
+    let viewWindowList = view_find_window_list(owner)
 
-    for i in 0..<Int(viewWindowCount) {
-        if windowList.contains(viewWindowList![i]) { continue }
+    for i in 0..<viewWindowList.count {
+        if windowList.contains(viewWindowList[i]) { continue }
 
-        guard let target = window_manager_find_window(wm, viewWindowList![i]) else { continue }
+        guard let target = window_manager_find_window(wm, viewWindowList[i]) else { continue }
 
         //
         // @cleanup

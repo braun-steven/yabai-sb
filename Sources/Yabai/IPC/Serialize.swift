@@ -85,10 +85,10 @@ func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 
 // MARK: Spaces
 
-private func viewUUID(_ view: UnsafeMutablePointer<view>) -> String
+private func viewUUID(_ view: View) -> String
 {
-    guard let uuid = view.pointee.uuid else { return "<unknown>" }
-    return uuid.takeUnretainedValue() as String
+    guard let uuid = view.uuid else { return "<unknown>" }
+    return uuid as String
 }
 
 //
@@ -102,13 +102,13 @@ private func viewWindowList(_ sid: UInt64) -> String
     return jsonList((0..<Int(count)).map { Int32(bitPattern: windowList[$0]) })
 }
 
-private func viewFirstWindow(_ view: UnsafeMutablePointer<view>) -> UInt32
+private func viewFirstWindow(_ view: View) -> UInt32
 {
     guard let tree = view.pointee.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return 0 }
     return first.pointee.window_id
 }
 
-private func viewLastWindow(_ view: UnsafeMutablePointer<view>) -> UInt32
+private func viewLastWindow(_ view: View) -> UInt32
 {
     guard let tree = view.pointee.tree, let last = tree_last_leaf(tree) else { return 0 }
     return last.pointee.window_id
@@ -118,7 +118,7 @@ private func viewLastWindow(_ view: UnsafeMutablePointer<view>) -> UInt32
 private let viewTypeNames = ["default", "float", "tree"]
 
 /// `view_serialize`
-func viewSerialize(_ view: UnsafeMutablePointer<view>, _ flags: UInt64) -> String
+func viewSerialize(_ view: View, _ flags: UInt64) -> String
 {
     let sm = space_manager_global()
     let sid = view.pointee.sid
@@ -222,7 +222,7 @@ private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: UInt32, _ flag
 }
 
 /// `window_info_set_tree`: the split, stack index and zoom of the container of a managed window.
-func windowInfoSetTree(_ info: inout WindowInfo, _ node: UnsafeMutablePointer<con>?)
+func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 {
     guard let node else { return }
 
@@ -382,7 +382,7 @@ func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64
 
 // MARK: Tree
 
-private func treeSerializeCon(_ output: inout String, _ view: UnsafeMutablePointer<view>, _ node: UnsafeMutablePointer<con>, _ depth: Int)
+private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
 {
     let leaf = con_is_leaf(node)
     let frame = leaf ? tree_con_frame(view, node) : node.pointee.area
@@ -402,7 +402,7 @@ private func treeSerializeCon(_ output: inout String, _ view: UnsafeMutablePoint
     let childCount = Int(node.pointee.child_count)
     for i in 0..<childCount {
         output += i != 0 ? ",\n" : "\n"
-        treeSerializeCon(&output, view, node.pointee.children[i]!, depth + 1)
+        treeSerializeCon(&output, view, node.children[i], depth + 1)
     }
 
     output += childCount != 0 ? "\n]}" : "]}"
@@ -414,7 +414,7 @@ private func treeSerializeCon(_ output: inout String, _ view: UnsafeMutablePoint
 //
 
 /// `tree_serialize`
-func treeSerialize(_ rsp: inout Response, _ view: UnsafeMutablePointer<view>) -> Bool
+func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
 {
     guard view.pointee.layout == VIEW_TREE else { return false }
 

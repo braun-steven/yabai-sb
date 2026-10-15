@@ -40,7 +40,7 @@ private struct Snapshot: @unchecked Sendable
     // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
     // AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window.
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
-    init(_ bar: UnsafeMutablePointer<tab_bar>, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<tab_bar_entry>, _ count: Int32)
+    init(_ bar: TabBar, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
     {
         let wm = window_manager_global()
         frame = bar.pointee.frame
@@ -61,7 +61,7 @@ private struct Snapshot: @unchecked Sendable
         for i in 0..<Int(count) {
             let source = list[i]
             let (background, text) = tabBarStateColors(source.state)
-            entries.append(Entry(title: source.title?.takeUnretainedValue(), icon: source.icon?.takeUnretainedValue(), text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED))
+            entries.append(Entry(title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED))
             if source.state == TAB_BAR_FOCUSED {
                 pill = tab_bar_glass_tint(background, wm.tab_bar_focused_color_custom, 0.8)
             } else if source.state == TAB_BAR_INACTIVE {
@@ -401,7 +401,6 @@ private func onMain(_ glass: UnsafeMutableRawPointer, _ body: @escaping @MainAct
     }
 }
 
-@_cdecl("tab_bar_glass_create")
 func tab_bar_glass_create() -> UnsafeMutableRawPointer?
 {
     return Unmanaged.passRetained(TabBarGlass()).toOpaque()
@@ -412,13 +411,11 @@ private func tabBarGlassApply(_ glass: UnsafeMutableRawPointer, _ snapshot: Snap
     onMain(glass) { $0.apply(snapshot) }
 }
 
-@_cdecl("tab_bar_glass_hide_panel")
 func tab_bar_glass_hide_panel(_ glass: UnsafeMutableRawPointer)
 {
     onMain(glass) { $0.hide() }
 }
 
-@_cdecl("tab_bar_glass_order_above")
 func tab_bar_glass_order_above(_ glass: UnsafeMutableRawPointer, _ wid: UInt32)
 {
     onMain(glass) { $0.order(wid) }
@@ -429,14 +426,12 @@ func tab_bar_glass_order_above(_ glass: UnsafeMutableRawPointer, _ wid: UInt32)
 // them releases the object.
 //
 
-@_cdecl("tab_bar_glass_destroy")
 func tab_bar_glass_destroy(_ glass: UnsafeMutableRawPointer)
 {
     onMain(glass) { $0.close() }
     Unmanaged<TabBarGlass>.fromOpaque(glass).release()
 }
 
-@_cdecl("tab_bar_glass_id")
 func tab_bar_glass_id(_ glass: UnsafeMutableRawPointer) -> UInt32
 {
     return Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue().id
@@ -446,7 +441,6 @@ func tab_bar_glass_id(_ glass: UnsafeMutableRawPointer) -> UInt32
 // NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
 // with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
 //
-@_cdecl("tab_bar_glass_tint")
 func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> rgba_color
 {
     var color = color
@@ -476,29 +470,29 @@ func tab_bar_glass_order_panel(_ wid: UInt32, _ below: Bool, _ relativeWid: UInt
     if below { border_window_ordered(relativeWid) }
 }
 
-func tab_bar_glass_render(_ bar: UnsafeMutablePointer<tab_bar>, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<tab_bar_entry>, _ count: Int32)
+func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
 {
     let snapshot = Snapshot(bar, aboveWid, entries, count)
     if bar.pointee.glass == nil { bar.pointee.glass = tab_bar_glass_create() }
     tabBarGlassApply(bar.pointee.glass!, snapshot)
 }
 
-func tab_bar_glass_hide(_ bar: UnsafeMutablePointer<tab_bar>)
+func tab_bar_glass_hide(_ bar: TabBar)
 {
     if let glass = bar.pointee.glass { tab_bar_glass_hide_panel(glass) }
 }
 
-func tab_bar_glass_order(_ bar: UnsafeMutablePointer<tab_bar>, _ wid: UInt32)
+func tab_bar_glass_order(_ bar: TabBar, _ wid: UInt32)
 {
     if let glass = bar.pointee.glass { tab_bar_glass_order_above(glass, wid) }
 }
 
-func tab_bar_glass_release(_ bar: UnsafeMutablePointer<tab_bar>)
+func tab_bar_glass_release(_ bar: TabBar)
 {
     if let glass = bar.pointee.glass { tab_bar_glass_destroy(glass) }
 }
 
-func tab_bar_glass_panel_id(_ bar: UnsafeMutablePointer<tab_bar>) -> UInt32
+func tab_bar_glass_panel_id(_ bar: TabBar) -> UInt32
 {
     bar.pointee.glass.map { tab_bar_glass_id($0) } ?? 0
 }

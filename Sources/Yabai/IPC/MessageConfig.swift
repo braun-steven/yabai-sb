@@ -312,7 +312,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     let value = message.next()
 
     if !value.isValid {
-        let layout = selSid != 0 ? space_manager_find_view(sm, selSid).pointee.layout : sm.layout
+        let layout = selSid != 0 ? space_manager_find_view(sm, selSid).layout : sm.layout
         rsp.write("\(viewTypeNames[Int(layout.rawValue)])\n")
         return
     }
@@ -328,7 +328,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if !space_is_user(selSid) {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
     } else {
-        space_manager_find_view(sm, selSid).pointee.flags |= UInt64(VIEW_LAYOUT.rawValue)
+        space_manager_find_view(sm, selSid).flags |= UInt64(VIEW_LAYOUT.rawValue)
         space_manager_set_layout_for_space(sm, selSid, layout)
     }
 }
@@ -649,7 +649,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             rsp.write("\(spacing)\n")
         case .int(let value):
             if let view {
-                view.pointee.flags |= UInt64(flag.rawValue)
+                view.flags |= UInt64(flag.rawValue)
                 view[keyPath: view_spacing(flag)] = value
                 view_update_and_flush(view)
             } else {
@@ -676,7 +676,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         }
     } else if command.equals(Config.autoPadding) {
         if selSid != 0 {
-            var enabled = space_manager_find_view(sm, selSid).pointee.auto_padding
+            var enabled = space_manager_find_view(sm, selSid).auto_padding
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_space(sm, selSid, enabled) }
         } else {
             var enabled = sm.auto_padding

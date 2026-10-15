@@ -103,10 +103,10 @@ func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer
 /// `window_manager_focus_window_without_raise_deferred`
 func window_manager_focus_window_without_raise_deferred(_ target: Window)
 {
-    windowManagerPostFocusRecord(&target.pointee.application.pointee.psn, target.pointee.id, 0x01)
+    windowManagerPostFocusRecord(&target.application.psn, target.id, 0x01)
 
-    _SLPSSetFrontProcessWithOptions(&target.pointee.application.pointee.psn, target.pointee.id, UInt32(kCPSUserGenerated))
-    windowManagerMakeKeyWindow(&target.pointee.application.pointee.psn, target.pointee.id)
+    _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id, UInt32(kCPSUserGenerated))
+    windowManagerMakeKeyWindow(&target.application.psn, target.id)
 }
 
 //

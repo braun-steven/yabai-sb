@@ -208,7 +208,7 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
 /// `window_manager_is_window_eligible`
 func window_manager_is_window_eligible(_ target: Window) -> Bool
 {
-    return target.pointee.is_root && (window_is_real(target) || window_check_rule_flag(target, WINDOW_RULE_MANAGED))
+    return target.is_root && (window_is_real(target) || window_check_rule_flag(target, WINDOW_RULE_MANAGED))
 }
 
 /// `window_manager_set_focus_follows_mouse`
@@ -230,7 +230,7 @@ func window_manager_set_window_opacity_enabled(_ wm: WindowManager, _ enabled: B
 {
     wm.enable_window_opacity = enabled
     for target in wm.window.values where window_manager_is_window_eligible(target) {
-        window_manager_set_opacity(wm, target, enabled ? target.pointee.opacity : 1.0)
+        window_manager_set_opacity(wm, target, enabled ? target.opacity : 1.0)
     }
 }
 
@@ -248,13 +248,13 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
     }
 
     let cursor = SLS.cursorLocation(connection_global())
-    if target.pointee.frame.contains(cursor) { return }
+    if target.frame.contains(cursor) { return }
 
-    let did = window_display_id(target.pointee.id)
+    let did = window_display_id(target.id)
     if did == 0 { return }
 
-    let center = CGPoint(x: target.pointee.frame.origin.x + target.pointee.frame.size.width / 2,
-                         y: target.pointee.frame.origin.y + target.pointee.frame.size.height / 2)
+    let center = CGPoint(x: target.frame.origin.x + target.frame.size.width / 2,
+                         y: target.frame.origin.y + target.frame.size.height / 2)
 
     let bounds = CGDisplayBounds(did)
     if !bounds.contains(center) { return }
@@ -265,11 +265,11 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
 /// `window_manager_should_manage_window`
 func window_manager_should_manage_window(_ target: Window) -> Bool
 {
-    if !target.pointee.is_root                          { return false }
+    if !target.is_root                          { return false }
     if window_check_flag(target, WINDOW_FLOAT)          { return false }
-    if window_is_sticky(target.pointee.id)              { return false }
+    if window_is_sticky(target.id)              { return false }
     if window_check_flag(target, WINDOW_MINIMIZE)       { return false }
-    if target.pointee.application.pointee.is_hidden     { return false }
+    if target.application.is_hidden     { return false }
 
     return (window_is_standard(target) && window_level_is_standard(target) && window_can_move(target)) || window_check_rule_flag(target, WINDOW_RULE_MANAGED)
 }
@@ -277,7 +277,7 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
 func window_manager_find_managed_window(_ wm: WindowManager, _ target: Window) -> View?
 {
-    return wm.managed_window.find(target.pointee.id)
+    return wm.managed_window.find(target.id)
 }
 
 /// `window_manager_remove_managed_window`
@@ -289,9 +289,9 @@ func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: UInt32)
 /// `window_manager_add_managed_window`
 func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ owner: View)
 {
-    if owner.pointee.layout == VIEW_FLOAT { return }
+    if owner.layout == VIEW_FLOAT { return }
 
-    wm.managed_window.add(target.pointee.id, owner)
+    wm.managed_window.add(target.id, owner)
     window_manager_purify_window(wm, target)
 }
 
@@ -308,7 +308,7 @@ func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ 
 func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target: Window)
 {
     space_manager_untile_window(owner, target)
-    window_manager_remove_managed_window(wm, target.pointee.id)
+    window_manager_remove_managed_window(wm, target.id)
     window_manager_purify_window(wm, target)
 }
 
@@ -323,14 +323,14 @@ func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ tar
 func window_manager_find_tree_view(_ wm: WindowManager, _ target: Window?) -> View?
 {
     guard let target, let owner = window_manager_find_managed_window(wm, target) else { return nil }
-    return owner.pointee.tree != nil ? owner : nil
+    return owner.tree != nil ? owner : nil
 }
 
 /// `window_manager_tree_acting_con`
 func windowManagerTreeActingCon(_ owner: View, _ target: Window) -> Con?
 {
-    if let selected = tree_find_selected(owner.pointee.tree), target.pointee.id == window_manager_global().focused_window_id { return selected }
-    return tree_find_window(owner.pointee.tree, target.pointee.id)
+    if let selected = tree_find_selected(owner.tree), target.id == window_manager_global().focused_window_id { return selected }
+    return tree_find_window(owner.tree, target.id)
 }
 
 /// `window_manager_tree_apply`
@@ -340,7 +340,7 @@ func windowManagerTreeApply(_ owner: View)
     // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
     //
 
-    if let focused = tree_find_window(owner.pointee.tree, window_manager_global().focused_window_id) { tree_focus(focused) }
+    if let focused = tree_find_window(owner.tree, window_manager_global().focused_window_id) { tree_focus(focused) }
 
     if !view_update_auto_padding(owner) { tree_view_update(owner) }
     view_flush(owner)
@@ -350,8 +350,8 @@ func windowManagerTreeApply(_ owner: View)
 func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: UInt32)
 {
     if let target = window_manager_find_window(wm, windowID) {
-        window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
-        window_manager_set_pending_focus(wm, target.pointee.id)
+        window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
+        window_manager_set_pending_focus(wm, target.id)
     }
 }
 
@@ -371,13 +371,13 @@ func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -
     for windowID in windowList {
         guard let target = window_manager_find_window(wm, windowID) else { continue }
 
-        if window_space(target.pointee.id) != owner.pointee.sid { moveList.append(target.pointee.id) }
-        window_manager_remove_managed_window(wm, target.pointee.id)
+        if window_space(target.id) != owner.sid { moveList.append(target.id) }
+        window_manager_remove_managed_window(wm, target.id)
         window_manager_add_managed_window(wm, target, owner)
     }
 
     if !moveList.isEmpty {
-        moveList.withUnsafeMutableBufferPointer { space_manager_move_window_list_to_space(owner.pointee.sid, $0.baseAddress!, Int32($0.count)) }
+        moveList.withUnsafeMutableBufferPointer { space_manager_move_window_list_to_space(owner.sid, $0.baseAddress!, Int32($0.count)) }
     }
     return moveList
 }
@@ -388,7 +388,7 @@ func windowManagerTreeWaitForView(_ moveList: [UInt32], _ owner: View)
     if moveList.isEmpty { return }
 
     var moveList = moveList
-    _ = moveList.withUnsafeMutableBufferPointer { space_manager_wait_for_windows_on_space($0.baseAddress!, Int32($0.count), owner.pointee.sid, 200) }
+    _ = moveList.withUnsafeMutableBufferPointer { space_manager_wait_for_windows_on_space($0.baseAddress!, Int32($0.count), owner.sid, 200) }
 }
 
 //
@@ -407,13 +407,13 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     //
 
     var node = windowManagerTreeActingCon(owner, target)
-    while let current = node, let parent = current.pointee.parent, parent.pointee.layout == CON_TABBED { node = parent }
-    guard let node, let parent = node.pointee.parent else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    while let current = node, let parent = current.parent, parent.layout == CON_TABBED { node = parent }
+    guard let node, let parent = node.parent else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    let horizontal = parent.pointee.layout == CON_SPLITH
-    let size = horizontal ? parent.pointee.area.w : parent.pointee.area.h
-    let percent = type == TYPE_REL ? node.pointee.percent + ratio : ratio
-    let delta = (clampf_range(percent, 0.05, 0.95) - node.pointee.percent) * size
+    let horizontal = parent.layout == CON_SPLITH
+    let size = horizontal ? parent.area.w : parent.area.h
+    let percent = type == TYPE_REL ? node.percent + ratio : ratio
+    let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
 
     if !tree_resize(node, horizontal ? DIR_EAST : DIR_SOUTH, delta) &&
        !tree_resize(node, horizontal ? DIR_WEST : DIR_NORTH, -delta) {
@@ -435,11 +435,11 @@ func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, 
     var dy = dy
 
     if type == TYPE_REL {
-        dx += Float(target.pointee.frame.origin.x)
-        dy += Float(target.pointee.frame.origin.y)
+        dx += Float(target.frame.origin.x)
+        dy += Float(target.frame.origin.y)
     }
 
-    window_manager_animate_window(window_capture(window: target, x: dx, y: dy, w: Float(target.pointee.frame.size.width), h: Float(target.pointee.frame.size.height)))
+    window_manager_animate_window(window_capture(window: target, x: dx, y: dy, w: Float(target.frame.size.width), h: Float(target.frame.size.height)))
     return WINDOW_OP_ERROR_SUCCESS
 }
 
@@ -457,7 +457,7 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
     if animate {
         window_manager_animate_window(window_capture(window: target, x: fx, y: fy, w: fw, h: fh))
     } else {
-        axEnhancedUIWorkaround(target.pointee.application.pointee.ref) {
+        axEnhancedUIWorkaround(target.application.ref) {
             window_manager_move_window(target, fx, fy)
             window_manager_resize_window(target, fw, fh)
         }
@@ -468,7 +468,7 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> window_op_error
 {
     if let owner = window_manager_find_managed_window(wm, target) {
-        if direction == HANDLE_ABS || owner.pointee.tree == nil { return WINDOW_OP_ERROR_INVALID_OPERATION }
+        if direction == HANDLE_ABS || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_OPERATION }
 
         guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
@@ -484,9 +484,9 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
     } else {
         if direction == HANDLE_ABS {
             if animate {
-                window_manager_animate_window(window_capture(window: target, x: Float(target.pointee.frame.origin.x), y: Float(target.pointee.frame.origin.y), w: dx, h: dy))
+                window_manager_animate_window(window_capture(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
             } else {
-                axEnhancedUIWorkaround(target.pointee.application.pointee.ref) { window_manager_resize_window(target, dx, dy) }
+                axEnhancedUIWorkaround(target.application.ref) { window_manager_resize_window(target, dx, dy) }
             }
         } else {
             window_manager_resize_window_relative_internal(target, window_ax_frame(target), direction, dx, dy, animate)
@@ -499,23 +499,23 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
 /// `window_manager_move_window`
 func window_manager_move_window(_ target: Window, _ x: Float, _ y: Float)
 {
-    target.pointee.frame_request.origin = CGPoint(x: CGFloat(x), y: CGFloat(y))
+    target.frame_request.origin = CGPoint(x: CGFloat(x), y: CGFloat(y))
 
     var position = CGPoint(x: CGFloat(x), y: CGFloat(y))
     guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
 
-    AXUIElementSetAttributeValue(target.pointee.ref, kAXPositionAttribute as CFString, positionRef)
+    AXUIElementSetAttributeValue(target.ref, kAXPositionAttribute as CFString, positionRef)
 }
 
 /// `window_manager_resize_window`
 func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Float)
 {
-    target.pointee.frame_request.size = CGSize(width: CGFloat(width), height: CGFloat(height))
+    target.frame_request.size = CGSize(width: CGFloat(width), height: CGFloat(height))
 
     var size = CGSize(width: CGFloat(width), height: CGFloat(height))
     guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
 
-    AXUIElementSetAttributeValue(target.pointee.ref, kAXSizeAttribute as CFString, sizeRef)
+    AXUIElementSetAttributeValue(target.ref, kAXSizeAttribute as CFString, sizeRef)
 }
 
 /// `window_manager_set_purify_mode`
@@ -535,13 +535,13 @@ func window_manager_set_opacity(_ wm: WindowManager, _ target: Window, _ opacity
 
     if opacity == 0.0 {
         if wm.enable_window_opacity {
-            opacity = target.pointee.id == wm.focused_window_id ? wm.active_window_opacity : wm.normal_window_opacity
+            opacity = target.id == wm.focused_window_id ? wm.active_window_opacity : wm.normal_window_opacity
         } else {
             opacity = 1.0
         }
     }
 
-    return scripting_addition_set_opacity(target.pointee.id, opacity, wm.window_opacity_duration)
+    return scripting_addition_set_opacity(target.id, opacity, wm.window_opacity_duration)
 }
 
 /// `window_manager_set_window_opacity`
@@ -549,7 +549,7 @@ func window_manager_set_window_opacity(_ wm: WindowManager, _ target: Window, _ 
 {
     if !wm.enable_window_opacity              { return }
     if !window_manager_is_window_eligible(target)     { return }
-    if target.pointee.opacity != 0.0                  { return }
+    if target.opacity != 0.0                  { return }
 
     window_manager_set_opacity(wm, target, opacity)
 }
@@ -573,7 +573,7 @@ func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Fl
 {
     wm.normal_window_opacity = opacity
     for target in wm.window.values {
-        if target.pointee.id == wm.focused_window_id { continue }
+        if target.id == wm.focused_window_id { continue }
         if window_manager_is_window_eligible(target) {
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
         }
@@ -583,9 +583,9 @@ func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Fl
 /// `window_manager_adjust_layer`: only for windows without a layer of their own (LAYER_AUTO).
 func window_manager_adjust_layer(_ target: Window, _ layer: Int32)
 {
-    if target.pointee.layer != LAYER_AUTO { return }
+    if target.layer != LAYER_AUTO { return }
 
-    scripting_addition_set_layer(target.pointee.id, layer)
+    scripting_addition_set_layer(target.id, layer)
 }
 
 //
@@ -628,16 +628,16 @@ func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
 
     if layer == LAYER_AUTO {
         let wm = window_manager_global()
-        let below = window_manager_find_managed_window(wm, target) != nil || (wm.scratchpad_below && target.pointee.scratchpad != nil)
+        let below = window_manager_find_managed_window(wm, target) != nil || (wm.scratchpad_below && target.scratchpad != nil)
         parentLayer = below ? layerValue(.below) : layerValue(.normal)
         childLayer = layerValue(.normal)
     }
 
-    target.pointee.layer = layer
-    let result = scripting_addition_set_layer(target.pointee.id, parentLayer)
+    target.layer = layer
+    let result = scripting_addition_set_layer(target.id, parentLayer)
     if !result { return false }
 
-    guard let associated = SLSCopyAssociatedWindows(connection_global(), target.pointee.id) as? [NSNumber], !associated.isEmpty else { return result }
+    guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id) as? [NSNumber], !associated.isEmpty else { return result }
 
     var parentList: [UInt32] = []
     var childList: [UInt32] = []
@@ -647,7 +647,7 @@ func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
         childList.append(queried.id)
     }
 
-    for descendant in window_manager_collect_child_windows(target.pointee.id, &parentList, childList) {
+    for descendant in window_manager_collect_child_windows(target.id, &parentList, childList) {
         scripting_addition_set_layer(descendant, childLayer)
     }
 
@@ -667,7 +667,7 @@ func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
         value = false
     }
 
-    if scripting_addition_set_shadow(target.pointee.id, value) {
+    if scripting_addition_set_shadow(target.id, value) {
         if value {
             window_set_flag(target, WINDOW_SHADOW)
         } else {
@@ -729,7 +729,7 @@ func window_manager_remove_window(_ wm: WindowManager, _ windowID: UInt32)
 /// `window_manager_add_window`
 func window_manager_add_window(_ wm: WindowManager, _ target: Window)
 {
-    wm.window.add(target.pointee.id, target)
+    wm.window.add(target.id, target)
 }
 
 /// `window_manager_find_application`
@@ -747,13 +747,13 @@ func window_manager_remove_application(_ wm: WindowManager, _ pid: pid_t)
 /// `window_manager_add_application`
 func window_manager_add_application(_ wm: WindowManager, _ owner: Application)
 {
-    wm.application.add(owner.pointee.pid, owner)
+    wm.application.add(owner.pid, owner)
 }
 
 /// `window_manager_find_application_windows`
 func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Application) -> [Window]
 {
-    return wm.window.values.filter { $0.pointee.application == owner }
+    return wm.window.values.filter { $0.application == owner }
 }
 
 /// `window_manager_set_window_insertion`
@@ -761,28 +761,28 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 {
     guard let target else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
-    let owner = space_manager_find_view(sm, window_space(target.pointee.id))
-    if owner.pointee.layout != VIEW_TREE || owner.pointee.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    let owner = space_manager_find_view(sm, window_space(target.id))
+    if owner.layout != VIEW_TREE || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
-    guard let node = tree_find_window(owner.pointee.tree, target.pointee.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let node = tree_find_window(owner.tree, target.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    if owner.pointee.insertion_point != 0 && owner.pointee.insertion_point != target.pointee.id {
-        if let insert = tree_find_window(owner.pointee.tree, owner.pointee.insertion_point) {
-            insert.pointee.insert_dir = 0
+    if owner.insertion_point != 0 && owner.insertion_point != target.id {
+        if let insert = tree_find_window(owner.tree, owner.insertion_point) {
+            insert.insert_dir = 0
             tree_feedback_hide(insert)
         }
     }
 
-    if direction == node.pointee.insert_dir {
-        node.pointee.insert_dir = 0
+    if direction == node.insert_dir {
+        node.insert_dir = 0
         tree_feedback_hide(node)
-        owner.pointee.insertion_point = 0
+        owner.insertion_point = 0
         return WINDOW_OP_ERROR_SUCCESS
     }
 
-    node.pointee.insert_dir = direction
-    owner.pointee.insertion_point = target.pointee.id
-    if space_is_visible(owner.pointee.sid) { tree_feedback_show(node, direction) }
+    node.insert_dir = direction
+    owner.insertion_point = target.id
+    if space_is_visible(owner.sid) { tree_feedback_show(node, direction) }
 
     return WINDOW_OP_ERROR_SUCCESS
 }
@@ -795,10 +795,10 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 /// `window_manager_stack_window`
 func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
-    if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
     guard let aView = window_manager_find_tree_view(wm, a) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
-    if tree_find_window(aView.pointee.tree, a.pointee.id) == nil { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    if tree_find_window(aView.tree, a.id) == nil { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
     if let bView = window_manager_find_managed_window(wm, b) {
         window_manager_unmanage_window(wm, bView, b)
@@ -808,15 +808,15 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
         if window_check_flag(b, WINDOW_STICKY) { window_manager_make_window_sticky(sm, wm, b, false) }
     }
 
-    guard let aCon = tree_find_window(aView.pointee.tree, a.pointee.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let aCon = tree_find_window(aView.tree, a.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    if window_space(b.pointee.id) != aView.pointee.sid {
-        space_manager_move_window_to_space(aView.pointee.sid, b)
-        _ = space_manager_wait_for_window_on_space(b.pointee.id, aView.pointee.sid, 200)
+    if window_space(b.id) != aView.sid {
+        space_manager_move_window_to_space(aView.sid, b)
+        _ = space_manager_wait_for_window_on_space(b.id, aView.sid, 200)
     }
 
     let node = con_create(CON_SPLITH)!
-    node.pointee.window_id = b.pointee.id
+    node.window_id = b.id
     tree_insert_relative(aCon, node, STACK)
 
     window_manager_add_managed_window(wm, b, aView)
@@ -832,19 +832,19 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    let parent = node.pointee.parent ?? node
+    let parent = node.parent ?? node
 
     switch layout {
     case WINDOW_LAYOUT_TABBED:       tree_set_layout(node, CON_TABBED)
     case WINDOW_LAYOUT_SPLITH:       tree_set_layout(node, CON_SPLITH)
     case WINDOW_LAYOUT_SPLITV:       tree_set_layout(node, CON_SPLITV)
-    case WINDOW_LAYOUT_SPLIT:        tree_set_layout(node, parent.pointee.layout == CON_TABBED ? parent.pointee.last_split : parent.pointee.layout)
+    case WINDOW_LAYOUT_SPLIT:        tree_set_layout(node, parent.layout == CON_TABBED ? parent.last_split : parent.layout)
     case WINDOW_LAYOUT_TOGGLE:       tree_toggle_layout(node, false)
     case WINDOW_LAYOUT_TOGGLE_SPLIT: tree_toggle_layout(node, true)
     default:                         break
     }
 
-    tree_flatten(owner.pointee.tree)
+    tree_flatten(owner.tree)
     windowManagerTreeApply(owner)
     return WINDOW_OP_ERROR_SUCCESS
 }
@@ -856,29 +856,29 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
 /// `window_manager_warp_window`
 func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
-    if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
     let aView = window_manager_find_tree_view(wm, a)
     let bView = window_manager_find_tree_view(wm, b)
     guard let aView else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let bView else { return WINDOW_OP_ERROR_INVALID_DST_VIEW }
 
-    let aCon = tree_find_window(aView.pointee.tree, a.pointee.id)
-    let bCon = tree_find_window(bView.pointee.tree, b.pointee.id)
+    let aCon = tree_find_window(aView.tree, a.id)
+    let bCon = tree_find_window(bView.tree, b.id)
     guard let aCon else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
     guard let bCon else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
 
     if aView == bView {
         tree_insert_con(aCon, bCon, TREE_AFTER)
-        tree_flatten(aView.pointee.tree)
+        tree_flatten(aView.tree)
         windowManagerTreeApply(aView)
     } else {
         space_manager_untile_window(aView, a)
-        window_manager_remove_managed_window(wm, a.pointee.id)
+        window_manager_remove_managed_window(wm, a.id)
         window_manager_add_managed_window(wm, a, bView)
-        space_manager_move_window_to_space(bView.pointee.sid, a)
-        _ = space_manager_wait_for_window_on_space(a.pointee.id, bView.pointee.sid, 200)
-        _ = space_manager_tile_window_on_space_with_insertion_point(sm, a, bView.pointee.sid, b.pointee.id)
+        space_manager_move_window_to_space(bView.sid, a)
+        _ = space_manager_wait_for_window_on_space(a.id, bView.sid, 200)
+        _ = space_manager_tile_window_on_space_with_insertion_point(sm, a, bView.sid, b.id)
     }
 
     return WINDOW_OP_ERROR_SUCCESS
@@ -887,15 +887,15 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
 /// `window_manager_swap_window`
 func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
 {
-    if a.pointee.id == b.pointee.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
 
     let aView = window_manager_find_tree_view(wm, a)
     let bView = window_manager_find_tree_view(wm, b)
     guard let aView else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let bView else { return WINDOW_OP_ERROR_INVALID_DST_VIEW }
 
-    let aCon = tree_find_window(aView.pointee.tree, a.pointee.id)
-    let bCon = tree_find_window(bView.pointee.tree, b.pointee.id)
+    let aCon = tree_find_window(aView.tree, a.id)
+    let bCon = tree_find_window(bView.tree, b.id)
     guard let aCon else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
     guard let bCon else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
 
@@ -919,7 +919,7 @@ func window_manager_minimize_window(_ target: Window) -> window_op_error
     if !window_can_minimize(target) { return WINDOW_OP_ERROR_CANT_MINIMIZE }
     if window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_ALREADY_MINIMIZED }
 
-    let result = AXUIElementSetAttributeValue(target.pointee.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+    let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
     return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_MINIMIZE_FAILED
 }
 
@@ -928,7 +928,7 @@ func window_manager_deminimize_window(_ target: Window) -> window_op_error
 {
     if !window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_NOT_MINIMIZED }
 
-    let result = AXUIElementSetAttributeValue(target.pointee.ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+    let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
     return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_DEMINIMIZE_FAILED
 }
 
@@ -936,7 +936,7 @@ func window_manager_deminimize_window(_ target: Window) -> window_op_error
 func window_manager_close_window(_ target: Window) -> Bool
 {
     var button: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref, kAXCloseButtonAttribute as CFString, &button)
+    AXUIElementCopyAttributeValue(target.ref, kAXCloseButtonAttribute as CFString, &button)
     guard let button else { return false }
 
     AXUIElementPerformAction(unsafeDowncast(button, to: AXUIElement.self), kAXPressAction as CFString)
@@ -946,12 +946,12 @@ func window_manager_close_window(_ target: Window) -> Bool
 /// `window_manager_send_window_to_space`
 func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
 {
-    let srcSid = window_space(target.pointee.id)
+    let srcSid = window_space(target.id)
     if srcSid == dstSid { return }
 
-    if space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.pointee.id) {
-        if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.pointee.id) {
-            window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref)
+    if space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.id) {
+        if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.id) {
+            window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
         } else {
             _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
         }
@@ -962,8 +962,8 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
     }
 
     space_manager_move_window_to_space(dstSid, target)
-    _ = space_manager_wait_for_window_on_space(target.pointee.id, dstSid, 200)
-    SLSSpaceSetFrontPSN(connection_global(), dstSid, target.pointee.application.pointee.psn)
+    _ = space_manager_wait_for_window_on_space(target.id, dstSid, 200)
+    SLSSpaceSetFrontPSN(connection_global(), dstSid, target.application.psn)
 
     if window_manager_should_manage_window(target) {
         window_manager_manage_window(sm, wm, target, dstSid, 0)
@@ -979,7 +979,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
 {
     if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
-    let did = window_display_id(target.pointee.id)
+    let did = window_display_id(target.id)
     if did == 0 { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
     var x = x, y = y, w = w, h = h
@@ -994,14 +994,14 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     let dview = space_manager_find_view(sm, display_space_id(did))
 
     if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
-        bounds.origin.x    += CGFloat(dview.pointee.left_padding)
-        bounds.size.width  -= CGFloat(dview.pointee.left_padding + dview.pointee.right_padding)
-        bounds.origin.y    += CGFloat(dview.pointee.top_padding)
-        bounds.size.height -= CGFloat(dview.pointee.top_padding + dview.pointee.bottom_padding)
+        bounds.origin.x    += CGFloat(dview.left_padding)
+        bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
+        bounds.origin.y    += CGFloat(dview.top_padding)
+        bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
     }
 
     if hasViewFlag(dview, VIEW_ENABLE_GAP) {
-        let gap = CGFloat(dview.pointee.window_gap)
+        let gap = CGFloat(dview.window_gap)
 
         if x > 0 {
             bounds.origin.x   += gap
@@ -1063,14 +1063,14 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
     if !window_manager_is_window_eligible(target) { return }
 
     if shouldSticky {
-        if scripting_addition_set_sticky(target.pointee.id, true) {
+        if scripting_addition_set_sticky(target.id, true) {
             if let owner = window_manager_find_managed_window(wm, target) {
                 window_manager_unmanage_window(wm, owner, target)
             }
             window_set_flag(target, WINDOW_STICKY)
         }
     } else {
-        if scripting_addition_set_sticky(target.pointee.id, false) {
+        if scripting_addition_set_sticky(target.id, false) {
             window_clear_flag(target, WINDOW_STICKY)
 
             if !window_check_flag(target, WINDOW_FLOAT) {
@@ -1086,7 +1086,7 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
 func window_manager_toggle_window_shadow(_ target: Window)
 {
     let shadow = !window_check_flag(target, WINDOW_SHADOW)
-    if scripting_addition_set_shadow(target.pointee.id, shadow) {
+    if scripting_addition_set_shadow(target.id, shadow) {
         if shadow {
             window_set_flag(target, WINDOW_SHADOW)
         } else {
@@ -1123,7 +1123,7 @@ func window_manager_wait_for_native_fullscreen_transition()
 /// `window_manager_toggle_window_native_fullscreen`
 func window_manager_toggle_window_native_fullscreen(_ target: Window)
 {
-    let sid = window_space(target.pointee.id)
+    let sid = window_space(target.id)
 
     //
     // NOTE(asmvik): The window must become the focused window
@@ -1131,14 +1131,14 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
     // window and spin lock until a potential space animation has finished.
     //
 
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
+    window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
     var i = 0
     while i < nativeFullscreenWaitIterations && sid != space_manager_active_space() { usleep(100000); i += 1 }
 
     if !window_is_fullscreen(target) {
-        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
     } else {
-        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanFalse)
+        AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanFalse)
     }
 
     //
@@ -1154,12 +1154,12 @@ private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return }
 
-    guard let node = tree_find_window(owner.pointee.tree, target.pointee.id), node != owner.pointee.tree else { return }
+    guard let node = tree_find_window(owner.tree, target.id), node != owner.tree else { return }
 
     var zoom = zoom
-    if zoom == CON_ZOOM_PARENT && node.pointee.parent == owner.pointee.tree { zoom = CON_ZOOM_FULLSCREEN }
+    if zoom == CON_ZOOM_PARENT && node.parent == owner.tree { zoom = CON_ZOOM_FULLSCREEN }
 
-    node.pointee.zoom = node.pointee.zoom == zoom ? CON_ZOOM_NONE : zoom
+    node.zoom = node.zoom == zoom ? CON_ZOOM_NONE : zoom
     windowManagerTreeApply(owner)
 }
 
@@ -1178,16 +1178,16 @@ func window_manager_toggle_window_zoom_fullscreen(_ wm: WindowManager, _ target:
 /// `window_manager_toggle_window_windowed_fullscreen`
 func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
 {
-    let did = window_display_id(target.pointee.id)
+    let did = window_display_id(target.id)
     if did == 0 { return }
 
     if window_check_flag(target, WINDOW_WINDOWED) {
         window_clear_flag(target, WINDOW_WINDOWED)
-        let frame = target.pointee.windowed_frame
+        let frame = target.windowed_frame
         window_manager_animate_window(window_capture(window: target, x: Float(frame.origin.x), y: Float(frame.origin.y), w: Float(frame.size.width), h: Float(frame.size.height)))
     } else {
         window_set_flag(target, WINDOW_WINDOWED)
-        target.pointee.windowed_frame = target.pointee.frame
+        target.windowed_frame = target.frame
         let bounds = display_bounds_constrained(did, true)
         window_manager_animate_window(window_capture(window: target, x: Float(bounds.origin.x), y: Float(bounds.origin.y), w: Float(bounds.size.width), h: Float(bounds.size.height)))
     }
@@ -1196,14 +1196,14 @@ func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
 /// `window_manager_toggle_window_expose`
 func window_manager_toggle_window_expose(_ target: Window)
 {
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
+    window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
     CoreDock.sendNotification("com.apple.expose.front.awake")
 }
 
 /// `window_manager_toggle_window_pip`
 func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 {
-    let did = window_display_id(target.pointee.id)
+    let did = window_display_id(target.id)
     if did == 0 { return }
 
     let sid = display_space_id(did)
@@ -1211,13 +1211,13 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 
     var bounds = display_bounds_constrained(did, false)
     if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
-        bounds.origin.x    += CGFloat(dview.pointee.left_padding)
-        bounds.size.width  -= CGFloat(dview.pointee.left_padding + dview.pointee.right_padding)
-        bounds.origin.y    += CGFloat(dview.pointee.top_padding)
-        bounds.size.height -= CGFloat(dview.pointee.top_padding + dview.pointee.bottom_padding)
+        bounds.origin.x    += CGFloat(dview.left_padding)
+        bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
+        bounds.origin.y    += CGFloat(dview.top_padding)
+        bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
     }
 
-    scripting_addition_scale_window(target.pointee.id, Float(bounds.origin.x), Float(bounds.origin.y), Float(bounds.size.width), Float(bounds.size.height))
+    scripting_addition_scale_window(target.id, Float(bounds.origin.x), Float(bounds.origin.y), Float(bounds.size.width), Float(bounds.size.height))
 }
 
 /// `window_manager_validate_windows_on_space`
@@ -1242,7 +1242,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
 
         view_remove_window(owner, target)
         window_manager_adjust_layer(target, layerValue(.normal))
-        window_manager_remove_managed_window(wm, target.pointee.id)
+        window_manager_remove_managed_window(wm, target.id)
         window_manager_purify_window(wm, target)
 
         setViewFlag(owner, VIEW_IS_DIRTY)
@@ -1256,7 +1256,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
         guard let target = window_manager_find_window(wm, windowID), window_manager_should_manage_window(target) else { continue }
 
         let existingView = window_manager_find_managed_window(wm, target)
-        if let existingView, existingView.pointee.layout != VIEW_FLOAT, existingView != owner {
+        if let existingView, existingView.layout != VIEW_FLOAT, existingView != owner {
 
             //
             // @cleanup
@@ -1270,12 +1270,12 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 
             view_remove_window(existingView, target)
             window_manager_adjust_layer(target, layerValue(.normal))
-            window_manager_remove_managed_window(wm, target.pointee.id)
+            window_manager_remove_managed_window(wm, target.id)
             window_manager_purify_window(wm, target)
             setViewFlag(existingView, VIEW_IS_DIRTY)
         }
 
-        if existingView == nil || (existingView!.pointee.layout != VIEW_FLOAT && existingView != owner) {
+        if existingView == nil || (existingView!.layout != VIEW_FLOAT && existingView != owner) {
 
             //
             // @cleanup
@@ -1306,7 +1306,7 @@ private func spaceWindows(_ sid: UInt64) -> [UInt32]?
 func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: WindowManager, _ sid: UInt64)
 {
     let owner = space_manager_find_view(sm, sid)
-    if owner.pointee.layout == VIEW_FLOAT { return }
+    if owner.layout == VIEW_FLOAT { return }
 
     let windowList = spaceWindows(sid) ?? []
     windowManagerValidateWindowsOnSpace(wm, owner, windowList)
@@ -1321,7 +1321,7 @@ func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, 
     // This is necessary to make sure that we do not call the AX API for each modification to the tree.
     //
 
-    if space_is_visible(owner.pointee.sid) && view_is_dirty(owner) {
+    if space_is_visible(owner.sid) && view_is_dirty(owner) {
         view_flush(owner)
     }
 }
@@ -1358,7 +1358,7 @@ func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: Wind
     for space in spaceList where space_is_user(space) {
         if let windowList = spaceWindows(space) {
             let owner = space_manager_find_view(sm, space)
-            if owner.pointee.layout != VIEW_FLOAT {
+            if owner.layout != VIEW_FLOAT {
                 windowManagerCheckForWindowsOnSpace(wm, owner, windowList)
             }
         }
@@ -1455,9 +1455,9 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
     }
 
     if let target = window_manager_focused_window(wm) {
-        wm.last_window_id = target.pointee.id
-        wm.focused_window_id = target.pointee.id
-        wm.focused_window_psn = target.pointee.application.pointee.psn
+        wm.last_window_id = target.id
+        wm.focused_window_id = target.id
+        wm.focused_window_psn = target.application.psn
         window_manager_set_window_opacity(wm, target, wm.active_window_opacity)
     }
 }

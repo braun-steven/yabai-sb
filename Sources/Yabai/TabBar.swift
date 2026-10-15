@@ -121,9 +121,9 @@ private func tabBarPublishHits()
     tabBarHits.withLock { hits in
         hits.removeAll(keepingCapacity: true)
         for bar in tabBarList where hits.count < 256 {
-            if bar.pointee.hidden || bar.pointee.entry_count == 0 { continue }
+            if bar.hidden || bar.entry_count == 0 { continue }
             let entries = Array(bar.entry_list.prefix(Int(bar.entry_count)))
-            hits.append(TabBarHit(frame: bar.pointee.frame, sid: bar.pointee.sid, aboveWid: bar.pointee.above_wid, entries: entries))
+            hits.append(TabBarHit(frame: bar.frame, sid: bar.sid, aboveWid: bar.above_wid, entries: entries))
         }
     }
 }
@@ -272,7 +272,7 @@ private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEnt
     SLSDisableUpdate(connection_global())
     defer { SLSReenableUpdate(connection_global()) }
     guard let context = bar.context else { return }
-    let bounds = CGRect(origin: .zero, size: bar.pointee.frame.size)
+    let bounds = CGRect(origin: .zero, size: bar.frame.size)
     context.clear(bounds)
     for i in 0..<Int(count) {
         let entry = entries[i]
@@ -300,11 +300,11 @@ func tab_bar_card_padding() -> Int32
     return window_manager_global().tab_bar_card_padding
 }
 
-private func tabBarExists(_ bar: TabBar) -> Bool { bar.pointee.id != 0 || bar.pointee.glass != nil }
+private func tabBarExists(_ bar: TabBar) -> Bool { bar.id != 0 || bar.glass != nil }
 
 private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
 {
-    bar.pointee.frame = frame
+    bar.frame = frame
     tabBarList.append(bar)
     if tabBarUsesGlass() { return }
     //
@@ -316,12 +316,12 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
     var region: CFTypeRef?
     CGSNewRegionWithRect(&frame, &region)
     let shape = region!
-    SLSNewWindow(connection_global(), 2, 0, 0, shape, &bar.pointee.id)
+    SLSNewWindow(connection_global(), 2, 0, 0, shape, &bar.id)
     var tags: UInt64 = (1 << 1) | (1 << 9)
-    SLSSetWindowTags(connection_global(), bar.pointee.id, &tags, 64)
-    sls_window_disable_shadow(bar.pointee.id)
-    SLSSetWindowResolution(connection_global(), bar.pointee.id, 2)
-    SLSSetWindowOpacity(connection_global(), bar.pointee.id, false)
+    SLSSetWindowTags(connection_global(), bar.id, &tags, 64)
+    sls_window_disable_shadow(bar.id)
+    SLSSetWindowResolution(connection_global(), bar.id, 2)
+    SLSSetWindowOpacity(connection_global(), bar.id, false)
     bar.context = SLWindowContextCreate(connection_global(), bar.id, nil)
 }
 
@@ -331,8 +331,8 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
 //
 private func tabBarKeepOnSpace(_ bar: TabBar)
 {
-    if bar.pointee.id == 0 || bar.pointee.sid == 0 || window_space(bar.pointee.id) == bar.pointee.sid { return }
-    tab_bar_glass_move_to_space(bar.pointee.id, bar.pointee.sid)
+    if bar.id == 0 || bar.sid == 0 || window_space(bar.id) == bar.sid { return }
+    tab_bar_glass_move_to_space(bar.id, bar.sid)
 }
 
 //
@@ -342,35 +342,35 @@ private func tabBarKeepOnSpace(_ bar: TabBar)
 //
 func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int32)
 {
-    bar.pointee.card = card
+    bar.card = card
     let count = min(entryCount, Int32(TAB_BAR_MAX_ENTRY_COUNT))
     if !tabBarExists(bar) { tabBarCreate(bar, frame) }
-    else if frame != bar.pointee.frame {
-        if bar.pointee.id != 0 {
+    else if frame != bar.frame {
+        if bar.id != 0 {
             var frame = frame
             var region: CFTypeRef?
             CGSNewRegionWithRect(&frame, &region)
             let shape = region!
             SLSDisableUpdate(connection_global())
-            SLSSetWindowShape(connection_global(), bar.pointee.id, 0, 0, shape)
+            SLSSetWindowShape(connection_global(), bar.id, 0, 0, shape)
             SLSReenableUpdate(connection_global())
         }
-        bar.pointee.frame = frame
+        bar.frame = frame
     }
     let sid = window_space(aboveWid)
-    if sid != 0 && sid != bar.pointee.sid {
-        if bar.pointee.id != 0 { tab_bar_glass_move_to_space(bar.pointee.id, sid) }
-        bar.pointee.sid = sid
+    if sid != 0 && sid != bar.sid {
+        if bar.id != 0 { tab_bar_glass_move_to_space(bar.id, sid) }
+        bar.sid = sid
     }
-    bar.pointee.above_wid = aboveWid
-    bar.pointee.hidden = false
+    bar.above_wid = aboveWid
+    bar.hidden = false
     bar.entry_count = count
     bar.entry_list = (0..<Int(count)).map { entries[$0].focus_wid }
-    if bar.pointee.id != 0 {
+    if bar.id != 0 {
         tabBarDraw(bar, entries, count)
-        SLSSetWindowLevel(connection_global(), bar.pointee.id, window_level(aboveWid))
-        SLSSetWindowSubLevel(connection_global(), bar.pointee.id, window_sub_level(aboveWid))
-        SLSOrderWindow(connection_global(), bar.pointee.id, 1, aboveWid)
+        SLSSetWindowLevel(connection_global(), bar.id, window_level(aboveWid))
+        SLSSetWindowSubLevel(connection_global(), bar.id, window_sub_level(aboveWid))
+        SLSOrderWindow(connection_global(), bar.id, 1, aboveWid)
         tabBarKeepOnSpace(bar)
     } else { tab_bar_glass_render(bar, aboveWid, entries, count) }
     tabBarPublishHits()
@@ -378,10 +378,10 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
 
 func tab_bar_hide(_ bar: TabBar)
 {
-    if !tabBarExists(bar) || bar.pointee.hidden { return }
-    if bar.pointee.id != 0 { SLSOrderWindow(connection_global(), bar.pointee.id, 0, 0) }
+    if !tabBarExists(bar) || bar.hidden { return }
+    if bar.id != 0 { SLSOrderWindow(connection_global(), bar.id, 0, 0) }
     else { tab_bar_glass_hide(bar) }
-    bar.pointee.hidden = true
+    bar.hidden = true
     tabBarPublishHits()
 }
 
@@ -404,7 +404,7 @@ func tab_bar_release(_ bar: TabBar)
 //
 func tab_bar_card_id(_ bar: TabBar) -> UInt32
 {
-    if bar.pointee.hidden || bar.pointee.glass == nil { return 0 }
+    if bar.hidden || bar.glass == nil { return 0 }
     if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
     return tab_bar_glass_panel_id(bar)
 }
@@ -412,9 +412,9 @@ func tab_bar_card_id(_ bar: TabBar) -> UInt32
 func tab_bar_order(_ wid: UInt32)
 {
     for bar in tabBarList {
-        if bar.pointee.hidden || bar.pointee.above_wid != wid { continue }
-        if bar.pointee.id != 0 {
-            SLSOrderWindow(connection_global(), bar.pointee.id, 1, wid)
+        if bar.hidden || bar.above_wid != wid { continue }
+        if bar.id != 0 {
+            SLSOrderWindow(connection_global(), bar.id, 1, wid)
             tabBarKeepOnSpace(bar)
         } else { tab_bar_glass_order(bar, wid) }
     }
@@ -422,14 +422,14 @@ func tab_bar_order(_ wid: UInt32)
 
 func tab_bar_redraw_all()
 {
-    for bar in tabBarList { bar.pointee.redraw?(bar.pointee.owner) }
+    for bar in tabBarList { bar.redraw?(bar.owner) }
 }
 
 func tab_bar_refresh_for_window(_ wid: UInt32)
 {
     if wid == 0 { return }
     guard let owner = window_manager_global().managed_window.find(wid) else { return }
-    if owner.pointee.layout != VIEW_TREE { return }
+    if owner.layout != VIEW_TREE { return }
     tree_refresh_for_window(wid)
 }
 
@@ -439,8 +439,8 @@ func tab_bar_refresh_for_window(_ wid: UInt32)
 //
 func tab_bar_refresh_all()
 {
-    for owner in space_manager_global().view.values where owner.pointee.layout == VIEW_TREE {
-        if let root = owner.pointee.tree { tree_release_bars(root) }
+    for owner in space_manager_global().view.values where owner.layout == VIEW_TREE {
+        if let root = owner.tree { tree_release_bars(root) }
         view_update_and_flush(owner)
     }
     tabBarPublishHits()

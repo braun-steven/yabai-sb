@@ -42,7 +42,7 @@ import CPrivate
 /// `EVENT_HANDLER(WINDOW_DESTROYED)`
 @WM func windowDestroyed(_ window: Window?)
 {
-    guard let window, window.pointee.id != 0 else {
+    guard let window, window.id != 0 else {
         debug("EVENT_HANDLER_WINDOW_DESTROYED: window has already been destroyed, ignoring event..\n")
         return
     }
@@ -50,24 +50,24 @@ import CPrivate
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.pointee.application != nil ? cName(window.pointee.application.pointee.name) : "<unknown>") \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? cName(window.application.name) : "<unknown>") \(window.id)\n")
 
     if let view = window_manager_find_managed_window(wm, window) {
         let nextFocus = window_manager_tree_focus_candidate(wm, view, window)
         space_manager_untile_window(view, window)
-        window_manager_remove_managed_window(wm, window.pointee.id)
+        window_manager_remove_managed_window(wm, window.id)
         window_manager_tree_focus_after_close(wm, view, nextFocus)
     }
 
     if ms.window == window { ms.window = nil }
-    if ms.ffm_window_id == window.pointee.id { ms.ffm_window_id = 0 }
+    if ms.ffm_window_id == window.id { ms.ffm_window_id = 0 }
 
-    if window.pointee.is_eligible {
+    if window.is_eligible {
         eventSignalPush(.windowDestroyed, signalObject(window))
     }
 
     window_manager_remove_scratchpad_for_window(wm, window, false)
-    window_manager_remove_window(wm, window.pointee.id)
+    window_manager_remove_window(wm, window.id)
     window_unobserve(window)
     window_destroy(window)
 
@@ -81,7 +81,7 @@ import CPrivate
 /// `EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)`
 @WM func windowFocusDeferred(_ windowID: UInt32)
 {
-    guard let window = window_manager_find_window(window_manager_global(), windowID), window.pointee.application != nil else {
+    guard let window = window_manager_find_window(window_manager_global(), windowID), window.application != nil else {
         debug("EVENT_HANDLER_WINDOW_FOCUS_DEFERRED: \(windowID) no longer exists, ignoring event..\n")
         return
     }
@@ -106,20 +106,20 @@ import CPrivate
     }
 
     if window_check_flag(window, WINDOW_MINIMIZE) {
-        window_manager_add_lost_focused_event(wm, window.pointee.id)
+        window_manager_add_lost_focused_event(wm, window.id)
         return
     }
 
-    if !application_is_frontmost(window.pointee.application) {
+    if !application_is_frontmost(window.application) {
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_FOCUSED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_FOCUSED: \(cName(window.application.name)) \(window.id)\n")
 
     if space_manager_global().skip_window_focus_animation {
-        let sid = window_space(window.pointee.id)
+        let sid = window_space(window.id)
         if sid != 0 && !space_is_visible(sid) {
-            SLSSpaceSetFrontPSN(connection_global(), sid, window.pointee.application.pointee.psn)
+            SLSSpaceSetFrontPSN(connection_global(), sid, window.application.psn)
             space_manager_focus_space_using_gesture(space_display_id(sid), sid)
         }
     }
@@ -141,27 +141,27 @@ import CPrivate
         return
     }
 
-    if window.pointee.application.pointee.is_hidden {
+    if window.application.is_hidden {
         debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) was moved while the application is hidden, ignoring event..\n")
         return
     }
 
     let newOrigin = window_ax_origin(window)
-    if newOrigin.equalTo(window.pointee.frame.origin) {
-        debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    if newOrigin.equalTo(window.frame.origin) {
+        debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(cName(window.application.name)) \(window.id)\n")
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_MOVED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_MOVED: \(cName(window.application.name)) \(window.id)\n")
     eventSignalPush(.windowMoved, signalObject(window))
-    let windowedFullscreen = window.pointee.windowed_frame.equalTo(window.pointee.frame)
-    window.pointee.frame.origin = newOrigin
+    let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
+    window.frame.origin = newOrigin
 
     if !windowedFullscreen {
         window_clear_flag(window, WINDOW_WINDOWED)
 
         if ms.window == nil || ms.window != window {
-            if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.pointee.id, window.pointee.frame) {
+            if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, window.frame) {
                 view_flush(view)
             }
         }
@@ -181,18 +181,18 @@ import CPrivate
         return
     }
 
-    if window.pointee.application.pointee.is_hidden {
+    if window.application.is_hidden {
         debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) was resized while the application is hidden, ignoring event..\n")
         return
     }
 
     let newFrame = window_ax_frame(window)
-    if newFrame.equalTo(window.pointee.frame) {
-        debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    if newFrame.equalTo(window.frame) {
+        debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(cName(window.application.name)) \(window.id)\n")
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_RESIZED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_RESIZED: \(cName(window.application.name)) \(window.id)\n")
     eventSignalPush(.windowResized, signalObject(window))
 
     let wasFullscreen = window_check_flag(window, WINDOW_FULLSCREEN)
@@ -208,8 +208,8 @@ import CPrivate
         window_refresh_ax_properties(window)
     }
 
-    let windowedFullscreen = window.pointee.windowed_frame.equalTo(window.pointee.frame)
-    window.pointee.frame = newFrame
+    let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
+    window.frame = newFrame
 
     if wasFullscreen != isFullscreen { border_refresh_window_space(window) }
 
@@ -221,18 +221,18 @@ import CPrivate
         window_manager_wait_for_native_fullscreen_transition()
 
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            window_manager_manage_window(space_manager_global(), wm, window, window_space(window.pointee.id), 0)
+            window_manager_manage_window(space_manager_global(), wm, window, window_space(window.id), 0)
         }
     } else {
         if ms.current_action == MOUSE_MODE_MOVE && ms.window == window {
-            ms.window_frame.size = ms.window.pointee.frame.size
+            ms.window_frame.size = ms.window.frame.size
         }
 
         if !windowedFullscreen {
             window_clear_flag(window, WINDOW_WINDOWED)
 
             if ms.window == nil || ms.window != window {
-                if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.pointee.id, newFrame) {
+                if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, newFrame) {
                     view_flush(view)
                 }
             }
@@ -246,11 +246,11 @@ import CPrivate
     let wm = window_manager_global()
 
     if !window_is_valid(window) {
-        debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
+        debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(cName(window.application.name)) \(window.id)\n")
     window_set_flag(window, WINDOW_MINIMIZE)
 
     window_refresh_ax_properties(window)
@@ -258,7 +258,7 @@ import CPrivate
     let view = window_manager_find_managed_window(wm, window)
     let nextFocus = view.map { window_manager_tree_focus_candidate(wm, $0, window) } ?? 0
 
-    if window.pointee.id == wm.last_window_id {
+    if window.id == wm.last_window_id {
         wm.last_window_id = wm.focused_window_id
     }
 
@@ -277,8 +277,8 @@ import CPrivate
     let wm = window_manager_global()
 
     if !window_is_valid(window) {
-        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
-        window_manager_remove_lost_focused_event(wm, window.pointee.id)
+        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
+        window_manager_remove_lost_focused_event(wm, window.id)
         return
     }
 
@@ -288,19 +288,19 @@ import CPrivate
 
     let sid = space_manager_active_space()
     if space_manager_is_window_on_space(sid, window) {
-        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.pointee.application.pointee.name)) \(window.pointee.id) is deminimized on active space\n")
+        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.application.name)) \(window.id) is deminimized on active space\n")
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
             let lastWindow = window_manager_find_window(wm, wm.last_window_id)
-            let insertionPoint = if let lastWindow, lastWindow.pointee.application.pointee.pid != window.pointee.application.pointee.pid { lastWindow.pointee.id } else { UInt32(0) }
+            let insertionPoint = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { UInt32(0) }
             window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
         }
     } else {
-        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.pointee.application.pointee.name)) \(window.pointee.id) is deminimized on inactive space\n")
+        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.application.name)) \(window.id) is deminimized on inactive space\n")
     }
 
-    if window_manager_find_lost_focused_event(wm, window.pointee.id) {
-        EventLoop.post(.windowFocused(windowID: window.pointee.id))
-        window_manager_remove_lost_focused_event(wm, window.pointee.id)
+    if window_manager_find_lost_focused_event(wm, window.id) {
+        EventLoop.post(.windowFocused(windowID: window.id))
+        window_manager_remove_lost_focused_event(wm, window.id)
     }
 
     border_refresh_window_space(window)
@@ -317,10 +317,10 @@ import CPrivate
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
+    debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(cName(window.application.name)) \(window.id)\n")
 
     window.title = window_title(window)
-    tab_bar_refresh_for_window(window.pointee.id)
+    tab_bar_refresh_for_window(window.id)
 
     eventSignalPush(.windowTitleChanged, signalObject(window))
 }

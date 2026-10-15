@@ -12,17 +12,17 @@ import CPrivate
 private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 {
     if con_is_leaf(node) {
-        if let target = window_manager_find_window(window_manager_global(), node.pointee.window_id),
-           let application = target.pointee.application, let name = application.pointee.name {
+        if let target = window_manager_find_window(window_manager_global(), node.window_id),
+           let application = target.application, let name = application.name {
             CFStringAppendCString(string, name, CFStringBuiltInEncodings.UTF8.rawValue)
         }
         return
     }
 
-    let layout = node.pointee.layout
+    let layout = node.layout
     CFStringAppendCString(string, layout == CON_SPLITH ? "H[" : layout == CON_SPLITV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
         treeAppendTitle(string, node.children[i])
     }
@@ -38,7 +38,7 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 /// `tree_copy_title`
 func tree_copy_title(_ node: Con) -> CFString?
 {
-    if con_is_leaf(node) { return tab_bar_copy_title(node.pointee.window_id) }
+    if con_is_leaf(node) { return tab_bar_copy_title(node.window_id) }
 
     let string = CFStringCreateMutable(nil, 0)!
     treeAppendTitle(string, node)
@@ -48,7 +48,7 @@ func tree_copy_title(_ node: Con) -> CFString?
 /// `tree_feedback_destroy`
 func treeFeedbackDestroy(_ node: Con)
 {
-    if node.pointee.render.feedback_window.id == 0 { return }
+    if node.render.feedback_window.id == 0 { return }
 
     SLSOrderWindow(connection_global(), node.render.feedback_window.id, 0, 0)
     node.render.feedback_window.context = nil
@@ -77,36 +77,36 @@ private func treeDefaultLayout(_ owner: View) -> con_layout
     default:                          break
     }
 
-    return owner.pointee.area.w >= owner.pointee.area.h ? CON_SPLITH : CON_SPLITV
+    return owner.area.w >= owner.area.h ? CON_SPLITH : CON_SPLITV
 }
 
 /// `tree_view_root`
 func tree_view_root(_ owner: View) -> Con
 {
-    if owner.pointee.tree == nil {
-        owner.pointee.tree = con_create(treeDefaultLayout(owner))
-        owner.pointee.tree.pointee.area = owner.pointee.area
+    if owner.tree == nil {
+        owner.tree = con_create(treeDefaultLayout(owner))
+        owner.tree.area = owner.area
     }
 
-    return owner.pointee.tree
+    return owner.tree
 }
 
 /// `tree_view_update`
 func tree_view_update(_ owner: View!)
 {
-    guard let root = owner.pointee.tree else { return }
-    tree_update(root, owner.pointee.area, view_window_gap(owner), treeBarHeight(), window_manager_global().tab_bar_offset, treeBarInset())
+    guard let root = owner.tree else { return }
+    tree_update(root, owner.area, view_window_gap(owner), treeBarHeight(), window_manager_global().tab_bar_offset, treeBarInset())
 }
 
 /// `tree_unmanage_windows`
 private func treeUnmanageWindows(_ node: Con)
 {
     if con_is_leaf(node) {
-        window_manager_remove_managed_window(window_manager_global(), node.pointee.window_id)
+        window_manager_remove_managed_window(window_manager_global(), node.window_id)
         return
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         treeUnmanageWindows(node.children[i])
     }
 }
@@ -114,17 +114,17 @@ private func treeUnmanageWindows(_ node: Con)
 /// `tree_view_clear`
 func tree_view_clear(_ owner: View)
 {
-    guard let root = owner.pointee.tree else { return }
+    guard let root = owner.tree else { return }
 
     treeUnmanageWindows(root)
     con_free(root)
-    owner.pointee.tree = nil
+    owner.tree = nil
 }
 
 /// `tree_view_find_window`
 func tree_view_find_window(_ owner: View!, _ windowID: UInt32) -> Con!
 {
-    guard let root = owner.pointee.tree else { return nil }
+    guard let root = owner.tree else { return nil }
     return tree_find_window(root, windowID)
 }
 
@@ -148,10 +148,10 @@ private func treeFocusNewWindow(_ root: Con, _ node: Con, _ windowID: UInt32)
 /// `tree_view_reset_empty_root`
 private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 {
-    if root.pointee.child_count != 0 { return }
+    if root.child_count != 0 { return }
 
-    root.pointee.layout = treeDefaultLayout(owner)
-    root.pointee.last_split = root.pointee.layout
+    root.layout = treeDefaultLayout(owner)
+    root.last_split = root.layout
 }
 
 //
@@ -165,21 +165,21 @@ private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
 {
     let root = tree_view_root(owner)
-    if tree_find_window(root, target.pointee.id) != nil { return }
+    if tree_find_window(root, target.id) != nil { return }
 
     let node = con_create(CON_SPLITH)!
-    node.pointee.window_id = target.pointee.id
+    node.window_id = target.id
 
     treeViewResetEmptyRoot(owner, root)
 
-    if owner.pointee.insertion_point != 0, let anchor = tree_find_window(root, owner.pointee.insertion_point), anchor.pointee.insert_dir != 0 {
-        let direction = anchor.pointee.insert_dir
-        anchor.pointee.insert_dir = 0
+    if owner.insertion_point != 0, let anchor = tree_find_window(root, owner.insertion_point), anchor.insert_dir != 0 {
+        let direction = anchor.insert_dir
+        anchor.insert_dir = 0
         treeFeedbackDestroy(anchor)
-        owner.pointee.insertion_point = 0
+        owner.insertion_point = 0
 
         tree_insert_relative(anchor, node, direction)
-        treeFocusNewWindow(root, node, target.pointee.id)
+        treeFocusNewWindow(root, node, target.id)
         return
     }
 
@@ -193,7 +193,7 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
     if anchor == nil { anchor = tree_descend_focused(root) }
 
     tree_open_con(root, node, anchor, space_manager_global().tree_autotiling)
-    treeFocusNewWindow(root, node, target.pointee.id)
+    treeFocusNewWindow(root, node, target.id)
 }
 
 //
@@ -212,13 +212,13 @@ func tree_view_attach_from_direction(_ owner: View, _ node: Con, _ direction: In
 /// `tree_remove_window`
 func tree_remove_window(_ owner: View, _ target: Window) -> Bool
 {
-    guard let node = tree_find_window(owner.pointee.tree, target.pointee.id) else { return false }
+    guard let node = tree_find_window(owner.tree, target.id) else { return false }
 
-    if owner.pointee.insertion_point == target.pointee.id { owner.pointee.insertion_point = 0 }
+    if owner.insertion_point == target.id { owner.insertion_point = 0 }
 
     tree_detach(node)
     con_free(node)
-    tree_flatten(owner.pointee.tree)
+    tree_flatten(owner.tree)
 
     return true
 }
@@ -227,11 +227,11 @@ func tree_remove_window(_ owner: View, _ target: Window) -> Bool
 private func treeAppendWindowList(_ node: Con, _ windowList: inout [UInt32])
 {
     if con_is_leaf(node) {
-        windowList.append(node.pointee.window_id)
+        windowList.append(node.window_id)
         return
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         treeAppendWindowList(node.children[i], &windowList)
     }
 }
@@ -240,7 +240,7 @@ private func treeAppendWindowList(_ node: Con, _ windowList: inout [UInt32])
 func treeViewWindowList(_ owner: View) -> [UInt32]
 {
     var windowList: [UInt32] = []
-    if let root = owner.pointee.tree { treeAppendWindowList(root, &windowList) }
+    if let root = owner.tree { treeAppendWindowList(root, &windowList) }
     return windowList
 }
 
@@ -252,29 +252,29 @@ func treeViewWindowList(_ owner: View) -> [UInt32]
 /// `tree_tiled_count`
 private func treeTiledCount(_ node: Con) -> Int32
 {
-    if con_is_leaf(node) { return node.pointee.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
+    if con_is_leaf(node) { return node.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
 
     var count: Int32 = 0
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         count += treeTiledCount(node.children[i])
     }
 
-    return node.pointee.layout == CON_TABBED && count > 1 ? 1 : count
+    return node.layout == CON_TABBED && count > 1 ? 1 : count
 }
 
 /// `tree_view_tiled_count`
 func tree_view_tiled_count(_ owner: View!) -> Int32
 {
-    guard let root = owner.pointee.tree else { return 0 }
+    guard let root = owner.tree else { return 0 }
     return treeTiledCount(root)
 }
 
 /// `tree_con_frame`
 func tree_con_frame(_ owner: View, _ node: Con) -> area
 {
-    if node.pointee.zoom == CON_ZOOM_FULLSCREEN { return owner.pointee.tree.pointee.area }
-    if node.pointee.zoom == CON_ZOOM_PARENT, let parent = node.pointee.parent { return parent.pointee.area }
-    return node.pointee.area
+    if node.zoom == CON_ZOOM_FULLSCREEN { return owner.tree.area }
+    if node.zoom == CON_ZOOM_PARENT, let parent = node.parent { return parent.area }
+    return node.area
 }
 
 /// `AX_DIFF` (view.h)
@@ -299,14 +299,14 @@ func tree_window_needs_flush(_ owner: View, _ windowID: UInt32, _ frame: CGRect)
 private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout [window_capture])
 {
     if con_is_leaf(node) {
-        if let target = window_manager_find_window(window_manager_global(), node.pointee.window_id) {
+        if let target = window_manager_find_window(window_manager_global(), node.window_id) {
             let area = tree_con_frame(owner, node)
             windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
         }
         return
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         treeCaptureWindows(owner, node.children[i], &windowList)
     }
 }
@@ -314,9 +314,9 @@ private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout 
 /// `tree_has_zoom`
 func treeHasZoom(_ node: Con, _ zoom: con_zoom) -> Bool
 {
-    if con_is_leaf(node) { return zoom == CON_ZOOM_NONE ? node.pointee.zoom != CON_ZOOM_NONE : node.pointee.zoom == zoom }
+    if con_is_leaf(node) { return zoom == CON_ZOOM_NONE ? node.zoom != CON_ZOOM_NONE : node.zoom == zoom }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         if treeHasZoom(node.children[i], zoom) { return true }
     }
 
@@ -327,7 +327,7 @@ func treeHasZoom(_ node: Con, _ zoom: con_zoom) -> Bool
 private func treeRootOf(_ node: Con) -> Con
 {
     var node = node
-    while let parent = node.pointee.parent { node = parent }
+    while let parent = node.parent { node = parent }
     return node
 }
 
@@ -346,9 +346,9 @@ func treeContainsWindow(_ node: Con, _ windowID: UInt32) -> Bool
 private func treeBarIsShown(_ node: Con) -> Bool
 {
     return tab_bar_is_enabled() &&
-           node.pointee.layout == CON_TABBED &&
-           node.pointee.child_count > 0 &&
-           node.pointee.area.h > Float(2 * window_manager_global().tab_bar_height) &&
+           node.layout == CON_TABBED &&
+           node.child_count > 0 &&
+           node.area.h > Float(2 * window_manager_global().tab_bar_height) &&
            tree_con_is_visible(node) &&
            !treeHasZoom(node, CON_ZOOM_NONE) &&
            !treeHasZoom(treeRootOf(node), CON_ZOOM_FULLSCREEN)
@@ -394,7 +394,7 @@ private func treeRenderBar(_ node: Con)
     node.render.tab_bar.redraw = treeRenderBarCallback
 
     let above = tree_descend_focused(node)
-    let area = node.pointee.area
+    let area = node.area
     let inset = Float(tree_bar_card_inset(area, wm.tab_bar_height, treeBarInset()))
     let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
     let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tab_bar_height))
@@ -418,22 +418,22 @@ func tree_window_border_area(_ owner: View!, _ windowID: UInt32, _ windowArea: U
     borderArea.pointee = area()
     radius.pointee = 0
 
-    guard let owner, owner.pointee.tree != nil, let leaf = tree_view_find_window(owner, windowID) else { return true }
+    guard let owner, owner.tree != nil, let leaf = tree_view_find_window(owner, windowID) else { return true }
     if !tree_con_is_visible(leaf) { return false }
 
     var outer: Con?
     var node = leaf
-    while let parent = node.pointee.parent, parent.pointee.layout == CON_TABBED, treeBarIsShown(parent) {
+    while let parent = node.parent, parent.layout == CON_TABBED, treeBarIsShown(parent) {
         outer = parent
         node = parent
     }
 
-    windowArea.pointee = leaf.pointee.area
-    borderArea.pointee = outer?.pointee.area ?? leaf.pointee.area
+    windowArea.pointee = leaf.area
+    borderArea.pointee = outer?.area ?? leaf.area
 
     if let outer {
         let wm = window_manager_global()
-        let inset = tree_bar_card_inset(outer.pointee.area, wm.tab_bar_height, treeBarInset())
+        let inset = tree_bar_card_inset(outer.area, wm.tab_bar_height, treeBarInset())
         if inset > 0 { radius.pointee = wm.tab_bar_window_radius + inset }
     }
 
@@ -445,13 +445,13 @@ func tree_render_bars(_ node: Con)
 {
     if con_is_leaf(node) { return }
 
-    if node.pointee.layout == CON_TABBED {
+    if node.layout == CON_TABBED {
         treeRenderBar(node)
     } else {
         tab_bar_release(node.render.tab_bar)
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         tree_render_bars(node.children[i])
     }
 }
@@ -461,7 +461,7 @@ func tree_release_bars(_ node: Con!)
 {
     tab_bar_release(node.render.tab_bar)
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         tree_release_bars(node.children[i])
     }
 }
@@ -470,16 +470,16 @@ func tree_release_bars(_ node: Con!)
 func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: UInt32, _ list: inout [sa_window_order])
 {
     if con_is_leaf(node) {
-        if node.pointee.window_id != relative { list.append(sa_window_order(a_wid: node.pointee.window_id, order: order, b_wid: relative)) }
+        if node.window_id != relative { list.append(sa_window_order(a_wid: node.window_id, order: order, b_wid: relative)) }
         return
     }
 
-    if order == 1 && node.pointee.layout == CON_TABBED {
-        if node.pointee.child_count != 0 { treeCollectWindowOrder(node.focus[0], order, relative, &list) }
+    if order == 1 && node.layout == CON_TABBED {
+        if node.child_count != 0 { treeCollectWindowOrder(node.focus[0], order, relative, &list) }
         return
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         treeCollectWindowOrder(node.children[i], order, relative, &list)
     }
 }
@@ -501,36 +501,36 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
 {
     if con_is_leaf(node) { return }
 
-    if node.pointee.layout == CON_TABBED && node.pointee.child_count != 0 && tree_con_is_visible(node) {
+    if node.layout == CON_TABBED && node.child_count != 0 && tree_con_is_visible(node) {
         let active = node.focus[0]
 
         let anchor = tree_descend_focused(active)
-        let anchorWid = anchor?.pointee.window_id ?? 0
+        let anchorWid = anchor?.window_id ?? 0
         let cardWid = tab_bar_card_id(node.render.tab_bar)
 
-        if force || node.pointee.render.raised != active || node.pointee.render.raised_anchor != anchorWid || node.pointee.render.raised_card != cardWid {
-            node.pointee.render.raised = active
-            node.pointee.render.raised_anchor = anchorWid
-            node.pointee.render.raised_card = cardWid
+        if force || node.render.raised != active || node.render.raised_anchor != anchorWid || node.render.raised_card != cardWid {
+            node.render.raised = active
+            node.render.raised_anchor = anchorWid
+            node.render.raised_card = cardWid
 
             if anchor != nil && cardWid != 0 {
                 list.append(sa_window_order(a_wid: anchorWid, order: 1, b_wid: cardWid))
             }
 
-            if anchor != nil && node.pointee.child_count > 1 {
-                for i in 0..<Int(node.pointee.child_count) {
+            if anchor != nil && node.child_count > 1 {
+                for i in 0..<Int(node.child_count) {
                     let next = node.children[i]
                     if next != active { treeCollectWindowOrder(next, -1, cardWid != 0 ? cardWid : anchorWid, &list) }
                 }
             }
 
             if let anchor, !con_is_leaf(active) {
-                treeCollectWindowOrder(active, 1, anchor.pointee.window_id, &list)
+                treeCollectWindowOrder(active, 1, anchor.window_id, &list)
             }
         }
     }
 
-    for i in 0..<Int(node.pointee.child_count) {
+    for i in 0..<Int(node.child_count) {
         treeCollectTabOrder(node.children[i], force, &list)
     }
 }
@@ -547,7 +547,7 @@ func tree_raise_tabs(_ node: Con, _ force: Bool)
 /// `tree_flush`
 func tree_flush(_ owner: View)
 {
-    guard let root = owner.pointee.tree else { return }
+    guard let root = owner.tree else { return }
 
     var windowList: [window_capture] = []
     treeCaptureWindows(owner, root, &windowList)
@@ -558,11 +558,11 @@ func tree_flush(_ owner: View)
 
     if let selected = tree_find_selected(root) { tree_selection_show(selected) }
 
-    if owner.pointee.insertion_point != 0, let insert = tree_find_window(root, owner.pointee.insertion_point), insert.pointee.insert_dir != 0 {
-        tree_feedback_show(insert, insert.pointee.insert_dir)
+    if owner.insertion_point != 0, let insert = tree_find_window(root, owner.insertion_point), insert.insert_dir != 0 {
+        tree_feedback_show(insert, insert.insert_dir)
     }
 
-    border_refresh_space(owner.pointee.sid)
+    border_refresh_space(owner.sid)
 }
 
 /// `tree_window_did_receive_focus`
@@ -570,16 +570,16 @@ func tree_window_did_receive_focus(_ owner: View, _ windowID: UInt32)
 {
     guard let node = tree_view_find_window(owner, windowID) else { return }
 
-    tree_select(owner.pointee.tree, nil)
+    tree_select(owner.tree, nil)
     tree_focus(node)
 
-    if !space_is_visible(owner.pointee.sid) {
+    if !space_is_visible(owner.sid) {
         setViewFlag(owner, VIEW_IS_DIRTY)
         return
     }
 
-    tree_raise_tabs(owner.pointee.tree, false)
-    tree_render_bars(owner.pointee.tree)
+    tree_raise_tabs(owner.tree, false)
+    tree_render_bars(owner.tree)
 }
 
 /// `tree_refresh_for_window`
@@ -588,9 +588,9 @@ func tree_refresh_for_window(_ windowID: UInt32)
     if windowID == 0 { return }
 
     guard let owner = window_manager_global().managed_window.find(windowID) else { return }
-    if owner.pointee.layout != VIEW_TREE || owner.pointee.tree == nil { return }
+    if owner.layout != VIEW_TREE || owner.tree == nil { return }
 
-    if space_is_visible(owner.pointee.sid) { tree_render_bars(owner.pointee.tree) }
+    if space_is_visible(owner.sid) { tree_render_bars(owner.tree) }
 }
 
 //
@@ -610,22 +610,22 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
     guard let leaf = tree_descend_focused(node), con_is_leaf(leaf) else { return }
 
     let cid = connection_global()
-    let area = node.pointee.area
+    let area = node.area
     var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
     var region: CFTypeRef?
     CGSNewRegionWithRect(&frame, &region)
     let frameRegion = region!
     frame.origin.x = 0; frame.origin.y = 0
 
-    if node.pointee.render.feedback_window.id == 0 {
+    if node.render.feedback_window.id == 0 {
         var tags: UInt64 = (1 << 1) | (1 << 9)
         let emptyRegion = CGRegionCreateEmptyRegion()
-        SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &node.pointee.render.feedback_window.id, nil)
+        SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &node.render.feedback_window.id, nil)
 
-        sls_window_disable_shadow(node.pointee.render.feedback_window.id)
-        SLSSetWindowResolution(cid, node.pointee.render.feedback_window.id, 1.0)
-        SLSSetWindowOpacity(cid, node.pointee.render.feedback_window.id, false)
-        let context = SLWindowContextCreate(cid, node.pointee.render.feedback_window.id, nil)
+        sls_window_disable_shadow(node.render.feedback_window.id)
+        SLSSetWindowResolution(cid, node.render.feedback_window.id, 1.0)
+        SLSSetWindowOpacity(cid, node.render.feedback_window.id, false)
+        let context = SLWindowContextCreate(cid, node.render.feedback_window.id, nil)
         node.render.feedback_window.context = context
         context?.setLineWidth(insertFeedbackWidth)
     }
@@ -657,7 +657,7 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
     let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(cgrect_clamp_x_radius(rect, insertFeedbackRadius)), cornerHeight: CGFloat(cgrect_clamp_y_radius(rect, insertFeedbackRadius)), transform: nil)
 
     SLSDisableUpdate(cid)
-    SLSSetWindowShape(cid, node.pointee.render.feedback_window.id, 0.0, 0.0, frameRegion)
+    SLSSetWindowShape(cid, node.render.feedback_window.id, 0.0, 0.0, frameRegion)
     context?.clear(frame)
     context?.clip(to: clip)
     context?.fill(fill)
@@ -667,9 +667,9 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
     context?.flush()
     SLSReenableUpdate(cid)
 
-    SLSSetWindowLevel(cid, node.pointee.render.feedback_window.id, window_level(leaf.pointee.window_id))
-    SLSSetWindowSubLevel(cid, node.pointee.render.feedback_window.id, window_sub_level(leaf.pointee.window_id))
-    SLSOrderWindow(cid, node.pointee.render.feedback_window.id, 1, leaf.pointee.window_id)
+    SLSSetWindowLevel(cid, node.render.feedback_window.id, window_level(leaf.window_id))
+    SLSSetWindowSubLevel(cid, node.render.feedback_window.id, window_sub_level(leaf.window_id))
+    SLSOrderWindow(cid, node.render.feedback_window.id, 1, leaf.window_id)
 }
 
 /// `tree_feedback_hide`

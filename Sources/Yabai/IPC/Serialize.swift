@@ -101,14 +101,14 @@ private func viewWindowList(_ sid: UInt64) -> String
 
 private func viewFirstWindow(_ view: View) -> UInt32
 {
-    guard let tree = view.pointee.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return 0 }
-    return first.pointee.window_id
+    guard let tree = view.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return 0 }
+    return first.window_id
 }
 
 private func viewLastWindow(_ view: View) -> UInt32
 {
-    guard let tree = view.pointee.tree, let last = tree_last_leaf(tree) else { return 0 }
-    return last.pointee.window_id
+    guard let tree = view.tree, let last = tree_last_leaf(tree) else { return 0 }
+    return last.window_id
 }
 
 /// `view_type_str` (src/view.h)
@@ -118,14 +118,14 @@ private let viewTypeNames = ["default", "float", "tree"]
 func viewSerialize(_ view: View, _ flags: UInt64) -> String
 {
     let sm = space_manager_global()
-    let sid = view.pointee.sid
+    let sid = view.sid
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
     json.property(SpaceProperty.id,           "\"id\":\(Int64(bitPattern: sid))")
     json.property(SpaceProperty.uuid,         "\"uuid\":\"\(viewUUID(view))\"")
     json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
     json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
-    json.property(SpaceProperty.type,         "\"type\":\"\(viewTypeNames[Int(view.pointee.layout.rawValue)])\"")
+    json.property(SpaceProperty.type,         "\"type\":\"\(viewTypeNames[Int(view.layout.rawValue)])\"")
     json.property(SpaceProperty.display,      "\"display\":\(display_manager_display_id_arrangement(space_display_id(sid)))")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)))")
@@ -221,17 +221,17 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 {
     guard let node else { return }
 
-    if let parent = node.pointee.parent {
-        if parent.pointee.layout == CON_SPLITH { info.split = .y }
-        if parent.pointee.layout == CON_SPLITV { info.split = .x }
+    if let parent = node.parent {
+        if parent.layout == CON_SPLITH { info.split = .y }
+        if parent.layout == CON_SPLITV { info.split = .x }
     }
 
     var tab = node
-    while let parent = tab.pointee.parent, parent.pointee.layout != CON_TABBED { tab = parent }
-    info.stackIndex = tab.pointee.parent != nil ? con_index(tab) + 1 : 0
+    while let parent = tab.parent, parent.layout != CON_TABBED { tab = parent }
+    info.stackIndex = tab.parent != nil ? con_index(tab) + 1 : 0
 
-    info.hasParentZoom = node.pointee.zoom == CON_ZOOM_PARENT
-    info.hasFullscreenZoom = node.pointee.zoom == CON_ZOOM_FULLSCREEN
+    info.hasParentZoom = node.zoom == CON_ZOOM_PARENT
+    info.hasFullscreenZoom = node.zoom == CON_ZOOM_FULLSCREEN
 }
 
 //
@@ -242,21 +242,21 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 {
     let wm = window_manager_global()
-    let application = window.pointee.application!
-    let wid = window.pointee.id
+    let application = window.application!
+    let wid = window.id
 
     var info = WindowInfo()
     info.id               = wid
-    info.pid              = application.pointee.pid
-    info.app              = string(application.pointee.name)
-    info.scratchpad       = string(window.pointee.scratchpad) ?? ""
-    info.frame            = window.pointee.frame
-    info.isRoot           = window.pointee.is_root
+    info.pid              = application.pid
+    info.app              = string(application.name)
+    info.scratchpad       = string(window.scratchpad) ?? ""
+    info.frame            = window.frame
+    info.isRoot           = window.is_root
     info.hasFocus         = wid == wm.focused_window_id
     info.hasAXReference   = true
     info.isFullscreen     = window_check_flag(window, WINDOW_FULLSCREEN)
     info.isMinimized      = window_check_flag(window, WINDOW_MINIMIZE)
-    info.isHidden         = application.pointee.is_hidden
+    info.isHidden         = application.is_hidden
     info.isFloating       = window_check_flag(window, WINDOW_FLOAT)
     info.isGrabbed        = window == mouse_state_global().window
 
@@ -376,21 +376,21 @@ func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64
 private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
 {
     let leaf = con_is_leaf(node)
-    let frame = leaf ? tree_con_frame(view, node) : node.pointee.area
+    let frame = leaf ? tree_con_frame(view, node) : node.area
     let visible = tree_con_is_visible(node)
-    let parent = node.pointee.parent
+    let parent = node.parent
 
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
-    let layout = leaf ? "null" : "\"\(conLayoutNames[Int(node.pointee.layout.rawValue)])\""
-    let percent = parent != nil ? node.pointee.percent : 1.0
-    let focused = leaf && node.pointee.window_id == window_manager_global().focused_window_id
+    let layout = leaf ? "null" : "\"\(conLayoutNames[Int(node.layout.rawValue)])\""
+    let percent = parent != nil ? node.percent : 1.0
+    let focused = leaf && node.window_id == window_manager_global().focused_window_id
 
     output += String(repeating: " ", count: depth)
-    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.pointee.window_id))"
+    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id))"
     output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
-    output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.pointee.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
+    output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
 
-    let childCount = Int(node.pointee.child_count)
+    let childCount = Int(node.child_count)
     for i in 0..<childCount {
         output += i != 0 ? ",\n" : "\n"
         treeSerializeCon(&output, view, node.children[i], depth + 1)
@@ -407,7 +407,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
 /// `tree_serialize`
 func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
 {
-    guard view.pointee.layout == VIEW_TREE else { return false }
+    guard view.layout == VIEW_TREE else { return false }
 
     var output = ""
     treeSerializeCon(&output, view, tree_view_root(view), 0)

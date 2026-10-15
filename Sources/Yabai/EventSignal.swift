@@ -120,21 +120,21 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
 
     switch es.type {
     case .windowCreated, .windowFocused, .windowDeminimized:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
-        es.app   = string(target.pointee.application.pointee.name)
+        es.app   = string(target.application.name)
         es.title = window_title_ts(target)
     case .windowDestroyed:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
         es.app = target.application.map { string($0.name) } ?? "<unknown>"
-        es.active = focusedWindowID == target.pointee.id
+        es.active = focusedWindowID == target.id
     case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
-        es.app   = string(target.pointee.application.pointee.name)
+        es.app   = string(target.application.name)
         es.title = window_title_ts(target)
-        es.active = focusedWindowID == target.pointee.id
+        es.active = focusedWindowID == target.id
     default:
         break
     }

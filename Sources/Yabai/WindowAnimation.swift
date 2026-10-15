@@ -45,7 +45,7 @@ final class WindowAnimation: @unchecked Sendable
     init(_ capture: window_capture, connection: Int32)
     {
         cid = connection
-        wid = capture.window.pointee.id
+        wid = capture.window.id
         x = capture.x; y = capture.y; w = capture.w; h = capture.h
     }
 }
@@ -340,10 +340,10 @@ func window_frame_needs_update(_ request: CGRect, _ hasBounds: Bool, _ bounds: C
 
 private func windowManagerWindowFrameNeedsUpdate(_ target: Window, _ x: Float, _ y: Float, _ w: Float, _ h: Float) -> Bool
 {
-    if !window_frame_is_close(target.pointee.frame_request, x, y, w, h) { return true }
+    if !window_frame_is_close(target.frame_request, x, y, w, h) { return true }
     var bounds = CGRect.zero
-    let hasBounds = SLSGetWindowBounds(connection_global(), target.pointee.id, &bounds) == .success
-    return window_frame_needs_update(target.pointee.frame_request, hasBounds, bounds, x, y, w, h)
+    let hasBounds = SLSGetWindowBounds(connection_global(), target.id, &bounds) == .success
+    return window_frame_needs_update(target.frame_request, hasBounds, bounds, x, y, w, h)
 }
 
 private func windowManagerFilterWindowFrames(_ list: UnsafeMutablePointer<window_capture>, _ count: Int32) -> Int32
@@ -407,9 +407,9 @@ private func windowManagerSetWindowFrameAX(_ ref: AXUIElement, _ position: CGPoi
 
 func window_manager_set_window_frame(_ target: Window, _ x: Float, _ y: Float, _ width: Float, _ height: Float)
 {
-    target.pointee.frame_request = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
-    axEnhancedUIWorkaround(target.pointee.application.pointee.ref) {
-        windowManagerSetWindowFrameAX(target.pointee.ref,
+    target.frame_request = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
+    axEnhancedUIWorkaround(target.application.ref) {
+        windowManagerSetWindowFrameAX(target.ref,
                                      CGPoint(x: CGFloat(x), y: CGFloat(y)), CGSize(width: CGFloat(width), height: CGFloat(height)))
     }
 }
@@ -442,8 +442,8 @@ final class WindowFrameGroup: @unchecked Sendable
     init(_ target: Application)
     {
         application = target
-        ref = target.pointee.ref
-        name = cName(target.pointee.name)
+        ref = target.ref
+        name = cName(target.name)
     }
 }
 
@@ -453,7 +453,7 @@ func window_manager_group_window_frames(_ list: UnsafePointer<window_capture>, _
     var groups: [WindowFrameGroup] = []
     for i in 0..<Int(count) {
         let capture = list[i]
-        let owner = capture.window.pointee.application!
+        let owner = capture.window.application!
         let group: WindowFrameGroup
         if let existing = groups.first(where: { $0.application == owner }) {
             group = existing
@@ -461,7 +461,7 @@ func window_manager_group_window_frames(_ list: UnsafePointer<window_capture>, _
             group = WindowFrameGroup(owner)
             groups.append(group)
         }
-        group.list.append(WindowFrameRequest(ref: capture.window.pointee.ref,
+        group.list.append(WindowFrameRequest(ref: capture.window.ref,
                                              position: CGPoint(x: CGFloat(capture.x), y: CGFloat(capture.y)),
                                              size: CGSize(width: CGFloat(capture.w), height: CGFloat(capture.h))))
     }
@@ -494,7 +494,7 @@ func window_manager_set_window_frames(_ list: UnsafeMutablePointer<window_captur
     guard count > 0, let list else { return }
     for i in 0..<Int(count) {
         let capture = list[i]
-        capture.window.pointee.frame_request = CGRect(x: CGFloat(capture.x), y: CGFloat(capture.y),
+        capture.window.frame_request = CGRect(x: CGFloat(capture.x), y: CGFloat(capture.y),
                                                      width: CGFloat(capture.w), height: CGFloat(capture.h))
     }
     let groups = window_manager_group_window_frames(list, count)

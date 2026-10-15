@@ -357,7 +357,7 @@ func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
     let wm = window_manager_global()
 
     if let window = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, 0) {
-        window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
+        window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
         window_manager_center_mouse(wm, window)
         display_manager_set_active_display_id(did)
     } else {

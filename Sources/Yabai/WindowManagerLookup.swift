@@ -72,34 +72,34 @@ func window_manager_find_window_below_cursor(_ wm: WindowManager) -> Window?
 func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Int32) -> Window?
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return nil }
-    guard let node = tree_find_window(owner.pointee.tree, target.pointee.id) else { return nil }
+    guard let node = tree_find_window(owner.tree, target.id) else { return nil }
 
     var result: Con?
     if tree_next(node, direction, FOCUS_WRAPPING_OFF, false, &result) != TREE_RESULT_DONE { return nil }
     guard let result, con_is_leaf(result), result != node else { return nil }
 
-    return window_manager_find_window(wm, result.pointee.window_id)
+    return window_manager_find_window(wm, result.window_id)
 }
 
 /// `window_manager_active_tree_view`
 private func windowManagerActiveTreeView(_ sm: SpaceManager) -> View?
 {
     let owner = space_manager_find_view(sm, space_manager_active_space())
-    return owner.pointee.tree != nil ? owner : nil
+    return owner.tree != nil ? owner : nil
 }
 
 /// `window_manager_find_window_for_con`
 private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) -> Window?
 {
     guard let node, con_is_leaf(node) else { return nil }
-    return window_manager_find_window(wm, node.pointee.window_id)
+    return window_manager_find_window(wm, node.window_id)
 }
 
 /// The leaf of the window in the tree of the active space.
 private func windowManagerActiveCon(_ sm: SpaceManager, _ target: Window) -> Con?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return tree_find_window(owner.pointee.tree, target.pointee.id)
+    return tree_find_window(owner.tree, target.id)
 }
 
 /// `window_manager_find_prev_managed_window`
@@ -120,14 +120,14 @@ func window_manager_find_next_managed_window(_ sm: SpaceManager, _ wm: WindowMan
 func window_manager_find_first_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_first_leaf(owner.pointee.tree))
+    return windowManagerFindWindowForCon(wm, tree_first_leaf(owner.tree))
 }
 
 /// `window_manager_find_last_managed_window`
 func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_last_leaf(owner.pointee.tree))
+    return windowManagerFindWindowForCon(wm, tree_last_leaf(owner.tree))
 }
 
 /// `window_manager_find_recent_managed_window`
@@ -150,7 +150,7 @@ private func windowManagerFindTab(_ sm: SpaceManager, _ target: Window) -> (tab:
     guard var node = windowManagerActiveCon(sm, target) else { return nil }
     guard let parent = tree_tabbed_ancestor(node) else { return nil }
 
-    while node.pointee.parent != parent { node = node.pointee.parent }
+    while node.parent != parent { node = node.parent }
     return (node, parent)
 }
 
@@ -160,10 +160,10 @@ private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: WindowManager,
     guard let found = windowManagerFindTab(sm, target) else { return nil }
     let (tab, tabbed) = found
 
-    let index = relative ? con_index(tab) + index : index == Int32.max ? tabbed.pointee.child_count - 1 : index
-    if index < 0 || index >= tabbed.pointee.child_count { return nil }
+    let index = relative ? con_index(tab) + index : index == Int32.max ? tabbed.child_count - 1 : index
+    if index < 0 || index >= tabbed.child_count { return nil }
 
-    return windowManagerFindWindowForCon(wm, tree_descend_focused(tabbed.pointee.children[Int(index)]))
+    return windowManagerFindWindowForCon(wm, tree_descend_focused(tabbed.children[Int(index)]))
 }
 
 /// `window_manager_find_prev_window_in_stack`
@@ -193,10 +193,10 @@ func window_manager_find_last_window_in_stack(_ sm: SpaceManager, _ wm: WindowMa
 /// `window_manager_find_recent_window_in_stack`
 func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    guard let found = windowManagerFindTab(sm, target), found.tabbed.pointee.child_count >= 2 else { return nil }
+    guard let found = windowManagerFindTab(sm, target), found.tabbed.child_count >= 2 else { return nil }
     let (tab, tabbed) = found
 
-    let recent = tabbed.pointee.focus[0] == tab ? tabbed.pointee.focus[1] : tabbed.pointee.focus[0]
+    let recent = tabbed.focus[0] == tab ? tabbed.focus[1] : tabbed.focus[0]
     return windowManagerFindWindowForCon(wm, tree_descend_focused(recent))
 }
 
@@ -215,12 +215,12 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Wind
     var bestID: UInt32 = 0
     var bestArea: Float = largest ? 0 : Float.greatestFiniteMagnitude
 
-    var node = tree_first_leaf(owner.pointee.tree)
+    var node = tree_first_leaf(owner.tree)
     while let leaf = node, con_is_leaf(leaf) {
         if tree_con_is_visible(leaf) {
-            let area = leaf.pointee.area.w * leaf.pointee.area.h
+            let area = leaf.area.w * leaf.area.h
             if largest ? area > bestArea : area <= bestArea {
-                bestID = leaf.pointee.window_id
+                bestID = leaf.window_id
                 bestArea = area
             }
         }

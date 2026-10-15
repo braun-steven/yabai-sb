@@ -87,7 +87,7 @@ func space_manager_find_view(_ sm: SpaceManager, _ sid: UInt64) -> View
 func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return }
+    if target.layout == VIEW_FLOAT { return }
 
     view_update_and_flush(target)
 }
@@ -96,7 +96,7 @@ func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
 func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return }
+    if target.layout == VIEW_FLOAT { return }
 
     clearViewFlag(target, VIEW_IS_VALID)
 }
@@ -104,7 +104,7 @@ func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
 /// `space_manager_untile_window`
 func space_manager_untile_window(_ target: View, _ win: Window)
 {
-    if target.pointee.layout == VIEW_FLOAT { return }
+    if target.layout == VIEW_FLOAT { return }
 
     window_manager_adjust_layer(win, CGWindowLevelKey.normalWindow.rawValue)
     if view_remove_window(target, win) { view_flush(target) }
@@ -114,10 +114,10 @@ func space_manager_untile_window(_ target: View, _ win: Window)
 func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ layout: view_type)
 {
     let target = space_manager_find_view(sm, sid)
-    target.pointee.layout = layout
+    target.layout = layout
     view_clear(target)
 
-    if target.pointee.layout != VIEW_FLOAT {
+    if target.layout != VIEW_FLOAT {
         window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), sid)
     }
 }
@@ -126,12 +126,12 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ lay
 func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ gap: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return false }
+    if target.layout == VIEW_FLOAT { return false }
 
     if type == TYPE_ABS {
-        target.pointee.window_gap = gap
+        target.window_gap = gap
     } else if type == TYPE_REL {
-        target.pointee.window_gap = addAndClampToZero(target.pointee.window_gap, gap)
+        target.window_gap = addAndClampToZero(target.window_gap, gap)
     }
 
     view_update_and_flush(target)
@@ -143,7 +143,7 @@ func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: 
 private func spaceManagerToggleViewFlag(_ sm: SpaceManager, _ sid: UInt64, _ flag: view_flag) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return false }
+    if target.layout == VIEW_FLOAT { return false }
 
     if hasViewFlag(target, flag) {
         clearViewFlag(target, flag)
@@ -183,12 +183,12 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: view_
 
     for target in sm.view.values {
         if !hasViewFlag(target, VIEW_LAYOUT) {
-            if space_is_user(target.pointee.sid) {
-                target.pointee.layout = layout
+            if space_is_user(target.sid) {
+                target.layout = layout
                 view_clear(target)
 
-                if target.pointee.layout != VIEW_FLOAT {
-                    window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), target.pointee.sid)
+                if target.layout != VIEW_FLOAT {
+                    window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), target.sid)
                 }
             }
         }
@@ -211,10 +211,10 @@ func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ flag: view_f
 /// `space_manager_apply_auto_padding`
 private func spaceManagerApplyAutoPadding(_ target: View, _ autoPadding: Bool)
 {
-    if target.pointee.auto_padding == autoPadding { return }
+    if target.auto_padding == autoPadding { return }
 
-    target.pointee.auto_padding = autoPadding
-    if target.pointee.layout == VIEW_FLOAT { return }
+    target.auto_padding = autoPadding
+    if target.layout == VIEW_FLOAT { return }
 
     view_update_and_flush(target)
 }
@@ -243,18 +243,18 @@ func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64,
 func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return false }
+    if target.layout == VIEW_FLOAT { return false }
 
     if type == TYPE_ABS {
-        target.pointee.top_padding    = top
-        target.pointee.bottom_padding = bottom
-        target.pointee.left_padding   = left
-        target.pointee.right_padding  = right
+        target.top_padding    = top
+        target.bottom_padding = bottom
+        target.left_padding   = left
+        target.right_padding  = right
     } else if type == TYPE_REL {
-        target.pointee.top_padding    = addAndClampToZero(target.pointee.top_padding, top)
-        target.pointee.bottom_padding = addAndClampToZero(target.pointee.bottom_padding, bottom)
-        target.pointee.left_padding   = addAndClampToZero(target.pointee.left_padding, left)
-        target.pointee.right_padding  = addAndClampToZero(target.pointee.right_padding, right)
+        target.top_padding    = addAndClampToZero(target.top_padding, top)
+        target.bottom_padding = addAndClampToZero(target.bottom_padding, bottom)
+        target.left_padding   = addAndClampToZero(target.left_padding, left)
+        target.right_padding  = addAndClampToZero(target.right_padding, right)
     }
 
     view_update_and_flush(target)
@@ -272,7 +272,7 @@ func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: UInt64) -
 private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: UInt64) -> View?
 {
     let target = space_manager_find_view(sm, sid)
-    return target.pointee.layout == VIEW_TREE && target.pointee.tree != nil ? target : nil
+    return target.layout == VIEW_TREE && target.tree != nil ? target : nil
 }
 
 /// `space_manager_rotate_space`
@@ -280,7 +280,7 @@ func space_manager_rotate_space(_ sm: SpaceManager, _ sid: UInt64, _ degrees: In
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_rotate(target.pointee.tree, degrees)
+    tree_rotate(target.tree, degrees)
     view_update_and_flush(target)
 
     return true
@@ -291,7 +291,7 @@ func space_manager_mirror_space(_ sm: SpaceManager, _ sid: UInt64, _ axis: windo
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_mirror(target.pointee.tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL)
+    tree_mirror(target.tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL)
     view_update_and_flush(target)
 
     return true
@@ -302,7 +302,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_balance(target.pointee.tree)
+    tree_balance(target.tree)
     view_update_and_flush(target)
 
     return true
@@ -312,7 +312,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: UInt64, _ insertionPoint: UInt32) -> View
 {
     let target = space_manager_find_view(sm, sid)
-    if target.pointee.layout == VIEW_FLOAT { return target }
+    if target.layout == VIEW_FLOAT { return target }
 
     window_manager_adjust_layer(win, CGWindowLevelKey.backstopMenu.rawValue)
     view_add_window(target, win, insertionPoint)
@@ -330,8 +330,8 @@ func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid
 /// `space_manager_toggle_window_split`
 func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
 {
-    let target = space_manager_find_view(sm, window_space(win.pointee.id))
-    if target.pointee.layout != VIEW_TREE { return }
+    let target = space_manager_find_view(sm, window_space(win.id))
+    if target.layout != VIEW_TREE { return }
 
     _ = window_manager_set_window_layout(window_manager_global(), win, WINDOW_LAYOUT_TOGGLE_SPLIT)
 }
@@ -447,7 +447,7 @@ func space_manager_active_space() -> UInt64
     var did: UInt32 = 0
     let focused = spaceManagerFocusedWindow()
 
-    if let focused { did = window_display_id(focused.pointee.id) }
+    if let focused { did = window_display_id(focused.id) }
     if did == 0 { did = display_manager_active_display_id() }
     if did == 0 { return 0 }
 
@@ -523,9 +523,9 @@ func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<
 func space_manager_move_window_to_space(_ sid: UInt64, _ win: Window)
 {
     if SLS.hasBridgedWindowOperation {
-        SLS.bridgedMoveWindows([win.pointee.id], toSpace: sid)
-    } else if !scripting_addition_move_window_to_space(sid, win.pointee.id) {
-        var windows = [win.pointee.id]
+        SLS.bridgedMoveWindows([win.id], toSpace: sid)
+    } else if !scripting_addition_move_window_to_space(sid, win.id) {
+        var windows = [win.id]
         SLSSpaceSetCompatID(connection_global(), sid, 0x79616265)
         SLSSetWindowListWorkspace(connection_global(), &windows, 1, 0x79616265)
         SLSSpaceSetCompatID(connection_global(), sid, 0x0)
@@ -575,12 +575,12 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UIn
     sm.view.remove(aSid)
     sm.view.remove(bSid)
 
-    aView.pointee.sid = bSid
-    bView.pointee.sid = aSid
+    aView.sid = bSid
+    bView.sid = aSid
 
-    let uuid = aView.pointee.uuid
-    aView.pointee.uuid = bView.pointee.uuid
-    bView.pointee.uuid = uuid
+    let uuid = aView.uuid
+    aView.uuid = bView.uuid
+    bView.uuid = uuid
 
     sm.view.add(aSid, bView)
     sm.view.add(bSid, aView)
@@ -865,7 +865,7 @@ func space_manager_add_space(_ sid: UInt64) -> space_op_error
 /// `space_manager_is_window_on_space`
 func space_manager_is_window_on_space(_ sid: UInt64, _ win: Window) -> Bool
 {
-    return window_space_list(win.pointee.id).contains(sid)
+    return window_space_list(win.id).contains(sid)
 }
 
 /// `space_manager_mark_spaces_invalid_for_display`
@@ -903,7 +903,7 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
     var i = 0
     while i < refreshCount {
         let application = window_manager_application_refresh_at(wm, Int32(i))
-        debug("space_manager_refresh_application_windows: \(String(cString: application.pointee.name)) has windows that are not yet resolved\n")
+        debug("space_manager_refresh_application_windows: \(String(cString: application.name)) has windows that are not yet resolved\n")
 
         if window_manager_add_existing_application_windows(sm, wm, application, Int32(i)) {
             refreshCount -= 1

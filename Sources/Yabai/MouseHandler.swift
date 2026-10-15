@@ -125,7 +125,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
 
 @WM func mouse_window_info_populate(_ ms: MouseState, _ info: UnsafeMutablePointer<mouse_window_info>)
 {
-    let frame = ms.window.pointee.frame
+    let frame = ms.window.frame
     info.pointee.dx = Float(frame.origin.x - ms.window_frame.origin.x)
     info.pointee.dy = Float(frame.origin.y - ms.window_frame.origin.y)
     info.pointee.dw = Float(frame.width - ms.window_frame.width)
@@ -140,7 +140,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
 
 func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CGPoint) -> mouse_drop_action
 {
-    let f = target.pointee.frame
+    let f = target.frame
     let wp = CGPoint(x: point.x - f.minX, y: point.y - f.minY)
     let center = CGRect(x: 0.25 * f.width, y: 0.25 * f.height, width: 0.5 * f.width, height: 0.5 * f.height)
     let mid = CGPoint(x: 0.5 * f.width, y: 0.5 * f.height)
@@ -189,7 +189,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
 @WM private func mouseFindCon(_ targetView: View?, _ target: Window?) -> Con?
 {
     guard let targetView, let target else { return nil }
-    return tree_view_find_window(targetView, target.pointee.id)
+    return tree_view_find_window(targetView, target.id)
 }
 
 @WM func mouse_feedback_clear(_ ms: MouseState)
@@ -198,7 +198,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     let wm = window_manager_global()
     let target = window_manager_find_window(wm, ms.feedback_wid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
-    if let container = mouseFindCon(targetView, target), container.pointee.insert_dir == 0 { tree_feedback_hide(container) }
+    if let container = mouseFindCon(targetView, target), container.insert_dir == 0 { tree_feedback_hide(container) }
     ms.feedback_wid = 0
     ms.feedback_dir = 0
 }
@@ -212,19 +212,19 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
 {
     guard let container = mouseFindCon(dstView, dstWindow), let dstWindow else { mouse_feedback_clear(ms); return }
     let direction = mouseDropActionDirection(mouse_determine_drop_action(ms, dstWindow, point))
-    if ms.feedback_wid == dstWindow.pointee.id && ms.feedback_dir == direction { return }
+    if ms.feedback_wid == dstWindow.id && ms.feedback_dir == direction { return }
     mouse_feedback_clear(ms)
     if direction == 0 { return }
     tree_feedback_show(container, direction)
-    ms.feedback_wid = dstWindow.pointee.id
+    ms.feedback_wid = dstWindow.id
     ms.feedback_dir = direction
 }
 
 @WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
 {
-    if srcView.pointee.sid == dstView.pointee.sid || dstView.pointee.layout == VIEW_FLOAT { view_flush(srcView); return }
+    if srcView.sid == dstView.sid || dstView.layout == VIEW_FLOAT { view_flush(srcView); return }
     window_manager_unmanage_window(wm, srcView, target)
-    window_manager_manage_window(sm, wm, target, dstView.pointee.sid, 0)
+    window_manager_manage_window(sm, wm, target, dstView.sid, 0)
 }
 
 //
@@ -248,18 +248,18 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
         _ = window_manager_stack_window(sm!, wm, dstWindow, srcWindow)
         if srcView != dstView { view_flush(srcView) }
     } else if srcView == dstView {
-        guard let container = tree_find_window(srcView.pointee.tree, srcWindow.pointee.id) else { return }
+        guard let container = tree_find_window(srcView.tree, srcWindow.id) else { return }
         tree_detach(container)
         tree_insert_relative(dstCon, container, direction)
         tree_focus(container)
-        tree_flatten(srcView.pointee.tree)
+        tree_flatten(srcView.tree)
         if !view_update_auto_padding(srcView) { tree_view_update(srcView) }
         view_flush(srcView)
     } else {
-        dstCon.pointee.insert_dir = direction
-        dstView.pointee.insertion_point = dstWindow.pointee.id
+        dstCon.insert_dir = direction
+        dstView.insertion_point = dstWindow.id
         window_manager_unmanage_window(wm, srcView, srcWindow)
-        window_manager_manage_window(sm!, wm, srcWindow, dstView.pointee.sid, 0)
+        window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, 0)
     }
 }
 

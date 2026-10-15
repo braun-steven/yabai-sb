@@ -42,8 +42,8 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     debug("window_manager_create_and_add_window:\(target.id) \(cName(owner.name)) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
 
     if window_is_unknown(target) {
-        debug("window_manager_create_and_add_window: ignoring AXUnknown window \(cName(owner.pointee.name)) \(target.pointee.id)\n")
-        window_manager_remove_lost_focused_event(wm, target.pointee.id)
+        debug("window_manager_create_and_add_window: ignoring AXUnknown window \(cName(owner.name)) \(target.id)\n")
+        window_manager_remove_lost_focused_event(wm, target.id)
         window_destroy(target)
         return nil
     }
@@ -53,16 +53,16 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     //
 
     if !window_observe(target) {
-        debug("window_manager_create_and_add_window: could not observe \(cName(owner.pointee.name)) \(target.pointee.id)\n")
-        window_manager_remove_lost_focused_event(wm, target.pointee.id)
+        debug("window_manager_create_and_add_window: could not observe \(cName(owner.name)) \(target.id)\n")
+        window_manager_remove_lost_focused_event(wm, target.id)
         window_unobserve(target)
         window_destroy(target)
         return nil
     }
 
-    if window_manager_find_lost_focused_event(wm, target.pointee.id) {
-        EventLoop.post(.windowFocused(windowID: target.pointee.id))
-        window_manager_remove_lost_focused_event(wm, target.pointee.id)
+    if window_manager_find_lost_focused_event(wm, target.id) {
+        EventLoop.post(.windowFocused(windowID: target.id))
+        window_manager_remove_lost_focused_event(wm, target.id)
     }
 
     window_manager_add_window(wm, target)
@@ -71,7 +71,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     // NOTE(asmvik): However, only **root windows** are eligible for management.
     //
 
-    if target.pointee.is_root {
+    if target.is_root {
 
         //
         // NOTE(asmvik): A lot of windows misreport their accessibility role, so we allow the user
@@ -84,12 +84,12 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
         window_manager_apply_manage_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, oneShotRules)
 
         if window_manager_is_window_eligible(target) {
-            target.pointee.is_eligible = true
+            target.is_eligible = true
             window_manager_apply_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, oneShotRules)
             window_manager_purify_window(wm, target)
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
 
-            if owner.pointee.is_hidden                                { return target }
+            if owner.is_hidden                                { return target }
             if window_check_flag(target, WINDOW_MINIMIZE)             { return target }
             if window_check_flag(target, WINDOW_FULLSCREEN)           { return target }
             if window_check_rule_flag(target, WINDOW_RULE_MANAGED)    { return target }
@@ -99,7 +99,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
                 return target
             }
 
-            if window_is_sticky(target.pointee.id) ||
+            if window_is_sticky(target.id) ||
                !window_can_move(target) ||
                !window_is_standard(target) ||
                !window_level_is_standard(target) ||
@@ -107,12 +107,12 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
                 window_set_flag(target, WINDOW_FLOAT)
             }
         } else {
-            debug("window_manager_create_and_add_window ignoring incorrectly marked window \(cName(owner.pointee.name)) \(target.pointee.id)\n")
+            debug("window_manager_create_and_add_window ignoring incorrectly marked window \(cName(owner.name)) \(target.id)\n")
             window_set_flag(target, WINDOW_FLOAT)
             windowManagerDebugWindowInfo(target)
         }
     } else {
-        debug("window_manager_create_and_add_window ignoring child window \(cName(owner.pointee.name)) \(target.pointee.id)\n")
+        debug("window_manager_create_and_add_window ignoring child window \(cName(owner.name)) \(target.id)\n")
         window_set_flag(target, WINDOW_FLOAT)
         windowManagerDebugWindowInfo(target)
     }
@@ -130,7 +130,7 @@ func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> UInt6
     switch wm.window_origin_mode {
     case WINDOW_ORIGIN_FOCUSED: return space_manager_global().current_space_id
     case WINDOW_ORIGIN_CURSOR:  return space_manager_cursor_space()
-    default:                    return window_space(target.pointee.id)
+    default:                    return window_space(target.id)
     }
 }
 
@@ -184,7 +184,7 @@ private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: Window
 {
     var data = Data(count: 0x14)
     data.withUnsafeMutableBytes { bytes in
-        bytes.storeBytes(of: UInt32(bitPattern: owner.pointee.pid), toByteOffset: 0x0, as: UInt32.self)
+        bytes.storeBytes(of: UInt32(bitPattern: owner.pid), toByteOffset: 0x0, as: UInt32.self)
         bytes.storeBytes(of: UInt32(0x636f636f), toByteOffset: 0x8, as: UInt32.self)
     }
 
@@ -255,14 +255,14 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
         resolved = unresolved.isEmpty
 
         if !resolved && refreshIndex == -1 {
-            debug("window_manager_add_existing_application_windows: \(cName(owner.pointee.name)) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
+            debug("window_manager_add_existing_application_windows: \(cName(owner.name)) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
             windowManagerAddWindowsByElementID(sm, wm, owner, &unresolved)
 
             if !unresolved.isEmpty {
-                debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(cName(owner.pointee.name))\n")
+                debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(cName(owner.name))\n")
                 window_manager_add_application_refresh(wm, owner)
             } else {
-                debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(cName(owner.pointee.name))\n")
+                debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(cName(owner.name))\n")
             }
 
             return false
@@ -271,7 +271,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
 
     if !resolved || refreshIndex == -1 { return false }
 
-    debug("window_manager_add_existing_application_windows: all windows for \(cName(owner.pointee.name)) are now resolved\n")
+    debug("window_manager_add_existing_application_windows: all windows for \(cName(owner.name)) are now resolved\n")
     window_manager_remove_application_refresh(wm, refreshIndex)
     return true
 }

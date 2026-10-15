@@ -40,7 +40,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     guard let window = window_manager_find_window_at_point(window_manager_global(), point), !window_check_flag(window, WINDOW_FULLSCREEN) else { return }
 
     ms.window = window
-    ms.window_frame = window.pointee.frame
+    ms.window_frame = window.frame
     ms.down_location = point
     ms.direction = 0
 
@@ -65,7 +65,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 
     guard let window = window_manager_find_window(window_manager_global(), wid) else { return }
 
-    window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
+    window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
 }
 
 //
@@ -81,7 +81,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     let cursorSid = display_space_id(display_manager_point_display_id(point))
     let dstView = space_manager_find_view(space_manager_global(), cursorSid)
 
-    var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.window.pointee.id)
+    var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.window.id)
     if window == nil { window = window_manager_find_window_at_point(wm, point) }
     return (dstView, window == ms.window ? nil : window)
 }
@@ -105,12 +105,12 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     }
 
     if !window_is_valid(window) {
-        debug("EVENT_HANDLER_MOUSE_UP: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
+        debug("EVENT_HANDLER_MOUSE_UP: \(window.id) has been marked invalid by the system, ignoring event..\n")
         return
     }
 
     if window_check_flag(window, WINDOW_FULLSCREEN) {
-        debug("EVENT_HANDLER_MOUSE_UP: \(window.pointee.id) is transitioning into native-fullscreen mode, ignoring event..\n")
+        debug("EVENT_HANDLER_MOUSE_UP: \(window.id) is transitioning into native-fullscreen mode, ignoring event..\n")
         return
     }
 
@@ -144,7 +144,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
         if newPoint.y < bounds.origin.y { newPoint.y = bounds.origin.y }
     }
 
-    if !scripting_addition_move_window(ms.window.pointee.id, Int32(newPoint.x), Int32(newPoint.y)) {
+    if !scripting_addition_move_window(ms.window.id, Int32(newPoint.x), Int32(newPoint.y)) {
         window_manager_move_window(ms.window, Float(newPoint.x), Float(newPoint.y))
     }
 }
@@ -166,7 +166,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     let dx = Int32(point.x - ms.down_location.x)
     let dy = Int32(point.y - ms.down_location.y)
 
-    window_manager_resize_window_relative_internal(ms.window, ms.window.pointee.frame, Int32(ms.direction), Float(dx), Float(dy), false)
+    window_manager_resize_window_relative_internal(ms.window, ms.window.frame, Int32(ms.direction), Float(dx), Float(dy), false)
 
     ms.last_moved_time = eventTime
     ms.down_location = point
@@ -189,7 +189,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     guard let window = ms.window else { return }
 
     if !window_is_valid(window) {
-        debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
+        debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         ms.window = nil
         ms.current_action = MOUSE_MODE_NONE
         return
@@ -224,7 +224,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmWindowToFocus(_ window: Window) -> Window
 {
-    guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.pointee.id) else { return window }
+    guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.id) else { return window }
 
     let wm = window_manager_global()
 
@@ -263,20 +263,20 @@ private let mouseResizeThrottleMs: Float = 67.67
     var windowCount: Int32 = 0
     guard let windowIDs = space_window_list(space_manager_global().current_space_id, &windowCount, false) else { return false }
 
-    let level = window_level(window.pointee.id)
-    let subLevel = window_sub_level(window.pointee.id)
+    let level = window_level(window.id)
+    let subLevel = window_sub_level(window.id)
 
     for i in 0..<Int(windowCount) {
         let wid = windowIDs[i]
-        if wid == window.pointee.id { break }
+        if wid == window.id { break }
 
         guard let subWindow = window_manager_find_window(wm, wid) else { continue }
 
         if !window_check_flag(subWindow, WINDOW_FLOAT)       { continue }
-        if level != window_level(subWindow.pointee.id)        { continue }
-        if subLevel != window_sub_level(subWindow.pointee.id) { continue }
+        if level != window_level(subWindow.id)        { continue }
+        if subLevel != window_sub_level(subWindow.id) { continue }
 
-        if window.pointee.frame.contains(subWindow.pointee.frame) { return true }
+        if window.frame.contains(subWindow.frame) { return true }
     }
 
     return false
@@ -287,18 +287,18 @@ private let mouseResizeThrottleMs: Float = 67.67
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    if window.pointee.id == wm.focused_window_id { return }
+    if window.id == wm.focused_window_id { return }
     if !window_manager_is_window_eligible(window)       { return }
 
     if wm.ffm_mode == FFM_AUTOFOCUS {
         let target = ffmWindowToFocus(window)
-        window_manager_focus_window_without_raise(&target.pointee.application.pointee.psn, target.pointee.id)
-        ms.ffm_window_id = target.pointee.id
+        window_manager_focus_window_without_raise(&target.application.psn, target.id)
+        ms.ffm_window_id = target.id
     } else if wm.ffm_mode == FFM_AUTORAISE {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
-        window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
-        ms.ffm_window_id = window.pointee.id
+        window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
+        ms.ffm_window_id = window.id
     }
 }
 

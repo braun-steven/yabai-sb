@@ -35,7 +35,7 @@ private func windowManagerHideOtherScratchpadWindows(_ wm: WindowManager, _ targ
         let other = entry.window
         if other == target { continue }
 
-        if SLS.windowIsOrderedIn(connection_global(), other.pointee.id) { scripting_addition_order_window(other.pointee.id, 0, 0) }
+        if SLS.windowIsOrderedIn(connection_global(), other.id) { scripting_addition_order_window(other.id, 0, 0) }
     }
 }
 
@@ -59,13 +59,13 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 /// `window_manager_hide_scratchpad_window`
 private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: UInt64)
 {
-    if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.pointee.id) {
-        window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref)
+    if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.id) {
+        window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
     } else {
         _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
     }
 
-    scripting_addition_order_window(target.pointee.id, 0, 0)
+    scripting_addition_order_window(target.id, 0, 0)
 }
 
 /// `window_manager_show_scratchpad_window`
@@ -73,12 +73,12 @@ private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Wi
 {
     if moveToSpace {
         space_manager_move_window_to_space(sid, target)
-        _ = space_manager_wait_for_window_on_space(target.pointee.id, sid, 200)
+        _ = space_manager_wait_for_window_on_space(target.id, sid, 200)
     }
 
     if applyGrid { windowManagerApplyScratchpadGrid(wm, target) }
-    scripting_addition_order_window(target.pointee.id, 1, 0)
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
+    scripting_addition_order_window(target.id, 1, 0)
+    window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
 }
 
 /// `window_manager_toggle_scratchpad_window`
@@ -88,15 +88,15 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
     if sid == 0 { return false }
 
     // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
-    let visibleSpace = window_space(target.pointee.id) == sid || window_is_sticky(target.pointee.id)
+    let visibleSpace = window_space(target.id) == sid || window_is_sticky(target.id)
 
-    let orderedIn = SLS.windowIsOrderedIn(connection_global(), target.pointee.id)
+    let orderedIn = SLS.windowIsOrderedIn(connection_global(), target.id)
 
     var shown = true
 
     if visibleSpace && orderedIn {
-        if wm.scratchpad_raise && wm.focused_window_id != target.pointee.id && !window_check_flag(target, WINDOW_MINIMIZE) && !target.pointee.application.pointee.is_hidden {
-            window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
+        if wm.scratchpad_raise && wm.focused_window_id != target.id && !window_check_flag(target, WINDOW_MINIMIZE) && !target.application.is_hidden {
+            window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
         } else {
             windowManagerHideScratchpadWindow(wm, target, sid)
             shown = false
@@ -121,7 +121,7 @@ func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Win
 
     _ = window_manager_remove_scratchpad_for_window(wm, target, false)
     window_manager_add_scratchpad(wm, label, target)
-    target.pointee.scratchpad = label
+    target.scratchpad = label
     window_manager_make_window_floating(space_manager_global(), wm, target, true, false)
 
     //
@@ -157,7 +157,7 @@ private func windowManagerReleaseScratchpadWindow(_ wm: WindowManager, _ target:
 func window_manager_remove_scratchpad_for_window(_ wm: WindowManager, _ target: Window, _ unfloat: Bool) -> Bool
 {
     for i in 0..<window_manager_scratchpad_count(wm) where wm.scratchpad_window[Int(i)].window == target {
-        target.pointee.scratchpad = nil
+        target.scratchpad = nil
 
         free(wm.scratchpad_window[Int(i)].label)
         window_manager_remove_scratchpad(wm, i)

@@ -42,11 +42,11 @@ private struct Snapshot: @unchecked Sendable
     init(_ bar: TabBar, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
     {
         let wm = window_manager_global()
-        frame = bar.pointee.frame
-        card = bar.pointee.card
+        frame = bar.frame
+        card = bar.card
         backdrop = wm.tab_bar_backdrop
         cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
-        sid = bar.pointee.sid
+        sid = bar.sid
         self.aboveWid = aboveWid
         level = window_level(aboveWid)
         subLevel = window_sub_level(aboveWid)
@@ -472,26 +472,26 @@ func tab_bar_glass_order_panel(_ wid: UInt32, _ below: Bool, _ relativeWid: UInt
 func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
 {
     let snapshot = Snapshot(bar, aboveWid, entries, count)
-    if bar.pointee.glass == nil { bar.pointee.glass = tab_bar_glass_create() }
-    tabBarGlassApply(bar.pointee.glass!, snapshot)
+    if bar.glass == nil { bar.glass = tab_bar_glass_create() }
+    tabBarGlassApply(bar.glass!, snapshot)
 }
 
 func tab_bar_glass_hide(_ bar: TabBar)
 {
-    if let glass = bar.pointee.glass { tab_bar_glass_hide_panel(glass) }
+    if let glass = bar.glass { tab_bar_glass_hide_panel(glass) }
 }
 
 func tab_bar_glass_order(_ bar: TabBar, _ wid: UInt32)
 {
-    if let glass = bar.pointee.glass { tab_bar_glass_order_above(glass, wid) }
+    if let glass = bar.glass { tab_bar_glass_order_above(glass, wid) }
 }
 
 func tab_bar_glass_release(_ bar: TabBar)
 {
-    if let glass = bar.pointee.glass { tab_bar_glass_destroy(glass) }
+    if let glass = bar.glass { tab_bar_glass_destroy(glass) }
 }
 
 func tab_bar_glass_panel_id(_ bar: TabBar) -> UInt32
 {
-    bar.pointee.glass.map { tab_bar_glass_id($0) } ?? 0
+    bar.glass.map { tab_bar_glass_id($0) } ?? 0
 }

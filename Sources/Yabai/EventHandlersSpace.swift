@@ -67,9 +67,9 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
     let view = space_manager_find_view(sm, sm.current_space_id)
 
     if space_manager_refresh_application_windows(sm) {
-        if let focusedWindow = window_manager_focused_window(wm), window_manager_find_lost_focused_event(wm, focusedWindow.pointee.id) {
+        if let focusedWindow = window_manager_focused_window(wm), window_manager_find_lost_focused_event(wm, focusedWindow.id) {
             windowDidReceiveFocus(wm, mouse_state_global(), focusedWindow)
-            window_manager_remove_lost_focused_event(wm, focusedWindow.pointee.id)
+            window_manager_remove_lost_focused_event(wm, focusedWindow.id)
         }
     }
 

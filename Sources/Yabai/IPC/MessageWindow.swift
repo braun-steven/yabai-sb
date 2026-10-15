@@ -140,8 +140,8 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
-            window_manager_set_pending_focus(window_manager_global(), window.pointee.id)
+            window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
+            window_manager_set_pending_focus(window_manager_global(), window.id)
         } else {
             rsp.fail("could not locate the window to act on!\n")
         }
@@ -150,7 +150,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
         if let window = actingWindow {
             if !window_manager_close_window(window) {
-                rsp.fail("could not close window with id '\(Int32(bitPattern: window.pointee.id))'.\n")
+                rsp.fail("could not close window with id '\(Int32(bitPattern: window.id))'.\n")
             }
         } else {
             rsp.fail("could not locate the window to act on!\n")
@@ -159,7 +159,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            let id = Int32(bitPattern: window.pointee.id)
+            let id = Int32(bitPattern: window.id)
             let result = window_manager_minimize_window(window)
             if result == WINDOW_OP_ERROR_CANT_MINIMIZE {
                 rsp.fail("window with id '\(id)' does not support the minimize operation.\n")
@@ -174,7 +174,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
     } else if command.equals(WindowCommand.deminimize) {
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
-            let id = Int32(bitPattern: window.pointee.id)
+            let id = Int32(bitPattern: window.id)
             let result = window_manager_deminimize_window(window)
             if result == WINDOW_OP_ERROR_NOT_MINIMIZED {
                 rsp.fail("window with id '\(id)' is not minimized.\n")
@@ -398,7 +398,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     }
 
     guard let actingWindow else { return .unknown }
-    let id = Int32(bitPattern: actingWindow.pointee.id)
+    let id = Int32(bitPattern: actingWindow.id)
 
     if command.equals(WindowCommand.subLayer) {
         let value = message.next()
@@ -413,7 +413,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
         let token = message.next()
         if let opacity = token.value.floatValue, opacity >= 0.0 && opacity <= 1.0 {
             if window_manager_set_opacity(wm, actingWindow, opacity) {
-                actingWindow.pointee.opacity = opacity
+                actingWindow.opacity = opacity
             } else {
                 rsp.fail("could not change opacity of window with id '\(id)' due to an error with the scripting-addition.\n")
             }
@@ -427,10 +427,10 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
 
         if selector.token.isValid {
             guard selector.didParse, let window = selector.value else { return .stop }
-            relativeWid = window.pointee.id
+            relativeWid = window.id
         }
 
-        if !scripting_addition_order_window(actingWindow.pointee.id, raise ? 1 : -1, relativeWid) {
+        if !scripting_addition_order_window(actingWindow.id, raise ? 1 : -1, relativeWid) {
             rsp.fail("could not \(raise ? "raise" : "lower") window with id '\(id)' due to an error with the scripting-addition.\n")
         }
     } else if command.equals(WindowCommand.scratchpad) {

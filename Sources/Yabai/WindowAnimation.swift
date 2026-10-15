@@ -11,6 +11,13 @@ import YabaiC
 // Ported from src/window_animation.c.
 //
 
+/// `struct window_capture` (view.h): a window and the frame it gets.
+struct window_capture
+{
+    var window: Window!
+    var x: Float, y: Float, w: Float, h: Float
+}
+
 struct WindowProxy
 {
     var id: UInt32 = 0
@@ -402,8 +409,8 @@ private func windowManagerSetWindowFrameAX(_ ref: AXUIElement, _ position: CGPoi
 func window_manager_set_window_frame(_ target: Window, _ x: Float, _ y: Float, _ width: Float, _ height: Float)
 {
     target.pointee.frame_request = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
-    axEnhancedUIWorkaround(target.pointee.application.pointee.ref.takeUnretainedValue()) {
-        windowManagerSetWindowFrameAX(target.pointee.ref.takeUnretainedValue(),
+    axEnhancedUIWorkaround(target.pointee.application.pointee.ref) {
+        windowManagerSetWindowFrameAX(target.pointee.ref,
                                      CGPoint(x: CGFloat(x), y: CGFloat(y)), CGSize(width: CGFloat(width), height: CGFloat(height)))
     }
 }
@@ -427,16 +434,16 @@ struct WindowFrameRequest
 // concurrentPerform joins. AX references are retained for the batch; workers never dereference a C model.
 final class WindowFrameGroup: @unchecked Sendable
 {
-    let application: UnsafeMutablePointer<application>
+    let application: Application
     let ref: AXUIElement
     let name: String
     var list: [WindowFrameRequest] = []
     var error = AXError.success
 
-    init(_ target: UnsafeMutablePointer<application>)
+    init(_ target: Application)
     {
         application = target
-        ref = target.pointee.ref.takeUnretainedValue()
+        ref = target.pointee.ref
         name = cName(target.pointee.name)
     }
 }
@@ -455,7 +462,7 @@ func window_manager_group_window_frames(_ list: UnsafePointer<window_capture>, _
             group = WindowFrameGroup(owner)
             groups.append(group)
         }
-        group.list.append(WindowFrameRequest(ref: capture.window.pointee.ref.takeUnretainedValue(),
+        group.list.append(WindowFrameRequest(ref: capture.window.pointee.ref,
                                              position: CGPoint(x: CGFloat(capture.x), y: CGFloat(capture.y)),
                                              size: CGSize(width: CGFloat(capture.w), height: CGFloat(capture.h))))
     }

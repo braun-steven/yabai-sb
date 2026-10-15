@@ -185,8 +185,8 @@ func tab_bar_draw_title(_ context: CGContext, _ font: CTFont?, _ glass: Bool, _ 
 func tabBarCopyTitle(_ wid: UInt32) -> Unmanaged<CFString>?
 {
     guard let target = window_manager_find_window(window_manager_global(), wid) else { return nil }
-    if let title = target.pointee.title?.takeUnretainedValue(), CFStringGetLength(title) > 0 { return .passRetained(title) }
-    if let app = target.pointee.application, let name = app.pointee.name,
+    if let title = target.title, CFStringGetLength(title) > 0 { return .passRetained(title) }
+    if let app = target.application, let name = app.name,
        let title = CFStringCreateWithCString(nil, name, CFStringBuiltInEncodings.UTF8.rawValue) { return .passRetained(title) }
     return nil
 }
@@ -198,15 +198,15 @@ func tabBarCopyTitle(_ wid: UInt32) -> Unmanaged<CFString>?
 func tabBarIcon(_ wid: UInt32) -> Unmanaged<CGImage>?
 {
     guard window_manager_global().tab_bar_icons,
-          let target = window_manager_find_window(window_manager_global(), wid), let app = target.pointee.application else { return nil }
-    if let icon = app.pointee.icon { return icon }
+          let target = window_manager_find_window(window_manager_global(), wid), let app = target.application else { return nil }
+    if let icon = app.icon { return .passUnretained(icon) }
     autoreleasepool {
-        if let image = NSRunningApplication(processIdentifier: app.pointee.pid)?.icon {
+        if let image = NSRunningApplication(processIdentifier: app.pid)?.icon {
             var rect = CGRect(x: 0, y: 0, width: 64, height: 64)
-            if let icon = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) { app.pointee.icon = .passRetained(icon) }
+            if let icon = image.cgImage(forProposedRect: &rect, context: nil, hints: nil) { app.icon = icon }
         }
     }
-    return app.pointee.icon
+    return app.icon.map { .passUnretained($0) }
 }
 
 func tabBarStateColors(_ state: tab_bar_state) -> (rgba_color, rgba_color)

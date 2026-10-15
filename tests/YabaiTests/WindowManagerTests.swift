@@ -19,14 +19,20 @@ private func windowManagerFree(_ wm: WindowManager)
     wm.window.removeAll()
 }
 
-/// A zeroed window whose id_ptr points at its id, as window_create sets it.
-private func windowCreate(_ id: UInt32, _ owner: UnsafeMutablePointer<application>? = nil) -> UnsafeMutablePointer<window>
+/// A valid window with an id and an application, as window_create sets them.
+private func windowCreate(_ id: UInt32, _ owner: Application? = nil) -> Window
 {
-    let result = UnsafeMutablePointer<window>.allocate(capacity: 1)
-    result.initialize(to: window())
-    result.pointee.id = id
-    result.pointee.id_ptr = (UnsafeMutableRawPointer(result) + MemoryLayout<window>.offset(of: \window.id)!).assumingMemoryBound(to: UInt32.self)
-    result.pointee.application = owner
+    let result = Window()
+    result.id = id
+    result.application = owner
+    return result
+}
+
+/// An application with a malloc'ed name, which the test frees.
+private func applicationCreate(_ name: String) -> Application
+{
+    let result = Application()
+    result.name = strdup(name)
     return result
 }
 
@@ -34,7 +40,7 @@ private func windowCreate(_ id: UInt32, _ owner: UnsafeMutablePointer<applicatio
 {
     let wm = windowManagerCreate()
     let target = windowCreate(42)
-    defer { windowManagerFree(wm); target.deallocate() }
+    defer { windowManagerFree(wm) }
 
     window_manager_add_window(wm, target)
 
@@ -61,7 +67,7 @@ private func windowCreate(_ id: UInt32, _ owner: UnsafeMutablePointer<applicatio
 {
     let wm = windowManagerCreate()
     let windows = [12, 14, 11, 13].map { windowCreate($0) }
-    defer { windowManagerFree(wm); windows.forEach { $0.deallocate() } }
+    defer { windowManagerFree(wm) }
 
     window_manager_add_window(wm, windows[0])
     window_manager_add_window(wm, windows[1])
@@ -75,7 +81,6 @@ private func windowCreate(_ id: UInt32, _ owner: UnsafeMutablePointer<applicatio
 @Test("window_validity") func windowValidity()
 {
     let target = windowCreate(5)
-    defer { target.deallocate() }
 
     #expect(window_is_valid(target) == true)
     #expect(window_invalidate(target) == true)
@@ -160,13 +165,11 @@ private struct WindowStrings
 
 @Test("window_rules_combine_matching") func windowRulesCombineMatching()
 {
-    let owner = UnsafeMutablePointer<application>.allocate(capacity: 1)
-    owner.initialize(to: application())
-    owner.pointee.name = strdup("Safari")
+    let owner = applicationCreate("Safari")
     let target = windowCreate(1, owner)
     let wm = windowManagerCreate()
     let strings = WindowStrings()
-    defer { windowManagerFree(wm); target.deallocate(); free(owner.pointee.name); owner.deallocate(); strings.free() }
+    defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: without a subrole pattern a rule does not match a dialog
     var any = windowRulesTestRule("^Safari$", nil, rule_flag(0))
@@ -217,13 +220,11 @@ private struct WindowStrings
 
 @Test("window_rules_manage_round") func windowRulesManageRound()
 {
-    let owner = UnsafeMutablePointer<application>.allocate(capacity: 1)
-    owner.initialize(to: application())
-    owner.pointee.name = strdup("Safari")
+    let owner = applicationCreate("Safari")
     let target = windowCreate(1, owner)
     let wm = windowManagerCreate()
     let strings = WindowStrings()
-    defer { windowManagerFree(wm); target.deallocate(); free(owner.pointee.name); owner.deallocate(); strings.free() }
+    defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: in the manage round only rules that make a window managed are limited to standard windows
     var manage = windowRulesTestRule("^Safari$", nil, rule_flag(0))

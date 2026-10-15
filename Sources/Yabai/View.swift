@@ -34,8 +34,7 @@ func view_window_gap(_ target: View) -> Int32
 }
 
 /// `view_add_window`
-@_cdecl("view_add_window")
-func view_add_window(_ target: View, _ win: UnsafeMutablePointer<window>, _ insertionPoint: UInt32)
+func view_add_window(_ target: View, _ win: Window, _ insertionPoint: UInt32)
 {
     tree_add_window(target, win, insertionPoint)
     if !view_update_auto_padding(target) { tree_view_update(target) }
@@ -44,8 +43,7 @@ func view_add_window(_ target: View, _ win: UnsafeMutablePointer<window>, _ inse
 
 /// `view_remove_window`
 @discardableResult
-@_cdecl("view_remove_window")
-func view_remove_window(_ target: View, _ win: UnsafeMutablePointer<window>) -> Bool
+func view_remove_window(_ target: View, _ win: Window) -> Bool
 {
     if !tree_remove_window(target, win) { return false }
 

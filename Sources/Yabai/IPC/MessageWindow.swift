@@ -48,8 +48,6 @@ private enum WindowCommand
     static let splitToggle       = "toggle"
 }
 
-typealias Window = UnsafeMutablePointer<window>
-
 extension Response
 {
     mutating func failUnmanagedWindow(_ result: window_op_error)
@@ -141,7 +139,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
+            window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
             window_manager_set_pending_focus(window_manager_global(), window.pointee.id)
         } else {
             rsp.fail("could not locate the window to act on!\n")

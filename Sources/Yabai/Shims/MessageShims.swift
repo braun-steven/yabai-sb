@@ -69,7 +69,7 @@ func mallocString(_ string: String?) -> UnsafeMutablePointer<CChar>?
 /// The selectors look up displays, spaces and windows in the C managers.
 struct CSelectorContext: SelectorContext
 {
-    typealias Window = UnsafeMutablePointer<window>
+    typealias Window = Yabai.Window
 
     var activeDisplay: UInt32 { display_manager_active_display_id() }
     var activeSpace: UInt64 { space_manager_active_space() }

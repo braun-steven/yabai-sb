@@ -142,7 +142,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
     }
 
     if let focus = windowList.first.flatMap({ window_manager_find_window(wm, $0) }) {
-        window_manager_focus_window_with_raise(&focus.pointee.application.pointee.psn, focus.pointee.id, focus.pointee.ref.takeUnretainedValue())
+        window_manager_focus_window_with_raise(&focus.pointee.application.pointee.psn, focus.pointee.id, focus.pointee.ref)
     }
 }
 

@@ -102,7 +102,7 @@ func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
 }
 
 /// `space_manager_untile_window`
-func space_manager_untile_window(_ target: View, _ win: UnsafeMutablePointer<window>)
+func space_manager_untile_window(_ target: View, _ win: Window)
 {
     if target.pointee.layout == VIEW_FLOAT { return }
 
@@ -309,7 +309,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 }
 
 /// `space_manager_tile_window_on_space_with_insertion_point`
-func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: UnsafeMutablePointer<window>, _ sid: UInt64, _ insertionPoint: UInt32) -> View
+func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: UInt64, _ insertionPoint: UInt32) -> View
 {
     let target = space_manager_find_view(sm, sid)
     if target.pointee.layout == VIEW_FLOAT { return target }
@@ -322,13 +322,13 @@ func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager,
 }
 
 /// `space_manager_tile_window_on_space`
-func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: UnsafeMutablePointer<window>, _ sid: UInt64) -> View
+func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid: UInt64) -> View
 {
     return space_manager_tile_window_on_space_with_insertion_point(sm, win, sid, 0)
 }
 
 /// `space_manager_toggle_window_split`
-func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: UnsafeMutablePointer<window>)
+func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
 {
     let target = space_manager_find_view(sm, window_space(win.pointee.id))
     if target.pointee.layout != VIEW_TREE { return }
@@ -432,7 +432,7 @@ func space_manager_can_use_known_focus(_ front: UnsafeMutablePointer<ProcessSeri
 }
 
 /// `space_manager_focused_window`
-private func spaceManagerFocusedWindow() -> UnsafeMutablePointer<window>?
+private func spaceManagerFocusedWindow() -> Window?
 {
     var front = SLS.frontProcess()
 
@@ -527,7 +527,7 @@ func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<
 }
 
 /// `space_manager_move_window_to_space`
-func space_manager_move_window_to_space(_ sid: UInt64, _ win: UnsafeMutablePointer<window>)
+func space_manager_move_window_to_space(_ sid: UInt64, _ win: Window)
 {
     if SLS.hasBridgedWindowOperation {
         SLS.bridgedMoveWindows([win.pointee.id], toSpace: sid)
@@ -870,7 +870,7 @@ func space_manager_add_space(_ sid: UInt64) -> space_op_error
 }
 
 /// `space_manager_is_window_on_space`
-func space_manager_is_window_on_space(_ sid: UInt64, _ win: UnsafeMutablePointer<window>) -> Bool
+func space_manager_is_window_on_space(_ sid: UInt64, _ win: Window) -> Bool
 {
     return window_space_list(win.pointee.id).contains(sid)
 }

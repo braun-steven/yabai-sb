@@ -12,10 +12,8 @@
 void border_edge_frames(CGRect frame, float width, float radius, CGRect *edge);
 void border_begin_batch(void);
 void border_end_batch(void);
-void border_refresh(struct window *window);
 void border_refresh_all(void);
 void border_refresh_space(uint64_t sid);
-void border_refresh_window_space(struct window *window);
 void border_remove(uint32_t wid);
 void border_suspend(uint32_t wid, bool suspended);
 void border_window_moved(uint32_t wid);

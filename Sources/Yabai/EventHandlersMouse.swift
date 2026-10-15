@@ -64,7 +64,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 
     guard let window = window_manager_find_window(window_manager_global(), wid) else { return }
 
-    window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
+    window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
 }
 
 //
@@ -296,7 +296,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     } else if wm.ffm_mode == FFM_AUTORAISE {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
-        window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
+        window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref)
         ms.ffm_window_id = window.pointee.id
     }
 }

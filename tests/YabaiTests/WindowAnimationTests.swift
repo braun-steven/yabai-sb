@@ -20,25 +20,21 @@ func windowFrameClose()
 @Test("window_frame_group_by_application")
 func windowFrameGroupByApplication()
 {
-    let owners = UnsafeMutablePointer<application>.allocate(capacity: 2)
-    owners.initialize(repeating: application(), count: 2)
-    let windows = UnsafeMutablePointer<window>.allocate(capacity: 5)
-    windows.initialize(repeating: window(), count: 5)
-    defer { windows.deallocate(); owners.deallocate() }
+    let owners = [Application(), Application()]
+    let windows = (0..<5).map { _ in Window() }
     let ownerRefs = [AXUIElementCreateApplication(1), AXUIElementCreateApplication(2)]
     let windowRefs = (3...7).map { AXUIElementCreateApplication(pid_t($0)) }
-    defer { withExtendedLifetime((ownerRefs, windowRefs)) {} }
-    for i in 0..<2 { owners[i].ref = Unmanaged.passUnretained(ownerRefs[i]) }
+    for i in 0..<2 { owners[i].ref = ownerRefs[i] }
     let captures = (0..<5).map { i in
-        windows[i].application = owners + i % 2
-        windows[i].ref = Unmanaged.passUnretained(windowRefs[i])
-        return window_capture(window: windows + i, x: Float(i), y: Float(10 * i), w: 100, h: 200)
+        windows[i].application = owners[i % 2]
+        windows[i].ref = windowRefs[i]
+        return window_capture(window: windows[i], x: Float(i), y: Float(10 * i), w: 100, h: 200)
     }
     let groups = captures.withUnsafeBufferPointer { window_manager_group_window_frames($0.baseAddress!, 5) }
     #expect(groups.count == 2)
-    #expect(groups[0].application == owners)
+    #expect(groups[0].application == owners[0])
     #expect(groups[0].list.count == 3)
-    #expect(groups[1].application == owners + 1)
+    #expect(groups[1].application == owners[1])
     #expect(groups[1].list.count == 2)
     //
     // NOTE: Windows keep their order within a group, and each request carries the frame of its window.

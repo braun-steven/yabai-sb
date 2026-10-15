@@ -14,7 +14,6 @@ import YabaiCore
 //
 
 typealias View = UnsafeMutablePointer<view>
-typealias Application = UnsafeMutablePointer<application>
 
 //
 // NOTE: Set by producers on other threads and read by the handlers.
@@ -322,7 +321,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process))\n")
     window_manager_add_application(wm, application)
-    eventSignalPush(.applicationLaunched, UnsafeMutableRawPointer(application))
+    eventSignalPush(.applicationLaunched, signalObject(application))
     process.launch_attempts = 0
     process.launch_given_up = false
 
@@ -330,7 +329,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     tileWindowsBatched(windows, wm.focused_window_id, true)
 
     for window in windows where window_manager_is_window_eligible(window) {
-        eventSignalPush(.windowCreated, UnsafeMutableRawPointer(window))
+        eventSignalPush(.windowCreated, signalObject(window))
     }
 
     update_window_notifications()
@@ -350,7 +349,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     }
 
     debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process))\n")
-    eventSignalPush(.applicationTerminated, UnsafeMutableRawPointer(application))
+    eventSignalPush(.applicationTerminated, signalObject(application))
     window_manager_remove_application(wm, application.pointee.pid)
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)
@@ -374,7 +373,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         if ms.ffm_window_id == window.pointee.id { ms.ffm_window_id = 0 }
 
         if window.pointee.is_eligible {
-            eventSignalPush(.windowDestroyed, UnsafeMutableRawPointer(window))
+            eventSignalPush(.windowDestroyed, signalObject(window))
         }
 
         window_manager_remove_scratchpad_for_window(wm, window, false)
@@ -403,7 +402,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     let dt = os_timer_ms_between(lastCmdTabTime.load(ordering: .relaxed), read_os_timer())
     if dt > 1500.0 {
         var dummy: CFTypeRef?
-        AXUIElementCopyAttributeValue(application.pointee.ref.takeUnretainedValue(), "__fence" as CFString, &dummy)
+        AXUIElementCopyAttributeValue(application.pointee.ref, "__fence" as CFString, &dummy)
     }
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
@@ -472,11 +471,11 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     }
 
     if let deactivatedApplication = window_manager_find_application(wm, pm.front_pid) {
-        eventSignalPush(.applicationDeactivated, UnsafeMutableRawPointer(deactivatedApplication))
+        eventSignalPush(.applicationDeactivated, signalObject(deactivatedApplication))
     }
 
     debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process))\n")
-    eventSignalPush(.applicationActivated, UnsafeMutableRawPointer(application))
+    eventSignalPush(.applicationActivated, signalObject(application))
     pm.switch_event_time = GetCurrentEventTime()
     pm.last_front_pid = pm.front_pid
     pm.front_pid = process.pid
@@ -501,7 +500,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     }
 
     windowDidReceiveFocus(wm, mouse_state_global(), window)
-    eventSignalPush(.windowFocused, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowFocused, signalObject(window))
     pendingWindowFocus.store(false, ordering: .releasing)
 }
 
@@ -521,7 +520,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         border_refresh_window_space(window)
     }
 
-    eventSignalPush(.applicationVisible, UnsafeMutableRawPointer(application))
+    eventSignalPush(.applicationVisible, signalObject(application))
 }
 
 /// `EVENT_HANDLER(APPLICATION_HIDDEN)`
@@ -551,5 +550,5 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         border_refresh_window_space(window)
     }
 
-    eventSignalPush(.applicationHidden, UnsafeMutableRawPointer(application))
+    eventSignalPush(.applicationHidden, signalObject(application))
 }

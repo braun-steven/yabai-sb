@@ -352,7 +352,7 @@ func windowManagerTreeApply(_ owner: View)
 func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: UInt32)
 {
     if let target = window_manager_find_window(wm, windowID) {
-        window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
+        window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
         window_manager_set_pending_focus(wm, target.pointee.id)
     }
 }
@@ -459,7 +459,7 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
     if animate {
         window_manager_animate_window(window_capture(window: target, x: fx, y: fy, w: fw, h: fh))
     } else {
-        axEnhancedUIWorkaround(target.pointee.application.pointee.ref.takeUnretainedValue()) {
+        axEnhancedUIWorkaround(target.pointee.application.pointee.ref) {
             window_manager_move_window(target, fx, fy)
             window_manager_resize_window(target, fw, fh)
         }
@@ -488,7 +488,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
             if animate {
                 window_manager_animate_window(window_capture(window: target, x: Float(target.pointee.frame.origin.x), y: Float(target.pointee.frame.origin.y), w: dx, h: dy))
             } else {
-                axEnhancedUIWorkaround(target.pointee.application.pointee.ref.takeUnretainedValue()) { window_manager_resize_window(target, dx, dy) }
+                axEnhancedUIWorkaround(target.pointee.application.pointee.ref) { window_manager_resize_window(target, dx, dy) }
             }
         } else {
             window_manager_resize_window_relative_internal(target, window_ax_frame(target), direction, dx, dy, animate)
@@ -506,7 +506,7 @@ func window_manager_move_window(_ target: Window, _ x: Float, _ y: Float)
     var position = CGPoint(x: CGFloat(x), y: CGFloat(y))
     guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
 
-    AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXPositionAttribute as CFString, positionRef)
+    AXUIElementSetAttributeValue(target.pointee.ref, kAXPositionAttribute as CFString, positionRef)
 }
 
 /// `window_manager_resize_window`
@@ -517,7 +517,7 @@ func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Fl
     var size = CGSize(width: CGFloat(width), height: CGFloat(height))
     guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
 
-    AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXSizeAttribute as CFString, sizeRef)
+    AXUIElementSetAttributeValue(target.pointee.ref, kAXSizeAttribute as CFString, sizeRef)
 }
 
 /// `window_manager_set_purify_mode`
@@ -921,7 +921,7 @@ func window_manager_minimize_window(_ target: Window) -> window_op_error
     if !window_can_minimize(target) { return WINDOW_OP_ERROR_CANT_MINIMIZE }
     if window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_ALREADY_MINIMIZED }
 
-    let result = AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+    let result = AXUIElementSetAttributeValue(target.pointee.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
     return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_MINIMIZE_FAILED
 }
 
@@ -930,7 +930,7 @@ func window_manager_deminimize_window(_ target: Window) -> window_op_error
 {
     if !window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_NOT_MINIMIZED }
 
-    let result = AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+    let result = AXUIElementSetAttributeValue(target.pointee.ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
     return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_DEMINIMIZE_FAILED
 }
 
@@ -938,7 +938,7 @@ func window_manager_deminimize_window(_ target: Window) -> window_op_error
 func window_manager_close_window(_ target: Window) -> Bool
 {
     var button: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXCloseButtonAttribute as CFString, &button)
+    AXUIElementCopyAttributeValue(target.pointee.ref, kAXCloseButtonAttribute as CFString, &button)
     guard let button else { return false }
 
     AXUIElementPerformAction(unsafeDowncast(button, to: AXUIElement.self), kAXPressAction as CFString)
@@ -953,7 +953,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
 
     if space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.pointee.id) {
         if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.pointee.id) {
-            window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref.takeUnretainedValue())
+            window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref)
         } else {
             _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
         }
@@ -1133,14 +1133,14 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
     // window and spin lock until a potential space animation has finished.
     //
 
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
+    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
     var i = 0
     while i < nativeFullscreenWaitIterations && sid != space_manager_active_space() { usleep(100000); i += 1 }
 
     if !window_is_fullscreen(target) {
-        AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), axFullscreenAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
     } else {
-        AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), axFullscreenAttribute as CFString, kCFBooleanFalse)
+        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanFalse)
     }
 
     //
@@ -1198,7 +1198,7 @@ func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
 /// `window_manager_toggle_window_expose`
 func window_manager_toggle_window_expose(_ target: Window)
 {
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
+    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
     CoreDock.sendNotification("com.apple.expose.front.awake")
 }
 

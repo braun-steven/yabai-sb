@@ -27,13 +27,6 @@ CGPoint area_max_point(struct area area);
 bool area_is_in_direction(struct area *r1, CGPoint r1_max, struct area *r2, CGPoint r2_max, int direction);
 int area_distance_in_direction(struct area *r1, CGPoint r1_max, struct area *r2, CGPoint r2_max, int direction);
 
-struct window;
-struct window_capture
-{
-    struct window *window;
-    float x, y, w, h;
-};
-
 enum window_split
 {
     SPLIT_NONE,
@@ -121,8 +114,6 @@ static inline int *view_spacing(struct view *view, enum view_flag flag)
 }
 
 // implemented in Sources/Yabai/View.swift (the geometry is ViewArea in Sources/YabaiCore/ViewArea.swift)
-void view_add_window(struct view *view, struct window *window, uint32_t insertion_point);
-bool view_remove_window(struct view *view, struct window *window);
 uint32_t *view_find_window_list(struct view *view, int *window_count);
 
 int view_window_gap(struct view *view);

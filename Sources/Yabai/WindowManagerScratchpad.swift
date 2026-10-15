@@ -61,7 +61,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: UInt64)
 {
     if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.pointee.id) {
-        window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref.takeUnretainedValue())
+        window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref)
     } else {
         _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
     }
@@ -79,7 +79,7 @@ private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Wi
 
     if applyGrid { windowManagerApplyScratchpadGrid(wm, target) }
     scripting_addition_order_window(target.pointee.id, 1, 0)
-    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
+    window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
 }
 
 /// `window_manager_toggle_scratchpad_window`
@@ -97,7 +97,7 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
 
     if visibleSpace && orderedIn {
         if wm.scratchpad_raise && wm.focused_window_id != target.pointee.id && !window_check_flag(target, WINDOW_MINIMIZE) && !target.pointee.application.pointee.is_hidden {
-            window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref.takeUnretainedValue())
+            window_manager_focus_window_with_raise(&target.pointee.application.pointee.psn, target.pointee.id, target.pointee.ref)
         } else {
             windowManagerHideScratchpadWindow(wm, target, sid)
             shown = false

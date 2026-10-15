@@ -30,7 +30,7 @@ import YabaiC
     }
 
     if window_manager_is_window_eligible(window) {
-        eventSignalPush(.windowCreated, UnsafeMutableRawPointer(window))
+        eventSignalPush(.windowCreated, signalObject(window))
     }
 
     border_refresh_window_space(window)
@@ -62,7 +62,7 @@ import YabaiC
     if ms.ffm_window_id == window.pointee.id { ms.ffm_window_id = 0 }
 
     if window.pointee.is_eligible {
-        eventSignalPush(.windowDestroyed, UnsafeMutableRawPointer(window))
+        eventSignalPush(.windowDestroyed, signalObject(window))
     }
 
     window_manager_remove_scratchpad_for_window(wm, window, false)
@@ -124,7 +124,7 @@ import YabaiC
     }
 
     windowDidReceiveFocus(wm, mouse_state_global(), window)
-    eventSignalPush(.windowFocused, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowFocused, signalObject(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_MOVED)`
@@ -152,7 +152,7 @@ import YabaiC
     }
 
     debug("EVENT_HANDLER_WINDOW_MOVED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
-    eventSignalPush(.windowMoved, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowMoved, signalObject(window))
     let windowedFullscreen = window.pointee.windowed_frame.equalTo(window.pointee.frame)
     window.pointee.frame.origin = newOrigin
 
@@ -192,7 +192,7 @@ import YabaiC
     }
 
     debug("EVENT_HANDLER_WINDOW_RESIZED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
-    eventSignalPush(.windowResized, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowResized, signalObject(window))
 
     let wasFullscreen = window_check_flag(window, WINDOW_FULLSCREEN)
 
@@ -267,7 +267,7 @@ import YabaiC
     }
 
     border_refresh_window_space(window)
-    eventSignalPush(.windowMinimized, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowMinimized, signalObject(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_DEMINIMIZED)`
@@ -303,7 +303,7 @@ import YabaiC
     }
 
     border_refresh_window_space(window)
-    eventSignalPush(.windowDeminimized, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowDeminimized, signalObject(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_TITLE_CHANGED)`
@@ -318,12 +318,10 @@ import YabaiC
 
     debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(cName(window.pointee.application.pointee.name)) \(window.pointee.id)\n")
 
-    window.pointee.title?.release()
-
-    window.pointee.title = window_title(window).map { Unmanaged.passRetained($0) }
+    window.title = window_title(window)
     tab_bar_refresh_for_window(window.pointee.id)
 
-    eventSignalPush(.windowTitleChanged, UnsafeMutableRawPointer(window))
+    eventSignalPush(.windowTitleChanged, signalObject(window))
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_ORDERED)`

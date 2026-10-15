@@ -71,7 +71,6 @@
 #include "../display.h"
 #include "../space.h"
 #include "../window.h"
-#include "../application.h"
 #include "../display_manager.h"
 #include "../space_layout.h"
 #include "../space_manager.h"

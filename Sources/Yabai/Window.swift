@@ -1,11 +1,71 @@
 import ApplicationServices
 import CPrivate
+import Synchronization
 import YabaiC
 
 //
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
-// struct window stays C until rule.c and the remaining model bridges are removed in P14. Ported from src/window.c.
+// Ported from src/window.c.
 //
+
+/// `struct window`. notification has the bits of the notifications of window_observe (minimized, deminimized,
+/// destroyed).
+final class Window
+{
+    var application: Application!
+    var ref: AXUIElement!
+    var id: UInt32 = 0
+
+    //
+    // NOTE: valid is true until the window is invalidated. Events that are already queued for a window hold on to it,
+    // so their handlers check that the window is still valid before using it. window_invalidate succeeds for exactly one
+    // caller, which then owns the destruction of the window. It replaces id_ptr of the C struct.
+    //
+
+    let valid = Atomic<Bool>(true)
+    var role: CFString?
+    var subrole: CFString?
+    var title: CFString?
+    var frame = CGRect.zero
+    var frame_request = CGRect.zero
+    var windowed_frame = CGRect.zero
+    var is_root = false
+    var is_eligible = false
+    var notification: UInt8 = 0
+    var rule_flags: UInt8 = 0
+    var flags: UInt8 = 0
+    var opacity: Float = 0
+    var layer: Int32 = 0
+    var scratchpad: UnsafeMutablePointer<CChar>!
+
+    /// The window itself, for the code that still reads it like the C pointer.
+    var pointee: Window { self }
+}
+
+extension Window: Equatable
+{
+    static func == (a: Window, b: Window) -> Bool { a === b }
+}
+
+func window_check_flag(_ w: Window, _ x: window_flag) -> Bool { w.flags & UInt8(x.rawValue) != 0 }
+func window_clear_flag(_ w: Window, _ x: window_flag) { w.flags &= ~UInt8(x.rawValue) }
+func window_set_flag(_ w: Window, _ x: window_flag) { w.flags |= UInt8(x.rawValue) }
+
+func window_check_rule_flag(_ w: Window, _ x: window_rule_flag) -> Bool { w.rule_flags & UInt8(x.rawValue) != 0 }
+func window_clear_rule_flag(_ w: Window, _ x: window_rule_flag) { w.rule_flags &= ~UInt8(x.rawValue) }
+func window_set_rule_flag(_ w: Window, _ x: window_rule_flag) { w.rule_flags |= UInt8(x.rawValue) }
+
+/// `window_is_valid`
+func window_is_valid(_ window: Window) -> Bool
+{
+    return window.valid.load(ordering: .sequentiallyConsistent)
+}
+
+/// `window_invalidate`
+func window_invalidate(_ window: Window) -> Bool
+{
+    return window.valid.compareExchange(expected: true, desired: false, ordering: .sequentiallyConsistent).exchanged
+}
 
 // the notifications of window_observe, in the order of the bits of window->notification (AX_WINDOW_*_INDEX)
 private let axWindowNotifications: [(name: String, text: String)] =
@@ -22,37 +82,37 @@ private let axWindowAll: UInt8 = 0b111
 let axFullscreenAttribute = "AXFullScreen"
 
 //
-// NOTE: The notifications use the observer of the application, and their context is the window: the callback is
-// applicationNotificationHandler (Application.swift), whose NOTE says who owns the window.
+// NOTE: The notifications use the observer of the application, and their context is the window, unretained: the
+// callback is applicationNotificationHandler (Application.swift), whose NOTE says who owns the window.
 //
 
 /// `window_observe`: true if every notification of AX_WINDOW_ALL is registered.
 func window_observe(_ target: Window) -> Bool
 {
-    let observerRef = target.pointee.application.pointee.observer_ref.takeUnretainedValue()
+    let observerRef = target.application.observer_ref!
 
     for (i, notification) in axWindowNotifications.enumerated() {
-        let result = AXObserverAddNotification(observerRef, target.pointee.ref.takeUnretainedValue(), notification.name as CFString, UnsafeMutableRawPointer(target))
+        let result = AXObserverAddNotification(observerRef, target.ref, notification.name as CFString, Unmanaged.passUnretained(target).toOpaque())
         if result == .success || result == .notificationAlreadyRegistered {
-            target.pointee.notification |= UInt8(1 << i)
+            target.notification |= UInt8(1 << i)
         } else {
             debug("window_observe: \(notification.text) failed with error \(axErrorName(result))\n")
         }
     }
 
-    return (target.pointee.notification & axWindowAll) == axWindowAll
+    return (target.notification & axWindowAll) == axWindowAll
 }
 
 /// `window_unobserve`
 func window_unobserve(_ target: Window)
 {
-    let observerRef = target.pointee.application.pointee.observer_ref.takeUnretainedValue()
+    let observerRef = target.application.observer_ref!
 
     for (i, notification) in axWindowNotifications.enumerated() {
-        if target.pointee.notification & UInt8(1 << i) == 0 { continue }
+        if target.notification & UInt8(1 << i) == 0 { continue }
 
-        AXObserverRemoveNotification(observerRef, target.pointee.ref.takeUnretainedValue(), notification.name as CFString)
-        target.pointee.notification &= ~UInt8(1 << i)
+        AXObserverRemoveNotification(observerRef, target.ref, notification.name as CFString)
+        target.notification &= ~UInt8(1 << i)
     }
 }
 
@@ -80,7 +140,6 @@ private func windowDisplaySpace(_ wid: UInt32) -> UInt64
 }
 
 /// `window_space`: the first space of the window, or the current space of its display.
-@_cdecl("window_space")
 func window_space(_ wid: UInt32) -> UInt64
 {
     let sid = SLS.spaces(connection_global(), forWindows: [wid]).first ?? 0
@@ -94,17 +153,16 @@ func window_space_list(_ wid: UInt32) -> [UInt64]
 }
 
 /// `window_title_ts`: the cached title in temporary storage, "" without one.
-@_cdecl("window_title_ts")
 func window_title_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
 {
-    return tsString(target.pointee.title.map { $0.takeUnretainedValue() as String } ?? "")
+    return tsString(target.title.map { $0 as String } ?? "")
 }
 
 /// `window_title`: the title as the application reports it now.
 func window_title(_ target: Window) -> CFString?
 {
     var value: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXTitleAttribute as CFString, &value)
+    AXUIElementCopyAttributeValue(target.ref, kAXTitleAttribute as CFString, &value)
     return value.map { unsafeDowncast($0, to: CFString.self) }
 }
 
@@ -114,7 +172,7 @@ func window_ax_origin(_ target: Window) -> CGPoint
     var origin = CGPoint.zero
     var positionRef: CFTypeRef?
 
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXPositionAttribute as CFString, &positionRef)
+    AXUIElementCopyAttributeValue(target.ref, kAXPositionAttribute as CFString, &positionRef)
 
     if let positionRef {
         AXValueGetValue(unsafeDowncast(positionRef, to: AXValue.self), .cgPoint, &origin)
@@ -130,8 +188,8 @@ func window_ax_frame(_ target: Window) -> CGRect
     var positionRef: CFTypeRef?
     var sizeRef: CFTypeRef?
 
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXPositionAttribute as CFString, &positionRef)
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXSizeAttribute as CFString, &sizeRef)
+    AXUIElementCopyAttributeValue(target.ref, kAXPositionAttribute as CFString, &positionRef)
+    AXUIElementCopyAttributeValue(target.ref, kAXSizeAttribute as CFString, &sizeRef)
 
     if let positionRef {
         AXValueGetValue(unsafeDowncast(positionRef, to: AXValue.self), .cgPoint, &frame.origin)
@@ -148,7 +206,7 @@ func window_ax_frame(_ target: Window) -> CGRect
 private func windowAttributeIsSettable(_ target: Window, _ attribute: String) -> Bool
 {
     var result: DarwinBoolean = false
-    if AXUIElementIsAttributeSettable(target.pointee.ref.takeUnretainedValue(), attribute as CFString, &result) != .success {
+    if AXUIElementIsAttributeSettable(target.ref, attribute as CFString, &result) != .success {
         result = false
     }
     return result.boolValue
@@ -187,8 +245,8 @@ func window_can_minimize(_ target: Window) -> Bool
 /// `window_is_undersized`
 func window_is_undersized(_ target: Window) -> Bool
 {
-    if target.pointee.frame.size.width  <= 500.0 { return true }
-    if target.pointee.frame.size.height <= 500.0 { return true }
+    if target.frame.size.width  <= 500.0 { return true }
+    if target.frame.size.height <= 500.0 { return true }
     return false
 }
 
@@ -196,7 +254,7 @@ func window_is_undersized(_ target: Window) -> Bool
 private func windowBooleanAttribute(_ target: Window, _ attribute: CFString) -> Bool
 {
     var value: CFTypeRef?
-    guard AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), attribute, &value) == .success, let value else { return false }
+    guard AXUIElementCopyAttributeValue(target.ref, attribute, &value) == .success, let value else { return false }
     return CFBooleanGetValue(unsafeDowncast(value, to: CFBoolean.self))
 }
 
@@ -213,7 +271,6 @@ func window_is_fullscreen(_ target: Window) -> Bool
 }
 
 /// `window_is_sticky`: true if the window is on more than one space.
-@_cdecl("window_is_sticky")
 func window_is_sticky(_ wid: UInt32) -> Bool
 {
     return SLS.spaces(connection_global(), forWindows: [wid]).count > 1
@@ -246,14 +303,12 @@ func window_parent(_ wid: UInt32) -> UInt32
 }
 
 /// `window_level`
-@_cdecl("window_level")
 func window_level(_ wid: UInt32) -> Int32
 {
     return windowQuery(wid)?.level ?? 0
 }
 
 /// `window_sub_level`: through the bounded message of SLSGetWindowSubLevelBounded (CPrivate.h) when it works.
-@_cdecl("window_sub_level")
 func window_sub_level(_ wid: UInt32) -> Int32
 {
     var subLevel: Int32 = 0
@@ -270,43 +325,41 @@ func window_tags(_ wid: UInt32) -> UInt64
     return windowQuery(wid)?.tags ?? 0
 }
 
-/// `window_ax_role`: +1, stored in window->role.
-private func windowAXRole(_ target: Window) -> Unmanaged<CFString>?
+/// `window_ax_role`: stored in window->role.
+private func windowAXRole(_ target: Window) -> CFString?
 {
     var role: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXRoleAttribute as CFString, &role)
-    return role.map { Unmanaged.passRetained(unsafeDowncast($0, to: CFString.self)) }
+    AXUIElementCopyAttributeValue(target.ref, kAXRoleAttribute as CFString, &role)
+    return role.map { unsafeDowncast($0, to: CFString.self) }
 }
 
 /// `window_role`: the cached role.
 func window_role(_ target: Window) -> CFString?
 {
-    return target.pointee.role?.takeUnretainedValue()
+    return target.role
 }
 
 /// `window_role_ts`: the cached role in temporary storage, "" without one.
-@_cdecl("window_role_ts")
 func window_role_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
 {
     return tsString(window_role(target).map { $0 as String } ?? "")
 }
 
-/// `window_ax_subrole`: +1, stored in window->subrole.
-private func windowAXSubrole(_ target: Window) -> Unmanaged<CFString>?
+/// `window_ax_subrole`: stored in window->subrole.
+private func windowAXSubrole(_ target: Window) -> CFString?
 {
     var subrole: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXSubroleAttribute as CFString, &subrole)
-    return subrole.map { Unmanaged.passRetained(unsafeDowncast($0, to: CFString.self)) }
+    AXUIElementCopyAttributeValue(target.ref, kAXSubroleAttribute as CFString, &subrole)
+    return subrole.map { unsafeDowncast($0, to: CFString.self) }
 }
 
 /// `window_subrole`: the cached subrole.
 func window_subrole(_ target: Window) -> CFString?
 {
-    return target.pointee.subrole?.takeUnretainedValue()
+    return target.subrole
 }
 
 /// `window_subrole_ts`: the cached subrole in temporary storage, "" without one.
-@_cdecl("window_subrole_ts")
 func window_subrole_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
 {
     return tsString(window_subrole(target).map { $0 as String } ?? "")
@@ -318,8 +371,8 @@ private func windowIsRoot(_ target: Window) -> Bool
     var result = false
     var value: CFTypeRef?
 
-    if AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXParentAttribute as CFString, &value) == .success {
-        result = !(value != nil && !CFEqual(value, target.pointee.application.pointee.ref.takeUnretainedValue()))
+    if AXUIElementCopyAttributeValue(target.ref, kAXParentAttribute as CFString, &value) == .success {
+        result = !(value != nil && !CFEqual(value, target.application.ref))
     }
 
     return result
@@ -337,7 +390,6 @@ func window_is_real(_ target: Window) -> Bool
 }
 
 /// `window_is_standard`
-@_cdecl("window_is_standard")
 func window_is_standard(_ target: Window) -> Bool
 {
     guard let role = window_role(target), let subrole = window_subrole(target) else { return false }
@@ -346,10 +398,9 @@ func window_is_standard(_ target: Window) -> Bool
 }
 
 /// `window_level_is_standard`: the level of the window is that of LAYER_NORMAL (g_layer_normal_window_level).
-@_cdecl("window_level_is_standard")
 func window_level_is_standard(_ target: Window) -> Bool
 {
-    let level = window_level(target.pointee.id)
+    let level = window_level(target.id)
     return level == CGWindowLevelForKey(.normalWindow)
 }
 
@@ -380,32 +431,27 @@ func window_refresh_ax_properties(_ target: Window)
         window_clear_flag(target, WINDOW_RESIZABLE)
     }
 
-    target.pointee.role?.release()
-    target.pointee.role = windowAXRole(target)
-
-    target.pointee.subrole?.release()
-    target.pointee.subrole = windowAXSubrole(target)
+    target.role = windowAXRole(target)
+    target.subrole = windowAXSubrole(target)
 }
 
 //
-// NOTE: The struct holds ref, role, subrole and title at +1 until window_destroy. id_ptr points at id until the window
-// is invalidated (window_is_valid in window.h).
+// NOTE: The window holds ref, role, subrole and title until window_destroy.
 //
 
-/// `window_create`: takes over the +1 reference of the element (CF_CONSUMED in C).
+/// `window_create`: retains the element.
 func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: UInt32) -> Window
 {
-    let result = calloc(1, MemoryLayout<window>.size)!.bindMemory(to: window.self, capacity: 1)
+    let result = Window()
 
-    result.pointee.application = owner
-    result.pointee.ref = Unmanaged.passRetained(windowRef)
-    result.pointee.id = windowID
-    result.pointee.id_ptr = (UnsafeMutableRawPointer(result) + MemoryLayout<window>.offset(of: \window.id)!).assumingMemoryBound(to: UInt32.self)
-    result.pointee.frame = window_ax_frame(result)
-    result.pointee.title = window_title(result).map { Unmanaged.passRetained($0) }
-    result.pointee.is_root = window_parent(result.pointee.id) == 0 || windowIsRoot(result)
+    result.application = owner
+    result.ref = windowRef
+    result.id = windowID
+    result.frame = window_ax_frame(result)
+    result.title = window_title(result)
+    result.is_root = window_parent(result.id) == 0 || windowIsRoot(result)
 
-    if window_shadow(result.pointee.id) {
+    if window_shadow(result.id) {
         window_set_flag(result, WINDOW_SHADOW)
     }
 
@@ -415,24 +461,23 @@ func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: U
 
     window_refresh_ax_properties(result)
 
-    if window_is_fullscreen(result) || space_is_fullscreen(window_space(result.pointee.id)) {
+    if window_is_fullscreen(result) || space_is_fullscreen(window_space(result.id)) {
         window_set_flag(result, WINDOW_FULLSCREEN)
     }
 
-    if window_is_sticky(result.pointee.id) {
+    if window_is_sticky(result.id) {
         window_set_flag(result, WINDOW_STICKY)
     }
 
     return result
 }
 
-/// `window_destroy`
+/// `window_destroy`: releases what the window holds; the object goes away with the last event that refers to it.
 func window_destroy(_ target: Window)
 {
-    target.pointee.id = 0
-    target.pointee.role?.release()
-    target.pointee.subrole?.release()
-    target.pointee.title?.release()
-    target.pointee.ref.release()
-    free(target)
+    target.id = 0
+    target.role = nil
+    target.subrole = nil
+    target.title = nil
+    target.ref = nil
 }

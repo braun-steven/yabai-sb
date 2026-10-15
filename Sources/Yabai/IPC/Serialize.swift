@@ -162,7 +162,7 @@ private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: Unsa
 
 /// `space_manager_query_spaces_for_window`
 @discardableResult
-func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: UnsafeMutablePointer<window>, _ flags: UInt64) -> Bool
+func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
 {
     var spaceList = window_space_list(window.pointee.id)
     if spaceList.isEmpty { return false }
@@ -244,7 +244,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: UnsafeMutablePointer<co
 //
 
 /// `window_info_for_window`
-func windowInfo(for window: UnsafeMutablePointer<window>, _ flags: UInt64) -> WindowInfo
+func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 {
     let wm = window_manager_global()
     let application = window.pointee.application!
@@ -334,7 +334,7 @@ func windowInfo(forID wid: UInt32, _ flags: UInt64) -> WindowInfo
 }
 
 /// `window_serialize`
-func windowSerialize(_ window: UnsafeMutablePointer<window>, _ flags: UInt64) -> String
+func windowSerialize(_ window: Window, _ flags: UInt64) -> String
 {
     let flags = flags == 0 ? ~flags : flags
     return windowInfo(for: window, flags).serialize(flags, layer: layerName)

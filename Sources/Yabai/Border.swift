@@ -396,7 +396,7 @@ private func borderHandOver(_ from: Border, _ to: Border, _ settings: BorderSett
     SLSReenableUpdate(connection_global())
 }
 
-private func borderShouldShow(_ target: UnsafeMutablePointer<window>) -> Bool
+private func borderShouldShow(_ target: Window) -> Bool
 {
     if !target.pointee.is_eligible { return false }
     guard let app = target.pointee.application, !app.pointee.is_hidden else { return false }
@@ -423,7 +423,7 @@ private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
     return count
 }
 
-private func borderRefreshWithCount(_ target: UnsafeMutablePointer<window>?, _ sid: UInt64, _ windowCount: Int32)
+private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCount: Int32)
 {
     guard let target, target.pointee.id != 0 else { return }
     let wm = window_manager_global()
@@ -509,8 +509,7 @@ func border_end_batch()
 // e.g. its focus. Changes that can also affect the borders of the other windows on the space (a window appears or
 // disappears, a container changes) refresh the whole space instead.
 //
-@_cdecl("border_refresh")
-func border_refresh(_ target: UnsafeMutablePointer<window>!) { borderRefreshWithCount(target, 0, -1) }
+func border_refresh(_ target: Window!) { borderRefreshWithCount(target, 0, -1) }
 
 //
 // NOTE: Without window_border_hide_single a change on a space only affects the borders of its tiled windows and of
@@ -540,8 +539,7 @@ func border_refresh_space(_ sid: UInt64)
     for wid in windows { borderRefreshWithCount(window_manager_find_window(window_manager_global(), wid), sid, 0) }
 }
 
-@_cdecl("border_refresh_window_space")
-func border_refresh_window_space(_ target: UnsafeMutablePointer<window>!)
+func border_refresh_window_space(_ target: Window!)
 {
     guard let target, target.pointee.id != 0 else { return }
     let sid = window_space(target.pointee.id)

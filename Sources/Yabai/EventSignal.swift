@@ -59,19 +59,25 @@ private func string(_ s: UnsafeMutablePointer<CChar>?) -> String?
     s.map { String(cString: $0) }
 }
 
+/// The context of the signal of an application or a window (unretained: eventSignalPush describes it at once).
+func signalObject(_ object: AnyObject) -> UnsafeMutableRawPointer
+{
+    Unmanaged.passUnretained(object).toOpaque()
+}
+
 private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
     let pm = process_manager_global()
 
     switch es.type {
     case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:
-        let app = context!.assumingMemoryBound(to: application.self).pointee
+        let app = Unmanaged<Application>.fromOpaque(context!).takeUnretainedValue()
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
         es.app = string(app.name)
     case .applicationTerminated:
-        let app = context!.assumingMemoryBound(to: application.self).pointee
+        let app = Unmanaged<Application>.fromOpaque(context!).takeUnretainedValue()
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
@@ -95,7 +101,7 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
         es.addArgument("YABAI_PROCESS_ID", "\(pm.front_pid)")
         es.addArgument("YABAI_RECENT_PROCESS_ID", "\(pm.last_front_pid)")
     case .applicationHidden:
-        let app = context!.assumingMemoryBound(to: application.self).pointee
+        let app = Unmanaged<Application>.fromOpaque(context!).takeUnretainedValue()
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
@@ -108,7 +114,7 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
 
 private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
-    let target = context!.assumingMemoryBound(to: window.self)
+    let target = Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()
     let focusedWindowID = window_manager_global().focused_window_id
 
     switch es.type {
@@ -120,7 +126,7 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
     case .windowDestroyed:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
 
-        es.app = target.pointee.application.map { string($0.pointee.name) } ?? "<unknown>"
+        es.app = target.application.map { string($0.name) } ?? "<unknown>"
         es.active = focusedWindowID == target.pointee.id
     case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")

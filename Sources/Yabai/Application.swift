@@ -3,9 +3,33 @@ import CPrivate
 import YabaiC
 
 //
-// NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. struct application stays
-// C until the model and table cleanup in P14. Ported from src/application.c.
+// NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. Ported from
+// src/application.c.
 //
+
+/// `struct application`: name is the name of the process, which the process owns. The tab bars load icon.
+final class Application
+{
+    var ref: AXUIElement!
+    var connection: Int32 = 0
+    var psn = ProcessSerialNumber()
+    var pid: pid_t = 0
+    var name: UnsafeMutablePointer<CChar>!
+    var icon: CGImage?
+    var observer_ref: AXObserver!
+    var notification: UInt8 = 0
+    var is_observing = false
+    var is_hidden = false
+    var ax_retry = false
+
+    /// The application itself, for the code that still reads it like the C pointer.
+    var pointee: Application { self }
+}
+
+extension Application: Equatable
+{
+    static func == (a: Application, b: Application) -> Bool { a === b }
+}
 
 // the notifications of application_observe, in the order of the bits of application->notification
 private let axApplicationNotifications: [(name: String, text: String)] =
@@ -24,11 +48,11 @@ private let axApplicationAll: UInt8 = 0b11111
 
 //
 // NOTE: The callback of the observer of each application. It runs on the main run loop and only posts events. Its
-// context is the struct application for the notifications of application_observe, and the struct window for those of
-// window_observe (window.c), which uses the same observer. Both belong to the window manager: the event loop removes
-// the notifications (application_unobserve, window_unobserve) before it frees them. A window can be destroyed while
-// its events are queued, so WINDOW_DESTROYED is posted only by the caller whose window_invalidate succeeds; the
-// handlers check window_is_valid before they use a window.
+// context is the application (unretained) for the notifications of application_observe, and the window for those of
+// window_observe (Window.swift), which uses the same observer. Both belong to the window manager: the event loop removes
+// the notifications (application_unobserve, window_unobserve) before it releases them. A window can be destroyed while
+// its events are queued (they keep it alive), so WINDOW_DESTROYED is posted only by the caller whose window_invalidate
+// succeeds; the handlers check window_is_valid before they use a window.
 //
 
 private func applicationNotificationHandler(_ observer: AXObserver, _ element: AXUIElement, _ notification: CFString, _ context: UnsafeMutableRawPointer?)
@@ -50,16 +74,16 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     case kAXMenuClosedNotification:
         EventLoop.post(.menuClosed)
     case kAXWindowMiniaturizedNotification:
-        EventLoop.post(.windowMinimized(Handoff(value: context!.assumingMemoryBound(to: window.self))))
+        EventLoop.post(.windowMinimized(Handoff(value: Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue())))
     case kAXWindowDeminiaturizedNotification:
-        EventLoop.post(.windowDeminimized(Handoff(value: context!.assumingMemoryBound(to: window.self))))
+        EventLoop.post(.windowDeminimized(Handoff(value: Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue())))
     case kAXUIElementDestroyedNotification:
-        let target = context!.assumingMemoryBound(to: window.self)
+        let target = Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()
 
         //
         // NOTE(asmvik): Flag events that are already queued, but not yet processed,
-        // so that they will be ignored; the memory we allocated is still valid and will
-        // be freed when this event is handled.
+        // so that they will be ignored; the window stays alive until this event
+        // is handled.
         //
 
         if !window_invalidate(target) { return }
@@ -72,18 +96,18 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
 
 /// `application_observe`: true if every notification of AX_APPLICATION_ALL is registered. Sets ax_retry when the
 /// application did not answer in time.
-func application_observe(_ target: UnsafeMutablePointer<application>) -> Bool
+func application_observe(_ target: Application) -> Bool
 {
     var observerRef: AXObserver?
-    if AXObserverCreate(target.pointee.pid, applicationNotificationHandler, &observerRef) == .success, let observerRef {
-        target.pointee.observer_ref = Unmanaged.passRetained(observerRef)
+    if AXObserverCreate(target.pid, applicationNotificationHandler, &observerRef) == .success, let observerRef {
+        target.observer_ref = observerRef
 
         for (i, notification) in axApplicationNotifications.enumerated() {
-            let result = AXObserverAddNotification(observerRef, target.pointee.ref.takeUnretainedValue(), notification.name as CFString, UnsafeMutableRawPointer(target))
+            let result = AXObserverAddNotification(observerRef, target.ref, notification.name as CFString, Unmanaged.passUnretained(target).toOpaque())
             if result == .success || result == .notificationAlreadyRegistered {
-                target.pointee.notification |= UInt8(1 << i)
+                target.notification |= UInt8(1 << i)
             } else {
-                debug("application_observe: error '\(axErrorName(result))' for application '\(cName(target.pointee.name))' and notification '\(notification.text)'\n")
+                debug("application_observe: error '\(axErrorName(result))' for application '\(cName(target.name))' and notification '\(notification.text)'\n")
 
                 //
                 // NOTE: The application did not respond within the accessibility timeout. Every other
@@ -91,99 +115,97 @@ func application_observe(_ target: UnsafeMutablePointer<application>) -> Bool
                 //
 
                 if result == .cannotComplete {
-                    target.pointee.ax_retry = true
+                    target.ax_retry = true
                     break
                 }
             }
         }
 
-        target.pointee.is_observing = true
+        target.is_observing = true
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observerRef), .defaultMode)
     }
 
-    return (target.pointee.notification & axApplicationAll) == axApplicationAll
+    return (target.notification & axApplicationAll) == axApplicationAll
 }
 
 /// `application_unobserve`
-func application_unobserve(_ target: UnsafeMutablePointer<application>)
+func application_unobserve(_ target: Application)
 {
-    guard target.pointee.is_observing else { return }
+    guard target.is_observing else { return }
 
-    let observerRef = target.pointee.observer_ref.takeUnretainedValue()
+    let observerRef = target.observer_ref!
 
     for (i, notification) in axApplicationNotifications.enumerated() {
-        if target.pointee.notification & UInt8(1 << i) == 0 { continue }
+        if target.notification & UInt8(1 << i) == 0 { continue }
 
-        AXObserverRemoveNotification(observerRef, target.pointee.ref.takeUnretainedValue(), notification.name as CFString)
-        target.pointee.notification &= ~UInt8(1 << i)
+        AXObserverRemoveNotification(observerRef, target.ref, notification.name as CFString)
+        target.notification &= ~UInt8(1 << i)
     }
 
-    target.pointee.is_observing = false
+    target.is_observing = false
     CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observerRef))
-    target.pointee.observer_ref.release()
+    target.observer_ref = nil
 }
 
 /// `application_focused_window`: the id of the focused window of the application, or 0.
-func application_focused_window(_ target: UnsafeMutablePointer<application>) -> UInt32
+func application_focused_window(_ target: Application) -> UInt32
 {
     var windowRef: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXFocusedWindowAttribute as CFString, &windowRef)
+    AXUIElementCopyAttributeValue(target.ref, kAXFocusedWindowAttribute as CFString, &windowRef)
     guard let windowRef else { return 0 }
 
     return ax_window_id(unsafeDowncast(windowRef, to: AXUIElement.self))
 }
 
 /// `application_is_frontmost`
-func application_is_frontmost(_ target: UnsafeMutablePointer<application>) -> Bool
+func application_is_frontmost(_ target: Application) -> Bool
 {
     var psn = SLS.frontProcess()
-    return psn_equals(&psn, &target.pointee.psn)
+    return psn_equals(&psn, &target.psn)
 }
 
 /// `application_is_hidden`
-func application_is_hidden(_ target: UnsafeMutablePointer<application>) -> Bool
+func application_is_hidden(_ target: Application) -> Bool
 {
-    return !ProcessIsVisibleC(target.pointee.psn)
+    return !ProcessIsVisibleC(target.psn)
 }
 
 /// `application_window_list`: the AX windows of the application, or nil.
-func application_window_list(_ target: UnsafeMutablePointer<application>) -> CFArray?
+func application_window_list(_ target: Application) -> CFArray?
 {
     var windowList: CFTypeRef?
-    AXUIElementCopyAttributeValue(target.pointee.ref.takeUnretainedValue(), kAXWindowsAttribute as CFString, &windowList)
+    AXUIElementCopyAttributeValue(target.ref, kAXWindowsAttribute as CFString, &windowList)
     guard let windowList else { return nil }
 
     return unsafeDowncast(windowList, to: CFArray.self)
 }
 
 //
-// NOTE: The struct holds ref (and icon, which tab_bar.c sets) at +1 until application_destroy. name is the name of the
-// process, which the process owns.
+// NOTE: The application holds ref (and icon, which the tab bars set) until application_destroy.
 //
 
 /// `application_create`
-func application_create(_ process: Process) -> UnsafeMutablePointer<application>
+func application_create(_ process: Process) -> Application
 {
-    let result = calloc(1, MemoryLayout<application>.size)!.bindMemory(to: application.self, capacity: 1)
+    let result = Application()
 
-    result.pointee.ref = Unmanaged.passRetained(AXUIElementCreateApplication(process.pid))
-    result.pointee.psn = process.psn
-    result.pointee.pid = process.pid
-    result.pointee.name = process.name
-    result.pointee.is_hidden = application_is_hidden(result)
+    result.ref = AXUIElementCreateApplication(process.pid)
+    result.psn = process.psn
+    result.pid = process.pid
+    result.name = process.name
+    result.is_hidden = application_is_hidden(result)
 
-    var psn = result.pointee.psn
+    var psn = result.psn
     var connection: Int32 = 0
     SLSGetConnectionIDForPSN(connection_global(), &psn, &connection)
-    result.pointee.connection = connection
+    result.connection = connection
 
     return result
 }
 
 /// `application_destroy`
-func application_destroy(_ target: UnsafeMutablePointer<application>)
+func application_destroy(_ target: Application)
 {
-    target.pointee.ref.release()
-    if let icon = target.pointee.icon { icon.release() }
-    free(target)
+    target.ref = nil
+    target.icon = nil
 }

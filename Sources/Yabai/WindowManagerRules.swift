@@ -90,7 +90,7 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
     }
 
     if effects.pointee.fullscreen == RULE_PROP_ON {
-        AXUIElementSetAttributeValue(target.pointee.ref.takeUnretainedValue(), axFullscreenAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(target.pointee.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
         window_set_rule_flag(target, WINDOW_RULE_FULLSCREEN)
     }
 

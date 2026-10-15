@@ -61,7 +61,7 @@ private func string(_ s: UnsafeMutablePointer<CChar>?) -> String?
 
 private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
-    let pm = process_manager_global()!.pointee
+    let pm = process_manager_global()
 
     switch es.type {
     case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:

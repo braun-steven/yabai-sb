@@ -9,7 +9,6 @@
 // Sources/Yabai/Yabai.swift.
 //
 
-struct process_manager g_process_manager;
 struct window_manager g_window_manager;
 struct space_manager g_space_manager;
 

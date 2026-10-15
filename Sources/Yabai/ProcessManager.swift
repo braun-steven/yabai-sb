@@ -6,10 +6,34 @@ import YabaiCore
 
 //
 // NOTE: The processes of the session, from the Carbon application events. The event handler runs on the main thread and
-// only keeps the process table and posts events; the handlers run on the event loop. struct process and struct
-// process_manager stay C while window_manager*.c reads them (finder_psn, the process table). Ported from
-// src/process_manager.c.
+// only keeps the process table and posts events; the handlers run on the event loop. Ported from src/process_manager.c.
 //
+
+/// `struct process_manager`
+final class ProcessManager
+{
+    var process = Table<ProcessSerialNumber, UnsafeMutablePointer<process>>(capacity: 125, hash: { UInt($0.lowLongOfPSN) }, equals: { a, b in
+        var a = a, b = b
+        return psn_equals(&a, &b)
+    })
+    var target: EventTargetRef?
+    var handler: EventHandlerUPP?
+    var type = (EventTypeSpec(), EventTypeSpec(), EventTypeSpec())
+    var ref: EventHandlerRef?
+    var front_pid: pid_t = 0
+    var last_front_pid: pid_t = 0
+    var switch_event_time: EventTime = 0
+    var finder_psn = ProcessSerialNumber()
+}
+
+/// `g_process_manager`: the Carbon handler changes the process table on the main thread, as in C (see the NOTE of
+/// g_display_manager).
+nonisolated(unsafe) let g_process_manager = ProcessManager()
+
+func process_manager_global() -> ProcessManager
+{
+    g_process_manager
+}
 
 private let processNameBlacklist =
 [
@@ -83,7 +107,7 @@ func process_manager_active_space_for_psn(_ connection: Int32) -> UInt64
 
 private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ context: UnsafeMutableRawPointer?) -> OSStatus
 {
-    let pm = context!.assumingMemoryBound(to: process_manager.self)
+    let pm = Unmanaged<ProcessManager>.fromOpaque(context!).takeUnretainedValue()
 
     var psn = ProcessSerialNumber()
     if GetEventParameter(event, EventParamName(kEventParamProcessID), EventParamType(typeProcessSerialNumber), nil, MemoryLayout<ProcessSerialNumber>.size, nil, &psn) != noErr {
@@ -111,7 +135,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
 
         guard let process = processCreate(psn, pid) else { return noErr }
 
-        _table_add(&pm.pointee.process, &process.pointee.psn, Int32(MemoryLayout<ProcessSerialNumber>.size), process)
+        pm.process.add(process.pointee.psn, process)
         EventLoop.post(.applicationLaunched(Handoff(value: process)))
     case kEventAppTerminated:
         guard let process = process_manager_find_process(pm, &psn) else { return noErr }
@@ -122,7 +146,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
         //
 
         process_set_terminated(process, true)
-        table_remove(&pm.pointee.process, &psn)
+        pm.process.remove(psn)
         workspace_application_unobserve(process)
 
         EventLoop.post(.applicationTerminated(Handoff(value: process)))
@@ -137,7 +161,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
     return noErr
 }
 
-private func processManagerAddRunningProcesses(_ pm: UnsafeMutablePointer<process_manager>)
+private func processManagerAddRunningProcesses(_ pm: ProcessManager)
 {
     var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kNoProcess))
     while ProcessGetNextC(&psn) == noErr {
@@ -151,50 +175,48 @@ private func processManagerAddRunningProcesses(_ pm: UnsafeMutablePointer<proces
 
         if strcmp(process.pointee.name, "Finder") == 0 {
             debug("process_manager_add_running_processes: \(describe(process)) was found! caching psn..\n")
-            pm.pointee.finder_psn = psn
+            pm.finder_psn = psn
         }
 
-        _table_add(&pm.pointee.process, &process.pointee.psn, Int32(MemoryLayout<ProcessSerialNumber>.size), process)
+        pm.process.add(process.pointee.psn, process)
     }
 }
 
 /// `process_manager_begin`: called by yabai_main on the main thread, before the event loop starts.
-@_cdecl("process_manager_begin")
-func process_manager_begin(_ pm: UnsafeMutablePointer<process_manager>) -> Bool
+func process_manager_begin(_ pm: ProcessManager) -> Bool
 {
-    pm.pointee.target = GetApplicationEventTarget()
-    pm.pointee.handler = processHandler
-    pm.pointee.type.0 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppLaunched))
-    pm.pointee.type.1 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppTerminated))
-    pm.pointee.type.2 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppFrontSwitched))
-    table_init(&pm.pointee.process, 125, { key in UInt(key!.load(as: ProcessSerialNumber.self).lowLongOfPSN) }, { keyA, keyB in
-        psn_equals(keyA!.assumingMemoryBound(to: ProcessSerialNumber.self), keyB!.assumingMemoryBound(to: ProcessSerialNumber.self)) ? 1 : 0
-    })
+    pm.target = GetApplicationEventTarget()
+    pm.handler = processHandler
+    pm.type.0 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppLaunched))
+    pm.type.1 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppTerminated))
+    pm.type.2 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppFrontSwitched))
 
     autoreleasepool {
         processManagerAddRunningProcesses(pm)
     }
 
-    pm.pointee.front_pid = ProcessGetPIDC(SLS.frontProcess())
-    pm.pointee.last_front_pid = pm.pointee.front_pid
-    pm.pointee.switch_event_time = GetCurrentEventTime()
+    pm.front_pid = ProcessGetPIDC(SLS.frontProcess())
+    pm.last_front_pid = pm.front_pid
+    pm.switch_event_time = GetCurrentEventTime()
 
     //
-    // NOTE: The handler gets pm as its context: g_process_manager lives as long as the daemon, and the handler is
-    // never removed.
+    // NOTE: The handler gets pm as its context, unretained: g_process_manager lives as long as the daemon, and the
+    // handler is never removed.
     //
 
-    return withUnsafeMutablePointer(to: &pm.pointee.type) { types in
-        types.withMemoryRebound(to: EventTypeSpec.self, capacity: 3) { types in
-            InstallEventHandler(pm.pointee.target, pm.pointee.handler, 3, types, UnsafeMutableRawPointer(pm), &pm.pointee.ref) == noErr
-        }
-    }
+    let target = pm.target
+    let handler = pm.handler
+    var types = [pm.type.0, pm.type.1, pm.type.2]
+    var ref: EventHandlerRef?
+    let result = InstallEventHandler(target, handler, 3, &types, Unmanaged.passUnretained(pm).toOpaque(), &ref) == noErr
+    pm.ref = ref
+    return result
 }
 
 /// `process_manager_find_process`
-func process_manager_find_process(_ pm: UnsafeMutablePointer<process_manager>, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> UnsafeMutablePointer<process>?
+func process_manager_find_process(_ pm: ProcessManager, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> UnsafeMutablePointer<process>?
 {
-    return table_find(&pm.pointee.process, psn)?.assumingMemoryBound(to: process.self)
+    return pm.process.find(psn.pointee)
 }
 
 /// `process_destroy`

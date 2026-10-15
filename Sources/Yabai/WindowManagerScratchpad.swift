@@ -69,7 +69,7 @@ private func windowManagerHideScratchpadWindow(_ wm: UnsafeMutablePointer<window
     if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.pointee.id) {
         window_manager_focus_window_with_raise(&next.pointee.application.pointee.psn, next.pointee.id, next.pointee.ref.takeUnretainedValue())
     } else {
-        _SLPSSetFrontProcessWithOptions(&process_manager_global()!.pointee.finder_psn, 0, UInt32(kCPSNoWindows))
+        _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
     }
 
     scripting_addition_order_window(target.pointee.id, 0, 0)

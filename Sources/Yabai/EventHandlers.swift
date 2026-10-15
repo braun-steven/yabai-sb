@@ -476,7 +476,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 @WM func applicationFrontSwitched(_ process: UnsafeMutablePointer<process>)
 {
     let wm = window_manager_global()!
-    let pm = process_manager_global()!
+    let pm = process_manager_global()
 
     guard let application = window_manager_find_application(wm, process.pointee.pid) else {
         window_manager_add_lost_front_switched_event(wm, process.pointee.pid)
@@ -495,15 +495,15 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
         applicationFrontSwitchedFocusSpace(application, process)
     }
 
-    if let deactivatedApplication = window_manager_find_application(wm, pm.pointee.front_pid) {
+    if let deactivatedApplication = window_manager_find_application(wm, pm.front_pid) {
         eventSignalPush(.applicationDeactivated, UnsafeMutableRawPointer(deactivatedApplication))
     }
 
     debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process))\n")
     eventSignalPush(.applicationActivated, UnsafeMutableRawPointer(application))
-    pm.pointee.switch_event_time = GetCurrentEventTime()
-    pm.pointee.last_front_pid = pm.pointee.front_pid
-    pm.pointee.front_pid = process.pointee.pid
+    pm.switch_event_time = GetCurrentEventTime()
+    pm.last_front_pid = pm.front_pid
+    pm.front_pid = process.pointee.pid
     eventSignalPush(.applicationFrontSwitched, nil)
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)

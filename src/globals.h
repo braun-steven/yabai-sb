@@ -6,12 +6,10 @@
 // references to mutable C globals, so Swift takes their addresses through these functions.
 //
 
-extern struct process_manager g_process_manager;
 extern struct space_manager g_space_manager;
 extern struct window_manager g_window_manager;
 extern bool g_verbose;
 
-static inline struct process_manager *process_manager_global(void) { return &g_process_manager; }
 static inline struct space_manager *space_manager_global(void) { return &g_space_manager; }
 static inline struct window_manager *window_manager_global(void) { return &g_window_manager; }
 static inline bool *verbose_global(void) { return &g_verbose; }

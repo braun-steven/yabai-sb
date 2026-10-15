@@ -33,27 +33,7 @@ func displayUUID(_ did: UInt32) -> String?
     return displayUUIDObject(did) as String?
 }
 
-//
-// NOTE: Swift returns a CF object from a @_cdecl function autoreleased (+0), but the C prototypes of the uuid functions
-// say CF_RETURNS_RETAINED. Their @_cdecl entry points therefore return Unmanaged at +1; Swift code calls the Swift
-// functions (displayUUID, displayManagerArrangementDisplayUUID, …) instead.
-//
-
-/// `display_uuid`, for C callers: +1.
-@_cdecl("display_uuid")
-func displayUUIDRetained(_ did: UInt32) -> Unmanaged<CFString>?
-{
-    return displayUUIDObject(did).map { Unmanaged.passRetained($0) }
-}
-
-/// Passes a string to a C caller at +1, for the CF_RETURNS_RETAINED functions.
-func retainedCFString(_ value: String?) -> Unmanaged<CFString>?
-{
-    return value.map { Unmanaged.passRetained($0 as CFString) }
-}
-
 /// `display_id`
-@_cdecl("display_id")
 func display_id(_ uuid: CFString?) -> UInt32
 {
     guard let uuid else { return 0 }
@@ -68,7 +48,6 @@ func displayID(_ uuid: String) -> UInt32
 }
 
 /// `display_bounds_constrained`
-@_cdecl("display_bounds_constrained")
 func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGRect
 {
     let dm = display_manager_global()
@@ -118,7 +97,6 @@ func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGR
 }
 
 /// `display_center`
-@_cdecl("display_center")
 func display_center(_ did: UInt32) -> CGPoint
 {
     let bounds = CGDisplayBounds(did)
@@ -126,25 +104,14 @@ func display_center(_ did: UInt32) -> CGPoint
 }
 
 /// `display_space_id`
-@_cdecl("display_space_id")
 func display_space_id(_ did: UInt32) -> UInt64
 {
     guard let uuid = displayUUID(did) else { return 0 }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
 }
 
-/// `display_space_list`: the spaces of a display in the order of the window server, in temporary storage. nil when
-/// the display is unknown.
-@_cdecl("display_space_list")
-func display_space_list(_ did: UInt32, _ count: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<UInt64>?
-{
-    guard let spaces = displaySpaces(did) else { return nil }
-
-    count.pointee = Int32(spaces.count)
-    return temporaryList(spaces)
-}
-
-/// The spaces of a display, as `display_space_list` lists them; nil when the display or the window server does not know it.
+/// `display_space_list`: the spaces of a display in the order of the window server; nil when the display or the
+/// window server does not know it.
 func displaySpaces(_ did: UInt32) -> [UInt64]?
 {
     guard let uuid = displayUUID(did) else { return nil }
@@ -158,14 +125,4 @@ func displaySpaces(_ did: UInt32) -> [UInt64]?
     }
 
     return result
-}
-
-/// Copies values into temporary storage, where C callers read the lists (`ts_alloc_list` in C). They are reset with
-/// the rest of the temporary storage after each event.
-func temporaryList<T>(_ values: [T]) -> UnsafeMutablePointer<T>
-{
-    return values.withUnsafeBytes { bytes in
-        let list: UnsafeMutableRawPointer = ts_list_from_bytes(bytes.baseAddress, UInt64(bytes.count), UInt64(MemoryLayout<T>.alignment))
-        return list.bindMemory(to: T.self, capacity: values.count)
-    }
 }

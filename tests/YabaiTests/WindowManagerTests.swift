@@ -152,15 +152,12 @@ private func windowRulesTestRule(_ app: String, _ subrole: String?, _ flags: rul
 /// The strings that window_manager_combine_matching_rule_effects takes, freed by the caller.
 private struct WindowStrings
 {
-    let title = strdup("")!
-    let role = strdup("AXWindow")!
-    let dialog = strdup("AXDialog")!
-    let standard = strdup("AXStandardWindow")!
+    let title = ""
+    let role = "AXWindow"
+    let dialog = "AXDialog"
+    let standard = "AXStandardWindow"
 
-    func free()
-    {
-        for string in [title, role, dialog, standard] { Foundation.free(string) }
-    }
+    func free() {}
 }
 
 @Test("window_rules_combine_matching") func windowRulesCombineMatching()

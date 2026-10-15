@@ -69,9 +69,9 @@ func rule_reapply_all()
     let wm = window_manager_global()
 
     for target in wm.window.values where target.pointee.is_root {
-        let windowTitle = window_title_ts(target)!
-        let windowRole = window_role_ts(target)!
-        let windowSubrole = window_subrole_ts(target)!
+        let windowTitle = window_title_ts(target)
+        let windowRole = window_role_ts(target)
+        let windowSubrole = window_subrole_ts(target)
 
         window_manager_apply_manage_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, false)
 
@@ -120,7 +120,7 @@ func rule_apply(_ candidate: UnsafeMutablePointer<rule>)
     let wm = window_manager_global()
 
     for target in wm.window.values where target.pointee.is_root {
-        if window_manager_rule_matches_window(candidate, target, window_title_ts(target)!, window_role_ts(target)!, window_subrole_ts(target)!) {
+        if window_manager_rule_matches_window(candidate, target, window_title_ts(target), window_role_ts(target), window_subrole_ts(target)) {
             window_manager_apply_manage_rule_effects_to_window(sm, wm, target, &candidate.pointee.effects)
 
             if window_manager_is_window_eligible(target) {

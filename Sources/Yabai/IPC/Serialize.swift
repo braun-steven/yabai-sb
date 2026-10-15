@@ -47,11 +47,10 @@ private func displayUUIDText(_ did: UInt32) -> String
 
 private func displaySpaceIndexList(_ did: UInt32) -> String
 {
-    var count: Int32 = 0
-    guard let spaceList = display_space_list(did, &count), count > 0 else { return "[]" }
+    guard let spaceList = displaySpaces(did), spaceList.count > 0 else { return "[]" }
 
     let first = space_manager_mission_control_index(spaceList[0])
-    return jsonList((0..<count).map { first + $0 })
+    return jsonList((0..<Int32(spaceList.count)).map { first + $0 })
 }
 
 /// `display_serialize`
@@ -75,10 +74,7 @@ func displaySerialize(_ did: UInt32, _ flags: UInt64) -> String
 @discardableResult
 func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
-    var count: Int32 = 0
-    guard let displayList = display_manager_active_display_list(&count) else { return false }
-
-    let displays = (0..<Int(count)).map { displaySerialize(displayList[$0], flags) }
+    let displays = displayManagerActiveDisplays().map { displaySerialize($0, flags) }
     rsp.write("[\(displays.joined(separator: ","))]\n")
     return true
 }
@@ -153,10 +149,10 @@ func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: UInt64, _ flags: UInt6
 // NOTE: Spaces that have no view are left out, so the separators are written before each element.
 //
 
-private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: UnsafeMutablePointer<UInt64>, _ spaceCount: Int32, _ flags: UInt64)
+private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [UInt64], _ flags: UInt64)
 {
     let sm = space_manager_global()
-    let spaces = (0..<Int(spaceCount)).compactMap { i in space_manager_query_view(sm, spaceList[i]).map { viewSerialize($0, flags) } }
+    let spaces = spaceList.compactMap { sid in space_manager_query_view(sm, sid).map { viewSerialize($0, flags) } }
     rsp.write("[\(spaces.joined(separator: ","))]\n")
 }
 
@@ -164,30 +160,28 @@ private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: Unsa
 @discardableResult
 func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
 {
-    var spaceList = window_space_list(window.pointee.id)
+    let spaceList = window_space_list(window.id)
     if spaceList.isEmpty { return false }
 
-    spaceList.withUnsafeMutableBufferPointer { spaceManagerQuerySpaceList(&rsp, $0.baseAddress!, Int32($0.count), flags) }
+    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
     return true
 }
 
 /// `space_manager_query_spaces_for_display`
 func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: UInt32, _ flags: UInt64) -> Bool
 {
-    var spaceCount: Int32 = 0
-    guard let spaceList = display_space_list(did, &spaceCount) else { return false }
+    guard let spaceList = displaySpaces(did) else { return false }
 
-    spaceManagerQuerySpaceList(&rsp, spaceList, spaceCount, flags)
+    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
     return true
 }
 
 /// `space_manager_query_spaces_for_displays`
 func spaceManagerQuerySpacesForDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
-    var spaceCount: Int32 = 0
-    guard let spaceList = space_manager_mission_control_space_list(&spaceCount) else { return false }
+    guard let spaceList = space_manager_mission_control_space_list() else { return false }
 
-    spaceManagerQuerySpaceList(&rsp, spaceList, spaceCount, flags)
+    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
     return true
 }
 
@@ -265,9 +259,9 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.isFloating       = window_check_flag(window, WINDOW_FLOAT)
     info.isGrabbed        = window == mouse_state_global().window
 
-    if wanted(flags, WindowProperty.title)     { info.title     = string(window_title_ts(window)) }
-    if wanted(flags, WindowProperty.role)      { info.role      = string(window_role_ts(window)) }
-    if wanted(flags, WindowProperty.subrole)   { info.subrole   = string(window_subrole_ts(window)) }
+    if wanted(flags, WindowProperty.title)     { info.title     = window_title_ts(window) }
+    if wanted(flags, WindowProperty.role)      { info.role      = window_role_ts(window) }
+    if wanted(flags, WindowProperty.subrole)   { info.subrole   = window_subrole_ts(window) }
     if wanted(flags, WindowProperty.canMove)   { info.canMove   = window_can_move(window) }
     if wanted(flags, WindowProperty.canResize) { info.canResize = window_can_resize(window) }
     windowInfoSetLevels(&info, wid, flags)
@@ -348,12 +342,12 @@ func windowNonAXSerialize(_ wid: UInt32, _ flags: UInt64) -> String
 }
 
 /// `window_manager_query_windows_for_spaces`
-func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: UnsafeMutablePointer<UInt64>?, _ spaceCount: Int32, _ flags: UInt64)
+func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [UInt64], _ flags: UInt64)
 {
     let wm = window_manager_global()
 
     var windowCount: Int32 = 0
-    let windowList = space_window_list_for_connection(spaceList, spaceCount, 0, &windowCount, true)
+    let windowList = space_window_list_for_connection(spaceList, 0, &windowCount, true)
 
     let windows = (0..<Int(windowCount)).map { i in
         let wid = windowList![i]
@@ -367,17 +361,13 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: Unsa
 /// `window_manager_query_windows_for_display`
 func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: UInt32, _ flags: UInt64)
 {
-    var spaceCount: Int32 = 0
-    let spaceList = display_space_list(did, &spaceCount)
-    windowManagerQueryWindowsForSpaces(&rsp, spaceList, spaceCount, flags)
+    windowManagerQueryWindowsForSpaces(&rsp, displaySpaces(did) ?? [], flags)
 }
 
 /// `window_manager_query_windows_for_displays`
 func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64)
 {
-    var spaceCount: Int32 = 0
-    let spaceList = space_manager_mission_control_space_list(&spaceCount)
-    windowManagerQueryWindowsForSpaces(&rsp, spaceList, spaceCount, flags)
+    windowManagerQueryWindowsForSpaces(&rsp, space_manager_mission_control_space_list() ?? [], flags)
 }
 
 // MARK: Tree

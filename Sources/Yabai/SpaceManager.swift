@@ -357,16 +357,11 @@ func missionControlSpaces() -> [UInt64]
     return result
 }
 
-/// `space_manager_mission_control_space_list`, in temporary storage; count gets the number of spaces.
-func space_manager_mission_control_space_list(_ count: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<UInt64>?
+/// `space_manager_mission_control_space_list`: nil without spaces.
+func space_manager_mission_control_space_list() -> [UInt64]?
 {
-    count.pointee = 0
-
     let spaces = missionControlSpaces()
-    if spaces.isEmpty { return nil }
-
-    count.pointee = Int32(spaces.count)
-    return temporaryList(spaces)
+    return spaces.isEmpty ? nil : spaces
 }
 
 /// `space_manager_mission_control_index`: the Mission Control number of a space, or 0.
@@ -463,9 +458,7 @@ func space_manager_active_space() -> UInt64
 private func spaceWindowIDs(_ sid: UInt64) -> [UInt32]
 {
     var count: Int32 = 0
-    guard let list = space_window_list(sid, &count, true) else { return [] }
-
-    return Array(UnsafeBufferPointer(start: list, count: Int(count)))
+    return space_window_list(sid, &count, true) ?? []
 }
 
 /// `space_manager_move_window_list_to_space`

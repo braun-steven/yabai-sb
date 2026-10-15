@@ -88,7 +88,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
         switch target {
         case .all:              windowManagerQueryWindowsForDisplays(&rsp, properties.flags)
         case .display(let did): windowManagerQueryWindowsForDisplay(&rsp, did, properties.flags)
-        case .space(var sid):   windowManagerQueryWindowsForSpaces(&rsp, &sid, 1, properties.flags)
+        case .space(let sid):   windowManagerQueryWindowsForSpaces(&rsp, [sid], properties.flags)
         case .window(let window):
             if let window {
                 rsp.write("\(windowSerialize(window, properties.flags))\n")

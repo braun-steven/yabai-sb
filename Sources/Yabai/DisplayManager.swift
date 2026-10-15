@@ -39,21 +39,12 @@ func display_manager_global() -> DisplayManager
 }
 
 /// `display_manager_main_display_id`
-@_cdecl("display_manager_main_display_id")
 func display_manager_main_display_id() -> UInt32
 {
     return CGMainDisplayID()
 }
 
-/// `display_manager_active_display_uuid`: the display with the active menu bar; +1 for C callers (see Display.swift).
-@_cdecl("display_manager_active_display_uuid")
-func displayManagerActiveDisplayUUIDRetained() -> Unmanaged<CFString>?
-{
-    return retainedCFString(SLS.activeMenuBarDisplay(connection_global()))
-}
-
 /// `display_manager_active_display_id`
-@_cdecl("display_manager_active_display_id")
 func display_manager_active_display_id() -> UInt32
 {
     let uuid = SLS.activeMenuBarDisplay(connection_global())
@@ -62,30 +53,14 @@ func display_manager_active_display_id() -> UInt32
     return uuid.map(displayID) ?? 0
 }
 
-/// `display_manager_dock_display_uuid`: the display that holds the Dock; +1 for C callers.
-@_cdecl("display_manager_dock_display_uuid")
-func displayManagerDockDisplayUUIDRetained() -> Unmanaged<CFString>?
-{
-    return retainedCFString(SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()))
-}
-
 /// `display_manager_dock_display_id`
-@_cdecl("display_manager_dock_display_id")
 func display_manager_dock_display_id() -> UInt32
 {
     guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) else { return 0 }
     return displayID(uuid)
 }
 
-/// `display_manager_point_display_uuid`: the display that holds a point; +1 for C callers.
-@_cdecl("display_manager_point_display_uuid")
-func displayManagerPointDisplayUUIDRetained(_ point: CGPoint) -> Unmanaged<CFString>?
-{
-    return retainedCFString(SLS.bestManagedDisplay(connection_global(), forPoint: point))
-}
-
 /// `display_manager_point_display_id`
-@_cdecl("display_manager_point_display_id")
 func display_manager_point_display_id(_ point: CGPoint) -> UInt32
 {
     guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return 0 }
@@ -177,7 +152,6 @@ private func displayManagerCopyArrangedDisplays() -> [String]?
 }
 
 /// `display_manager_display_id_arrangement`
-@_cdecl("display_manager_display_id_arrangement")
 func display_manager_display_id_arrangement(_ did: UInt32) -> Int32
 {
     guard let uuid = displayUUID(did) else { return 0 }
@@ -198,15 +172,7 @@ func displayManagerArrangementDisplayUUID(_ arrangement: Int32) -> String?
     return displays[index]
 }
 
-/// `display_manager_arrangement_display_uuid`, for C callers: +1.
-@_cdecl("display_manager_arrangement_display_uuid")
-func displayManagerArrangementDisplayUUIDRetained(_ arrangement: Int32) -> Unmanaged<CFString>?
-{
-    return retainedCFString(displayManagerArrangementDisplayUUID(arrangement))
-}
-
 /// `display_manager_arrangement_display_id`
-@_cdecl("display_manager_arrangement_display_id")
 func display_manager_arrangement_display_id(_ arrangement: Int32) -> UInt32
 {
     guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return 0 }
@@ -214,14 +180,12 @@ func display_manager_arrangement_display_id(_ arrangement: Int32) -> UInt32
 }
 
 /// `display_manager_cursor_display_id`
-@_cdecl("display_manager_cursor_display_id")
 func display_manager_cursor_display_id() -> UInt32
 {
     return display_manager_point_display_id(SLS.cursorLocation(connection_global()))
 }
 
 /// `display_manager_prev_display_id`
-@_cdecl("display_manager_prev_display_id")
 func display_manager_prev_display_id(_ did: UInt32) -> UInt32
 {
     let arrangement = display_manager_display_id_arrangement(did)
@@ -231,7 +195,6 @@ func display_manager_prev_display_id(_ did: UInt32) -> UInt32
 }
 
 /// `display_manager_next_display_id`
-@_cdecl("display_manager_next_display_id")
 func display_manager_next_display_id(_ did: UInt32) -> UInt32
 {
     let arrangement = display_manager_display_id_arrangement(did)
@@ -241,14 +204,12 @@ func display_manager_next_display_id(_ did: UInt32) -> UInt32
 }
 
 /// `display_manager_first_display_id`
-@_cdecl("display_manager_first_display_id")
 func display_manager_first_display_id() -> UInt32
 {
     return display_manager_arrangement_display_id(1)
 }
 
 /// `display_manager_last_display_id`
-@_cdecl("display_manager_last_display_id")
 func display_manager_last_display_id() -> UInt32
 {
     let arrangement = display_manager_active_display_count()
@@ -256,7 +217,6 @@ func display_manager_last_display_id() -> UInt32
 }
 
 /// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, 0 if there is none.
-@_cdecl("display_manager_find_closest_display_in_direction")
 func display_manager_find_closest_display_in_direction(_ sourceDid: UInt32, _ direction: Int32) -> UInt32
 {
     guard let direction = Direction(rawValue: direction) else { return 0 }
@@ -286,14 +246,12 @@ func display_manager_find_closest_display_in_direction(_ sourceDid: UInt32, _ di
 }
 
 /// `display_manager_menu_bar_hidden`
-@_cdecl("display_manager_menu_bar_hidden")
 func display_manager_menu_bar_hidden() -> Bool
 {
     return SLS.menuBarAutohideEnabled(connection_global())
 }
 
 /// `display_manager_menu_bar_rect`
-@_cdecl("display_manager_menu_bar_rect")
 func display_manager_menu_bar_rect(_ did: UInt32) -> CGRect
 {
     //
@@ -315,28 +273,24 @@ func display_manager_menu_bar_rect(_ did: UInt32) -> CGRect
 }
 
 /// `display_manager_dock_hidden`
-@_cdecl("display_manager_dock_hidden")
 func display_manager_dock_hidden() -> Bool
 {
     return CoreDock.autoHideEnabled
 }
 
 /// `display_manager_dock_orientation`
-@_cdecl("display_manager_dock_orientation")
 func display_manager_dock_orientation() -> Int32
 {
     return CoreDock.orientationAndPinning.orientation
 }
 
 /// `display_manager_dock_rect`
-@_cdecl("display_manager_dock_rect")
 func display_manager_dock_rect() -> CGRect
 {
     return SLS.dockRect(connection_global())
 }
 
 /// `display_manager_active_display_count`
-@_cdecl("display_manager_active_display_count")
 func display_manager_active_display_count() -> Int32
 {
     var count: UInt32 = 0
@@ -354,16 +308,6 @@ func displayManagerActiveDisplays() -> [UInt32]
     CGGetActiveDisplayList(UInt32(displayCount), &displays, &actual)
 
     return Array(displays.prefix(Int(actual)))
-}
-
-/// `display_manager_active_display_list`, in temporary storage; count gets the number of displays.
-@_cdecl("display_manager_active_display_list")
-func display_manager_active_display_list(_ count: UnsafeMutablePointer<Int32>) -> UnsafeMutablePointer<UInt32>?
-{
-    let displays = displayManagerActiveDisplays()
-
-    count.pointee = Int32(displays.count)
-    return temporaryList(displays)
 }
 
 /// `display_manager_find_element_at_point`: the window under a point, found through the accessibility element at it.
@@ -387,7 +331,6 @@ private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
 }
 
 /// `display_manager_focus_display_with_window_at_point`: focuses the window under a point; returns its id, or 0.
-@_cdecl("display_manager_focus_display_with_window_at_point")
 func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> UInt32
 {
     guard let elementRef = displayManagerFindElementAtPoint(point) else { return 0 }
@@ -402,7 +345,6 @@ func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> UIn
 }
 
 /// `display_manager_set_active_display_id`
-@_cdecl("display_manager_set_active_display_id")
 func display_manager_set_active_display_id(_ did: UInt32)
 {
     guard let uuid = displayUUID(did) else { return }
@@ -410,7 +352,6 @@ func display_manager_set_active_display_id(_ did: UInt32)
 }
 
 /// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
-@_cdecl("display_manager_focus_display")
 func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
 {
     let wm = window_manager_global()
@@ -432,7 +373,6 @@ func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
 }
 
 /// `display_manager_focus_space`
-@_cdecl("display_manager_focus_space")
 func display_manager_focus_space(_ did: UInt32, _ sid: UInt64) -> space_op_error
 {
     if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }

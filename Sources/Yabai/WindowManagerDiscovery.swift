@@ -36,10 +36,10 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 {
     let target = window_create(owner, windowRef, windowID)
 
-    let windowTitle = window_title_ts(target)!
-    let windowRole = window_role_ts(target)!
-    let windowSubrole = window_subrole_ts(target)!
-    debug("window_manager_create_and_add_window:\(target.pointee.id) \(cName(owner.pointee.name)) - \(cName(windowTitle)) (\(cName(windowRole)):\(cName(windowSubrole)):\(target.pointee.is_root ? 1 : 0))\n")
+    let windowTitle = window_title_ts(target)
+    let windowRole = window_role_ts(target)
+    let windowSubrole = window_subrole_ts(target)
+    debug("window_manager_create_and_add_window:\(target.id) \(cName(owner.name)) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
 
     if window_is_unknown(target) {
         debug("window_manager_create_and_add_window: ignoring AXUnknown window \(cName(owner.pointee.name)) \(target.pointee.id)\n")
@@ -157,12 +157,10 @@ func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowMana
 /// on the spaces of Mission Control, minimized ones included; nil when there are none or the window server fails.
 func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [UInt32]?
 {
-    var spaceCount: Int32 = 0
-    guard let spaceList = space_manager_mission_control_space_list(&spaceCount) else { return nil }
+    guard let spaceList = space_manager_mission_control_space_list() else { return nil }
 
     var windowCount: Int32 = 0
-    guard let windowList = space_window_list_for_connection(spaceList, spaceCount, owner?.pointee.connection ?? 0, &windowCount, true) else { return nil }
-    return Array(UnsafeBufferPointer(start: windowList, count: Int(windowCount)))
+    return space_window_list_for_connection(spaceList, owner?.connection ?? 0, &windowCount, true)
 }
 
 /// `window_manager_unresolved_windows`: the windows of the list that the window manager does not know.

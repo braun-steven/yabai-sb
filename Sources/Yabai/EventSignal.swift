@@ -122,7 +122,7 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
 
         es.app   = string(target.pointee.application.pointee.name)
-        es.title = string(window_title_ts(target))
+        es.title = window_title_ts(target)
     case .windowDestroyed:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
 
@@ -132,7 +132,7 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.pointee.id))")
 
         es.app   = string(target.pointee.application.pointee.name)
-        es.title = string(window_title_ts(target))
+        es.title = window_title_ts(target)
         es.active = focusedWindowID == target.pointee.id
     default:
         break

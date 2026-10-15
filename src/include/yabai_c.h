@@ -68,8 +68,6 @@
 #include "../mission_control.h"
 #include "../workspace.h"
 #include "../rule.h"
-#include "../display.h"
-#include "../space.h"
 #include "../window.h"
 #include "../display_manager.h"
 #include "../space_layout.h"

@@ -24,10 +24,10 @@ func window_manager_query_window_rules(_ rsp: inout Response)
 }
 
 /// `window_manager_rule_matches_window`
-func window_manager_rule_matches_window(_ candidate: UnsafeMutablePointer<rule>, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>) -> Bool
+func window_manager_rule_matches_window(_ candidate: UnsafeMutablePointer<rule>, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String) -> Bool
 {
     let regexMatchApp = rule_check_flag(candidate, RULE_APP_EXCLUDE) ? REGEX_MATCH_YES : REGEX_MATCH_NO
-    if regex_match(rule_check_flag(candidate, RULE_APP_VALID), &candidate.pointee.app_regex, target.pointee.application.pointee.name) == regexMatchApp { return false }
+    if regex_match(rule_check_flag(candidate, RULE_APP_VALID), &candidate.pointee.app_regex, target.application.name) == regexMatchApp { return false }
 
     let regexMatchTitle = rule_check_flag(candidate, RULE_TITLE_EXCLUDE) ? REGEX_MATCH_YES : REGEX_MATCH_NO
     if regex_match(rule_check_flag(candidate, RULE_TITLE_VALID), &candidate.pointee.title_regex, windowTitle) == regexMatchTitle { return false }
@@ -113,7 +113,7 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
 //
 
 /// `window_manager_rule_skips_nonstandard_window`
-private func windowManagerRuleSkipsNonstandardWindow(_ candidate: UnsafeMutablePointer<rule>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>) -> Bool
+private func windowManagerRuleSkipsNonstandardWindow(_ candidate: UnsafeMutablePointer<rule>, _ windowRole: String, _ windowSubrole: String) -> Bool
 {
     if !rule_check_flag(candidate, RULE_ROLE_VALID)    && !string_equals(windowRole,    "AXWindow")         { return true }
     if !rule_check_flag(candidate, RULE_SUBROLE_VALID) && !string_equals(windowSubrole, "AXStandardWindow") { return true }
@@ -126,7 +126,7 @@ private func windowManagerRuleSkipsNonstandardWindow(_ candidate: UnsafeMutableP
 //
 
 /// `window_manager_combine_matching_rule_effects`
-func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool, _ manageRound: Bool, _ effects: UnsafeMutablePointer<rule_effects>) -> Bool
+func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool, _ manageRound: Bool, _ effects: UnsafeMutablePointer<rule_effects>) -> Bool
 {
     var match = false
 
@@ -149,7 +149,7 @@ func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target:
 }
 
 /// `window_manager_apply_manage_rules_to_window`
-func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 
@@ -161,7 +161,7 @@ func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: Windo
 }
 
 /// `window_manager_apply_rules_to_window`
-func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: UnsafeMutablePointer<CChar>, _ windowRole: UnsafeMutablePointer<CChar>, _ windowSubrole: UnsafeMutablePointer<CChar>, _ oneShotRules: Bool)
+func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool)
 {
     var effects = rule_effects()
 

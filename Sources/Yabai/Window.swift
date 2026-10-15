@@ -152,10 +152,10 @@ func window_space_list(_ wid: UInt32) -> [UInt64]
     return SLS.spaces(connection_global(), forWindows: [wid])
 }
 
-/// `window_title_ts`: the cached title in temporary storage, "" without one.
-func window_title_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
+/// `window_title_ts`: the cached title, "" without one.
+func window_title_ts(_ target: Window) -> String
 {
-    return tsString(target.title.map { $0 as String } ?? "")
+    return target.title.map { $0 as String } ?? ""
 }
 
 /// `window_title`: the title as the application reports it now.
@@ -339,10 +339,10 @@ func window_role(_ target: Window) -> CFString?
     return target.role
 }
 
-/// `window_role_ts`: the cached role in temporary storage, "" without one.
-func window_role_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
+/// `window_role_ts`: the cached role, "" without one.
+func window_role_ts(_ target: Window) -> String
 {
-    return tsString(window_role(target).map { $0 as String } ?? "")
+    return window_role(target).map { $0 as String } ?? ""
 }
 
 /// `window_ax_subrole`: stored in window->subrole.
@@ -359,10 +359,10 @@ func window_subrole(_ target: Window) -> CFString?
     return target.subrole
 }
 
-/// `window_subrole_ts`: the cached subrole in temporary storage, "" without one.
-func window_subrole_ts(_ target: Window) -> UnsafeMutablePointer<CChar>?
+/// `window_subrole_ts`: the cached subrole, "" without one.
+func window_subrole_ts(_ target: Window) -> String
 {
-    return tsString(window_subrole(target).map { $0 as String } ?? "")
+    return window_subrole(target).map { $0 as String } ?? ""
 }
 
 /// `window_is_root`: true if the AX parent of the window is its application (or it has none).

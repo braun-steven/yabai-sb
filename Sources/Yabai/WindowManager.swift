@@ -1299,8 +1299,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 private func spaceWindows(_ sid: UInt64) -> [UInt32]?
 {
     var count: Int32 = 0
-    guard let list = space_window_list(sid, &count, false) else { return nil }
-    return Array(UnsafeBufferPointer(start: list, count: Int(count)))
+    return space_window_list(sid, &count, false)
 }
 
 /// `window_manager_validate_and_check_for_windows_on_space`
@@ -1330,9 +1329,7 @@ func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, 
 /// `window_manager_correct_for_mission_control_changes`
 func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm: WindowManager)
 {
-    var displayCount: Int32 = 0
-    guard let displayList = display_manager_active_display_list(&displayCount) else { return }
-    let displays = Array(UnsafeBufferPointer(start: displayList, count: Int(displayCount)))
+    let displays = displayManagerActiveDisplays()
 
     let animationDuration = wm.window_animation_duration
     wm.window_animation_duration = 0.0

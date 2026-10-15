@@ -2,8 +2,8 @@ import YabaiC
 import YabaiCore
 
 //
-// NOTE: The C entry points of SpaceLayout and SpaceList (Sources/YabaiCore) while message_config.c, space_layout.c
-// and space_manager.c are C. `struct space_layout` stays C until the space manager is Swift (P9).
+// NOTE: The C entry point of the SpaceLayout parser (Sources/YabaiCore), and the conversion of `struct space_layout`,
+// which stays C inside `struct space_manager` while C code reads its fields.
 //
 
 extension SpaceLayout
@@ -32,30 +32,4 @@ func space_layout_parse(_ text: UnsafeMutablePointer<CChar>, _ length: Int32, _ 
     }
 
     return true
-}
-
-@_cdecl("space_layout_targets")
-func space_layout_targets(_ layout: UnsafeMutablePointer<space_layout>, _ builtin: Int32, _ target: UnsafeMutablePointer<Int32>)
-{
-    let targets = SpaceLayout(layout.pointee).targets(builtin: builtin == -1 ? nil : Int(builtin))
-    for (i, value) in targets.enumerated() { target[i] = Int32(value) }
-}
-
-private func spaceLists(_ spaceList: UnsafeMutablePointer<UInt64>?, _ userList: UnsafeMutablePointer<Bool>?, _ count: Int32) -> ([UInt64], [Bool])
-{
-    (Array(UnsafeBufferPointer(start: spaceList, count: Int(count))), Array(UnsafeBufferPointer(start: userList, count: Int(count))))
-}
-
-@_cdecl("space_layout_move_candidate")
-func space_layout_move_candidate(_ spaceList: UnsafeMutablePointer<UInt64>?, _ userList: UnsafeMutablePointer<Bool>?, _ count: Int32, _ visibleSid: UInt64, _ fromEnd: Bool) -> UInt64
-{
-    let (spaces, user) = spaceLists(spaceList, userList, count)
-    return SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: visibleSid, fromEnd: fromEnd)
-}
-
-@_cdecl("space_manager_move_space_replacement")
-func space_manager_move_space_replacement(_ spaceList: UnsafeMutablePointer<UInt64>?, _ userList: UnsafeMutablePointer<Bool>?, _ count: Int32, _ sid: UInt64, _ visibleSid: UInt64) -> UInt64
-{
-    let (spaces, user) = spaceLists(spaceList, userList, count)
-    return SpaceList.moveReplacement(spaces: spaces, user: user, sid: sid, visible: visibleSid)
 }

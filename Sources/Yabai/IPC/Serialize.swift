@@ -36,10 +36,9 @@ private func jsonList(_ values: some Sequence<Int32>) -> String
 
 // MARK: Displays
 
-private func displayUUID(_ did: UInt32) -> String
+private func displayUUIDText(_ did: UInt32) -> String
 {
-    guard let uuid = display_uuid(did) else { return "<unknown>" }
-    return uuid as String
+    return displayUUID(did) ?? "<unknown>"
 }
 
 //
@@ -62,7 +61,7 @@ func displaySerialize(_ did: UInt32, _ flags: UInt64) -> String
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
     json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did))")
-    json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUID(did))\"")
+    json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUIDText(did))\"")
     json.property(DisplayProperty.index,    "\"index\":\(display_manager_display_id_arrangement(did))")
     json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.pointee.labels, UInt64(did)))\"")
     json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did)))

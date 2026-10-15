@@ -20,9 +20,8 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     }
 }
 
-/// `display_uuid`
-@_cdecl("display_uuid")
-func display_uuid(_ did: UInt32) -> CFString?
+/// `display_uuid` as a CFString.
+func displayUUIDObject(_ did: UInt32) -> CFString?
 {
     guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(did) else { return nil }
     return CFUUIDCreateString(nil, uuidRef)
@@ -31,7 +30,26 @@ func display_uuid(_ did: UInt32) -> CFString?
 /// `display_uuid` as a Swift string.
 func displayUUID(_ did: UInt32) -> String?
 {
-    return display_uuid(did) as String?
+    return displayUUIDObject(did) as String?
+}
+
+//
+// NOTE: Swift returns a CF object from a @_cdecl function autoreleased (+0), but the C prototypes of the uuid functions
+// say CF_RETURNS_RETAINED. Their @_cdecl entry points therefore return Unmanaged at +1; Swift code calls the Swift
+// functions (displayUUID, displayManagerArrangementDisplayUUID, …) instead.
+//
+
+/// `display_uuid`, for C callers: +1.
+@_cdecl("display_uuid")
+func displayUUIDRetained(_ did: UInt32) -> Unmanaged<CFString>?
+{
+    return displayUUIDObject(did).map { Unmanaged.passRetained($0) }
+}
+
+/// Passes a string to a C caller at +1, for the CF_RETURNS_RETAINED functions.
+func retainedCFString(_ value: String?) -> Unmanaged<CFString>?
+{
+    return value.map { Unmanaged.passRetained($0 as CFString) }
 }
 
 /// `display_id`

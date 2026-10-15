@@ -26,8 +26,6 @@ struct space_manager;
 
 // implemented in Sources/Yabai/Shims/SpaceLayoutShims.swift (SpaceLayout in Sources/YabaiCore/SpaceLayout.swift)
 bool space_layout_parse(char *text, int length, struct space_layout *layout);
-void space_layout_targets(struct space_layout *layout, int builtin, int *target);
-uint64_t space_layout_move_candidate(uint64_t *space_list, bool *user_list, int space_count, uint64_t visible_sid, bool from_end);
 // implemented in Sources/Yabai/SpaceLayout.swift
 enum space_layout_result space_layout_reconcile(struct space_manager *sm);
 void space_layout_schedule(double delay, bool reset_passes);

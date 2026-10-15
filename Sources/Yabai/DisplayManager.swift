@@ -17,11 +17,11 @@ func display_manager_main_display_id() -> UInt32
     return CGMainDisplayID()
 }
 
-/// `display_manager_active_display_uuid`: the display with the active menu bar.
+/// `display_manager_active_display_uuid`: the display with the active menu bar; +1 for C callers (see Display.swift).
 @_cdecl("display_manager_active_display_uuid")
-func display_manager_active_display_uuid() -> CFString?
+func displayManagerActiveDisplayUUIDRetained() -> Unmanaged<CFString>?
 {
-    return SLS.activeMenuBarDisplay(connection_global()) as CFString?
+    return retainedCFString(SLS.activeMenuBarDisplay(connection_global()))
 }
 
 /// `display_manager_active_display_id`
@@ -34,11 +34,11 @@ func display_manager_active_display_id() -> UInt32
     return uuid.map(displayID) ?? 0
 }
 
-/// `display_manager_dock_display_uuid`: the display that holds the Dock.
+/// `display_manager_dock_display_uuid`: the display that holds the Dock; +1 for C callers.
 @_cdecl("display_manager_dock_display_uuid")
-func display_manager_dock_display_uuid() -> CFString?
+func displayManagerDockDisplayUUIDRetained() -> Unmanaged<CFString>?
 {
-    return SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) as CFString?
+    return retainedCFString(SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()))
 }
 
 /// `display_manager_dock_display_id`
@@ -49,11 +49,11 @@ func display_manager_dock_display_id() -> UInt32
     return displayID(uuid)
 }
 
-/// `display_manager_point_display_uuid`: the display that holds a point.
+/// `display_manager_point_display_uuid`: the display that holds a point; +1 for C callers.
 @_cdecl("display_manager_point_display_uuid")
-func display_manager_point_display_uuid(_ point: CGPoint) -> CFString?
+func displayManagerPointDisplayUUIDRetained(_ point: CGPoint) -> Unmanaged<CFString>?
 {
-    return SLS.bestManagedDisplay(connection_global(), forPoint: point) as CFString?
+    return retainedCFString(SLS.bestManagedDisplay(connection_global(), forPoint: point))
 }
 
 /// `display_manager_point_display_id`
@@ -160,22 +160,28 @@ func display_manager_display_id_arrangement(_ did: UInt32) -> Int32
 }
 
 /// `display_manager_arrangement_display_uuid`
-@_cdecl("display_manager_arrangement_display_uuid")
-func display_manager_arrangement_display_uuid(_ arrangement: Int32) -> CFString?
+func displayManagerArrangementDisplayUUID(_ arrangement: Int32) -> String?
 {
     guard let displays = displayManagerCopyArrangedDisplays() else { return nil }
 
     let index = Int(arrangement) - 1
     guard index >= 0 && index < displays.count else { return nil }
 
-    return displays[index] as CFString
+    return displays[index]
+}
+
+/// `display_manager_arrangement_display_uuid`, for C callers: +1.
+@_cdecl("display_manager_arrangement_display_uuid")
+func displayManagerArrangementDisplayUUIDRetained(_ arrangement: Int32) -> Unmanaged<CFString>?
+{
+    return retainedCFString(displayManagerArrangementDisplayUUID(arrangement))
 }
 
 /// `display_manager_arrangement_display_id`
 @_cdecl("display_manager_arrangement_display_id")
 func display_manager_arrangement_display_id(_ arrangement: Int32) -> UInt32
 {
-    guard let uuid = display_manager_arrangement_display_uuid(arrangement) as String? else { return 0 }
+    guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return 0 }
     return displayID(uuid)
 }
 

@@ -1,7 +1,7 @@
 //
 // NOTE: space_layout keeps a number of user spaces per display, chosen by the number of displays. When the
 // displays change, reconcile passes move, create or destroy one space each until the counts match.
-// This is the pure part of src/space_layout.c; the reconcile passes are still C.
+// This is the pure part of the former src/space_layout.c; the reconcile passes are Sources/Yabai/SpaceLayout.swift.
 //
 
 /// The number of user spaces per display, for one display count (`count`). builtinIndex is the entry for the

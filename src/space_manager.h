@@ -93,8 +93,6 @@ enum space_op_error space_manager_focus_space(uint64_t sid);
 enum space_op_error space_manager_switch_space(uint64_t sid);
 enum space_op_error space_manager_swap_space_with_space(uint64_t acting_sid, uint64_t selector_sid);
 enum space_op_error space_manager_move_space_to_space(uint64_t acting_sid, uint64_t selector_sid);
-// implemented in Sources/Yabai/Shims/SpaceLayoutShims.swift (SpaceList in Sources/YabaiCore/SpaceList.swift)
-uint64_t space_manager_move_space_replacement(uint64_t *space_list, bool *user_list, int space_count, uint64_t sid, uint64_t visible_sid);
 enum space_op_error space_manager_move_space_to_display(struct space_manager *sm, uint64_t sid, uint32_t did);
 enum space_op_error space_manager_destroy_space(uint64_t sid);
 enum space_op_error space_manager_add_space(uint64_t sid);

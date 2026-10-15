@@ -27,7 +27,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [x] | c1854e6 | `rule --list`/`signal --list` json stays C until P11/P7; golden replay is a Swift test |
 | P7 | `@WM` actor, event loop, signals | [x] | b36d9e2 | handlers stay C, called from `handle` in EventLoop.swift; signal commands use posix_spawn (no fork in Swift) |
 | P8 | Event handlers + Mission Control | [x] | f8b995a | `mouse_drop_action_regions` moves to P13 with `mouse_handler.c` |
-| P9 | Display + space model | [x] | 91b5393 | `struct view`, `space_manager`, `display_manager` and the view table stay C until their last C users (P11–P13) |
+| P9 | Display + space model | [x] | 91b5393 | review fixes and the display checks in the second 2026-10-15 entry; `struct view`, `space_manager`, `display_manager` and the view table stay C until their last C users (P11–P13) |
 | P10 | Process, application, workspace | [ ] | | |
 | P11 | Window + window_manager* | [ ] | | |
 | P12 | Tree + tree_view | [ ] | | |
@@ -650,3 +650,22 @@ Append one entry per session, newest last. Template:
   - Unplug and replug the external display: `space_layout_reconcile` should bring the spaces back to the count of the layout, if your `space_layout` option is set. The log shows its steps as `space_layout_reconcile:` lines when debug output is on.
   - Move one of your spaces to the other display and back with `yabai -m space <n> --display <d>`. Each move changes the order of the spaces on both displays, so choose a space the harness uses (4–8 or 12–14) or do it yourself.
   - No scripting-addition reload is needed: `sa.m` and `OSAX_VERSION` are unchanged.
+
+### 2026-10-15 P9 [x] (review)
+- Commits: the commit that adds this entry, on swift-port (a review of 91b5393, which an earlier session wrote with a smaller model)
+- Master synced to: 4754520 (unchanged)
+- Done: a line-by-line review of the six ported files and their tests against the deleted C. No behavior errors found. Fixed:
+  - CF ownership at the C boundary: Swift returns a CF object from a `@_cdecl` function `@autoreleased` (+0, checked with `-emit-sil` and a C caller), but `display.h` and `display_manager.h` declare `display_uuid`, `display_manager_active_display_uuid`, `display_manager_dock_display_uuid`, `display_manager_point_display_uuid` and `display_manager_arrangement_display_uuid` `CF_RETURNS_RETAINED`. No C code calls them yet; a C caller that released the result would have over-released it when the pool drained. Their `@_cdecl` entry points now return `Unmanaged<CFString>?` at +1 under Swift names (`displayUUIDRetained`, …); Swift code uses `displayUUID`, `displayManagerArrangementDisplayUUID` (Display.swift, DisplayManager.swift, `displayUUIDText` in Serialize.swift).
+  - Dead shims removed: `space_layout_targets`, `space_layout_move_candidate` and `space_manager_move_space_replacement` (SpaceLayoutShims.swift, with their prototypes in `space_layout.h` / `space_manager.h`). Their only C caller was `space_layout.c`; the P9 [x] entry named only the last one. `space_layout_parse` stays (MessageConfig.swift calls it).
+  - The two V6 checks of the plan's Done-when that the P9 [x] entry left to the user, run with a test build of this tree (see Measurements).
+- Resume at: next phase (P10)
+- Open @_cdecl shims / C structs still shared: the P9 [x] list, minus the three removed shims.
+- Tests: unchanged (C remaining 42, total ported 40/82). `make test`: YabaiTests 17, YabaiCoreTests 41, C 42/42 (ASan/UBSan); `make install` exits 0 without warnings.
+- Measurements (`deploy.sh install` of this tree, then `restore`; daemon pid unchanged throughout, crash reports 15 before and after, no new lines in the error log besides the known noise):
+  - `space --display`, a hidden space: 14 (sid 19) to display 1 and back; the scripting addition puts it after the focused space (index 4), and back on display 2 at index 13. 10:5 before and after; `space 14 --move prev` put the order of display 2 back.
+  - `space --display`, the focused space: 15 (sid 20, focused on display 2) to display 1: display 2 shows the replacement 18 (the previous user space), 20 is focused at index 4 of display 1; back to display 2: 20 focused there, display 1 shows 15 again. `space 11 --display 2` fails with "acting space is already located on the given display.".
+  - Display removal, simulated by mirroring display 2 onto display 1 (`CGConfigureDisplayMirrorOfDisplay`, `kCGConfigureForAppOnly`, with `space_layout 15 10:5 10:5:1b`): macOS moved 17–20 to display 1 and merged the visible space 319 of display 2 into space 1 (its two windows), so 14 user spaces; one reconcile pass, `create space on display 1 (14/15)`, gave 15.
+  - Display re-added (unmirror): macOS moved 17–20 back and put the two windows on a new space 348 on display 2; one pass, `destroy empty space 347 on display 1 (11/10)`, gave 10:5. Every window was back on its space.
+- Deviations from plan / surprises: test coverage that the ports dropped, not fixed: `auto_padding_applies` tests `ViewArea` only, so the `layout == VIEW_TREE` mapping of `view_auto_padding_applies` (C checked `VIEW_DEFAULT`) is untested; `auto_padding_root_area` no longer goes through `view_root_area`, which reads the flags and padding of the view.
+- Pitfalls added to "Swift conventions and pitfalls": CF objects returned from `@_cdecl` are autoreleased.
+- Waiting on user: nothing. Space 11 has a new id (348) after the simulated replug, as after a real one; the trees of all spaces were reset by the deploys.

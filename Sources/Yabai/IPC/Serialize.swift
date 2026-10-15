@@ -263,7 +263,7 @@ func windowInfo(for window: UnsafeMutablePointer<window>, _ flags: UInt64) -> Wi
     info.isMinimized      = window_check_flag(window, WINDOW_MINIMIZE)
     info.isHidden         = application.pointee.is_hidden
     info.isFloating       = window_check_flag(window, WINDOW_FLOAT)
-    info.isGrabbed        = window == mouse_state_global().pointee.window
+    info.isGrabbed        = window == mouse_state_global().window
 
     if wanted(flags, WindowProperty.title)     { info.title     = string(window_title_ts(window)) }
     if wanted(flags, WindowProperty.role)      { info.role      = string(window_role_ts(window)) }

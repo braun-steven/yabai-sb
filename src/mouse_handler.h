@@ -79,29 +79,6 @@ struct mouse_window_info
     bool changed_size;
 };
 
-struct mouse_state
-{
-    CFMachPortRef handle;
-    CFRunLoopSourceRef runloop_source;
-    bool consume_mouse_click;
-    bool consume_tab_click;
-    bool drag_detected;
-    CGEventRef consumed_event;
-    enum mouse_mode action1;
-    enum mouse_mode action2;
-    volatile uint8_t modifier;
-    enum mouse_mode drop_action;
-    enum mouse_mode current_action;
-    CGPoint down_location;
-    uint64_t last_moved_time;
-    struct window *window;
-    CGRect window_frame;
-    uint32_t ffm_window_id;
-    uint8_t direction;
-    uint32_t feedback_wid;
-    int feedback_dir;
-};
-
 static const char *mouse_mod_str[] =
 {
     [MOUSE_MOD_NONE]  = "none",
@@ -120,13 +97,5 @@ static const char *mouse_mode_str[] =
     [MOUSE_MODE_SWAP]   = "swap",
     [MOUSE_MODE_STACK]  = "stack"
 };
-
-// The event tap reads this handle while the main thread tears it down.
-static inline CFMachPortRef mouse_handle_load(struct mouse_state *state) { return __atomic_load_n(&state->handle, __ATOMIC_RELAXED); }
-static inline void mouse_handle_clear(struct mouse_state *state) { __atomic_store_n(&state->handle, NULL, __ATOMIC_RELEASE); }
-
-void mouse_state_init(struct mouse_state *mouse_state);
-bool mouse_handler_begin(struct mouse_state *mouse_state, uint32_t mask);
-void mouse_handler_end(struct mouse_state *mouse_state);
 
 #endif

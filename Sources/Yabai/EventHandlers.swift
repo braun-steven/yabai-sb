@@ -188,7 +188,7 @@ func update_window_notifications()
 }
 
 /// `window_did_receive_focus`
-@WM func windowDidReceiveFocus(_ wm: UnsafeMutablePointer<window_manager>, _ ms: UnsafeMutablePointer<mouse_state>, _ window: Window)
+@WM func windowDidReceiveFocus(_ wm: UnsafeMutablePointer<window_manager>, _ ms: MouseState, _ window: Window)
 {
     let focusedWindow = window_manager_find_window(wm, wm.pointee.focused_window_id)
     if let focusedWindow, focusedWindow != window, window_space(focusedWindow.pointee.id) == window_space(window.pointee.id) {
@@ -198,7 +198,7 @@ func update_window_notifications()
     window_manager_set_window_opacity(wm, window, wm.pointee.active_window_opacity)
 
     if wm.pointee.focused_window_id != window.pointee.id {
-        if ms.pointee.ffm_window_id != window.pointee.id {
+        if ms.ffm_window_id != window.pointee.id {
             window_manager_center_mouse(wm, window)
         }
 
@@ -208,7 +208,7 @@ func update_window_notifications()
     let prevFocusedWindowID = wm.pointee.focused_window_id
     wm.pointee.focused_window_id = window.pointee.id
     wm.pointee.focused_window_psn = window.pointee.application.pointee.psn
-    ms.pointee.ffm_window_id = 0
+    ms.ffm_window_id = 0
 
     //
     // NOTE: Late focus events of windows focused earlier must not end a pending focus, so it is only
@@ -366,7 +366,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     defer { process_destroy(process) }
 
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     guard let application = window_manager_find_application(wm, process.pointee.pid) else {
         debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process)) (not observed)\n")
@@ -394,8 +394,8 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
             viewList.append(view)
         }
 
-        if ms.pointee.window == window { ms.pointee.window = nil }
-        if ms.pointee.ffm_window_id == window.pointee.id { ms.pointee.ffm_window_id = 0 }
+        if ms.window == window { ms.window = nil }
+        if ms.ffm_window_id == window.pointee.id { ms.ffm_window_id = 0 }
 
         if window.pointee.is_eligible {
             eventSignalPush(.windowDestroyed, UnsafeMutableRawPointer(window))
@@ -464,7 +464,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     wm.pointee.last_window_id = prevFocusedWindowID
     wm.pointee.focused_window_id = 0
     wm.pointee.focused_window_psn = application.pointee.psn
-    mouse_state_global()!.pointee.ffm_window_id = 0
+    mouse_state_global().ffm_window_id = 0
 
     if prevFocusedWindowID != 0 {
         tab_bar_refresh_for_window(prevFocusedWindowID)

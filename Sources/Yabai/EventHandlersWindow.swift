@@ -47,7 +47,7 @@ import YabaiC
     }
 
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.pointee.application != nil ? cName(window.pointee.application.pointee.name) : "<unknown>") \(window.pointee.id)\n")
 
@@ -58,8 +58,8 @@ import YabaiC
         window_manager_tree_focus_after_close(wm, view, nextFocus)
     }
 
-    if ms.pointee.window == window { ms.pointee.window = nil }
-    if ms.pointee.ffm_window_id == window.pointee.id { ms.pointee.ffm_window_id = 0 }
+    if ms.window == window { ms.window = nil }
+    if ms.ffm_window_id == window.pointee.id { ms.ffm_window_id = 0 }
 
     if window.pointee.is_eligible {
         eventSignalPush(.windowDestroyed, UnsafeMutableRawPointer(window))
@@ -131,7 +131,7 @@ import YabaiC
 @WM func windowMoved(_ windowID: UInt32)
 {
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
 
@@ -159,7 +159,7 @@ import YabaiC
     if !windowedFullscreen {
         window_clear_flag(window, WINDOW_WINDOWED)
 
-        if ms.pointee.window == nil || ms.pointee.window != window {
+        if ms.window == nil || ms.window != window {
             if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.pointee.id, window.pointee.frame) {
                 view_flush(view)
             }
@@ -171,7 +171,7 @@ import YabaiC
 @WM func windowResized(_ windowID: UInt32)
 {
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
 
@@ -223,14 +223,14 @@ import YabaiC
             window_manager_manage_window(space_manager_global(), wm, window, window_space(window.pointee.id), 0)
         }
     } else {
-        if ms.pointee.current_action == MOUSE_MODE_MOVE && ms.pointee.window == window {
-            ms.pointee.window_frame.size = ms.pointee.window.pointee.frame.size
+        if ms.current_action == MOUSE_MODE_MOVE && ms.window == window {
+            ms.window_frame.size = ms.window.pointee.frame.size
         }
 
         if !windowedFullscreen {
             window_clear_flag(window, WINDOW_WINDOWED)
 
-            if ms.pointee.window == nil || ms.pointee.window != window {
+            if ms.window == nil || ms.window != window {
                 if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.pointee.id, newFrame) {
                     view_flush(view)
                 }

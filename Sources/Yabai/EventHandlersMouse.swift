@@ -28,32 +28,32 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 /// `EVENT_HANDLER(MOUSE_DOWN)`
 @WM func mouseDown(_ event: CGEvent, _ modifiers: Int32)
 {
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     if mission_control_is_active()                    { return }
-    if ms.pointee.current_action != MOUSE_MODE_NONE { return }
+    if ms.current_action != MOUSE_MODE_NONE { return }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
     guard let window = window_manager_find_window_at_point(window_manager_global(), point), !window_check_flag(window, WINDOW_FULLSCREEN) else { return }
 
-    ms.pointee.window = window
-    ms.pointee.window_frame = window.pointee.frame
-    ms.pointee.down_location = point
-    ms.pointee.direction = 0
+    ms.window = window
+    ms.window_frame = window.pointee.frame
+    ms.down_location = point
+    ms.direction = 0
 
     let button = event.getIntegerValueField(.mouseEventButtonNumber)
     let mod = UInt8(truncatingIfNeeded: modifiers)
 
-    if button == Int64(CGMouseButton.left.rawValue) && ms.pointee.modifier == mod {
-        ms.pointee.current_action = ms.pointee.action1
-    } else if button == Int64(CGMouseButton.right.rawValue) && ms.pointee.modifier == mod {
-        ms.pointee.current_action = ms.pointee.action2
+    if button == Int64(CGMouseButton.left.rawValue) && ms.modifier == mod {
+        ms.current_action = ms.action1
+    } else if button == Int64(CGMouseButton.right.rawValue) && ms.modifier == mod {
+        ms.current_action = ms.action2
     }
 
-    if ms.pointee.current_action == MOUSE_MODE_RESIZE {
-        ms.pointee.direction = UInt8(truncatingIfNeeded: mouseResizeDirection(ms.pointee.window_frame, point))
+    if ms.current_action == MOUSE_MODE_RESIZE {
+        ms.direction = UInt8(truncatingIfNeeded: mouseResizeDirection(ms.window_frame, point))
     }
 }
 
@@ -75,32 +75,32 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 @WM private func mouseDropTarget(_ point: CGPoint) -> (view: View?, window: Window?)
 {
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     let cursorSid = display_space_id(display_manager_point_display_id(point))
     let dstView = space_manager_find_view(space_manager_global(), cursorSid)
 
-    var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.pointee.window.pointee.id)
+    var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.window.pointee.id)
     if window == nil { window = window_manager_find_window_at_point(wm, point) }
-    return (dstView, window == ms.pointee.window ? nil : window)
+    return (dstView, window == ms.window ? nil : window)
 }
 
 /// `EVENT_HANDLER(MOUSE_UP)`
 @WM func mouseUp(_ event: CGEvent)
 {
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     if mission_control_is_active() { return }
 
-    guard let window = ms.pointee.window else {
-        ms.pointee.current_action = MOUSE_MODE_NONE
+    guard let window = ms.window else {
+        ms.current_action = MOUSE_MODE_NONE
         return
     }
 
     defer {
-        ms.pointee.window = nil
-        ms.pointee.current_action = MOUSE_MODE_NONE
+        ms.window = nil
+        ms.current_action = MOUSE_MODE_NONE
     }
 
     if !window_is_valid(window) {
@@ -132,10 +132,10 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 
 @WM private func mouseDragMoveWindow(_ point: CGPoint)
 {
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
-    var newPoint = CGPoint(x: ms.pointee.window_frame.origin.x + (point.x - ms.pointee.down_location.x),
-                           y: ms.pointee.window_frame.origin.y + (point.y - ms.pointee.down_location.y))
+    var newPoint = CGPoint(x: ms.window_frame.origin.x + (point.x - ms.down_location.x),
+                           y: ms.window_frame.origin.y + (point.y - ms.down_location.y))
 
     let did = display_manager_point_display_id(newPoint)
     if did != 0 {
@@ -143,8 +143,8 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
         if newPoint.y < bounds.origin.y { newPoint.y = bounds.origin.y }
     }
 
-    if !scripting_addition_move_window(ms.pointee.window.pointee.id, Int32(newPoint.x), Int32(newPoint.y)) {
-        window_manager_move_window(ms.pointee.window, Float(newPoint.x), Float(newPoint.y))
+    if !scripting_addition_move_window(ms.window.pointee.id, Int32(newPoint.x), Int32(newPoint.y)) {
+        window_manager_move_window(ms.window, Float(newPoint.x), Float(newPoint.y))
     }
 }
 
@@ -157,25 +157,25 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func mouseDragResizeWindow(_ point: CGPoint) -> Bool
 {
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     let eventTime = read_os_timer()
-    if os_timer_ms_between(ms.pointee.last_moved_time, eventTime) < mouseResizeThrottleMs { return false }
+    if os_timer_ms_between(ms.last_moved_time, eventTime) < mouseResizeThrottleMs { return false }
 
-    let dx = Int32(point.x - ms.pointee.down_location.x)
-    let dy = Int32(point.y - ms.pointee.down_location.y)
+    let dx = Int32(point.x - ms.down_location.x)
+    let dy = Int32(point.y - ms.down_location.y)
 
-    window_manager_resize_window_relative_internal(ms.pointee.window, ms.pointee.window.pointee.frame, Int32(ms.pointee.direction), Float(dx), Float(dy), false)
+    window_manager_resize_window_relative_internal(ms.window, ms.window.pointee.frame, Int32(ms.direction), Float(dx), Float(dy), false)
 
-    ms.pointee.last_moved_time = eventTime
-    ms.pointee.down_location = point
+    ms.last_moved_time = eventTime
+    ms.down_location = point
     return true
 }
 
 /// `EVENT_HANDLER(MOUSE_DRAGGED)`
 @WM func mouseDragged(_ event: CGEvent)
 {
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     //
     // NOTE: Only the most recent drag event matters, because the new frame is computed from the
@@ -185,25 +185,25 @@ private let mouseResizeThrottleMs: Float = 67.67
     if mouseEventIsStale(pendingMouseDragged) { return }
 
     if mission_control_is_active() { return }
-    guard let window = ms.pointee.window else { return }
+    guard let window = ms.window else { return }
 
     if !window_is_valid(window) {
         debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.pointee.id) has been marked invalid by the system, ignoring event..\n")
-        ms.pointee.window = nil
-        ms.pointee.current_action = MOUSE_MODE_NONE
+        ms.window = nil
+        ms.current_action = MOUSE_MODE_NONE
         return
     }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DRAGGED: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    if ms.pointee.current_action == MOUSE_MODE_MOVE {
+    if ms.current_action == MOUSE_MODE_MOVE {
         mouseDragMoveWindow(point)
-    } else if ms.pointee.current_action == MOUSE_MODE_RESIZE {
+    } else if ms.current_action == MOUSE_MODE_RESIZE {
         if !mouseDragResizeWindow(point) { return }
     }
 
-    if window_manager_find_managed_window(window_manager_global(), ms.pointee.window) == nil { return }
+    if window_manager_find_managed_window(window_manager_global(), ms.window) == nil { return }
 
     var info = mouse_window_info()
     mouse_window_info_populate(ms, &info)
@@ -284,7 +284,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 @WM private func ffmFocusWindow(_ window: Window)
 {
     let wm = window_manager_global()!
-    let ms = mouse_state_global()!
+    let ms = mouse_state_global()
 
     if window.pointee.id == wm.pointee.focused_window_id { return }
     if !window_manager_is_window_eligible(window)       { return }
@@ -292,12 +292,12 @@ private let mouseResizeThrottleMs: Float = 67.67
     if wm.pointee.ffm_mode == FFM_AUTOFOCUS {
         let target = ffmWindowToFocus(window)
         window_manager_focus_window_without_raise(&target.pointee.application.pointee.psn, target.pointee.id)
-        ms.pointee.ffm_window_id = target.pointee.id
+        ms.ffm_window_id = target.pointee.id
     } else if wm.pointee.ffm_mode == FFM_AUTORAISE {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
         window_manager_focus_window_with_raise(&window.pointee.application.pointee.psn, window.pointee.id, window.pointee.ref.takeUnretainedValue())
-        ms.pointee.ffm_window_id = window.pointee.id
+        ms.ffm_window_id = window.pointee.id
     }
 }
 
@@ -311,7 +311,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     let wid = display_manager_focus_display_with_window_at_point(point)
     if wid == 0 { display_manager_set_active_display_id(cursorDid) }
-    mouse_state_global()!.pointee.ffm_window_id = wid
+    mouse_state_global().ffm_window_id = wid
 }
 
 /// `EVENT_HANDLER(MOUSE_MOVED)`
@@ -323,7 +323,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if wm.pointee.ffm_mode == FFM_DISABLED                { return }
     if mission_control_is_active()                        { return }
-    if mouse_state_global()!.pointee.ffm_window_id != 0 { return }
+    if mouse_state_global().ffm_window_id != 0 { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
     let dt = os_timer_ms_between(lastGestureTime.load(ordering: .relaxed), read_os_timer())

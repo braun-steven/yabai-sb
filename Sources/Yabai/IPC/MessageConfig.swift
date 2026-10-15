@@ -564,7 +564,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     let wm = window_manager_global()!
     let sm = space_manager_global()!
     let dm = display_manager_global()
-    let mouse = mouse_state_global()!
+    let mouse = mouse_state_global()
 
     if configBorder(&rsp, domain, command, &message)  { return true }
     if configTabBar(&rsp, domain, command, &message) { return true }
@@ -682,20 +682,20 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_all_spaces(sm, enabled) }
         }
     } else if command.equals(Config.mouseModifier) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModNames, first: MOUSE_MOD_ALT.rawValue, last: MOUSE_MOD_FN.rawValue, current: mouse.pointee.modifier) {
-            mouse.pointee.modifier = UInt8(choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, mouseModNames, first: MOUSE_MOD_ALT.rawValue, last: MOUSE_MOD_FN.rawValue, current: mouse.modifier) {
+            mouse.modifier = UInt8(choice)
         }
     } else if command.equals(Config.mouseAction1) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.pointee.action1.rawValue) {
-            mouse.pointee.action1 = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.action1.rawValue) {
+            mouse.action1 = mouse_mode(rawValue: choice)
         }
     } else if command.equals(Config.mouseAction2) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.pointee.action2.rawValue) {
-            mouse.pointee.action2 = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.action2.rawValue) {
+            mouse.action2 = mouse_mode(rawValue: choice)
         }
     } else if command.equals(Config.mouseDropAction) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_SWAP.rawValue, last: MOUSE_MODE_STACK.rawValue, current: mouse.pointee.drop_action.rawValue) {
-            mouse.pointee.drop_action = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_SWAP.rawValue, last: MOUSE_MODE_STACK.rawValue, current: mouse.drop_action.rawValue) {
+            mouse.drop_action = mouse_mode(rawValue: choice)
         }
     } else if command.equals(Config.externalBar) {
         configExternalBar(&rsp, domain, command, &message)

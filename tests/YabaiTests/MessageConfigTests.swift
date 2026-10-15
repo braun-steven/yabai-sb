@@ -23,22 +23,22 @@ extension DaemonState
         {
             let wm = window_manager_global()!
             let sm = space_manager_global()!
-            let mouse = mouse_state_global()!
+            let mouse = mouse_state_global()
 
             let mff = wm.pointee.enable_mff
-            let modifier = mouse.pointee.modifier
+            let modifier = mouse.modifier
             let wrapping = wm.pointee.focus_wrapping
             let topPadding = sm.pointee.top_padding
             defer {
                 wm.pointee.enable_mff = mff
-                mouse.pointee.modifier = modifier
+                mouse.modifier = modifier
                 wm.pointee.focus_wrapping = wrapping
                 sm.pointee.top_padding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
             #expect(wm.pointee.enable_mff)
-            #expect(UInt32(mouse.pointee.modifier) == MOUSE_MOD_CTRL.rawValue)
+            #expect(UInt32(mouse.modifier) == MOUSE_MOD_CTRL.rawValue)
             #expect(wm.pointee.focus_wrapping == FOCUS_WRAPPING_FORCE)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")

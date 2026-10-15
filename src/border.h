@@ -9,33 +9,6 @@
 
 #define BORDER_DEFAULT_RADIUS 9.0f
 
-struct border
-{
-    uint32_t wid;
-    uint32_t id[BORDER_EDGE_COUNT];
-    CGContextRef context[BORDER_EDGE_COUNT];
-    CGRect edge[BORDER_EDGE_COUNT];
-    CGRect frame;
-    CGRect area;
-    uint64_t sid;
-    float radius;
-    float container_radius;
-    float drawn_radius;
-    float inset_top;
-    float inset_left;
-    float inset_bottom;
-    float inset_right;
-    float width;
-    uint32_t color;
-    bool enabled;
-    bool focused;
-    bool shown;
-    bool sticky;
-    bool suspended;
-    int level;
-    int sub_level;
-};
-
 void border_edge_frames(CGRect frame, float width, float radius, CGRect *edge);
 void border_begin_batch(void);
 void border_end_batch(void);

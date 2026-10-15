@@ -2,8 +2,8 @@
 #define TAB_BAR_GLASS_H
 
 //
-// NOTE: The interface between the C side of the glass tab bars (tab_bar_glass.c) and the AppKit side
-// (Sources/Yabai/TabBarGlass.swift), which sees it through src/include/yabai_c.h.
+// NOTE: The shared backdrop enum and slot geometry for the tab bars. Snapshot ownership and rendering
+// live entirely in Sources/Yabai/TabBarGlass.swift.
 //
 
 #include <CoreGraphics/CoreGraphics.h>
@@ -25,38 +25,6 @@ CF_ASSUME_NONNULL_BEGIN
 #define TAB_BAR_GLASS_PILL_INSET 2.0f
 #define TAB_BAR_GLASS_ANIMATION_DURATION 0.2
 
-//
-// NOTE: A snapshot holds +1 references to its CF objects. The Swift side retains what it keeps and then frees the
-// snapshot with tab_bar_glass_snapshot_free.
-//
-
-struct tab_bar_glass_entry
-{
-    CFStringRef _Nullable title;
-    CGImageRef _Nullable icon;
-    CGColorRef text;
-    bool active;
-};
-
-struct tab_bar_glass_snapshot
-{
-    CGRect frame;
-    CGRect card;
-    enum tab_bar_backdrop backdrop;
-    CGFloat card_radius;
-    uint64_t sid;
-    uint32_t above_wid;
-    int level;
-    int sub_level;
-    CTFontRef _Nullable font;
-    CGColorRef track_tint;
-    CGColorRef backdrop_tint;
-    CGColorRef pill_tint;
-    CGColorRef separator;
-    int entry_count;
-    struct tab_bar_glass_entry *entry_list;
-};
-
 static inline CGRect tab_bar_slot(CGRect area, int index, int count)
 {
     float width = area.size.width / count;
@@ -65,16 +33,8 @@ static inline CGRect tab_bar_slot(CGRect area, int index, int count)
     return (CGRect) {{x0, area.origin.y}, {x1 - x0, area.size.height}};
 }
 
-// implemented in C
-void tab_bar_draw_title(CGContextRef context, CTFontRef _Nullable font, bool glass, CFStringRef _Nullable title, CGImageRef _Nullable icon, CGRect rect, CGColorRef color);
-void tab_bar_glass_snapshot_free(struct tab_bar_glass_snapshot *snapshot);
-void tab_bar_glass_move_to_space(uint32_t wid, uint64_t sid);
-void tab_bar_glass_set_level(uint32_t wid, int level, int sub_level);
-void tab_bar_glass_order_panel(uint32_t wid, bool below, uint32_t relative_wid);
-
-// implemented in Swift, only called on macOS 26 and newer
+// implemented in Swift
 void *_Nullable tab_bar_glass_create(void);
-void tab_bar_glass_apply(void *glass, struct tab_bar_glass_snapshot *snapshot);
 void tab_bar_glass_hide_panel(void *glass);
 void tab_bar_glass_order_above(void *glass, uint32_t wid);
 void tab_bar_glass_destroy(void *glass);

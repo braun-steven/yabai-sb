@@ -1,8 +1,8 @@
 import YabaiC
 @testable import Yabai
 
-// NOTE: The tree fixtures of the C tests (tree_test_leaf and tree_test_split of the former tests/src/tree.c; the C
-// test of border.c keeps a copy). The calls name the Swift functions, which the C prototypes do not shadow here.
+// NOTE: The tree fixtures of the former C tests (tree_test_leaf and tree_test_split of tests/src/tree.c), shared
+// with the border tests. The calls name the Swift functions, which the C prototypes do not shadow here.
 
 @discardableResult
 func treeTestLeaf(_ parent: Con, _ windowID: UInt32) -> Con

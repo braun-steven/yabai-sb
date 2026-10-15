@@ -4,8 +4,7 @@ import YabaiC
 
 //
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
-// struct window stays C while border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c
-// read it. Ported from src/window.c.
+// struct window stays C until rule.c and the remaining model bridges are removed in P14. Ported from src/window.c.
 //
 
 // the notifications of window_observe, in the order of the bits of window->notification (AX_WINDOW_*_INDEX)

@@ -22,8 +22,8 @@
                                              AX_APPLICATION_WINDOW_TITLE_CHANGED)
 
 //
-// NOTE: The functions of struct application are Swift (Sources/Yabai/Application.swift). The struct stays C while
-// tab_bar.c (icon) and window_animation.c (ref) read it.
+// NOTE: The functions of struct application are Swift (Sources/Yabai/Application.swift). The struct stays C until
+// P14 converts the window/process tables and the model bridges together.
 //
 
 struct application

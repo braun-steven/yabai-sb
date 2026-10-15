@@ -1303,8 +1303,6 @@ func window_manager_init(_ wm: UnsafeMutablePointer<window_manager>)
     windowManagerTableInit(&wm.pointee.managed_window)
     windowManagerTableInit(&wm.pointee.window_lost_focused_event)
     windowManagerTableInit(&wm.pointee.application_lost_front_switched_event)
-    windowManagerTableInit(&wm.pointee.window_animations_table)
-    pthread_mutex_init(&wm.pointee.window_animations_lock, nil)
 }
 
 /// `window_manager_begin`

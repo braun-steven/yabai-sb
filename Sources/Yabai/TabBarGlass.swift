@@ -1,5 +1,6 @@
 import AppKit
 import YabaiC
+import CPrivate
 
 //
 // NOTE: The AppKit side of the glass tab bars. AppKit must be used from the main thread, so the event loop hands a
@@ -36,28 +37,39 @@ private struct Snapshot: @unchecked Sendable
     let separator: CGColor
     let entries: [Entry]
 
-    // Takes over the snapshot of the C side and frees it.
-    init(taking pointer: UnsafeMutablePointer<tab_bar_glass_snapshot>)
+    // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
+    // AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window.
+    // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
+    init(_ bar: UnsafeMutablePointer<tab_bar>, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<tab_bar_entry>, _ count: Int32)
     {
-        let snapshot = pointer.pointee
-        frame = snapshot.frame
-        card = snapshot.card
-        backdrop = snapshot.backdrop
-        cardRadius = snapshot.card_radius
-        sid = snapshot.sid
-        aboveWid = snapshot.above_wid
-        level = snapshot.level
-        subLevel = snapshot.sub_level
-        font = snapshot.font?.takeUnretainedValue()
-        trackTint = snapshot.track_tint.takeUnretainedValue()
-        backdropTint = snapshot.backdrop_tint.takeUnretainedValue()
-        pillTint = snapshot.pill_tint.takeUnretainedValue()
-        separator = snapshot.separator.takeUnretainedValue()
-        entries = (0..<Int(snapshot.entry_count)).map { i in
-            let entry = snapshot.entry_list[i]
-            return Entry(title: entry.title?.takeUnretainedValue(), icon: entry.icon?.takeUnretainedValue(), text: entry.text.takeUnretainedValue(), active: entry.active)
+        let wm = window_manager_global()!.pointee
+        frame = bar.pointee.frame
+        card = bar.pointee.card
+        backdrop = wm.tab_bar_backdrop
+        cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
+        sid = bar.pointee.sid
+        self.aboveWid = aboveWid
+        level = window_level(aboveWid)
+        subLevel = window_sub_level(aboveWid)
+        font = wm.tab_bar_font?.takeUnretainedValue()
+        let track = tab_bar_glass_tint(wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_color_custom, 0.4)
+        trackTint = tabBarCGColor(track)
+        backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tab_bar_backdrop_color, wm.tab_bar_backdrop_color_custom, 0.4))
+        separator = tabBarCGColor(tabBarSeparatorColor(wm.tab_bar_unfocused_text_color))
+        var pill = track
+        var entries: [Entry] = []
+        for i in 0..<Int(count) {
+            let source = list[i]
+            let (background, text) = tabBarStateColors(source.state)
+            entries.append(Entry(title: source.title?.takeUnretainedValue(), icon: source.icon?.takeUnretainedValue(), text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED))
+            if source.state == TAB_BAR_FOCUSED {
+                pill = tab_bar_glass_tint(background, wm.tab_bar_focused_color_custom, 0.8)
+            } else if source.state == TAB_BAR_INACTIVE {
+                pill = tab_bar_glass_tint(background, wm.tab_bar_inactive_color_custom, 0.8)
+            }
         }
-        tab_bar_glass_snapshot_free(pointer)
+        self.entries = entries
+        pillTint = tabBarCGColor(pill)
     }
 
     var hasCard: Bool { backdrop != TAB_BAR_BACKDROP_OFF }
@@ -395,10 +407,8 @@ func tab_bar_glass_create() -> UnsafeMutableRawPointer?
     return Unmanaged.passRetained(TabBarGlass()).toOpaque()
 }
 
-@_cdecl("tab_bar_glass_apply")
-func tab_bar_glass_apply(_ glass: UnsafeMutableRawPointer, _ pointer: UnsafeMutablePointer<tab_bar_glass_snapshot>)
+private func tabBarGlassApply(_ glass: UnsafeMutableRawPointer, _ snapshot: Snapshot)
 {
-    let snapshot = Snapshot(taking: pointer)
     onMain(glass) { $0.apply(snapshot) }
 }
 
@@ -430,4 +440,65 @@ func tab_bar_glass_destroy(_ glass: UnsafeMutableRawPointer)
 func tab_bar_glass_id(_ glass: UnsafeMutableRawPointer) -> UInt32
 {
     return Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue().id
+}
+
+//
+// NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
+// with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
+//
+@_cdecl("tab_bar_glass_tint")
+func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> rgba_color
+{
+    var color = color
+    if !custom { color.a = alpha }
+    return color
+}
+
+func tab_bar_glass_move_to_space(_ wid: UInt32, _ sid: UInt64)
+{
+    let windows = [NSNumber(value: Int32(bitPattern: wid))] as CFArray
+    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid)
+}
+
+func tab_bar_glass_set_level(_ wid: UInt32, _ level: Int32, _ subLevel: Int32)
+{
+    SLSSetWindowLevel(connection_global(), wid, level)
+    SLSSetWindowSubLevel(connection_global(), wid, subLevel)
+}
+
+//
+// NOTE: A card ordered below the window lands between the window and its border, so the border is ordered
+// right below the window again to stay on top of the card.
+//
+func tab_bar_glass_order_panel(_ wid: UInt32, _ below: Bool, _ relativeWid: UInt32)
+{
+    SLSOrderWindow(connection_global(), wid, below ? -1 : 1, relativeWid)
+    if below { border_window_ordered(relativeWid) }
+}
+
+func tab_bar_glass_render(_ bar: UnsafeMutablePointer<tab_bar>, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<tab_bar_entry>, _ count: Int32)
+{
+    let snapshot = Snapshot(bar, aboveWid, entries, count)
+    if bar.pointee.glass == nil { bar.pointee.glass = tab_bar_glass_create() }
+    tabBarGlassApply(bar.pointee.glass!, snapshot)
+}
+
+func tab_bar_glass_hide(_ bar: UnsafeMutablePointer<tab_bar>)
+{
+    if let glass = bar.pointee.glass { tab_bar_glass_hide_panel(glass) }
+}
+
+func tab_bar_glass_order(_ bar: UnsafeMutablePointer<tab_bar>, _ wid: UInt32)
+{
+    if let glass = bar.pointee.glass { tab_bar_glass_order_above(glass, wid) }
+}
+
+func tab_bar_glass_release(_ bar: UnsafeMutablePointer<tab_bar>)
+{
+    if let glass = bar.pointee.glass { tab_bar_glass_destroy(glass) }
+}
+
+func tab_bar_glass_panel_id(_ bar: UnsafeMutablePointer<tab_bar>) -> UInt32
+{
+    bar.pointee.glass.map { tab_bar_glass_id($0) } ?? 0
 }

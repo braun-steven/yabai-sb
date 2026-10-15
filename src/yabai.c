@@ -29,7 +29,6 @@ struct space_manager g_space_manager;
 struct mouse_state g_mouse_state;
 
 enum mission_control_mode g_mission_control_mode;
-double g_cv_host_clock_frequency;
 
 char g_sa_socket_file[MAXLEN];
 char g_socket_file[MAXLEN];
@@ -56,7 +55,6 @@ static inline bool configure_settings_and_acquire_lock(void)
     NSApplicationLoad();
     g_pid = getpid();
     g_connection = SLSMainConnectionID();
-    g_cv_host_clock_frequency   = CVGetHostClockFrequency();
     CGSGetConnectionPortById    = macho_find_symbol("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", "_CGSGetConnectionPortById");
     SLSPerformAsynchronousBridgedWindowManagementOperation = macho_find_symbol("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", "__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation");
 

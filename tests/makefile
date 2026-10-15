@@ -1,5 +1,5 @@
 FRAMEWORK_PATH = -F/System/Library/PrivateFrameworks
-FRAMEWORK      = -framework Carbon -framework Cocoa -framework CoreServices -framework CoreVideo -framework SkyLight
+FRAMEWORK      = -framework Carbon -framework Cocoa -framework CoreServices -framework SkyLight
 # same language and warning flags as ../makefile; -DTESTS removes main() and the code only it calls, hence -Wno-unused-function.
 # Tests run under ASan/UBSan, and any undefined behavior aborts the run.
 TEST_FLAGS     = -std=c11 -Wall -Wextra -Wstrict-prototypes -Wimplicit-fallthrough -Wnull-dereference -Wno-unused-function \

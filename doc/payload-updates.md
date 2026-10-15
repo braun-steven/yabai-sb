@@ -7,7 +7,7 @@ This repository’s “scripting addition” (OSAX) injects a payload into `Dock
   - **search window offsets** (e.g. `get_remove_space_offset`)
   - **byte patterns** used to locate code (e.g. `get_remove_space_pattern`)
 - `src/osax/payload.m`: orchestrates version gating (`verify_os_version`) and pattern scanning (`hex_find_seq`, etc.).
-- Occasionally: `src/osax/loader.m` / `src/sa.m` if injection mechanics change.
+- Occasionally: `src/osax/loader.m` / `Sources/Yabai/ScriptingAddition.swift` if injection mechanics change.
 
 ## How to learn what changed (from git history)
 1. List “payload update” commits:

@@ -6,7 +6,8 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- `make -C tests` builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/YabaiCore/` and of
+- Since P13 all 82 original C tests are Swift tests. `make -C tests` remains an empty C harness smoke check until P14.
+  It builds `src/manifest.m` with `-DTESTS` (plus the Swift code of `Sources/YabaiCore/` and of
   `Sources/Yabai/` but `main.swift`) and runs every entry of `TEST_LIST` in `tests/src/tests.m`, under ASan/UBSan. The golden
   IPC replay is a Swift test (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`). The test build is warning-free; any warning is new. Check with
   `make -C tests 2>&1 | grep -c "warning:"`. `make test` runs `swift test` first.
@@ -16,15 +17,15 @@ point below was learned the hard way; read it before running anything live.
 - `TEST_FUNC(name, { ... })` is a macro: a comma at the top level of a brace initializer
   (`struct x a = { 1, 2 };`, `uint32_t e[] = {1, 2}`) splits the macro arguments and the build fails
   with "too many arguments provided to function-like macro invocation". Build fixtures in a static
-  helper function instead (see `knownFocusPSN` in `tests/YabaiTests/SpaceManagerTests.swift`; the C
-  tests are being ported, so new tests go to Swift).
+  helper function instead (see `knownFocusPSN` in `tests/YabaiTests/SpaceManagerTests.swift`; all
+  tests now live in Swift).
 - Everything shares one translation unit, so `static` functions of any source file can be called from
   a test. Make decisions testable by moving them into pure helpers that take their inputs as arguments
   (e.g. `space_manager_can_use_known_focus`, which is Swift since P9, `application_launch_retry_delay`,
   `treeCollectWindowOrder`, which are Swift), and keep the side effects in the caller.
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
-  `Yabai.tree_focus`; the C test of `border.c` keeps C copies of the two fixtures. In tests a tab bar
+  `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar
   has no glass panel, so `tab_bar_card_id` returns 0; `tree_con_is_visible` works. The Swift tests
   have no temporary storage (`ts_init` runs only in the daemon and the C harness), so test the Swift
   function that returns an array (`treeViewWindowList`), not its `@_cdecl` twin for C.

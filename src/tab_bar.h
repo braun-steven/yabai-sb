@@ -39,15 +39,6 @@ struct tab_bar_entry
     enum tab_bar_state state;
 };
 
-struct tab_bar_hit
-{
-    CGRect frame;
-    uint64_t sid;
-    uint32_t above_wid;
-    int entry_count;
-    uint32_t entry_list[TAB_BAR_MAX_ENTRY_COUNT];
-};
-
 bool tab_bar_set_font(char *font);
 bool tab_bar_parse_style(char *name, enum tab_bar_style *style);
 bool tab_bar_parse_backdrop(char *name, enum tab_bar_backdrop *backdrop);
@@ -59,11 +50,6 @@ CGImageRef tab_bar_icon(uint32_t wid);
 void tab_bar_render(struct tab_bar *bar, CGRect frame, CGRect card, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
 void tab_bar_hide(struct tab_bar *bar);
 void tab_bar_release(struct tab_bar *bar);
-void tab_bar_glass_render(struct tab_bar *bar, uint32_t above_wid, struct tab_bar_entry *entry_list, int entry_count);
-void tab_bar_glass_hide(struct tab_bar *bar);
-void tab_bar_glass_order(struct tab_bar *bar, uint32_t wid);
-void tab_bar_glass_release(struct tab_bar *bar);
-uint32_t tab_bar_glass_panel_id(struct tab_bar *bar);
 
 void tab_bar_refresh_for_window(uint32_t wid);
 void tab_bar_order(uint32_t wid);

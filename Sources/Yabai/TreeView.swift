@@ -368,7 +368,7 @@ private func treeBarIsShown(_ node: Con) -> Bool
 }
 
 //
-// NOTE: The redraw callback of the tab bar of a container (tab_bar.c calls it with the container as
+// NOTE: The redraw callback of the tab bar of a container (TabBar.swift calls it with the container as
 // the owner); the container outlives its bar, which con_free releases.
 //
 

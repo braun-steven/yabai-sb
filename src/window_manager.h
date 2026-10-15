@@ -79,21 +79,6 @@ struct scratchpad
     struct window *window;
 };
 
-struct window_frame_request
-{
-    AXUIElementRef ref;
-    CGPoint position;
-    CGSize size;
-};
-
-struct window_frame_group
-{
-    struct application *application;
-    struct window_frame_request *list;
-    int count;
-    AXError error;
-};
-
 struct window_manager
 {
     AXUIElementRef system_element;
@@ -102,8 +87,6 @@ struct window_manager
     struct table managed_window;
     struct table window_lost_focused_event;
     struct table application_lost_front_switched_event;
-    struct table window_animations_table;
-    pthread_mutex_t window_animations_lock;
     struct rule *rules;
     struct application **applications_to_refresh;
     uint32_t focused_window_id;
@@ -159,7 +142,7 @@ struct window_manager
 
 //
 // NOTE: The window manager is Swift (Sources/Yabai/WindowManager*.swift). struct window_manager stays C while
-// border.c, tab_bar.c, window_animation.c, mouse_handler.c and rule.c read its fields. These are the
+// rule.c and the C startup code read its fields (model cleanup is P14). These are the
 // functions that C still calls.
 //
 
@@ -182,13 +165,6 @@ enum window_op_error window_manager_stack_window(struct space_manager *sm, struc
 enum window_op_error window_manager_swap_window(struct window_manager *wm, struct window *a, struct window *b);
 void window_manager_begin(struct space_manager *sm, struct window_manager *wm);
 void window_manager_init(struct window_manager *wm);
-
-// window_animation.c
-void window_manager_animate_window(struct window_capture capture);
-void window_manager_animate_window_list(struct window_capture *window_list, int window_count);
-void window_manager_set_window_frame(struct window *window, float x, float y, float width, float height);
-int window_manager_group_window_frames(struct window_capture *window_list, int window_count, struct window_frame_group *group_list, struct window_frame_request *request_list);
-void window_manager_set_window_frames(struct window_capture *window_list, int window_count);
 
 //
 // NOTE: The sbuffers of the window manager (applications_to_refresh, rules, scratchpad_window) for Swift, which cannot

@@ -1,0 +1,477 @@
+import AppKit
+import Darwin
+import CPrivate
+import YabaiC
+
+// Ported from src/sa.m. The payload protocol and its native integer/float layout are unchanged.
+
+private enum SAPath
+{
+    static let base = "/Library/ScriptingAdditions/yabai.osax"
+    static let contents = base + "/Contents"
+    static let macOS = contents + "/MacOS"
+    static let resources = contents + "/Resources"
+    static let info = contents + "/Info.plist"
+    static let payload = resources + "/payload.bundle"
+    static let payloadContents = payload + "/Contents"
+    static let payloadMacOS = payloadContents + "/MacOS"
+    static let payloadInfo = payloadContents + "/Info.plist"
+    static let payloadBinary = payloadMacOS + "/payload"
+    static let loaderBinary = macOS + "/loader"
+}
+
+private let saPlist = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>CFBundleDevelopmentRegion</key>
+<string>en</string>
+<key>CFBundleExecutable</key>
+<string>loader</string>
+<key>CFBundleIdentifier</key>
+<string>com.asmvik.yabai-osax</string>
+<key>CFBundleInfoDictionaryVersion</key>
+<string>6.0</string>
+<key>CFBundleName</key>
+<string>yabai</string>
+<key>CFBundlePackageType</key>
+<string>osax</string>
+<key>CFBundleShortVersionString</key>
+<string>\(OSAX_VERSION)</string>
+<key>CFBundleVersion</key>
+<string>\(OSAX_VERSION)</string>
+<key>NSHumanReadableCopyright</key>
+<string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
+<key>OSAXHandlers</key>
+<dict>
+</dict>
+</dict>
+</plist>
+"""
+
+private let saBundlePlist = """
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>CFBundleDevelopmentRegion</key>
+<string>en</string>
+<key>CFBundleExecutable</key>
+<string>payload</string>
+<key>CFBundleIdentifier</key>
+<string>com.asmvik.yabai-sa</string>
+<key>CFBundleInfoDictionaryVersion</key>
+<string>6.0</string>
+<key>CFBundleName</key>
+<string>payload</string>
+<key>CFBundlePackageType</key>
+<string>BNDL</string>
+<key>CFBundleShortVersionString</key>
+<string>\(OSAX_VERSION)</string>
+<key>CFBundleVersion</key>
+<string>\(OSAX_VERSION)</string>
+<key>NSHumanReadableCopyright</key>
+<string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
+<key>NSPrincipalClass</key>
+<string></string>
+</dict>
+</plist>
+"""
+
+private func scriptingAdditionCreateDirectory() -> Bool
+{
+    for path in [SAPath.base, SAPath.contents, SAPath.macOS, SAPath.resources, SAPath.payload, SAPath.payloadContents, SAPath.payloadMacOS] {
+        if mkdir(path, 0o755) != 0 { return false }
+    }
+    return true
+}
+
+private func scriptingAdditionWriteFile(_ bytes: UnsafeRawPointer?, _ size: Int, _ path: String, _ mode: String) -> Bool
+{
+    guard let handle = fopen(path, mode) else { return false }
+    let result = fwrite(bytes, size, 1, handle) == 1
+    fclose(handle)
+    return result
+}
+
+private func scriptingAdditionWriteFile(_ text: String, _ path: String) -> Bool
+{
+    text.withCString { scriptingAdditionWriteFile($0, text.utf8.count, path, "w") }
+}
+
+private func scriptingAdditionPrepareBinaries()
+{
+    SystemC("chmod +x \(SAPath.loaderBinary)")
+    SystemC("codesign -f -s - \(SAPath.loaderBinary) 2>/dev/null")
+    SystemC("chmod +x \(SAPath.payloadBinary)")
+    SystemC("codesign -f -s - \(SAPath.payloadBinary) 2>/dev/null")
+}
+
+private func scriptingAdditionRestartDock()
+{
+    for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") { dock.terminate() }
+}
+
+private func scriptingAdditionSetSocketPath() -> Bool
+{
+    assert(getuid() == 0)
+    guard let value = getenv("SUDO_UID") else { return false }
+    var uid: uid_t = 0
+    let parsed = sscanfUIntC(value, &uid)
+    guard parsed == 1, let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return false }
+    let path = "/tmp/yabai-sa_\(String(cString: name)).socket"
+    _ = path.withCString { strlcpy(sa_socket_path(), $0, Int(MAXLEN)) }
+    return true
+}
+
+private func scriptingAdditionIsInstalled() -> Bool
+{
+    guard let dir = opendir(SAPath.base) else { return false }
+    closedir(dir)
+    return true
+}
+
+private func scriptingAdditionCheck() -> Int32
+{
+    autoreleasepool {
+        guard scriptingAdditionIsInstalled(), let bundle = Bundle(path: SAPath.payload),
+              let version = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String else { return 1 }
+        return version.utf8.elementsEqual(OSAX_VERSION.utf8) ? 0 : 1
+    }
+}
+
+@discardableResult private func scriptingAdditionRemove() -> Bool
+{
+    SystemC("rm -rf \(SAPath.base) 2>/dev/null") == 0
+}
+
+private func scriptingAdditionInstall() -> Int32
+{
+    umask(mode_t(S_IWGRP | S_IWOTH))
+    if scriptingAdditionIsInstalled() && !scriptingAdditionRemove() { return 1 }
+    guard scriptingAdditionCreateDirectory(),
+          scriptingAdditionWriteFile(saPlist, SAPath.info),
+          scriptingAdditionWriteFile(saBundlePlist, SAPath.payloadInfo),
+          scriptingAdditionWriteFile(sa_loader_bytes(), Int(sa_loader_size()), SAPath.loaderBinary, "wb"),
+          scriptingAdditionWriteFile(sa_payload_bytes(), Int(sa_payload_size()), SAPath.payloadBinary, "wb") else {
+        scriptingAdditionRemove()
+        return 2
+    }
+    scriptingAdditionPrepareBinaries()
+    scriptingAdditionRestartDock()
+    return 0
+}
+
+private func scriptingAdditionRequestHandshake() -> (version: [UInt8], attributes: UInt32)?
+{
+    var sockfd: Int32 = 0
+    guard socket_open(&sockfd) else { return nil }
+    defer { socket_close(sockfd) }
+    guard socket_connect(sockfd, sa_socket_path()) else { return nil }
+    let bytes: [UInt8] = [1, 0, UInt8(SA_OPCODE_HANDSHAKE.rawValue)]
+    guard bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, 3, 0) }) != -1 else { return nil }
+    var response = [UInt8](repeating: 0, count: Int(BUFSIZ))
+    let capacity = response.count - 1
+    let length = response.withUnsafeMutableBytes { recv(sockfd, $0.baseAddress, capacity, 0) }
+    guard length > 0, let zero = response.prefix(length).firstIndex(of: 0), zero + 5 <= length else { return nil }
+    let attributes = response.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: zero + 1, as: UInt32.self) }
+    return (Array(response[..<zero]), attributes)
+}
+
+private func scriptingAdditionPerformValidation() -> Int32
+{
+    let isLatestInstalled = scriptingAdditionCheck() == 0
+    guard let handshake = scriptingAdditionRequestHandshake() else { sa_notify("connection failed!"); return 1 }
+    if handshake.version.elementsEqual(OSAX_VERSION.utf8) {
+        // OSAX_ATTRIB_ALL (the macro combines macros and does not import).
+        let all = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
+        if handshake.attributes & all == all {
+            sa_notify("payload v\(String(decoding: handshake.version, as: UTF8.self))")
+            return 0
+        }
+        sa_notify("payload (0x\(String(handshake.attributes, radix: 16, uppercase: true))) doesn't support this macOS version!")
+        return 1
+    }
+    if !isLatestInstalled {
+        sa_notify("payload is outdated, updating..")
+        return scriptingAdditionInstall()
+    }
+    sa_notify("payload is outdated, restarting Dock.app..")
+    scriptingAdditionRestartDock()
+    return 0
+}
+
+func scripting_addition_is_sip_friendly() -> Bool
+{
+    var config: UInt32 = 0
+    csr_get_active_config(&config)
+    return config & 0x02 != 0 && config & 0x04 != 0 // CSR_ALLOW_UNRESTRICTED_FS, CSR_ALLOW_TASK_FOR_PID
+}
+
+private func scriptingAdditionIsArm64eEnabled() -> Bool
+{
+    var args = [CChar](repeating: 0, count: 2048)
+    var length = args.count - 1
+    return sysctlbyname("kern.bootargs", &args, &length, nil, 0) == 0 && strnstr(args, "-arm64e_preview_abi", length) != nil
+}
+
+private func machLoaderInjectPayload() -> Bool
+{
+    guard let handle = PopenC(SAPath.loaderBinary, "r") else { return false }
+    let result = PcloseC(handle)
+    // WIFEXITED and WEXITSTATUS are function-like macros, unavailable to Swift.
+    return result & 0x7f == 0 && (result >> 8) & 0xff == 0
+}
+
+@_cdecl("scripting_addition_uninstall")
+func scripting_addition_uninstall() -> Int32
+{
+    if !scripting_addition_is_sip_friendly() {
+        Client.writeAll(STDERR_FILENO, "yabai: System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!\n".utf8)
+        sa_notify("System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!")
+        return 1
+    }
+    if !is_root() {
+        Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be uninstalled as root!\n".utf8)
+        sa_notify("must be uninstalled as root!")
+        return 1
+    }
+    if !scriptingAdditionIsInstalled() { return 0 }
+    return scriptingAdditionRemove() ? 0 : -1
+}
+
+@_cdecl("scripting_addition_load")
+func scripting_addition_load() -> Int32
+{
+    autoreleasepool {
+        if !is_root() {
+            Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be loaded as root!\n".utf8)
+            sa_notify("must be loaded as root!")
+            return 1
+        }
+        if !scripting_addition_is_sip_friendly() {
+            Client.writeAll(STDERR_FILENO, "yabai: System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!\n".utf8)
+            sa_notify("System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!")
+            return 1
+        }
+        if scriptingAdditionCheck() != 0 { return scriptingAdditionInstall() }
+        if !scriptingAdditionIsArm64eEnabled() {
+            Client.writeAll(STDERR_FILENO, "yabai: missing required nvram boot-arg '-arm64e_preview_abi'!\n".utf8)
+            sa_notify("missing required nvram boot-arg '-arm64e_preview_abi'!")
+            return 1
+        }
+        if !machLoaderInjectPayload() {
+            Client.writeAll(STDERR_FILENO, "yabai: scripting-addition failed to inject payload into Dock.app!\n".utf8)
+            sa_notify("failed to inject payload into Dock.app!")
+            return 1
+        }
+        return scriptingAdditionSetSocketPath() ? scriptingAdditionPerformValidation() : 0
+    }
+}
+
+//
+// NOTE: A payload that does not fit the buffer (e.g. a very long window list) is not sent, and the
+// operation reports failure so that the caller can fall back, instead of overflowing the stack buffer.
+//
+
+struct SAPayload
+{
+    private(set) var bytes: [UInt8] = [0, 0, 0]
+    private(set) var overflow = false
+
+    mutating func pack<T>(_ value: T)
+    {
+        if bytes.count + MemoryLayout<T>.size > Int(SA_SOCKET_BUFF_LEN) { overflow = true; return }
+        withUnsafeBytes(of: value) { bytes.append(contentsOf: $0) }
+    }
+
+    mutating func message(_ opcode: sa_opcode) -> [UInt8]?
+    {
+        if overflow { return nil }
+        let length = Int16(bytes.count - 2)
+        withUnsafeBytes(of: length) { bytes.replaceSubrange(0..<2, with: $0) }
+        bytes[2] = UInt8(opcode.rawValue)
+        return bytes
+    }
+
+    mutating func send(_ opcode: sa_opcode) -> Bool
+    {
+        guard let bytes = message(opcode) else { return false }
+        return scriptingAdditionSendBytes(bytes)
+    }
+}
+
+private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
+{
+    var sockfd: Int32 = 0
+    guard socket_open(&sockfd) else { return false }
+    defer { socket_close(sockfd) }
+    guard socket_connect(sockfd, sa_socket_path()), bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, bytes.count, 0) }) != -1 else { return false }
+    var dummy: UInt8 = 0
+    recv(sockfd, &dummy, 1, 0)
+    return true
+}
+
+@discardableResult func scripting_addition_focus_space(_ sid: UInt64) -> Bool
+{
+    var payload = SAPayload(); payload.pack(sid)
+    return payload.send(SA_OPCODE_SPACE_FOCUS)
+}
+
+@discardableResult func scripting_addition_create_space(_ sid: UInt64) -> Bool
+{
+    var payload = SAPayload(); payload.pack(sid)
+    return payload.send(SA_OPCODE_SPACE_CREATE)
+}
+
+@discardableResult func scripting_addition_destroy_space(_ sid: UInt64) -> Bool
+{
+    var payload = SAPayload(); payload.pack(sid)
+    return payload.send(SA_OPCODE_SPACE_DESTROY)
+}
+
+@discardableResult func scripting_addition_move_space_to_display(_ srcSid: UInt64, _ dstSid: UInt64, _ srcPrevSid: UInt64, _ focus: Bool) -> Bool
+{
+    var payload = SAPayload(); payload.pack(srcSid); payload.pack(dstSid); payload.pack(srcPrevSid); payload.pack(focus)
+    return payload.send(SA_OPCODE_SPACE_MOVE)
+}
+
+@discardableResult func scripting_addition_move_space_after_space(_ srcSid: UInt64, _ dstSid: UInt64, _ focus: Bool) -> Bool
+{
+    scripting_addition_move_space_to_display(srcSid, dstSid, 0, focus)
+}
+
+@discardableResult func scripting_addition_move_window(_ wid: UInt32, _ x: Int32, _ y: Int32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(x); payload.pack(y)
+    return payload.send(SA_OPCODE_WINDOW_MOVE)
+}
+
+@discardableResult func scripting_addition_set_opacity(_ wid: UInt32, _ opacity: Float, _ duration: Float) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(opacity); payload.pack(duration)
+    return payload.send(duration > 0 ? SA_OPCODE_WINDOW_OPACITY_FADE : SA_OPCODE_WINDOW_OPACITY)
+}
+
+@discardableResult func scripting_addition_set_layer(_ wid: UInt32, _ layer: Int32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(layer)
+    return payload.send(SA_OPCODE_WINDOW_LAYER)
+}
+
+@discardableResult func scripting_addition_set_sticky(_ wid: UInt32, _ sticky: Bool) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(sticky)
+    return payload.send(SA_OPCODE_WINDOW_STICKY)
+}
+
+@discardableResult func scripting_addition_set_shadow(_ wid: UInt32, _ shadow: Bool) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(shadow)
+    return payload.send(SA_OPCODE_WINDOW_SHADOW)
+}
+
+@discardableResult func scripting_addition_focus_window(_ wid: UInt32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid)
+    return payload.send(SA_OPCODE_WINDOW_FOCUS)
+}
+
+@discardableResult func scripting_addition_scale_window(_ wid: UInt32, _ x: Float, _ y: Float, _ w: Float, _ h: Float) -> Bool
+{
+    var payload = SAPayload(); payload.pack(wid); payload.pack(x); payload.pack(y); payload.pack(w); payload.pack(h)
+    return payload.send(SA_OPCODE_WINDOW_SCALE)
+}
+
+@discardableResult func scripting_addition_swap_window_proxy_in(_ animations: [WindowAnimation]) -> Bool
+{
+    var payload = SAPayload(); payload.pack(Int32(animations.count))
+    for animation in animations {
+        payload.pack(animation.skip ? UInt32(0) : animation.wid)
+        if !animation.skip { payload.pack(animation.proxy.id) }
+    }
+    return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_IN)
+}
+
+@discardableResult func scripting_addition_swap_window_proxy_out(_ animations: [WindowAnimation]) -> Bool
+{
+    var payload = SAPayload(); payload.pack(Int32(animations.count))
+    for animation in animations {
+        payload.pack(animation.skip ? UInt32(0) : animation.wid)
+        if !animation.skip { payload.pack(animation.proxy.id) }
+    }
+    return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_OUT)
+}
+
+@discardableResult func scripting_addition_order_window(_ aWid: UInt32, _ order: Int32, _ bWid: UInt32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(aWid); payload.pack(order); payload.pack(bWid)
+    return payload.send(SA_OPCODE_WINDOW_ORDER)
+}
+
+//
+// NOTE: A daemon can talk to the payload of an older yabai until Dock is restarted, and an older
+// payload ignores opcodes it does not know. Whether the payload is current is asked once with a
+// handshake and remembered until Dock restarts. An outdated payload gets one message per window.
+//
+
+@WM private var saPayloadCurrent = -1
+
+@_cdecl("scripting_addition_payload_changed")
+func scriptingAdditionPayloadChanged()
+{
+    WM.assumeIsolated { saPayloadCurrent = -1 }
+}
+
+@WM private func scriptingAdditionPayloadIsCurrent() -> Bool
+{
+    if saPayloadCurrent == -1, let handshake = scriptingAdditionRequestHandshake() {
+        saPayloadCurrent = handshake.version.elementsEqual(OSAX_VERSION.utf8) ? 1 : 0
+    }
+    return saPayloadCurrent == 1
+}
+
+@discardableResult func scripting_addition_order_window_list(_ list: UnsafeMutablePointer<sa_window_order>?, _ count: Int32) -> Bool
+{
+    if count <= 0 { return true }
+    let list = list!
+    // NOTE: The tree calls this synchronously on the event-loop queue, which owns the handshake cache.
+    if !WM.assumeIsolated({ scriptingAdditionPayloadIsCurrent() }) {
+        var result = true
+        for i in 0..<Int(count) { result = scripting_addition_order_window(list[i].a_wid, list[i].order, list[i].b_wid) && result }
+        return result
+    }
+    var result = true
+    for offset in stride(from: 0, to: Int(count), by: 256) { // SA_WINDOW_ORDER_CHUNK
+        let chunk = min(Int(count) - offset, 256)
+        var payload = SAPayload(); payload.pack(Int32(chunk))
+        for i in offset..<(offset + chunk) { payload.pack(list[i].a_wid); payload.pack(list[i].order); payload.pack(list[i].b_wid) }
+        result = payload.send(SA_OPCODE_WINDOW_ORDER_LIST) && result
+    }
+    return result
+}
+
+@discardableResult func scripting_addition_order_window_in(_ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
+{
+    var orderedIn: UInt8 = 0
+    var payload = SAPayload(); payload.pack(count)
+    for i in 0..<max(0, Int(count)) {
+        SLSWindowIsOrderedIn(connection_global(), windowList![i], &orderedIn)
+        payload.pack(orderedIn != 0 ? UInt32(0) : windowList![i])
+    }
+    return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
+}
+
+@discardableResult func scripting_addition_move_window_list_to_space(_ sid: UInt64, _ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(sid); payload.pack(count)
+    for i in 0..<max(0, Int(count)) { payload.pack(windowList![i]) }
+    return payload.send(SA_OPCODE_WINDOW_LIST_TO_SPACE)
+}
+
+@discardableResult func scripting_addition_move_window_to_space(_ sid: UInt64, _ wid: UInt32) -> Bool
+{
+    var payload = SAPayload(); payload.pack(sid); payload.pack(wid)
+    return payload.send(SA_OPCODE_WINDOW_TO_SPACE)
+}

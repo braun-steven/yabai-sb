@@ -16,6 +16,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <mach/mach.h>
 #include <ApplicationServices/ApplicationServices.h>
 #ifdef __OBJC__
@@ -62,6 +64,12 @@ static inline void CGPostMouseEventC(CGPoint point, bool updateCursor, bool butt
     CGPostMouseEvent(point, updateCursor, 1, buttonDown);
 }
 
+// NOTE: CGWindowListCreate is unavailable to Swift. TabBar.swift uses the raw window-id array for hit testing.
+static inline CF_RETURNS_RETAINED CFArrayRef _Nullable CGWindowListCreateC(CGWindowListOption options, CGWindowID relative_to_window)
+{
+    return CGWindowListCreate(options, relative_to_window);
+}
+
 //
 // NOTE: The Process Manager functions are deprecated since macOS 10.9, which makes them unavailable to Swift. These
 // wrappers keep the calls of process_manager.c and application.c for ProcessManager.swift and Application.swift.
@@ -99,6 +107,17 @@ static inline bool ProcessIsVisibleC(ProcessSerialNumber psn)
     return IsProcessVisible(&psn) != 0;
 }
 #pragma clang diagnostic pop
+
+//
+// NOTE: Swift cannot call system, popen/pclose or variadic sscanf. Keep the SA installation/injection commands and
+// the exact C numeric parsing behavior through fixed-signature wrappers, without running Swift in a forked child.
+//
+
+static inline int SystemC(const char *command) { return system(command); }
+static inline FILE *_Nullable PopenC(const char *command, const char *mode) { return popen(command, mode); }
+static inline int PcloseC(FILE *handle) { return pclose(handle); }
+static inline int sscanfUIntC(const char *text, unsigned int *value) { return sscanf(text, "%u", value); }
+static inline int sscanfFloatC(const char *text, float *value) { return sscanf(text, "%f", value); }
 
 #ifdef __OBJC__
 //

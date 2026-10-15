@@ -11,24 +11,8 @@ typedef TEST_SIG(function);
 #define TEST_FUNC(name, code) static TEST_SIG(name) { char *test_name = #name; bool result = true; {code} return result; }
 #define TEST_CHECK(r, e) if ((r) != (e)) { printf("                   \e[1;33m%s\e[m\e[1;31m#%d %s == %s\e[m \e[1;31m(%d == %d)\e[m\n", test_name, __LINE__, #r, #e, r, e); result = false; }
 
-#include "tab_bar.c"
-#include "window_frame.c"
-#include "border.c"
-
 #define TEST_ENTRY(name) { #name, test_##name },
-#define TEST_LIST                                              \
-    TEST_ENTRY(tab_bar_style_parse)                           \
-    TEST_ENTRY(tab_bar_backdrop_parse)                         \
-    TEST_ENTRY(tab_bar_font_parse)                             \
-    TEST_ENTRY(tab_bar_glass_tint_default)                     \
-    TEST_ENTRY(tab_bar_title_fits)                             \
-    TEST_ENTRY(tab_bar_slots_cover_bar)                        \
-    TEST_ENTRY(window_frame_close)                             \
-    TEST_ENTRY(window_frame_group_by_application)              \
-    TEST_ENTRY(window_frame_needs_update_decision)             \
-    TEST_ENTRY(mouse_drop_action_regions)                      \
-    TEST_ENTRY(border_edge_frames_split)                       \
-    TEST_ENTRY(border_tabbed_container_area)
+#define TEST_LIST
 
 static struct {
     char *name;

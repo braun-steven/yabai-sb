@@ -1,0 +1,84 @@
+import CoreGraphics
+import Testing
+import YabaiC
+@testable import Yabai
+
+extension DaemonState
+{
+    @Suite
+    struct BorderTests
+    {
+        @Test("border_edge_frames_split")
+        func edgeFramesSplit()
+        {
+            var edge = borderEdgeFrames(CGRect(x: 100, y: 200, width: 800, height: 600), 6, 10)
+            #expect(edge[0] == CGRect(x: 94, y: 194, width: 812, height: 16))
+            #expect(edge[1] == CGRect(x: 94, y: 790, width: 812, height: 16))
+            #expect(edge[2] == CGRect(x: 94, y: 210, width: 7, height: 580))
+            #expect(edge[3] == CGRect(x: 899, y: 210, width: 7, height: 580))
+            edge = borderEdgeFrames(CGRect(x: 0, y: 0, width: 400, height: 20), 6, 10)
+            #expect(edge[0] == CGRect(x: -6, y: -6, width: 412, height: 16))
+            #expect(edge[1] == CGRect(x: -6, y: 10, width: 412, height: 16))
+            #expect(edge[2].height == 0)
+            #expect(edge[3].height == 0)
+            edge = borderEdgeFrames(CGRect(x: 0, y: 0, width: 400, height: 21), 4, 12.5)
+            #expect(edge[0].height == 14)
+            #expect(edge[1].height == 15)
+            #expect(edge[2].height == 0)
+        }
+
+        @Test("border_tabbed_container_area")
+        func tabbedContainerArea()
+        {
+            let wm = window_manager_global()!
+            let enabled = wm.pointee.enable_tab_bar
+            let height = wm.pointee.tab_bar_height
+            let backdrop = wm.pointee.tab_bar_backdrop
+            let workspaceTabbed = space_manager_global().pointee.tree_workspace_tabbed
+            defer {
+                wm.pointee.enable_tab_bar = enabled
+                wm.pointee.tab_bar_height = height
+                wm.pointee.tab_bar_backdrop = backdrop
+                space_manager_global().pointee.tree_workspace_tabbed = workspaceTabbed
+            }
+            wm.pointee.enable_tab_bar = true
+            wm.pointee.tab_bar_height = 24
+            wm.pointee.tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
+            space_manager_global().pointee.tree_workspace_tabbed = false
+            // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
+            let root = Yabai.con_create(CON_SPLITH)!
+            defer { Yabai.con_free(root) }
+            let a = treeTestLeaf(root, 1)
+            let t = treeTestSplit(root, CON_TABBED)
+            let b = treeTestLeaf(t, 2)
+            let nested = treeTestSplit(t, CON_TABBED)
+            let d = treeTestLeaf(nested, 4)
+            treeTestLeaf(nested, 5)
+            treeTestLeaf(t, 3)
+            Yabai.tree_focus(b)
+            Yabai.tree_update(root, area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            var owner = view()
+            owner.tree = root
+            var windowArea = area()
+            var borderArea = area()
+            var radius: Int32 = -1
+            func same(_ lhs: area, _ rhs: area) -> Bool { lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h }
+            #expect(Yabai.tree_window_border_area(&owner, 1, &windowArea, &borderArea, &radius))
+            #expect(same(borderArea, a.pointee.area))
+            #expect(radius == 0)
+            #expect(Yabai.tree_window_border_area(&owner, 2, &windowArea, &borderArea, &radius))
+            #expect(same(borderArea, t.pointee.area))
+            #expect(same(windowArea, b.pointee.area))
+            #expect(windowArea.y - borderArea.y == 24)
+            #expect(!Yabai.tree_window_border_area(&owner, 3, &windowArea, &borderArea, &radius))
+            #expect(!Yabai.tree_window_border_area(&owner, 4, &windowArea, &borderArea, &radius))
+            Yabai.tree_focus(d)
+            Yabai.tree_update(root, area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            #expect(Yabai.tree_window_border_area(&owner, 4, &windowArea, &borderArea, &radius))
+            #expect(same(borderArea, t.pointee.area))
+            #expect(windowArea.y - borderArea.y == 48)
+            #expect(Yabai.tree_window_border_area(&owner, 99, &windowArea, &borderArea, &radius))
+            #expect(borderArea.w == 0)
+        }
+    }
+}

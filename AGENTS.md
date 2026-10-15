@@ -16,7 +16,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `Sources/CPrivate/`: the C module that declares the private framework functions (`include/CPrivate.h`, with nullability); the unity build includes it through `yabai_c.h`, and Swift imports it as `CPrivate`.
 - `src/misc/`: shared helpers (macros, logging, timers, etc.).
 - `src/osax/`: scripting-addition payload/loader sources used for elevated features.
-- `tests/`: small C test harness (no external framework), the golden IPC capture (`tests/YabaiTests/Golden/`) and the Swift tests (`tests/YabaiCoreTests/` for `YabaiCore`, `tests/YabaiTests/` for the code of `Sources/Yabai` through `@testable import Yabai`; not `Tests/`: the file system is case-insensitive).
+- `tests/`: Swift tests (`tests/YabaiCoreTests/` for `YabaiCore`, `tests/YabaiTests/` for `Sources/Yabai` through `@testable import Yabai`), the golden IPC capture (`tests/YabaiTests/Golden/`), and the empty C harness retained until P14. Not `Tests/`: the file system is case-insensitive.
 - `doc/`: Asciidoc source and generated manpage, plus `payload-updates.md` and `live-testing.md`.
 - `examples/`: sample config files (e.g. `examples/yabairc`).
 - `assets/`: icons, banner, plist.
@@ -36,6 +36,12 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 
 There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`warnings` in `Package.swift`, mirrored in `WARN_FLAGS` of `makefile` and `tests/makefile`), so keep it warning-free. The OSAX payload/loader are built without these warnings.
 
+Swift bridge pitfalls from P13:
+- `system`, `popen` and `pclose` are unavailable to Swift; fixed-signature CPrivate wrappers preserve the SA installation/injection calls. `sscanf` also needs a fixed-signature wrapper or `withVaList` (`ScriptingAddition.swift`, `TabBar.swift`).
+- `CGWindowListCreate` is unavailable to Swift; the retained CPrivate wrapper preserves the raw window-id array used by tab-bar hit testing. CF out-parameters inside the audited CPrivate region import as ordinary optional CF objects (`CGSNewRegionWithRect`); unaudited helpers can still return `Unmanaged` (`mouse_handle_load`).
+- Frame workers must own their AX references and copied application name, never dereference C models or temporary storage. `WindowFrameGroup` retains them until `concurrentPerform` joins; animations keep window ids rather than window pointers (`WindowAnimation.swift`).
+- Type byte-array fixtures explicitly as `[UInt8]`: a nested literal mixing `UInt8(...)` and untyped integers can infer `[Any]`, which silently gives the wrong storage to raw-pointer APIs (`WindowAnimationTests.swift`).
+
 ## Coding Style & Naming
 - Language: C11 + Objective-C (`.c`, `.h`, `.m`); compile with `clang` via `xcrun`.
 - Formatting: follow surrounding file style (4-space indentation, K&R braces, minimal vertical noise).
@@ -43,8 +49,8 @@ There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`w
 - Adding modules: create `src/<name>.{c,h}`; include the header in `src/include/yabai_c.h` and the implementation in `src/manifest.m`.
 
 ## Testing Guidelines
-- Tests live in `tests/src/tests.m` and include targeted test code (e.g. `tests/src/border.c`). The Swift tests of `YabaiCore` live in `tests/YabaiCoreTests/` (Swift Testing); a test ported from C has the C `TEST_FUNC` name as its display name (`@Test("label_list")`).
-- Add a new test by implementing `TEST_FUNC(name, { ... })` and registering it in `TEST_LIST`.
+- All 82 original C tests have been ported to Swift Testing in `tests/YabaiCoreTests/` and `tests/YabaiTests/`; a ported test keeps its C `TEST_FUNC` name as its display name (`@Test("label_list")`). The empty C harness remains until P14.
+- Add new tests in Swift with `@Test` and `#expect`.
 - Before testing a change live on this machine (deploying a test build, reloading the scripting addition, running the live harness, sanitizer builds, reading crash reports), read `doc/live-testing.md`. It also covers pitfalls of the unit tests, e.g. that `TEST_FUNC` breaks on commas in brace initializers.
 
 ## Architecture
@@ -63,6 +69,8 @@ There is no linter. The build uses `-Wall -Wextra` plus a few extra warnings (`w
 - usually a `CHANGELOG.md` entry under `[Unreleased]`, with an issue link
 
 **Rules and signals.** `rule.c` matches windows when they are created or when a rule is applied. The signals are Swift: `Sources/YabaiCore/EventSignal.swift` holds the table, the filters and the `signal --list` json, and `Sources/Yabai/EventSignal.swift` the `@WM` state, `eventSignalPush` (called by the handlers) and the flush, which starts the user's shell commands with `posix_spawn` (through `env`, which sets the environment variables).
+
+**P13 rendering and input.** `Sources/Yabai/Border.swift` owns four edge windows per border under a `Mutex`; SkyLight callbacks can move them without reading the window tree. `TabBar.swift` draws classic bars and publishes hit-test snapshots under a `Mutex`. `TabBarGlass.swift` creates immutable Swift snapshots on the event loop and renders them with AppKit on the main queue. `WindowAnimation.swift` retains frame-batch AX references and uses concurrent dispatch workers and a main-thread `NSScreen.displayLink`; its proxy table and takeover state share a `Mutex`. `MouseHandler.swift` owns the event tap and drag/drop decisions. `ScriptingAddition.swift` builds the unchanged SA wire protocol in byte arrays. These replace the P13 C files named above; their shared model structs and unused C bridges are removed in P14.
 
 **Scripting addition (OSAX).** This is optional and needs SIP to be partially disabled. `src/osax/loader.m` injects `payload.m` into Dock.app. The payload then serves the socket `/tmp/yabai-sa_$USER.socket`. The client side is `src/sa.m`: it sends a length-prefixed byte payload (`sa_payload_init` / `sa_payload_send`) with an `SA_OPCODE_*` from `src/osax/common.h`. Some features depend on finding private Dock functions by byte pattern. The patterns and search offsets of macOS 27 are in `src/osax/arm64_payload.m`. New macOS releases usually break these. See `doc/payload-updates.md` for that workflow. If the payload protocol or behavior changes, bump `OSAX_VERSION` in `common.h`: a running Dock only gets the new payload when the version differs.
 

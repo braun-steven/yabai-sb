@@ -38,8 +38,7 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("Carbon"),
                 .linkedFramework("Cocoa"),
-                .linkedFramework("CoreServices"),
-                .linkedFramework("CoreVideo")
+                .linkedFramework("CoreServices")
             ]
         ),
         // the declarations of the private functions yabai calls, and the pointers to the ones it resolves at runtime

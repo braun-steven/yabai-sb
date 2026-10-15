@@ -4,8 +4,7 @@ import YabaiC
 //
 // NOTE: The container model and the i3 algorithms that work on it. Nothing here talks to the
 // window server, so that it can be tested on its own. TreeView.swift applies a tree to the screen.
-// Ported from src/tree.c. The containers stay the C struct con while mouse_handler.c, border.c and
-// tab_bar.c use them.
+// Ported from src/tree.c. The containers stay the C struct con until the model/bridge cleanup in P14.
 //
 // The structure is only changed through a few primitives, like sway does it: con_insert and
 // con_unlink add and remove a child, con_replace puts a container in the place of another,

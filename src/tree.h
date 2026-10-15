@@ -102,9 +102,8 @@ struct con
 };
 
 //
-// NOTE: The tree is Swift (Sources/Yabai/Tree.swift, TreeView.swift). struct con stays C while mouse_handler.c,
-// border.c and tab_bar.c use it. These are the functions that C still calls (con_create, con_free, tree_attach,
-// tree_focus and tree_update for the C test of border.c).
+// NOTE: The tree is Swift (Sources/Yabai/Tree.swift, TreeView.swift). struct con and these legacy C bridges
+// remain until the model cleanup in P14; their border, tab-bar and mouse callers are Swift since P13.
 //
 
 // implemented in Sources/Yabai/Tree.swift

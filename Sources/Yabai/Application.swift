@@ -4,7 +4,7 @@ import YabaiC
 
 //
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. struct application stays
-// C while tab_bar.c and window_animation.c read it. Ported from src/application.c.
+// C until the model and table cleanup in P14. Ported from src/application.c.
 //
 
 // the notifications of application_observe, in the order of the bits of application->notification

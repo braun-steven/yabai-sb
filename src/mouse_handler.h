@@ -121,12 +121,9 @@ static const char *mouse_mode_str[] =
     [MOUSE_MODE_STACK]  = "stack"
 };
 
-void mouse_window_info_populate(struct mouse_state *ms, struct mouse_window_info *info);
-enum mouse_drop_action mouse_determine_drop_action(struct mouse_state *ms, struct window *dst_window, CGPoint point);
-void mouse_feedback_clear(struct mouse_state *ms);
-void mouse_drag(struct mouse_state *ms, struct view *dst_view, struct window *dst_window, CGPoint point);
-void mouse_drop(struct space_manager *sm, struct window_manager *wm, struct mouse_state *ms, struct view *src_view, struct view *dst_view, struct window *src_window, struct window *dst_window, CGPoint point);
-void mouse_drop_try_adjust_tree(struct window_manager *wm, struct view *view, struct window *window, struct mouse_window_info *info);
+// The event tap reads this handle while the main thread tears it down.
+static inline CFMachPortRef mouse_handle_load(struct mouse_state *state) { return __atomic_load_n(&state->handle, __ATOMIC_RELAXED); }
+static inline void mouse_handle_clear(struct mouse_state *state) { __atomic_store_n(&state->handle, NULL, __ATOMIC_RELEASE); }
 
 void mouse_state_init(struct mouse_state *mouse_state);
 bool mouse_handler_begin(struct mouse_state *mouse_state, uint32_t mask);

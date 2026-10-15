@@ -22,7 +22,4 @@ static inline bool mission_control_is_active(void)
     return g_mission_control_mode != MISSION_CONTROL_MODE_INACTIVE;
 }
 
-void mission_control_observe(void);
-void connection_handler(uint32_t type, void *data, size_t data_length, void *context, int cid);
-
 #endif

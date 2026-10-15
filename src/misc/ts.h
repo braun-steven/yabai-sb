@@ -7,6 +7,9 @@ static struct {
     volatile uint64_t used;
 } g_temp_storage;
 
+#ifdef __swift__
+bool ts_init(uint64_t size);
+#else
 bool ts_init(uint64_t size)
 {
     int page_size = getpagesize();
@@ -24,6 +27,7 @@ bool ts_init(uint64_t size)
 
     return result;
 }
+#endif
 
 static inline void ts_assert_within_bounds(uint64_t size)
 {

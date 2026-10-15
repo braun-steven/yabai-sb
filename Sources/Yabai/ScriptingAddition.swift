@@ -108,6 +108,12 @@ private func scriptingAdditionPrepareBinaries()
     SystemC("codesign -f -s - \(SAPath.payloadBinary) 2>/dev/null")
 }
 
+/// `sa_notify`
+private func sa_notify(_ text: String)
+{
+    notify("scripting-addition", text)
+}
+
 private func scriptingAdditionRestartDock()
 {
     for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") { dock.terminate() }

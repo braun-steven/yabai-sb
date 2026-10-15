@@ -14,13 +14,6 @@ static inline unsigned int sa_loader_size(void) { return __src_osax_loader_len; 
 static inline unsigned char *sa_payload_bytes(void) { return __src_osax_payload; }
 static inline unsigned int sa_payload_size(void) { return __src_osax_payload_len; }
 
-// Swift cannot call the variadic notification function.
-#ifdef __swift__
-void sa_notify(const char *text);
-#else
-void sa_notify(const char *text) { notify("scripting-addition", "%s", text); }
-#endif
-
 struct sa_window_order
 {
     uint32_t a_wid;

@@ -247,11 +247,6 @@ static inline struct rgba_color rgba_color_from_hex(uint32_t color)
     return result;
 }
 
-static inline bool is_root(void)
-{
-    return getuid() == 0 || geteuid() == 0;
-}
-
 static inline bool string_equals(const char *a, const char *b)
 {
     return a && b && strcmp(a, b) == 0;
@@ -342,97 +337,6 @@ static inline char *string_copy(char *s)
 
     memcpy(result, s, length);
     result[length] = '\0';
-    return result;
-}
-
-static inline bool directory_exists(char *filename)
-{
-    struct stat buffer;
-
-    if (stat(filename, &buffer) != 0) {
-        return false;
-    }
-
-    return S_ISDIR(buffer.st_mode);
-}
-
-static inline bool file_exists(char *filename)
-{
-    struct stat buffer;
-
-    if (stat(filename, &buffer) != 0) {
-        return false;
-    }
-
-    if (buffer.st_mode & S_IFDIR) {
-        return false;
-    }
-
-    return true;
-}
-
-static inline bool file_can_execute(char *filename)
-{
-    struct stat buffer;
-
-    if (stat(filename, &buffer) != 0) {
-        return false;
-    }
-
-    return (buffer.st_mode & S_IXUSR);
-}
-
-static bool get_config_file(char *restrict filename, char *restrict buffer, int buffer_size)
-{
-    char *xdg_home = getenv("XDG_CONFIG_HOME");
-    if (xdg_home && *xdg_home) {
-        snprintf(buffer, buffer_size, "%s/yabai/%s", xdg_home, filename);
-        if (file_exists(buffer)) return true;
-    }
-
-    char *home = getenv("HOME");
-    if (!home) return false;
-
-    snprintf(buffer, buffer_size, "%s/.config/yabai/%s", home, filename);
-    if (file_exists(buffer)) return true;
-
-    snprintf(buffer, buffer_size, "%s/.%s", home, filename);
-    return file_exists(buffer);
-}
-
-static void exec_config_file(char *config_file, int config_file_size)
-{
-    if (config_file[0] == '\0' && !get_config_file("yabairc", config_file, config_file_size)) {
-        warn("yabai: could not locate config file..\n");
-        notify("configuration", "could not locate config file..");
-        return;
-    }
-
-    if (!file_exists(config_file)) {
-        warn("yabai: configuration file '%s' does not exist..\n", config_file);
-        notify("configuration", "file '%s' does not exist..", config_file);
-        return;
-    }
-
-    int pid = fork();
-    if (pid == 0) {
-        char **exec = file_can_execute(config_file)
-                    ? (char*[]){ "/usr/bin/env", "sh", "-c", config_file, NULL}
-                    : (char*[]){ "/usr/bin/env", "sh", config_file, NULL};
-        exit(execvp(exec[0], exec));
-    } else if (pid == -1) {
-        warn("yabai: failed to load config file '%s'\n", config_file);
-        notify("configuration", "failed to load file '%s'", config_file);
-    }
-}
-
-static inline bool ax_privilege(void)
-{
-    const void *keys[] = { kAXTrustedCheckOptionPrompt };
-    const void *values[] = { kCFBooleanTrue };
-    CFDictionaryRef options = CFDictionaryCreate(NULL, keys, values, array_count(keys), &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    bool result = AXIsProcessTrustedWithOptions(options);
-    CFRelease(options);
     return result;
 }
 

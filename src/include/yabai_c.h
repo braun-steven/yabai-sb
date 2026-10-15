@@ -16,9 +16,6 @@
 
 #include <arm_neon.h>
 
-// the entry point of the daemon in yabai.c, called by main.swift (which runs the client itself)
-int yabai_main(int argc, char **argv);
-
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -53,8 +50,6 @@ int yabai_main(int argc, char **argv);
 #include <CPrivate.h>
 #include "../misc/macros.h"
 #include "../misc/ts.h"
-//#include "../misc/autorelease.h"
-#include "../misc/notify.h"
 #include "../misc/log.h"
 #include "../misc/helpers.h"
 #include "../misc/timer.h"
@@ -62,7 +57,6 @@ int yabai_main(int argc, char **argv);
 #include "../misc/sbuffer.h"
 #include "../misc/label.h"
 #include "../misc/hashtable.h"
-#include "../misc/service.h"
 
 #include "../osax/common.h"
 
@@ -88,9 +82,5 @@ int yabai_main(int argc, char **argv);
 #include "../mouse_handler.h"
 #include "../globals.h"
 #include "../message.h"
-
-
-// the entry point of the daemon in yabai.c, called by main.swift (which runs the client itself)
-int yabai_main(int argc, char **argv);
 
 #endif

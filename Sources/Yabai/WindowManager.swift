@@ -14,7 +14,7 @@ import YabaiC
 typealias Con = UnsafeMutablePointer<con>
 
 // MOUSE_EVENT_MASK (mouse_handler.h, which Swift does not import: the macro is built from other macros)
-private let mouseEventMask: UInt32 =
+let mouseEventMask: UInt32 =
     (1 << CGEventType.leftMouseDown.rawValue) |
     (1 << CGEventType.leftMouseUp.rawValue) |
     (1 << CGEventType.leftMouseDragged.rawValue) |

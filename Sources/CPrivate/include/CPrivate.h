@@ -4,7 +4,8 @@
 //
 // NOTE: The private functions of SkyLight, HIServices and the mach runtime that yabai calls. The C unity build includes
 // this header through yabai_c.h, and Swift imports it as the module CPrivate; Sources/Yabai/Platform wraps it. CPrivate.c
-// holds the function pointers that are resolved at runtime and SLSGetWindowSubLevelBounded.
+// holds the function pointers that are resolved at runtime and SLSGetWindowSubLevelBounded, Notify.m the user
+// notifications. The inline wrappers below keep the calls that Swift cannot make itself.
 //
 // Ownership: inside CF_IMPLICIT_BRIDGING_ENABLED, functions with Copy or Create in their name return a +1 object, the
 // others a +0 one. A private function that returns a +1 object without Copy/Create in its name needs CF_RETURNS_RETAINED,
@@ -19,9 +20,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mach/mach.h>
+#include <crt_externs.h>
 #include <ApplicationServices/ApplicationServices.h>
 #ifdef __OBJC__
-#include <Foundation/Foundation.h>
+#include <AppKit/AppKit.h>
 #endif
 
 // NOTE: The macro has no nullability, because a single annotated pointer makes clang require one on every pointer of the
@@ -32,7 +34,7 @@ typedef void connection_callback(uint32_t type, void *_Nullable data, size_t dat
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_ASSUME_NONNULL_BEGIN
 
-// not exported by SkyLight: yabai.c resolves them with macho_find_symbol, and they stay NULL if that fails (CPrivate.c)
+// not exported by SkyLight: yabai_main resolves them with macho_find_symbol, and they stay NULL if that fails (CPrivate.c)
 extern mach_port_t (*_Nullable CGSGetConnectionPortById)(int cid);
 extern int64_t (*_Nullable SLSPerformAsynchronousBridgedWindowManagementOperation)(void *operation);
 
@@ -106,7 +108,32 @@ static inline bool ProcessIsVisibleC(ProcessSerialNumber psn)
 {
     return IsProcessVisible(&psn) != 0;
 }
+
+// the event settings of the daemon at startup (Sources/Yabai/Yabai.swift); both functions are deprecated since macOS 10.6
+static inline void CGSetLocalEventsSuppressionIntervalC(CFTimeInterval seconds)
+{
+    CGSetLocalEventsSuppressionInterval(seconds);
+}
+
+static inline void CGEnableEventStateCombiningC(bool combine)
+{
+    CGEnableEventStateCombining(combine);
+}
 #pragma clang diagnostic pop
+
+//
+// NOTE: Swift 6 rejects references to the C globals stdout, stderr and environ (_NSGetEnviron is unavailable to Swift).
+//
+
+static inline FILE *stdout_global(void) { return stdout; }
+static inline FILE *stderr_global(void) { return stderr; }
+static inline char *_Nullable *_Nonnull environ_global(void) { return *_NSGetEnviron(); }
+
+// a user notification titled yabai (Notify.m)
+void NotifyC(const char *subtitle, const char *text);
+
+// stores the functions that yabai_main (Sources/Yabai/Yabai.swift) resolved with macho_find_symbol (CPrivate.c)
+void CPrivateSetResolvedFunctions(void *_Nullable get_connection_port_by_id, void *_Nullable bridged_operation);
 
 //
 // NOTE: Swift cannot call system, popen/pclose or variadic sscanf. Keep the SA installation/injection commands and
@@ -131,6 +158,12 @@ static inline void NSObjectRemoveObserverC(NSObject *object, NSObject *observer,
     @try {
         [object removeObserver:observer forKeyPath:key_path context:context];
     } @catch (NSException * __unused exception) {}
+}
+
+// NSApplicationLoad is unavailable to Swift; the daemon calls it at startup (Sources/Yabai/Yabai.swift)
+static inline bool NSApplicationLoadC(void)
+{
+    return NSApplicationLoad();
 }
 #endif
 

@@ -9,7 +9,6 @@ import YabaiC
 //
 
 /// `connection_handler`: registered for each notification type by yabai_main.
-@_cdecl("connection_handler")
 func connection_handler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)
 {
     switch type {
@@ -78,7 +77,6 @@ private func missionControlNotificationHandler(_ observer: AXObserver, _ element
 }
 
 /// `mission_control_observe`
-@_cdecl("mission_control_observe")
 func mission_control_observe()
 {
     if missionControlObserver.isObserving { return }

@@ -1,14 +1,11 @@
-#import <Foundation/Foundation.h>
-#import <objc/runtime.h>
+#import <Cocoa/Cocoa.h>
+#include "CPrivate.h"
 
 //
-// NOTE: Swift imports the headers of the unity build with ARC, which rejects the manual retain/release below, so it
-// only sees the declaration (src/include/yabai_c.h).
+// NOTE: NSUserNotification is deprecated, and Swift warns about every use of a deprecated API, so the notifications stay
+// ObjC (manual retain/release, -fno-objc-arc in Package.swift). Ported from src/misc/notify.h.
 //
 
-#ifdef __swift__
-void notify(const char *subtitle, const char *format, ...);
-#else
 static bool g_notify_init;
 static NSImage *g_notify_img;
 
@@ -34,26 +31,22 @@ static bool notify_init(void)
     return true;
 }
 
-static void notify(const char *subtitle, const char *format, ...)
+void NotifyC(const char *subtitle, const char *text)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     if (!g_notify_init) notify_init();
 
-    va_list args;
-    va_start(args, format);
     NSUserNotification *notification = [[NSUserNotification alloc] init];
     notification.title = @"yabai";
     notification.subtitle = [NSString stringWithUTF8String:subtitle];
-    notification.informativeText = [[[NSString alloc] initWithFormat:[NSString stringWithUTF8String:format] arguments:args] autorelease];
+    notification.informativeText = [NSString stringWithUTF8String:text];
     [notification setValue:g_notify_img forKey:@"_identityImage"];
     [notification setValue:@(false) forKey:@"_identityImageHasBorder"];
     [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
     [notification release];
-    va_end(args);
 
     [pool drain];
 }
 
 #pragma clang diagnostic pop
-#endif

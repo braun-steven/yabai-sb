@@ -41,10 +41,15 @@ let package = Package(
                 .linkedFramework("CoreServices")
             ]
         ),
-        // the declarations of the private functions yabai calls, and the pointers to the ones it resolves at runtime
+        // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
+        // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
         .target(
             name: "CPrivate",
+            cSettings: [
+                .unsafeFlags(warnings + ["-fno-objc-arc"])
+            ],
             linkerSettings: [
+                .linkedFramework("Cocoa"),
                 .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
             ]
         ),

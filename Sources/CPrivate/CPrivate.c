@@ -3,6 +3,12 @@
 mach_port_t (*CGSGetConnectionPortById)(int cid);
 int64_t (*SLSPerformAsynchronousBridgedWindowManagementOperation)(void *operation);
 
+void CPrivateSetResolvedFunctions(void *get_connection_port_by_id, void *bridged_operation)
+{
+    CGSGetConnectionPortById = get_connection_port_by_id;
+    SLSPerformAsynchronousBridgedWindowManagementOperation = bridged_operation;
+}
+
 bool SLSGetWindowSubLevelBounded(int cid, uint32_t wid, int *sub_level)
 {
     if (!CGSGetConnectionPortById) return false;

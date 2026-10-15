@@ -26,7 +26,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
 | P5 | IPC server, CLI client, config domain | [x] | 91aa5b0 | other domains write into a FILE that the Response captures; new test target YabaiTests |
 | P6 | IPC display/space/window/query/rule/signal domains + golden tests | [x] | c1854e6 | `rule --list`/`signal --list` json stays C until P11/P7; golden replay is a Swift test |
 | P7 | `@WM` actor, event loop, signals | [x] | b36d9e2 | handlers stay C, called from `handle` in EventLoop.swift; signal commands use posix_spawn (no fork in Swift) |
-| P8 | Event handlers + Mission Control | [~] | f8b995a | code, V1–V3 done; V5 cut short by a locked screen (see Handoff log) |
+| P8 | Event handlers + Mission Control | [x] | f8b995a | `mouse_drop_action_regions` moves to P13 with `mouse_handler.c` |
 | P9 | Display + space model | [ ] | | |
 | P10 | Process, application, workspace | [ ] | | |
 | P11 | Window + window_manager* | [ ] | | |
@@ -592,3 +592,18 @@ Append one entry per session, newest last. Template:
   - Locked screen: after the bench the user's screen locked (23:40). While it is locked, AX reports no windows of any application (System Events too), so the redeployed daemon spent ~40 s in `window_manager_add_existing_application_windows` (AX timeouts) and `live.py run` found 0 windows, then (with freshly launched apps) none of them managed. Check the lock state before a live run.
 - Pitfalls added to "Swift conventions and pitfalls": no atomics on C memory (C accessors or Swift-owned `Atomic`; wrapping ops); `#expect` cannot capture a non-copyable value; Swift honors `CF_CONSUMED`
 - Waiting on user: unlocking the screen for the rest of V5 (no scripting-addition reload needed: the payload did not change); the `ffm_window_to_focus` over-release on master
+
+### 2026-10-15 P8 [x]
+- Commits: the commit that adds this entry, on swift-port (code unchanged since f8b995a)
+- Master synced to: 4754520 (nothing newer on master)
+- Done: the rest of V5 and V6, with the screen unlocked (checked with `CGSessionCopyCurrentDictionary()` first).
+- Resume at: next phase (P9)
+- Open @_cdecl shims / C structs still shared: unchanged from the P8 [~] entry
+- Tests: C remaining 50, Swift added 0 this session (total ported 32/82)
+- Measurements:
+  - V5 (P8 release build): `run` 28/28, `extra` 14/14 (+1 SKIP, hotkey disabled; 50 space switches, median 17 ms, Dock pid unchanged, footprint 48 MB), `launch` 3/3 (13 attempts, gave up; queries median 13 ms, max 1009 ms); asan `run` 28/28 and tsan `run` 28/28, both without reports. Crash reports 15 before and after (older ones aged out). `deploy.sh restore` done; `sa_version.py` at 2.1.33.
+  - Bench (V5 step 2, same windows): P8 tab focus 22.3 / 22.7, rotate 121.5 / 116.2, split focus 21.3 / 21.8 ms; installed build 22.1 / 21.9, 125.9 / 112.7, 21.6 / 21.1 ms. Within 10% of the P0 baseline.
+  - V6: a labeled `window_focused` signal gets `$YABAI_WINDOW_ID` for `window --focus <id>` and back, a `space_changed` signal gets `5 4` and `4 5` for `space --focus 5` and back.
+- Deviations from plan / surprises: none
+- Pitfalls added to "Swift conventions and pitfalls": none
+- Waiting on user: nothing (the `ffm_window_to_focus` over-release on master is still reported, not fixed)

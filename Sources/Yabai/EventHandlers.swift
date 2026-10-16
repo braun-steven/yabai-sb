@@ -325,13 +325,12 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     process.launch_given_up = false
 
     let windows = window_manager_add_application_windows(space_manager_global(), wm, application)
+    update_window_notifications()
     tileWindowsBatched(windows, wm.focused_window_id, true)
 
     for window in windows where window_manager_is_window_eligible(window) {
         eventSignalPush(.windowCreated, signalObject(window))
     }
-
-    update_window_notifications()
 }
 
 /// `EVENT_HANDLER(APPLICATION_TERMINATED)`

@@ -41,6 +41,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `perf.py <label> --samples 50 --out <file>` | repeated CLI/socket latency, observed completion, binary identity and process memory |
 | `space_tail.py <label> --out <file>` | isolated alternating-space tail probe; distinguish confirmation queries between commands from command-only mode |
 | `border_perf.swift` | persistent ScreenCaptureKit pixel probe for visible focus-border changes and moving edges |
+| `border_geometry.swift` | read-only check that four border edges surround each supplied untabbed window at its actual WindowServer frame |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); compile it with `xcrun swiftc -O mirror.swift -o mirror` (the binary is ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
@@ -77,6 +78,17 @@ The performance helpers reject a locked desktop before starting and before savin
 Discard any run spanning a lock; successful IPC commands alone do not prove that an AX action
 was applied. Keep explicit window ids matched across builds when comparing captured borders;
 query order can select a different blank document after a restart.
+
+For a newly created window's stale border, use an empty space 4 and create four disposable iTerm2
+windows one at a time with `osascript -e 'tell application "iTerm2" to create window with default profile'`.
+After each creation, wait for tiling to settle and check all ids returned so far with
+`/tmp/yabai-border-geometry <window_border_width> <id>...`; compile the helper as described in its header.
+Use untabbed windows with borders enabled and `window_border_hide_single off`; save and restore any
+settings changed for the test. Check the intermediate one-, two- and three-window states too: the next
+window's relayout can repair a stale ring. The helper checks geometry and ordering, not rendered color.
+Close only the disposable windows afterward. SkyLight notifications must be subscribed before initial
+tiling: AX completion can precede the final WindowServer frame, so subscribing afterward can miss the
+resize that would move the border out of the window's creation frame.
 
 Rules for the user's machine:
 

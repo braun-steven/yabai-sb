@@ -24,6 +24,10 @@ import CPrivate
 
     guard let window = window_manager_create_and_add_window(space_manager_global(), wm, application, element, windowID, true) else { return }
 
+    // NOTE: Subscribe before tiling. AX can return before the window server publishes the final frame;
+    // the border then needs the ensuing move/resize notification to leave the window's creation frame.
+    update_window_notifications()
+
     window_manager_remove_one_shot_rules(wm)
 
     if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
@@ -35,8 +39,6 @@ import CPrivate
     }
 
     border_refresh_window_space(window)
-
-    update_window_notifications()
 }
 
 /// `EVENT_HANDLER(WINDOW_DESTROYED)`

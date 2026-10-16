@@ -860,3 +860,18 @@ Append one entry per session, newest last. Template:
 ### 2026-10-15 Local guidelines committed
 - User explicitly requested committing the remaining local changes. Included the original 77 added Codex/Swift-conventions lines in AGENTS.md without rewriting them.
 - Performance results and helpers were already committed as `4e204ba`. Live follow-ups remain as listed above; no merge or deployment performed.
+
+### 2026-10-16 Border focus follow-up
+- Commits: this handoff and border fix, on `swift-port`
+- Master synced to: `4754520` (P14 is complete; this is a post-port fix)
+- Done:
+  - Reproduced a focus mismatch on space 4: after creating four iTerm2 windows, the daemon reported window 33253 focused while its blue border stayed on window 33246 until another focus action.
+  - `windowDidReceiveFocus` in `EventHandlers.swift` refreshed only the previous and current windows. Added a cheap reconciliation pass over existing border states so any stale focused/color state is corrected without querying window bounds.
+  - Added `border_focus_reconciles_stale_active_border` to cover a stale active border outside the previous/current pair.
+- Resume at: no remaining implementation work; merge into `master` only when the user asks.
+- Open `@_cdecl` shims / C structs still shared: none
+- Tests: C remaining 0; existing Swift port remains 82/82; one focus-border regression test added. `make test` passes 63 YabaiTests + 41 YabaiCoreTests (104 total).
+- Measurements: live test build opened four fresh iTerm2 windows (33340, 33343, 33344, 33347); the reported focus (33347) matched the visible blue border. Original installed binary restored afterward.
+- Deviations from plan / surprises: the first sandboxed test attempt could not write SwiftPM's user cache; the approved rerun passed. The live deploy and restore each restarted yabai and reset layouts; the four test windows remain open on space 4.
+- Pitfalls added to "Swift conventions and pitfalls": none
+- Waiting on user: nothing

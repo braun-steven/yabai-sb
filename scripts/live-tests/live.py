@@ -120,6 +120,10 @@ def build_helpers():
         if not os.path.exists(out) or os.path.getmtime(out) < os.path.getmtime(src):
             sh(f"swiftc -O '{src}' -o '{out}'", check=True, timeout=300)
 
+def require_mouse_access():
+    if sh(f"{TOOLS}/mouse trusted", check=True).stdout.strip() != "true":
+        raise RuntimeError("synthetic mouse event posting denied; run outside the command sandbox with Accessibility permission")
+
 def setup():
     if not os.path.exists(STATE):
         w = q("--windows --window")
@@ -148,6 +152,7 @@ def row_order():
 
 def run(label):
     print(f"== {label} ==")
+    require_mouse_access()
     pid = sh("pgrep -ox yabai").stdout.strip()
     y(f"space --focus {SPACE}"); time.sleep(0.5)
     ws = space_windows()
@@ -234,16 +239,21 @@ def run(label):
     ffm_ok = True; ffm_detail = []
     for target in [te[0], te[1], te[0], te[1]]:
         x, yy = center(target)
-        sh(f"{TOOLS}/mouse move {x} {yy}"); time.sleep(0.4)
+        sh(f"{TOOLS}/mouse move {x} {yy}", check=True); time.sleep(0.4)
         got = focused_id()
         ffm_ok &= got == target["id"]; ffm_detail.append(f"{target['id']}->{got}")
     record("autofocus between same-app windows", ffm_ok, ", ".join(ffm_detail))
     # Sweep across the whole space while timing a query.
     disp = display_frame(1)
-    sweep = subprocess.Popen(f"{TOOLS}/mouse sweep {disp['x']+20} {disp['y']+500} {disp['x']+disp['w']-20} {disp['y']+500} 400", shell=True)
+    sweep = subprocess.Popen([f"{TOOLS}/mouse", "sweep", str(disp['x']+20), str(disp['y']+500),
+                              str(disp['x']+disp['w']-20), str(disp['y']+500), "400"],
+                             stderr=subprocess.PIPE, text=True)
     qt = []
     while sweep.poll() is None:
         ms, r = timed("query --spaces --space"); qt.append(ms)
+    _, sweep_error = sweep.communicate()
+    if sweep.returncode != 0:
+        raise RuntimeError(f"mouse sweep failed: {sweep_error.strip()}")
     time.sleep(0.6)
     under = None
     for w in space_windows():
@@ -260,7 +270,7 @@ def run(label):
     y(f"window {calc['id']} --move abs:600:400"); time.sleep(0.4)
     before = real_bounds([calc["id"]])[calc["id"]]
     x0, y0 = before[0] + before[2] / 2, before[1] + 40
-    sh(f"{TOOLS}/mouse altdrag {x0} {y0} {x0+300} {y0+150} 200"); time.sleep(0.5)
+    sh(f"{TOOLS}/mouse altdrag {x0} {y0} {x0+300} {y0+150} 200", check=True); time.sleep(0.5)
     after = real_bounds([calc["id"]])[calc["id"]]
     dx, dy = after[0] - before[0], after[1] - before[1]
     record("alt-drag moves floating window", abs(dx - 300) < 6 and abs(dy - 150) < 6, f"moved by ({dx:.0f}, {dy:.0f})")

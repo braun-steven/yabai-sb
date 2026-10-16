@@ -56,6 +56,7 @@ P14 model and bridge pitfalls:
 - Tests changing global managers belong in the serialized `DaemonState` suite. They must avoid window server side effects. Golden replay leaves config behind; explicitly restore defaults a test depends on.
 - Before live tests, deployments, sanitizer runs or crash analysis, read `doc/live-testing.md`. Deploys restart yabai and reset all layouts; tell the user beforehand and restore the installed binary afterward.
 - Live helpers must translate getter values for restore (`focus_follows_mouse`: `disabled` → `off`), tolerate already-focused spaces, and find tabbed containers recursively rather than assuming a tabbed workspace root.
+- Synthetic mouse helpers must preflight event-posting access and propagate failures. A command sandbox can deny posting even with Accessibility granted; `CGEvent.post` then silently drops moves and drags (`scripts/live-tests/mouse.swift`).
 - Performance comparisons must hold autotiling off throughout reinsertion workloads and verify the initial tree. Reject runs spanning a desktop lock and match window ids across builds. Visible border probes must reject occluded pixels; ScreenCaptureKit display timestamps measure composited frames, not physical light output. See `scripts/live-tests/perf.py` and `border_perf.swift`.
 
 ## Architecture

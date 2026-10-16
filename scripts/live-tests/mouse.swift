@@ -3,6 +3,11 @@ import Foundation
 
 // usage: mouse move x y | mouse sweep x0 y0 x1 y1 steps | mouse altdrag x0 y0 x1 y1 steps | mouse trusted
 let a = CommandLine.arguments
+// NOTE: CGEvent.post silently drops events when posting is denied, including inside a command sandbox.
+if a[1] != "trusted" && !CGPreflightPostEventAccess() {
+    FileHandle.standardError.write(Data("mouse: event posting denied; run outside the command sandbox with Accessibility permission\n".utf8))
+    exit(EXIT_FAILURE)
+}
 func post(_ type: CGEventType, _ p: CGPoint, _ flags: CGEventFlags = []) {
     let e = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: .left)!
     e.flags = flags

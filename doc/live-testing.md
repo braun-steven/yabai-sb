@@ -97,6 +97,11 @@ Rules for the user's machine:
 - Before `setup`, check `pgrep -lx TextEdit`, `"Script Editor"`, `Calculator`; if one runs, ask the
   user. `setup` records the focused window in `.focused-window` and `cleanup` focuses it again;
   `launch` needs the test apps closed, so it runs after a `cleanup`.
+- Run the live harness outside the command sandbox. `mouse trusted` must print `true` in the same
+  execution environment as the harness; Accessibility permission in an unrestricted shell does not
+  establish posting access inside a sandbox. `CGEvent.post` silently drops denied events, leaving
+  focus and frames unchanged. The helper rejects denied posting and `run` checks access before
+  changing the fixture, then checks move, sweep and drag subprocess failures.
 - `setup` adds windows to the ones already on space 4, so run `cleanup` before every `setup`. After a
   benchmark or an IPC capture (which leave their windows behind) a `setup` without `cleanup` gives 10
   tiled windows where the checks expect 5: `tree is a flat row again`, `rapid focus east x3` and `autofocus

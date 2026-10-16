@@ -27,31 +27,6 @@ extension DaemonState
             #expect(edge[2].height == 0)
         }
 
-        @Test("border_focus_reconciles_stale_active_border")
-        func focusReconcilesStaleActiveBorder()
-        {
-            let active: UInt32 = 0xff51afef
-            let normal: UInt32 = 0xff333333
-            let borders = [
-                BorderFocusState(windowID: 33246, focused: true, color: active),
-                BorderFocusState(windowID: 33249, focused: false, color: normal),
-                BorderFocusState(windowID: 33250, focused: false, color: normal),
-                BorderFocusState(windowID: 33253, focused: false, color: normal),
-            ]
-
-            #expect(borderFocusUpdates(borders, 33253, active, normal) == [
-                BorderFocusState(windowID: 33246, focused: false, color: normal),
-                BorderFocusState(windowID: 33253, focused: true, color: active),
-            ])
-            let reconciled = [
-                BorderFocusState(windowID: 33246, focused: false, color: normal),
-                BorderFocusState(windowID: 33249, focused: false, color: normal),
-                BorderFocusState(windowID: 33250, focused: false, color: normal),
-                BorderFocusState(windowID: 33253, focused: true, color: active),
-            ]
-            #expect(borderFocusUpdates(reconciled, 33253, active, normal).isEmpty)
-        }
-
         @Test("border_tabbed_container_area")
         func tabbedContainerArea()
         {

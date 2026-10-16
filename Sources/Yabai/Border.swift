@@ -84,28 +84,6 @@ private struct BorderSettings
     var normalColor = rgba_color()
 }
 
-struct BorderFocusState: Equatable
-{
-    let windowID: UInt32
-    let focused: Bool
-    let color: UInt32
-}
-
-func borderFocusUpdate(_ border: BorderFocusState, _ focusedWindowID: UInt32, _ activeColor: UInt32,
-                       _ normalColor: UInt32) -> BorderFocusState?
-{
-    let focused = border.windowID == focusedWindowID
-    let color = focused ? activeColor : normalColor
-    guard border.focused != focused || border.color != color else { return nil }
-    return BorderFocusState(windowID: border.windowID, focused: focused, color: color)
-}
-
-func borderFocusUpdates(_ borders: [BorderFocusState], _ focusedWindowID: UInt32, _ activeColor: UInt32,
-                        _ normalColor: UInt32) -> [BorderFocusState]
-{
-    borders.compactMap { borderFocusUpdate($0, focusedWindowID, activeColor, normalColor) }
-}
-
 // NOTE: Every access to the reference objects in this state holds borderLock, including the main-thread callbacks.
 private struct BorderState: @unchecked Sendable
 {
@@ -494,23 +472,6 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCo
         else if changed && enabled && !border.shown && state.batchDepth > 0 && state.show.count < 64 { state.show.append(border.wid) }
         else if changed { borderUpdateLocked(border, borderUpdateAll, state.settings) }
         else if recolored { borderUpdateLocked(border, borderUpdateColor, state.settings) }
-    }
-}
-
-//
-// NOTE: Refreshing only the previous and current windows can leave an older border highlighted after rapid focus
-// changes. Reconcile all existing borders from the authoritative focused window id, without querying window bounds.
-//
-func border_reconcile_focus(_ focusedWindowID: UInt32)
-{
-    borderLock.withLock { state in
-        for border in state.borders.values {
-            let current = BorderFocusState(windowID: border.wid, focused: border.focused, color: border.color)
-            guard let update = borderFocusUpdate(current, focusedWindowID, state.settings.activeColor.p,
-                                                state.settings.normalColor.p) else { continue }
-            border.focused = update.focused
-            if border.shown { borderUpdateLocked(border, borderUpdateColor, state.settings) }
-        }
     }
 }
 

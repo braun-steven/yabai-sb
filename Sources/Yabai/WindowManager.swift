@@ -56,6 +56,7 @@ final class WindowManager
     var tab_bar_offset: Int32 = 0
     var tab_bar_icons = false
     var tab_bar_style = TAB_BAR_STYLE_GLASS
+    var tab_bar_appearance = TabBarAppearance.dark
     var tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
     var tab_bar_card_padding: Int32 = 0
     var tab_bar_window_radius: Int32 = 0
@@ -72,6 +73,9 @@ final class WindowManager
     var tab_bar_inactive_color_custom = false
     var tab_bar_unfocused_color_custom = false
     var tab_bar_backdrop_color_custom = false
+    var tab_bar_focused_text_color_custom = false
+    var tab_bar_inactive_text_color_custom = false
+    var tab_bar_unfocused_text_color_custom = false
     var scratchpad_window: [Scratchpad] = []
     var scratchpad_exclusive = false
     var scratchpad_raise = false
@@ -1405,6 +1409,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.tab_bar_offset = 0
     wm.tab_bar_icons = true
     wm.tab_bar_style = TAB_BAR_STYLE_GLASS
+    wm.tab_bar_appearance = .dark
     wm.tab_bar_backdrop = TAB_BAR_BACKDROP_GLASS
     wm.tab_bar_card_padding = 6
     wm.tab_bar_window_radius = 16

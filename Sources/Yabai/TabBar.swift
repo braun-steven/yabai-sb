@@ -3,9 +3,7 @@ import CoreText
 import Synchronization
 import CPrivate
 
-/// `struct tab_bar` (view.h): the bar window (id and context) of the i3 style, or the panel of the glass style (glass,
-/// the TabBarGlass owner at +1 from tab_bar_glass_create), and the tabs it shows. owner is the container that redraws
-/// the bar through redraw.
+/// The classic bar window or native glass panel, and the tabs it shows.
 final class TabBar
 {
     var id: UInt32 = 0
@@ -17,11 +15,9 @@ final class TabBar
     var hidden = false
     var entry_count: Int32 = 0
     var entry_list: [UInt32] = []
-    var glass: UnsafeMutableRawPointer?
+    var glass: TabBarGlass?
     var owner: UnsafeMutableRawPointer?
     var redraw: (@convention(c) (UnsafeMutableRawPointer?) -> Void)?
-
-    /// The bar itself, for the code that still reads it like the C pointer.
 
     /// The empty bar of tab_bar_release, which keeps its owner and callback.
     func reset()
@@ -70,6 +66,7 @@ private struct TabBarHit: Sendable
     let sid: UInt64
     let aboveWid: UInt32
     let entries: [UInt32]
+    let glass: TabBarGlass?
 }
 private let tabBarHits = Mutex<[TabBarHit]>([])
 
@@ -122,7 +119,7 @@ private func tabBarPublishHits()
         for bar in tabBarList where hits.count < 256 {
             if bar.hidden || bar.entry_count == 0 { continue }
             let entries = Array(bar.entry_list.prefix(Int(bar.entry_count)))
-            hits.append(TabBarHit(frame: bar.frame, sid: bar.sid, aboveWid: bar.above_wid, entries: entries))
+            hits.append(TabBarHit(frame: bar.frame, sid: bar.sid, aboveWid: bar.above_wid, entries: entries, glass: bar.glass))
         }
     }
 }
@@ -149,13 +146,56 @@ func tab_bar_hit_test(_ point: CGPoint, _ wid: UnsafeMutablePointer<UInt32>!) ->
     let above: UInt32? = tabBarHits.withLock { hits in
         for hit in hits {
             if !hit.frame.contains(point) || !space_is_visible(hit.sid) { continue }
-            let index = max(0, min(hit.entries.count - 1, Int((point.x - hit.frame.minX) * CGFloat(hit.entries.count) / hit.frame.width)))
+            guard let index = tabBarHitIndex(point, frame: hit.frame, count: hit.entries.count, glass: hit.glass != nil) else { continue }
             wid.pointee = hit.entries[index]
             return hit.aboveWid
         }
         return nil
     }
     return above.map { !tabBarIsCovered(point, $0) } ?? false
+}
+
+/// Match the drawn slots, including the rounded track's outer hit padding.
+func tabBarHitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) -> Int?
+{
+    guard count > 0, frame.width > 0, frame.contains(point) else { return nil }
+    let slots = glass ? tabBarGlassInnerRect(frame) : frame
+    for index in 0..<count - 1 {
+        if point.x < tab_bar_slot(slots, Int32(index), Int32(count)).maxX { return index }
+    }
+    return count - 1
+}
+
+// NOTE: The event tap owns pointer state. It only sends changes to AppKit; it never reads the window tree.
+private struct TabBarPointer: Sendable
+{
+    var glass: TabBarGlass?
+    var windowID: UInt32?
+    var pressed = false
+}
+private let tabBarPointer = Mutex(TabBarPointer())
+
+func tab_bar_pointer_update(_ point: CGPoint, pressed: Bool)
+{
+    let hit = tabBarHits.withLock { hits in
+        hits.first { $0.glass != nil && $0.frame.contains(point) && space_is_visible($0.sid) }
+    }
+    var glass: TabBarGlass?
+    var windowID: UInt32?
+    if let hit, !tabBarIsCovered(point, hit.aboveWid),
+       let index = tabBarHitIndex(point, frame: hit.frame, count: hit.entries.count, glass: true) {
+        glass = hit.glass
+        windowID = hit.entries[index]
+    }
+    let change = tabBarPointer.withLock { state -> (Bool, TabBarGlass?) in
+        guard state.glass !== glass || state.windowID != windowID || state.pressed != pressed else { return (false, nil) }
+        let previous = state.glass
+        state = TabBarPointer(glass: glass, windowID: windowID, pressed: pressed)
+        return (true, previous)
+    }
+    guard change.0 else { return }
+    if change.1 !== glass { change.1?.pointer(windowID: nil, pressed: false) }
+    glass?.pointer(windowID: windowID, pressed: pressed)
 }
 
 func tabBarCGColor(_ color: rgba_color) -> CGColor
@@ -410,8 +450,7 @@ func tab_bar_card_id(_ bar: TabBar) -> UInt32
 
 func tab_bar_order(_ wid: UInt32)
 {
-    for bar in tabBarList {
-        if bar.hidden || bar.above_wid != wid { continue }
+    for bar in tabBarOuterFirst(tabBarList.filter { !$0.hidden && $0.above_wid == wid }) {
         if bar.id != 0 {
             SLSOrderWindow(connection_global(), bar.id, 1, wid)
             tabBarKeepOnSpace(bar)
@@ -419,9 +458,16 @@ func tab_bar_order(_ wid: UInt32)
     }
 }
 
+// NOTE: Ordering each card below the same window puts the last card in front. Creation order changes when
+// layouts or styles are rebuilt, so nested cards must explicitly be ordered from the outermost inward.
+func tabBarOuterFirst(_ bars: [TabBar]) -> [TabBar]
+{
+    bars.sorted { $0.card.width * $0.card.height > $1.card.width * $1.card.height }
+}
+
 func tab_bar_redraw_all()
 {
-    for bar in tabBarList { bar.redraw?(bar.owner) }
+    for bar in tabBarOuterFirst(tabBarList) { bar.redraw?(bar.owner) }
 }
 
 func tab_bar_refresh_for_window(_ wid: UInt32)

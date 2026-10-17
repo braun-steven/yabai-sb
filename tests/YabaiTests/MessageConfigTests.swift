@@ -18,6 +18,23 @@ extension DaemonState
     @Suite
     struct MessageConfigTests
     {
+        @Test("tab_bar_appearance_config")
+        func tabBarAppearanceConfig()
+        {
+            let wm = window_manager_global()
+            let appearance = wm.tab_bar_appearance
+            defer { wm.tab_bar_appearance = appearance }
+            wm.tab_bar_appearance = .dark
+            #expect(runConfig("tab_bar_appearance\0") == "dark\n")
+            #expect(runConfig("tab_bar_appearance\0system\0").isEmpty)
+            #expect(wm.tab_bar_appearance == .system)
+            #expect(runConfig("tab_bar_appearance\0") == "system\n")
+            #expect(runConfig("tab_bar_appearance\0light\0").contains("unknown value 'light'"))
+            #expect(wm.tab_bar_appearance == .system)
+            #expect(runConfig("tab_bar_appearance\0dark\0").isEmpty)
+            #expect(wm.tab_bar_appearance == .dark)
+        }
+
         @Test("message_config_options")
         func messageConfigOptions()
         {

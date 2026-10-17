@@ -9,6 +9,8 @@ final class MouseState
 {
     // NOTE: The event tap reads the handle (a +1 CFMachPort) while the event loop tears it down (mouse_handler_end).
     let handle = Atomic<UnsafeMutableRawPointer?>(nil)
+    // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
+    let tracks_focus = Atomic(false)
     var runloop_source: CFRunLoopSource?
     var consume_mouse_click = false
     var consume_tab_click = false
@@ -81,6 +83,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         let mod = mouseModFromCGFlags(event.flags)
         var tabWid: UInt32 = 0
         if type == .leftMouseDown && mod != ms.modifier && tab_bar_hit_test(event.location, &tabWid) {
+            tab_bar_pointer_update(event.location, pressed: true)
             ms.consume_tab_click = true
             EventLoop.post(.tabBarClicked(windowID: tabWid))
             return nil
@@ -93,6 +96,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         }
     case .leftMouseUp, .rightMouseUp:
         if type == .leftMouseUp && ms.consume_tab_click {
+            tab_bar_pointer_update(event.location, pressed: false)
             ms.consume_tab_click = false
             return nil
         }
@@ -108,11 +112,16 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
             return nil
         }
     case .leftMouseDragged, .rightMouseDragged:
-        if type == .leftMouseDragged && ms.consume_tab_click { return nil }
+        if type == .leftMouseDragged && ms.consume_tab_click {
+            tab_bar_pointer_update(event.location, pressed: true)
+            return nil
+        }
         ms.drag_detected = true
         pending_mouse_dragged_add()
         EventLoop.post(.mouseDragged(Handoff(value: .passRetained(event))))
     case .mouseMoved:
+        tab_bar_pointer_update(event.location, pressed: false)
+        if !ms.tracks_focus.load(ordering: .relaxed) { return .passUnretained(event) }
         let mod = mouseModFromCGFlags(event.flags)
         if mod == ms.modifier { return .passUnretained(event) }
         pending_mouse_moved_add()
@@ -281,7 +290,9 @@ func mouse_state_init(_ state: MouseState)
 func mouse_handler_begin(_ state: MouseState, _ mask: UInt32) -> Bool
 {
     if state.handle.load(ordering: .relaxed) != nil { return true }
-    guard let handle = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(state).toOpaque()) else { return false }
+    let moveMask = UInt32(1 << CGEventType.mouseMoved.rawValue)
+    guard let handle = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(state).toOpaque()) else { return false }
+    state.tracks_focus.store(mask & moveMask != 0, ordering: .relaxed)
     state.handle.store(Unmanaged.passRetained(handle).toOpaque(), ordering: .relaxed)
     if !CGEvent.tapIsEnabled(tap: handle) {
         CFMachPortInvalidate(handle)

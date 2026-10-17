@@ -106,5 +106,34 @@ extension DaemonState
             #expect(last.maxX == 110)
             #expect(tab_bar_slot(bounds, 0, 1).width == 100)
         }
+
+        @Test("tab_bar_glass_hit_slots")
+        func glassHitSlots()
+        {
+            let frame = CGRect(x: 10, y: 20, width: 103, height: 24)
+            let inner = tabBarGlassInnerRect(frame)
+            let boundary = tab_bar_slot(inner, 0, 3).maxX
+            #expect(tabBarHitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, count: 3, glass: true) == 0)
+            #expect(tabBarHitIndex(CGPoint(x: boundary, y: 21), frame: frame, count: 3, glass: true) == 1)
+            #expect(tabBarHitIndex(CGPoint(x: 10, y: 21), frame: frame, count: 3, glass: true) == 0)
+            #expect(tabBarHitIndex(CGPoint(x: 112.9, y: 21), frame: frame, count: 3, glass: true) == 2)
+            #expect(tabBarHitIndex(CGPoint(x: 9, y: 21), frame: frame, count: 3, glass: true) == nil)
+            #expect(tabBarHitIndex(CGPoint(x: 12, y: 21), frame: frame, count: 0, glass: true) == nil)
+            #expect(tabBarGlassInnerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
+            #expect(tabBarHitIndex(CGPoint(x: 44, y: 21), frame: frame, count: 3, glass: false) == 1)
+        }
+
+        @Test("tab_bar_nested_card_order")
+        func nestedCardOrder()
+        {
+            let outer = TabBar()
+            outer.card = CGRect(x: 0, y: 0, width: 1000, height: 800)
+            let inner = TabBar()
+            inner.card = CGRect(x: 6, y: 32, width: 988, height: 762)
+            let deepest = TabBar()
+            deepest.card = CGRect(x: 12, y: 64, width: 976, height: 724)
+            #expect(tabBarOuterFirst([inner, deepest, outer]) == [outer, inner, deepest])
+            #expect(tabBarOuterFirst([outer, inner, deepest]) == [outer, inner, deepest])
+        }
     }
 }

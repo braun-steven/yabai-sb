@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Config *tab_bar_appearance dark|system* lets glass tabs follow the macOS appearance while keeping dark as the default
 - Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
 - Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices
 - Config *auto_padding* removes padding on tiled spaces with at most one tiled window or tabbed container, globally or per space, e.g. `yabai -m config auto_padding on`
@@ -26,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- Glass tab bars use native AppKit buttons with adaptive default text, hover and press feedback, accessible selection, and transitions that respect Reduce Motion; Reduce Transparency and Increase Contrast adjust their backing and outlines
 - *window_border_hide_single* preserves floating-window borders, including when a floating window is alone on its space
 - The scripting addition uses a single Swift core, with private Dock operations in the native adapter; the unused Objective-C prototype and selection options are removed
 - Scripting-addition requests validate every command before dispatch, handle partial transfers and bounded waiting, and report explicit rejection while retaining compatibility with older payloads

@@ -33,6 +33,7 @@ config tab_bar_offset
 config tab_bar_font
 config tab_bar_icons
 config tab_bar_style
+config tab_bar_appearance
 config tab_bar_backdrop
 config tab_bar_card_padding
 config tab_bar_window_radius

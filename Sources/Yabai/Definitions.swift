@@ -142,6 +142,11 @@ let TAB_BAR_GLASS_TRACK_MARGIN: Float = 2.0
 let TAB_BAR_GLASS_PILL_INSET: Float = 2.0
 let TAB_BAR_GLASS_ANIMATION_DURATION: Double = 0.2
 
+enum TabBarAppearance: String, Sendable, CaseIterable
+{
+    case dark, system
+}
+
 /// `tab_bar_slot`: the tab at the index among count tabs of the area, with the C rounding (float widths, int offsets).
 func tab_bar_slot(_ area: CGRect, _ index: Int32, _ count: Int32) -> CGRect
 {

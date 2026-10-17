@@ -416,9 +416,18 @@ Look of the tab bar. Default is \fIglass\fP.
 .br
 \fIglass\fP draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch.
 .br
-The bar always uses the dark glass, also in light mode, so the colors look the same in both. A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given.
+The bar uses dark glass by default; \fBtab_bar_appearance\fP can follow the system appearance instead. A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given, except that Reduce Transparency makes the backing tints opaque.
+.br
+Glass tabs use native AppKit buttons with hover and press feedback and accessible titles and selection state. Default text colors adapt to the appearance; configured text colors override them. Reduce Motion disables transitions, and Increase Contrast adds outlines and stronger default text.
 .br
 \fIi3\fP draws flat tabs side by side in the \fBtab_bar\fP\(rs*_color\fP colors.
+.RE
+.sp
+\fBtab_bar_appearance\fP [\fIdark|system\fP]
+.RS 4
+Appearance of glass tab bars. Default is \fIdark\fP, including when macOS uses light mode.
+.br
+\fIsystem\fP follows the macOS appearance and uses adaptive default glass tints. Configured background and text colors are retained. This option does not affect the \fIi3\fP style.
 .RE
 .sp
 \fBtab_bar_font\fP [\fI<family>:<size>\fP]

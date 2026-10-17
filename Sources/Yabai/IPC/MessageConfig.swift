@@ -39,6 +39,7 @@ private enum Config
     static let tabBarFont               = "tab_bar_font"
     static let tabBarIcons              = "tab_bar_icons"
     static let tabBarStyle              = "tab_bar_style"
+    static let tabBarAppearance         = "tab_bar_appearance"
     static let tabBarBackdrop           = "tab_bar_backdrop"
     static let tabBarCardPadding        = "tab_bar_card_padding"
     static let tabBarWindowRadius       = "tab_bar_window_radius"
@@ -139,6 +140,9 @@ private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<W
     if command.equals(Config.tabBarInactiveColor)  { return \.tab_bar_inactive_color_custom }
     if command.equals(Config.tabBarUnfocusedColor) { return \.tab_bar_unfocused_color_custom }
     if command.equals(Config.tabBarBackdropColor)  { return \.tab_bar_backdrop_color_custom }
+    if command.equals(Config.tabBarFocusedTextColor)   { return \.tab_bar_focused_text_color_custom }
+    if command.equals(Config.tabBarInactiveTextColor)  { return \.tab_bar_inactive_text_color_custom }
+    if command.equals(Config.tabBarUnfocusedTextColor) { return \.tab_bar_unfocused_text_color_custom }
     return nil
 }
 
@@ -481,6 +485,16 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         } else if value.withCString({ tab_bar_parse_style(UnsafeMutablePointer(mutating: $0), &style) }) {
             wm.tab_bar_style = style
             tab_bar_refresh_all()
+        } else {
+            rsp.failUnknownValue(domain, command, value)
+        }
+    } else if command.equals(Config.tabBarAppearance) {
+        let value = message.next()
+        if !value.isValid {
+            rsp.write("\(wm.tab_bar_appearance.rawValue)\n")
+        } else if let appearance = TabBarAppearance.allCases.first(where: { value.equals($0.rawValue) }) {
+            wm.tab_bar_appearance = appearance
+            tab_bar_redraw_all()
         } else {
             rsp.failUnknownValue(domain, command, value)
         }

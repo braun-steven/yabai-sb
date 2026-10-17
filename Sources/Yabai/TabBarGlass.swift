@@ -4,15 +4,17 @@ import CPrivate
 //
 // NOTE: The AppKit side of the glass tab bars. AppKit must be used from the main thread, so the event loop hands a
 // snapshot of a bar to the main queue. Every pending block retains the bar, so releasing a bar never frees a panel
-// that is still in use. The C interface is declared in tab_bar_glass.h.
+// that is still in use. Swift ownership keeps that handoff independent of the container's lifetime.
 //
 
 private struct Entry
 {
+    let windowID: UInt32
     let title: CFString?
     let icon: CGImage?
     let text: CGColor
     let active: Bool
+    let customText: Bool
 }
 
 //
@@ -24,6 +26,7 @@ private struct Snapshot: @unchecked Sendable
     let frame: CGRect
     let card: CGRect
     let backdrop: tab_bar_backdrop
+    let appearance: TabBarAppearance
     let cardRadius: CGFloat
     let sid: UInt64
     let aboveWid: UInt32
@@ -33,7 +36,10 @@ private struct Snapshot: @unchecked Sendable
     let trackTint: CGColor
     let backdropTint: CGColor
     let pillTint: CGColor
-    let separator: CGColor
+    let customTrack: Bool
+    let customBackdrop: Bool
+    let customPill: Bool
+    let focused: Bool
     let entries: [Entry]
 
     // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
@@ -45,6 +51,7 @@ private struct Snapshot: @unchecked Sendable
         frame = bar.frame
         card = bar.card
         backdrop = wm.tab_bar_backdrop
+        appearance = wm.tab_bar_appearance
         cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
         sid = bar.sid
         self.aboveWid = aboveWid
@@ -54,21 +61,32 @@ private struct Snapshot: @unchecked Sendable
         let track = tab_bar_glass_tint(wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_color_custom, 0.4)
         trackTint = tabBarCGColor(track)
         backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tab_bar_backdrop_color, wm.tab_bar_backdrop_color_custom, 0.4))
-        separator = tabBarCGColor(tabBarSeparatorColor(wm.tab_bar_unfocused_text_color))
         var pill = track
+        var customPill = false
+        var focused = false
         var entries: [Entry] = []
         for i in 0..<Int(count) {
             let source = list[i]
             let (background, text) = tabBarStateColors(source.state)
-            entries.append(Entry(title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED))
+            let customText = source.state == TAB_BAR_FOCUSED ? wm.tab_bar_focused_text_color_custom
+                           : source.state == TAB_BAR_INACTIVE ? wm.tab_bar_inactive_text_color_custom
+                           : wm.tab_bar_unfocused_text_color_custom
+            entries.append(Entry(windowID: source.focus_wid, title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED, customText: customText))
             if source.state == TAB_BAR_FOCUSED {
                 pill = tab_bar_glass_tint(background, wm.tab_bar_focused_color_custom, 0.8)
+                customPill = wm.tab_bar_focused_color_custom
+                focused = true
             } else if source.state == TAB_BAR_INACTIVE {
                 pill = tab_bar_glass_tint(background, wm.tab_bar_inactive_color_custom, 0.8)
+                customPill = wm.tab_bar_inactive_color_custom
             }
         }
         self.entries = entries
         pillTint = tabBarCGColor(pill)
+        customTrack = wm.tab_bar_unfocused_color_custom
+        customBackdrop = wm.tab_bar_backdrop_color_custom
+        self.customPill = customPill
+        self.focused = focused
     }
 
     var hasCard: Bool { backdrop != TAB_BAR_BACKDROP_OFF }
@@ -82,39 +100,53 @@ private func trackRect(_ bounds: CGRect) -> CGRect
     return track.height <= 2 * CGFloat(TAB_BAR_GLASS_PILL_INSET) ? bounds : track
 }
 
-private func innerRect(_ bounds: CGRect) -> CGRect
+func tabBarGlassInnerRect(_ bounds: CGRect) -> CGRect
 {
-    trackRect(bounds).insetBy(dx: CGFloat(TAB_BAR_GLASS_PILL_INSET), dy: CGFloat(TAB_BAR_GLASS_PILL_INSET))
+    let inset = min(CGFloat(TAB_BAR_GLASS_PILL_INSET), max(0, min(bounds.width, bounds.height) * 0.5))
+    return trackRect(bounds).insetBy(dx: inset, dy: inset)
 }
 
 @MainActor
-private final class Content: NSView
+private final class TabButton: NSButton
 {
-    var snapshot: Snapshot?
+    var windowID: UInt32 = 0
+    var icon: CGImage?
 
-    override var isOpaque: Bool { false }
-
-    override func draw(_ dirtyRect: NSRect)
+    init()
     {
-        guard let snapshot, !snapshot.entries.isEmpty, let context = NSGraphicsContext.current?.cgContext else { return }
+        super.init(frame: .zero)
+        setButtonType(.momentaryChange)
+        isBordered = false
+        controlSize = .small
+        imagePosition = .imageLeading
+        imageHugsTitle = true
+        imageScaling = .scaleProportionallyDown
+        alignment = .center
+        focusRingType = .none
+        cell?.lineBreakMode = .byTruncatingTail
+        wantsLayer = true
+        target = self
+        action = #selector(selectTab)
+        setAccessibilityRole(.radioButton)
+    }
 
-        let inner = innerRect(bounds)
-        let separatorHeight = CGFloat(Int(inner.height * 0.5))
-        let count = Int32(snapshot.entries.count)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-        for (i, entry) in snapshot.entries.enumerated() {
-            let tab = tab_bar_slot(inner, Int32(i), count)
+    @objc private func selectTab()
+    {
+        EventLoop.post(.tabBarClicked(windowID: windowID))
+    }
+}
 
-            if i > 0 && !entry.active && !snapshot.entries[i - 1].active {
-                let y = CGFloat(Int(inner.minY + (inner.height - separatorHeight) * 0.5))
-                context.setFillColor(snapshot.separator)
-                context.fill(CGRect(x: tab.minX, y: y, width: 1, height: separatorHeight))
-            }
+@MainActor
+private final class Root: NSView
+{
+    var refresh: (() -> Void)?
 
-            if entry.title != nil || entry.icon != nil {
-                tab_bar_draw_title(context, snapshot.font, true, entry.title, entry.icon, tab, entry.text)
-            }
-        }
+    override func viewDidChangeEffectiveAppearance()
+    {
+        super.viewDidChangeEffectiveAppearance()
+        refresh?()
     }
 }
 
@@ -167,12 +199,21 @@ private func makeMask(radius: CGFloat) -> NSImage
 private final class Panel
 {
     let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-    let root = NSView(frame: .zero)
+    let root = Root(frame: .zero)
+    let glassContainer = NSGlassEffectContainerView(frame: .zero)
+    let controls = NSView(frame: .zero)
     let trackTint = makeTint()
     let track = NSGlassEffectView(frame: .zero)
     let pillTint = makeTint()
     let pill = NSGlassEffectView(frame: .zero)
-    let content = Content(frame: .zero)
+    let content = NSView(frame: .zero)
+    let feedback = makeTint()
+    var buttons: [TabButton] = []
+    var separators: [NSView] = []
+    var snapshot: Snapshot?
+    var pointerWindowID: UInt32?
+    var pressed = false
+    var accessibilityObserver: NSObjectProtocol?
     var backdrop: NSView?
     var backdropTint: NSView?
     var backdropKind = TAB_BAR_BACKDROP_OFF
@@ -190,28 +231,143 @@ private final class Panel
         panel.ignoresMouseEvents = true
         panel.animationBehavior = .none
 
-        //
-        // NOTE: Glass follows the appearance of its window and turns whiter in light mode, which would wash out the
-        // tints. The panel is pinned to the dark appearance so the bar looks the same in light and dark mode.
-        //
-
         panel.appearance = NSAppearance(named: .darkAqua)
         panel.collectionBehavior = [.managed, .ignoresCycle, .fullScreenAuxiliary]
 
         trackTint.autoresizingMask = [.width, .height]
         track.contentView = trackTint
+        track.effectIsInteractive = true
+        pill.effectIsInteractive = true
 
-        root.addSubview(track)
-        root.addSubview(pillTint)
-        root.addSubview(pill)
-        root.addSubview(content)
+        glassContainer.spacing = 0
+        glassContainer.contentView = controls
+        root.addSubview(glassContainer)
+        controls.addSubview(track)
+        trackTint.addSubview(pillTint)
+        trackTint.addSubview(pill)
+        trackTint.addSubview(content)
+        content.addSubview(feedback)
+        feedback.isHidden = true
+        content.setAccessibilityRole(.tabGroup)
+        content.setAccessibilityElement(true)
+        content.setAccessibilityLabel("Window tabs")
         panel.contentView = root
+        root.refresh = { [weak self] in self?.refresh() }
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
     }
 
     func close()
     {
+        if let accessibilityObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+            self.accessibilityObserver = nil
+        }
+        root.refresh = nil
+        snapshot = nil
         panel.orderOut(nil)
         panel.close()
+    }
+
+    private func refresh()
+    {
+        guard let snapshot else { return }
+        panel.effectiveAppearance.performAsCurrentDrawingAppearance {
+            layout(snapshot, animate: false)
+        }
+    }
+
+    private func resolvedTint(_ configured: CGColor, custom: Bool, fallback: NSColor) -> CGColor
+    {
+        let color = snapshot?.appearance == .system && !custom ? fallback.cgColor : configured
+        return NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? color.copy(alpha: 1) ?? color : color
+    }
+
+    func pointer(windowID: UInt32?, pressed: Bool)
+    {
+        pointerWindowID = windowID
+        self.pressed = pressed
+        updatePointer()
+    }
+
+    private func updatePointer()
+    {
+        panel.effectiveAppearance.performAsCurrentDrawingAppearance {
+            let hovered = buttons.first { $0.windowID == pointerWindowID }
+            feedback.isHidden = hovered == nil
+            if let hovered {
+                feedback.frame = hovered.frame
+                setTint(feedback, radius: hovered.frame.height * 0.5,
+                        color: NSColor.labelColor.withAlphaComponent(pressed ? 0.16 : 0.08).cgColor)
+            }
+            for button in buttons {
+                button.highlight(button === hovered && pressed)
+            }
+        }
+    }
+
+    private func layoutContent(_ snapshot: Snapshot, inner: CGRect, animate: Bool)
+    {
+        let previous = buttons
+        buttons = snapshot.entries.map { entry in
+            previous.first { $0.windowID == entry.windowID } ?? TabButton()
+        }
+        for button in previous where !buttons.contains(where: { $0 === button }) { button.removeFromSuperview() }
+        for separator in separators { separator.removeFromSuperview() }
+        separators.removeAll(keepingCapacity: true)
+
+        let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        for (index, entry) in snapshot.entries.enumerated() {
+            let button = buttons[index]
+            let slot = tab_bar_slot(inner, Int32(index), Int32(buttons.count))
+            let title = entry.title.map { $0 as String } ?? ""
+            let color = entry.customText ? NSColor(cgColor: entry.text) ?? .labelColor
+                      : entry.active || contrast ? NSColor.labelColor : NSColor.secondaryLabelColor
+            if animate && (button.title != title || button.contentTintColor != color) {
+                let transition = CATransition()
+                transition.type = .fade
+                transition.duration = TAB_BAR_GLASS_ANIMATION_DURATION
+                button.layer?.add(transition, forKey: "tabContent")
+            } else if !animate {
+                button.layer?.removeAnimation(forKey: "tabContent")
+            }
+            button.windowID = entry.windowID
+            button.title = title
+            button.font = snapshot.font.map { $0 as NSFont }
+            button.contentTintColor = color
+            if entry.customText {
+                button.attributedTitle = NSAttributedString(string: title, attributes: [
+                    .foregroundColor: color, .font: button.font ?? NSFont.systemFont(ofSize: 12)
+                ])
+            }
+            button.setAccessibilityLabel(title)
+            button.setAccessibilityValue(entry.active ? 1 : 0)
+            button.toolTip = title
+            let iconSize = max(0, min(16, slot.height - 4))
+            let showIcon = entry.icon != nil && iconSize > 0 && slot.width >= iconSize + 16
+            if button.icon !== entry.icon || button.image?.size.height != iconSize {
+                button.icon = entry.icon
+                button.image = entry.icon.map { NSImage(cgImage: $0, size: NSSize(width: iconSize, height: iconSize)) }
+            }
+            button.imagePosition = showIcon ? (slot.width >= iconSize + 40 ? .imageLeading : .imageOnly) : .noImage
+            button.frame = slot.insetBy(dx: min(4, slot.width * 0.5), dy: 0)
+            button.layer?.cornerRadius = slot.height * 0.5
+            if button.superview == nil { content.addSubview(button) }
+
+            if index > 0 && !entry.active && !snapshot.entries[index - 1].active {
+                let separator = makeTint()
+                let height = floor(inner.height * 0.45)
+                let scale = panel.backingScaleFactor
+                separator.frame = CGRect(x: slot.minX, y: inner.midY - height * 0.5, width: 1 / scale, height: height)
+                separator.layer?.backgroundColor = NSColor.separatorColor.cgColor
+                content.addSubview(separator)
+                separators.append(separator)
+            }
+        }
+        updatePointer()
     }
 
     //
@@ -261,7 +417,7 @@ private final class Panel
 
         backdrop.frame = bounds
         backdropTint.frame = backdrop.bounds
-        setTint(backdropTint, radius: snapshot.cardRadius, color: snapshot.backdropTint)
+        setTint(backdropTint, radius: snapshot.cardRadius, color: resolvedTint(snapshot.backdropTint, custom: snapshot.customBackdrop, fallback: NSColor.windowBackgroundColor.withAlphaComponent(0.4)))
 
         guard backdropRadius != snapshot.cardRadius else { return }
         backdropRadius = snapshot.cardRadius
@@ -285,29 +441,43 @@ private final class Panel
         let active = snapshot.entries.firstIndex { $0.active }
 
         root.frame = bounds
+        glassContainer.frame = bounds
+        controls.frame = bounds
         layoutBackdrop(snapshot, bounds: bounds)
 
         track.frame = trackFrame
+        trackTint.frame = track.bounds
         track.cornerRadius = trackFrame.height * 0.5
-        setTint(trackTint, radius: trackFrame.height * 0.5, color: snapshot.trackTint)
-        content.frame = strip
+        setTint(trackTint, radius: trackFrame.height * 0.5, color: resolvedTint(snapshot.trackTint, custom: snapshot.customTrack, fallback: NSColor.controlBackgroundColor.withAlphaComponent(0.4)))
+        content.frame = track.bounds
+        let inner = tabBarGlassInnerRect(strip).offsetBy(dx: -trackFrame.minX, dy: -trackFrame.minY)
+        layoutContent(snapshot, inner: inner, animate: animate)
+        let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        trackTint.layer?.borderWidth = contrast ? 1 : 0
+        trackTint.layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.6).cgColor
 
         pill.isHidden = active == nil
         pillTint.isHidden = active == nil
         guard let active else { return }
 
-        let pillFrame = tab_bar_slot(innerRect(strip), Int32(active), Int32(snapshot.entries.count))
+        let pillFrame = tab_bar_slot(inner, Int32(active), Int32(snapshot.entries.count))
         pill.cornerRadius = pillFrame.height * 0.5
-        setTint(pillTint, radius: pillFrame.height * 0.5, color: snapshot.pillTint)
+        let pillColor = snapshot.focused ? NSColor.controlAccentColor.withAlphaComponent(0.65) : NSColor.selectedContentBackgroundColor.withAlphaComponent(0.35)
+        setTint(pillTint, radius: pillFrame.height * 0.5, color: resolvedTint(snapshot.pillTint, custom: snapshot.customPill, fallback: pillColor))
+        pillTint.layer?.borderWidth = contrast ? 1 : 0
+        pillTint.layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.8).cgColor
 
         if animate && pill.frame != pillFrame {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = TAB_BAR_GLASS_ANIMATION_DURATION
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 context.allowsImplicitAnimation = true
                 self.pillTint.animator().frame = pillFrame
                 self.pill.animator().frame = pillFrame
             }
         } else {
+            pill.layer?.removeAllAnimations()
+            pillTint.layer?.removeAllAnimations()
             pillTint.frame = pillFrame
             pill.frame = pillFrame
         }
@@ -315,6 +485,9 @@ private final class Panel
 
     func apply(_ snapshot: Snapshot)
     {
+        let previous = self.snapshot
+        self.snapshot = snapshot
+        panel.appearance = snapshot.appearance == .dark ? NSAppearance(named: .darkAqua) : nil
         below = snapshot.hasCard
         let frame = below ? snapshot.card : snapshot.frame
         let primaryHeight = CGDisplayBounds(CGMainDisplayID()).height
@@ -326,14 +499,17 @@ private final class Panel
         NSAnimationContext.beginGrouping()
         NSAnimationContext.current.duration = 0
         panel.setFrame(cocoaFrame, display: false)
-        layout(snapshot, animate: visible && !resized)
+        let animate = visible && !resized && previous?.entries.map(\.windowID) == snapshot.entries.map(\.windowID)
+                   && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        panel.effectiveAppearance.performAsCurrentDrawingAppearance {
+            layout(snapshot, animate: animate)
+        }
         NSAnimationContext.endGrouping()
 
-        content.snapshot = snapshot
-        content.needsDisplay = true
-
         tab_bar_glass_move_to_space(id, snapshot.sid)
-        if !visible { panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid)) }
+        // NOTE: Keep AppKit's order in sync with SkyLight even for visible panels. Otherwise a newly created
+        // outer card can be put back above an existing inner card when AppKit next displays its windows.
+        panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid))
         tab_bar_glass_move_to_space(id, snapshot.sid)
 
         tab_bar_glass_set_level(id, snapshot.level, snapshot.subLevel)
@@ -343,6 +519,8 @@ private final class Panel
     func order(_ wid: UInt32)
     {
         guard panel.isVisible else { return }
+        panel.order(below ? .below : .above, relativeTo: Int(wid))
+        if let snapshot { tab_bar_glass_move_to_space(id, snapshot.sid) }
         tab_bar_glass_order_panel(id, below, wid)
     }
 }
@@ -353,7 +531,7 @@ private final class Panel
 // and the id of the panel is 0.
 //
 
-private final class TabBarGlass: @unchecked Sendable
+final class TabBarGlass: @unchecked Sendable
 {
     private let lock = NSLock()
     private var panelId: UInt32 = 0
@@ -362,7 +540,7 @@ private final class TabBarGlass: @unchecked Sendable
     var id: UInt32 { lock.withLock { panelId } }
 
     @MainActor
-    func apply(_ snapshot: Snapshot)
+    fileprivate func apply(_ snapshot: Snapshot)
     {
         let panel = self.panel ?? Panel()
         if self.panel == nil {
@@ -375,6 +553,7 @@ private final class TabBarGlass: @unchecked Sendable
     @MainActor
     func hide()
     {
+        panel?.pointer(windowID: nil, pressed: false)
         panel?.panel.orderOut(nil)
     }
 
@@ -389,51 +568,20 @@ private final class TabBarGlass: @unchecked Sendable
     {
         panel?.close()
         panel = nil
+        lock.withLock { panelId = 0 }
     }
-}
 
-private func onMain(_ glass: UnsafeMutableRawPointer, _ body: @escaping @MainActor (TabBarGlass) -> Void)
-{
-    let bar = Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue()
-    DispatchQueue.main.async {
-        MainActor.assumeIsolated { body(bar) }
+    func pointer(windowID: UInt32?, pressed: Bool)
+    {
+        onMain { $0.panel?.pointer(windowID: windowID, pressed: pressed) }
     }
-}
 
-func tab_bar_glass_create() -> UnsafeMutableRawPointer?
-{
-    return Unmanaged.passRetained(TabBarGlass()).toOpaque()
-}
-
-private func tabBarGlassApply(_ glass: UnsafeMutableRawPointer, _ snapshot: Snapshot)
-{
-    onMain(glass) { $0.apply(snapshot) }
-}
-
-func tab_bar_glass_hide_panel(_ glass: UnsafeMutableRawPointer)
-{
-    onMain(glass) { $0.hide() }
-}
-
-func tab_bar_glass_order_above(_ glass: UnsafeMutableRawPointer, _ wid: UInt32)
-{
-    onMain(glass) { $0.order(wid) }
-}
-
-//
-// NOTE: The panel is closed on the main queue after the updates that are still pending, and the last of
-// them releases the object.
-//
-
-func tab_bar_glass_destroy(_ glass: UnsafeMutableRawPointer)
-{
-    onMain(glass) { $0.close() }
-    Unmanaged<TabBarGlass>.fromOpaque(glass).release()
-}
-
-func tab_bar_glass_id(_ glass: UnsafeMutableRawPointer) -> UInt32
-{
-    return Unmanaged<TabBarGlass>.fromOpaque(glass).takeUnretainedValue().id
+    fileprivate func onMain(_ body: @escaping @MainActor @Sendable (TabBarGlass) -> Void)
+    {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { body(self) }
+        }
+    }
 }
 
 //
@@ -472,26 +620,28 @@ func tab_bar_glass_order_panel(_ wid: UInt32, _ below: Bool, _ relativeWid: UInt
 func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
 {
     let snapshot = Snapshot(bar, aboveWid, entries, count)
-    if bar.glass == nil { bar.glass = tab_bar_glass_create() }
-    tabBarGlassApply(bar.glass!, snapshot)
+    if bar.glass == nil { bar.glass = TabBarGlass() }
+    bar.glass!.onMain { $0.apply(snapshot) }
 }
 
 func tab_bar_glass_hide(_ bar: TabBar)
 {
-    if let glass = bar.glass { tab_bar_glass_hide_panel(glass) }
+    bar.glass?.onMain { $0.hide() }
 }
 
 func tab_bar_glass_order(_ bar: TabBar, _ wid: UInt32)
 {
-    if let glass = bar.glass { tab_bar_glass_order_above(glass, wid) }
+    bar.glass?.onMain { $0.order(wid) }
 }
 
 func tab_bar_glass_release(_ bar: TabBar)
 {
-    if let glass = bar.glass { tab_bar_glass_destroy(glass) }
+    // NOTE: FIFO main-queue delivery closes the panel after pending updates; each block retains its owner.
+    bar.glass?.onMain { $0.close() }
+    bar.glass = nil
 }
 
 func tab_bar_glass_panel_id(_ bar: TabBar) -> UInt32
 {
-    bar.glass.map { tab_bar_glass_id($0) } ?? 0
+    bar.glass?.id ?? 0
 }

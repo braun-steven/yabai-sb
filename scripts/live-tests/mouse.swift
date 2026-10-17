@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-// usage: mouse move x y | mouse sweep x0 y0 x1 y1 steps | mouse altdrag x0 y0 x1 y1 steps | mouse trusted
+// usage: mouse move|click|down|up x y | mouse sweep x0 y0 x1 y1 steps | mouse altdrag x0 y0 x1 y1 steps | mouse trusted
 let a = CommandLine.arguments
 // NOTE: CGEvent.post silently drops events when posting is denied, including inside a command sandbox.
 if a[1] != "trusted" && !CGPreflightPostEventAccess() {
@@ -19,6 +19,13 @@ case "trusted":
     print(CGPreflightPostEventAccess())
 case "move":
     post(.mouseMoved, CGPoint(x: d(2), y: d(3)))
+case "click", "down", "up":
+    let point = CGPoint(x: d(2), y: d(3))
+    post(.mouseMoved, point)
+    usleep(20000)
+    if a[1] != "up" { post(.leftMouseDown, point) }
+    if a[1] == "click" { usleep(50000) }
+    if a[1] != "down" { post(.leftMouseUp, point) }
 case "sweep":
     let n = Int(a[6])!
     for i in 0...n {

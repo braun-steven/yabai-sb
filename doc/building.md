@@ -19,6 +19,7 @@ commands for publishing to `bin/yabai`, documentation, signing and release archi
 | `make osax-test` | Isolated payload/loader tests, outside Dock |
 | `make osax-payload` | Standalone binaries/arrays in `.build/osax/swift/`; no injection |
 | `make prepare` | Optional build of just the `OSAX` target through SwiftPM |
+| `make check-build` | Isolated clean/incremental/toolchain upgrade checks and Swift tests |
 | `make clean` | Remove `bin/`, both packages' build caches and generated C sources |
 
 Every daemon variant publishes to `bin/yabai` after a successful build. Copying to a temporary sibling
@@ -29,6 +30,20 @@ Debug/release use the normal `.build/` cache; sanitizer builds use `.build/asan`
 Switching back to `make` cannot publish a cached sanitizer executable. The isolated package has its
 own `osax/.build/` cache. `SWIFT` overrides the Swift command (default `xcrun swift`); `SWIFT_FLAGS`
 passes additional SwiftPM options to builds and tests, for example `make test SWIFT_FLAGS='--filter Golden'`.
+
+## Compiler and SDK selection
+
+`SWIFT` and `SWIFT_FLAGS` affect the outer SwiftPM invocation only. They do not select the payload
+compiler or pass flags to it. Both native generation and its identity check resolve `clang` and
+`swiftc` through `xcrun`, honoring `DEVELOPER_DIR` and `TOOLCHAINS`. `SDKROOT` selects the macOS SDK;
+Make preserves an existing value. The native commands pass that resolved SDK explicitly to both
+compilers. The supported setup remains Xcode with Swift 6.4 and the macOS 27 SDK.
+
+Use `DEVELOPER_DIR` to select an Xcode installation for the whole build, and `TOOLCHAINS` to select
+an installed toolchain for the `xcrun` commands. Overriding `SWIFT` with a separate compiler path
+does not automatically coordinate these selections. Likewise, SwiftPM `--sdk` or `--toolset`
+options alone do not configure the embedded payload; keep their selections consistent with the
+native environment if using them. Alternate toolchains must support the arm64e payload target.
 
 ## Direct SwiftPM and editor use
 
@@ -53,12 +68,20 @@ in its native adapter, and a separately linked Swift core; the loader also conta
 C arrays compiled by the `OSAX` target alongside `Version.c`.
 The installed executable therefore contains everything it needs to load the scripting addition.
 
-The plugin declares native sources, headers, the module map and script as inputs, and two C files
-as outputs. SwiftPM runs it when an input changes or an output is missing. All generated files and
+The plugin declares native sources, headers, the module map and scripts as inputs, and two C files
+as outputs. Native compilation runs when an input changes or an output is missing. All generated files and
 compiler caches stay in the sandboxed plugin work directory under `.build/`. Identical generated
 arrays retain their timestamps to avoid unnecessary downstream compilation. Keep the input list
 current when adding native dependencies. The standalone command uses the same script, so compiler
 settings have one owner.
+
+A small prebuild command checks the selected tools on each build. `scripts/osax-toolchain.sh`
+records selection variables, resolved compiler paths, compiler versions/file identities, and the
+resolved SDK path/settings hash in a comment-only generated `Toolchain.h`. Its timestamp changes
+only when that identity changes. The native build command consumes this header as an input, so
+switching Xcode/toolchains/SDKs or updating them in place invalidates the native artifacts without
+a manual clean. The checker and native compiler commands share the same resolver. The header adds
+no runtime resource or executable code; unchanged toolchains do not trigger native compilation.
 
 The root manifest explicitly opts into C generation:
 
@@ -75,8 +98,22 @@ and [generated-source handling](https://github.com/swiftlang/swift-package-manag
 
 The script sets the historical `.build/osax/swift/payload` install name explicitly: Swift's default
 includes the output path, which would otherwise change the previously tested payload bytes in
-different plugin work directories. Run `make clean` when switching Xcode/SDK versions to discard
-generated artifacts from the previous toolchain.
+different plugin work directories.
+
+## Upgrade checks
+
+Run `make check-build` after an Xcode/SwiftPM upgrade or changes to build generation. It copies the
+current working sources into a fresh temporary directory and checks a complete build/version
+command, a no-op rebuild, a native-header change, and another no-op build. It then changes the
+Xcode selector to an equivalent selection of the same installation and verifies native cache
+invalidation followed by another no-op. Identical native bytes and C-array timestamps must be
+preserved. Finally it runs the Swift tests, including golden IPC replay.
+
+The check needs only the selected Xcode; it does not switch system-wide `xcode-select`, require a
+second installation, touch the checkout's sources/build caches/`bin/`, or deploy a service.
+Successful checks remove their temporary copy. Failures retain it with per-step logs. For manual
+inspection, run `python3 scripts/check-build.py --keep`; `--swift 'xcrun swift'` selects the outer
+driver using the same scope described above. The runner uses Python 3's standard library.
 
 ## Settings and verification
 

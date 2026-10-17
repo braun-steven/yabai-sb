@@ -34,6 +34,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `make clean`: removes `bin/`, `.build/`, `osax/.build/` and legacy generated `osax/*_bin.c`. Plugin input dependencies regenerate arrays automatically after native source/header/module-map/script changes.
 - `make prepare`: optional `swift build --target OSAX`; ordinary SwiftPM/IDE use needs no separate step. See `doc/building.md`.
 - `make test`: wraps `swift test`. A single test runs with `swift test --filter <name>`.
+- `make check-build`: checks clean/no-op/native-input/toolchain-selection builds and Swift tests in a temporary source copy. Failures retain per-step logs; the checkout's caches and binary stay untouched.
 - `make osax-test` / `make osax-payload`: isolated Swift Testing for the payload core / standalone arm64e dylib. Swift 2.1.36 is the only implementation; no core-selection option remains. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` using asciidoctor. Edit the Asciidoc source.
@@ -109,6 +110,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 ### Pitfalls learned so far
 
 - **Plugin-generated C:** SwiftPM requires `// swift-tools-version: 6.4;(experimentalCGen)` in the root manifest. Without the experimental opt-in it warns and omits generated C. Preserve the suffix when updating the tools version; `OSAXEmbed` must declare every native input.
+- **Native toolchain selection:** `SWIFT`/`SWIFT_FLAGS` select only outer SwiftPM behavior. `osax-toolchain.sh` resolves native tools/SDK through `xcrun` with `DEVELOPER_DIR`, `TOOLCHAINS`, and `SDKROOT`; both the per-build identity header and native commands use it. Toolchain identity changes invalidate native generation automatically.
 - **Swift dylib output paths:** the default install name contains the output path. `build-osax.sh` sets the historical `.build/osax/swift/payload` install name explicitly so arbitrary plugin work directories preserve the live-tested bytes.
 - **Optimized Swift C exports:** an internal `@_cdecl` can become local during SwiftPM release prelinking, even when debug tests link. Mark cross-target exports `public` and build a release consumer (`osax/core/swift/Core.swift`).
 - **Payload tests:** daemon ASan/TSan do not instrument the separately compiled payload. Use the standalone `osax` package; test signal interruptions on a disposable pthread with its signal explicitly unblocked, because Swift Testing/sanitizers can inherit a blocked mask.

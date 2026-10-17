@@ -4,15 +4,16 @@ SCRIPT_PATH    = ./scripts
 ASSET_PATH     = ./assets
 SMP_PATH       = ./examples
 ARCH_PATH      = ./archive
+# SWIFT selects only the outer driver. DEVELOPER_DIR/TOOLCHAINS select tools for both builds.
 SWIFT          ?= xcrun swift
 SWIFT_FLAGS    ?=
 SWIFT_BUILD    = $(SWIFT) build --product yabai --arch arm64 $(SWIFT_FLAGS)
 BUILD_FLAGS    = --configuration debug
 
 # Package.swift reads it to stamp the right SDK version into the binary
-export SDKROOT := $(shell xcrun --show-sdk-path)
+export SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path)
 
-.PHONY: all asan tsan install prepare test osax-test osax-payload man icon archive publish sign clean-build clean
+.PHONY: all asan tsan install prepare test check-build osax-test osax-payload man icon archive publish sign clean-build clean
 
 # Build variants publish to the same bin/yabai; do not run them concurrently with make -j.
 .NOTPARALLEL:
@@ -37,6 +38,9 @@ prepare:
 
 test:
 	$(SWIFT) test $(SWIFT_FLAGS)
+
+check-build:
+	python3 $(SCRIPT_PATH)/check-build.py --swift "$(SWIFT)"
 
 osax-test:
 	$(SWIFT) test --package-path osax $(SWIFT_FLAGS)

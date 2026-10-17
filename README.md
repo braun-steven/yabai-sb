@@ -106,6 +106,7 @@ make install         # optimized release binary at the same path
 make test            # Swift unit tests and byte-for-byte golden IPC replay
 make asan            # AddressSanitizer build
 make tsan            # ThreadSanitizer build
+make check-build     # isolated build-system upgrade checks and Swift tests
 ```
 
 `make install` builds locally; it does not copy the binary into your PATH. A failed build preserves the last successful `bin/yabai`. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes both packages' build products. The package opts into SwiftPM's experimental C-source generation support; see [build details](doc/building.md) and [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.

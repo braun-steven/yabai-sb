@@ -179,6 +179,15 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 
 ## Scripting addition
 
+- `make osax-test` and `swift test --package-path osax --sanitize=address` / `--sanitize=thread`
+  exercise the payload cores themselves against a recording backend, including a mock Mach task
+  for loader failures. Daemon sanitizer builds do not instrument the injected payload.
+- `bash scripts/live-tests/deploy.sh install objc` or `... install swift` chooses the prototype
+  embedded in the test daemon; neither command reloads Dock's payload by itself. Versions are
+  2.1.35 (ObjC) and 2.1.36 (Swift). Follow [osax-prototypes.md](osax-prototypes.md), including the
+  old-payload check, terminal reload and restoration. The compatibility wrapper uses empty space
+  13 rather than 12 and preserves the user's runtime config and visible spaces.
+
 - A test build cannot load its payload by itself (sudoers, see above), so Dock keeps the old payload.
   That is the moment to test how a new daemon behaves with an old payload, which ignores unknown
   opcodes. Do it before reloading.

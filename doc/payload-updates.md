@@ -27,3 +27,12 @@ From commits like “Patterns adjusted …” and comments inside the payload so
 
 The makefile embeds the rebuilt binaries as `__osax_payload` and `__osax_loader` in the SwiftPM `OSAX` target. `Sources/Yabai/ScriptingAddition.swift` consumes them. Bump `OSAX_VERSION` in `osax/common.h` whenever payload code or protocol behavior changes; the P14 path-only rebuild kept 2.1.34 because rebuilding at the old path produced identical bytes.
 
+## Hardened core prototypes
+
+`make osax-prototypes` builds both arm64e variants without installing or injecting them. Normal
+builds select Objective-C (2.1.35); `OSAX_CORE=swift make install` selects the experimental Swift
+core (2.1.36). The native adapter remains in `payload.m`, and the named bootstrap template in
+`bootstrap.S` is shared. `make osax-test` runs both cores against a recording backend outside Dock.
+Read [osax-prototypes.md](osax-prototypes.md) for protocol compatibility, signatures/ownership
+evidence, sanitizer coverage, benchmarks and the controlled live comparison procedure.
+

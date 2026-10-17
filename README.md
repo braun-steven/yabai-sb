@@ -108,6 +108,10 @@ make tsan            # ThreadSanitizer build
 
 `make install` builds locally; it does not copy the binary into your PATH. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes build products and generated payload arrays. See [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
+`make osax-prototypes` builds comparable Objective-C and experimental Swift payloads without injecting
+them; `make osax-test` tests their cores outside Dock. The default remains Objective-C. See the
+[comparison and reload procedure](doc/osax-prototypes.md) before selecting `OSAX_CORE=swift`.
+
 ## License and Attribution
 
 yabai is licensed under the [&nearr;&nbsp;MIT&nbsp;License][yabai-license], a short and simple permissive license with conditions only requiring preservation of copyright and license notices.

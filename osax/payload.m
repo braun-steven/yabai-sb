@@ -21,7 +21,9 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <pwd.h>
 #include <dlfcn.h>
+#include <libkern/OSCacheControl.h>
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -29,13 +31,11 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "core/api/include/OSAXCore.h"
+#include "core/objc/IO.h"
 
 #include "arm64_payload.m"
 #include <ptrauth.h>
-
-#define HASHTABLE_IMPLEMENTATION
-#include "hashtable.h"
-#undef HASHTABLE_IMPLEMENTATION
 
 #define page_align(addr) (vm_address_t)((uintptr_t)(addr) & (~(vm_page_size - 1)))
 #define unpack(v) memcpy(&v, message, sizeof(v)); message += sizeof(v)
@@ -66,18 +66,6 @@ extern CGError SLSTransactionOrderWindowGroup(CFTypeRef transaction, uint32_t wi
 extern CGError SLSTransactionSetWindowSystemAlpha(CFTypeRef transaction, uint32_t wid, float alpha);
 extern CGError SLSSetWindowSubLevel(int cid, uint32_t wid, int level);
 
-struct window_fade_context
-{
-    pthread_t thread;
-    uint32_t wid;
-    volatile float alpha;
-    volatile float duration;
-    volatile bool skip;
-};
-
-pthread_mutex_t window_fade_lock;
-struct table window_fade_table;
-
 static id dock_spaces;
 static id dp_desktop_picture_manager;
 static uint64_t add_space_fp;
@@ -85,17 +73,19 @@ static uint64_t remove_space_fp;
 static uint64_t move_space_fp;
 static uint64_t set_front_window_fp;
 static uint64_t animation_time_addr;
+static bool animation_time_patched;
 
 static pthread_t daemon_thread;
 static int daemon_sockfd;
+static dispatch_source_t fade_timer;
 
-static void dump_class_info(Class c)
+static __attribute__((unused)) void dump_class_info(Class c)
 {
     const char *name = class_getName(c);
     unsigned int count = 0;
 
     Ivar *ivar_list = class_copyIvarList(c, &count);
-    for (int i = 0; i < count; i++) {
+    for (unsigned int i = 0; i < count; i++) {
         Ivar ivar = ivar_list[i];
         const char *ivar_name = ivar_getName(ivar);
         NSLog(@"%s ivar: %s", name, ivar_name);
@@ -103,7 +93,7 @@ static void dump_class_info(Class c)
     if (ivar_list) free(ivar_list);
 
     objc_property_t *property_list = class_copyPropertyList(c, &count);
-    for (int i = 0; i < count; i++) {
+    for (unsigned int i = 0; i < count; i++) {
         objc_property_t property = property_list[i];
         const char *prop_name = property_getName(property);
         NSLog(@"%s property: %s", name, prop_name);
@@ -111,7 +101,7 @@ static void dump_class_info(Class c)
     if (property_list) free(property_list);
 
     Method *method_list = class_copyMethodList(c, &count);
-    for (int i = 0; i < count; i++) {
+    for (unsigned int i = 0; i < count; i++) {
         Method method = method_list[i];
         const char *method_name = sel_getName(method_getName(method));
         NSLog(@"%s method: %s", name, method_name);
@@ -119,7 +109,7 @@ static void dump_class_info(Class c)
     if (method_list) free(method_list);
 }
 
-static Class dump_class_info_by_name(const char *name)
+static __attribute__((unused)) Class dump_class_info_by_name(const char *name)
 {
     Class c = objc_getClass(name);
     if (c != nil) {
@@ -128,98 +118,89 @@ static Class dump_class_info_by_name(const char *name)
     return c;
 }
 
-//
-// NOTE: getsegbyname is deprecated since macOS 13, but still returns the __TEXT segment of Dock, which the
-// pattern offsets are relative to. Its warning only shows since the deployment target is macOS 27.
-//
+static uint64_t text_start, text_end;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static uint64_t static_base_address(void)
+// Only inspect readable mapped storage, and only message objects whose class is registered with
+// the runtime. A byte-pattern hit is not enough to treat an arbitrary decoded pointer as an object.
+static bool readable_address(uint64_t address, size_t size)
 {
-    const struct segment_command_64 *command = getsegbyname("__TEXT");
-    uint64_t addr = command->vmaddr;
-    return addr;
-}
-#pragma clang diagnostic pop
-
-static uint64_t image_slide(void)
-{
-    char path[1024];
-    uint32_t size = sizeof(path);
-
-    if (_NSGetExecutablePath(path, &size) != 0) {
-        return -1;
-    }
-
-    for (uint32_t i = 0; i < _dyld_image_count(); i++) {
-        if (strcmp(_dyld_get_image_name(i), path) == 0) {
-            return _dyld_get_image_vmaddr_slide(i);
-        }
-    }
-
-    return 0;
+    mach_vm_address_t region = address;
+    mach_vm_size_t length = 0;
+    vm_region_basic_info_data_64_t info;
+    mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
+    mach_port_t object = MACH_PORT_NULL;
+    kern_return_t result = mach_vm_region(mach_task_self(), &region, &length, VM_REGION_BASIC_INFO_64,
+                                         (vm_region_info_t)&info, &count, &object);
+    if (object) mach_port_deallocate(mach_task_self(), object);
+    return result == KERN_SUCCESS && (info.protection & VM_PROT_READ) && region <= address
+        && address - region <= length && size <= length - (address - region);
 }
 
-static uint64_t hex_find_seq(uint64_t baddr, const char *c_pattern)
+static id validated_object(uint64_t storage, SEL selector)
 {
-    if (!baddr || !c_pattern) return 0;
-
-    uint64_t addr = baddr;
-    uint64_t pattern_length = (strlen(c_pattern) + 1) / 3;
-    char buffer_a[pattern_length];
-    char buffer_b[pattern_length];
-    memset(buffer_a, 0, sizeof(buffer_a));
-    memset(buffer_b, 0, sizeof(buffer_b));
-
-    char *pattern = (char *) c_pattern + 1;
-    for (int i = 0; i < pattern_length; ++i) {
-        char c = pattern[-1];
-        if (c == '?') {
-            buffer_b[i] = 1;
-        } else {
-            int temp = c <= '9' ? 0 : 9;
-            temp = (temp + c) << 0x4;
-            c = pattern[0];
-            int temp2 = c <= '9' ? 0xd0 : 0xc9;
-            buffer_a[i] = temp2 + c + temp;
-        }
-        pattern += 3;
+    if ((storage & 7) || !readable_address(storage, sizeof(id))) return nil;
+    id object = *(id *)storage;
+    if (!object || !readable_address((uintptr_t)object, sizeof(void *))) return nil;
+    Class candidate = object_getClass(object);
+    unsigned count = 0;
+    Class *classes = objc_copyClassList(&count);
+    bool known = false;
+    for (unsigned i = 0; i < count; ++i) {
+        if (classes[i] == candidate) { known = true; break; }
     }
-
-loop:
-    for (int counter = 0; counter < pattern_length; ++counter) {
-        if ((buffer_b[counter] == 0) && (((char *)addr)[counter] != buffer_a[counter])) {
-            addr = (uint64_t)((char *)addr + 1);
-            if (addr - baddr < 0x1286a0) {
-                goto loop;
-            } else {
-                return 0;
-            }
-        }
-    }
-
-    return addr;
+    free(classes);
+    return known && [object respondsToSelector:selector] ? object : nil;
 }
 
-uint64_t decode_adrp_add(uint64_t addr, uint64_t offset)
+static uint64_t hex_find_seq(uint64_t address, const char *pattern)
 {
-    uint32_t adrp_instr = *(uint32_t *) addr;
-
-    uint32_t immlo = (0x60000000 & adrp_instr) >> 29;
-    uint32_t immhi = (0xffffe0 & adrp_instr) >> 3;
-
-    int32_t value = (immhi | immlo) << 12;
-    int64_t value_64 = value;
-
-    uint32_t add_instr = *(uint32_t *) (addr + 4);
-    uint64_t imm12 = (add_instr & 0x3ffc00) >> 10;
-
-    if (add_instr & 0xc00000) {
-        imm12 <<= 12;
+    if (!address || !pattern || address < text_start || address >= text_end) return 0;
+    size_t length = (size_t)(text_end - address);
+    if (length > 0x1286a0) length = 0x1286a0;
+    size_t offset;
+    size_t count = sa_pattern_scan((uint8_t *)address, length, pattern, &offset, 1);
+    if (count != 1) {
+        NSLog(@"[yabai-sa] pattern at 0x%llx has %zu matches; rejecting missing/ambiguous function", address, count);
+        return 0;
     }
+    if ((address + offset) & 3) {
+        NSLog(@"[yabai-sa] rejecting unaligned instruction match");
+        return 0;
+    }
+    return address + offset;
+}
 
-    return (offset & 0xfffffffffffff000) + value_64 + imm12;
+static id find_instance(uint64_t address, const char *pattern, SEL selector, bool alternate)
+{
+    if (address < text_start || address >= text_end) return nil;
+    size_t length = (size_t)(text_end - address);
+    if (length > 0x1286a0) length = 0x1286a0;
+    size_t offsets[32];
+    size_t count = sa_pattern_scan((uint8_t *)address, length, pattern, offsets, 32);
+    if (count > 32) return nil;
+    id result = nil;
+    for (size_t i = 0; i < count; ++i) {
+        uint64_t pc = address + offsets[i], storage;
+        if (pc > text_end - 8 || (pc & 3)) continue;
+        uint32_t instructions[2];
+        memcpy(instructions, (void *)pc, sizeof(instructions));
+        if (!sa_decode_adrp_add(instructions[0], instructions[1], pc, &storage)) continue;
+        id candidate = validated_object(storage, selector);
+        if (candidate && selector == @selector(spacesForDisplay:)
+            && (!class_getInstanceVariable(object_getClass(candidate), "_displaySpaces")
+                || ![candidate respondsToSelector:@selector(currentSpaceForDisplayUUID:)]
+                || ![candidate respondsToSelector:@selector(displayIDForSpace:)])) candidate = nil;
+        // NOTE: DPPM may live eight bytes before the usual slot (the historical Sonoma fallback).
+        if (!candidate && alternate && storage >= 8) candidate = validated_object(storage - 8, selector);
+        NSLog(@"[yabai-sa] instance pattern 0x%llx -> 0x%llx %@", pc, storage, candidate ? @"valid" : @"rejected");
+        if (!candidate) continue;
+        if (result && result != candidate) {
+            NSLog(@"[yabai-sa] multiple valid instance targets; disabling capability");
+            return nil;
+        }
+        result = candidate;
+    }
+    return [result retain];
 }
 
 static bool verify_os_version(NSOperatingSystemVersion os_version)
@@ -233,46 +214,26 @@ static bool verify_os_version(NSOperatingSystemVersion os_version)
     return false;
 }
 
-static void init_instances()
+static void init_instances(void)
 {
     NSOperatingSystemVersion os_version = [[NSProcessInfo processInfo] operatingSystemVersion];
     if (!verify_os_version(os_version)) return;
 
-    uint64_t baseaddr = static_base_address() + image_slide();
+    const struct mach_header_64 *header = (const struct mach_header_64 *)_dyld_get_image_header(0);
+    unsigned long text_size = 0;
+    const uint8_t *text = getsectiondata(header, "__TEXT", "__text", &text_size);
+    if (!text || text_size < 8) return;
+    uint64_t baseaddr = (uint64_t)header;
+    text_start = (uint64_t)text;
+    text_end = text_start + text_size;
+    if (text_end < text_start) return;
 
-    uint64_t dock_spaces_addr = hex_find_seq(baseaddr + get_dock_spaces_offset(), get_dock_spaces_pattern());
-    if (dock_spaces_addr == 0) {
-        dock_spaces = nil;
-        NSLog(@"[yabai-sa] could not locate pointer to dock.spaces! spaces functionality will not work!");
-    } else {
-        uint64_t dock_spaces_offset = decode_adrp_add(dock_spaces_addr, dock_spaces_addr - baseaddr);
-        NSLog(@"[yabai-sa] (0x%llx) dock.spaces found at address 0x%llX (0x%llx)", baseaddr, dock_spaces_offset, dock_spaces_offset - baseaddr);
-        dock_spaces = [(*(id *)(baseaddr + dock_spaces_offset)) retain];
-    }
-
-    uint64_t dppm_addr = hex_find_seq(baseaddr + get_dppm_offset(), get_dppm_pattern());
-    if (dppm_addr == 0) {
-        dp_desktop_picture_manager = nil;
-        NSLog(@"[yabai-sa] could not locate pointer to dppm! moving spaces will not work!");
-    } else {
-        uint64_t dppm_offset = decode_adrp_add(dppm_addr, dppm_addr - baseaddr);
-        NSLog(@"[yabai-sa] (0x%llx) dppm found at address 0x%llX (0x%llx)", baseaddr, dppm_offset, dppm_offset - baseaddr);
-        dp_desktop_picture_manager = [(*(id *)(baseaddr + dppm_offset)) retain];
-
-        //
-        // @hack
-        //
-        // NOTE(asmvik): For whatever reason, in Sonoma, DPDesktopPictureManager is initialized and swapped
-        // to an alternate storage location instead of where it used to be stored in previous macOS versions..
-        //
-        // This alternate storage location resides 8-bytes before the usual location, so we simply do
-        // the subtract to arrive at the correct location in cases where the usual location is null.
-        //
-
-        if (dp_desktop_picture_manager == nil) {
-            dp_desktop_picture_manager = [(*(id *)(baseaddr + dppm_offset - 0x8)) retain];
-        }
-    }
+    dock_spaces = find_instance(baseaddr + get_dock_spaces_offset(), get_dock_spaces_pattern(),
+                                @selector(spacesForDisplay:), false);
+    dp_desktop_picture_manager = find_instance(baseaddr + get_dppm_offset(), get_dppm_pattern(),
+                                               @selector(moveSpace:toDisplay:displayUUID:), true);
+    if (!dock_spaces) NSLog(@"[yabai-sa] no validated dock.spaces instance");
+    if (!dp_desktop_picture_manager) NSLog(@"[yabai-sa] no validated desktop picture manager");
 
     uint64_t add_space_addr = hex_find_seq(baseaddr + get_add_space_offset(), get_add_space_pattern());
     if (add_space_addr == 0x0) {
@@ -317,7 +278,10 @@ static void init_instances()
         NSLog(@"[yabai-sa] (0x%llx) animation_time_addr found at address 0x%llX (0x%llx)", baseaddr, animation_time_addr, animation_time_addr - baseaddr);
         if (vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) == KERN_SUCCESS) {
             *(uint32_t *) animation_time_addr = 0x2f00e400;
-            vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_EXECUTE);
+            sys_icache_invalidate((void *)animation_time_addr, sizeof(uint32_t));
+            animation_time_patched = vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0,
+                                               VM_PROT_READ | VM_PROT_EXECUTE) == KERN_SUCCESS;
+            if (!animation_time_patched) NSLog(@"[yabai-sa] failed to restore executable animation page protection");
         } else {
             NSLog(@"[yabai-sa] animation_time_addr vm_protect failed; unable to patch instruction!");
         }
@@ -381,6 +345,7 @@ static inline id display_space_for_display_uuid(CFStringRef display_uuid)
             id display_source_space = get_ivar_value(display_space, "_currentSpace");
             uint64_t sid = get_space_id(display_source_space);
             CFStringRef uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), sid);
+            if (!uuid) continue;
             bool match = CFEqual(uuid, display_uuid);
             CFRelease(uuid);
             if (match) {
@@ -407,9 +372,9 @@ static inline id display_space_for_space_with_id(uint64_t space_id)
     return nil;
 }
 
-static void do_space_move(char *message)
+static bool do_space_move(char *message)
 {
-    if (dock_spaces == nil || dp_desktop_picture_manager == nil || move_space_fp == 0) return;
+    if (dock_spaces == nil || dp_desktop_picture_manager == nil || move_space_fp == 0) return false;
 
     uint64_t source_space_id, dest_space_id, source_prev_space_id;
     unpack(source_space_id);
@@ -421,7 +386,13 @@ static void do_space_move(char *message)
 
     CFStringRef source_display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), source_space_id);
     CFStringRef dest_display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), dest_space_id);
+    if (!source_display_uuid || !dest_display_uuid) {
+        if (source_display_uuid) CFRelease(source_display_uuid);
+        if (dest_display_uuid) CFRelease(dest_display_uuid);
+        return false;
+    }
 
+    __block bool ready = false;
     __block id source_space;
     __block id source_display_space;
     __block id dest_space;
@@ -433,20 +404,28 @@ static void do_space_move(char *message)
         source_display_space = display_space_for_display_uuid(source_display_uuid);
 
         dest_space = space_for_display_with_id(dest_display_uuid, dest_space_id);
-        dest_display_id = ((unsigned (*)(id, SEL, id)) objc_msgSend)(dock_spaces, @selector(displayIDForSpace:), dest_space);
         dest_display_space = display_space_for_display_uuid(dest_display_uuid);
+        if (!source_space || !dest_space || !source_display_space || !dest_display_space) return;
+        dest_display_id = ((unsigned (*)(id, SEL, id)) objc_msgSend)(dock_spaces, @selector(displayIDForSpace:), dest_space);
 
         if (source_prev_space_id) {
             NSArray *ns_source_space = @[ @(source_space_id) ];
             NSArray *ns_dest_space = @[ @(source_prev_space_id) ];
             id new_source_space = space_for_display_with_id(source_display_uuid, source_prev_space_id);
+            if (!new_source_space) return;
             SLSShowSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_dest_space);
             SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
             SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), source_display_uuid, source_prev_space_id);
             set_current_space(source_display_space, new_source_space);
         }
+        ready = true;
     });
 
+    if (!ready) {
+        CFRelease(source_display_uuid);
+        CFRelease(dest_display_uuid);
+        return false;
+    }
     asm__call_move_space(source_space, dest_space, dest_display_uuid, dock_spaces, move_space_fp);
 
     dispatch_sync(dispatch_get_main_queue(), ^{
@@ -466,24 +445,29 @@ static void do_space_move(char *message)
 
     CFRelease(source_display_uuid);
     CFRelease(dest_display_uuid);
+    return true;
 }
 
 typedef void (*remove_space_call)(id space, id display_space, id dock_spaces, uint64_t space_id1, uint64_t space_id2);
-static void do_space_destroy(char *message)
+static bool do_space_destroy(char *message)
 {
-    if (dock_spaces == nil || remove_space_fp == 0) return;
+    if (dock_spaces == nil || remove_space_fp == 0) return false;
 
     uint64_t space_id;
     unpack(space_id);
 
     CFStringRef display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), space_id);
+    if (!display_uuid) return false;
     uint64_t active_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), display_uuid);
 
+    __block bool accepted = false;
     dispatch_sync(dispatch_get_main_queue(), ^{
         id space = space_for_display_with_id(display_uuid, space_id);
         id display_space = display_space_for_display_uuid(display_uuid);
+        if (!space || !display_space) return;
 
         ((remove_space_call) remove_space_fp)(space, display_space, dock_spaces, space_id, space_id);
+        accepted = true;
 
         if (active_space_id == space_id) {
             uint64_t dest_space_id = SLSManagedDisplayGetCurrentSpace(SLSMainConnectionID(), display_uuid);
@@ -493,38 +477,53 @@ static void do_space_destroy(char *message)
     });
 
     CFRelease(display_uuid);
+    return accepted;
 }
 
-static void do_space_create(char *message)
+static bool do_space_create(char *message)
 {
-    if (dock_spaces == nil || add_space_fp == 0) return;
+    if (dock_spaces == nil || add_space_fp == 0) return false;
 
     uint64_t space_id;
     unpack(space_id);
 
     CFStringRef __block display_uuid = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), space_id);
+    if (!display_uuid) return false;
+    __block bool accepted = false;
     dispatch_sync(dispatch_get_main_queue(), ^{
         id new_space = [[objc_getClass("ManagedSpace") alloc] init];
         id display_space = display_space_for_display_uuid(display_uuid);
-        asm__call_add_space(new_space, display_space, add_space_fp);
-        CFRelease(display_uuid);
+        // NOTE: On Dock 26A434 addSpace borrows x0, retaining separately for its space array.
+        // Dock's own caller passes a borrowed object. Balance our alloc/init reference here.
+        @try {
+            if (new_space && display_space) {
+                asm__call_add_space(new_space, display_space, add_space_fp);
+                accepted = true;
+            }
+        } @finally {
+            [new_space release];
+        }
     });
+    CFRelease(display_uuid);
+    return accepted;
 }
 
-static void do_space_focus(char *message)
+static bool do_space_focus(char *message)
 {
-    if (dock_spaces == nil) return;
+    if (dock_spaces == nil) return false;
 
     uint64_t dest_space_id;
     unpack(dest_space_id);
 
+    __block bool accepted = false;
     if (dest_space_id) {
         CFStringRef dest_display = SLSCopyManagedDisplayForSpace(SLSMainConnectionID(), dest_space_id);
+        if (!dest_display) return false;
 
         dispatch_sync(dispatch_get_main_queue(), ^{
             id source_space = ((id (*)(id, SEL, CFStringRef)) objc_msgSend)(dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display);
             uint64_t source_space_id = get_space_id(source_space);
-            if (source_space_id == dest_space_id) return;
+            if (source_space_id == dest_space_id) { accepted = true; return; }
 
             id dest_space = space_for_display_with_id(dest_display, dest_space_id);
             if (dest_space == nil) return;
@@ -538,24 +537,26 @@ static void do_space_focus(char *message)
             SLSHideSpaces(SLSMainConnectionID(), (__bridge CFArrayRef) ns_source_space);
             SLSManagedDisplaySetCurrentSpace(SLSMainConnectionID(), dest_display, dest_space_id);
             set_current_space(display_space, dest_space);
+            accepted = true;
         });
 
         CFRelease(dest_display);
     }
+    return accepted;
 }
 
-static void do_window_scale(char *message)
+static bool do_window_scale(char *message)
 {
     uint32_t wid;
     unpack(wid);
-    if (!wid) return;
+    if (!wid) return true;
 
     CGRect frame = {};
-    SLSGetWindowBounds(SLSMainConnectionID(), wid, &frame);
+    if (SLSGetWindowBounds(SLSMainConnectionID(), wid, &frame) != kCGErrorSuccess) return false;
     CGAffineTransform original_transform = CGAffineTransformMakeTranslation(-frame.origin.x, -frame.origin.y);
 
     CGAffineTransform current_transform;
-    SLSGetWindowTransform(SLSMainConnectionID(), wid, &current_transform);
+    if (SLSGetWindowTransform(SLSMainConnectionID(), wid, &current_transform) != kCGErrorSuccess) return false;
 
     if (CGAffineTransformEqualToTransform(current_transform, original_transform)) {
         float dx, dy, dw, dh;
@@ -564,8 +565,12 @@ static void do_window_scale(char *message)
         unpack(dw);
         unpack(dh);
 
+        if (dw <= 0 || dh <= 0 || frame.size.width <= 0 || frame.size.height <= 0) return false;
+        if ((double)dw / 4 > INT_MAX) return false;
         int target_width  = dw / 4;
+        if ((double)target_width / (frame.size.width/frame.size.height) > INT_MAX) return false;
         int target_height = target_width / (frame.size.width/frame.size.height);
+        if (target_width <= 0 || target_height <= 0) return false;
 
         float x_scale = frame.size.width/target_width;
         float y_scale = frame.size.height/target_height;
@@ -575,161 +580,88 @@ static void do_window_scale(char *message)
 
         CGAffineTransform scale = CGAffineTransformConcat(CGAffineTransformIdentity, CGAffineTransformMakeScale(x_scale, y_scale));
         CGAffineTransform transform = CGAffineTransformTranslate(scale, transformed_x, transformed_y);
-        SLSSetWindowTransform(SLSMainConnectionID(), wid, transform);
+        return SLSSetWindowTransform(SLSMainConnectionID(), wid, transform) == kCGErrorSuccess;
     } else {
-        SLSSetWindowTransform(SLSMainConnectionID(), wid, original_transform);
+        return SLSSetWindowTransform(SLSMainConnectionID(), wid, original_transform) == kCGErrorSuccess;
     }
 }
 
-static void do_window_move(char *message)
+static bool do_window_move(char *message)
 {
     uint32_t wid;
     unpack(wid);
-    if (!wid) return;
+    if (!wid) return true;
 
     int x, y;
     unpack(x);
     unpack(y);
 
     CGPoint point = CGPointMake(x, y);
-    SLSMoveWindowWithGroup(SLSMainConnectionID(), wid, &point);
+    OSStatus status = SLSMoveWindowWithGroup(SLSMainConnectionID(), wid, &point);
 
     NSArray *window_list = @[ @(wid) ];
-    SLSReassociateWindowsSpacesByGeometry(SLSMainConnectionID(), (__bridge CFArrayRef) window_list);
+    CGError associated = SLSReassociateWindowsSpacesByGeometry(SLSMainConnectionID(), (__bridge CFArrayRef) window_list);
+    return status == noErr && associated == kCGErrorSuccess;
 }
 
-static void do_window_opacity(char *message)
+bool sa_native_get_alpha(uint32_t wid, float *alpha)
+{
+    return SLSGetWindowAlpha(SLSMainConnectionID(), wid, alpha) == kCGErrorSuccess;
+}
+
+bool sa_native_set_alpha(uint32_t wid, float alpha)
+{
+    return SLSSetWindowAlpha(SLSMainConnectionID(), wid, alpha) == kCGErrorSuccess;
+}
+
+uint64_t sa_clock_ns(void)
+{
+    return sa_io_now();
+}
+
+static bool do_window_opacity(char *message, bool fade)
 {
     uint32_t wid;
-    unpack(wid);
-    if (!wid) return;
-
-    float alpha;
-    unpack(alpha);
-
-    pthread_mutex_lock(&window_fade_lock);
-    struct window_fade_context *context = table_find(&window_fade_table, &wid);
-
-    if (context) {
-        context->alpha = alpha;
-        context->duration = 0.0f;
-        __asm__ __volatile__ ("" ::: "memory");
-
-        context->skip = true;
-        pthread_mutex_unlock(&window_fade_lock);
-    } else {
-        SLSSetWindowAlpha(SLSMainConnectionID(), wid, alpha);
-        pthread_mutex_unlock(&window_fade_lock);
-    }
-}
-
-static void *window_fade_thread_proc(void *data)
-{
-entry:;
-    struct window_fade_context *context = (struct window_fade_context *) data;
-    context->skip  = false;
-
-    float start_alpha;
-    float end_alpha = context->alpha;
-    SLSGetWindowAlpha(SLSMainConnectionID(), context->wid, &start_alpha);
-
-    int frame_duration = 8;
-    int total_duration = (int)(context->duration * 1000.0f);
-    int frame_count = (int)(((float) total_duration / (float) frame_duration) + 1.0f);
-
-    for (int frame_index = 1; frame_index <= frame_count; ++frame_index) {
-        if (context->skip) goto entry;
-
-        float t = (float) frame_index / (float) frame_count;
-        if (t < 0.0f) t = 0.0f;
-        if (t > 1.0f) t = 1.0f;
-
-        float alpha = lerp(start_alpha, t, end_alpha);
-        SLSSetWindowAlpha(SLSMainConnectionID(), context->wid, alpha);
-
-        usleep(frame_duration*1000);
-    }
-
-    pthread_mutex_lock(&window_fade_lock);
-    if (!context->skip) {
-        table_remove(&window_fade_table, &context->wid);
-        pthread_mutex_unlock(&window_fade_lock);
-        free(context);
-        return NULL;
-    }
-    pthread_mutex_unlock(&window_fade_lock);
-
-    goto entry;
-}
-
-static void do_window_opacity_fade(char *message)
-{
-    uint32_t wid;
-    unpack(wid);
-    if (!wid) return;
-
     float alpha, duration;
+    unpack(wid);
     unpack(alpha);
     unpack(duration);
-
-    pthread_mutex_lock(&window_fade_lock);
-    struct window_fade_context *context = table_find(&window_fade_table, &wid);
-
-    if (context) {
-        context->alpha = alpha;
-        context->duration = duration;
-        __asm__ __volatile__ ("" ::: "memory");
-
-        context->skip = true;
-        pthread_mutex_unlock(&window_fade_lock);
-    } else {
-        context = malloc(sizeof(struct window_fade_context));
-        context->wid = wid;
-        context->alpha = alpha;
-        context->duration = duration;
-        context->skip = false;
-        __asm__ __volatile__ ("" ::: "memory");
-
-        table_add(&window_fade_table, &wid, context);
-        pthread_mutex_unlock(&window_fade_lock);
-        pthread_create(&context->thread, NULL, &window_fade_thread_proc, context);
-        pthread_detach(context->thread);
-    }
+    return sa_core_opacity(wid, alpha, fade ? duration : 0, sa_clock_ns());
 }
 
-static void do_window_layer(char *message)
+static bool do_window_layer(char *message)
 {
     uint32_t wid;
     unpack(wid);
-    if (!wid) return;
+    if (!wid) return true;
 
     int layer;
     unpack(layer);
 
-    SLSSetWindowSubLevel(SLSMainConnectionID(), wid, CGWindowLevelForKey(layer));
+    return SLSSetWindowSubLevel(SLSMainConnectionID(), wid, CGWindowLevelForKey(layer)) == kCGErrorSuccess;
 }
 
-static void do_window_sticky(char *message)
+static bool do_window_sticky(char *message)
 {
     uint32_t wid;
     unpack(wid);
-    if (!wid) return;
+    if (!wid) return true;
 
     bool value;
     unpack(value);
 
     uint64_t tags = (1 << 11);
     if (value == 1) {
-        SLSSetWindowTags(SLSMainConnectionID(), wid, &tags, 64);
+        return SLSSetWindowTags(SLSMainConnectionID(), wid, &tags, 64) == kCGErrorSuccess;
     } else {
-        SLSClearWindowTags(SLSMainConnectionID(), wid, &tags, 64);
+        return SLSClearWindowTags(SLSMainConnectionID(), wid, &tags, 64) == kCGErrorSuccess;
     }
 }
 
 typedef void (*focus_window_call)(ProcessSerialNumber psn, uint32_t wid);
-static void do_window_focus(char *message)
+static bool do_window_focus(char *message)
 {
-    if (set_front_window_fp == 0) return;
+    if (set_front_window_fp == 0) return false;
 
     int window_connection;
     ProcessSerialNumber window_psn;
@@ -737,36 +669,39 @@ static void do_window_focus(char *message)
     uint32_t wid;
     unpack(wid);
 
-    if (SLSGetWindowOwner(SLSMainConnectionID(), wid, &window_connection) != kCGErrorSuccess) return;
-    if (SLSGetConnectionPSN(window_connection, &window_psn) != kCGErrorSuccess) return;
+    if (SLSGetWindowOwner(SLSMainConnectionID(), wid, &window_connection) != kCGErrorSuccess) return false;
+    if (SLSGetConnectionPSN(window_connection, &window_psn) != kCGErrorSuccess) return false;
 
     ((focus_window_call) set_front_window_fp)(window_psn, wid);
+    return true;
 }
 
-static void do_window_shadow(char *message)
+static bool do_window_shadow(char *message)
 {
     uint32_t wid;
     unpack(wid);
-    if (!wid) return;
+    if (!wid) return true;
 
     bool value;
     unpack(value);
 
     uint64_t tags = (1 << 3);
     if (value == 1) {
-        SLSClearWindowTags(SLSMainConnectionID(), wid, &tags, 64);
+        return SLSClearWindowTags(SLSMainConnectionID(), wid, &tags, 64) == kCGErrorSuccess;
     } else {
-        SLSSetWindowTags(SLSMainConnectionID(), wid, &tags, 64);
+        return SLSSetWindowTags(SLSMainConnectionID(), wid, &tags, 64) == kCGErrorSuccess;
     }
 }
 
-static void do_window_swap_proxy_in(char *message)
+static bool do_window_swap_proxy_in(char *message)
 {
     int count = 0;
     unpack(count);
-    if (!count) return;
+    if (!count) return true;
 
     CFTypeRef transaction = SLSTransactionCreate(SLSMainConnectionID());
+    if (!transaction) return false;
+    bool success = true;
     for (int i = 0; i < count; ++i) {
         uint32_t wid;
         unpack(wid);
@@ -775,20 +710,23 @@ static void do_window_swap_proxy_in(char *message)
         uint32_t proxy_wid;
         unpack(proxy_wid);
 
-        SLSTransactionOrderWindowGroup(transaction, proxy_wid, 1, wid);
-        SLSTransactionSetWindowSystemAlpha(transaction, wid, 0);
+        if (SLSTransactionOrderWindowGroup(transaction, proxy_wid, 1, wid) != kCGErrorSuccess) success = false;
+        if (SLSTransactionSetWindowSystemAlpha(transaction, wid, 0) != kCGErrorSuccess) success = false;
     }
-    SLSTransactionCommit(transaction, 0);
+    if (SLSTransactionCommit(transaction, 0) != kCGErrorSuccess) success = false;
     CFRelease(transaction);
+    return success;
 }
 
-static void do_window_swap_proxy_out(char *message)
+static bool do_window_swap_proxy_out(char *message)
 {
     int count = 0;
     unpack(count);
-    if (!count) return;
+    if (!count) return true;
 
     CFTypeRef transaction = SLSTransactionCreate(SLSMainConnectionID());
+    if (!transaction) return false;
+    bool success = true;
     for (int i = 0; i < count; ++i) {
         uint32_t wid;
         unpack(wid);
@@ -797,18 +735,19 @@ static void do_window_swap_proxy_out(char *message)
         uint32_t proxy_wid;
         unpack(proxy_wid);
 
-        SLSTransactionSetWindowSystemAlpha(transaction, wid, 1.0f);
-        SLSTransactionOrderWindowGroup(transaction, proxy_wid, 0, wid);
+        if (SLSTransactionSetWindowSystemAlpha(transaction, wid, 1.0f) != kCGErrorSuccess) success = false;
+        if (SLSTransactionOrderWindowGroup(transaction, proxy_wid, 0, wid) != kCGErrorSuccess) success = false;
     }
-    SLSTransactionCommit(transaction, 0);
+    if (SLSTransactionCommit(transaction, 0) != kCGErrorSuccess) success = false;
     CFRelease(transaction);
+    return success;
 }
 
-static void do_window_order(char *message)
+static bool do_window_order(char *message)
 {
     uint32_t a_wid;
     unpack(a_wid);
-    if (!a_wid) return;
+    if (!a_wid) return true;
 
     int order;
     unpack(order);
@@ -816,7 +755,7 @@ static void do_window_order(char *message)
     uint32_t b_wid;
     unpack(b_wid);
 
-    SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid);
+    return SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid) == kCGErrorSuccess;
 }
 
 //
@@ -825,7 +764,7 @@ static void do_window_order(char *message)
 // the windows of a tabbed container depends on it.
 //
 
-static void do_window_order_list(char *message, int length)
+static bool do_window_order_list(char *message, int length)
 {
     int count = 0;
     unpack(count);
@@ -834,6 +773,7 @@ static void do_window_order_list(char *message, int length)
     int max_count = (length - (int)sizeof(int)) / entry_size;
     if (count > max_count) count = max_count;
 
+    bool success = true;
     for (int i = 0; i < count; ++i) {
         uint32_t a_wid;
         unpack(a_wid);
@@ -844,46 +784,50 @@ static void do_window_order_list(char *message, int length)
         uint32_t b_wid;
         unpack(b_wid);
 
-        if (a_wid) SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid);
+        if (a_wid && SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid) != kCGErrorSuccess) success = false;
     }
+    return success;
 }
 
-static void do_window_order_in(char *message)
+static bool do_window_order_in(char *message)
 {
     int count = 0;
     unpack(count);
-    if (!count) return;
+    if (!count) return true;
 
     CFTypeRef transaction = SLSTransactionCreate(SLSMainConnectionID());
+    if (!transaction) return false;
+    bool success = true;
     for (int i = 0; i < count; ++i) {
         uint32_t wid;
         unpack(wid);
         if (!wid) continue;
 
-        SLSTransactionOrderWindowGroup(transaction, wid, 1, 0);
+        if (SLSTransactionOrderWindowGroup(transaction, wid, 1, 0) != kCGErrorSuccess) success = false;
     }
-    SLSTransactionCommit(transaction, 0);
+    if (SLSTransactionCommit(transaction, 0) != kCGErrorSuccess) success = false;
     CFRelease(transaction);
+    return success;
 }
 
-static inline CFArrayRef cfarray_of_cfnumbers(void *values, size_t size, int count, CFNumberType type)
+static CFArrayRef create_window_list(const void *values, int count) CF_RETURNS_RETAINED;
+static CFArrayRef create_window_list(const void *values, int count)
 {
-    CFNumberRef temp[count];
-
+    CFMutableArrayRef result = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    if (!result) return NULL;
     for (int i = 0; i < count; ++i) {
-        temp[i] = CFNumberCreate(NULL, type, ((char *)values) + (size * i));
+        // Wire fields are not naturally aligned. CFNumberCreate must get typed, aligned storage.
+        int32_t wid;
+        memcpy(&wid, (const char *)values + sizeof(wid) * (size_t)i, sizeof(wid));
+        CFNumberRef number = CFNumberCreate(NULL, kCFNumberSInt32Type, &wid);
+        if (!number) { CFRelease(result); return NULL; }
+        CFArrayAppendValue(result, number);
+        CFRelease(number);
     }
-
-    CFArrayRef result = CFArrayCreate(NULL, (const void **)temp, count, &kCFTypeArrayCallBacks);
-
-    for (int i = 0; i < count; ++i) {
-        CFRelease(temp[i]);
-    }
-
     return result;
 }
 
-static void do_window_list_move_to_space(char *message)
+static bool do_window_list_move_to_space(char *message)
 {
     uint64_t sid;
     unpack(sid);
@@ -891,12 +835,14 @@ static void do_window_list_move_to_space(char *message)
     int count = 0;
     unpack(count);
 
-    CFArrayRef window_list_ref = cfarray_of_cfnumbers((uint32_t*)message, sizeof(uint32_t), count, kCFNumberSInt32Type);
+    CFArrayRef window_list_ref = create_window_list(message, count);
+    if (!window_list_ref) return false;
     SLSMoveWindowsToManagedSpace(SLSMainConnectionID(), window_list_ref, sid);
     CFRelease(window_list_ref);
+    return true;
 }
 
-static void do_window_move_to_space(char *message)
+static bool do_window_move_to_space(char *message)
 {
     uint64_t sid;
     unpack(sid);
@@ -904,212 +850,159 @@ static void do_window_move_to_space(char *message)
     uint32_t wid;
     unpack(wid);
 
-    CFArrayRef window_list_ref = cfarray_of_cfnumbers(&wid, sizeof(uint32_t), 1, kCFNumberSInt32Type);
+    CFArrayRef window_list_ref = create_window_list(&wid, 1);
+    if (!window_list_ref) return false;
     SLSMoveWindowsToManagedSpace(SLSMainConnectionID(), window_list_ref, sid);
     CFRelease(window_list_ref);
+    return true;
 }
 
-static void do_handshake(int sockfd)
+uint32_t sa_native_attributes(void)
 {
-    uint32_t attrib = 0;
-
-    if (dock_spaces != nil)                attrib |= OSAX_ATTRIB_DOCK_SPACES;
-    if (dp_desktop_picture_manager != nil) attrib |= OSAX_ATTRIB_DPPM;
-    if (add_space_fp)                      attrib |= OSAX_ATTRIB_ADD_SPACE;
-    if (remove_space_fp)                   attrib |= OSAX_ATTRIB_REM_SPACE;
-    if (move_space_fp)                     attrib |= OSAX_ATTRIB_MOV_SPACE;
-    if (set_front_window_fp)               attrib |= OSAX_ATTRIB_SET_WINDOW;
-    if (animation_time_addr)               attrib |= OSAX_ATTRIB_ANIM_TIME;
-
-    char bytes[BUFSIZ] = {};
-    int version_length = strlen(OSAX_VERSION);
-    int attrib_length = sizeof(uint32_t);
-    int bytes_length = version_length + 1 + attrib_length;
-
-    memcpy(bytes, OSAX_VERSION, version_length);
-    memcpy(bytes + version_length + 1, &attrib, attrib_length);
-    bytes[version_length] = '\0';
-    bytes[bytes_length] = '\n';
-
-    send(sockfd, bytes, bytes_length+1, 0);
+    uint32_t attributes = 0;
+    if (dock_spaces) attributes |= OSAX_ATTRIB_DOCK_SPACES;
+    if (dp_desktop_picture_manager) attributes |= OSAX_ATTRIB_DPPM;
+    if (add_space_fp) attributes |= OSAX_ATTRIB_ADD_SPACE;
+    if (remove_space_fp) attributes |= OSAX_ATTRIB_REM_SPACE;
+    if (move_space_fp) attributes |= OSAX_ATTRIB_MOV_SPACE;
+    if (set_front_window_fp) attributes |= OSAX_ATTRIB_SET_WINDOW;
+    if (animation_time_patched) attributes |= OSAX_ATTRIB_ANIM_TIME;
+    return attributes;
 }
 
-static void handle_message(int sockfd, char *message, int length)
+const char *sa_native_version(void)
 {
-    enum sa_opcode op = *message++;
-    --length;
+    return OSAX_VERSION;
+}
 
-    switch (op) {
-    case SA_OPCODE_HANDSHAKE: {
-        do_handshake(sockfd);
-    } break;
-    case SA_OPCODE_SPACE_FOCUS: {
-        do_space_focus(message);
-    } break;
-    case SA_OPCODE_SPACE_CREATE: {
-        do_space_create(message);
-    } break;
-    case SA_OPCODE_SPACE_DESTROY: {
-        do_space_destroy(message);
-    } break;
-    case SA_OPCODE_SPACE_MOVE: {
-        do_space_move(message);
-    } break;
-    case SA_OPCODE_WINDOW_MOVE: {
-        do_window_move(message);
-    } break;
-    case SA_OPCODE_WINDOW_OPACITY: {
-        do_window_opacity(message);
-    } break;
-    case SA_OPCODE_WINDOW_OPACITY_FADE: {
-        do_window_opacity_fade(message);
-    } break;
-    case SA_OPCODE_WINDOW_LAYER: {
-        do_window_layer(message);
-    } break;
-    case SA_OPCODE_WINDOW_STICKY: {
-        do_window_sticky(message);
-    } break;
-    case SA_OPCODE_WINDOW_SHADOW: {
-        do_window_shadow(message);
-    } break;
-    case SA_OPCODE_WINDOW_FOCUS: {
-        do_window_focus(message);
-    } break;
-    case SA_OPCODE_WINDOW_SCALE: {
-        do_window_scale(message);
-    } break;
-    case SA_OPCODE_WINDOW_SWAP_PROXY_IN: {
-        do_window_swap_proxy_in(message);
-    } break;
-    case SA_OPCODE_WINDOW_SWAP_PROXY_OUT: {
-        do_window_swap_proxy_out(message);
-    } break;
-    case SA_OPCODE_WINDOW_ORDER: {
-        do_window_order(message);
-    } break;
-    case SA_OPCODE_WINDOW_ORDER_LIST: {
-        do_window_order_list(message, length);
-    } break;
-    case SA_OPCODE_WINDOW_ORDER_IN: {
-        do_window_order_in(message);
-    } break;
-    case SA_OPCODE_WINDOW_LIST_TO_SPACE: {
-        do_window_list_move_to_space(message);
-    } break;
-    case SA_OPCODE_WINDOW_TO_SPACE: {
-        do_window_move_to_space(message);
-    } break;
+uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length)
+{
+    if (!bytes || !length) return SA_REPLY_INVALID;
+    uint8_t opcode = bytes[0];
+    char *message = (char *)bytes + 1;
+    uint32_t required = 0;
+    switch (opcode) {
+    case SA_OPCODE_SPACE_FOCUS: required = OSAX_ATTRIB_DOCK_SPACES; break;
+    case SA_OPCODE_SPACE_CREATE: required = OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_ADD_SPACE; break;
+    case SA_OPCODE_SPACE_DESTROY: required = OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_REM_SPACE; break;
+    case SA_OPCODE_SPACE_MOVE: required = OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_MOV_SPACE; break;
+    case SA_OPCODE_WINDOW_FOCUS: required = OSAX_ATTRIB_SET_WINDOW; break;
+    default: break;
     }
-}
-
-static inline bool read_message(int sockfd, char *message, int *length)
-{
-    int bytes_read    = 0;
-    int bytes_to_read = 0;
-
-    if (read(sockfd, &bytes_to_read, sizeof(int16_t)) == sizeof(int16_t)) {
-        if (bytes_to_read >= SA_SOCKET_BUFF_LEN) return false;
-        if (bytes_to_read <= 0)                  return false;
-
-        do {
-            int cur_read = read(sockfd, message+bytes_read, bytes_to_read-bytes_read);
-            if (cur_read <= 0) break;
-
-            bytes_read += cur_read;
-        } while (bytes_read < bytes_to_read);
-
-        *length = bytes_read;
-        return bytes_read == bytes_to_read;
+    if ((sa_native_attributes() & required) != required) return SA_REPLY_UNSUPPORTED;
+    @try {
+        switch (opcode) {
+        case SA_OPCODE_SPACE_FOCUS: return do_space_focus(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_SPACE_CREATE: return do_space_create(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_SPACE_DESTROY: return do_space_destroy(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_SPACE_MOVE: return do_space_move(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_MOVE: return do_window_move(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_OPACITY:
+        case SA_OPCODE_WINDOW_OPACITY_FADE:
+            return do_window_opacity(message, opcode == SA_OPCODE_WINDOW_OPACITY_FADE) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_LAYER: return do_window_layer(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_STICKY: return do_window_sticky(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_SHADOW: return do_window_shadow(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_FOCUS: return do_window_focus(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_SCALE: return do_window_scale(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_SWAP_PROXY_IN: return do_window_swap_proxy_in(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_SWAP_PROXY_OUT: return do_window_swap_proxy_out(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_ORDER: return do_window_order(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_ORDER_LIST: return do_window_order_list(message, (int)length - 1) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_ORDER_IN: return do_window_order_in(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_LIST_TO_SPACE: return do_window_list_move_to_space(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        case SA_OPCODE_WINDOW_TO_SPACE: return do_window_move_to_space(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
+        default: return SA_REPLY_UNSUPPORTED;
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"[yabai-sa] command %u failed: %@", opcode, exception.reason);
+        return SA_REPLY_FAILED;
     }
-
-    return false;
+    return SA_REPLY_ACCEPTED;
 }
 
 static void *handle_connection(void *unused)
 {
+    (void)unused;
     for (;;) {
-        int sockfd = accept(daemon_sockfd, NULL, 0);
-        if (sockfd == -1) continue;
-
-        //
-        // NOTE: This thread has no autorelease pool of its own. Without one, the autoreleased
-        // objects created while handling a message (e.g. array literals) would never be freed.
-        //
-
-        @autoreleasepool {
-            int length;
-            char message[SA_SOCKET_BUFF_LEN];
-            if (read_message(sockfd, message, &length)) {
-                handle_message(sockfd, message, length);
-            }
+        int sockfd = accept(daemon_sockfd, NULL, NULL);
+        if (sockfd == -1) {
+            if (errno == EINTR) continue;
+            usleep(10000);
+            continue;
         }
-
+        uid_t peer;
+        gid_t group;
+        if (getpeereid(sockfd, &peer, &group) != 0 || (peer != getuid() && peer != 0)) {
+            close(sockfd);
+            continue;
+        }
+        @autoreleasepool {
+            // Each core owns framing, validation and response handling. Native calls are made only
+            // after validation, and no socket read can indefinitely monopolize this serial server.
+            sa_core_serve(sockfd);
+        }
         shutdown(sockfd, SHUT_RDWR);
         close(sockfd);
     }
-
     return NULL;
-}
-
-static TABLE_HASH_FUNC(hash_wid)
-{
-    return *(uint32_t *) key;
-}
-
-static TABLE_COMPARE_FUNC(compare_wid)
-{
-    return *(uint32_t *) key_a == *(uint32_t *) key_b;
 }
 
 static bool start_daemon(char *socket_path)
 {
-    struct sockaddr_un socket_address;
-    socket_address.sun_family = AF_UNIX;
-    snprintf(socket_address.sun_path, sizeof(socket_address.sun_path), "%s", socket_path);
-    unlink(socket_path);
-
-    if ((daemon_sockfd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+    struct sockaddr_un address = { .sun_family = AF_UNIX };
+    if (strlen(socket_path) >= sizeof(address.sun_path)) return false;
+    memcpy(address.sun_path, socket_path, strlen(socket_path) + 1);
+    struct stat existing;
+    if (lstat(socket_path, &existing) == 0) {
+        if (!S_ISSOCK(existing.st_mode) || existing.st_uid != getuid()) return false;
+        if (unlink(socket_path) != 0) return false;
+    } else if (errno != ENOENT) {
         return false;
     }
+    daemon_sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (daemon_sockfd == -1) return false;
+    if (bind(daemon_sockfd, (struct sockaddr *)&address, sizeof(address)) != 0) goto fail;
+    if (chmod(socket_path, 0600) != 0 || listen(daemon_sockfd, SOMAXCONN) != 0) goto unlink_socket;
 
-    if (bind(daemon_sockfd, (struct sockaddr *) &socket_address, sizeof(socket_address)) == -1) {
-        return false;
-    }
-
-    if (chmod(socket_path, 0600) != 0) {
-        return false;
-    }
-
-    if (listen(daemon_sockfd, SOMAXCONN) == -1) {
-        return false;
-    }
-
+    // One timer, independent of the socket thread and Dock's main queue, replaces unbounded worker
+    // creation. Both language cores use the same cadence and elapsed-time interpolation.
+    dispatch_queue_t queue = dispatch_queue_create("yabai.sa.fade", DISPATCH_QUEUE_SERIAL);
+    if (!queue) goto unlink_socket;
+    fade_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+    dispatch_release(queue);
+    if (!fade_timer) goto unlink_socket;
+    dispatch_source_set_timer(fade_timer, dispatch_time(DISPATCH_TIME_NOW, 8000000), 8000000, 1000000);
+    dispatch_source_set_event_handler(fade_timer, ^{ sa_core_tick(sa_clock_ns()); });
     init_instances();
-    pthread_mutex_init(&window_fade_lock, NULL);
-    table_init(&window_fade_table, 150, hash_wid, compare_wid);
-    pthread_create(&daemon_thread, NULL, &handle_connection, NULL);
-
+    if (pthread_create(&daemon_thread, NULL, handle_connection, NULL) != 0) {
+        dispatch_source_cancel(fade_timer);
+        dispatch_resume(fade_timer);
+        dispatch_release(fade_timer);
+        fade_timer = NULL;
+        goto unlink_socket;
+    }
+    pthread_detach(daemon_thread);
+    dispatch_resume(fade_timer);
     return true;
+
+unlink_socket:
+    unlink(socket_path);
+fail:
+    close(daemon_sockfd);
+    return false;
 }
 
 __attribute__((constructor))
 void load_payload(void)
 {
-    NSLog(@"[yabai-sa] loaded payload..");
-
-    const char *user = getenv("USER");
-    if (!user) {
-        NSLog(@"[yabai-sa] could not get 'env USER'! abort..");
-        return;
-    }
-
-    char socket_file[255];
-    snprintf(socket_file, sizeof(socket_file), SA_SOCKET_PATH_FMT, user);
-
-    if (start_daemon(socket_file)) {
-        NSLog(@"[yabai-sa] now listening..");
-    } else {
-        NSLog(@"[yabai-sa] failed to spawn thread..");
+    @autoreleasepool {
+        NSLog(@"[yabai-sa] loaded payload %s", OSAX_VERSION);
+        struct passwd *user = getpwuid(getuid());
+        if (!user) { NSLog(@"[yabai-sa] cannot resolve user"); return; }
+        char socket_file[sizeof(((struct sockaddr_un *)0)->sun_path)];
+        int length = snprintf(socket_file, sizeof(socket_file), SA_SOCKET_PATH_FMT, user->pw_name);
+        if (length < 0 || (size_t)length >= sizeof(socket_file)) return;
+        NSLog(@"[yabai-sa] %@", start_daemon(socket_file) ? @"now listening" : @"failed to initialize server");
     }
 }

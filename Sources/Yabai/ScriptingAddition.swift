@@ -3,7 +3,10 @@ import Darwin
 import CPrivate
 import OSAX
 
-// Ported from src/sa.m. The payload protocol and its native integer/float layout are unchanged.
+private let saVersion = String(cString: sa_payload_version())
+
+// Ported from src/sa.m. Request fields retain their native integer/float layout. Replies accept
+// an optional status byte, and legacy payload EOF remains an explicitly unconfirmed success.
 
 //
 // NOTE: The socket of the payload. The daemon sets it at startup (configure_settings_and_acquire_lock), before any
@@ -54,9 +57,9 @@ private let saPlist = """
 <key>CFBundlePackageType</key>
 <string>osax</string>
 <key>CFBundleShortVersionString</key>
-<string>\(OSAX_VERSION)</string>
+<string>\(saVersion)</string>
 <key>CFBundleVersion</key>
-<string>\(OSAX_VERSION)</string>
+<string>\(saVersion)</string>
 <key>NSHumanReadableCopyright</key>
 <string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
 <key>OSAXHandlers</key>
@@ -84,9 +87,9 @@ private let saBundlePlist = """
 <key>CFBundlePackageType</key>
 <string>BNDL</string>
 <key>CFBundleShortVersionString</key>
-<string>\(OSAX_VERSION)</string>
+<string>\(saVersion)</string>
 <key>CFBundleVersion</key>
-<string>\(OSAX_VERSION)</string>
+<string>\(saVersion)</string>
 <key>NSHumanReadableCopyright</key>
 <string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
 <key>NSPrincipalClass</key>
@@ -107,8 +110,7 @@ private func scriptingAdditionWriteFile(_ bytes: UnsafeRawPointer?, _ size: Int,
 {
     guard let handle = fopen(path, mode) else { return false }
     let result = fwrite(bytes, size, 1, handle) == 1
-    fclose(handle)
-    return result
+    return fclose(handle) == 0 && result
 }
 
 private func scriptingAdditionWriteFile(_ text: String, _ path: String) -> Bool
@@ -116,12 +118,12 @@ private func scriptingAdditionWriteFile(_ text: String, _ path: String) -> Bool
     text.withCString { scriptingAdditionWriteFile($0, text.utf8.count, path, "w") }
 }
 
-private func scriptingAdditionPrepareBinaries()
+private func scriptingAdditionPrepareBinaries() -> Bool
 {
-    SystemC("chmod +x \(SAPath.loaderBinary)")
-    SystemC("codesign -f -s - \(SAPath.loaderBinary) 2>/dev/null")
-    SystemC("chmod +x \(SAPath.payloadBinary)")
-    SystemC("codesign -f -s - \(SAPath.payloadBinary) 2>/dev/null")
+    for path in [SAPath.loaderBinary, SAPath.payloadBinary] {
+        guard chmod(path, 0o755) == 0, SystemC("/usr/bin/codesign -f -s - \(path)") == 0 else { return false }
+    }
+    return true
 }
 
 /// `sa_notify`
@@ -159,7 +161,7 @@ private func scriptingAdditionCheck() -> Int32
     autoreleasepool {
         guard scriptingAdditionIsInstalled(), let bundle = Bundle(path: SAPath.payload),
               let version = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String else { return 1 }
-        return version.utf8.elementsEqual(OSAX_VERSION.utf8) ? 0 : 1
+        return version.utf8.elementsEqual(saVersion.utf8) ? 0 : 1
     }
 }
 
@@ -170,17 +172,18 @@ private func scriptingAdditionCheck() -> Int32
 
 private func scriptingAdditionInstall() -> Int32
 {
-    umask(mode_t(S_IWGRP | S_IWOTH))
+    let previousMask = umask(mode_t(S_IWGRP | S_IWOTH))
+    defer { umask(previousMask) }
     if scriptingAdditionIsInstalled() && !scriptingAdditionRemove() { return 1 }
     guard scriptingAdditionCreateDirectory(),
           scriptingAdditionWriteFile(saPlist, SAPath.info),
           scriptingAdditionWriteFile(saBundlePlist, SAPath.payloadInfo),
           scriptingAdditionWriteFile(sa_loader_bytes(), Int(sa_loader_size()), SAPath.loaderBinary, "wb"),
-          scriptingAdditionWriteFile(sa_payload_bytes(), Int(sa_payload_size()), SAPath.payloadBinary, "wb") else {
+          scriptingAdditionWriteFile(sa_payload_bytes(), Int(sa_payload_size()), SAPath.payloadBinary, "wb"),
+          scriptingAdditionPrepareBinaries() else {
         scriptingAdditionRemove()
         return 2
     }
-    scriptingAdditionPrepareBinaries()
     scriptingAdditionRestartDock()
     return 0
 }
@@ -190,22 +193,15 @@ private func scriptingAdditionRequestHandshake() -> (version: [UInt8], attribute
     var sockfd: Int32 = 0
     guard socket_open(&sockfd) else { return nil }
     defer { socket_close(sockfd) }
-    guard socket_connect(sockfd, g_sa_socket_file) else { return nil }
-    let bytes: [UInt8] = [1, 0, UInt8(SA_OPCODE_HANDSHAKE.rawValue)]
-    guard bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, 3, 0) }) != -1 else { return nil }
-    var response = [UInt8](repeating: 0, count: Int(BUFSIZ))
-    let capacity = response.count - 1
-    let length = response.withUnsafeMutableBytes { recv(sockfd, $0.baseAddress, capacity, 0) }
-    guard length > 0, let zero = response.prefix(length).firstIndex(of: 0), zero + 5 <= length else { return nil }
-    let attributes = response.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: zero + 1, as: UInt32.self) }
-    return (Array(response[..<zero]), attributes)
+    guard let connection = SAConnection(fd: sockfd), connection.connect(g_sa_socket_file) else { return nil }
+    return connection.handshake()
 }
 
 private func scriptingAdditionPerformValidation() -> Int32
 {
     let isLatestInstalled = scriptingAdditionCheck() == 0
     guard let handshake = scriptingAdditionRequestHandshake() else { sa_notify("connection failed!"); return 1 }
-    if handshake.version.elementsEqual(OSAX_VERSION.utf8) {
+    if handshake.version.elementsEqual(saVersion.utf8) {
         // OSAX_ATTRIB_ALL (the macro combines macros and does not import).
         let all = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
         if handshake.attributes & all == all {
@@ -281,12 +277,16 @@ func scripting_addition_load() -> Int32
             sa_notify("missing required nvram boot-arg '-arm64e_preview_abi'!")
             return 1
         }
+        guard scriptingAdditionSetSocketPath() else {
+            Client.writeAll(STDERR_FILENO, "yabai: cannot determine the scripting-addition user from SUDO_UID!\n".utf8)
+            return 1
+        }
         if !machLoaderInjectPayload() {
             Client.writeAll(STDERR_FILENO, "yabai: scripting-addition failed to inject payload into Dock.app!\n".utf8)
             sa_notify("failed to inject payload into Dock.app!")
             return 1
         }
-        return scriptingAdditionSetSocketPath() ? scriptingAdditionPerformValidation() : 0
+        return scriptingAdditionPerformValidation()
     }
 }
 
@@ -327,10 +327,8 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
     var sockfd: Int32 = 0
     guard socket_open(&sockfd) else { return false }
     defer { socket_close(sockfd) }
-    guard socket_connect(sockfd, g_sa_socket_file), bytes.withUnsafeBytes({ send(sockfd, $0.baseAddress, bytes.count, 0) }) != -1 else { return false }
-    var dummy: UInt8 = 0
-    recv(sockfd, &dummy, 1, 0)
-    return true
+    guard let connection = SAConnection(fd: sockfd), connection.connect(g_sa_socket_file) else { return false }
+    return connection.command(bytes).isSuccess
 }
 
 @discardableResult func scripting_addition_focus_space(_ sid: UInt64) -> Bool
@@ -447,7 +445,7 @@ func scripting_addition_payload_changed()
 @WM private func scriptingAdditionPayloadIsCurrent() -> Bool
 {
     if saPayloadCurrent == -1, let handshake = scriptingAdditionRequestHandshake() {
-        saPayloadCurrent = handshake.version.elementsEqual(OSAX_VERSION.utf8) ? 1 : 0
+        saPayloadCurrent = handshake.version.elementsEqual(saVersion.utf8) ? 1 : 0
     }
     return saPayloadCurrent == 1
 }

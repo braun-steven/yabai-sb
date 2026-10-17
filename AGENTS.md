@@ -20,7 +20,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `Sources/Yabai/Shims/`: Swift conversions for geometry, layouts, selectors and rules. These are ordinary Swift functions; no C entry points remain.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, ordered JSON, message tokens, values, selectors and rule/signal parsing.
 - `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
-- `osax/`: scripting-addition payload/loader sources. The makefile builds arm64e binaries and generates `payload_bin.c` / `loader_bin.c`; the SwiftPM `OSAX` target embeds those arrays and exposes `common.h` through `include/OSAX.h`.
+- `osax/`: native scripting-addition adapter, bootstrap/loader and comparable ObjC/Swift cores. The makefile builds arm64e binaries and generates `payload_bin.c` / `loader_bin.c`; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests both cores with recording/Mach mocks, outside Dock.
 - `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC capture in `Golden/`. No C test harness remains. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
 - `doc/`: Asciidoc, generated manpage, Swift-port plan, payload and live-testing notes.
 - `examples/`, `assets/`: sample configuration, icons, banner and plist.
@@ -32,6 +32,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `make asan` / `make tsan`: Address/Thread sanitizer build, also enabling UBSan for C.
 - `make clean`: removes `bin/`, `.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources change.
 - `make test`: generates OSAX arrays if needed, then runs `swift test`. A single test runs with `swift test --filter <name>`.
+- `make osax-test` / `make osax-prototypes`: isolated Swift Testing for the payload cores / both arm64e dylibs. `OSAX_CORE=swift make install` selects experimental 2.1.36; default ObjC is 2.1.35. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` using asciidoctor. Edit the Asciidoc source.
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding to preserve Accessibility permission.
@@ -77,7 +78,7 @@ P14 model and bridge pitfalls:
 
 **Rendering and input.** `Border.swift` owns four edge windows per border under a Mutex; SkyLight callbacks move them without reading the tree. `TabBar.swift` draws classic bars and publishes immutable hit-test snapshots under a Mutex. `TabBarGlass.swift` snapshots on the event loop and renders with AppKit on the main queue. `WindowAnimation.swift` retains AX references and copied app names for concurrent frame workers, stores window ids for animations, and protects proxy/takeover state with a Mutex. `MouseHandler.swift` owns the event tap and drag/drop decisions. Main-queue blocks retain their render owners until the last pending block completes.
 
-**Scripting addition.** `osax/loader.m` injects `payload.m` into Dock.app. The payload serves `/tmp/yabai-sa_$USER.socket`; `ScriptingAddition.swift` builds the unchanged length-prefixed protocol using `SA_OPCODE_*` from `osax/common.h`. macOS 27 patterns/offsets are in `osax/arm64_payload.m`. Bump `OSAX_VERSION` when payload protocol or behavior changes; a path-only rebuild in P14 preserved 2.1.34 and needs no reload. See `doc/payload-updates.md`.
+**Scripting addition.** `osax/loader.m` uses `bootstrap.S` to inject the native adapter and selected core into Dock. `payload.m` owns private operations; `core/objc` or experimental `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump each variant's `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
 
 **Platform gating.** The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.
 
@@ -103,6 +104,10 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **Style:** keep the C file's function order in its Swift port so comparisons with the original remain readable.
 
 ### Pitfalls learned so far
+
+- **Optimized Swift C exports:** an internal `@_cdecl` can become local during SwiftPM release prelinking, even when debug tests link. Mark cross-target exports `public` and build a release consumer (`osax/core/swift/Core.swift`).
+- **Payload tests:** daemon ASan/TSan do not instrument the separately compiled payload. Use the standalone `osax` package; test signal interruptions on a disposable pthread with its signal explicitly unblocked, because Swift Testing/sanitizers can inherit a blocked mask.
+- **Dock signatures and ownership:** pattern matches are candidates, not identities (Spaces and HotCorners both match `dock_spaces` on 26A434). Validate decoded targets and record Dock hash/UUID. Resolve private-call ownership from the callee and Dock's callers before changing retain/release (`doc/osax-prototypes.md`).
 
 - **CF types in C structs** import as `Unmanaged<T>?` unless the header has nullability annotations. Use `CF_ASSUME_NONNULL_BEGIN/END` and mark optional fields `_Nullable` (`src/tab_bar_glass.h`). Take each value once with `takeUnretainedValue()` and let C free the struct.
 - **CF ownership in C structs:** either Swift takes +1 references with `takeRetainedValue()` and C frees only memory, or Swift retains with `takeUnretainedValue()` and C releases. Choose per struct and document it in the header's NOTE. The pilot uses the latter (`tab_bar_glass_snapshot_free`).

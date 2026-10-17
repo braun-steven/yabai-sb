@@ -1,0 +1,101 @@
+--- baseline ---
+== osax-baseline ==
+PASS  initial layout  
+PASS  rotate #1   (2 at min size)
+PASS  rotate #2  
+PASS  rotate #3   (2 at min size)
+PASS  rotate #4  
+PASS  balance  
+PASS  relayout latency  mean 121.0 ms, max 163.6 ms
+PASS  tabbed layout  
+PASS  tabbed after tab switches  
+PASS  active tab is in front of the other tabs  
+PASS  tab switch latency  mean 27.2 ms
+PASS  back to splith  
+PASS  tree is a flat row again  splith with 5 children
+PASS  rapid focus east x3  focused 36369, expected 36369 (row [36319, 36327, 36334, 36369, 36361])
+PASS  send to visible space on other display  window space 13, focused space 13, bounds (2560.0, 31.0, 2560.0, 1409.0), send 275 ms
+PASS  layout after window came back  
+PASS  autofocus between same-app windows  36334->36334, 36327->36327, 36334->36334, 36327->36327
+PASS  autofocus sweep ends on window under cursor  focused 36361, under cursor 36361
+PASS  query latency during sweep  max 52.9 ms over 99 queries
+PASS  alt-drag moves floating window  moved by (300, 150)
+PASS  layout after drag  
+PASS  query while another client stalls  813 ms
+PASS  relayout with a frozen app  rotate 1020 ms, next query 18 ms
+PASS  layout after app resumed   (2 at min size)
+PASS  layout after overlapping animations  
+PASS  native fullscreen round trip  enter 103 ms, exit 691 ms, space 4
+PASS  layout after native fullscreen  
+PASS  daemon still running (same pid)  37505 -> 37505
+28/28 passed
+
+--- baseline-extra ---
+== osax-baseline (extra) ==
+PASS  flat row before extra checks  
+PASS  50 space switches  Dock 64013->64013, median 9 ms
+PASS  Dock footprint after switches  Dock [64013]: 64-bit    Footprint: 54 MB (16384 bytes per page)
+SKIP  native ctrl+right: the hotkey is disabled in System Settings
+PASS  space focus with a frozen front app  to 5: 9 ms, back: 25 ms
+PASS  tabbed container warps to the other display  spaces {36334: 13, 36319: 13, 36327: 13}, warp 232 ms
+PASS  layout of the container on the other display  
+PASS  tabbed container warps back  spaces {36334: 4, 36319: 4, 36327: 4}, warp 219 ms
+PASS  layout after the container came back  
+PASS  back to a flat row  5 children
+PASS  swap across displays  36369 on 13, 36319 on 4, swap 103 ms
+PASS  layout after the swap  
+PASS  layout of the other display after the swap  
+PASS  layout after the window came back  
+PASS  daemon still running (same pid)  37505 -> 37505
+14/14 passed
+
+--- new-daemon ---
+== osax-new-daemon-old-payload ==
+PASS  initial layout  
+PASS  rotate #1   (2 at min size)
+PASS  rotate #2  
+PASS  rotate #3   (2 at min size)
+PASS  rotate #4  
+PASS  balance  
+PASS  relayout latency  mean 123.5 ms, max 164.0 ms
+PASS  tabbed layout  
+PASS  tabbed after tab switches  
+PASS  active tab is in front of the other tabs  
+PASS  tab switch latency  mean 30.6 ms
+PASS  back to splith  
+PASS  tree is a flat row again  splith with 5 children
+PASS  rapid focus east x3  focused 36369, expected 36369 (row [36319, 36361, 36327, 36369, 36334])
+PASS  send to visible space on other display  window space 13, focused space 13, bounds (2560.0, 31.0, 2560.0, 1409.0), send 274 ms
+PASS  layout after window came back  
+PASS  autofocus between same-app windows  36327->36327, 36319->36319, 36327->36327, 36319->36319
+PASS  autofocus sweep ends on window under cursor  focused 36334, under cursor 36334
+PASS  query latency during sweep  max 68.2 ms over 109 queries
+PASS  alt-drag moves floating window  moved by (300, 150)
+PASS  layout after drag  
+PASS  query while another client stalls  804 ms
+PASS  relayout with a frozen app  rotate 1018 ms, next query 18 ms
+PASS  layout after app resumed   (2 at min size)
+PASS  layout after overlapping animations  
+PASS  native fullscreen round trip  enter 91 ms, exit 689 ms, space 4
+PASS  layout after native fullscreen  
+PASS  daemon still running (same pid)  51362 -> 51362
+28/28 passed
+
+--- new-daemon-extra ---
+== osax-new-daemon-old-payload (extra) ==
+PASS  flat row before extra checks  
+PASS  50 space switches  Dock 64013->64013, median 9 ms
+PASS  Dock footprint after switches  Dock [64013]: 64-bit    Footprint: 54 MB (16384 bytes per page)
+SKIP  native ctrl+right: the hotkey is disabled in System Settings
+PASS  space focus with a frozen front app  to 5: 9 ms, back: 21 ms
+PASS  tabbed container warps to the other display  spaces {36327: 13, 36319: 13, 36361: 13}, warp 208 ms
+PASS  layout of the container on the other display  
+PASS  tabbed container warps back  spaces {36327: 4, 36319: 4, 36361: 4}, warp 213 ms
+PASS  layout after the container came back  
+PASS  back to a flat row  5 children
+PASS  swap across displays  36369 on 13, 36319 on 4, swap 90 ms
+PASS  layout after the swap  
+PASS  layout of the other display after the swap  
+PASS  layout after the window came back  
+PASS  daemon still running (same pid)  51362 -> 51362
+14/14 passed

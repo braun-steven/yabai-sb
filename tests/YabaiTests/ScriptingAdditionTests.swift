@@ -3,6 +3,18 @@ import CPrivate
 import OSAX
 @testable import Yabai
 
+@Test func scriptingAdditionEmbeddedVersionMatchesBothBinaries() throws
+{
+    let version = Array(String(cString: sa_payload_version()).utf8) + [0]
+    for (base, count) in [(sa_payload_bytes(), sa_payload_size()), (sa_loader_bytes(), sa_loader_size())] {
+        let bytes = UnsafeBufferPointer(start: try #require(base), count: Int(count))
+        #expect(bytes.count >= version.count)
+        #expect((0...(bytes.count - version.count)).contains { offset in
+            bytes[offset..<(offset + version.count)].elementsEqual(version)
+        })
+    }
+}
+
 @Test func scriptingAdditionPayloadWireLayout()
 {
     var payload = SAPayload()

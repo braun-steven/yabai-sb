@@ -9,5 +9,8 @@
 /scripts/live-tests/mirror
 /scripts/live-tests/.focused-window
 /scripts/live-tests/__pycache__
+/scripts/osax/__pycache__
 /.build
 /.swiftpm
+/osax/.build
+/osax/.swiftpm

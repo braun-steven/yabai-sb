@@ -4,7 +4,20 @@
 #define SA_SOCKET_PATH_FMT "/tmp/yabai-sa_%s.socket"
 #define SA_SOCKET_BUFF_LEN 0x1000
 
-#define OSAX_VERSION                "2.1.34"
+#ifdef SA_CORE_SWIFT
+#define OSAX_VERSION                "2.1.36"
+#else
+#define OSAX_VERSION                "2.1.35"
+#endif
+
+// Optional one-byte reply for non-handshake commands. Legacy clients already read and discard it;
+// legacy payloads close without a reply. ACCEPTED means dispatched, not observed WindowServer completion.
+#define SA_REPLY_ACCEPTED           0
+#define SA_REPLY_INVALID            1
+#define SA_REPLY_UNSUPPORTED        2
+#define SA_REPLY_FAILED             3
+#define SA_READ_TIMEOUT_MS          1000
+#define SA_REQUEST_TIMEOUT_MS       2000
 
 #define OSAX_ATTRIB_DOCK_SPACES     0x01
 #define OSAX_ATTRIB_DPPM            0x02

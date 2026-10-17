@@ -1,0 +1,253 @@
+{
+  "captured_at_utc": "2026-10-16T10:17:15.935904+00:00",
+  "host": "macOS 27.0.1 (26A434), arm64, Swift 6.4",
+  "baseline_commit": "107feff6d0bb984b98e685e9278801df7de96015",
+  "benchmark_sha256": "858f49b066faed004317f4d0d04924075992cf275f9a24a947932d68a42f7eea",
+  "orders": [
+    [
+      "legacy",
+      "objc",
+      "swift"
+    ],
+    [
+      "swift",
+      "objc",
+      "legacy"
+    ],
+    [
+      "objc",
+      "legacy",
+      "swift"
+    ]
+  ],
+  "caveats": [
+    "Recording backend only; no Dock injection or real WindowServer calls.",
+    "Legacy uses the original framing function with the shared recording adapter and ObjC prototype fade state.",
+    "Both cores are linked into the host; memory values are host observations, not injected footprint.",
+    "Allocation calls are successful allocation/reallocation events observed by malloc_logger."
+  ],
+  "runs": {
+    "legacy": [
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 3287671.413023091,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "legacy",
+        "resident_bytes": 6340608,
+        "scope": "legacy framing and shared recording adapter; fades use objc prototype",
+        "socket_round_trip": {
+          "max_ns": 69917,
+          "median_ns": 9666,
+          "p95_ns": 11542,
+          "p99_ns": 15583,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 1500,
+          "median_ns": 208,
+          "p95_ns": 333,
+          "p99_ns": 417,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 4396329.065230533,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "legacy",
+        "resident_bytes": 6340608,
+        "scope": "legacy framing and shared recording adapter; fades use objc prototype",
+        "socket_round_trip": {
+          "max_ns": 17458,
+          "median_ns": 8125,
+          "p95_ns": 10208,
+          "p99_ns": 12000,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 1042,
+          "median_ns": 125,
+          "p95_ns": 250,
+          "p99_ns": 292,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 4458398.240181047,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "legacy",
+        "resident_bytes": 6340608,
+        "scope": "legacy framing and shared recording adapter; fades use objc prototype",
+        "socket_round_trip": {
+          "max_ns": 14333,
+          "median_ns": 8000,
+          "p95_ns": 9709,
+          "p99_ns": 11083,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 1083,
+          "median_ns": 125,
+          "p95_ns": 250,
+          "p99_ns": 292,
+          "samples": 20000
+        }
+      }
+    ],
+    "objc": [
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 3349803.199062055,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "objc",
+        "resident_bytes": 6340608,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 92666,
+          "median_ns": 10541,
+          "p95_ns": 15167,
+          "p99_ns": 19625,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 1458,
+          "median_ns": 208,
+          "p95_ns": 333,
+          "p99_ns": 375,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 4181913.225300575,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "objc",
+        "resident_bytes": 6340608,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 19958,
+          "median_ns": 8750,
+          "p95_ns": 10833,
+          "p99_ns": 14666,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 1333,
+          "median_ns": 166,
+          "p95_ns": 250,
+          "p99_ns": 333,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 41053,
+        "commands_per_second": 4275217.100868404,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 2447,
+        "live_malloc_bytes": 278000,
+        "mode": "objc",
+        "resident_bytes": 6340608,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 25292,
+          "median_ns": 8917,
+          "p95_ns": 10667,
+          "p99_ns": 12125,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 5958,
+          "median_ns": 125,
+          "p95_ns": 250,
+          "p99_ns": 292,
+          "samples": 20000
+        }
+      }
+    ],
+    "swift": [
+      {
+        "allocation_calls": 1161,
+        "commands_per_second": 5816772.255625037,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 922,
+        "live_malloc_bytes": 245440,
+        "mode": "swift",
+        "resident_bytes": 6275072,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 19208,
+          "median_ns": 9167,
+          "p95_ns": 12541,
+          "p99_ns": 15292,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 708,
+          "median_ns": 83,
+          "p95_ns": 125,
+          "p99_ns": 167,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 1161,
+        "commands_per_second": 6378653.45349866,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 922,
+        "live_malloc_bytes": 245440,
+        "mode": "swift",
+        "resident_bytes": 6275072,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 22250,
+          "median_ns": 8958,
+          "p95_ns": 10834,
+          "p99_ns": 16250,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 667,
+          "median_ns": 83,
+          "p95_ns": 125,
+          "p99_ns": 167,
+          "samples": 20000
+        }
+      },
+      {
+        "allocation_calls": 1161,
+        "commands_per_second": 6725987.635616929,
+        "digest": "da86f660290c5770",
+        "live_malloc_blocks": 922,
+        "live_malloc_bytes": 245440,
+        "mode": "swift",
+        "resident_bytes": 6275072,
+        "scope": "isolated recording backend",
+        "socket_round_trip": {
+          "max_ns": 20084,
+          "median_ns": 9000,
+          "p95_ns": 11458,
+          "p99_ns": 15375,
+          "samples": 1000
+        },
+        "validate_dispatch": {
+          "max_ns": 625,
+          "median_ns": 83,
+          "p95_ns": 125,
+          "p99_ns": 167,
+          "samples": 20000
+        }
+      }
+    ]
+  }
+}

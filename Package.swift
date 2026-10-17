@@ -43,8 +43,9 @@ let package = Package(
         .target(
             name: "OSAX",
             path: "osax",
-            sources: ["payload_bin.c", "loader_bin.c"],
-            publicHeadersPath: "include"
+            sources: ["payload_bin.c", "loader_bin.c", "Version.c"],
+            publicHeadersPath: "include",
+            cSettings: Context.environment["OSAX_CORE"] == "swift" ? [.define("SA_CORE_SWIFT")] : []
         ),
         // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
         .target(

@@ -9,6 +9,8 @@
 
 #include "../common.h"
 
+const char *sa_payload_version(void);
+
 extern unsigned char __osax_payload[];
 extern unsigned int __osax_payload_len;
 extern unsigned char __osax_loader[];

@@ -1,0 +1,4 @@
+module OSAXCoreAPI {
+    header "OSAXCore.h"
+    export *
+}

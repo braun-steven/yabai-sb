@@ -26,6 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- *window_border_hide_single* preserves floating-window borders, including when a floating window is alone on its space
 - The scripting addition uses a single Swift core, with private Dock operations in the native adapter; the unused Objective-C prototype and selection options are removed
 - Scripting-addition requests validate every command before dispatch, handle partial transfers and bounded waiting, and report explicit rejection while retaining compatibility with older payloads
 - Scripting-addition fades use synchronized state and one timer; loading verifies worker completion and payload readiness, signature discovery validates Dock objects, and installation propagates signing failures

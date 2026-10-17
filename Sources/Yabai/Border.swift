@@ -431,7 +431,7 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCo
     var containerRadius: Int32 = 0
     let owner = window_manager_find_managed_window(wm, target)
     var enabled = wm.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.id, &windowArea, &borderArea, &containerRadius)
-    if enabled && wm.window_border_hide_single && target.scratchpad == nil {
+    if enabled && wm.window_border_hide_single && owner != nil && target.scratchpad == nil {
         let count = windowCount < 0 ? borderSpaceWindowCount(sid != 0 ? sid : window_space(target.id)) : windowCount
         enabled = count > 1
     }

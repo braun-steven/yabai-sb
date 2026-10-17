@@ -4,7 +4,6 @@ import Testing
 import OSAXCoreAPI
 import RecordingAdapter
 import Fixtures
-import ObjCPayloadCore
 import SwiftPayloadCore
 import LoaderFixture
 
@@ -23,41 +22,47 @@ import LoaderFixture
             if mode == 5 { #expect(sa_loader_test_terminations() == 1) }
         }
     }
+
     @Test func allOpcodesAndTruncations()
     {
-        for core in [Core(swift: false), Core(swift: true)] {
-            for message in fixtures() {
-                #expect(core.valid(message))
-                for count in 0..<message.count { #expect(!core.valid(Array(message.prefix(count)))) }
-                #expect(!core.valid(message + [0]))
-            }
-            #expect(!core.valid([0]))
-            #expect(!core.valid([255]))
-            for opcode: UInt8 in [14, 15, 17, 20] {
-                #expect(!core.valid([opcode] + packed(Int32(-1))))
-                #expect(!core.valid([opcode] + packed(Int32.max)))
-                #expect(core.valid([opcode] + packed(Int32(0))))
-            }
-            #expect(!core.valid([18] + packed(UInt64(1)) + packed(Int32(-1))))
-            #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float.nan) + packed(Float(1))))
-            #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float(0.5)) + packed(Float.infinity)))
-            #expect(!core.valid([10] + packed(UInt32(7)) + [2]))
+        let core = Core()
+        for message in fixtures() {
+            #expect(core.valid(message))
+            for count in 0..<message.count { #expect(!core.valid(Array(message.prefix(count)))) }
+            #expect(!core.valid(message + [0]))
         }
+        #expect(!core.valid([0]))
+        #expect(!core.valid([255]))
+        for opcode: UInt8 in [14, 15, 17, 20] {
+            #expect(!core.valid([opcode] + packed(Int32(-1))))
+            #expect(!core.valid([opcode] + packed(Int32.max)))
+            #expect(core.valid([opcode] + packed(Int32(0))))
+        }
+        #expect(!core.valid([18] + packed(UInt64(1)) + packed(Int32(-1))))
+        #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float.nan) + packed(Float(1))))
+        #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float(0.5)) + packed(Float.infinity)))
+        #expect(!core.valid([10] + packed(UInt32(7)) + [2]))
     }
 
-    @Test func boundedFuzzParity()
+    @Test func boundedFuzzRejectsBeforeDispatch() throws
     {
-        let objc = Core(swift: false), swift = Core(swift: true)
+        let core = Core()
+        sa_test_reset()
         var seed: UInt64 = 0x52fab123
         for iteration in 0..<10_000 {
             seed = seed &* 6364136223846793005 &+ 1
             var message = fixtures()[iteration % 20]
             let index = Int(seed % UInt64(message.count))
             message[index] = UInt8(truncatingIfNeeded: seed >> 32)
-            #expect(objc.valid(message) == swift.valid(message))
+            if !core.valid(message) {
+                let count = sa_test_commands()
+                let digest = sa_test_digest()
+                #expect(try exchange(core, framed(message)) == [UInt8(SA_REPLY_INVALID)])
+                #expect(sa_test_commands() == count)
+                #expect(sa_test_digest() == digest)
+            }
         }
-        #expect(!objc.valid([UInt8](repeating: 0, count: 4095)))
-        #expect(!swift.valid([UInt8](repeating: 0, count: 4095)))
+        #expect(!core.valid([UInt8](repeating: 0, count: 4095)))
     }
 
     private func exchange(_ core: Core, _ bytes: [UInt8], fragment: Bool = false) throws -> [UInt8]
@@ -89,110 +94,104 @@ import LoaderFixture
 
     @Test func recordedDispatchAndResponses() throws
     {
-        var digests: [UInt64] = []
-        for core in [Core(swift: false), Core(swift: true)] {
-            sa_test_reset(core.swift)
-            for message in fixtures() {
-                let response = try exchange(core, framed(message), fragment: true)
-                if message[0] == 1 {
-                    #expect(response == Array("recording".utf8) + [0] + packed(sa_native_attributes()) + [10])
-                } else {
-                    #expect(response == [message[0] == 12 ? UInt8(SA_REPLY_UNSUPPORTED) : UInt8(SA_REPLY_ACCEPTED)])
-                }
+        let core = Core()
+        sa_test_reset()
+        for message in fixtures() {
+            let response = try exchange(core, framed(message), fragment: true)
+            if message[0] == 1 {
+                #expect(response == Array("recording".utf8) + [0] + packed(sa_native_attributes()) + [10])
+            } else {
+                #expect(response == [message[0] == 12 ? UInt8(SA_REPLY_UNSUPPORTED) : UInt8(SA_REPLY_ACCEPTED)])
             }
-            #expect(sa_test_commands() == 19)
-            digests.append(sa_test_digest())
-            #expect(try exchange(core, framed([20] + packed(Int32(100)))) == [UInt8(SA_REPLY_INVALID)])
-            #expect(sa_test_commands() == 19)
-            #expect(try exchange(core, [255, 127]) == [UInt8(SA_REPLY_INVALID)])
-            #expect(try exchange(core, [3, 0, 2]) == [UInt8(SA_REPLY_INVALID)])
         }
-        #expect(digests[0] == digests[1])
+        #expect(sa_test_commands() == 19)
+        // FNV-1a of ordered fixture packets plus the immediate alpha write's wid/alpha bytes.
+        // Preserve the comparison's native-call order without retaining a second implementation.
+        #expect(sa_test_digest() == 0x48f66fb99d562774)
+        #expect(try exchange(core, framed([20] + packed(Int32(100)))) == [UInt8(SA_REPLY_INVALID)])
+        #expect(sa_test_commands() == 19)
+        #expect(try exchange(core, [255, 127]) == [UInt8(SA_REPLY_INVALID)])
+        #expect(try exchange(core, [3, 0, 2]) == [UInt8(SA_REPLY_INVALID)])
     }
 
     @Test func stalledAndTricklingClientsHaveAbsoluteDeadline() throws
     {
-        for core in [Core(swift: false), Core(swift: true)] {
-            let pair = try #require(socketPair())
-            let start = DispatchTime.now().uptimeNanoseconds
-            let group = DispatchGroup()
-            group.enter()
-            DispatchQueue.global().async {
-                for var byte: UInt8 in [9, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0] {
-                    if send(pair.0, &byte, 1, 0) <= 0 { break }
-                    usleep(150_000)
-                }
-                close(pair.0)
-                group.leave()
+        let core = Core()
+        let pair = try #require(socketPair())
+        let start = DispatchTime.now().uptimeNanoseconds
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global().async {
+            for var byte: UInt8 in [9, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0] {
+                if send(pair.0, &byte, 1, 0) <= 0 { break }
+                usleep(150_000)
             }
-            _ = core.serve(pair.1)
-            close(pair.1)
-            let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
-            #expect(elapsed >= 0.9 && elapsed < 1.8)
-            group.wait()
+            close(pair.0)
+            group.leave()
         }
+        _ = core.serve(pair.1)
+        close(pair.1)
+        let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e9
+        #expect(elapsed >= 0.9 && elapsed < 1.8)
+        group.wait()
     }
 
     @Test func interruptedPollResumesTheSameRequest() throws
     {
-        for core in [Core(swift: false), Core(swift: true)] {
-            let pair = try #require(socketPair())
-            try #require(sa_test_interrupt_begin(core.swift, pair.1))
-            for _ in 0..<3 {
-                usleep(10_000)
-                #expect(sa_test_interrupt_signal() == 0)
-            }
-            let request = framed(fixtures()[1])
-            #expect(request.withUnsafeBytes { send(pair.0, $0.baseAddress, $0.count, 0) } == request.count)
-            var reply: UInt8 = 255
-            #expect(recv(pair.0, &reply, 1, 0) == 1)
-            #expect(reply == SA_REPLY_ACCEPTED)
-            close(pair.0)
-            #expect(sa_test_interrupt_end() == 3)
+        let pair = try #require(socketPair())
+        try #require(sa_test_interrupt_begin(pair.1))
+        for _ in 0..<3 {
+            usleep(10_000)
+            #expect(sa_test_interrupt_signal() == 0)
         }
+        let request = framed(fixtures()[1])
+        #expect(request.withUnsafeBytes { send(pair.0, $0.baseAddress, $0.count, 0) } == request.count)
+        var reply: UInt8 = 255
+        #expect(recv(pair.0, &reply, 1, 0) == 1)
+        #expect(reply == SA_REPLY_ACCEPTED)
+        close(pair.0)
+        #expect(sa_test_interrupt_end() == 3)
     }
 
     @Test func fadeReplacementCancellationAndBackendFailures()
     {
-        for core in [Core(swift: false), Core(swift: true)] {
-            sa_test_reset(core.swift)
-            #expect(core.opacity(7, 0, 1, 0))
-            core.tick(500_000_000)
-            #expect(abs(sa_test_alpha(7) - 0.5) < 0.00001)
-            #expect(core.opacity(7, 1, 1, 500_000_000))
-            core.tick(1_000_000_000)
-            #expect(abs(sa_test_alpha(7) - 0.75) < 0.00001)
-            #expect(core.opacity(7, 0.2, 0, 1_000_000_000))
-            core.tick(3_000_000_000)
-            #expect(sa_test_alpha(7) == 0.2)
-            sa_test_fail(true, false)
-            #expect(!core.opacity(7, 1, 1, 0))
-            sa_test_fail(false, true)
-            #expect(!core.opacity(7, 1, 0, 0))
-            sa_test_fail(false, false)
-            #expect(!core.opacity(7, .nan, 1, 0))
-            #expect(!core.opacity(7, 1, -.infinity, 0))
-            #expect(core.opacity(7, 1, 1, 0))
-            sa_test_fail(false, true)
-            core.tick(500_000_000)
-            sa_test_fail(false, false)
-            core.tick(2_000_000_000)
-            #expect(sa_test_alpha(7) == 0.2)
-        }
+        let core = Core()
+        sa_test_reset()
+        #expect(core.opacity(7, 0, 1, 0))
+        core.tick(500_000_000)
+        #expect(abs(sa_test_alpha(7) - 0.5) < 0.00001)
+        #expect(core.opacity(7, 1, 1, 500_000_000))
+        core.tick(1_000_000_000)
+        #expect(abs(sa_test_alpha(7) - 0.75) < 0.00001)
+        #expect(core.opacity(7, 0.2, 0, 1_000_000_000))
+        core.tick(3_000_000_000)
+        #expect(sa_test_alpha(7) == 0.2)
+        sa_test_fail(true, false)
+        #expect(!core.opacity(7, 1, 1, 0))
+        sa_test_fail(false, true)
+        #expect(!core.opacity(7, 1, 0, 0))
+        sa_test_fail(false, false)
+        #expect(!core.opacity(7, .nan, 1, 0))
+        #expect(!core.opacity(7, 1, -.infinity, 0))
+        #expect(core.opacity(7, 1, 1, 0))
+        sa_test_fail(false, true)
+        core.tick(500_000_000)
+        sa_test_fail(false, false)
+        core.tick(2_000_000_000)
+        #expect(sa_test_alpha(7) == 0.2)
     }
 
     @Test func concurrentFadesAndImmediateCommands()
     {
-        for core in [Core(swift: false), Core(swift: true)] {
-            sa_test_reset(core.swift)
-            DispatchQueue.concurrentPerform(iterations: 1000) { index in
-                _ = core.opacity(UInt32(index % 32 + 1), Float(index % 10) / 10, index % 3 == 0 ? 0 : 1, UInt64(index))
-                core.tick(UInt64(index))
-            }
-            #expect(core.opacity(7, 0.25, 0, 2000))
-            core.tick(10_000_000_000)
-            #expect(sa_test_alpha(7) == 0.25)
+        let core = Core()
+        sa_test_reset()
+        DispatchQueue.concurrentPerform(iterations: 1000) { index in
+            _ = core.opacity(UInt32(index % 32 + 1), Float(index % 10) / 10, index % 3 == 0 ? 0 : 1, UInt64(index))
+            core.tick(UInt64(index))
         }
+        #expect(core.opacity(7, 0.25, 0, 2000))
+        core.tick(10_000_000_000)
+        #expect(sa_test_alpha(7) == 0.25)
     }
 
     @Test func boundedPatternAndInstructionDecoding()

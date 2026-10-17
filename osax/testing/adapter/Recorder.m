@@ -12,7 +12,7 @@
 // Nothing here resolves private frameworks or touches real windows. Recording the exact validated
 // adapter input preserves command/entry order, including skipped variable-width proxy entries.
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static bool use_swift, fail_reads, fail_writes;
+static bool fail_reads, fail_writes;
 static float alphas[1024];
 static uint64_t digest, commands;
 static _Atomic uint64_t allocations;
@@ -21,7 +21,6 @@ static logger *logger_slot;
 static pthread_t interrupted_server;
 static struct sigaction previous_signal;
 static volatile sig_atomic_t interruptions;
-static bool interrupted_swift;
 static int interrupted_fd;
 
 static void interrupt_handler(int signal_number) { (void)signal_number; ++interruptions; }
@@ -34,18 +33,17 @@ static void *interrupted_serve(void *unused)
     sigemptyset(&unblocked);
     sigaddset(&unblocked, SIGUSR1);
     pthread_sigmask(SIG_UNBLOCK, &unblocked, NULL);
-    if (interrupted_swift) sa_swift_serve(interrupted_fd); else sa_objc_serve(interrupted_fd);
+    sa_swift_serve(interrupted_fd);
     close(interrupted_fd);
     return NULL;
 }
 
-bool sa_test_interrupt_begin(bool swift_core, int fd)
+bool sa_test_interrupt_begin(int fd)
 {
     struct sigaction action = { .sa_handler = interrupt_handler };
     sigemptyset(&action.sa_mask);
     if (sigaction(SIGUSR1, &action, &previous_signal) != 0) return false;
     interruptions = 0;
-    interrupted_swift = swift_core;
     interrupted_fd = fd;
     if (pthread_create(&interrupted_server, NULL, interrupted_serve, NULL) == 0) return true;
     sigaction(SIGUSR1, &previous_signal, NULL);
@@ -87,12 +85,10 @@ static void record(const void *bytes, size_t length)
     for (size_t i = 0; i < length; ++i) digest = (digest ^ ((const uint8_t *)bytes)[i]) * UINT64_C(1099511628211);
 }
 
-void sa_test_reset(bool swift_core)
+void sa_test_reset(void)
 {
-    sa_objc_reset();
     sa_swift_reset();
     pthread_mutex_lock(&lock);
-    use_swift = swift_core;
     fail_reads = fail_writes = false;
     for (size_t i = 0; i < 1024; ++i) alphas[i] = 1;
     digest = UINT64_C(14695981039346656037);
@@ -135,7 +131,6 @@ uint8_t sa_native_dispatch(const uint8_t *message, size_t length)
     pthread_mutex_lock(&lock);
     ++commands;
     record(message, length);
-    bool swift_core = use_swift;
     pthread_mutex_unlock(&lock);
     if (message[0] == SA_OPCODE_WINDOW_FOCUS) return SA_REPLY_UNSUPPORTED;
     if (message[0] == SA_OPCODE_WINDOW_OPACITY || message[0] == SA_OPCODE_WINDOW_OPACITY_FADE) {
@@ -145,7 +140,7 @@ uint8_t sa_native_dispatch(const uint8_t *message, size_t length)
         memcpy(&alpha, message + 5, 4);
         memcpy(&duration, message + 9, 4);
         if (message[0] == SA_OPCODE_WINDOW_OPACITY) duration = 0;
-        bool result = swift_core ? sa_swift_opacity(wid, alpha, duration, 0) : sa_objc_opacity(wid, alpha, duration, 0);
+        bool result = sa_swift_opacity(wid, alpha, duration, 0);
         return result ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     }
     return SA_REPLY_ACCEPTED;

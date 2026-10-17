@@ -153,7 +153,7 @@ public func swiftOpacity(_ wid: UInt32, _ alpha: Float, _ duration: Float, _ now
 public func swiftTick(_ now: UInt64)
 {
     fades.withLock { state in
-        // Copying keys mirrors the Objective-C snapshot; neither core mutates a live iterator.
+        // Snapshot keys so removing completed fades does not mutate a live iterator.
         for wid in Array(state.keys) {
             let fade = state[wid]!
             let elapsed = now >= fade.start ? Double(now - fade.start) / 1e9 : 0

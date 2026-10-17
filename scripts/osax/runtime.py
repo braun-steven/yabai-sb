@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Valid-command probes for an already loaded prototype; only touches disposable windows/spaces.
+"""Valid-command probes for the loaded Swift payload; only touches disposable windows/spaces.
 
 Read doc/live-testing.md first. Run after compatibility.py setup, outside the command sandbox.
 No malformed traffic is sent to Dock. Space reconciliation is disabled only during this probe.
@@ -16,7 +16,6 @@ import subprocess
 import time
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("label", choices=["objc", "swift"])
 parser.add_argument("--out", type=pathlib.Path, required=True)
 parser.add_argument("--window", type=int, help="Match the same disposable TextEdit window across builds")
 args = parser.parse_args()
@@ -67,7 +66,7 @@ def unlocked():
 
 
 unlocked()
-expected_version = "2.1.35" if args.label == "objc" else "2.1.36"
+expected_version = "2.1.36"
 version = request(b"\1").split(b"\0", 1)[0].decode()
 assert version == expected_version, (version, expected_version)
 windows = query("--windows", "--space", 4)
@@ -87,7 +86,7 @@ original_alpha = alpha()
 original_spaces = {space["id"] for space in query("--spaces")}
 created_spaces = set()
 space_layout = cli("config", "space_layout")
-report = {"core": args.label, "version": version, "dock": dock, "daemon": daemon, "fixture": fixture, "wid": wid, "checks": {}}
+report = {"core": "swift", "version": version, "dock": dock, "daemon": daemon, "fixture": fixture, "wid": wid, "checks": {}}
 try:
     opacity(0.45)
     report["checks"]["immediate"] = endpoint(0.45)

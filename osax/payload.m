@@ -32,7 +32,7 @@
 
 #include "common.h"
 #include "core/api/include/OSAXCore.h"
-#include "core/objc/IO.h"
+#include "core/IO.h"
 
 #include "arm64_payload.m"
 #include <ptrauth.h>
@@ -966,7 +966,7 @@ static bool start_daemon(char *socket_path)
     if (chmod(socket_path, 0600) != 0 || listen(daemon_sockfd, SOMAXCONN) != 0) goto unlink_socket;
 
     // One timer, independent of the socket thread and Dock's main queue, replaces unbounded worker
-    // creation. Both language cores use the same cadence and elapsed-time interpolation.
+    // creation. The Swift core uses elapsed monotonic time for interpolation.
     dispatch_queue_t queue = dispatch_queue_create("yabai.sa.fade", DISPATCH_QUEUE_SERIAL);
     if (!queue) goto unlink_socket;
     fade_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);

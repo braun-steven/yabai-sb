@@ -4,7 +4,6 @@ import Dispatch
 import Fixtures
 import RecordingAdapter
 import OSAXCoreAPI
-import ObjCPayloadCore
 import SwiftPayloadCore
 
 func now() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
@@ -17,10 +16,9 @@ func statistics(_ samples: [UInt64]) -> [String: Double]
             "max_ns": Double(sorted.last!), "samples": Double(sorted.count)]
 }
 
-let mode = CommandLine.arguments.dropFirst().first ?? "objc"
-guard ["objc", "swift", "legacy"].contains(mode) else { fatalError("usage: osax-benchmark objc|swift|legacy") }
-let core = Core(swift: mode == "swift")
-sa_test_reset(core.swift)
+guard CommandLine.arguments.count == 1 else { fatalError("usage: osax-benchmark") }
+let core = Core()
+sa_test_reset()
 let messages = Array(fixtures().dropFirst())
 let iterations = 20_000
 var dispatchSamples: [UInt64] = []
@@ -33,7 +31,7 @@ for i in 0..<1000 {
         core.tick(UInt64(i) * 8_000_000)
     }
 }
-sa_test_reset(core.swift)
+sa_test_reset()
 let logging = sa_test_allocations_start()
 let dispatchStart = now()
 for i in 0..<iterations {
@@ -41,7 +39,7 @@ for i in 0..<iterations {
         let message = messages[i % messages.count]
         let start = now()
         message.withUnsafeBufferPointer {
-            if mode != "legacy" && !core.validate($0.baseAddress, $0.count) { fatalError("valid fixture rejected") }
+            if !core.validate($0.baseAddress, $0.count) { fatalError("valid fixture rejected") }
             _ = sa_native_dispatch($0.baseAddress, $0.count)
         }
         core.tick(UInt64(i) * 8_000_000)
@@ -54,7 +52,7 @@ var blocks: UInt64 = 0, bytes: UInt64 = 0, resident: UInt64 = 0
 sa_test_memory(&blocks, &bytes, &resident)
 
 var socketSamples: [UInt64] = []
-let server: Server = mode == "legacy" ? sa_baseline_serve : core.serve
+let server = core.serve
 for i in 0..<1200 {
     autoreleasepool {
         let pair = socketPair()!
@@ -76,7 +74,7 @@ for i in 0..<1200 {
     }
 }
 let output: [String: Any] = [
-    "mode": mode, "scope": mode == "legacy" ? "legacy framing and shared recording adapter; fades use objc prototype" : "isolated recording backend",
+    "mode": "swift", "scope": "isolated recording backend",
     "validate_dispatch": statistics(dispatchSamples), "socket_round_trip": statistics(socketSamples),
     "commands_per_second": Double(iterations) * 1e9 / Double(dispatchElapsed),
     "allocation_calls": allocationCount.map { $0 as Any } ?? NSNull(),

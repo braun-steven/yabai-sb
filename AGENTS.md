@@ -20,7 +20,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `Sources/Yabai/Shims/`: Swift conversions for geometry, layouts, selectors and rules. These are ordinary Swift functions; no C entry points remain.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, ordered JSON, message tokens, values, selectors and rule/signal parsing.
 - `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
-- `osax/`: native scripting-addition adapter, bootstrap/loader and comparable ObjC/Swift cores. The makefile builds arm64e binaries and generates `payload_bin.c` / `loader_bin.c`; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests both cores with recording/Mach mocks, outside Dock.
+- `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. The makefile builds arm64e binaries and generates `payload_bin.c` / `loader_bin.c`; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
 - `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC capture in `Golden/`. No C test harness remains. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
 - `doc/`: Asciidoc, generated manpage, Swift-port plan, payload and live-testing notes.
 - `examples/`, `assets/`: sample configuration, icons, banner and plist.
@@ -32,7 +32,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `make asan` / `make tsan`: Address/Thread sanitizer build, also enabling UBSan for C.
 - `make clean`: removes `bin/`, `.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources change.
 - `make test`: generates OSAX arrays if needed, then runs `swift test`. A single test runs with `swift test --filter <name>`.
-- `make osax-test` / `make osax-prototypes`: isolated Swift Testing for the payload cores / both arm64e dylibs. Default Swift is 2.1.36; `OSAX_CORE=objc make install` explicitly selects the 2.1.35 comparison reference. See `doc/osax-prototypes.md` before any live reload.
+- `make osax-test` / `make osax-payload`: isolated Swift Testing for the payload core / standalone arm64e dylib. Swift 2.1.36 is the only implementation; no core-selection option remains. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` using asciidoctor. Edit the Asciidoc source.
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding to preserve Accessibility permission.
@@ -79,7 +79,7 @@ P14 model and bridge pitfalls:
 
 **Rendering and input.** `Border.swift` owns four edge windows per border under a Mutex; SkyLight callbacks move them without reading the tree. `TabBar.swift` draws classic bars and publishes immutable hit-test snapshots under a Mutex. `TabBarGlass.swift` snapshots on the event loop and renders with AppKit on the main queue. `WindowAnimation.swift` retains AX references and copied app names for concurrent frame workers, stores window ids for animations, and protects proxy/takeover state with a Mutex. `MouseHandler.swift` owns the event tap and drag/drop decisions. Main-queue blocks retain their render owners until the last pending block completes.
 
-**Scripting addition.** `osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock by default. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. `core/objc` remains an explicit comparison reference. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump each variant's `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
+**Scripting addition.** `osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
 
 **Platform gating.** The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.
 

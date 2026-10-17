@@ -1,16 +1,18 @@
 # Scripting-addition prototype comparison
 
-The default is the Swift core (2.1.36), selected by the user after the isolated and injected
-comparison below. `OSAX_CORE=objc` explicitly selects the Objective-C comparison reference
-(2.1.35); both use the same native Dock adapter and existing SIP/arm64e setup. The choice favors
-Swift state management and consistency with the daemon, not a demonstrated visible speed gain.
+The Swift core (2.1.36) is the only implementation, selected by the user after the isolated and
+injected comparison below. The unused Objective-C core, legacy framing benchmark and selection
+options have been removed. The native Dock adapter and loader still require Objective-C/C and
+the existing SIP/arm64e setup. The choice favors Swift state management and consistency with the
+daemon, not a demonstrated visible speed gain. Historical comparison sources are in commit
+`dd557cb`; the recorded results below describe that revision's two-core harness.
 
 ## Implemented boundaries
 
 - `osax/payload.m` owns private SkyLight/ObjC calls, Dock object discovery, pointer authentication,
   register-specific calls and the animation instruction patch. No Dock object crosses the core API.
-- `osax/core/objc/Core.m` and `osax/core/swift/Core.swift` independently implement validation,
-  frame I/O, replies and synchronized opacity state. One shared 8 ms timer calls the selected core;
+- `osax/core/swift/Core.swift` implements validation, frame I/O, replies and synchronized opacity
+  state. One 8 ms timer calls the core;
   elapsed monotonic time determines interpolation. Immediate opacity cancels a pending fade.
 - Validation completes before dispatch. Fixed fields, counts, booleans, floating values and trailing
   bytes are checked. A skipped proxy entry is four bytes; a nonzero window includes its proxy ID.
@@ -26,8 +28,8 @@ Swift state management and consistency with the daemon, not a demonstrated visib
   already discards that byte. An old
   payload closes without one; the new daemon represents this as **legacy/unconfirmed**, preserving
   the old Bool API. Accepted means dispatched or queued, not observed WindowServer completion.
-- Objective-C is version 2.1.35; Swift is 2.1.36. The embedded bundle, loader and daemon's version
-  accessor follow the selected variant. Changing cores rebuilds the embedded arrays.
+- Swift is version 2.1.36. The embedded bundle, loader and daemon's version accessor use that
+  version; the removed Objective-C prototype used 2.1.35.
 
 The bootstrap is now assembly with named literal slots, rather than a byte string with numeric
 patch offsets. The loader distinguishes pthread creation, dlopen completion and socket readiness.
@@ -43,29 +45,30 @@ after executable protection is restored.
 ## Reproduce isolated checks
 
 ```sh
-make osax-prototypes
+make osax-payload
 make osax-test
 swift test --package-path osax --sanitize=address
 swift test --package-path osax --sanitize=thread
 swift build --package-path osax -c release --product osax-benchmark
-"$(swift build --package-path osax -c release --show-bin-path)/osax-benchmark" objc
-"$(swift build --package-path osax -c release --show-bin-path)/osax-benchmark" swift
-"$(swift build --package-path osax -c release --show-bin-path)/osax-benchmark" legacy
+"$(swift build --package-path osax -c release --show-bin-path)/osax-benchmark"
 python3 scripts/osax/inspect_dock.py
 ```
 
-Run benchmark modes as separate processes, in alternating orders, without concurrent builds. The
-recording adapter never links SkyLight or touches real windows. It records the complete adapter
+The benchmark now measures only Swift. The recording adapter never links SkyLight or touches real
+windows. It records the complete adapter
 input, including entry order, and simulates alpha. Tests exercise every opcode, truncation, malformed
-counts/values, bounded fuzz parity, fragmented frames, disconnections, interrupted poll, deadlines,
+counts/values, 10,000 bounded fuzz mutations, fragmented frames, disconnections, interrupted poll, deadlines,
 fade replacement/cancellation, backend failures, concurrent opacity commands and loader failures.
+Rejected fuzz packets must leave native dispatch counts/digests unchanged; a fixed expected trace
+digest replaces cross-core comparisons for command ordering.
 
-`legacy` is the original framing function from commit 107feff, followed by the shared recording
-adapter. Only valid input is supplied to it. Its fade state is the Objective-C prototype. This is
-**not a full old-payload performance baseline**. Validation/dispatch and socket round trips are
+The historical `legacy` mode used the original framing function from commit 107feff, followed by
+the shared recording adapter and Objective-C prototype fade state. Only valid input was supplied
+to it. It was **not a full old-payload performance baseline**. Validation/dispatch and socket round trips are
 reported separately, including p95/p99. Allocation calls use a temporary malloc logger in this
-benchmark process; null means the platform did not expose an unused logger. Live malloc blocks,
-bytes and RSS include the test host and both linked cores, not an injected-payload footprint.
+benchmark process; null means the platform did not expose an unused logger. Historical malloc
+blocks, bytes and RSS included the host and both linked cores, not an injected-payload footprint;
+current single-core host memory samples are not directly comparable with those values.
 
 ## Dock inspection and ownership evidence
 
@@ -87,7 +90,7 @@ balances its alloc/init ownership after the call. This is static evidence for th
 repeated live create/destroy cycles must still check memory behavior. Typed, retained CF-array
 creation also removes the analyzer's previous helper-type/ownership diagnostics.
 
-## Live comparison procedure
+## Live verification procedure
 
 Read `doc/live-testing.md` first. Deploying restarts yabai and resets all layouts. Reloading the
 payload restarts Dock. The agent must restore the installed binary after its checks.
@@ -106,7 +109,7 @@ python3 scripts/osax/compatibility.py snapshot --state /tmp/yabai-osax-live-stat
 python3 scripts/osax/compatibility.py setup --state /tmp/yabai-osax-live-state.json
 python3 scripts/osax/compatibility.py run --state /tmp/yabai-osax-live-state.json --label baseline
 python3 scripts/osax/compatibility.py extra --state /tmp/yabai-osax-live-state.json --label baseline
-bash scripts/live-tests/deploy.sh install objc
+bash scripts/live-tests/deploy.sh install
 # Repeat run/extra against the OLD loaded payload before reloading.
 ```
 
@@ -118,17 +121,15 @@ sudo ~/.local/bin/yabai --load-sa
 python3 scripts/live-tests/sa_version.py
 ```
 
-Require 2.1.35 with attributes 0x5f for Objective-C, then repeat run/extra. Check opacity endpoints,
+Require 2.1.36 with attributes 0x5f, then repeat run/extra. Check opacity endpoints,
 rapid fade replacement, tab/proxy ordering and repeated disposable space creation/destruction.
 Record daemon/Dock PIDs, new crash reports and warmed Dock footprint before and after each block.
-Keep the fixture's window IDs when changing variants, then use `bash scripts/live-tests/deploy.sh install
-swift` and repeat the terminal reload, requiring 2.1.36/0x5f and the same checks. Do not send malformed
-traffic to Dock; those cases belong to the isolated recording host.
+Do not send malformed traffic to Dock; those cases belong to the isolated recording host.
 
-`python3 scripts/osax/runtime.py objc --out /tmp/objc-runtime.json` verifies actual WindowServer
+`python3 scripts/osax/runtime.py --out /tmp/swift-runtime.json` verifies actual WindowServer
 alpha after immediate/fade/replacement/cancellation commands, records 3 × 250 socket round trips,
 and creates/destroys 50 new empty spaces. It disables/restores space-count reconciliation and only
-removes newly created spaces. Repeat with `swift --window <same TextEdit id> --out /tmp/swift-runtime.json`.
+removes newly created spaces. Use `--window <same TextEdit id>` to match the target across runs.
 The one-second request deadline tests and malformed-input cases stay outside Dock. Footprint samples
 are coarse observations, not an object leak proof. Round trips include kernel/socket scheduling and
 SkyLight; they do not measure visible-frame latency or isolate language overhead.
@@ -194,7 +195,7 @@ the original binary, but kickstart failed because cleanup had unloaded its launc
 visible space 2 and focused window 33208. Test spaces 4/5/13 are empty and all disposable apps
 are closed. Crash-report counts stayed at 11 yabai and zero Dock throughout today's tests.
 
-## Result
+## Historical comparison result
 
 Isolated checks pass: 9 payload/loader tests under ASan and TSan, 107 main tests with each embedded
 variant, warning-free arm64e prototypes and optimized daemon build, and zero clang analyzer
@@ -220,7 +221,7 @@ overlap and the first run is slower for all modes. The baseline is only the old 
 not the original fade engine or an injected process. Both prototypes now pass the available checks
 inside Dock, establishing feasibility of the Swift core with a native adapter on this Dock build.
 The initial analysis recommended Objective-C as the default. The user subsequently chose to keep
-Swift, so ordinary builds and the deployment helper now select Swift 2.1.36. Swift removes
+Swift; the Objective-C prototype and selection paths have now been removed. Swift removes
 manual retain/release from the small fade core and reduces host allocations, but both cores have
 similar size (174 ObjC versus 171 Swift lines) and share the 1,008-line native adapter that contains
 the private-ABI/ownership risk. Running another language/build path has not yet bought a measured

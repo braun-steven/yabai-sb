@@ -7,7 +7,7 @@
 #include <pwd.h>
 #include <sys/un.h>
 #include "common.h"
-#include "core/objc/IO.h"
+#include "core/IO.h"
 
 #include <ptrauth.h>
 #ifdef SA_LOADER_TESTING

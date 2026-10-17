@@ -1,4 +1,4 @@
-// SwiftPM needs a source for the declarations imported by the two isolated prototypes.
+// SwiftPM needs a source for the declarations imported by the payload and its isolated tests.
 #include "include/OSAXCore.h"
 #include <string.h>
 

@@ -108,10 +108,10 @@ make tsan            # ThreadSanitizer build
 
 `make install` builds locally; it does not copy the binary into your PATH. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes build products and generated payload arrays. See [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
-The scripting addition uses the Swift core by default (2.1.36), with private Dock operations in a
-native adapter. `make osax-test` tests the cores outside Dock; `make osax-prototypes` builds both
-comparison payloads without injecting them. The Objective-C reference is available explicitly with
-`OSAX_CORE=objc`. See the [comparison and reload procedure](doc/osax-prototypes.md).
+The scripting addition uses the Swift core (2.1.36), with private Dock operations in a native
+adapter. `make osax-test` tests it outside Dock; `make osax-payload` builds the standalone payload
+without injecting it. The unused Objective-C prototype has been removed. See the
+[comparison results and reload procedure](doc/osax-prototypes.md).
 
 ## License and Attribution
 

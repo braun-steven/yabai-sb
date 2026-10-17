@@ -44,7 +44,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
   - **SwiftPM** builds the binary. A **thin `makefile`** keeps the existing entry points.
   - Long-lived branch **`swift-port`**. It merges into `master` only when the user says so after P14.
 - What stays non-Swift:
-  - the scripting addition's native Dock adapter and loader (`osax/`); the payload core is Swift by default following the 2026-10-17 comparison
+  - the scripting addition's native Dock adapter and loader (`osax/`); the payload core is Swift following the 2026-10-17 comparison
   - the C module `CPrivate`: private declarations, wrappers for APIs Swift cannot call, and MRR notifications
 
 ## Parity contract (must hold after every phase)
@@ -916,3 +916,10 @@ Append one entry per session, newest last. Template:
 - Inverted the override to `SA_CORE_OBJC` so an unqualified header/SwiftPM build also selects Swift. The explicit ObjC Clang command must pass this define as well as the loader/SwiftPM target; otherwise native dispatch and the linked core disagree. Updated build instructions, architecture notes and the comparison decision. This selects an implementation, not a new CLI feature, so no Fork changes entry was added.
 - Verification: default main suite 107/107, isolated payload suite 9/9, optimized release warning-free, explicit ObjC main suite 107/107 and switch back to default Swift 107/107. Only `.build/osax-selected-swift` remains and generated arrays select Swift. Shell syntax and `git diff --check` pass.
 - Rebuilt payloads are byte-identical to the live-tested variants: Swift SHA-256 `35df6b81a2f1caf2e7fa246fb2a97243706b00b832180ea73d5546ba6a1b36a3`; ObjC `de358dba6703b8442cd649a87b087a513e1ba3bde0c6e8fe20e8df08c345f449`. No protocol/behavior change or version bump. No deployment, injection, Dock restart, merge or push; the previously restored installed build remains unchanged. Stayed on `swift-port`.
+
+### 2026-10-17 Remove the unused prototype
+- User clarified that choosing Swift should remove the unused Objective-C prototype, not merely change the default. Deleted `core/objc/Core.m`, its import wrapper, alternate build/SwiftPM/deployment selection, version conditional and comparison-only legacy framing implementation. Moved the still-required C socket helper to `osax/core/IO.h`; the Objective-C native adapter, loader and assembly bootstrap remain.
+- The standalone package, recording adapter, benchmark and live runtime probe now target Swift only. `make osax-payload` replaces the dual-prototype build target; the benchmark takes no core argument and deployment takes no second argument. Historical source and comparison results remain in Git/report artifacts, with `dd557cb` identified as the comparison revision.
+- Preserved all opcode/transport/fade/loader fixtures. Replaced cross-core fuzz parity with rejection-before-dispatch checks for 10,000 mutations and a fixed ordered-dispatch trace digest (`48f66fb99d562774`). Benchmark smoke still produces the recorded `da86f660290c5770` digest. No second core is required to maintain those regressions.
+- Verification: main suite 107/107; isolated, ASan and TSan 9/9 each with no sanitizer findings; warning-free optimized daemon and benchmark builds. Removed an unused test variable found by the isolated builds; final isolated run is warning-free. Python/shell syntax and diff checks pass. Swift payload remains 86,968 bytes, SHA-256 `35df6b81a2f1caf2e7fa246fb2a97243706b00b832180ea73d5546ba6a1b36a3`, identical to the live-tested 2.1.36 payload. Final source-only edits after verification change comments/documentation only.
+- No deployment, injection, service/Dock restart, merge or push. The installed original build remains unchanged; stayed on `swift-port`. No new CLI feature or Fork changes entry.

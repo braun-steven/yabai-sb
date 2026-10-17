@@ -1,10 +1,11 @@
 #!/bin/bash
-# usage: deploy.sh [install|asan|tsan] [objc|swift]   builds the checked-out tree, signs it with the yabai-cert identity, installs it
+# usage: deploy.sh [install|asan|tsan]   builds the checked-out tree, signs it with the yabai-cert identity, installs it
 #                                        over ~/.local/bin/yabai and restarts the service
 #        deploy.sh restore               puts back the binary that was installed before the first deploy
 # The first deploy backs up the installed binary to ~/.local/state/yabai/yabai.before-deploy. Later deploys keep that
 # backup, so restore always returns to the binary that update-yabai-fork installed (see doc/live-testing.md).
 set -e
+[[ $# -le 1 ]] || { echo "usage: deploy.sh [install|asan|tsan|restore]"; exit 1; }
 S=${TMPDIR:-/tmp}/yabai-live-build; mkdir -p $S
 B=~/.local/state/yabai/yabai.before-deploy
 cd "$(dirname "$0")/../.."
@@ -24,13 +25,6 @@ case $VARIANT in
     install|asan|tsan) ;;
     *) echo "usage: deploy.sh [install|asan|tsan|restore]"; exit 1 ;;
 esac
-OSAX_CORE=${2:-swift}
-case $OSAX_CORE in
-    objc|swift) ;;
-    *) echo "payload core must be objc or swift"; exit 1 ;;
-esac
-export OSAX_CORE
-
 make $VARIANT > $S/build.log 2>&1 || { tail -30 $S/build.log; exit 1; }
 grep "warning:" $S/build.log | head || true
 cp bin/yabai $S/yabai.new

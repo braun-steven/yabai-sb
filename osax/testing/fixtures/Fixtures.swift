@@ -32,19 +32,17 @@ public typealias Tick = @convention(c) (UInt64) -> Void
 
 public struct Core: Sendable
 {
-    public let swift: Bool
     public let validate: Validator
     public let serve: Server
     public let opacity: Opacity
     public let tick: Tick
 
-    public init(swift: Bool)
+    public init()
     {
-        self.swift = swift
-        validate = swift ? sa_swift_validate : sa_objc_validate
-        serve = swift ? sa_swift_serve : sa_objc_serve
-        opacity = swift ? sa_swift_opacity : sa_objc_opacity
-        tick = swift ? sa_swift_tick : sa_objc_tick
+        validate = sa_swift_validate
+        serve = sa_swift_serve
+        opacity = sa_swift_opacity
+        tick = sa_swift_tick
     }
 
     public func valid(_ bytes: [UInt8]) -> Bool

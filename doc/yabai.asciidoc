@@ -251,15 +251,15 @@ Global Settings
     A negative value moves the windows up under the bar. The windows always keep at least *tab_bar_height* of height.
 
 *tab_bar_backdrop* ['off|glass|blur']::
-    Backdrop card of the 'glass' tab bar style. Default is 'glass'. +
+    Backdrop card of the 'glass' tab bar style. Default is 'blur'. +
     The card is a rounded surface behind the whole tabbed container that holds the bar at its top and the active window below it, so the wallpaper never shows between the bar and the window. +
-    The card hides the other windows of the container and is tinted with *tab_bar_backdrop_color*. The bar keeps its track, tinted with *tab_bar_unfocused_color*, on top of the card. +
-    'glass' draws the card in the Liquid Glass material, 'blur' as a dark vibrancy blur, and 'off' draws no card, so the bar floats above the windows in its own track. +
-    The card is never drawn for the 'i3' style or before macOS 26.
+    The card hides the other windows of the container. The bar keeps its Liquid Glass track, tinted with *tab_bar_unfocused_color*, on top of the card. +
+    'blur' uses the native material for backgrounds beneath windows, with a neutral color that follows *tab_bar_appearance*. 'glass' draws the whole card in Liquid Glass, and 'off' draws no card, so the bar floats above the windows in its own track. +
+    Cards have a subtle outline that becomes stronger with Increase Contrast. The card is never drawn for the 'i3' style.
 
 *tab_bar_backdrop_color* ['0xAARRGGBB']::
-    Tint of the backdrop card. Default is '0xff48484a', lighter than *tab_bar_unfocused_color* so the bar stands out on the card. +
-    Like the other glass colors, the default is applied with 40% opacity, and a configured color is used as given.
+    Optional tint of the backdrop card. The 'blur' backdrop uses its native material color until this option is configured. +
+    The default value '0xff48484a' is used with 40% opacity for the 'glass' backdrop in dark appearance; system appearance uses an adaptive default tint. A configured color is used as given for either backdrop. Reduce Transparency makes the backing opaque.
 
 *tab_bar_card_padding* ['<integer number>']::
     Space in points between the edges of the backdrop card and the tab bar and windows inside it. Default is 6.
@@ -278,7 +278,7 @@ Global Settings
 
 *tab_bar_appearance* ['dark|system']::
     Appearance of glass tab bars. Default is 'dark', including when macOS uses light mode. +
-    'system' follows the macOS appearance and uses adaptive default glass tints. Configured background and text colors are retained. This option does not affect the 'i3' style.
+    'system' follows the macOS appearance for the controls and backdrop, with adaptive default materials and glass tints. Configured background and text colors are retained. This option does not affect the 'i3' style.
 
 *tab_bar_font* ['<family>:<size>']::
     Font of the tab titles, e.g. 'Menlo:12'. The family 'system' selects the macOS system font. Default is 'system:12'.

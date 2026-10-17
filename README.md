@@ -4,7 +4,7 @@ This is my personal fork of yabai, where I (and AI) implement features and bug f
 
 ## Fork changes
 
-- **Adaptive glass tabs**: glass tab bars use native AppKit buttons with hover and press feedback, accessible titles and selection, and support for Reduce Motion, Reduce Transparency, and Increase Contrast. `tab_bar_appearance dark|system` keeps the current dark look by default or follows the macOS appearance with adaptive default colors; configured colors take precedence.
+- **Adaptive glass tabs**: glass tab bars use native AppKit buttons with hover and press feedback, accessible titles and selection, and support for Reduce Motion, Reduce Transparency, and Increase Contrast. The surrounding card defaults to a subdued native background material (`tab_bar_backdrop blur`) with a subtle outline; `glass` and `off` remain available. `tab_bar_appearance dark|system` keeps the current dark look by default or follows the macOS appearance with adaptive default colors; configured colors take precedence.
 
 - **`space_layout` config**: keeps a fixed number of spaces on each display, with one layout per display count, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`. Spaces are moved, created, or destroyed (only empty ones) after display or space changes.
 - **macOS 27**: releases after Tahoe take the Tahoe code paths (window notifications, window sub-level queries) instead of falling back to pre-Sequoia behavior.

@@ -1410,7 +1410,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.tab_bar_icons = true
     wm.tab_bar_style = TAB_BAR_STYLE_GLASS
     wm.tab_bar_appearance = .dark
-    wm.tab_bar_backdrop = TAB_BAR_BACKDROP_GLASS
+    wm.tab_bar_backdrop = TAB_BAR_BACKDROP_BLUR
     wm.tab_bar_card_padding = 6
     wm.tab_bar_window_radius = 16
     wm.tab_bar_focused_color = rgba_color_from_hex(0xff285577)

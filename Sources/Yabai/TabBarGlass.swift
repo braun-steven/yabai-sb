@@ -398,7 +398,7 @@ private final class Panel
             view = glass
         } else {
             let effect = NSVisualEffectView(frame: .zero)
-            effect.material = .hudWindow
+            effect.material = .underWindowBackground
             effect.blendingMode = .behindWindow
             effect.state = .active
             effect.addSubview(tint)
@@ -417,7 +417,20 @@ private final class Panel
 
         backdrop.frame = bounds
         backdropTint.frame = backdrop.bounds
-        setTint(backdropTint, radius: snapshot.cardRadius, color: resolvedTint(snapshot.backdropTint, custom: snapshot.customBackdrop, fallback: NSColor.windowBackgroundColor.withAlphaComponent(0.4)))
+        // NOTE: The standard backdrop supplies its own adaptive color. Only overlay a tint when configured;
+        // an opaque semantic backing replaces translucency when requested by the accessibility setting.
+        let color: CGColor
+        if snapshot.backdrop == TAB_BAR_BACKDROP_BLUR && !snapshot.customBackdrop {
+            color = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+                  ? NSColor.windowBackgroundColor.cgColor : NSColor.clear.cgColor
+        } else {
+            color = resolvedTint(snapshot.backdropTint, custom: snapshot.customBackdrop, fallback: NSColor.windowBackgroundColor.withAlphaComponent(0.4))
+        }
+        setTint(backdropTint, radius: snapshot.cardRadius, color: color)
+        let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        backdropTint.layer?.borderWidth = contrast ? 1 : 1 / max(1, panel.backingScaleFactor)
+        backdropTint.layer?.borderColor = contrast ? NSColor.labelColor.withAlphaComponent(0.6).cgColor
+                                                 : NSColor.separatorColor.cgColor
 
         guard backdropRadius != snapshot.cardRadius else { return }
         backdropRadius = snapshot.cardRadius

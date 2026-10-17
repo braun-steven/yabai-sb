@@ -82,8 +82,8 @@ glass
 ### 5 config tab_bar_appearance
 dark
 
-### 6 config tab_bar_backdrop
-glass
+### 5 config tab_bar_backdrop
+blur
 
 ### 2 config tab_bar_card_padding
 6

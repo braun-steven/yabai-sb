@@ -16,6 +16,7 @@ import PackageDescription
 let sdk = Context.environment["SDKROOT"].map { ["-Xclang-linker", "-isysroot", "-Xclang-linker", $0] } ?? []
 
 let warnings = ["-Wall", "-Wextra", "-Wstrict-prototypes", "-Wimplicit-fallthrough", "-Wnull-dereference", "-Wno-shorten-64-to-32"]
+let swiftSettings: [SwiftSetting] = [.treatAllWarnings(as: .error)]
 
 let package = Package(
     name: "yabai",
@@ -30,7 +31,7 @@ let package = Package(
             name: "CPrivate",
             cSettings: [
                 .unsafeFlags(warnings + ["-fno-objc-arc"]),
-                .unsafeFlags(["-O3"], .when(configuration: .release)),
+                .treatAllWarnings(as: .error),
                 .define("NDEBUG", .when(configuration: .release))
             ],
             linkerSettings: [
@@ -44,15 +45,18 @@ let package = Package(
             name: "OSAX",
             path: "osax",
             sources: ["payload_bin.c", "loader_bin.c", "Version.c"],
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            cSettings: [.treatAllWarnings(as: .error)]
         ),
         // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
         .target(
-            name: "YabaiCore"
+            name: "YabaiCore",
+            swiftSettings: swiftSettings
         ),
         .executableTarget(
             name: "Yabai",
             dependencies: ["CPrivate", "OSAX", "YabaiCore"],
+            swiftSettings: swiftSettings,
             linkerSettings: [
                 .linkedFramework("Carbon"),
                 .linkedFramework("Cocoa"),
@@ -64,14 +68,16 @@ let package = Package(
         .testTarget(
             name: "YabaiCoreTests",
             dependencies: ["YabaiCore"],
-            path: "tests/YabaiCoreTests"
+            path: "tests/YabaiCoreTests",
+            swiftSettings: swiftSettings
         ),
         // the code of the daemon (the IPC handlers, the managers and the golden replay), through @testable import Yabai
         .testTarget(
             name: "YabaiTests",
             dependencies: ["CPrivate", "OSAX", "Yabai", "YabaiCore"],
             path: "tests/YabaiTests",
-            resources: [.copy("Golden")]
+            resources: [.copy("Golden")],
+            swiftSettings: swiftSettings
         )
     ],
     swiftLanguageModes: [.v6],

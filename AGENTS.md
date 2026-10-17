@@ -27,10 +27,11 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `scripts/`: signing, installation, payload history and the live harness in `scripts/live-tests/`.
 
 ## Build, Test, and Development Commands
-- `make`: incremental debug arm64 build in `.build/`, copied to `bin/yabai`. Every build variant replaces `bin/`.
-- `make install`: optimized release build; Swift warnings are errors. CPrivate uses `-O3 -DNDEBUG`.
+- `make`: incremental debug arm64 build in `.build/`, copied atomically to `bin/yabai` after success. Every variant publishes to that path; failures preserve the previous binary.
+- `make install`: standard SwiftPM release optimization; CPrivate defines `NDEBUG`. Both manifests treat Swift and C warnings as errors in all configurations.
 - `make asan` / `make tsan`: Address/Thread sanitizer build, also enabling UBSan for C.
-- `make clean`: removes `bin/`, `.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources change.
+- `make clean`: removes `bin/`, `.build/`, `osax/.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources, module map or makefile change.
+- `make prepare`: generates embedded sources before direct SwiftPM/IDE use; rerun after changing OSAX inputs. Swift Build 6.4 does not compile plugin-generated C sources. See `doc/building.md`.
 - `make test`: generates OSAX arrays if needed, then runs `swift test`. A single test runs with `swift test --filter <name>`.
 - `make osax-test` / `make osax-payload`: isolated Swift Testing for the payload core / standalone arm64e dylib. Swift 2.1.36 is the only implementation; no core-selection option remains. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
@@ -39,7 +40,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `update-yabai-fork` (outside the repo, in `~/.local/bin`): release build, signing, install, sudoers update and restart. Commit first; the user runs this in a real terminal for sudo. Agents use `bash scripts/live-tests/deploy.sh install` instead; read `doc/live-testing.md` first.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: inspect payload updates across both the old and current paths.
 
-There is no linter or `make analyze` target. Keep builds warning-free. CPrivate's warnings are configured in `Package.swift`; the separately built payload/loader use the makefile's OSAX flags.
+There is no linter or `make analyze` target. Keep builds warning-free. CPrivate's warnings are configured in `Package.swift`; the separately built payload/loader use the makefile's OSAX flags. Sanitizer daemon builds use separate `.build/asan` and `.build/tsan` scratch directories; they do not instrument the embedded payload.
 
 ## Coding Style & Naming
 - Swift 6, Swift Testing, four-space indentation, and the surrounding file's brace style. Ported functions retain their C order and names where that helps one-to-one comparison.
@@ -106,6 +107,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 
 ### Pitfalls learned so far
 
+- **Swift dylib output paths:** the default install name contains the output path, so moving the payload changes its bytes even with identical sources/flags. Keep `.build/osax/swift/payload` stable when preserving the live-tested artifact.
 - **Optimized Swift C exports:** an internal `@_cdecl` can become local during SwiftPM release prelinking, even when debug tests link. Mark cross-target exports `public` and build a release consumer (`osax/core/swift/Core.swift`).
 - **Payload tests:** daemon ASan/TSan do not instrument the separately compiled payload. Use the standalone `osax` package; test signal interruptions on a disposable pthread with its signal explicitly unblocked, because Swift Testing/sanitizers can inherit a blocked mask.
 - **Dock signatures and ownership:** pattern matches are candidates, not identities (Spaces and HotCorners both match `dock_spaces` on 26A434). Validate decoded targets and record Dock hash/UUID. Resolve private-call ownership from the callee and Dock's callers before changing retain/release (`doc/osax-prototypes.md`).

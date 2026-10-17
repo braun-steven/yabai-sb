@@ -8,6 +8,7 @@ point below was learned the hard way; read it before running anything live.
 
 - All 82 original C tests are Swift tests; P14 removed the C harness and YabaiC target.
   `make test` generates the embedded OSAX arrays when needed, then runs `swift test` (103 tests at P14).
+  Before direct SwiftPM commands on a fresh checkout or after OSAX changes, run `make prepare`.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
   Run a single test with `swift test --filter <name>`, or the golden IPC replay with
   `swift test --filter Golden` (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`).

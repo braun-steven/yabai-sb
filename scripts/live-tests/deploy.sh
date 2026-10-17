@@ -13,7 +13,8 @@ if [[ $1 == restore ]]; then
     [[ -f $B ]] || { echo "no backup at $B"; exit 1; }
     cp -p $B ~/.local/bin/yabai.tmp && mv -f ~/.local/bin/yabai.tmp ~/.local/bin/yabai
     cmp $B ~/.local/bin/yabai && rm $B
-    ~/.local/bin/yabai --restart-service
+    # Fixture cleanup unloads launchd before quitting apps, so there may be nothing to kickstart.
+    ~/.local/bin/yabai --restart-service || ~/.local/bin/yabai --start-service
     sleep 2; pgrep -x yabai
     exit 0
 fi

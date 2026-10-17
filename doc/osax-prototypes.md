@@ -19,7 +19,9 @@ inside Dock. Both injected variants still require the existing SIP/arm64e setup.
 - Requests retain their native-endian 16-bit length, opcode values and field encoding. Handshake
   replies retain `version NUL attributes newline`. Non-handshake replies add one optional byte:
   0 accepted, 1 invalid, 2 unsupported, 3 failed. Available SkyLight/transaction error codes propagate
-  to failed replies; private void calls can only report that they were invoked. An old daemon
+  to failed replies; private void calls can only report that they were invoked. SkyLight can also
+  return success for a nonexistent window (observed for `SLSSetWindowAlpha`); acceptance cannot
+  establish that the target existed or changed. An old daemon
   already discards that byte. An old
   payload closes without one; the new daemon represents this as **legacy/unconfirmed**, preserving
   the old Bool API. Accepted means dispatched or queued, not observed WindowServer completion.
@@ -94,6 +96,9 @@ saves config, focus, visible spaces and test-space layouts. It uses 13 because 1
 windows on this machine. Cleanup stops the test service before closing its disposable apps,
 avoiding the separately documented destruction/frame-grouping and late AX callback crashes.
 Immediately follow cleanup with `deploy.sh restore`, then the snapshot restore action.
+With one connected display, the standard suite checks sending/focusing a window on another space;
+the extra suite explicitly skips cross-display container warp and swap. Calculator placement uses
+the current display geometry. Native space shortcuts remain skipped when disabled by the user.
 
 ```sh
 python3 scripts/osax/compatibility.py snapshot --state /tmp/yabai-osax-live-state.json
@@ -115,9 +120,17 @@ python3 scripts/live-tests/sa_version.py
 Require 2.1.35 with attributes 0x5f for Objective-C, then repeat run/extra. Check opacity endpoints,
 rapid fade replacement, tab/proxy ordering and repeated disposable space creation/destruction.
 Record daemon/Dock PIDs, new crash reports and warmed Dock footprint before and after each block.
-Clean up the fixture before changing variants, then use `bash scripts/live-tests/deploy.sh install
+Keep the fixture's window IDs when changing variants, then use `bash scripts/live-tests/deploy.sh install
 swift` and repeat the terminal reload, requiring 2.1.36/0x5f and the same checks. Do not send malformed
 traffic to Dock; those cases belong to the isolated recording host.
+
+`python3 scripts/osax/runtime.py objc --out /tmp/objc-runtime.json` verifies actual WindowServer
+alpha after immediate/fade/replacement/cancellation commands, records 3 × 250 socket round trips,
+and creates/destroys 50 new empty spaces. It disables/restores space-count reconciliation and only
+removes newly created spaces. Repeat with `swift --window <same TextEdit id> --out /tmp/swift-runtime.json`.
+The one-second request deadline tests and malformed-input cases stay outside Dock. Footprint samples
+are coarse observations, not an object leak proof. Round trips include kernel/socket scheduling and
+SkyLight; they do not measure visible-frame latency or isolate language overhead.
 
 Finally clean up, restore the installed binary and restore the saved state:
 
@@ -131,6 +144,54 @@ python3 scripts/live-tests/sa_version.py
 The restored daemon's startup may reinstall/reload its older payload. Verify its version; a different
 installed payload may need the user's terminal reload again. Do not leave an experimental payload
 active while claiming the original environment has been restored.
+
+## Injected comparison, 2026-10-17
+
+The user reloaded Objective-C 2.1.35 in Dock (pid 66897), with daemon pid 66624 and capabilities
+0x5f. The laptop display is the only connected display today (1512 × 982); yesterday's baseline
+used external displays, so its timing values are not a matched performance baseline. The six
+fixture window IDs today are 37886, 37893, 37900, 37919, 37927 and 37936. Both injected variants
+used these same windows; alpha probes targeted TextEdit window 37900.
+
+Objective-C passed 28/28 standard checks and 5/5 available extra checks; cross-display container
+warp/swap and disabled native shortcuts were explicitly skipped. Its daemon and Dock PIDs stayed
+unchanged. The runtime probe passed opacity endpoints, replacement, immediate cancellation and
+100 rapid replacements. A nonexistent-space request returned failure (03); an unknown-window
+opacity request returned acceptance (00), exposing the native API limitation described above.
+Fifty create/destroy cycles left the original space IDs intact; Dock physical footprint stayed
+60.5 MB in all six samples. This does not prove an absence of small object leaks.
+
+Three 250-command immediate-opacity blocks had median/p95/p99 round trips of
+58.750/122.084/168.459, 48.792/59.167/65.417 and 35.250/51.833/94.583 µs. Warm-up/drift is visible
+even within this single run. These values must not justify a language choice on their own.
+Dock's initialization log confirms that the Spaces candidate was accepted, the HotCorners
+candidate rejected, and the expected add/remove/move/animation addresses found. Only the unused
+setFrontWindow signature was missing, as in the baseline.
+
+The user then reloaded Swift 2.1.36/0x5f in Dock pid 69454, daemon pid 68953. It passed the same
+28/28 standard and 5/5 available extra checks, every opacity/status probe and all 50 create/destroy
+cycles, with unchanged PIDs. Its six footprint samples were 60.5/60.5/60.5/60.6/60.6/60.6 MB.
+Both variants' 50 checked space switches had an 8 ms median CLI latency. Swift's initialization
+log validates the same signature targets and rejects HotCorners.
+
+| Core | Opacity median, µs (three blocks) | p95, µs | p99, µs |
+|---|---|---|---|
+| Objective-C | 58.750 / 48.792 / 35.250 | 122.084 / 59.167 / 51.833 | 168.459 / 65.417 / 94.583 |
+| Swift | 59.958 / 49.375 / 38.250 | 88.125 / 58.500 / 45.750 | 128.250 / 65.334 / 62.667 |
+
+This was one ObjC→Swift sequence, not an alternating replicated comparison. The substantial
+within-variant drift and overlapping round-trip distributions prevent a causal performance claim.
+Whole-Dock footprint samples also cannot isolate each payload's memory cost. Exact timings,
+fixture IDs and restoration checks are in [osax-injected-results.json](osax-injected-results.json);
+initialization and live-check logs are in [osax-injected-checks.txt](osax-injected-checks.txt).
+
+Cleanup stopped the test service before app termination. `deploy.sh restore` copied and verified
+the original binary, but kickstart failed because cleanup had unloaded its launchd job. Explicit
+`--start-service` succeeded; the restore script now falls back to it. The original daemon pid
+70579 reinstalled/reloaded payload 2.1.34/0x5f in Dock pid 70600. Verified original binary SHA-256
+`9461507d649399082ce47c800b2c534a78dc8a5ad76c84b8df1904b940da065d`, all saved config values,
+visible space 2 and focused window 33208. Test spaces 4/5/13 are empty and all disposable apps
+are closed. Crash-report counts stayed at 11 yabai and zero Dock throughout today's tests.
 
 ## Result
 
@@ -155,15 +216,23 @@ The built arm64e payloads are 80,488 bytes (Objective-C) and 86,968 bytes (Swift
 
 The Swift core reduces allocations and improves this dispatch workload, but socket distributions
 overlap and the first run is slower for all modes. The baseline is only the old framing function,
-not the original fade engine or an injected process. This supports a **live comparison**, not a
-production rewrite or a claim of faster visible window management. Keep Objective-C as the default
-until both variants pass inside Dock. Both the installed baseline and the new daemon against the
+not the original fade engine or an injected process. Both prototypes now pass the available checks
+inside Dock, establishing feasibility of the Swift core with a native adapter on this Dock build.
+**Keep hardened Objective-C as the default and Swift as an experimental option.** Swift removes
+manual retain/release from the small fade core and reduces host allocations, but both cores have
+similar size (174 ObjC versus 171 Swift lines) and share the 1,008-line native adapter that contains
+the private-ABI/ownership risk. Running another language/build path has not yet bought a measured
+end-to-end advantage. A broader Swift payload migration needs replicated, alternating injected
+runs, a matched full original-payload baseline and a longer soak including cross-display operations;
+neither mock benchmarks nor these short live checks justify it.
+
+Both the installed baseline and the new daemon against the
 still-loaded 2.1.34 payload passed 28/28 standard and 14/14 extra live checks, with unchanged daemon
 PIDs during each block. This validates backward compatibility, not the new native adapter. Live
 logs are preserved in [osax-live-compatibility.txt](osax-live-compatibility.txt). The original
 installed binary (SHA-256 `9461507d649399082ce47c800b2c534a78dc8a5ad76c84b8df1904b940da065d`)
-and payload 2.1.34/0x5f were restored/verified afterward. Neither prototype has been injected;
-their live comparison remains gated on the user's terminal reloads. Config, visible spaces and
-focused window were restored, with no disposable applications left running. Cleanup did trigger
+and payload 2.1.34/0x5f were restored/verified afterward on October 16, before the prototype
+reloads described above. Config, visible spaces and focused window were restored, with no
+disposable applications left running. Cleanup did trigger
 the pre-existing late AX callback crash (`window_unobserve`, pid 51362), after the successful check
 blocks. See the 2026-10-17 handoff; cleanup now quiesces the service first.

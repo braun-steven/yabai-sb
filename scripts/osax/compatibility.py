@@ -71,7 +71,7 @@ if args.action == "snapshot":
     sys.exit(0)
 
 state = json.loads(args.state.read_text())
-live.RESTORE_OTHER = next(index for index in state["visible"] if index >= 11 and index <= 15)
+live.RESTORE_OTHER = next((index for index in state["visible"] if 11 <= index <= 15), state["visible"][0])
 if args.action == "setup":
     for app in ("TextEdit", "Script Editor", "Calculator"):
         if subprocess.run(["pgrep", "-x", app], capture_output=True).returncode == 0:

@@ -161,8 +161,10 @@ def run(label):
     y(f"window --focus {first}"); time.sleep(0.3)
 
     # Keep the floating Calculator away from the centers of the tiled windows.
+    frame = display_frame(1)
     for w in ws:
-        if w["app"] == "Calculator": y(f"window {w['id']} --move abs:2300:1150")
+        if w["app"] == "Calculator":
+            y(f"window {w['id']} --move abs:{frame['x'] + frame['w'] - 260}:{frame['y'] + frame['h'] - 290}")
 
     # Flat row: every window in one splith container at the root.
     y(f"window {first} --layout splith"); time.sleep(0.3)
@@ -222,9 +224,9 @@ def run(label):
     w = q(f"--windows --window {mover}")
     sp = q("--spaces --space")
     rb = real_bounds([mover]).get(mover)
-    d2 = display_frame(2)
+    d2 = display_frame(2) or display_frame(1)
     on_d2 = rb is not None and rb[0] >= d2["x"] - 1
-    record("send to visible space on other display", w and w["space"] == OTHER_SPACE and on_d2 and sp["index"] == OTHER_SPACE,
+    record("send to space and focus" if len(q("--displays")) == 1 else "send to visible space on other display", w and w["space"] == OTHER_SPACE and on_d2 and sp["index"] == OTHER_SPACE,
            f"window space {w and w['space']}, focused space {sp['index']}, bounds {rb}, send {ms:.0f} ms")
     y(f"window {mover} --space {SPACE}"); time.sleep(0.5)
     y(f"space --focus {RESTORE_OTHER}"); time.sleep(0.5)
@@ -367,6 +369,12 @@ def extra(label):
         sh(f"kill -CONT {se_pid}")
     record("space focus with a frozen front app", ms1 < 500 and ms2 < 500, f"to 5: {ms1:.0f} ms, back: {ms2:.0f} ms")
     time.sleep(0.5)
+
+    if len(q("--displays")) < 2:
+        print("SKIP  cross-display container warp and swap: only one display is connected")
+        alive = sh("pgrep -ox yabai").stdout.strip()
+        record("daemon still running (same pid)", alive == pid, f"{pid} -> {alive}")
+        return
 
     # Move a tabbed container of three windows to the other display and back.
     y(f"space --focus {OTHER_SPACE}"); time.sleep(0.6)

@@ -184,7 +184,7 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   for loader failures. Daemon sanitizer builds do not instrument the injected payload.
 - `bash scripts/live-tests/deploy.sh install objc` or `... install swift` chooses the prototype
   embedded in the test daemon; neither command reloads Dock's payload by itself. Versions are
-  2.1.35 (ObjC) and 2.1.36 (Swift). Follow [osax-prototypes.md](osax-prototypes.md), including the
+  2.1.35 (ObjC reference) and 2.1.36 (Swift default); omitting the core selects Swift. Follow [osax-prototypes.md](osax-prototypes.md), including the
   old-payload check, terminal reload and restoration. The compatibility wrapper uses empty space
   13 rather than 12 and preserves the user's runtime config and visible spaces.
 

@@ -1,8 +1,9 @@
 # Scripting-addition prototype comparison
 
-The default remains Objective-C. `OSAX_CORE=swift` selects an experimental Swift core with the
-same native Dock adapter. An isolated comparison cannot establish that a Swift rewrite is safe
-inside Dock. Both injected variants still require the existing SIP/arm64e setup.
+The default is the Swift core (2.1.36), selected by the user after the isolated and injected
+comparison below. `OSAX_CORE=objc` explicitly selects the Objective-C comparison reference
+(2.1.35); both use the same native Dock adapter and existing SIP/arm64e setup. The choice favors
+Swift state management and consistency with the daemon, not a demonstrated visible speed gain.
 
 ## Implemented boundaries
 
@@ -218,7 +219,8 @@ The Swift core reduces allocations and improves this dispatch workload, but sock
 overlap and the first run is slower for all modes. The baseline is only the old framing function,
 not the original fade engine or an injected process. Both prototypes now pass the available checks
 inside Dock, establishing feasibility of the Swift core with a native adapter on this Dock build.
-**Keep hardened Objective-C as the default and Swift as an experimental option.** Swift removes
+The initial analysis recommended Objective-C as the default. The user subsequently chose to keep
+Swift, so ordinary builds and the deployment helper now select Swift 2.1.36. Swift removes
 manual retain/release from the small fade core and reduces host allocations, but both cores have
 similar size (174 ObjC versus 171 Swift lines) and share the 1,008-line native adapter that contains
 the private-ABI/ownership risk. Running another language/build path has not yet bought a measured

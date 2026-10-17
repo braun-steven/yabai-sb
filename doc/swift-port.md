@@ -44,7 +44,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[L]` code done and live-check
   - **SwiftPM** builds the binary. A **thin `makefile`** keeps the existing entry points.
   - Long-lived branch **`swift-port`**. It merges into `master` only when the user says so after P14.
 - What stays non-Swift:
-  - the scripting addition (`osax/`, ObjC injected into Dock)
+  - the scripting addition's native Dock adapter and loader (`osax/`); the payload core is Swift by default following the 2026-10-17 comparison
   - the C module `CPrivate`: private declarations, wrappers for APIs Swift cannot call, and MRR notifications
 
 ## Parity contract (must hold after every phase)
@@ -910,3 +910,9 @@ Append one entry per session, newest last. Template:
 - Recommend hardened Objective-C as default, Swift core/native adapter as experimental. Swift works inside Dock and reduces host allocations, but does not yet demonstrate an end-to-end benefit or remove the larger private native adapter. Further production migration requires an alternating replicated comparison/full original-payload baseline and a longer cross-display soak. No merge into master is authorized.
 - Restoration: quiescing service avoided yesterday's cleanup crash. `deploy.sh restore` verified/copied the original but could not kickstart an unloaded launchd job; explicit `--start-service` succeeded. Added that fallback to restore. Verified original SHA-256 `9461507d649399082ce47c800b2c534a78dc8a5ad76c84b8df1904b940da065d`, original payload 2.1.34/0x5f (Dock 70600), daemon 70579, saved config, visible space 2, focus 33208, empty test spaces and no test apps. Crash reports unchanged at 11 yabai/zero Dock. Deploys/restoration reset layouts, as disclosed.
 - No payload/daemon source changed after the completed 107 main tests for each core, 9 isolated tests under ASan and TSan, warning-free release/arm64e builds and zero analyzer warnings. Python syntax, shell syntax and diff whitespace checks pass for the live-helper follow-up. P14 remains complete; stayed on `swift-port` and did not merge or push.
+
+### 2026-10-17 Swift scripting-addition core selected
+- User chose to keep Swift after reviewing the implementation tradeoffs. Swift 2.1.36 is now the default for `make`, SwiftPM's version accessor, native adapter dispatch and the deployment helper. Objective-C 2.1.35 remains available only through explicit `OSAX_CORE=objc` selection as a comparison reference; ordinary builds use Swift.
+- Inverted the override to `SA_CORE_OBJC` so an unqualified header/SwiftPM build also selects Swift. The explicit ObjC Clang command must pass this define as well as the loader/SwiftPM target; otherwise native dispatch and the linked core disagree. Updated build instructions, architecture notes and the comparison decision. This selects an implementation, not a new CLI feature, so no Fork changes entry was added.
+- Verification: default main suite 107/107, isolated payload suite 9/9, optimized release warning-free, explicit ObjC main suite 107/107 and switch back to default Swift 107/107. Only `.build/osax-selected-swift` remains and generated arrays select Swift. Shell syntax and `git diff --check` pass.
+- Rebuilt payloads are byte-identical to the live-tested variants: Swift SHA-256 `35df6b81a2f1caf2e7fa246fb2a97243706b00b832180ea73d5546ba6a1b36a3`; ObjC `de358dba6703b8442cd649a87b087a513e1ba3bde0c6e8fe20e8df08c345f449`. No protocol/behavior change or version bump. No deployment, injection, Dock restart, merge or push; the previously restored installed build remains unchanged. Stayed on `swift-port`.

@@ -24,7 +24,7 @@ case $VARIANT in
     install|asan|tsan) ;;
     *) echo "usage: deploy.sh [install|asan|tsan|restore]"; exit 1 ;;
 esac
-OSAX_CORE=${2:-objc}
+OSAX_CORE=${2:-swift}
 case $OSAX_CORE in
     objc|swift) ;;
     *) echo "payload core must be objc or swift"; exit 1 ;;

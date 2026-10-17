@@ -26,6 +26,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- The scripting addition uses the Swift core by default, with private Dock operations in the native adapter
 - Scripting-addition requests validate every command before dispatch, handle partial transfers and bounded waiting, and report explicit rejection while retaining compatibility with older payloads
 - Scripting-addition fades use synchronized state and one timer; loading verifies worker completion and payload readiness, signature discovery validates Dock objects, and installation propagates signing failures
 - *tree* replaces the *bsp* and *stack* layouts and is the default layout; *layout* accepts *tree* or *float*

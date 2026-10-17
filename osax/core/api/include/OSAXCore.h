@@ -29,14 +29,14 @@ void sa_objc_reset(void);
 void sa_swift_reset(void);
 
 #ifndef __swift__
-#ifdef SA_CORE_SWIFT
-#define sa_core_serve sa_swift_serve
-#define sa_core_opacity sa_swift_opacity
-#define sa_core_tick sa_swift_tick
-#else
+#ifdef SA_CORE_OBJC
 #define sa_core_serve sa_objc_serve
 #define sa_core_opacity sa_objc_opacity
 #define sa_core_tick sa_objc_tick
+#else
+#define sa_core_serve sa_swift_serve
+#define sa_core_opacity sa_swift_opacity
+#define sa_core_tick sa_swift_tick
 #endif
 #endif
 

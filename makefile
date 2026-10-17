@@ -9,13 +9,14 @@ ARCH_PATH      = ./archive
 OSAX_SRC       = ./osax/payload_bin.c ./osax/loader_bin.c
 OSAX_PATH      = ./osax
 OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch arm64e -fno-objc-arc -Wall -Wextra -Werror
-OSAX_CORE     ?= objc
+OSAX_CORE     ?= swift
 export OSAX_CORE
 OSAX_WORK      = .build/osax/$(OSAX_CORE)
 OSAX_NATIVE    = $(OSAX_PATH)/payload.m $(OSAX_PATH)/core/api/API.c
 ifeq ($(OSAX_CORE),swift)
-OSAX_DEFINE    = -DSA_CORE_SWIFT
+OSAX_DEFINE    =
 else ifeq ($(OSAX_CORE),objc)
+OSAX_DEFINE    = -DSA_CORE_OBJC
 OSAX_NATIVE   += $(OSAX_PATH)/core/objc/Core.m
 else
 $(error OSAX_CORE must be objc or swift)
@@ -60,7 +61,7 @@ ifeq ($(OSAX_CORE),swift)
 	xcrun clang -c $(OSAX_PATH)/core/api/API.c $(OSAX_FLAGS) -o $(OSAX_WORK)/api.o
 	xcrun swiftc -emit-library -O -swift-version 6 -warnings-as-errors -target arm64e-apple-macosx$(MACOS_MIN) -module-cache-path .build/osax/module-cache -I $(OSAX_PATH)/core/api/include $(OSAX_PATH)/core/swift/Core.swift $(OSAX_WORK)/native.o $(OSAX_WORK)/api.o -o $@ -F/System/Library/PrivateFrameworks -framework SkyLight -framework Foundation -framework Carbon
 else
-	xcrun clang $(OSAX_NATIVE) -shared -fPIC $(OSAX_FLAGS) -o $@ $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
+	xcrun clang $(OSAX_NATIVE) -shared -fPIC $(OSAX_FLAGS) $(OSAX_DEFINE) -o $@ $(FRAMEWORK_PATH) -framework SkyLight -framework Foundation -framework Carbon
 endif
 
 .build/osax-selected-$(OSAX_CORE):

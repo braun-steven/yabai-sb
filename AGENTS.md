@@ -8,7 +8,7 @@ In `doc/swift-port.md`, references to the Claude Swift conventions skill mean th
 
 For Swift-port work, the branch and commit rules in `doc/swift-port.md` take precedence over the general master-branch guidance below: stay on `swift-port`, preserve behavior one-to-one, and merge into `master` only when the user asks after P14.
 
-yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock remains Objective-C with manual retain/release. On branch `swift-port`, read `doc/swift-port.md` before working.
+yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock uses a Swift core with an Objective-C native adapter and loader (manual retain/release). On branch `swift-port`, read `doc/swift-port.md` before working.
 
 This is a personal fork. Whenever a new feature is added, update the "Fork changes" list at the top of `README.md` in the same commit. Only features go there: fixes to features of this fork do not get an entry.
 
@@ -32,7 +32,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `make asan` / `make tsan`: Address/Thread sanitizer build, also enabling UBSan for C.
 - `make clean`: removes `bin/`, `.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources change.
 - `make test`: generates OSAX arrays if needed, then runs `swift test`. A single test runs with `swift test --filter <name>`.
-- `make osax-test` / `make osax-prototypes`: isolated Swift Testing for the payload cores / both arm64e dylibs. `OSAX_CORE=swift make install` selects experimental 2.1.36; default ObjC is 2.1.35. See `doc/osax-prototypes.md` before any live reload.
+- `make osax-test` / `make osax-prototypes`: isolated Swift Testing for the payload cores / both arm64e dylibs. Default Swift is 2.1.36; `OSAX_CORE=objc make install` explicitly selects the 2.1.35 comparison reference. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` using asciidoctor. Edit the Asciidoc source.
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding to preserve Accessibility permission.
@@ -79,7 +79,7 @@ P14 model and bridge pitfalls:
 
 **Rendering and input.** `Border.swift` owns four edge windows per border under a Mutex; SkyLight callbacks move them without reading the tree. `TabBar.swift` draws classic bars and publishes immutable hit-test snapshots under a Mutex. `TabBarGlass.swift` snapshots on the event loop and renders with AppKit on the main queue. `WindowAnimation.swift` retains AX references and copied app names for concurrent frame workers, stores window ids for animations, and protects proxy/takeover state with a Mutex. `MouseHandler.swift` owns the event tap and drag/drop decisions. Main-queue blocks retain their render owners until the last pending block completes.
 
-**Scripting addition.** `osax/loader.m` uses `bootstrap.S` to inject the native adapter and selected core into Dock. `payload.m` owns private operations; `core/objc` or experimental `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump each variant's `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
+**Scripting addition.** `osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock by default. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. `core/objc` remains an explicit comparison reference. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump each variant's `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
 
 **Platform gating.** The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.
 

@@ -70,7 +70,7 @@ Additional features of yabai include focus-follows-mouse, disabling animations f
 
 ## Requirements and Caveats
 
-This fork targets macOS 27 on Apple Silicon. The daemon and client are Swift; only private API wrappers and the scripting addition remain C/Objective-C.
+This fork targets macOS 27 on Apple Silicon. The daemon, client and scripting-addition core are Swift; private API wrappers and the native Dock adapter/loader remain C/Objective-C.
 
 Please read the below requirements carefully.
 Make sure you fulfil all of them before filing an issue.
@@ -96,7 +96,7 @@ Please also take note of the following caveats.
 
 ## Building this fork
 
-Use the Xcode toolchain for macOS 27 (Swift 6.4). SwiftPM builds the executable; the makefile first builds and embeds the Objective-C scripting-addition payload and loader.
+Use the Xcode toolchain for macOS 27 (Swift 6.4). SwiftPM builds the executable; the makefile first builds and embeds the Swift scripting-addition core with its native adapter and Objective-C loader.
 
 ```sh
 make                 # debug binary at bin/yabai
@@ -108,9 +108,10 @@ make tsan            # ThreadSanitizer build
 
 `make install` builds locally; it does not copy the binary into your PATH. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes build products and generated payload arrays. See [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
-`make osax-prototypes` builds comparable Objective-C and experimental Swift payloads without injecting
-them; `make osax-test` tests their cores outside Dock. The default remains Objective-C. See the
-[comparison and reload procedure](doc/osax-prototypes.md) before selecting `OSAX_CORE=swift`.
+The scripting addition uses the Swift core by default (2.1.36), with private Dock operations in a
+native adapter. `make osax-test` tests the cores outside Dock; `make osax-prototypes` builds both
+comparison payloads without injecting them. The Objective-C reference is available explicitly with
+`OSAX_CORE=objc`. See the [comparison and reload procedure](doc/osax-prototypes.md).
 
 ## License and Attribution
 

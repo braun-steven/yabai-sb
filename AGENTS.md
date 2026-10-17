@@ -13,14 +13,14 @@ yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It t
 This is a personal fork. Whenever a new feature is added, update the "Fork changes" list at the top of `README.md` in the same commit. Only features go there: fixes to features of this fork do not get an entry.
 
 ## Project Structure
-- `Package.swift`: SwiftPM package; the thin makefile builds the embedded payload first and drives SwiftPM.
+- `Package.swift`: complete SwiftPM build, with `OSAXEmbed` generating embedded C sources. The makefile wraps SwiftPM and publishes to `bin/yabai`.
 - `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `yabai_main` in `Yabai.swift`. `Service.swift` handles launchd; `Definitions.swift` preserves model constants and value types; `Helpers.swift` contains shared helpers.
 - `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus ordered query JSON in `Serialize.swift`.
 - `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
 - `Sources/Yabai/Shims/`: Swift conversions for geometry, layouts, selectors and rules. These are ordinary Swift functions; no C entry points remain.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, ordered JSON, message tokens, values, selectors and rule/signal parsing.
 - `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
-- `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. The makefile builds arm64e binaries and generates `payload_bin.c` / `loader_bin.c`; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
+- `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. `Plugins/OSAXEmbed/` invokes `scripts/build-osax.sh` to build arm64e binaries and generate `payload_bin.c` / `loader_bin.c` in its work directory; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
 - `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC capture in `Golden/`. No C test harness remains. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
 - `doc/`: Asciidoc, generated manpage, Swift-port plan, payload and live-testing notes.
 - `examples/`, `assets/`: sample configuration, icons, banner and plist.
@@ -30,9 +30,10 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `make`: incremental debug arm64 build in `.build/`, copied atomically to `bin/yabai` after success. Every variant publishes to that path; failures preserve the previous binary.
 - `make install`: standard SwiftPM release optimization; CPrivate defines `NDEBUG`. Both manifests treat Swift and C warnings as errors in all configurations.
 - `make asan` / `make tsan`: Address/Thread sanitizer build, also enabling UBSan for C.
-- `make clean`: removes `bin/`, `.build/`, `osax/.build/` and generated `osax/*_bin.c`. Payload/loader dependencies also regenerate the arrays when their sources, module map or makefile change.
-- `make prepare`: generates embedded sources before direct SwiftPM/IDE use; rerun after changing OSAX inputs. Swift Build 6.4 does not compile plugin-generated C sources. See `doc/building.md`.
-- `make test`: generates OSAX arrays if needed, then runs `swift test`. A single test runs with `swift test --filter <name>`.
+- `swift build` / `swift test`: complete build/test directly, including embedded OSAX sources; no preparation needed.
+- `make clean`: removes `bin/`, `.build/`, `osax/.build/` and legacy generated `osax/*_bin.c`. Plugin input dependencies regenerate arrays automatically after native source/header/module-map/script changes.
+- `make prepare`: optional `swift build --target OSAX`; ordinary SwiftPM/IDE use needs no separate step. See `doc/building.md`.
+- `make test`: wraps `swift test`. A single test runs with `swift test --filter <name>`.
 - `make osax-test` / `make osax-payload`: isolated Swift Testing for the payload core / standalone arm64e dylib. Swift 2.1.36 is the only implementation; no core-selection option remains. See `doc/osax-prototypes.md` before any live reload.
 - `swift test --filter Golden`: byte-for-byte replay of `tests/YabaiTests/Golden/commands.txt`. Only after an intended response change, re-record with `GOLDEN_RECORD=1 swift test --filter Golden` and review every changed record.
 - `make man`: regenerates `doc/yabai.1` from `doc/yabai.asciidoc` using asciidoctor. Edit the Asciidoc source.
@@ -40,7 +41,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `update-yabai-fork` (outside the repo, in `~/.local/bin`): release build, signing, install, sudoers update and restart. Commit first; the user runs this in a real terminal for sudo. Agents use `bash scripts/live-tests/deploy.sh install` instead; read `doc/live-testing.md` first.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: inspect payload updates across both the old and current paths.
 
-There is no linter or `make analyze` target. Keep builds warning-free. CPrivate's warnings are configured in `Package.swift`; the separately built payload/loader use the makefile's OSAX flags. Sanitizer daemon builds use separate `.build/asan` and `.build/tsan` scratch directories; they do not instrument the embedded payload.
+There is no linter or `make analyze` target. Keep builds warning-free. CPrivate's warnings are configured in `Package.swift`; the separately built payload/loader use `scripts/build-osax.sh`. Sanitizer daemon builds use separate `.build/asan` and `.build/tsan` scratch directories; they do not instrument the embedded payload.
 
 ## Coding Style & Naming
 - Swift 6, Swift Testing, four-space indentation, and the surrounding file's brace style. Ported functions retain their C order and names where that helps one-to-one comparison.
@@ -107,7 +108,8 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 
 ### Pitfalls learned so far
 
-- **Swift dylib output paths:** the default install name contains the output path, so moving the payload changes its bytes even with identical sources/flags. Keep `.build/osax/swift/payload` stable when preserving the live-tested artifact.
+- **Plugin-generated C:** SwiftPM requires `// swift-tools-version: 6.4;(experimentalCGen)` in the root manifest. Without the experimental opt-in it warns and omits generated C. Preserve the suffix when updating the tools version; `OSAXEmbed` must declare every native input.
+- **Swift dylib output paths:** the default install name contains the output path. `build-osax.sh` sets the historical `.build/osax/swift/payload` install name explicitly so arbitrary plugin work directories preserve the live-tested bytes.
 - **Optimized Swift C exports:** an internal `@_cdecl` can become local during SwiftPM release prelinking, even when debug tests link. Mark cross-target exports `public` and build a release consumer (`osax/core/swift/Core.swift`).
 - **Payload tests:** daemon ASan/TSan do not instrument the separately compiled payload. Use the standalone `osax` package; test signal interruptions on a disposable pthread with its signal explicitly unblocked, because Swift Testing/sanitizers can inherit a blocked mask.
 - **Dock signatures and ownership:** pattern matches are candidates, not identities (Spaces and HotCorners both match `dock_spaces` on 26A434). Validate decoded targets and record Dock hash/UUID. Resolve private-call ownership from the callee and Dock's callers before changing retain/release (`doc/osax-prototypes.md`).

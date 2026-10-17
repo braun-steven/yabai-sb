@@ -1,15 +1,9 @@
-MACOS_MIN      = 27.0
 BUILD_PATH     = ./bin
 DOC_PATH       = ./doc
 SCRIPT_PATH    = ./scripts
 ASSET_PATH     = ./assets
 SMP_PATH       = ./examples
 ARCH_PATH      = ./archive
-OSAX_SRC       = ./osax/payload_bin.c ./osax/loader_bin.c
-OSAX_PATH      = ./osax
-OSAX_FLAGS     = -O3 -mmacosx-version-min=$(MACOS_MIN) -arch arm64e -fno-objc-arc -Wall -Wextra -Werror
-OSAX_WORK      = .build/osax/swift
-OSAX_NATIVE    = $(OSAX_PATH)/payload.m $(OSAX_PATH)/core/api/API.c
 SWIFT          ?= xcrun swift
 SWIFT_FLAGS    ?=
 SWIFT_BUILD    = $(SWIFT) build --product yabai --arch arm64 $(SWIFT_FLAGS)
@@ -31,40 +25,25 @@ install: BUILD_FLAGS = --configuration release
 
 # SwiftPM owns compilation and optimization. Publish only after a successful build, keeping the
 # previous executable (and other bin/ artifacts) available if compilation or copying fails.
-all install asan tsan: prepare
+all install asan tsan:
 	$(SWIFT_BUILD) $(BUILD_FLAGS)
 	mkdir -p $(BUILD_PATH)
 	cp "$$($(SWIFT_BUILD) $(BUILD_FLAGS) --show-bin-path)/yabai" $(BUILD_PATH)/.yabai.tmp
 	mv -f $(BUILD_PATH)/.yabai.tmp $(BUILD_PATH)/yabai
 
-# Swift Build 6.4 does not compile plugin-generated C sources. This is the only preparation
-# outside SwiftPM; it is also available before direct swift build/run/test or opening the package.
-prepare: $(OSAX_SRC)
+# Optional: build just the embedded scripting addition through SwiftPM.
+prepare:
+	$(SWIFT) build --target OSAX $(SWIFT_FLAGS)
 
-test: prepare
+test:
 	$(SWIFT) test $(SWIFT_FLAGS)
 
 osax-test:
 	$(SWIFT) test --package-path osax $(SWIFT_FLAGS)
 
 # Build the standalone arm64e payload without installing or injecting it.
-osax-payload: $(OSAX_WORK)/payload
-
-$(OSAX_WORK)/payload: makefile $(OSAX_NATIVE) $(OSAX_PATH)/core/swift/Core.swift $(OSAX_PATH)/common.h $(OSAX_PATH)/arm64_payload.m $(OSAX_PATH)/core/api/include/OSAXCore.h $(OSAX_PATH)/core/api/include/module.modulemap $(OSAX_PATH)/core/IO.h
-	mkdir -p $(OSAX_WORK)
-	xcrun clang -c $(OSAX_PATH)/payload.m $(OSAX_FLAGS) -o $(OSAX_WORK)/native.o
-	xcrun clang -c $(OSAX_PATH)/core/api/API.c $(OSAX_FLAGS) -o $(OSAX_WORK)/api.o
-	xcrun swiftc -emit-library -O -swift-version 6 -warnings-as-errors -target arm64e-apple-macosx$(MACOS_MIN) -module-cache-path .build/osax/module-cache -I $(OSAX_PATH)/core/api/include $(OSAX_PATH)/core/swift/Core.swift $(OSAX_WORK)/native.o $(OSAX_WORK)/api.o -o $@ -F/System/Library/PrivateFrameworks -framework SkyLight -framework Foundation -framework Carbon
-
-$(OSAX_PATH)/payload_bin.c: $(OSAX_WORK)/payload
-	xxd -i -a -n __osax_payload $(OSAX_WORK)/payload $@
-
-$(OSAX_WORK)/loader: makefile $(OSAX_PATH)/loader.m $(OSAX_PATH)/bootstrap.S $(OSAX_PATH)/common.h $(OSAX_PATH)/core/IO.h
-	mkdir -p $(OSAX_WORK)
-	xcrun clang $(OSAX_PATH)/loader.m $(OSAX_PATH)/bootstrap.S $(OSAX_FLAGS) -o $@ -framework Cocoa
-
-$(OSAX_PATH)/loader_bin.c: $(OSAX_WORK)/loader
-	xxd -i -a -n __osax_loader $(OSAX_WORK)/loader $@
+osax-payload:
+	bash $(SCRIPT_PATH)/build-osax.sh .build/osax/swift
 
 man:
 	asciidoctor -b manpage $(DOC_PATH)/yabai.asciidoc -o $(DOC_PATH)/yabai.1
@@ -95,4 +74,4 @@ clean-build:
 
 clean: clean-build
 	rm -rf .build osax/.build
-	rm -f $(OSAX_SRC)
+	rm -f osax/payload_bin.c osax/loader_bin.c

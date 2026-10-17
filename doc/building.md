@@ -1,21 +1,24 @@
 # Building yabai
 
 Use Xcode with the macOS 27 SDK and Swift 6.4 on Apple Silicon. There are no external package
-dependencies. SwiftPM owns target dependencies, compilation, linking, test discovery and debug/release
-optimization. The makefile handles the arm64e binaries embedded in the arm64 executable, documentation,
-signing and release archives.
+dependencies. SwiftPM owns the complete executable build, including the scripting addition,
+compilation, linking, test discovery and debug/release optimization. Make provides convenience
+commands for publishing to `bin/yabai`, documentation, signing and release archives.
 
 ## Commands
 
 | Command | Result |
 |---|---|
+| `swift build` / `swift build -c release` | Complete debug/release build in SwiftPM's output directory |
+| `swift test` | Daemon/core tests, including golden IPC replay |
+| `swift run yabai --version` | Build and run the CLI's version command |
 | `make` | Debug executable at `bin/yabai` |
 | `make install` | Release executable at `bin/yabai`; no installation or service restart |
 | `make asan` / `make tsan` | Debug executable with Address/ThreadSanitizer and C UndefinedBehaviorSanitizer |
 | `make test` | Daemon/core tests, including golden IPC replay |
 | `make osax-test` | Isolated payload/loader tests, outside Dock |
-| `make osax-payload` | Standalone arm64e payload at `.build/osax/swift/payload`; no injection |
-| `make prepare` | Generate the embedded payload/loader C sources |
+| `make osax-payload` | Standalone binaries/arrays in `.build/osax/swift/`; no injection |
+| `make prepare` | Optional build of just the `OSAX` target through SwiftPM |
 | `make clean` | Remove `bin/`, both packages' build caches and generated C sources |
 
 Every daemon variant publishes to `bin/yabai` after a successful build. Copying to a temporary sibling
@@ -29,41 +32,51 @@ passes additional SwiftPM options to builds and tests, for example `make test SW
 
 ## Direct SwiftPM and editor use
 
-Run preparation before opening `Package.swift` in an editor or using SwiftPM directly:
+SwiftPM and editor use require no preparation step, including on a fresh checkout or after native
+source changes:
 
 ```sh
-make prepare
-swift build --product yabai
+swift build
 swift test --filter Golden
 swift run yabai --version
 ```
 
-Rerun `make prepare` after changing native payload/loader sources, headers or the payload's Swift
-core. Ordinary daemon edits need no preparation. `make` and `make test` always check preparation
-dependencies automatically. Direct SwiftPM commands leave their products in SwiftPM's output
+The plugin tracks native sources, headers and the payload's Swift core automatically.
+Direct SwiftPM commands leave their products in SwiftPM's output
 directory; use `swift build --show-bin-path` to locate them.
 
-## Why a native preparation step remains
+## Embedded scripting addition
 
 The daemon is an ordinary SwiftPM executable. The injected library uses arm64e, manual retain/release
-in its native adapter, and a separately linked Swift core; the loader also contains assembly. Make
-builds these two binaries, then `xxd` converts them to the C arrays compiled by the `OSAX` target.
+in its native adapter, and a separately linked Swift core; the loader also contains assembly.
+`Plugins/OSAXEmbed/` invokes `scripts/build-osax.sh` to build these binaries and convert them to
+C arrays compiled by the `OSAX` target alongside `Version.c`.
 The installed executable therefore contains everything it needs to load the scripting addition.
 
-SwiftPM build tool plugins are normally the right place for generated sources:
-they declare inputs and outputs and keep generated files in their work directory.
-However, a minimal probe on the installed Swift 6.4 default Swift Build backend reports
-`C source file generation not enabled` and omits a plugin-generated C source from the target.
-Keep the small Make boundary until the supported toolchain can build these generated sources.
-Do not add a plugin that silently drops the embedded binaries or requires disabling its sandbox.
-See [SwiftPM's build tool plugin design](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md).
+The plugin declares native sources, headers, the module map and script as inputs, and two C files
+as outputs. SwiftPM runs it when an input changes or an output is missing. All generated files and
+compiler caches stay in the sandboxed plugin work directory under `.build/`. Identical generated
+arrays retain their timestamps to avoid unnecessary downstream compilation. Keep the input list
+current when adding native dependencies. The standalone command uses the same script, so compiler
+settings have one owner.
 
-The native recipes list their source/header/module-map inputs and depend on the makefile itself,
-so changing compiler flags rebuilds the binaries. Keep those prerequisites current when adding
-native inputs. Run `make clean` when switching Xcode/SDK versions; Make does not track toolchain
-identity. `.DELETE_ON_ERROR` removes incomplete outputs after a failed native build or generation.
-Keep the payload output path stable: Swift's library linker uses it as the default install name,
-so even relocating an otherwise identical build changes the embedded artifact.
+The root manifest explicitly opts into C generation:
+
+```swift
+// swift-tools-version: 6.4;(experimentalCGen)
+```
+
+This is an **experimental SwiftPM feature**, verified with the installed Swift 6.4 default Swift
+Build backend and plugin sandbox enabled. Without the opt-in, SwiftPM warns
+`C source file generation not enabled` and omits generated C sources. Keep the suffix when updating
+the tools version.
+See SwiftPM's [tools-version parser](https://github.com/swiftlang/swift-package-manager/blob/main/Sources/PackageLoading/ToolsVersionParser.swift)
+and [generated-source handling](https://github.com/swiftlang/swift-package-manager/blob/main/Sources/PackageLoading/TargetSourcesBuilder.swift).
+
+The script sets the historical `.build/osax/swift/payload` install name explicitly: Swift's default
+includes the output path, which would otherwise change the previously tested payload bytes in
+different plugin work directories. Run `make clean` when switching Xcode/SDK versions to discard
+generated artifacts from the previous toolchain.
 
 ## Settings and verification
 
@@ -79,9 +92,11 @@ Make exports the selected macOS `SDKROOT`; the Xcode `swift` shim also supplies 
 version and AppKit does not enable old-SDK compatibility behavior. Check it with
 `xcrun vtool -show-build bin/yabai` after toolchain changes.
 
-For build-system changes, check clean and incremental builds, all four daemon variants, both test
+For build-system changes, check plain `swift build` and `swift test` after `make clean`, a second
+build without native generation/compilation, all four daemon variants, both test
 suites, unchanged golden IPC output, and `bin/yabai --version`. A deliberate failed build should
-leave `bin/yabai` unchanged. Payload sanitizer tests run separately:
+leave `bin/yabai` unchanged. Check the generated payload hash against the tested artifact.
+Payload sanitizer tests run separately:
 
 ```sh
 swift test --package-path osax --sanitize=address

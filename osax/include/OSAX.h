@@ -3,8 +3,8 @@
 
 //
 // NOTE: The scripting addition as the daemon sees it: the opcodes and attributes of the payload (common.h, which
-// payload.m includes too) and the payload and loader binaries, which the makefile builds and xxd turns into the
-// byte arrays of payload_bin.c and loader_bin.c. Swift imports this header as the module OSAX.
+// payload.m includes too) and the payload and loader binaries, which OSAXEmbed builds and xxd turns into C byte arrays
+// in the plugin work directory. Swift imports this header as the module OSAX.
 //
 
 #include "../common.h"

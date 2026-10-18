@@ -61,7 +61,7 @@ private let saPlist = """
 <key>CFBundleVersion</key>
 <string>\(saVersion)</string>
 <key>NSHumanReadableCopyright</key>
-<string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
+<string>Copyright © 2019 Åsmund Vikane. Fork modifications © 2026 Steven Braun. All rights reserved.</string>
 <key>OSAXHandlers</key>
 <dict>
 </dict>
@@ -91,7 +91,7 @@ private let saBundlePlist = """
 <key>CFBundleVersion</key>
 <string>\(saVersion)</string>
 <key>NSHumanReadableCopyright</key>
-<string>Copyright © 2019 Åsmund Vikane. All rights reserved.</string>
+<string>Copyright © 2019 Åsmund Vikane. Fork modifications © 2026 Steven Braun. All rights reserved.</string>
 <key>NSPrincipalClass</key>
 <string></string>
 </dict>

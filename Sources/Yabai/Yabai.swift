@@ -200,7 +200,7 @@ private func parseArguments(_ arguments: [String]) -> String?
               "    --version, -v          Print version to stdout and exit.\n" +
               "    --help, -h             Print options to stdout and exit.\n" +
               "Type `man yabai` for more information, or visit: " +
-              "https://github.com/asmvik/yabai/blob/v\(major).\(minor).\(patch)/doc/yabai.asciidoc\n", stdout_global())
+              "https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc\n", stdout_global())
         exit(EXIT_SUCCESS)
     }
 

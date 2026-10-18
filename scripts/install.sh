@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 
 #
-# This script will install the latest pre-built yabai release from GitHub.
+# This script installs the pinned upstream yabai release from GitHub.
+# For this fork, build from source as described in README.md.
 # Depends on curl, shasum, tar, cp, cut.
 #
 # ARG1:   Directory in which to store the yabai binary; must be an absolutepath.

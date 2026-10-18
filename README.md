@@ -1,6 +1,6 @@
 # Personal fork
 
-This is my personal fork of yabai, where I (and AI) implement features and bug fixes that I need.
+This is my personal fork of [yabai](https://github.com/asmvik/yabai) by Åsmund Vikane, maintained by [Steven Braun](https://github.com/braun-steven), where I (and AI) implement features and bug fixes that I need.
 
 ## Fork changes
 
@@ -37,20 +37,20 @@ This is my personal fork of yabai, where I (and AI) implement features and bug f
   <b>Tiling window management for the Mac.</b>
 </p>
 <p align="center">
-  <a href="https://github.com/asmvik/yabai/blob/master/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/asmvik/yabai.svg?color=green" alt="License Badge">
+  <a href="https://github.com/braun-steven/yabai/blob/main/LICENSE.txt">
+    <img src="https://img.shields.io/github/license/braun-steven/yabai.svg?color=green" alt="License Badge">
   </a>
-  <a href="https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc">
+  <a href="https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc">
     <img src="https://img.shields.io/badge/view-documentation-green.svg" alt="Documentation Badge">
   </a>
   <a href="https://github.com/asmvik/yabai/wiki">
-    <img src="https://img.shields.io/badge/view-wiki-green.svg" alt="Wiki Badge">
+    <img src="https://img.shields.io/badge/view-upstream_wiki-green.svg" alt="Upstream Wiki Badge">
   </a>
-  <a href="https://github.com/asmvik/yabai/blob/master/CHANGELOG.md">
+  <a href="https://github.com/braun-steven/yabai/blob/main/CHANGELOG.md">
     <img src="https://img.shields.io/badge/view-changelog-green.svg" alt="Changelog Badge">
   </a>
-  <a href="https://github.com/asmvik/yabai/releases">
-    <img src="https://img.shields.io/github/commits-since/asmvik/yabai/latest.svg?color=green" alt="Version Badge">
+  <a href="https://github.com/braun-steven/yabai/releases">
+    <img src="https://img.shields.io/badge/view-releases-green.svg" alt="Releases Badge">
   </a>
 </p>
 
@@ -66,7 +66,7 @@ Additional features of yabai include focus-follows-mouse, disabling animations f
 
 ## Installation and Configuration
 
-- The [&nearr;&nbsp;yabai&nbsp;wiki][yabai-wiki] has both brief and detailed installation instructions for multiple installation methods, and also explains how to uninstall yabai completely.
+- The [&nearr;&nbsp;upstream&nbsp;wiki][yabai-wiki] has installation and uninstallation instructions for upstream yabai. For this fork, use the build instructions below; upstream packages do not include the fork changes.
 - Sample configuration files can be found in the [&nearr;&nbsp;examples][yabai-examples] directory. Refer to the [&nearr;&nbsp;documentation][yabai-docs] or the wiki for further information.
 - Keyboard shortcuts can be defined with [&nearr;&nbsp;skhd][gh-skhd] or any other suitable software you may prefer.
 
@@ -135,9 +135,9 @@ You acknowledge that you understand the potential risk that may come from disabl
 
 <!-- Project internal links -->
 [yabai-license]: LICENSE.txt
-[yabai-examples]: https://github.com/asmvik/yabai/tree/master/examples
+[yabai-examples]: https://github.com/braun-steven/yabai/tree/main/examples
 [yabai-wiki]: https://github.com/asmvik/yabai/wiki
-[yabai-docs]: https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc
+[yabai-docs]: https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc
 
 <!-- Links to other GitHub projects/users -->
 [gh-skhd]: https://github.com/asmvik/skhd

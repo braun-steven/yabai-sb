@@ -1056,3 +1056,5 @@ Author
 ------
 
 Åsmund Vikane <aasvi93 at gmail.com>
+
+Fork maintained by Steven Braun <https://github.com/braun-steven/yabai>.

@@ -132,10 +132,10 @@ Subphases run in order too; a later one may rely on an earlier one's types.
   a subphase may take several commits. Update tests in the same commit as the code they test.
 - Run builds, tests and other long-output commands through the `output-summarizer` subagent (exact command, working
   directory, question, answer format).
-- **Edit files only with the Claude Code tools.** Read a file with `Read`, change it with `Edit` (or `Write` for a new
-  file or a full rewrite), and use `Edit`'s `replace_all` for a rename within one file. Never edit files with a Python
-  script, `sed`, `perl`, `awk` or shell redirection (`>`, `tee`, heredocs), even for a mechanical change; for changes
-  across many files, make one `Edit` per file.
+- **Edit single files with the Claude Code tools, not scripts.** Read a file with `Read`, then change it with `Edit`
+  (or `Write` for a new file or a full rewrite); use `Edit`'s `replace_all` for a rename within that file. Do not
+  change one file with a Python script, `sed`, `perl`, `awk` or shell redirection (`>`, `tee`, heredocs). Scripts are
+  fine for mass edits across many files, where making one `Edit` per file would be impractical.
 - **Live checks** (phases 2–6, in each phase's verification subphase unless a subphase says otherwise): follow
   `doc/live-testing.md`. Deploys restart yabai and reset layouts; the phase agent tells the user first. Use
   `bash scripts/live-tests/deploy.sh install`, and restore the installed binary afterwards.

@@ -56,7 +56,7 @@ private final class Border
     var edges = BorderEdges()
     var frame = CGRect.zero
     var area = CGRect.zero
-    var sid: UInt64 = 0
+    var sid: SpaceID = 0
     var radius: Float = 0
     var containerRadius: Float = 0
     var drawnRadius: Float = 0
@@ -240,10 +240,10 @@ private func borderRelease(_ border: Border)
     }
 }
 
-private func borderMoveToSpace(_ border: Border, _ sid: UInt64)
+private func borderMoveToSpace(_ border: Border, _ sid: SpaceID)
 {
     let windows = border.ids.map { NSNumber(value: Int32(bitPattern: $0)) } as CFArray
-    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid)
+    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid.rawValue)
     border.sid = sid
 }
 
@@ -413,7 +413,7 @@ private func borderShouldShow(_ target: Window) -> Bool
 // NOTE: The number of windows that count for window_border_hide_single on a space: the tiled windows, where a tabbed
 // container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
 //
-private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
+private func borderSpaceWindowCount(_ sid: SpaceID) -> Int32
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
     var count = owner.layout == .tree ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
@@ -426,7 +426,7 @@ private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
     return count
 }
 
-private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCount: Int32)
+private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID, _ windowCount: Int32)
 {
     guard let target, target.id != 0 else { return }
     let wm = window_manager_global()
@@ -517,7 +517,7 @@ func border_refresh(_ target: Window!) { borderRefreshWithCount(target, 0, -1) }
 // the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
 // without asking the window server for the space of every window.
 //
-func border_refresh_space(_ sid: UInt64)
+func border_refresh_space(_ sid: SpaceID)
 {
     if sid == 0 { return }
     border_begin_batch()
@@ -549,7 +549,7 @@ func border_refresh_window_space(_ target: Window!)
 
 func border_refresh_all()
 {
-    var counts: [UInt64: Int32] = [:]
+    var counts: [SpaceID: Int32] = [:]
     for target in window_manager_global().window.values {
         let sid = window_space(target.id)
         var count: Int32 = -1

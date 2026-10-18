@@ -1,5 +1,6 @@
 import AppKit
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: The AppKit side of the glass tab bars. AppKit must be used from the main thread, so the event loop hands a
@@ -28,7 +29,7 @@ private struct Snapshot: @unchecked Sendable
     let backdrop: TabBarBackdrop
     let appearance: TabBarAppearance
     let cardRadius: CGFloat
-    let sid: UInt64
+    let sid: SpaceID
     let aboveWid: UInt32
     let level: Int32
     let subLevel: Int32
@@ -615,10 +616,10 @@ func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> 
     return color
 }
 
-func tab_bar_glass_move_to_space(_ wid: UInt32, _ sid: UInt64)
+func tab_bar_glass_move_to_space(_ wid: UInt32, _ sid: SpaceID)
 {
     let windows = [NSNumber(value: Int32(bitPattern: wid))] as CFArray
-    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid)
+    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid.rawValue)
 }
 
 func tab_bar_glass_set_level(_ wid: UInt32, _ level: Int32, _ subLevel: Int32)

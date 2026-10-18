@@ -11,7 +11,7 @@ final class TabBar
     var context: CGContext?
     var frame = CGRect.zero
     var card = CGRect.zero
-    var sid: UInt64 = 0
+    var sid: SpaceID = 0
     var above_wid: UInt32 = 0
     var hidden = false
     var entry_count: Int32 = 0
@@ -109,7 +109,7 @@ nonisolated(unsafe) private var tabBarList: [TabBar] = []
 private struct TabBarHit: Sendable
 {
     let frame: CGRect
-    let sid: UInt64
+    let sid: SpaceID
     let aboveWid: UInt32
     let entries: [UInt32]
     let glass: TabBarGlass?

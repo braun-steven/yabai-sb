@@ -7,13 +7,13 @@ import Testing
 private struct FixtureContext: SelectorContext
 {
     var activeDisplay: DisplayID = 0
-    var activeSpace: UInt64 = 0
+    var activeSpace: SpaceID = 0
     var actingWindow: UInt32? = nil
     var displays: [DisplayID] = []
-    var spaces: [UInt64] = []
-    var recentSpace: UInt64 = 0
+    var spaces: [SpaceID] = []
+    var recentSpace: SpaceID = 0
     var displayLabels: [String: DisplayID] = [:]
-    var spaceLabels: [String: UInt64] = [:]
+    var spaceLabels: [String: SpaceID] = [:]
     var windows: [UInt32] = []
     var stack: [UInt32] = []
 
@@ -29,7 +29,7 @@ private struct FixtureContext: SelectorContext
 
     func displayLabel(_ label: Token) -> DisplayID? { displayLabels[label.string] }
 
-    func space(_ query: SpaceQuery) -> UInt64
+    func space(_ query: SpaceQuery) -> SpaceID
     {
         switch query {
         case .missionControl(let index): index >= 1 && Int(index) <= spaces.count ? spaces[Int(index) - 1] : 0
@@ -38,7 +38,7 @@ private struct FixtureContext: SelectorContext
         }
     }
 
-    func spaceLabel(_ label: Token) -> UInt64? { spaceLabels[label.string] }
+    func spaceLabel(_ label: Token) -> SpaceID? { spaceLabels[label.string] }
 
     func window(_ query: WindowQuery<UInt32>) -> UInt32?
     {
@@ -347,7 +347,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(acting == 7)
     #expect(rsp.text == "\u{07}could not locate window with the specified id '9'.\n")
 
-    var sid: UInt64 = 10
+    var sid: SpaceID = 10
     message = Message("\0")
     #expect(parseOptionalSpaceSelector(&rsp, &message, &sid, context) == true)
     #expect(sid == 10)
@@ -505,7 +505,7 @@ private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String
     #expect(response.contains("unsupported token '!' (exclusion) given for key 'label'"))
 }
 
-private func spaceEffects(_ sid: UInt64, _ follow: Bool) -> RuleEffects
+private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects
 {
     var effects = RuleEffects()
     effects.sid = sid

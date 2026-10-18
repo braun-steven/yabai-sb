@@ -2,7 +2,7 @@
 public enum SpaceList
 {
     /// `space_list_index_of`: the position of sid in the list, nil when it is not there.
-    public static func indexOf(spaces: [UInt64], sid: UInt64) -> Int?
+    public static func indexOf(spaces: [SpaceID], sid: SpaceID) -> Int?
     {
         spaces.firstIndex(of: sid)
     }
@@ -13,7 +13,7 @@ public enum SpaceList
     //
 
     /// `space_list_neighbour`
-    public static func neighbour(spaces: [UInt64], sid: UInt64, offset: Int) -> UInt64
+    public static func neighbour(spaces: [SpaceID], sid: SpaceID, offset: Int) -> SpaceID
     {
         guard let index = indexOf(spaces: spaces, sid: sid) else { return 0 }
 
@@ -24,11 +24,11 @@ public enum SpaceList
     /// `space_manager_move_space_replacement`: the user space that the scripting addition shows on the source
     /// display when sid moves to another display. Only a visible space needs one; it is the previous user space,
     /// else the next one, else 0.
-    public static func moveReplacement(spaces: [UInt64], user: [Bool], sid: UInt64, visible: UInt64) -> UInt64
+    public static func moveReplacement(spaces: [SpaceID], user: [Bool], sid: SpaceID, visible: SpaceID) -> SpaceID
     {
         if sid != visible { return 0 }
 
-        var prev: UInt64 = 0
+        var prev: SpaceID = 0
         for i in spaces.indices {
             if spaces[i] == sid {
                 if prev != 0 { return prev }

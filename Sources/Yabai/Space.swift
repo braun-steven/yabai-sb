@@ -9,7 +9,7 @@ import YabaiCore
 //
 
 /// `space_display_id`
-func space_display_id(_ sid: UInt64) -> DisplayID
+func space_display_id(_ sid: SpaceID) -> DisplayID
 {
     guard let uuid = SLS.managedDisplay(connection_global(), forSpace: sid) else { return 0 }
     return displayID(uuid)
@@ -17,7 +17,7 @@ func space_display_id(_ sid: UInt64) -> DisplayID
 
 /// `space_window_list_for_connection`: the windows on the spaces; count gets their number. nil when the window server
 /// fails (count is left alone), or when no window is on the spaces (count is 0).
-func space_window_list_for_connection(_ spaces: [UInt64], _ cid: Int32, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
+func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
 {
     let options: UInt32 = includeMinimized ? 0x7 : 0x2
 
@@ -44,25 +44,25 @@ func space_window_list_for_connection(_ spaces: [UInt64], _ cid: Int32, _ count:
 }
 
 /// `space_window_list`: the windows on one space.
-func space_window_list(_ sid: UInt64, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
+func space_window_list(_ sid: SpaceID, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
 {
     return space_window_list_for_connection([sid], 0, &count, includeMinimized)
 }
 
 /// `space_is_user`
-func space_is_user(_ sid: UInt64) -> Bool
+func space_is_user(_ sid: SpaceID) -> Bool
 {
     return SLS.spaceType(connection_global(), sid) == 0
 }
 
 /// `space_is_fullscreen`
-func space_is_fullscreen(_ sid: UInt64) -> Bool
+func space_is_fullscreen(_ sid: SpaceID) -> Bool
 {
     return SLS.spaceType(connection_global(), sid) == 4
 }
 
 /// `space_is_visible`: the space is the one that its display shows.
-func space_is_visible(_ sid: UInt64) -> Bool
+func space_is_visible(_ sid: SpaceID) -> Bool
 {
     return sid == display_space_id(space_display_id(sid))
 }

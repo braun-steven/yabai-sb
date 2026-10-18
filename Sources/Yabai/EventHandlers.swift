@@ -399,7 +399,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
         if psnSid != 0 && !space_is_visible(psnSid) {
-            SLSSpaceSetFrontPSN(connection_global(), psnSid, process.psn)
+            SLSSpaceSetFrontPSN(connection_global(), psnSid.rawValue, process.psn)
             space_manager_focus_space_using_gesture(space_display_id(psnSid), psnSid)
         }
     }

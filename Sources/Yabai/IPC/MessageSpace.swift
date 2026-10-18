@@ -180,7 +180,7 @@ enum CommandResult
 // NOTE: Focusing, moving, swapping, creating and destroying spaces.
 //
 
-private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout UInt64) -> CommandResult
+private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout SpaceID) -> CommandResult
 {
     let context = CSelectorContext()
 
@@ -275,7 +275,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
 // NOTE: The layout, padding, gap and label of a space.
 //
 
-func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: UInt64) -> CommandResult
+func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: SpaceID) -> CommandResult
 {
     let sm = space_manager_global()
 

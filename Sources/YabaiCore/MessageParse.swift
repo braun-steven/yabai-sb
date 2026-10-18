@@ -337,8 +337,8 @@ public enum DisplayQuery: Sendable
 public enum SpaceQuery: Sendable
 {
     case missionControl(Int32)
-    case prev(UInt64)
-    case next(UInt64)
+    case prev(SpaceID)
+    case next(SpaceID)
     case first
     case last
     case recent
@@ -374,16 +374,16 @@ public protocol SelectorContext
     /// `display_manager_active_display_id`
     var activeDisplay: DisplayID { get }
     /// `space_manager_active_space`
-    var activeSpace: UInt64 { get }
+    var activeSpace: SpaceID { get }
     /// `window_manager_acting_window`
     var actingWindow: Window? { get }
 
     func display(_ query: DisplayQuery) -> DisplayID
     /// The id of a display label (`label_find_name` on the labels of the display manager).
     func displayLabel(_ label: Token) -> DisplayID?
-    func space(_ query: SpaceQuery) -> UInt64
+    func space(_ query: SpaceQuery) -> SpaceID
     /// The id of a space label.
-    func spaceLabel(_ label: Token) -> UInt64?
+    func spaceLabel(_ label: Token) -> SpaceID?
     func window(_ query: WindowQuery<Window>) -> Window?
 }
 
@@ -406,7 +406,7 @@ private func require(_ rsp: inout Response, _ id: DisplayID, _ what: String) -> 
     return id
 }
 
-private func require(_ rsp: inout Response, _ id: UInt64, _ what: String) -> UInt64
+private func require(_ rsp: inout Response, _ id: SpaceID, _ what: String) -> SpaceID
 {
     if id == 0 { rsp.fail("could not locate \(what).\n") }
     return id
@@ -464,9 +464,9 @@ public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ to
 }
 
 /// `parse_space_selector`
-public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: UInt64, optional: Bool, _ context: C) -> Selection<UInt64>
+public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: SpaceID, optional: Bool, _ context: C) -> Selection<SpaceID>
 {
-    var result = Selection(token: token, didParse: true, value: UInt64(0))
+    var result = Selection(token: token, didParse: true, value: SpaceID(0))
 
     switch token.value {
     case .int(let index):
@@ -597,7 +597,7 @@ public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Respon
 }
 
 /// `parse_optional_space_selector`
-public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ sid: inout UInt64, _ context: C) -> Bool
+public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ sid: inout SpaceID, _ context: C) -> Bool
 {
     let selector = parseSpaceSelector(&rsp, message.next(), acting: sid, optional: true, context)
     if !selector.token.isValid { return true }
@@ -675,7 +675,7 @@ public enum QueryTarget<Window>
 {
     case all
     case display(DisplayID)
-    case space(UInt64)
+    case space(SpaceID)
     case window(Window?)
 }
 

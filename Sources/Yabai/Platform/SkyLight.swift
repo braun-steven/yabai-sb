@@ -38,9 +38,9 @@ enum SLS
         return windows.map { NSNumber(value: Int32(bitPattern: $0)) } as CFArray
     }
 
-    private static func cfArray(spaces: [UInt64]) -> CFArray
+    private static func cfArray(spaces: [SpaceID]) -> CFArray
     {
-        return spaces.map { NSNumber(value: Int64(bitPattern: $0)) } as CFArray
+        return spaces.map { NSNumber(value: Int64(bitPattern: $0.rawValue)) } as CFArray
     }
 
     private static func ids<T: FixedWidthInteger>(_ array: CFArray?, as type: T.Type) -> [T]
@@ -104,14 +104,14 @@ enum SLS
     }
 
     /// `SLSCopySpacesForWindows`; `window_space` and `window_space_list` pass the selector 0x7.
-    static func spaces(_ cid: Int32, forWindows windows: [UInt32], selector: Int32 = 0x7) -> [UInt64]
+    static func spaces(_ cid: Int32, forWindows windows: [UInt32], selector: Int32 = 0x7) -> [SpaceID]
     {
-        return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self)
+        return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self).map { SpaceID($0) }
     }
 
     /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `space_window_list_for_connection` calls it. nil when
     /// the call fails, which the caller must tell apart from an empty list.
-    static func windows(_ cid: Int32, owner: UInt32, spaces: [UInt64], options: UInt32) -> [UInt32]?
+    static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [UInt32]?
     {
         var setTags: UInt64 = 0
         var clearTags: UInt64 = 0
@@ -159,9 +159,9 @@ enum SLS
     }
 
     /// `SLSCopyManagedDisplayForSpace`
-    static func managedDisplay(_ cid: Int32, forSpace sid: UInt64) -> String?
+    static func managedDisplay(_ cid: Int32, forSpace sid: SpaceID) -> String?
     {
-        return SLSCopyManagedDisplayForSpace(cid, sid) as String?
+        return SLSCopyManagedDisplayForSpace(cid, sid.rawValue) as String?
     }
 
     /// `SLSCopyActiveMenuBarDisplayIdentifier`
@@ -171,9 +171,9 @@ enum SLS
     }
 
     /// `SLSManagedDisplayGetCurrentSpace`
-    static func currentSpace(_ cid: Int32, forDisplay uuid: String) -> UInt64
+    static func currentSpace(_ cid: Int32, forDisplay uuid: String) -> SpaceID
     {
-        return SLSManagedDisplayGetCurrentSpace(cid, uuid as CFString)
+        return SpaceID(SLSManagedDisplayGetCurrentSpace(cid, uuid as CFString))
     }
 
     /// `SLSCopyManagedDisplaySpaces`: one dictionary per display, as `display_space_list` reads it.
@@ -183,21 +183,21 @@ enum SLS
     }
 
     /// `SLSSpaceGetType`
-    static func spaceType(_ cid: Int32, _ sid: UInt64) -> Int32
+    static func spaceType(_ cid: Int32, _ sid: SpaceID) -> Int32
     {
-        return SLSSpaceGetType(cid, sid)
+        return SLSSpaceGetType(cid, sid.rawValue)
     }
 
     /// `SLSSpaceCopyName`
-    static func spaceName(_ cid: Int32, _ sid: UInt64) -> String?
+    static func spaceName(_ cid: Int32, _ sid: SpaceID) -> String?
     {
-        return SLSSpaceCopyName(cid, sid) as String?
+        return SLSSpaceCopyName(cid, sid.rawValue) as String?
     }
 
     /// `SLSSpaceCopyName`, for the views, which keep the name as a CFString (`view->uuid`).
-    static func spaceNameObject(_ cid: Int32, _ sid: UInt64) -> CFString?
+    static func spaceNameObject(_ cid: Int32, _ sid: SpaceID) -> CFString?
     {
-        return SLSSpaceCopyName(cid, sid)
+        return SLSSpaceCopyName(cid, sid.rawValue)
     }
 
     /// `SLSCopyManagedDisplays`: the uuids of the displays in the order of the window server; nil when the call fails.
@@ -275,7 +275,7 @@ enum SLS
     /// `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]`, run through
     /// `SLSPerformAsynchronousBridgedWindowManagementOperation` and released after the window server took it.
     /// The Objective-C messages go through objc_msgSend, cast to the signature of each call as space_manager.c did.
-    static func bridgedMoveWindows(_ windows: [UInt32], toSpace sid: UInt64)
+    static func bridgedMoveWindows(_ windows: [UInt32], toSpace sid: SpaceID)
     {
         guard let cls = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation"),
               let send = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "objc_msgSend") else { return }
@@ -293,7 +293,7 @@ enum SLS
 
         guard let allocated = alloc(classObject, selectorAlloc),
               let operation = initWithWindows(allocated, selectorInit,
-                                              Unmanaged.passUnretained(windowList).toOpaque(), sid) else { return }
+                                              Unmanaged.passUnretained(windowList).toOpaque(), sid.rawValue) else { return }
 
         withExtendedLifetime(windowList) {
             _ = SLSPerformBridgedWindowOperation(operation)

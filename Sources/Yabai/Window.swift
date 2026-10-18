@@ -144,21 +144,21 @@ func window_display_id(_ wid: UInt32) -> DisplayID
 }
 
 /// `window_display_space`
-private func windowDisplaySpace(_ wid: UInt32) -> UInt64
+private func windowDisplaySpace(_ wid: UInt32) -> SpaceID
 {
     guard let uuid = windowDisplayUUID(wid) else { return 0 }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
 }
 
 /// `window_space`: the first space of the window, or the current space of its display.
-func window_space(_ wid: UInt32) -> UInt64
+func window_space(_ wid: UInt32) -> SpaceID
 {
     let sid = SLS.spaces(connection_global(), forWindows: [wid]).first ?? 0
     return sid != 0 ? sid : windowDisplaySpace(wid)
 }
 
 /// `window_space_list`: the spaces of the window (more than one for a sticky window).
-func window_space_list(_ wid: UInt32) -> [UInt64]
+func window_space_list(_ wid: UInt32) -> [SpaceID]
 {
     return SLS.spaces(connection_global(), forWindows: [wid])
 }

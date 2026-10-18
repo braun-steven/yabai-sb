@@ -106,7 +106,7 @@ func display_center(_ did: DisplayID) -> CGPoint
 }
 
 /// `display_space_id`
-func display_space_id(_ did: DisplayID) -> UInt64
+func display_space_id(_ did: DisplayID) -> SpaceID
 {
     guard let uuid = displayUUID(did) else { return 0 }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
@@ -114,16 +114,16 @@ func display_space_id(_ did: DisplayID) -> UInt64
 
 /// `display_space_list`: the spaces of a display in the order of the window server; nil when the display or the
 /// window server does not know it.
-func displaySpaces(_ did: DisplayID) -> [UInt64]?
+func displaySpaces(_ did: DisplayID) -> [SpaceID]?
 {
     guard let uuid = displayUUID(did) else { return nil }
 
-    var result: [UInt64]?
+    var result: [SpaceID]?
     for display in SLS.managedDisplaySpaces(connection_global()) {
         guard let identifier = display["Display Identifier"] as? String, identifier.utf8.elementsEqual(uuid.utf8) else { continue }
 
         let spaces = display["Spaces"] as? [NSDictionary] ?? []
-        result = spaces.map { ($0["id64"] as? NSNumber)?.uint64Value ?? 0 }
+        result = spaces.map { SpaceID(($0["id64"] as? NSNumber)?.uint64Value ?? 0) }
     }
 
     return result

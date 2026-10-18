@@ -12,7 +12,7 @@ import YabaiCore
 
 /// `window_manager_find_window_on_space_by_rank_filtering_window`: the window with the rank (from 1, top first) among the
 /// known windows of the space, without filterWid.
-func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: UInt64, _ rank: Int32, _ filterWid: UInt32) -> Window?
+func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: SpaceID, _ rank: Int32, _ filterWid: UInt32) -> Window?
 {
     var count: Int32 = 0
     guard let windowList = space_window_list(sid, &count, false) else { return nil }

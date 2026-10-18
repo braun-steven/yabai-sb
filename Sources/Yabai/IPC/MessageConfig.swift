@@ -139,7 +139,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
 // is invalid and the remaining commands must not be run.
 //
 
-private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64) -> Bool
+private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID) -> Bool
 {
     let sm = space_manager_global()
 
@@ -260,7 +260,7 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
     }
 }
 
-private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64)
+private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID)
 {
     let sm = space_manager_global()
     let value = message.next()
@@ -487,7 +487,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
 /// `handle_domain_config`
 func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
-    var selSid: UInt64 = 0
+    var selSid: SpaceID = 0
     let selector = message.next()
     var command = selector
 
@@ -506,7 +506,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 }
 
 /// One command of the config domain. Returns false when the remaining commands must not be run.
-private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: UInt64) -> Bool
+private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID) -> Bool
 {
     let wm = window_manager_global()
     let sm = space_manager_global()

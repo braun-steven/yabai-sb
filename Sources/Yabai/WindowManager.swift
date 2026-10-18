@@ -354,7 +354,7 @@ func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target
 }
 
 /// `window_manager_manage_window`
-func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: UInt64, _ insertionPoint: UInt32)
+func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: UInt32)
 {
     let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
     window_manager_add_managed_window(wm, target, owner)
@@ -978,7 +978,7 @@ func window_manager_close_window(_ target: Window) -> Bool
 }
 
 /// `window_manager_send_window_to_space`
-func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ dstSid: UInt64, _ movedByRule: Bool)
+func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ dstSid: SpaceID, _ movedByRule: Bool)
 {
     let srcSid = window_space(target.id)
     if srcSid == dstSid { return }
@@ -997,7 +997,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
 
     space_manager_move_window_to_space(dstSid, target)
     _ = space_manager_wait_for_window_on_space(target.id, dstSid, 200)
-    SLSSpaceSetFrontPSN(connection_global(), dstSid, target.application.psn)
+    SLSSpaceSetFrontPSN(connection_global(), dstSid.rawValue, target.application.psn)
 
     if window_manager_should_manage_window(target) {
         window_manager_manage_window(sm, wm, target, dstSid, 0)
@@ -1327,14 +1327,14 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 }
 
 /// The windows of space_window_list (without minimized windows) as an array.
-private func spaceWindows(_ sid: UInt64) -> [UInt32]?
+private func spaceWindows(_ sid: SpaceID) -> [UInt32]?
 {
     var count: Int32 = 0
     return space_window_list(sid, &count, false)
 }
 
 /// `window_manager_validate_and_check_for_windows_on_space`
-func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: WindowManager, _ sid: UInt64)
+func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: WindowManager, _ sid: SpaceID)
 {
     let owner = space_manager_find_view(sm, sid)
     if owner.layout == .float { return }

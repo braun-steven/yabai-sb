@@ -18,18 +18,18 @@ enum SpaceLayoutResult: Sendable
 }
 
 /// `space_layout_user_space_count`
-private func spaceLayoutUserSpaceCount(_ spaces: [UInt64]) -> Int
+private func spaceLayoutUserSpaceCount(_ spaces: [SpaceID]) -> Int
 {
     return spaces.filter { space_is_user($0) }.count
 }
 
 /// `space_layout_destroy_candidate`: an empty user space of the display to destroy, preferring one that is not visible.
-private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> UInt64
+private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID
 {
     guard let spaces = displaySpaces(did) else { return 0 }
 
     let visibleSid = display_space_id(did)
-    var fallbackSid: UInt64 = 0
+    var fallbackSid: SpaceID = 0
 
     for sid in spaces.reversed() {
         if !space_is_user(sid) { continue }
@@ -93,7 +93,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
         let user = spaceUserList(spaces)
         let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: display_space_id(didList[surplus]), fromEnd: deficit > surplus)
 
-        debug("space_layout_reconcile: move space \(Int64(bitPattern: sid)) from display \(surplus + 1) to display \(deficit + 1)\n")
+        debug("space_layout_reconcile: move space \(Int64(bitPattern: sid.rawValue)) from display \(surplus + 1) to display \(deficit + 1)\n")
         result = space_manager_move_space_to_display(sm, sid, didList[deficit])
     } else if deficit != -1 {
         debug("space_layout_reconcile: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
@@ -105,7 +105,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
             return .done
         }
 
-        debug("space_layout_reconcile: destroy empty space \(Int64(bitPattern: sid)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
+        debug("space_layout_reconcile: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
         result = space_manager_destroy_space(sid)
     }
 

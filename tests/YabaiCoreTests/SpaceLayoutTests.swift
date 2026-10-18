@@ -41,18 +41,18 @@ import Testing
 }
 
 // NOTE: The display holds the spaces 1..n, one per character of the mask, and 'u' marks a user space.
-private func spaceTestLists(_ mask: String) -> ([UInt64], [Bool])
+private func spaceTestLists(_ mask: String) -> ([SpaceID], [Bool])
 {
-    ((0..<mask.count).map { UInt64($0 + 1) }, mask.map { $0 == "u" })
+    ((0..<mask.count).map { SpaceID(UInt64($0 + 1)) }, mask.map { $0 == "u" })
 }
 
-private func moveReplacement(_ mask: String, _ sid: UInt64, _ visible: UInt64) -> UInt64
+private func moveReplacement(_ mask: String, _ sid: SpaceID, _ visible: SpaceID) -> SpaceID
 {
     let (spaces, user) = spaceTestLists(mask)
     return SpaceList.moveReplacement(spaces: spaces, user: user, sid: sid, visible: visible)
 }
 
-private func moveCandidate(_ mask: String, _ visible: UInt64, _ fromEnd: Bool) -> UInt64
+private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) -> SpaceID
 {
     let (spaces, user) = spaceTestLists(mask)
     return SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: visible, fromEnd: fromEnd)

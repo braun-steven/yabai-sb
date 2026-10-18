@@ -3,7 +3,7 @@ import Testing
 
 // NOTE: Ported from tests/src/space_list.c.
 
-private let spaces: [UInt64] = [3, 7, 9]
+private let spaces: [SpaceID] = [3, 7, 9]
 
 @Test("space_list_navigation") func spaceListNavigation()
 {

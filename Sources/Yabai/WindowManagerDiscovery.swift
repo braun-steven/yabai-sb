@@ -2,6 +2,7 @@ import ApplicationServices
 import Foundation
 import CPrivate
 import AppKit
+import YabaiCore
 
 //
 // NOTE: Discovering the windows of an application: creating a window applies the rules and decides whether
@@ -125,7 +126,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 //
 
 /// `window_manager_origin_space`
-func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> UInt64
+func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> SpaceID
 {
     switch wm.window_origin_mode {
     case .focused: return space_manager_global().current_space_id

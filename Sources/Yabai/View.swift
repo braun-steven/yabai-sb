@@ -69,7 +69,7 @@ enum ViewSpacing: CaseIterable, Sendable
 final class View
 {
     var uuid: CFString?
-    var sid: UInt64 = 0
+    var sid: SpaceID = 0
     var area = Area.zero
     var tree: Con!
     var insertion_point: UInt32 = 0
@@ -216,7 +216,7 @@ func view_update_and_flush(_ target: View)
 }
 
 /// `view_create`: the view of a space, with the layout of the space manager for user spaces.
-func view_create(_ sid: UInt64) -> View
+func view_create(_ sid: SpaceID) -> View
 {
     let target = View()
 

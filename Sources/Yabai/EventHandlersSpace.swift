@@ -12,9 +12,9 @@ import YabaiCore
 // NOTE: The signals of these events get the id as their context pointer, as the C producers posted it.
 //
 
-private func signalContext(_ id: UInt64) -> UnsafeMutableRawPointer?
+private func signalContext(_ id: SpaceID) -> UnsafeMutableRawPointer?
 {
-    UnsafeMutableRawPointer(bitPattern: UInt(id))
+    UnsafeMutableRawPointer(bitPattern: UInt(id.rawValue))
 }
 
 private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
@@ -23,12 +23,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 }
 
 /// `EVENT_HANDLER(SLS_SPACE_CREATED)`
-@WM func slsSpaceCreated(_ sid: UInt64)
+@WM func slsSpaceCreated(_ sid: SpaceID)
 {
-    let type = SLSSpaceGetType(connection_global(), sid)
+    let type = SLSSpaceGetType(connection_global(), sid.rawValue)
 
     if type == 0 || type == 4 {
-        debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid)), \(type)\n")
+        debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
         space_manager_find_view(space_manager_global(), sid)
         eventSignalPush(.spaceCreated, signalContext(sid))
         space_layout_schedule(1.0, false)
@@ -36,12 +36,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 }
 
 /// `EVENT_HANDLER(SLS_SPACE_DESTROYED)`
-@WM func slsSpaceDestroyed(_ sid: UInt64)
+@WM func slsSpaceDestroyed(_ sid: SpaceID)
 {
     let sm = space_manager_global()
 
     if let view = sm.view.find(sid) {
-        debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid))\n")
+        debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid.rawValue))\n")
         _ = sm.labels.remove(id: sid)
         sm.view.remove(sid)
         view_destroy(view)
@@ -95,7 +95,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     sm.last_space_id = sm.current_space_id
     sm.current_space_id = space_manager_active_space()
 
-    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id))\n")
+    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id.rawValue))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.spaceChanged, nil)
@@ -121,11 +121,11 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 
     let expectedDisplayID = space_display_id(sm.current_space_id)
     if dm.current_display_id != expectedDisplayID {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id)) did not match \(expectedDisplayID)! ignoring event..\n")
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id.rawValue)) did not match \(expectedDisplayID)! ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id))\n")
+    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id.rawValue))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.displayChanged, nil)

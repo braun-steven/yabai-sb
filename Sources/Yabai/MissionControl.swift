@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Foundation
+import YabaiCore
 
 //
 // NOTE: The notifications of the window server connection and the Mission Control notifications of the Dock. Both
@@ -44,9 +45,9 @@ func connection_handler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ data
 {
     switch type {
     case 1327:
-        EventLoop.post(.slsSpaceCreated(spaceID: data!.loadUnaligned(as: UInt64.self)))
+        EventLoop.post(.slsSpaceCreated(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
     case 1328:
-        EventLoop.post(.slsSpaceDestroyed(spaceID: data!.loadUnaligned(as: UInt64.self)))
+        EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
     case 808:
         let wid = data!.loadUnaligned(as: UInt32.self)
         border_window_ordered(wid)

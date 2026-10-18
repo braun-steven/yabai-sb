@@ -74,8 +74,8 @@ enum Event: Sendable
     case windowTitleChanged(windowID: UInt32)
     case slsWindowOrdered(windowID: UInt32)
     case slsWindowDestroyed(windowID: UInt32)
-    case slsSpaceCreated(spaceID: UInt64)
-    case slsSpaceDestroyed(spaceID: UInt64)
+    case slsSpaceCreated(spaceID: SpaceID)
+    case slsSpaceDestroyed(spaceID: SpaceID)
     case spaceChanged
     case displayAdded(displayID: DisplayID)
     case displayRemoved(displayID: DisplayID)

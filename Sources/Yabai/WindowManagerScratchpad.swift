@@ -1,5 +1,6 @@
 import Foundation
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: Scratchpads: windows with a label that are floated and toggled between hidden (ordered out)
@@ -57,7 +58,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 }
 
 /// `window_manager_hide_scratchpad_window`
-private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: UInt64)
+private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: SpaceID)
 {
     if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.id) {
         window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
@@ -69,7 +70,7 @@ private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Wi
 }
 
 /// `window_manager_show_scratchpad_window`
-private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: UInt64, _ moveToSpace: Bool, _ applyGrid: Bool)
+private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ moveToSpace: Bool, _ applyGrid: Bool)
 {
     if moveToSpace {
         space_manager_move_window_to_space(sid, target)

@@ -2,6 +2,7 @@ import AppKit
 import Darwin
 import CPrivate
 import OSAX
+import YabaiCore
 
 private let saVersion = String(cString: sa_payload_version())
 
@@ -331,31 +332,31 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
     return connection.command(bytes).isSuccess
 }
 
-@discardableResult func scripting_addition_focus_space(_ sid: UInt64) -> Bool
+@discardableResult func scripting_addition_focus_space(_ sid: SpaceID) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid)
     return payload.send(SA_OPCODE_SPACE_FOCUS)
 }
 
-@discardableResult func scripting_addition_create_space(_ sid: UInt64) -> Bool
+@discardableResult func scripting_addition_create_space(_ sid: SpaceID) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid)
     return payload.send(SA_OPCODE_SPACE_CREATE)
 }
 
-@discardableResult func scripting_addition_destroy_space(_ sid: UInt64) -> Bool
+@discardableResult func scripting_addition_destroy_space(_ sid: SpaceID) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid)
     return payload.send(SA_OPCODE_SPACE_DESTROY)
 }
 
-@discardableResult func scripting_addition_move_space_to_display(_ srcSid: UInt64, _ dstSid: UInt64, _ srcPrevSid: UInt64, _ focus: Bool) -> Bool
+@discardableResult func scripting_addition_move_space_to_display(_ srcSid: SpaceID, _ dstSid: SpaceID, _ srcPrevSid: SpaceID, _ focus: Bool) -> Bool
 {
     var payload = SAPayload(); payload.pack(srcSid); payload.pack(dstSid); payload.pack(srcPrevSid); payload.pack(focus)
     return payload.send(SA_OPCODE_SPACE_MOVE)
 }
 
-@discardableResult func scripting_addition_move_space_after_space(_ srcSid: UInt64, _ dstSid: UInt64, _ focus: Bool) -> Bool
+@discardableResult func scripting_addition_move_space_after_space(_ srcSid: SpaceID, _ dstSid: SpaceID, _ focus: Bool) -> Bool
 {
     scripting_addition_move_space_to_display(srcSid, dstSid, 0, focus)
 }
@@ -481,14 +482,14 @@ func scripting_addition_payload_changed()
     return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
 }
 
-@discardableResult func scripting_addition_move_window_list_to_space(_ sid: UInt64, _ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid); payload.pack(count)
     for i in 0..<max(0, Int(count)) { payload.pack(windowList![i]) }
     return payload.send(SA_OPCODE_WINDOW_LIST_TO_SPACE)
 }
 
-@discardableResult func scripting_addition_move_window_to_space(_ sid: UInt64, _ wid: UInt32) -> Bool
+@discardableResult func scripting_addition_move_window_to_space(_ sid: SpaceID, _ wid: UInt32) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid); payload.pack(wid)
     return payload.send(SA_OPCODE_WINDOW_TO_SPACE)

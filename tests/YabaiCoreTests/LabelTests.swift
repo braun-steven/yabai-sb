@@ -5,7 +5,7 @@ import Testing
 
 @Test("label_list") func labelList()
 {
-    var list = LabelList<UInt64>()
+    var list = LabelList<SpaceID>()
 
     list.set(id: 4, name: "code")
     list.set(id: 5, name: "web")
@@ -32,7 +32,7 @@ import Testing
 
 @Test func labelListMovesIDs()
 {
-    var list = LabelList<UInt64>()
+    var list = LabelList<SpaceID>()
     list.set(id: 1, name: "a")
     list.set(id: 2, name: "b")
 

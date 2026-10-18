@@ -118,7 +118,7 @@ private func processIsBeingDebugged(_ pid: pid_t) -> Bool
 }
 
 /// `process_manager_active_space_for_psn`: the space of the first user window of the connection, or 0.
-func process_manager_active_space_for_psn(_ connection: Int32) -> UInt64
+func process_manager_active_space_for_psn(_ connection: Int32) -> SpaceID
 {
     let spaces = missionControlSpaces()
     if spaces.isEmpty { return 0 }

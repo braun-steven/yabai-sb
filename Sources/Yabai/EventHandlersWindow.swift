@@ -121,7 +121,7 @@ import CPrivate
     if space_manager_global().skip_window_focus_animation {
         let sid = window_space(window.id)
         if sid != 0 && !space_is_visible(sid) {
-            SLSSpaceSetFrontPSN(connection_global(), sid, window.application.psn)
+            SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
             space_manager_focus_space_using_gesture(space_display_id(sid), sid)
         }
     }

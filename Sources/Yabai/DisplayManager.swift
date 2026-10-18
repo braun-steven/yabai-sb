@@ -376,7 +376,7 @@ func display_manager_set_active_display_id(_ did: DisplayID)
 }
 
 /// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
-func display_manager_focus_display(_ did: DisplayID, _ sid: UInt64)
+func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID)
 {
     let wm = window_manager_global()
 
@@ -397,7 +397,7 @@ func display_manager_focus_display(_ did: DisplayID, _ sid: UInt64)
 }
 
 /// `display_manager_focus_space`
-func display_manager_focus_space(_ did: DisplayID, _ sid: UInt64) -> SpaceOperationResult
+func display_manager_focus_space(_ did: DisplayID, _ sid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 

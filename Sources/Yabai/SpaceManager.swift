@@ -29,9 +29,9 @@ enum SpaceOperationResult: Sendable
 /// `struct space_manager`
 final class SpaceManager
 {
-    var view = Table<UInt64, View>(capacity: 23)
-    var current_space_id: UInt64 = 0
-    var last_space_id: UInt64 = 0
+    var view = Table<SpaceID, View>(capacity: 23)
+    var current_space_id: SpaceID = 0
+    var last_space_id: SpaceID = 0
     var did_begin = false
     var layout = ViewType.default
     var top_padding: Int32 = 0
@@ -43,7 +43,7 @@ final class SpaceManager
     var tree_default_orientation = TreeOrientation.auto
     var tree_workspace_tabbed = false
     var tree_autotiling = false
-    var labels = LabelList<UInt64>()
+    var labels = LabelList<SpaceID>()
     var skip_window_focus_animation = false
     var space_layouts: [SpaceLayout] = []
     var space_layout_spec: String?
@@ -81,7 +81,7 @@ private func addAndClampToZero(_ a: Int32, _ b: Int32) -> Int32
 }
 
 /// `space_manager_query_view`
-func space_manager_query_view(_ sm: SpaceManager, _ sid: UInt64) -> View?
+func space_manager_query_view(_ sm: SpaceManager, _ sid: SpaceID) -> View?
 {
     if sm.did_begin { return space_manager_find_view(sm, sid) }
 
@@ -90,7 +90,7 @@ func space_manager_query_view(_ sm: SpaceManager, _ sid: UInt64) -> View?
 
 /// `space_manager_find_view`: the view of a space; it is created when the space is new.
 @discardableResult
-func space_manager_find_view(_ sm: SpaceManager, _ sid: UInt64) -> View
+func space_manager_find_view(_ sm: SpaceManager, _ sid: SpaceID) -> View
 {
     if let found = sm.view.find(sid) { return found }
 
@@ -100,7 +100,7 @@ func space_manager_find_view(_ sm: SpaceManager, _ sid: UInt64) -> View
 }
 
 /// `space_manager_refresh_view`
-func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
+func space_manager_refresh_view(_ sm: SpaceManager, _ sid: SpaceID)
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return }
@@ -109,7 +109,7 @@ func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
 }
 
 /// `space_manager_mark_view_invalid`
-func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
+func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: SpaceID)
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return }
@@ -127,7 +127,7 @@ func space_manager_untile_window(_ target: View, _ win: Window)
 }
 
 /// `space_manager_set_layout_for_space`
-func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ layout: ViewType)
+func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ layout: ViewType)
 {
     let target = space_manager_find_view(sm, sid)
     target.layout = layout
@@ -139,7 +139,7 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ lay
 }
 
 /// `space_manager_set_gap_for_space`
-func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: ValueType?,_ gap: Int32) -> Bool
+func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?,_ gap: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
@@ -156,7 +156,7 @@ func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: 
 }
 
 /// Toggles the padding or gap switch of a view.
-private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: UInt64, _ setting: ReferenceWritableKeyPath<View, Bool>) -> Bool
+private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: SpaceID, _ setting: ReferenceWritableKeyPath<View, Bool>) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
@@ -169,20 +169,20 @@ private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: UInt64, _ setting
 }
 
 /// `space_manager_toggle_gap_for_space`
-func space_manager_toggle_gap_for_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
+func space_manager_toggle_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
 {
     return spaceManagerToggleView(sm, sid, \.isGapEnabled)
 }
 
 /// `space_manager_toggle_mission_control`
-func space_manager_toggle_mission_control(_ sid: UInt64)
+func space_manager_toggle_mission_control(_ sid: SpaceID)
 {
     _ = space_manager_focus_space(sid)
     CoreDock.sendNotification("com.apple.expose.awake")
 }
 
 /// `space_manager_toggle_show_desktop`
-func space_manager_toggle_show_desktop(_ sid: UInt64)
+func space_manager_toggle_show_desktop(_ sid: SpaceID)
 {
     _ = space_manager_focus_space(sid)
     CoreDock.sendNotification("com.apple.showdesktop.awake")
@@ -244,7 +244,7 @@ func space_manager_set_auto_padding_for_all_spaces(_ sm: SpaceManager, _ autoPad
 }
 
 /// `space_manager_set_auto_padding_for_space`
-func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ autoPadding: Bool)
+func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ autoPadding: Bool)
 {
     let target = space_manager_find_view(sm, sid)
     target.overrides.insert(.autoPadding)
@@ -252,7 +252,7 @@ func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64,
 }
 
 /// `space_manager_set_padding_for_space`
-func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: ValueType?,_ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
+func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?,_ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
@@ -275,20 +275,20 @@ func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ ty
 }
 
 /// `space_manager_toggle_padding_for_space`
-func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
+func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
 {
     return spaceManagerToggleView(sm, sid, \.isPaddingEnabled)
 }
 
 /// `space_manager_find_tree_view`: the view of a space when it is a tree with a root.
-private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: UInt64) -> View?
+private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: SpaceID) -> View?
 {
     let target = space_manager_find_view(sm, sid)
     return target.layout == .tree && target.tree != nil ? target : nil
 }
 
 /// `space_manager_rotate_space`
-func space_manager_rotate_space(_ sm: SpaceManager, _ sid: UInt64, _ degrees: Int32) -> Bool
+func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: Int32) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
@@ -299,7 +299,7 @@ func space_manager_rotate_space(_ sm: SpaceManager, _ sid: UInt64, _ degrees: In
 }
 
 /// `space_manager_mirror_space`
-func space_manager_mirror_space(_ sm: SpaceManager, _ sid: UInt64, _ axis: WindowSplit) -> Bool
+func space_manager_mirror_space(_ sm: SpaceManager, _ sid: SpaceID, _ axis: WindowSplit) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
@@ -310,7 +310,7 @@ func space_manager_mirror_space(_ sm: SpaceManager, _ sid: UInt64, _ axis: Windo
 }
 
 /// `space_manager_balance_space`
-func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
+func space_manager_balance_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
@@ -321,7 +321,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 }
 
 /// `space_manager_tile_window_on_space_with_insertion_point`
-func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: UInt64, _ insertionPoint: UInt32) -> View
+func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID, _ insertionPoint: UInt32) -> View
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return target }
@@ -334,7 +334,7 @@ func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager,
 }
 
 /// `space_manager_tile_window_on_space`
-func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid: UInt64) -> View
+func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID) -> View
 {
     return space_manager_tile_window_on_space_with_insertion_point(sm, win, sid, 0)
 }
@@ -354,15 +354,15 @@ func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
 //
 
 /// Every space in the order Mission Control numbers them.
-func missionControlSpaces() -> [UInt64]
+func missionControlSpaces() -> [SpaceID]
 {
-    var result: [UInt64] = []
+    var result: [SpaceID] = []
 
     for display in display_manager_copy_managed_display_spaces() {
         guard let spaces = display["Spaces"] as? [NSDictionary] else { continue }
 
         for space in spaces {
-            result.append((space["id64"] as? NSNumber)?.uint64Value ?? 0)
+            result.append(SpaceID((space["id64"] as? NSNumber)?.uint64Value ?? 0))
         }
     }
 
@@ -370,20 +370,20 @@ func missionControlSpaces() -> [UInt64]
 }
 
 /// `space_manager_mission_control_space_list`: nil without spaces.
-func space_manager_mission_control_space_list() -> [UInt64]?
+func space_manager_mission_control_space_list() -> [SpaceID]?
 {
     let spaces = missionControlSpaces()
     return spaces.isEmpty ? nil : spaces
 }
 
 /// `space_manager_mission_control_index`: the Mission Control number of a space, or 0.
-func space_manager_mission_control_index(_ sid: UInt64) -> Int32
+func space_manager_mission_control_index(_ sid: SpaceID) -> Int32
 {
     return Int32((SpaceList.indexOf(spaces: missionControlSpaces(), sid: sid) ?? -1) + 1)
 }
 
 /// `space_manager_mission_control_space`: the space with a Mission Control number, or 0.
-func space_manager_mission_control_space(_ desktopID: Int32) -> UInt64
+func space_manager_mission_control_space(_ desktopID: Int32) -> SpaceID
 {
     let spaces = missionControlSpaces()
     guard desktopID >= 1 && Int(desktopID) <= spaces.count else { return 0 }
@@ -392,31 +392,31 @@ func space_manager_mission_control_space(_ desktopID: Int32) -> UInt64
 }
 
 /// `space_manager_cursor_space`
-func space_manager_cursor_space() -> UInt64
+func space_manager_cursor_space() -> SpaceID
 {
     return display_space_id(display_manager_cursor_display_id())
 }
 
 /// `space_manager_prev_space`
-func space_manager_prev_space(_ sid: UInt64) -> UInt64
+func space_manager_prev_space(_ sid: SpaceID) -> SpaceID
 {
     return SpaceList.neighbour(spaces: missionControlSpaces(), sid: sid, offset: -1)
 }
 
 /// `space_manager_next_space`
-func space_manager_next_space(_ sid: UInt64) -> UInt64
+func space_manager_next_space(_ sid: SpaceID) -> SpaceID
 {
     return SpaceList.neighbour(spaces: missionControlSpaces(), sid: sid, offset: 1)
 }
 
 /// `space_manager_first_space`
-func space_manager_first_space() -> UInt64
+func space_manager_first_space() -> SpaceID
 {
     return missionControlSpaces().first ?? 0
 }
 
 /// `space_manager_last_space`
-func space_manager_last_space() -> UInt64
+func space_manager_last_space() -> SpaceID
 {
     return missionControlSpaces().last ?? 0
 }
@@ -454,7 +454,7 @@ private func spaceManagerFocusedWindow() -> Window?
 }
 
 /// `space_manager_active_space`: the space of the focused window, or of the active display.
-func space_manager_active_space() -> UInt64
+func space_manager_active_space() -> SpaceID
 {
     var did: DisplayID = 0
     let focused = spaceManagerFocusedWindow()
@@ -467,28 +467,28 @@ func space_manager_active_space() -> UInt64
 }
 
 /// The windows of a space, as `space_window_list` lists them.
-private func spaceWindowIDs(_ sid: UInt64) -> [UInt32]
+private func spaceWindowIDs(_ sid: SpaceID) -> [UInt32]
 {
     var count: Int32 = 0
     return space_window_list(sid, &count, true) ?? []
 }
 
 /// `space_manager_move_window_list_to_space`
-func space_manager_move_window_list_to_space(_ sid: UInt64, _ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32)
+func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32)
 {
     var windows = Array(UnsafeBufferPointer(start: windowList, count: Int(windowCount)))
 
     if SLS.hasBridgedWindowOperation {
         SLS.bridgedMoveWindows(windows, toSpace: sid)
     } else if !scripting_addition_move_window_list_to_space(sid, &windows, Int32(windows.count)) {
-        SLSSpaceSetCompatID(connection_global(), sid, 0x79616265)
+        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
         SLSSetWindowListWorkspace(connection_global(), &windows, Int32(windows.count), 0x79616265)
-        SLSSpaceSetCompatID(connection_global(), sid, 0x0)
+        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
     }
 }
 
 /// Moves a list of windows to a space, as `space_manager_move_window_list_to_space` does.
-private func moveWindows(_ windows: [UInt32], to sid: UInt64)
+private func moveWindows(_ windows: [UInt32], to sid: SpaceID)
 {
     var list = windows
     space_manager_move_window_list_to_space(sid, &list, Int32(list.count))
@@ -501,7 +501,7 @@ private func moveWindows(_ windows: [UInt32], to sid: UInt64)
 //
 
 /// `space_manager_wait_for_window_on_space`
-func space_manager_wait_for_window_on_space(_ wid: UInt32, _ sid: UInt64, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_window_on_space(_ wid: UInt32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
 {
     var i: Int32 = 0
     while i < timeoutMS / 10 {
@@ -514,7 +514,7 @@ func space_manager_wait_for_window_on_space(_ wid: UInt32, _ sid: UInt64, _ time
 }
 
 /// `space_manager_wait_for_windows_on_space`
-func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32, _ sid: UInt64, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
 {
     var arrived: Int32 = 0
 
@@ -532,26 +532,26 @@ func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<
 }
 
 /// `space_manager_move_window_to_space`
-func space_manager_move_window_to_space(_ sid: UInt64, _ win: Window)
+func space_manager_move_window_to_space(_ sid: SpaceID, _ win: Window)
 {
     if SLS.hasBridgedWindowOperation {
         SLS.bridgedMoveWindows([win.id], toSpace: sid)
     } else if !scripting_addition_move_window_to_space(sid, win.id) {
         var windows = [win.id]
-        SLSSpaceSetCompatID(connection_global(), sid, 0x79616265)
+        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
         SLSSetWindowListWorkspace(connection_global(), &windows, 1, 0x79616265)
-        SLSSpaceSetCompatID(connection_global(), sid, 0x0)
+        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
     }
 }
 
 /// `space_manager_find_first_user_space_for_display`
-private func spaceManagerFindFirstUserSpaceForDisplay(_ did: DisplayID) -> UInt64
+private func spaceManagerFindFirstUserSpaceForDisplay(_ did: DisplayID) -> SpaceID
 {
     return displaySpaces(did)?.first(where: { space_is_user($0) }) ?? 0
 }
 
 /// `space_manager_is_space_last_user_space`: whether no other user space is on the display of sid.
-func space_manager_is_space_last_user_space(_ sid: UInt64) -> Bool
+func space_manager_is_space_last_user_space(_ sid: SpaceID) -> Bool
 {
     guard let spaces = displaySpaces(space_display_id(sid)) else { return true }
 
@@ -564,13 +564,13 @@ func space_manager_is_space_last_user_space(_ sid: UInt64) -> Bool
 }
 
 /// `space_manager_user_list`: whether each space of a list is a user space.
-func spaceUserList(_ spaces: [UInt64]) -> [Bool]
+func spaceUserList(_ spaces: [SpaceID]) -> [Bool]
 {
     return spaces.map { space_is_user($0) }
 }
 
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
-private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UInt64) -> SpaceOperationResult
+private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: SpaceID) -> SpaceOperationResult
 {
     let wm = window_manager_global()
     let sm = space_manager_global()
@@ -618,7 +618,7 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UIn
 }
 
 /// `space_manager_swap_space_with_space`
-func space_manager_swap_space_with_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> SpaceOperationResult
+func space_manager_swap_space_with_space(_ actingSid: SpaceID, _ selectorSid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 
@@ -669,7 +669,7 @@ func space_manager_swap_space_with_space(_ actingSid: UInt64, _ selectorSid: UIn
 }
 
 /// `space_manager_move_space_to_space`
-func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> SpaceOperationResult
+func space_manager_move_space_to_space(_ actingSid: SpaceID, _ selectorSid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 
@@ -707,7 +707,7 @@ func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt6
 }
 
 /// `space_manager_move_space_to_display`
-func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ did: DisplayID) -> SpaceOperationResult
+func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID, _ did: DisplayID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
     if sid == 0 { return .missingSource }
@@ -746,7 +746,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ di
 
 /// `space_manager_focus_space_using_gesture`: switches spaces with the gestures of the Dock, without its animation.
 @discardableResult
-func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: UInt64) -> Bool
+func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: SpaceID) -> Bool
 {
     let curIndex = space_manager_mission_control_index(display_space_id(newDid))
     let newIndex = space_manager_mission_control_index(newSid)
@@ -802,7 +802,7 @@ func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: UInt
 }
 
 /// `space_manager_focus_space`
-func space_manager_focus_space(_ sid: UInt64) -> SpaceOperationResult
+func space_manager_focus_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 
@@ -825,7 +825,7 @@ func space_manager_focus_space(_ sid: UInt64) -> SpaceOperationResult
 }
 
 /// `space_manager_switch_space`
-func space_manager_switch_space(_ sid: UInt64) -> SpaceOperationResult
+func space_manager_switch_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 
@@ -845,7 +845,7 @@ func space_manager_switch_space(_ sid: UInt64) -> SpaceOperationResult
 }
 
 /// `space_manager_destroy_space`
-func space_manager_destroy_space(_ sid: UInt64) -> SpaceOperationResult
+func space_manager_destroy_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 
@@ -866,7 +866,7 @@ func space_manager_destroy_space(_ sid: UInt64) -> SpaceOperationResult
 }
 
 /// `space_manager_add_space`
-func space_manager_add_space(_ sid: UInt64) -> SpaceOperationResult
+func space_manager_add_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
     if sid == 0 { return .missingSource }
@@ -875,7 +875,7 @@ func space_manager_add_space(_ sid: UInt64) -> SpaceOperationResult
 }
 
 /// `space_manager_is_window_on_space`
-func space_manager_is_window_on_space(_ sid: UInt64, _ win: Window) -> Bool
+func space_manager_is_window_on_space(_ sid: SpaceID, _ win: Window) -> Bool
 {
     return window_space_list(win.id).contains(sid)
 }
@@ -970,7 +970,7 @@ func space_manager_init(_ sm: SpaceManager)
     sm.tree_default_orientation = .auto
     sm.tree_workspace_tabbed = false
     sm.tree_autotiling = false
-    sm.labels = LabelList<UInt64>()
+    sm.labels = LabelList<SpaceID>()
     sm.skip_window_focus_animation = false
     //
     // NOTE: The table of views is keyed by the space id.

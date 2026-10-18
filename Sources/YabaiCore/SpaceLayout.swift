@@ -91,7 +91,7 @@ public struct SpaceLayout: Equatable, Sendable
     /// `space_layout_move_candidate`: the space a reconcile pass moves off a display with too many spaces. It is
     /// the first user space from the given edge that is not visible, else the visible space when it is the only
     /// user space, else 0.
-    public static func moveCandidate(spaces: [UInt64], user: [Bool], visible: UInt64, fromEnd: Bool) -> UInt64
+    public static func moveCandidate(spaces: [SpaceID], user: [Bool], visible: SpaceID, fromEnd: Bool) -> SpaceID
     {
         let count = spaces.count
 

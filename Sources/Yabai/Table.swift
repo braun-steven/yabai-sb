@@ -1,4 +1,5 @@
 import Darwin
+import YabaiCore
 
 //
 // NOTE: The hash table of the managers. The query responses list windows, applications and spaces in the order of
@@ -115,11 +116,11 @@ extension Table where Key == pid_t
     }
 }
 
-extension Table where Key == UInt64
+extension Table where Key == SpaceID
 {
     /// The spaces of the space manager, by id.
     init(capacity: Int)
     {
-        self.init(capacity: capacity, hash: { UInt($0) }, equals: { $0 == $1 })
+        self.init(capacity: capacity, hash: { UInt($0.rawValue) }, equals: { $0 == $1 })
     }
 }

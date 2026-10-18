@@ -20,7 +20,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done.
 
 | Phase | Title | Status | Last commit | Note |
 |---|---|---|---|---|
-| 1 | Cleanup, one type per concept, Swift strings | [ ] | | |
+| 1 | Cleanup, one type per concept, Swift strings | [x] | c05a4dd6 | baseline in `doc/performance/2026-10-18-refactor-baseline/` |
 | 2 | Swift types: enums, OptionSets, typed IDs, containers | [ ] | | |
 | 3a | Methods: tree and views | [ ] | | |
 | 3b | Methods: windows, applications, rules | [ ] | | |
@@ -251,8 +251,9 @@ renderers follow config changes through Observation, `make tsan` live run clean,
 
 Carried between phases; add, resolve or strike items here.
 
-- Keep or delete `doc/swift-port-performance.md` and `doc/performance/2026-10-15/` (port-era benchmark report)?
-  Ask the user in phase 1.
+- ~~Keep or delete the port-era benchmark report?~~ Kept (user, 2026-10-18).
+- Phase 1 had no live check (not required); the first live check of the refactor is phase 2's. It should exercise
+  rules (`rule --add app=… manage=off`, `rule --apply`, one-shot rules) and scratchpads, whose storage changed.
 
 ## Reports
 
@@ -267,3 +268,21 @@ Append one per session, newest last, at most ~15 lines. Put lasting knowledge in
 - Next: <exact next step if unfinished>
 - Notes for the next agent: <surprises, decisions, new pitfalls (also added to AGENTS.md)>
 ```
+
+### 2026-10-18 Phase 1 [x]
+- Commits: ad53527a..c05a4dd6
+- Done: AGENTS.md rewritten for the refactor (skill removed, port references fixed); rules are `[Rule]` with
+  `Rule.matches`/`listFlags` in YabaiCore; `area`→`Area`, `DIR_*`/`STACK`→`Direction`/`InsertDirection?`,
+  `space_layout` tuple→`[SpaceLayout]`, scratchpad grid→`Grid`; application/process/scratchpad/font names and
+  `space_layout_spec` are `String`; `Sources/Yabai/Shims/` and the C-string helpers are gone; stale comments dropped.
+- Output changes: none (golden unchanged). Debug output of a terminated process now keeps its name instead of
+  "(null)"; `config tab_bar_font` rejects non-UTF-8 values before parsing instead of while creating the font.
+- Verification: 113 tests (71 Yabai + 42 YabaiCore; baseline 112, +1 rule matching test), golden, `make`,
+  `make install`. Baseline (installed build = HEAD sources, one display): bench tab/rotate/split focus medians
+  29.7/120.1/27.4 and 28.7/129.7/32.7 ms; perf.py in `doc/performance/2026-10-18-refactor-baseline/`. No live check.
+- Next: phase 2, step 1 (pseudo-enums in `Definitions.swift`).
+- Notes for the next agent: `Token(cString:)` (MessageSpace.swift) remains for sscanf buffers, `debug_message` for the
+  socket buffer, argv `strdup`s for posix_spawn. Many daemon files did not import YabaiCore; add the import when a
+  YabaiCore type is missing. Shell edits: BSD sed has no `\b` (use perl), and grep build logs for
+  `error:` anywhere in the line, not only at its start (`swift build` prints `error: /path:line:col …`).
+

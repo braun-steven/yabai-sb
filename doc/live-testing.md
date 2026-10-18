@@ -6,8 +6,7 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- All 82 original C tests are Swift tests; P14 removed the C harness and YabaiC target.
-  `make test` wraps `swift test` (103 tests at P14). SwiftPM's OSAXEmbed plugin generates the
+- `make test` wraps `swift test` (112 tests when the refactor of `doc/swift-refactor.md` started). SwiftPM's OSAXEmbed plugin generates the
   embedded arrays automatically, including on a fresh checkout; no preparation command is needed.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
   Run a single test with `swift test --filter <name>`, or the golden IPC replay with
@@ -167,8 +166,7 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 - The first deploy backs up the installed binary to `~/.local/state/yabai/yabai.before-deploy`; later
   deploys keep that backup. When you are done testing, run `bash scripts/live-tests/deploy.sh restore`,
   which puts the backup back, checks it with `cmp` and deletes it. Never leave a test build installed,
-  unless the user takes over (e.g. the long-lived `swift-port` branch, see `doc/swift-port.md`). The user
-  deploys a branch for good with `update-yabai-fork` in a real terminal (it needs `sudo`).
+  unless the user takes over. The user deploys a branch for good with `update-yabai-fork` in a real terminal (it needs `sudo`).
 - Tell the user after each deploy: it restarts yabai and resets their layouts (see above).
 - `deploy.sh` signs with the `yabai-cert` identity (`3A6E8695…`), so the Accessibility permission is
   kept. Check with `codesign -d -r- ~/.local/bin/yabai`.

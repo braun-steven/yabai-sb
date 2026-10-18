@@ -2,9 +2,8 @@ import CoreGraphics
 import Darwin
 
 //
-// NOTE: The query responses are byte-identical to the C serializers (doc/swift-port.md, parity contract): key order,
-// "%.4f" numbers, the escaping of json_string and the separators of JSON_PROPERTY. Never use JSONEncoder for them.
-// Ported from src/misc/helpers.h.
+// NOTE: The query responses keep the format of the original C serializers: key order, "%.4f" numbers, this escaping
+// and the separators. The golden snapshot checks it; phase 5 of doc/swift-refactor.md moves queries to JSONEncoder.
 //
 
 public enum JSON

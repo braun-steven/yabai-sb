@@ -5,7 +5,8 @@ import YabaiCore
 @testable import Yabai
 
 //
-// NOTE: The golden IPC capture of the C implementation (doc/swift-port.md). The replay sends every command of
+// NOTE: The golden IPC snapshot: a regression check of the responses, not a contract. Responses may change on purpose
+// (doc/swift-refactor.md, Rules): re-record and explain every changed record. The replay sends every command of
 // Golden/commands.txt through handleMessage, in order, on one fixture state of the daemon, and compares each response
 // byte for byte with Golden/responses.txt. With GOLDEN_RECORD=1 in the environment it writes responses.txt instead
 // (in the source tree), e.g. `GOLDEN_RECORD=1 swift test --filter Golden`; review the diff before committing it.
@@ -15,7 +16,7 @@ import YabaiCore
 // covered by commands that fail before they act.
 //
 // responses.txt holds one record per command: a line "### <byte count> <command>", the response bytes, and a newline.
-// A failure response starts with Response.failureByte (\x07), as it does on the socket. Ported from tests/src/golden.c.
+// A failure response starts with Response.failureByte (\x07), as it does on the socket.
 //
 
 struct GoldenRecord

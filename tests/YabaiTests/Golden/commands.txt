@@ -1,7 +1,7 @@
-# Golden IPC commands (doc/swift-port.md, P0 step 8). tests/src/golden.c runs them in order on one fixture daemon
-# without displays, spaces or windows, and responses.txt holds the responses of the C implementation. Never add a
+# Golden IPC commands, a regression snapshot (tests/YabaiTests/GoldenTests.swift). goldenReplay runs them in order on
+# one fixture daemon without displays, spaces or windows, and responses.txt holds the recorded responses. Never add a
 # command that acts on the live displays, spaces or windows: space and display commands must fail before they act.
-# Re-record with: GOLDEN_RECORD=1 make -C tests
+# Re-record with: GOLDEN_RECORD=1 swift test --filter Golden
 
 # unknown domain
 foo

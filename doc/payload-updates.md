@@ -3,7 +3,7 @@
 This repository’s “scripting addition” (OSAX) injects a payload into `Dock.app` to enable some elevated window/space operations. When macOS changes, the injected payload can break because the internal `Dock.app` code layout shifts.
 
 ## Where changes usually land
-- `osax/arm64_payload.m`: the values for macOS 27 (arm64e; the x86_64 payload and the older versions were removed on branch `swift-port`, see `bash scripts/payload-history.sh` for them). A new release adds `NSOperatingSystemVersion` conditionals again, mapping to:
+- `osax/arm64_payload.m`: the values for macOS 27 (arm64e; the x86_64 payload and the older versions were removed during the Swift port, see `bash scripts/payload-history.sh` for them). A new release adds `NSOperatingSystemVersion` conditionals again, mapping to:
   - **search window offsets** (e.g. `get_remove_space_offset`)
   - **byte patterns** used to locate code (e.g. `get_remove_space_pattern`)
 - `osax/payload.m`: orchestrates version gating (`verify_os_version`) and pattern scanning (`hex_find_seq`, etc.).

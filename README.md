@@ -1,31 +1,268 @@
 # Personal fork
 
-This is my personal fork of [yabai](https://github.com/asmvik/yabai) by Åsmund Vikane, maintained by [Steven Braun](https://github.com/braun-steven), where I (and AI) implement features and bug fixes that I need.
+This is my personal fork of [yabai](https://github.com/asmvik/yabai) by Åsmund Vikane, maintained by me, where I (mostly via coding agents) implement features and bug fixes that I need and then some more.
+
+This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, with C/Objective-C retained for private macOS APIs and the scripting addition's native adapter and loader.
 
 ## Fork changes
 
-- **Adaptive glass tabs**: glass tab bars use native AppKit buttons with hover and press feedback, accessible titles and selection, and support for Reduce Motion, Reduce Transparency, and Increase Contrast. The surrounding card defaults to a subdued native background material (`tab_bar_backdrop blur`) with a subtle outline; `glass` and `off` remain available. `tab_bar_appearance dark|system` keeps the current dark look by default or follows the macOS appearance with adaptive default colors; configured colors take precedence.
+- [i3/sway container tree](#i3sway-container-tree)
+- [Tab bars and adaptive glass](#tab-bars-and-adaptive-glass)
+- [Exclusive scratchpads](#exclusive-scratchpads)
+- [Native window borders](#native-window-borders)
+- [Automatic space layout](#automatic-space-layout)
+- [Built-in display last](#built-in-display-last)
+- [Automatic padding](#automatic-padding)
+- [macOS 27 support](#macos-27-support)
 
-- **`space_layout` config**: keeps a fixed number of spaces on each display, with one layout per display count, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`. Spaces are moved, created, or destroyed (only empty ones) after display or space changes.
-- **macOS 27**: releases after Tahoe take the Tahoe code paths (window notifications, window sub-level queries) instead of falling back to pre-Sequoia behavior.
-- **`builtin_display_last` config**: orders the built-in display after all other displays, for both display and space indices.
-- **`auto_padding` config**: removes padding on tiled spaces with at most one tiled window or tabbed container, globally or per space (`yabai -m config [--space <SPACE_SEL>] auto_padding on`). The configured padding is never changed, so `--grid` gives the same frame on every space.
-- **Exclusive scratchpads**: `scratchpad_exclusive on` keeps at most one scratchpad shown, so toggling one hides the others. `scratchpad_raise on` focuses a covered scratchpad instead of hiding it, `scratchpad_below on` lets a focused tiled window cover a shown scratchpad instead of the scratchpad always floating above, and `scratchpad_grid <grid>` re-centers a scratchpad each time it is shown. Toggling a scratchpad on another space no longer makes macOS switch back to that space.
-- **Native window borders**: `window_border on` draws a border around each window, replacing JankyBorders (`window_border_width`, `active_window_border_color`, `normal_window_border_color`). Each border is four thin SkyLight windows around the window instead of one window-sized bitmap, so it needs a few MB instead of about 30 MB per window; it follows moves and resizes straight from the window server notifications and switches its color as soon as yabai sees the focus change. The border of a tabbed container goes around the whole container with its tab bar (and around the glass backdrop card), and `window_border_hide_single on` hides the border of a window that is alone on its space (a tabbed container counts as one, scratchpads do not count).
+Configuration examples can go in your `yabairc`; window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
-  Measured against JankyBorders (width 3, `hidpi=on`) on macOS 27 with two 4K displays and the laptop display, 9 windows. Latency is the time from `yabai -m window --focus` until the border color changes on screen, over 3 alternating runs of 40 focus switches each; CPU is a workload of 20 resize/focus/move rounds.
+### i3/sway container tree
 
-  | | native `window_border` | JankyBorders |
-  |---|---|---|
-  | Memory (process footprint) | yabai stays at 28 MB | `borders` 187 MB (89 MB on the laptop display alone) |
-  | Wired memory added | +35–85 MB (within noise) | +150–275 MB |
-  | Focus latency, same app (median / p90) | 52–70 ms / 82–111 ms | 133–165 ms / 146–191 ms |
-  | Focus latency, across apps (median / p90) | 78–89 ms / 104–110 ms | 167–207 ms / 207–266 ms |
-  | Worst focus switch (about 1 in 40) | 0.35–0.75 s | 0.3–0.45 s |
-  | CPU of yabai + `borders` | 0.86–0.94 s | 1.47–1.66 s |
-  | CPU of WindowServer | 5.8–6.4 s | 4.9–5.5 s |
+Windows live in a tree of horizontal splits (`splith`), vertical splits (`splitv`) and tabbed containers. Containers can be nested: one tab can hold two windows side by side, while another holds a single window.
 
-- **i3/sway container tree (`layout tree`)**: the only tiling layout; the bsp and stack layouts are removed and `layout` accepts `tree` (the default) or `float`. Windows live in an n-ary tree of `splith`, `splitv` and `tabbed` containers, like i3. New windows open next to the focused window in its container, empty containers close, and tabbed containers draw native tab bars with window titles that focus a tab on click, with an optional application icon left of the title (`tab_bar`, `tab_bar_height`, `tab_bar_offset` for the space between bar and windows, `tab_bar_font`, `tab_bar_icons`, `tab_bar_*_color`), nested tabs too. `tab_bar_style glass|i3` draws the bars in real Liquid Glass (`NSGlassEffectView`: a translucent track and a sliding pill for the active tab, tinted with the `tab_bar_*_color` colors; the default) or as flat i3 tabs; `tab_bar_backdrop glass|blur|off` draws a rounded glass or blur card behind the whole glass tabbed container with the bar on top and the window inset by `tab_bar_card_padding` below it, rounded concentric to the window corners (`tab_bar_window_radius`) and tinted with `tab_bar_backdrop_color`, so no wallpaper shows between bar and window; `tab_bar_font system:<size>` selects the system font; this replaces the stackline Hammerspoon plugin. i3 navigation: `window --focus north|east|south|west` walks the tree and restores the last focused child, `--focus parent|child` selects containers, `window --warp <dir>` is i3's `move` (swap, enter a container, leave at the edge, re-orient the space, cross displays), closing a window focuses the previous one in its container, `query --tree` prints the tree, and `query --windows` reports `split-type`/`stack-index` from it. Structure commands: `window --split horizontal|vertical|toggle`, `window --layout splith|splitv|tabbed|split|toggle|toggle-split`, `--insert`, `--stack`, `--resize`/`--ratio` (i3 percent shares), zoom, `space --balance|--rotate|--mirror`, and mouse drops on window edges. Configured with `tree_default_orientation`, `tree_workspace_layout`, `focus_wrapping` and `tree_autotiling` (each new window halves the focused one along its longer side, like the i3 autotiling script). The bsp-only selectors (`sibling`, `*_nephew`, `uncle`, `*_cousin`), the `split-child` window property and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed.
+```text
+Horizontal split             Vertical split              Tabbed container
+┌──────────┬──────────┐       ┌─────────────────────┐     ┌──────────┬──────────┐
+│          │          │       │          A          │     │ A active │    B     │
+│    A     │    B     │       ├─────────────────────┤     ├──────────┴──────────┤
+│          │          │       │          B          │     │     A visible     │
+└──────────┴──────────┘       └─────────────────────┘     └─────────────────────┘
+```
+
+`tree` is the default and the only tiling layout; `float` leaves windows unmanaged. New windows open after the focused window in its container, empty containers close automatically, and closing a window restores the previous focus in that container.
+
+#### Configure the tree
+
+```sh
+yabai -m config layout tree
+yabai -m config tree_default_orientation auto  # side by side on wide displays
+yabai -m config tree_workspace_layout default
+yabai -m config tree_autotiling on            # split the focused window along its longer side
+yabai -m config focus_wrapping on
+```
+
+With `tree_autotiling on`, opening B next to A splits A's area; opening C next to B splits B's area along its longer side. Windows opened inside a tabbed container remain tabs. To make new workspace-level groups tabbed instead, use `tree_workspace_layout tabbed`.
+
+#### Arrange and navigate
+
+```sh
+yabai -m window --layout tabbed    # turn the current container into tabs
+yabai -m window --layout splith    # arrange its children side by side
+yabai -m window --layout splitv    # arrange its children top to bottom
+yabai -m window --split vertical   # prepare a vertical split for the next window
+yabai -m window --focus east
+yabai -m window --focus parent     # select the containing group
+yabai -m window --focus child      # return to its focused child
+yabai -m window --warp west        # move the selected window or group left
+yabai -m window --ratio abs:0.6    # give it 60% of its parent's available share
+yabai -m query --tree
+```
+
+Directional focus walks the tree and enters a neighbouring group at its last focused window. At the edge of a space it can continue onto the next display. `focus_wrapping off` stops at an edge with no display; `force` wraps inside the innermost container instead.
+
+Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`.
+
+<details>
+<summary>Compatibility with upstream bsp/stack configurations</summary>
+
+The upstream `bsp` and `stack` layouts are replaced by `tree`. Use tabbed containers for stacks. `query --windows` reports `split-type` and `stack-index` from the tree; `query --tree` exposes its structure.
+
+The bsp selectors `sibling`, `*_nephew`, `uncle` and `*_cousin`, the `split-child` window property, and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed.
+
+</details>
+
+### Tab bars and adaptive glass
+
+Every tabbed container gets a clickable bar with window titles and optional application icons, including nested groups. This replaces the stackline Hammerspoon plugin. Glass tabs use native AppKit buttons with hover and press feedback, accessible titles and selection state, and a sliding selection pill.
+
+![Native tab-bar renderer: blur backdrop in dark and light appearance, then glass backdrop in dark appearance](assets/fork/tab-bars-appearance.png)
+
+*Screenshot of the native renderer in a disposable AppKit preview: blur backdrop in dark appearance (left), blur in system light appearance (middle), and glass backdrop in dark appearance (right). The preview uses sample window content; the tab controls and backdrop use the actual renderer.*
+
+Glass tabs with `tab_bar_backdrop off`, captured above a disposable application window:
+
+![Glass tab track without a surrounding backdrop card](assets/fork/tab-bars-no-backdrop.png)
+
+Flat tabs with `tab_bar_style i3`, captured with the same test windows:
+
+![Flat i3 tabs with the Terminal tab selected](assets/fork/tab-bars-i3.png)
+
+#### Choose the appearance
+
+```sh
+yabai -m config tab_bar on
+yabai -m config tab_bar_style glass
+yabai -m config tab_bar_backdrop blur
+yabai -m config tab_bar_appearance system
+yabai -m config tab_bar_font system:12
+yabai -m config tab_bar_icons on
+```
+
+| Option | Behavior |
+|---|---|
+| `tab_bar_style glass` | Liquid Glass controls in a rounded track; the default. |
+| `tab_bar_style i3` | Flat tabs side by side, without a backdrop card. |
+| `tab_bar_backdrop blur` | Subdued native background material beneath the controls and windows; the default. |
+| `tab_bar_backdrop glass` | Liquid Glass across the whole container card. |
+| `tab_bar_backdrop off` | A separate tab track above the windows, without a surrounding card. |
+| `tab_bar_appearance dark` | Keep glass controls and cards dark; the default. |
+| `tab_bar_appearance system` | Follow macOS light/dark appearance. Does not affect the i3 style. |
+
+Reduce Motion disables transitions, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
+
+#### Adjust spacing and colors
+
+```sh
+yabai -m config tab_bar_height 24
+yabai -m config tab_bar_offset 4          # gap between the bar and the windows
+yabai -m config tab_bar_card_padding 6    # inset inside the backdrop card
+yabai -m config tab_bar_window_radius 16  # assumed window radius, for concentric card corners
+
+# Optional overrides (colors use 0xAARRGGBB).
+yabai -m config tab_bar_focused_color 0xff40566e
+yabai -m config tab_bar_focused_text_color 0xffffffff
+```
+
+The `tab_bar_focused_*` colors describe the selected tab in the focused group, `tab_bar_inactive_*` describe the selected tab in other groups, and `tab_bar_unfocused_*` describe unselected tabs. `tab_bar_backdrop_color` optionally tints the surrounding card. Leave colors unconfigured to use the adaptive defaults.
+
+#### Put a split inside a tab
+
+```text
+┌──────────────────────────┬──────────────────────────┐
+│     Work (active)        │          Browser         │
+├─────────────────────────┬┴──────────────────────────┤
+│                         │                          │
+│         Editor          │         Terminal         │
+│                         │                          │
+└─────────────────────────┴──────────────────────────┘
+```
+
+Here, the Work tab contains a horizontal split. Selecting Browser shows its window in place of both Editor and Terminal. Tabs can also contain further tabbed groups, each with its own bar. A glass backdrop encloses the whole group so wallpaper does not show through between its bar and windows.
+
+The screenshot below shows nested tab bars from the live test fixture: the outer row selects a group, and the inner row selects Terminal or Safari within it.
+
+![Nested glass tab bars captured above disposable application windows](assets/fork/tab-bars-nested.png)
+
+### Exclusive scratchpads
+
+Scratchpads are named floating windows you can summon onto the active space. Assign the focused window a name, then toggle it by that name:
+
+```sh
+# Focus your terminal window, then assign it a scratchpad name.
+yabai -m window --scratchpad terminal
+yabai -m window --toggle terminal
+```
+
+These options make scratchpads behave like a shared drop-down panel:
+
+```sh
+yabai -m config scratchpad_exclusive on
+yabai -m config scratchpad_raise on
+yabai -m config scratchpad_below on
+yabai -m config scratchpad_grid 10:10:1:1:8:8
+```
+
+| Situation | Result with these options |
+|---|---|
+| Terminal is shown; toggle a second scratchpad named Notes. | Notes appears and Terminal hides, even if Terminal is on another display. |
+| Notes is focused; toggle Notes again. | Notes hides. Terminal stays hidden. |
+| Notes is shown but covered by a tiled editor; toggle Notes. | Notes is focused and raised instead of hidden. |
+| Notes is shown; focus the tiled editor. | The editor can cover Notes because `scratchpad_below` puts it on the tiled stacking sub-layer. |
+| Notes is hidden; toggle it. | It opens centered at 80% width and height using the configured grid. |
+| Notes is shown on another space; toggle it here. | It moves to the active space and keeps its current frame, without switching back to its old space. |
+
+`scratchpad_grid` applies when a hidden scratchpad is shown. It does not reset the frame of one that is already shown. Set it to `off` to preserve the frame on every toggle. An explicit `window --sub-layer` setting overrides automatic scratchpad layering. Scratchpad toggling, exclusivity and below-layer behavior require the scripting addition and partially disabled SIP.
+
+### Native window borders
+
+Built-in borders show the focused window without a separate JankyBorders process. Each border uses four thin SkyLight windows, follows window-server move/resize notifications, and changes color when yabai sees a focus change.
+
+```sh
+yabai -m config window_border on
+yabai -m config window_border_width 3
+yabai -m config active_window_border_color 0xff8aadf4
+yabai -m config normal_window_border_color 0xff494d64
+yabai -m config window_border_hide_single on
+```
+
+The active tab's border encloses the whole tabbed container, including its bar and backdrop card. Hidden tabs have no border. With `window_border_hide_single on`, a single visible tiled window has no border; a split inside the active tab still counts as multiple visible windows, so focus remains visible. Hidden tabs and scratchpads do not count toward this total; floating windows retain their borders.
+
+<details>
+<summary>Measurements against JankyBorders</summary>
+
+Measured with border width 3 and JankyBorders `hidpi=on`, on macOS 27 with two 4K displays and the laptop display, 9 windows. Latency is the time from `yabai -m window --focus` until the border color changes on screen, over 3 alternating runs of 40 focus switches each; CPU is a workload of 20 resize/focus/move rounds. These are measurements from that setup, not guarantees for other configurations.
+
+| | Native `window_border` | JankyBorders |
+|---|---|---|
+| Memory (process footprint) | yabai stays at 28 MB | `borders` 187 MB (89 MB on the laptop display alone) |
+| Wired memory added | +35–85 MB (within noise) | +150–275 MB |
+| Focus latency, same app (median / p90) | 52–70 ms / 82–111 ms | 133–165 ms / 146–191 ms |
+| Focus latency, across apps (median / p90) | 78–89 ms / 104–110 ms | 167–207 ms / 207–266 ms |
+| Worst focus switch (about 1 in 40) | 0.35–0.75 s | 0.3–0.45 s |
+| CPU of yabai + `borders` | 0.86–0.94 s | 1.47–1.66 s |
+| CPU of WindowServer | 5.8–6.4 s | 4.9–5.5 s |
+
+</details>
+
+### Automatic space layout
+
+`space_layout` keeps a fixed number of spaces on each display. Give one colon-separated layout for each number of connected displays you use:
+
+```sh
+yabai -m config space_layout 15 10:5 10:5:1b
+```
+
+| Connected displays | Layout selected | Space counts |
+|---|---|---|
+| 1 | `15` | 15 spaces on the only display. |
+| 2 | `10:5` | 10 on the first display, 5 on the second, in arrangement order. |
+| 3, including the built-in display | `10:5:1b` | 10 and 5 on the external displays, 1 on the built-in display. |
+
+The `b` suffix binds that entry to the built-in display; other entries follow display arrangement order. After displays or spaces change, yabai moves spaces between displays and creates or removes spaces to reach the selected layout. Only empty spaces are destroyed, so a space containing windows can keep a display above its target count. This feature requires the scripting addition and partially disabled SIP.
+
+```sh
+yabai -m config space_layout off  # stop enforcing counts
+```
+
+### Built-in display last
+
+Keep external displays first in display and space indices, regardless of where the laptop sits in the physical arrangement:
+
+```sh
+yabai -m config builtin_display_last on
+```
+
+For example, with 10 spaces on the first external display, 5 on the second, and 1 on the laptop, the external displays are indices 1 and 2 with spaces 1–15. The laptop is display 3 with space 16. This works with `space_layout 10:5:1b` to keep external workspace numbers stable while the laptop display is also connected.
+
+### Automatic padding
+
+`auto_padding` removes outer padding when a tree space has at most one tiled window or tabbed container, then restores it when more containers appear. The configured values stay unchanged.
+
+```sh
+yabai -m config top_padding 12
+yabai -m config bottom_padding 12
+yabai -m config left_padding 12
+yabai -m config right_padding 12
+yabai -m config window_gap 8
+yabai -m config auto_padding on
+
+# Or apply only to space 2:
+yabai -m config --space 2 auto_padding on
+```
+
+| Space contents | Outer padding |
+|---|---|
+| One tiled window | Removed; the window fills the usable display area. |
+| Two windows side by side at the workspace level | The configured 12 points return. |
+| One tabbed container with several tabs | Removed; the group counts once, including a split inside a tab. |
+| One tiled window plus a floating scratchpad | Removed; floating windows do not count. |
+
+Window gaps, the menu bar, Dock and `external_bar` reservations are still respected. `window --grid` always uses the configured padding and gap, so a scratchpad's grid frame does not change when another tiled window opens. `auto_padding` has no effect on `float` spaces.
+
+### macOS 27 support
+
+This fork targets macOS 27 on Apple Silicon. Window notifications and window sub-level queries use the Tahoe-compatible paths rather than falling back to pre-Sequoia behavior. The daemon and client build for arm64, and the injected scripting addition builds for arm64e. There is no configuration switch for older macOS releases or Intel Macs.
 
 ---
 

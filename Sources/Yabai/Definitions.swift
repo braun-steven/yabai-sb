@@ -57,45 +57,6 @@ let WINDOW_RULE_FULLSCREEN = window_rule_flag(rawValue: 0x02)
 let WINDOW_RULE_MFF        = window_rule_flag(rawValue: 0x04)
 let WINDOW_RULE_MFF_VALUE  = window_rule_flag(rawValue: 0x08)
 
-// MARK: src/space_manager.h, src/space_layout.h
-
-/// `enum space_op_error`
-struct space_op_error: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let SPACE_OP_ERROR_SUCCESS            = space_op_error(rawValue: 0)
-let SPACE_OP_ERROR_MISSING_SRC        = space_op_error(rawValue: 1)
-let SPACE_OP_ERROR_MISSING_DST        = space_op_error(rawValue: 2)
-let SPACE_OP_ERROR_INVALID_SRC        = space_op_error(rawValue: 3)
-let SPACE_OP_ERROR_INVALID_DST        = space_op_error(rawValue: 4)
-let SPACE_OP_ERROR_INVALID_TYPE       = space_op_error(rawValue: 5)
-let SPACE_OP_ERROR_SAME_SPACE         = space_op_error(rawValue: 6)
-let SPACE_OP_ERROR_SAME_DISPLAY       = space_op_error(rawValue: 7)
-let SPACE_OP_ERROR_IN_MISSION_CONTROL = space_op_error(rawValue: 9)
-let SPACE_OP_ERROR_SCRIPTING_ADDITION = space_op_error(rawValue: 10)
-
-/// `enum space_layout_result`
-struct space_layout_result: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let SPACE_LAYOUT_RESULT_DONE      = space_layout_result(rawValue: 0)
-let SPACE_LAYOUT_RESULT_PERFORMED = space_layout_result(rawValue: 1)
-let SPACE_LAYOUT_RESULT_FAILED    = space_layout_result(rawValue: 2)
-
-// MARK: src/display_manager.h
-
-let DOCK_ORIENTATION_BOTTOM: Int32 = 2
-let DOCK_ORIENTATION_LEFT: Int32   = 3
-let DOCK_ORIENTATION_RIGHT: Int32  = 4
-
-/// `enum display_arrangement_order`
-struct display_arrangement_order: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let DISPLAY_ARRANGEMENT_ORDER_DEFAULT = display_arrangement_order(rawValue: 0)
-let DISPLAY_ARRANGEMENT_ORDER_X       = display_arrangement_order(rawValue: 1)
-let DISPLAY_ARRANGEMENT_ORDER_Y       = display_arrangement_order(rawValue: 2)
-
-/// `enum external_bar_mode`
-struct external_bar_mode: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let EXTERNAL_BAR_OFF  = external_bar_mode(rawValue: 0)
-let EXTERNAL_BAR_MAIN = external_bar_mode(rawValue: 1)
-let EXTERNAL_BAR_ALL  = external_bar_mode(rawValue: 2)
-
 // MARK: src/mouse_handler.h
 
 //

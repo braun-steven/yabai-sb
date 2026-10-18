@@ -10,6 +10,22 @@ import YabaiCore
 // spaces. Ported from src/space_manager.c.
 //
 
+/// The outcome of a space command: success, or why it failed (`Response.failSpaceOp` words the failures every space
+/// command shares).
+enum SpaceOperationResult: Sendable
+{
+    case success
+    case missingSource
+    case missingDestination
+    case invalidSource
+    case invalidDestination
+    case invalidType
+    case sameSpace
+    case sameDisplay
+    case inMissionControl
+    case scriptingAdditionFailed
+}
+
 /// `struct space_manager`
 final class SpaceManager
 {
@@ -556,7 +572,7 @@ func spaceUserList(_ spaces: [UInt64]) -> [Bool]
 }
 
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
-private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UInt64) -> space_op_error
+private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UInt64) -> SpaceOperationResult
 {
     let wm = window_manager_global()
     let sm = space_manager_global()
@@ -600,18 +616,18 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: UInt64, _ bSid: UIn
     view_flush(bView)
 
     wm.window_animation_duration = windowAnimationDuration
-    return SPACE_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `space_manager_swap_space_with_space`
-func space_manager_swap_space_with_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> space_op_error
+func space_manager_swap_space_with_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
     let actingDid = space_display_id(actingSid)
     let selectorDid = space_display_id(selectorSid)
 
-    if actingSid == selectorSid { return SPACE_OP_ERROR_SAME_SPACE }
+    if actingSid == selectorSid { return .sameSpace }
     if actingDid != selectorDid { return spaceManagerSwapSpaceWithSpaceOnDisplay(actingSid, selectorSid) }
 
     let actingPrevSid = space_manager_prev_space(actingSid)
@@ -651,19 +667,19 @@ func space_manager_swap_space_with_space(_ actingSid: UInt64, _ selectorSid: UIn
         }
     }
 
-    return success ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return success ? .success : .scriptingAdditionFailed
 }
 
 /// `space_manager_move_space_to_space`
-func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> space_op_error
+func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
     let actingDid = space_display_id(actingSid)
     let selectorDid = space_display_id(selectorSid)
 
-    if actingSid == selectorSid { return SPACE_OP_ERROR_SAME_SPACE }
-    if actingDid != selectorDid { return SPACE_OP_ERROR_SAME_DISPLAY }
+    if actingSid == selectorSid { return .sameSpace }
+    if actingDid != selectorDid { return .sameDisplay }
 
     let actingPrevSid = space_manager_prev_space(actingSid)
     let selectorPrevSid = space_manager_prev_space(selectorSid)
@@ -689,22 +705,22 @@ func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt6
         }
     }
 
-    return success ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return success ? .success : .scriptingAdditionFailed
 }
 
 /// `space_manager_move_space_to_display`
-func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ did: UInt32) -> space_op_error
+func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ did: UInt32) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
-    if sid == 0 { return SPACE_OP_ERROR_MISSING_SRC }
+    if mission_control_is_active() { return .inMissionControl }
+    if sid == 0 { return .missingSource }
 
     let sDid = space_display_id(sid)
-    if sDid == did { return SPACE_OP_ERROR_INVALID_DST }
+    if sDid == did { return .invalidDestination }
 
-    if space_manager_is_space_last_user_space(sid) { return SPACE_OP_ERROR_INVALID_SRC }
+    if space_manager_is_space_last_user_space(sid) { return .invalidSource }
 
     let dSid = display_space_id(did)
-    if dSid == 0 { return SPACE_OP_ERROR_MISSING_DST }
+    if dSid == 0 { return .missingDestination }
 
     let focusSpace = sid == space_manager_active_space()
 
@@ -714,7 +730,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ di
     // to that display's current space, and its menubar stays on screen above the real one.
     //
 
-    guard let spaceList = displaySpaces(sDid) else { return SPACE_OP_ERROR_MISSING_SRC }
+    guard let spaceList = displaySpaces(sDid) else { return .missingSource }
 
     let user = spaceUserList(spaceList)
     let replacementSid = SpaceList.moveReplacement(spaces: spaceList, user: user, sid: sid, visible: display_space_id(sDid))
@@ -724,10 +740,10 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ di
         if focusSpace {
             _ = space_manager_focus_space(sid)
         }
-        return SPACE_OP_ERROR_SUCCESS
+        return .success
     }
 
-    return SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return .scriptingAdditionFailed
 }
 
 /// `space_manager_focus_space_using_gesture`: switches spaces with the gestures of the Dock, without its animation.
@@ -788,12 +804,12 @@ func space_manager_focus_space_using_gesture(_ newDid: UInt32, _ newSid: UInt64)
 }
 
 /// `space_manager_focus_space`
-func space_manager_focus_space(_ sid: UInt64) -> space_op_error
+func space_manager_focus_space(_ sid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
     let curSid = space_manager_active_space()
-    if curSid == sid { return SPACE_OP_ERROR_SAME_SPACE }
+    if curSid == sid { return .sameSpace }
 
     let curDid = space_display_id(curSid)
     let newDid = space_display_id(sid)
@@ -807,16 +823,16 @@ func space_manager_focus_space(_ sid: UInt64) -> space_op_error
         _ = space_manager_focus_space_using_gesture(newDid, sid)
     }
 
-    return SPACE_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `space_manager_switch_space`
-func space_manager_switch_space(_ sid: UInt64) -> space_op_error
+func space_manager_switch_space(_ sid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
     let curSid = space_manager_active_space()
-    if curSid == sid { return SPACE_OP_ERROR_SAME_SPACE }
+    if curSid == sid { return .sameSpace }
 
     let curDid = space_display_id(curSid)
     let did = space_display_id(sid)
@@ -824,40 +840,40 @@ func space_manager_switch_space(_ sid: UInt64) -> space_op_error
     if curDid != did {
         _ = spaceManagerSwapSpaceWithSpaceOnDisplay(curSid, sid)
         display_manager_focus_display(curDid, curSid)
-        return SPACE_OP_ERROR_SUCCESS
+        return .success
     }
 
-    return scripting_addition_focus_space(sid) ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed
 }
 
 /// `space_manager_destroy_space`
-func space_manager_destroy_space(_ sid: UInt64) -> space_op_error
+func space_manager_destroy_space(_ sid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
-    if sid == 0 { return SPACE_OP_ERROR_MISSING_SRC }
-    if !space_is_user(sid) { return SPACE_OP_ERROR_INVALID_TYPE }
-    if space_manager_is_space_last_user_space(sid) { return SPACE_OP_ERROR_INVALID_SRC }
+    if sid == 0 { return .missingSource }
+    if !space_is_user(sid) { return .invalidType }
+    if space_manager_is_space_last_user_space(sid) { return .invalidSource }
 
     let did = space_display_id(sid)
     let firstSid = spaceManagerFindFirstUserSpaceForDisplay(did)
 
-    if !scripting_addition_destroy_space(sid) { return SPACE_OP_ERROR_SCRIPTING_ADDITION }
+    if !scripting_addition_destroy_space(sid) { return .scriptingAdditionFailed }
 
     if firstSid != 0 {
         window_manager_validate_and_check_for_windows_on_space(space_manager_global(), window_manager_global(), firstSid)
     }
 
-    return SPACE_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `space_manager_add_space`
-func space_manager_add_space(_ sid: UInt64) -> space_op_error
+func space_manager_add_space(_ sid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
-    if sid == 0 { return SPACE_OP_ERROR_MISSING_SRC }
+    if mission_control_is_active() { return .inMissionControl }
+    if sid == 0 { return .missingSource }
 
-    return scripting_addition_create_space(sid) ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return scripting_addition_create_space(sid) ? .success : .scriptingAdditionFailed
 }
 
 /// `space_manager_is_window_on_space`

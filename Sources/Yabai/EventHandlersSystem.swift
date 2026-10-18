@@ -196,11 +196,9 @@ import CPrivate
     }
 
     let result = space_layout_reconcile(sm)
-    if result == SPACE_LAYOUT_RESULT_PERFORMED {
-        space_layout_schedule(0.5, false)
-    } else if result == SPACE_LAYOUT_RESULT_FAILED {
-        space_layout_schedule(1.0, false)
-    } else {
-        sm.space_layout_passes = 0
+    switch result {
+    case .performed: space_layout_schedule(0.5, false)
+    case .failed:    space_layout_schedule(1.0, false)
+    case .done:      sm.space_layout_passes = 0
     }
 }

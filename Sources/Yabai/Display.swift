@@ -56,8 +56,8 @@ func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGR
     var effectiveExtTopPadding: Int32 = 0
 
     if !ignoreExternalBar {
-        if (dm.mode == EXTERNAL_BAR_MAIN && did == display_manager_main_display_id()) ||
-           (dm.mode == EXTERNAL_BAR_ALL) {
+        if (dm.mode == .main && did == display_manager_main_display_id()) ||
+           (dm.mode == .all) {
             effectiveExtTopPadding = dm.top_padding
 
             frame.origin.y    += CGFloat(effectiveExtTopPadding)
@@ -82,14 +82,14 @@ func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGR
         if did == display_manager_dock_display_id() {
             let dock = display_manager_dock_rect()
             switch display_manager_dock_orientation() {
-            case DOCK_ORIENTATION_LEFT:
+            case .left:
                 frame.origin.x   += dock.size.width
                 frame.size.width -= dock.size.width
-            case DOCK_ORIENTATION_RIGHT:
+            case .right:
                 frame.size.width -= dock.size.width
-            case DOCK_ORIENTATION_BOTTOM:
+            case .bottom:
                 frame.size.height -= dock.size.height
-            default: break
+            case nil: break
             }
         }
     }

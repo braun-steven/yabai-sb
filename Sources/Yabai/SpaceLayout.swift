@@ -9,6 +9,14 @@ import YabaiCore
 // displays change, reconcile passes move, create or destroy one space each until the counts match.
 //
 
+/// What a reconcile pass did: nothing left to do, one step, or a step that failed.
+enum SpaceLayoutResult: Sendable
+{
+    case done
+    case performed
+    case failed
+}
+
 /// `space_layout_user_space_count`
 private func spaceLayoutUserSpaceCount(_ spaces: [UInt64]) -> Int
 {
@@ -39,14 +47,14 @@ private func spaceLayoutDestroyCandidate(_ did: UInt32) -> UInt64
 }
 
 /// `space_layout_reconcile`: performs one step that moves the user spaces towards the layout of the displays.
-func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
+func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
 {
     let displayCount = display_manager_active_display_count()
-    if displayCount < 1 || displayCount > SpaceLayout.max { return SPACE_LAYOUT_RESULT_DONE }
+    if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
     guard let layout = sm.space_layouts.first(where: { $0.count == displayCount }) else {
         debug("space_layout_reconcile: no space_layout for \(displayCount) display(s)\n")
-        return SPACE_LAYOUT_RESULT_DONE
+        return .done
     }
 
     var didList: [UInt32] = []
@@ -54,7 +62,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
 
     for i in 0..<Int(displayCount) {
         let did = display_manager_arrangement_display_id(Int32(i + 1))
-        if did == 0 { return SPACE_LAYOUT_RESULT_FAILED }
+        if did == 0 { return .failed }
 
         didList.append(did)
         if builtin == -1 && CGDisplayIsBuiltin(did) != 0 { builtin = i }
@@ -64,7 +72,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
 
     var actual: [Int] = []
     for did in didList {
-        guard let spaces = displaySpaces(did) else { return SPACE_LAYOUT_RESULT_FAILED }
+        guard let spaces = displaySpaces(did) else { return .failed }
         actual.append(spaceLayoutUserSpaceCount(spaces))
     }
 
@@ -75,12 +83,12 @@ func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
         if deficit == -1 && actual[i] < target[i] { deficit = i }
     }
 
-    if surplus == -1 && deficit == -1 { return SPACE_LAYOUT_RESULT_DONE }
+    if surplus == -1 && deficit == -1 { return .done }
 
-    let result: space_op_error
+    let result: SpaceOperationResult
 
     if surplus != -1 && deficit != -1 {
-        guard let spaces = displaySpaces(didList[surplus]) else { return SPACE_LAYOUT_RESULT_FAILED }
+        guard let spaces = displaySpaces(didList[surplus]) else { return .failed }
 
         let user = spaceUserList(spaces)
         let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: display_space_id(didList[surplus]), fromEnd: deficit > surplus)
@@ -94,14 +102,14 @@ func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
         let sid = spaceLayoutDestroyCandidate(didList[surplus])
         if sid == 0 {
             debug("space_layout_reconcile: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
-            return SPACE_LAYOUT_RESULT_DONE
+            return .done
         }
 
         debug("space_layout_reconcile: destroy empty space \(Int64(bitPattern: sid)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
         result = space_manager_destroy_space(sid)
     }
 
-    return result == SPACE_OP_ERROR_SUCCESS ? SPACE_LAYOUT_RESULT_PERFORMED : SPACE_LAYOUT_RESULT_FAILED
+    return result == .success ? .performed : .failed
 }
 
 //

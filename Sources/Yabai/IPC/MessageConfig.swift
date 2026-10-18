@@ -81,8 +81,6 @@ private enum Config
 // is the value of the C enum; nil entries are the gaps of a bitmask enum (mouse_mod).
 //
 
-private let externalBarModeNames: [String] = ["off", "main", "all"]
-private let displayArrangementOrderNames: [String?] = ["default", "horizontal", "vertical"]
 private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
 private let mouseModeNames: [String?] = ["none", "move", "resize", "swap", "stack"]
 
@@ -349,13 +347,13 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if count != 3 {
-        rsp.write("\(externalBarModeNames[Int(dm.mode.rawValue)]):\(dm.top_padding):\(dm.bottom_padding)\n")
+        rsp.write("\(dm.mode.rawValue):\(dm.top_padding):\(dm.bottom_padding)\n")
         return
     }
 
     let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
-    for (i, name) in externalBarModeNames.enumerated() where modeToken.equals(name) {
-        dm.mode = external_bar_mode(rawValue: UInt32(i))
+    if let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) {
+        dm.mode = choice
         dm.top_padding = top
         dm.bottom_padding = bottom
         space_manager_mark_spaces_invalid(space_manager_global())
@@ -580,8 +578,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.displayOrder) {
-        if let choice = parseChoice(&rsp, domain, command, &message, displayArrangementOrderNames, first: DISPLAY_ARRANGEMENT_ORDER_DEFAULT.rawValue, last: DISPLAY_ARRANGEMENT_ORDER_Y.rawValue, current: dm.order.rawValue) {
-            dm.order = display_arrangement_order(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, current: dm.order) {
+            dm.order = choice
         }
     } else if command.equals(Config.builtinLast) {
         if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }

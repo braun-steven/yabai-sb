@@ -9,6 +9,31 @@ import YabaiCore
 // the Dock that shrink their area, and the focus of a display. Ported from src/display_manager.c.
 //
 
+/// The order of the display indices (`config display_arrangement_order`): the window server's, or by the centers of the
+/// displays from left to right or top to bottom.
+enum DisplayArrangementOrder: String, CaseIterable, Sendable
+{
+    case `default`
+    case horizontal
+    case vertical
+}
+
+/// The displays whose area leaves room for an external bar (`config external_bar`): none, the main one, or all.
+enum ExternalBarMode: String, CaseIterable, Sendable
+{
+    case off
+    case main
+    case all
+}
+
+/// The screen edge of the Dock, with the values of `CoreDockGetOrientationAndPinning`.
+enum DockOrientation: Int32, Sendable
+{
+    case bottom = 2
+    case left   = 3
+    case right  = 4
+}
+
 /// `struct display_manager`
 final class DisplayManager
 {
@@ -18,9 +43,9 @@ final class DisplayManager
     var top_padding: Int32 = 0
     var bottom_padding: Int32 = 0
 
-    var order = DISPLAY_ARRANGEMENT_ORDER_DEFAULT
+    var order = DisplayArrangementOrder.default
     var builtin_last = false
-    var mode = EXTERNAL_BAR_OFF
+    var mode = ExternalBarMode.off
 
     var labels = LabelList()
 }
@@ -69,11 +94,11 @@ func display_manager_point_display_id(_ point: CGPoint) -> UInt32
 
 //
 // NOTE: The order of display_arrangement_order compares the centers of two displays on the axis of the order, then on the
-// other axis. The context of the comparator is the order itself.
+// other axis. The context of the comparator is 1 for the vertical order and 0 for the horizontal one.
 //
 
 private let displayCoordinateComparator: CFComparatorFunction = { a, b, context in
-    let byY = UInt(bitPattern: context) == UInt(DISPLAY_ARRANGEMENT_ORDER_Y.rawValue)
+    let byY = context != nil
 
     let aCenter = display_center(display_id(Unmanaged<CFString>.fromOpaque(a!).takeUnretainedValue()))
     let bCenter = display_center(display_id(Unmanaged<CFString>.fromOpaque(b!).takeUnretainedValue()))
@@ -142,9 +167,9 @@ private func displayManagerCopyArrangedDisplays() -> [String]?
     let order = display_manager_global().order
 
     var sorted = displays
-    if count > 0 && order != DISPLAY_ARRANGEMENT_ORDER_DEFAULT {
+    if count > 0 && order != .default {
         let mutable = CFArrayCreateMutableCopy(nil, count, displays)!
-        CFArraySortValues(mutable, CFRangeMake(0, count), displayCoordinateComparator, UnsafeMutableRawPointer(bitPattern: UInt(order.rawValue)))
+        CFArraySortValues(mutable, CFRangeMake(0, count), displayCoordinateComparator, UnsafeMutableRawPointer(bitPattern: order == .vertical ? 1 : 0))
         sorted = mutable as CFArray
     }
 
@@ -278,9 +303,9 @@ func display_manager_dock_hidden() -> Bool
 }
 
 /// `display_manager_dock_orientation`
-func display_manager_dock_orientation() -> Int32
+func display_manager_dock_orientation() -> DockOrientation?
 {
-    return CoreDock.orientationAndPinning.orientation
+    return DockOrientation(rawValue: CoreDock.orientationAndPinning.orientation)
 }
 
 /// `display_manager_dock_rect`
@@ -372,14 +397,14 @@ func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
 }
 
 /// `display_manager_focus_space`
-func display_manager_focus_space(_ did: UInt32, _ sid: UInt64) -> space_op_error
+func display_manager_focus_space(_ did: UInt32, _ sid: UInt64) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return SPACE_OP_ERROR_IN_MISSION_CONTROL }
+    if mission_control_is_active() { return .inMissionControl }
 
     let spaceDid = space_display_id(sid)
-    if spaceDid != did { return SPACE_OP_ERROR_SAME_DISPLAY }
+    if spaceDid != did { return .sameDisplay }
 
-    return scripting_addition_focus_space(sid) ? SPACE_OP_ERROR_SUCCESS : SPACE_OP_ERROR_SCRIPTING_ADDITION
+    return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed
 }
 
 /// `display_manager_begin`: reads the active display and registers the reconfiguration callback.
@@ -387,8 +412,8 @@ func display_manager_begin(_ dm: DisplayManager) -> Bool
 {
     dm.current_display_id = display_manager_active_display_id()
     dm.last_display_id = dm.current_display_id
-    dm.order = DISPLAY_ARRANGEMENT_ORDER_DEFAULT
-    dm.mode = EXTERNAL_BAR_OFF
+    dm.order = .default
+    dm.mode = .off
     dm.top_padding = 0
     dm.bottom_padding = 0
 

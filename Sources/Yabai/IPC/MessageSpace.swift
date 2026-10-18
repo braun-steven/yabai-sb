@@ -99,11 +99,11 @@ extension Response
     //
 
     /// `daemon_fail_space_op`
-    mutating func failSpaceOp(_ result: space_op_error, _ action: String)
+    mutating func failSpaceOp(_ result: SpaceOperationResult, _ action: String)
     {
         switch result {
-        case SPACE_OP_ERROR_IN_MISSION_CONTROL: fail("cannot \(action) because mission-control is active.\n")
-        case SPACE_OP_ERROR_SCRIPTING_ADDITION: fail("cannot \(action) due to an error with the scripting-addition.\n")
+        case .inMissionControl: fail("cannot \(action) because mission-control is active.\n")
+        case .scriptingAdditionFailed: fail("cannot \(action) due to an error with the scripting-addition.\n")
         default: break
         }
     }
@@ -144,7 +144,7 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let selector = parseSpaceSelector(&rsp, message.next(), acting: display_space_id(actingDid), optional: false, context)
         if selector.didParse && selector.value != 0 {
             let result = display_manager_focus_space(actingDid, selector.value)
-            if result == SPACE_OP_ERROR_SAME_DISPLAY {
+            if result == .sameDisplay {
                 rsp.fail("acting display does not contain the given space.\n")
             } else {
                 rsp.failSpaceOp(result, "focus space")
@@ -190,7 +190,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
             let result = command.equals(SpaceCommand.focus)
                        ? space_manager_focus_space(selector.value)
                        : space_manager_switch_space(selector.value)
-            if result == SPACE_OP_ERROR_SAME_SPACE {
+            if result == .sameSpace {
                 rsp.fail("cannot focus an already focused space.\n")
             } else {
                 rsp.failSpaceOp(result, "focus space")
@@ -200,9 +200,9 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
         if selector.didParse && selector.value != 0 {
             let result = space_manager_move_space_to_space(actingSid, selector.value)
-            if result == SPACE_OP_ERROR_SAME_SPACE {
+            if result == .sameSpace {
                 rsp.fail("cannot move space to itself.\n")
-            } else if result == SPACE_OP_ERROR_SAME_DISPLAY {
+            } else if result == .sameDisplay {
                 rsp.fail("cannot move space across display boundaries. use --display instead.\n")
             } else {
                 rsp.failSpaceOp(result, "move space")
@@ -212,7 +212,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
         if selector.didParse && selector.value != 0 {
             let result = space_manager_swap_space_with_space(actingSid, selector.value)
-            if result == SPACE_OP_ERROR_SAME_SPACE {
+            if result == .sameSpace {
                 rsp.fail("cannot swap space with itself.\n")
             } else {
                 rsp.failSpaceOp(result, "swap space")
@@ -222,13 +222,13 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: false, context)
         if selector.didParse && selector.value != 0 {
             let result = space_manager_move_space_to_display(space_manager_global(), actingSid, selector.value)
-            if result == SPACE_OP_ERROR_MISSING_SRC {
+            if result == .missingSource {
                 rsp.fail("could not locate the space to act on.\n")
-            } else if result == SPACE_OP_ERROR_MISSING_DST {
+            } else if result == .missingDestination {
                 rsp.fail("could not locate the active space of the given display.\n")
-            } else if result == SPACE_OP_ERROR_INVALID_SRC {
+            } else if result == .invalidSource {
                 rsp.fail("acting space is the last user-space on the source display and cannot be moved.\n")
-            } else if result == SPACE_OP_ERROR_INVALID_DST {
+            } else if result == .invalidDestination {
                 rsp.fail("acting space is already located on the given display.\n")
             } else {
                 rsp.failSpaceOp(result, "send space to display")
@@ -246,7 +246,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         }
 
         let result = space_manager_add_space(actingSid)
-        if result == SPACE_OP_ERROR_MISSING_SRC {
+        if result == .missingSource {
             rsp.fail("could not locate the space to act on.\n")
         } else {
             rsp.failSpaceOp(result, "create space")
@@ -255,11 +255,11 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         if !parseOptionalSpaceSelector(&rsp, &message, &actingSid, context) { return .stop }
 
         let result = space_manager_destroy_space(actingSid)
-        if result == SPACE_OP_ERROR_MISSING_SRC {
+        if result == .missingSource {
             rsp.fail("could not locate the space to act on.\n")
-        } else if result == SPACE_OP_ERROR_INVALID_SRC {
+        } else if result == .invalidSource {
             rsp.fail("acting space is the last user-space on the source display and cannot be destroyed.\n")
-        } else if result == SPACE_OP_ERROR_INVALID_TYPE {
+        } else if result == .invalidType {
             rsp.fail("cannot destroy a macOS fullscreen space.\n")
         } else {
             rsp.failSpaceOp(result, "destroy space")

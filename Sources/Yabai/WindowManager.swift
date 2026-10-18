@@ -81,7 +81,7 @@ final class WindowManager
     var scratchpad_exclusive = false
     var scratchpad_raise = false
     var scratchpad_below = false
-    var scratchpad_grid: (UInt32, UInt32, UInt32, UInt32, UInt32, UInt32) = (0, 0, 0, 0, 0, 0)
+    var scratchpad_grid = Grid()
 }
 
 /// `g_window_manager` (see the NOTE of g_display_manager)
@@ -954,14 +954,15 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
 
 /// `window_manager_apply_grid`
 @discardableResult
-func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ r: UInt32, _ c: UInt32, _ x: UInt32, _ y: UInt32, _ w: UInt32, _ h: UInt32) -> window_op_error
+func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ grid: Grid) -> window_op_error
 {
+    let r = grid.rows, c = grid.columns
     if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
     let did = window_display_id(target.id)
     if did == 0 { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
-    var x = x, y = y, w = w, h = h
+    var x = grid.x, y = grid.y, w = grid.width, h = grid.height
     if x >= c     { x = c &- 1 }
     if y >= r     { y = r &- 1 }
     if w <= 0     { w = 1 }
@@ -1399,7 +1400,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.scratchpad_exclusive = false
     wm.scratchpad_raise = false
     wm.scratchpad_below = false
-    wm.scratchpad_grid = (0, 0, 0, 0, 0, 0)
+    wm.scratchpad_grid = Grid()
 
     //
     // NOTE: The tables of the window manager are keyed by window ids and pids (hash_wm and compare_wm).

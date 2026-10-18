@@ -43,7 +43,7 @@ private func windowManagerHideOtherScratchpadWindows(_ wm: WindowManager, _ targ
 private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Window)
 {
     let grid = wm.scratchpad_grid
-    if grid.0 == 0 || grid.1 == 0 { return }
+    if grid.rows == 0 || grid.columns == 0 { return }
 
     //
     // NOTE: The window is still ordered out, so an animation
@@ -52,7 +52,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 
     let animationDuration = wm.window_animation_duration
     wm.window_animation_duration = 0.0
-    window_manager_apply_grid(space_manager_global(), wm, target, grid.0, grid.1, grid.2, grid.3, grid.4, grid.5)
+    window_manager_apply_grid(space_manager_global(), wm, target, grid)
     wm.window_animation_duration = animationDuration
 }
 

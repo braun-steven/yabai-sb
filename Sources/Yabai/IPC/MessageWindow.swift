@@ -315,7 +315,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var grid = Grid()
         let value = message.next()
         if grid.scan(value) == 6 {
-            let result = window_manager_apply_grid(sm, wm, actingWindow, grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height)
+            let result = window_manager_apply_grid(sm, wm, actingWindow, grid)
             if result == WINDOW_OP_ERROR_INVALID_SRC_VIEW {
                 rsp.fail("cannot apply grid layout to a managed window.\n")
             }

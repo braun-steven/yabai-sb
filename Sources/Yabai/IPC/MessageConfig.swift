@@ -152,23 +152,20 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
     let value = message.next()
 
     if !value.isValid {
-        let grid = withUnsafeBytes(of: wm.scratchpad_grid) { Array($0.bindMemory(to: UInt32.self)) }
-        if grid[0] == 0 || grid[1] == 0 {
+        let grid = wm.scratchpad_grid
+        if grid.rows == 0 || grid.columns == 0 {
             rsp.write("\(Argument.off)\n")
         } else {
-            rsp.write("\(grid.map { String($0) }.joined(separator: ":"))\n")
+            let values = [grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height]
+            rsp.write("\(values.map { String($0) }.joined(separator: ":"))\n")
         }
     } else if value.equals(Argument.off) {
-        wm.scratchpad_grid = (0, 0, 0, 0, 0, 0)
+        wm.scratchpad_grid = Grid()
     } else {
         // NOTE: like the C version, "%d" writes into unsigned values, so a negative row or column count passes the check
-        var grid = [UInt32](repeating: 0, count: 6)
-        let count = grid.withUnsafeMutableBufferPointer { g in
-            value.scan("%d:%d:%d:%d:%d:%d", g.baseAddress!, g.baseAddress! + 1, g.baseAddress! + 2, g.baseAddress! + 3, g.baseAddress! + 4, g.baseAddress! + 5)
-        }
-
-        if count == 6 && grid[0] > 0 && grid[1] > 0 {
-            wm.scratchpad_grid = (grid[0], grid[1], grid[2], grid[3], grid[4], grid[5])
+        var grid = Grid()
+        if grid.scan(value) == 6 && grid.rows > 0 && grid.columns > 0 {
+            wm.scratchpad_grid = grid
         } else {
             rsp.failUnknownValue(domain, command, value)
         }

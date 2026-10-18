@@ -89,7 +89,7 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
 
     let grid = effects.grid
     if grid.rows != 0 && grid.columns != 0 {
-        window_manager_apply_grid(sm, wm, target, grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height)
+        window_manager_apply_grid(sm, wm, target, grid)
     }
 }
 

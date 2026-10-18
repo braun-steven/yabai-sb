@@ -12,6 +12,7 @@ final class TabBar
     var card = CGRect.zero
     var sid: UInt64 = 0
     var above_wid: UInt32 = 0
+    var content_windows: [UInt32] = []
     var hidden = false
     var entry_count: Int32 = 0
     var entry_list: [UInt32] = []
@@ -28,6 +29,7 @@ final class TabBar
         card = .zero
         sid = 0
         above_wid = 0
+        content_windows = []
         hidden = false
         entry_count = 0
         entry_list = []

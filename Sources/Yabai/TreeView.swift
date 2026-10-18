@@ -269,6 +269,36 @@ func tree_view_tiled_count(_ owner: View!) -> Int32
     return treeTiledCount(root)
 }
 
+// NOTE: Border suppression counts the windows actually shown by the active tabs. Auto-padding
+// keeps counting a whole tabbed container as one area, even when its active tab contains a split.
+func treeVisibleWindowCount(_ node: Con) -> Int32
+{
+    if con_is_leaf(node) { return node.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
+    if node.layout == CON_TABBED {
+        return node.child_count == 0 ? 0 : treeVisibleWindowCount(node.focus[0])
+    }
+    var count: Int32 = 0
+    for child in node.children { count += treeVisibleWindowCount(child) }
+    return count
+}
+
+// NOTE: Include nested cards as well as their visible windows so an outer card stays behind
+// an existing inner card even when only the outer bar receives a window-order notification.
+func treeCollectBarContent(_ node: Con, _ windows: inout [UInt32])
+{
+    if con_is_leaf(node) {
+        windows.append(node.window_id)
+        return
+    }
+    if node.layout == CON_TABBED {
+        let card = tab_bar_card_id(node.render.tab_bar)
+        if card != 0 { windows.append(card) }
+        if node.child_count != 0 { treeCollectBarContent(node.focus[0], &windows) }
+        return
+    }
+    for child in node.children { treeCollectBarContent(child, &windows) }
+}
+
 /// `tree_con_frame`
 func tree_con_frame(_ owner: View, _ node: Con) -> area
 {
@@ -394,6 +424,9 @@ private func treeRenderBar(_ node: Con)
     node.render.tab_bar.redraw = treeRenderBarCallback
 
     let above = tree_descend_focused(node)
+    var contentWindows: [UInt32] = []
+    treeCollectBarContent(active, &contentWindows)
+    node.render.tab_bar.content_windows = contentWindows
     let area = node.area
     let inset = Float(tree_bar_card_inset(area, wm.tab_bar_height, treeBarInset()))
     let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
@@ -467,20 +500,20 @@ func tree_release_bars(_ node: Con!)
 }
 
 /// `tree_collect_window_order`
-func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: UInt32, _ list: inout [sa_window_order])
+func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: UInt32, _ list: inout [sa_window_order], excluding: UInt32 = 0)
 {
     if con_is_leaf(node) {
-        if node.window_id != relative { list.append(sa_window_order(a_wid: node.window_id, order: order, b_wid: relative)) }
+        if node.window_id != relative && node.window_id != excluding { list.append(sa_window_order(a_wid: node.window_id, order: order, b_wid: relative)) }
         return
     }
 
     if order == 1 && node.layout == CON_TABBED {
-        if node.child_count != 0 { treeCollectWindowOrder(node.focus[0], order, relative, &list) }
+        if node.child_count != 0 { treeCollectWindowOrder(node.focus[0], order, relative, &list, excluding: excluding) }
         return
     }
 
     for i in 0..<Int(node.child_count) {
-        treeCollectWindowOrder(node.children[i], order, relative, &list)
+        treeCollectWindowOrder(node.children[i], order, relative, &list, excluding: excluding)
     }
 }
 
@@ -489,7 +522,8 @@ func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: UInt32, _ l
 // stacking order alone. When a tab becomes active, the windows of the other tabs are ordered
 // below the backdrop card of the container (below its focused window without a card), and
 // the other visible windows of the tab (when it holds a split) are ordered above it. The card
-// itself sits right below the focused window, so this is redone when either of them changes.
+// stays below all visible descendants, including nested cards. Recompute this order after
+// AppKit places it and when the window server reports a changed window order.
 // The focused window is also ordered right above the card: the card does not reliably follow
 // its own ordering, and a new window was ordered below the card as a hidden tab before it got
 // focus, which the application then does not raise again. The orderings of the whole tree are
@@ -525,7 +559,10 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
             }
 
             if let anchor, !con_is_leaf(active) {
-                treeCollectWindowOrder(active, 1, anchor.window_id, &list)
+                // NOTE: Nested cards can sit between split siblings. Ordering a sibling
+                // above the focused window fights the nested tab's own anchor ordering.
+                // With a card, each visible window only needs to stay above that card.
+                treeCollectWindowOrder(active, 1, cardWid != 0 ? cardWid : anchor.window_id, &list, excluding: anchor.window_id)
             }
         }
     }
@@ -542,6 +579,35 @@ func tree_raise_tabs(_ node: Con, _ force: Bool)
     treeCollectTabOrder(node, force, &list)
 
     if !list.isEmpty { scripting_addition_order_window_list(&list, Int32(list.count)) }
+}
+
+func treeWindowOrderNeedsUpdate(_ list: [sa_window_order], _ windows: [UInt32]) -> Bool
+{
+    let ranks = Dictionary(uniqueKeysWithValues: windows.enumerated().map { ($0.element, $0.offset) })
+    for entry in list {
+        guard let a = ranks[entry.a_wid], let b = ranks[entry.b_wid] else { continue }
+        if entry.order == 1 ? a > b : a < b { return true }
+    }
+    return false
+}
+
+// NOTE: Applications can raise their windows after the AX focus event, and AppKit places cards
+// asynchronously. Repair only a violated ordering: our own SA orders emit the same notifications.
+func tree_repair_tab_order(_ node: Con)
+{
+    // NOTE: A command can raise a hidden tab before AX commits its focus. Do not restore the
+    // previous tab over that activation; its focus event will render and repair the new tab.
+    let wm = window_manager_global()
+    if let pending = window_manager_pending_focus_window(wm), pending.id != wm.focused_window_id { return }
+    var list: [sa_window_order] = []
+    treeCollectTabOrder(node, true, &list)
+    guard !list.isEmpty, let windows = CGWindowListCreateC(.optionOnScreenOnly, 0) else { return }
+    let order = (0..<CFArrayGetCount(windows)).map { UInt32(UInt(bitPattern: CFArrayGetValueAtIndex(windows, $0))) }
+    guard treeWindowOrderNeedsUpdate(list, order) else { return }
+    scripting_addition_order_window_list(&list, Int32(list.count))
+    // NOTE: The foreign windows have reached their final order before their border edges are
+    // placed. A card or a sibling can otherwise remain between a window and its border.
+    for entry in list { border_window_ordered(entry.a_wid) }
 }
 
 /// `tree_flush`

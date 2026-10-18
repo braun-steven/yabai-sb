@@ -30,6 +30,7 @@ private struct Snapshot: @unchecked Sendable
     let cardRadius: CGFloat
     let sid: UInt64
     let aboveWid: UInt32
+    let contentWindows: [UInt32]
     let level: Int32
     let subLevel: Int32
     let font: CTFont?
@@ -55,6 +56,7 @@ private struct Snapshot: @unchecked Sendable
         cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
         sid = bar.sid
         self.aboveWid = aboveWid
+        contentWindows = bar.content_windows
         level = window_level(aboveWid)
         subLevel = window_sub_level(aboveWid)
         font = wm.tab_bar_font
@@ -522,20 +524,58 @@ private final class Panel
         tab_bar_glass_move_to_space(id, snapshot.sid)
         // NOTE: Keep AppKit's order in sync with SkyLight even for visible panels. Otherwise a newly created
         // outer card can be put back above an existing inner card when AppKit next displays its windows.
-        panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid))
+        let anchor = orderAnchor(snapshot.aboveWid)
+        panel.order(below ? .below : .above, relativeTo: Int(anchor))
         tab_bar_glass_move_to_space(id, snapshot.sid)
 
         tab_bar_glass_set_level(id, snapshot.level, snapshot.subLevel)
-        tab_bar_glass_order_panel(id, below, snapshot.aboveWid)
+        tab_bar_glass_order_panel(id, below, anchor)
+        // NOTE: Reassert visible/hidden tab order after AppKit's asynchronous placement.
+        // order() handles the resulting SkyLight notifications without posting another event.
+        if below { EventLoop.post(.tabBarRendered(spaceID: snapshot.sid)) }
     }
 
     func order(_ wid: UInt32)
     {
         guard panel.isVisible else { return }
-        panel.order(below ? .below : .above, relativeTo: Int(wid))
+        let anchor = orderAnchor(wid)
+        // NOTE: SA repairs emit order notifications too. Do not move an already correctly
+        // placed card again through AppKit, which can undo the foreign-window repair.
+        if let windows = CGWindowListCreateC(.optionOnScreenOnly, 0) {
+            let order = (0..<CFArrayGetCount(windows)).map { UInt32(UInt(bitPattern: CFArrayGetValueAtIndex(windows, $0))) }
+            if !tabBarPanelNeedsOrder(id, anchor, below, order) { return }
+        }
+        panel.order(below ? .below : .above, relativeTo: Int(anchor))
         if let snapshot { tab_bar_glass_move_to_space(id, snapshot.sid) }
-        tab_bar_glass_order_panel(id, below, wid)
+        tab_bar_glass_order_panel(id, below, anchor)
     }
+
+    private func orderAnchor(_ fallback: UInt32) -> UInt32
+    {
+        guard below, let snapshot else { return fallback }
+        // NOTE: A queued order notification may name the previous active tab. The current
+        // snapshot owns the anchor, including when the active tab is a single window.
+        let fallback = snapshot.aboveWid
+        guard snapshot.contentWindows.count > 1,
+              let windows = CGWindowListCreateC(.optionOnScreenOnly, 0) else { return fallback }
+        // NOTE: CGWindowListCreate stores window IDs as pointer values, not CFNumber objects.
+        let order = (0..<CFArrayGetCount(windows)).map { UInt32(UInt(bitPattern: CFArrayGetValueAtIndex(windows, $0))) }
+        return tabBarBackdropAnchor(snapshot.contentWindows, order, fallback)
+    }
+}
+
+// NOTE: Window lists are front-to-back. Placing a card below the focused window can cover
+// its split siblings; choose the backmost visible descendant at the time AppKit orders it.
+func tabBarBackdropAnchor(_ content: [UInt32], _ order: [UInt32], _ fallback: UInt32) -> UInt32
+{
+    let visible = Set(content)
+    return order.last(where: { visible.contains($0) }) ?? fallback
+}
+
+func tabBarPanelNeedsOrder(_ panel: UInt32, _ anchor: UInt32, _ below: Bool, _ order: [UInt32]) -> Bool
+{
+    guard let panelIndex = order.firstIndex(of: panel), let anchorIndex = order.firstIndex(of: anchor) else { return true }
+    return below ? panelIndex < anchorIndex : panelIndex > anchorIndex
 }
 
 //
@@ -559,6 +599,9 @@ final class TabBarGlass: @unchecked Sendable
         if self.panel == nil {
             self.panel = panel
             lock.withLock { panelId = panel.id }
+            // NOTE: Outer snapshots may predate this nested card. Refresh them on the event
+            // loop once its ID is published, so subsequent ordering includes the new card.
+            EventLoop.post(.tabBarCreated)
         }
         panel.apply(snapshot)
     }

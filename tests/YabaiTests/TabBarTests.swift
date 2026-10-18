@@ -135,5 +135,59 @@ extension DaemonState
             #expect(tabBarOuterFirst([inner, deepest, outer]) == [outer, inner, deepest])
             #expect(tabBarOuterFirst([outer, inner, deepest]) == [outer, inner, deepest])
         }
+
+        @Test("tab_bar_backdrop_below_all_active_split_windows")
+        func backdropBelowActiveSplit()
+        {
+            // T[1 H[2 H[3 4] T[5 6]]]: snapshot only the visible descendants.
+            let root = Yabai.con_create(CON_TABBED)!
+            defer { Yabai.con_free(root) }
+            let single = treeTestLeaf(root, 1)
+            let split = treeTestSplit(root, CON_SPLITH)
+            let first = treeTestLeaf(split, 2)
+            let nested = treeTestSplit(split, CON_SPLITH)
+            let second = treeTestLeaf(nested, 3)
+            treeTestLeaf(nested, 4)
+            let tabs = treeTestSplit(split, CON_TABBED)
+            treeTestLeaf(tabs, 5)
+            let last = treeTestLeaf(tabs, 6)
+            Yabai.tree_focus(last)
+            Yabai.tree_focus(second)
+            var content: [UInt32] = []
+            treeCollectBarContent(root.focus[0], &content)
+            #expect(content == [2, 3, 4, 6])
+            // Include a nested card (99); hidden windows and unrelated windows are never anchors.
+            content.append(99)
+            #expect(tabBarBackdropAnchor(content, [3, 2, 4, 6, 99, 1, 5, 88], 3) == 99)
+            #expect(tabBarBackdropAnchor(content, [2, 3, 6, 99, 4, 1, 5], 2) == 4)
+            #expect(tabBarBackdropAnchor(content, [], 3) == 3)
+            #expect(!tabBarPanelNeedsOrder(99, 3, true, [3, 88, 99, 1]))
+            #expect(tabBarPanelNeedsOrder(99, 3, true, [99, 3, 1]))
+            #expect(!tabBarPanelNeedsOrder(99, 3, false, [99, 3, 1]))
+            #expect(tabBarPanelNeedsOrder(99, 3, false, [3, 99, 1]))
+            // A late application raise must be repaired; notifications from a correct SA order
+            // must settle without ordering the same windows again.
+            let orders = [sa_window_order(a_wid: 3, order: 1, b_wid: 99),
+                          sa_window_order(a_wid: 1, order: -1, b_wid: 99)]
+            #expect(!treeWindowOrderNeedsUpdate(orders, [3, 99, 1]))
+            #expect(treeWindowOrderNeedsUpdate(orders, [3, 1, 99]))
+            #expect(treeWindowOrderNeedsUpdate(orders, [99, 3, 1]))
+            #expect(!treeWindowOrderNeedsUpdate(orders, []))
+            var visibleOrder: [sa_window_order] = []
+            treeCollectWindowOrder(split, 1, 99, &visibleOrder, excluding: 3)
+            #expect(visibleOrder.map(\.a_wid) == [2, 4, 6])
+            #expect(visibleOrder.allSatisfy { $0.b_wid == 99 })
+            // Nested tab ordering may swap visible siblings without violating the outer card.
+            #expect(!treeWindowOrderNeedsUpdate(visibleOrder, [6, 4, 2, 99]))
+            #expect(!treeWindowOrderNeedsUpdate(visibleOrder, [2, 4, 6, 99]))
+            Yabai.tree_focus(first)
+            var switched: [UInt32] = []
+            treeCollectBarContent(root.focus[0], &switched)
+            #expect(switched == [2, 3, 4, 6])
+            Yabai.tree_focus(single)
+            switched = []
+            treeCollectBarContent(root.focus[0], &switched)
+            #expect(switched == [1])
+        }
     }
 }

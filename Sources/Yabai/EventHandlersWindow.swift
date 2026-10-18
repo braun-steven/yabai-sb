@@ -327,11 +327,30 @@ import CPrivate
     eventSignalPush(.windowTitleChanged, signalObject(window))
 }
 
+// Refresh outer snapshots after the main queue publishes a newly created backdrop card.
+@WM func tabBarCreated()
+{
+    tab_bar_redraw_all()
+}
+
+// AppKit places cards asynchronously. Finish the tab ordering against their final positions,
+// using the current tree rather than the focus captured by an earlier render snapshot.
+@WM func tabBarRendered(_ sid: UInt64)
+{
+    if sid == 0 || !space_is_visible(sid) { return }
+    let owner = space_manager_find_view(space_manager_global(), sid)
+    if owner.layout == VIEW_TREE, let root = owner.tree { tree_repair_tab_order(root) }
+}
+
 /// `EVENT_HANDLER(SLS_WINDOW_ORDERED)`
 @WM func slsWindowOrdered(_ wid: UInt32)
 {
     debug("EVENT_HANDLER_SLS_WINDOW_ORDERED: \(wid)\n")
     tab_bar_order(wid)
+    if let owner = window_manager_global().managed_window.find(wid),
+       owner.layout == VIEW_TREE, space_is_visible(owner.sid), let root = owner.tree {
+        tree_repair_tab_order(root)
+    }
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_DESTROYED)`

@@ -8,6 +8,30 @@ extension DaemonState
     @Suite
     struct BorderTests
     {
+        @Test("border_counts_visible_split_windows_in_active_tab")
+        func visibleSplitCount()
+        {
+            // H[T[1 H[2 H[3 4]]]]: hidden tabs do not suppress split-window borders.
+            let root = Yabai.con_create(CON_SPLITH)!
+            defer { Yabai.con_free(root) }
+            let tabs = treeTestSplit(root, CON_TABBED)
+            let single = treeTestLeaf(tabs, 1)
+            let split = treeTestSplit(tabs, CON_SPLITH)
+            treeTestLeaf(split, 2)
+            let nested = treeTestSplit(split, CON_SPLITH)
+            let focused = treeTestLeaf(nested, 3)
+            treeTestLeaf(nested, 4)
+            let owner = View()
+            owner.tree = root
+            Yabai.tree_focus(focused)
+            #expect(treeVisibleWindowCount(root) == 3)
+            #expect(Yabai.tree_view_tiled_count(owner) == 1)
+            Yabai.tree_focus(single)
+            #expect(treeVisibleWindowCount(root) == 1)
+            Yabai.tree_focus(focused)
+            #expect(treeVisibleWindowCount(root) == 3)
+        }
+
         @Test("border_edge_frames_split")
         func edgeFramesSplit()
         {

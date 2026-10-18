@@ -30,15 +30,6 @@ let LAYER_AUTO: Int32 = 0
 
 // MARK: src/view.h
 
-/// `struct area`
-struct area: Sendable
-{
-    var x: Float = 0
-    var y: Float = 0
-    var w: Float = 0
-    var h: Float = 0
-}
-
 /// `enum window_split`
 struct window_split: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
 let SPLIT_NONE = window_split(rawValue: 0)

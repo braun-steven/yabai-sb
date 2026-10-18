@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: Applies the container trees of Tree.swift to the screen: the tree of a view, window frames,
@@ -283,7 +284,7 @@ func treeVisibleWindowCount(_ node: Con) -> Int32
 }
 
 /// `tree_con_frame`
-func tree_con_frame(_ owner: View, _ node: Con) -> area
+func tree_con_frame(_ owner: View, _ node: Con) -> Area
 {
     if node.zoom == CON_ZOOM_FULLSCREEN { return owner.tree.area }
     if node.zoom == CON_ZOOM_PARENT, let parent = node.parent { return parent.area }
@@ -425,10 +426,10 @@ private func treeRenderBar(_ node: Con)
 //
 
 /// `tree_window_border_area`
-func tree_window_border_area(_ owner: View!, _ windowID: UInt32, _ windowArea: UnsafeMutablePointer<area>!, _ borderArea: UnsafeMutablePointer<area>!, _ radius: UnsafeMutablePointer<Int32>!) -> Bool
+func tree_window_border_area(_ owner: View!, _ windowID: UInt32, _ windowArea: UnsafeMutablePointer<Area>!, _ borderArea: UnsafeMutablePointer<Area>!, _ radius: UnsafeMutablePointer<Int32>!) -> Bool
 {
-    windowArea.pointee = area()
-    borderArea.pointee = area()
+    windowArea.pointee = Area.zero
+    borderArea.pointee = Area.zero
     radius.pointee = 0
 
     guard let owner, owner.tree != nil, let leaf = tree_view_find_window(owner, windowID) else { return true }

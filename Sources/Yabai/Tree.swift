@@ -1,5 +1,6 @@
 import CPrivate
 import Foundation
+import YabaiCore
 
 //
 // NOTE: The container model and the i3 algorithms that work on it. Nothing here talks to the
@@ -49,7 +50,7 @@ final class Con
     var last_split = CON_SPLITH
     var percent: Float = 0
     var window_id: UInt32 = 0
-    var area = Yabai.area()
+    var area = Area.zero
     var zoom = CON_ZOOM_NONE
     var selected = false
     var insert_dir: Int32 = 0
@@ -1253,7 +1254,7 @@ func tree_swap(_ a: Con, _ b: Con)
 //
 
 /// `tree_bar_card_inset`
-func tree_bar_card_inset(_ area: area, _ barHeight: Int32, _ barInset: Int32) -> Int32
+func tree_bar_card_inset(_ area: Area, _ barHeight: Int32, _ barInset: Int32) -> Int32
 {
     if barInset <= 0 { return 0 }
     if area.w <= Float(4 * barInset) || area.h - Float(2 * barInset) <= Float(2 * barHeight) { return 0 }
@@ -1261,7 +1262,7 @@ func tree_bar_card_inset(_ area: area, _ barHeight: Int32, _ barInset: Int32) ->
 }
 
 /// `tree_update`
-func tree_update(_ node: Con!, _ area: area, _ gap: Int32, _ barHeight: Int32, _ barOffset: Int32, _ barInset: Int32)
+func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _ barOffset: Int32, _ barInset: Int32)
 {
     node.area = area
     if con_is_leaf(node) || node.child_count == 0 { return }

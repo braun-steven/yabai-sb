@@ -1,6 +1,7 @@
 import CoreGraphics
 import Testing
 import CPrivate
+import YabaiCore
 @testable import Yabai
 
 extension DaemonState
@@ -80,13 +81,13 @@ extension DaemonState
             treeTestLeaf(nested, 5)
             treeTestLeaf(t, 3)
             Yabai.tree_focus(b)
-            Yabai.tree_update(root, area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            Yabai.tree_update(root, Area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
             let owner = View()
             owner.tree = root
-            var windowArea = area()
-            var borderArea = area()
+            var windowArea = Area.zero
+            var borderArea = Area.zero
             var radius: Int32 = -1
-            func same(_ lhs: area, _ rhs: area) -> Bool { lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h }
+            func same(_ lhs: Area, _ rhs: Area) -> Bool { lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h }
             #expect(Yabai.tree_window_border_area(owner,1, &windowArea, &borderArea, &radius))
             #expect(same(borderArea, a.area))
             #expect(radius == 0)
@@ -97,7 +98,7 @@ extension DaemonState
             #expect(!Yabai.tree_window_border_area(owner,3, &windowArea, &borderArea, &radius))
             #expect(!Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
             Yabai.tree_focus(d)
-            Yabai.tree_update(root, area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            Yabai.tree_update(root, Area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
             #expect(Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
             #expect(same(borderArea, t.area))
             #expect(windowArea.y - borderArea.y == 48)

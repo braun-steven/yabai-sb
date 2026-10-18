@@ -12,7 +12,7 @@ final class View
 {
     var uuid: CFString?
     var sid: UInt64 = 0
-    var area = Yabai.area()
+    var area = Area.zero
     var tree: Con!
     var insertion_point: UInt32 = 0
     var layout = VIEW_DEFAULT
@@ -130,7 +130,7 @@ func view_tiled_count(_ target: View) -> Int32
 }
 
 /// `view_root_area`: the area of the windows of a view inside the frame of its display.
-func view_root_area(_ target: View, _ frame: CGRect) -> area
+func view_root_area(_ target: View, _ frame: CGRect) -> Area
 {
     let root = ViewArea.rootArea(Area(frame),
                                  paddingEnabled: hasViewFlag(target, VIEW_ENABLE_PADDING),
@@ -140,7 +140,7 @@ func view_root_area(_ target: View, _ frame: CGRect) -> area
                                  left: target.left_padding,
                                  right: target.right_padding)
 
-    return area(x: root.x, y: root.y, w: root.w, h: root.h)
+    return Area(x: root.x, y: root.y, w: root.w, h: root.h)
 }
 
 /// `view_update_with_auto_padding`

@@ -50,7 +50,7 @@ There is no linter or `make analyze` target. Keep builds warning-free. CPrivate'
 - Remaining C/ObjC is C11 + manual retain/release (`-fno-objc-arc`) in CPrivate and OSAX. Add wrappers to CPrivate only when Swift cannot call the underlying API.
 
 Model pitfalls:
-- Enum tags can collide with functions (`ConOrientation` versus `con_orientation`); properties named like their types need a module qualifier (`Yabai.area()`). Swift raw-value initializers use `rawValue:` explicitly.
+- Enum tags can collide with functions (`ConOrientation` versus `con_orientation`); a property named like a lowercase type needs a module qualifier. Swift raw-value initializers use `rawValue:` explicitly.
 - Former pointer fields may remain IUOs to preserve nil behavior. Files must import `AppKit` / `CPrivate` explicitly; nothing re-exports them.
 - Type byte fixtures as `[UInt8]` when mixing typed bytes and integer literals; inferred `[Any]` gives raw-pointer APIs the wrong storage (`WindowAnimationTests.swift`).
 

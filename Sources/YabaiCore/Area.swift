@@ -1,7 +1,6 @@
 import CoreGraphics
 
-/// The directions of the selectors, with the values of `DIR_NORTH`, `DIR_EAST`, `DIR_SOUTH` and `DIR_WEST`
-/// (src/misc/macros.h).
+/// The directions of the selectors, in degrees (north is 360).
 public enum Direction: Int32, Sendable
 {
     case north = 360
@@ -10,9 +9,11 @@ public enum Direction: Int32, Sendable
     case west  = 270
 }
 
-/// A rectangle in float precision. Ported from `struct area` (src/view.h), which C still uses.
+/// A rectangle in float precision: the areas of containers and views.
 public struct Area: Equatable, Sendable
 {
+    public static let zero = Area(x: 0, y: 0, w: 0, h: 0)
+
     public var x: Float
     public var y: Float
     public var w: Float

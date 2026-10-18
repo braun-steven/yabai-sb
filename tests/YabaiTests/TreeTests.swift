@@ -1,5 +1,6 @@
 import Testing
 import CPrivate
+import YabaiCore
 @testable import Yabai
 
 //
@@ -361,7 +362,7 @@ extension DaemonState
             let v = treeTestSplit(root, CON_SPLITV)
             let b = treeTestLeaf(v, 2)
             let c = treeTestLeaf(v, 3)
-            let full = area(x: 0, y: 0, w: 1010, h: 810)
+            let full = Area(x: 0, y: 0, w: 1010, h: 810)
 
             Yabai.tree_update(root, full, 10, 24, 0, 0)
             #expect(Int32(a.area.w) == 500)
@@ -838,10 +839,10 @@ extension DaemonState
             let b = treeTestLeaf(root, 2)
             let target = treeViewTestView(root)
 
-            root.area  = area(x: 0,   y: 0, w: 1000, h: 800)
-            split.area = area(x: 0,   y: 0, w: 500,  h: 800)
-            a.area     = area(x: 0,   y: 0, w: 500,  h: 400)
-            b.area     = area(x: 500, y: 0, w: 500,  h: 800)
+            root.area  = Area(x: 0,   y: 0, w: 1000, h: 800)
+            split.area = Area(x: 0,   y: 0, w: 500,  h: 800)
+            a.area     = Area(x: 0,   y: 0, w: 500,  h: 400)
+            b.area     = Area(x: 500, y: 0, w: 500,  h: 800)
 
             #expect(treeHasZoom(root, CON_ZOOM_NONE) == false)
             #expect(Int32(tree_con_frame(target, a).h) == 400)

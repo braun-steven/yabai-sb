@@ -3,6 +3,7 @@ import Foundation
 import Synchronization
 import CPrivate
 import AppKit
+import YabaiCore
 
 // NOTE: Four inline frames, like the C array; moves and resizes do not allocate or copy array storage.
 struct BorderEdges
@@ -426,8 +427,8 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: UInt64, _ windowCo
 {
     guard let target, target.id != 0 else { return }
     let wm = window_manager_global()
-    var windowArea = area()
-    var borderArea = area()
+    var windowArea = Area.zero
+    var borderArea = Area.zero
     var containerRadius: Int32 = 0
     let owner = window_manager_find_managed_window(wm, target)
     var enabled = wm.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.id, &windowArea, &borderArea, &containerRadius)

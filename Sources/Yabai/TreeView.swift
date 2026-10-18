@@ -557,6 +557,43 @@ func tree_raise_tabs(_ node: Con, _ force: Bool)
     if !list.isEmpty { scripting_addition_order_window_list(&list, Int32(list.count)) }
 }
 
+//
+// NOTE: The card is ordered right below the focused window of the active tab on the main queue, independently
+// of tree_raise_tabs. The application raises a window above the other windows of a split tab whenever it gets
+// focus, so a card ordered after that (by any redraw of the bar, e.g. on a title change or when another
+// application gets focus) lands between them and hides the other windows. They are therefore ordered above
+// the focused window again each time the card has been ordered below it.
+//
+
+/// `tree_collect_card_order`
+func treeCollectCardOrder(_ node: Con, _ windowID: UInt32, _ list: inout [sa_window_order])
+{
+    if con_is_leaf(node) { return }
+
+    if node.layout == CON_TABBED && node.child_count != 0 && tree_con_is_visible(node) {
+        let active = node.focus[0]
+        if !con_is_leaf(active) && tree_descend_focused(active)?.window_id == windowID {
+            treeCollectWindowOrder(active, 1, windowID, &list)
+            return
+        }
+    }
+
+    for i in 0..<Int(node.child_count) {
+        treeCollectCardOrder(node.children[i], windowID, &list)
+    }
+}
+
+/// `tree_card_did_order`
+func tree_card_did_order(_ windowID: UInt32)
+{
+    guard let owner = window_manager_global().managed_window.find(windowID) else { return }
+    if owner.layout != VIEW_TREE || owner.tree == nil || !space_is_visible(owner.sid) { return }
+
+    var list: [sa_window_order] = []
+    treeCollectCardOrder(owner.tree, windowID, &list)
+    if !list.isEmpty { scripting_addition_order_window_list(&list, Int32(list.count)) }
+}
+
 /// `tree_flush`
 func tree_flush(_ owner: View)
 {

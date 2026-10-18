@@ -68,6 +68,13 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
 }
 
+/// `EVENT_HANDLER(TAB_CARD_ORDERED)`
+@WM func tabCardOrdered(_ wid: UInt32)
+{
+    debug("EVENT_HANDLER_TAB_CARD_ORDERED: \(wid)\n")
+    tree_card_did_order(wid)
+}
+
 //
 // NOTE: The view of the space under the cursor, and the window under the cursor other than the dragged
 // window (or nil), that a dragged window is dropped on.

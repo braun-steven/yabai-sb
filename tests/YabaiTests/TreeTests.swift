@@ -754,6 +754,36 @@ extension DaemonState
             Yabai.con_free(root)
         }
 
+        @Test("tree_card_order")
+        func treeCardOrder()
+        {
+            // H[ 1 T[ 2 V[ 3 4 ] ] ] with 3 focused
+            let root = Yabai.con_create(CON_SPLITH)!
+            treeTestLeaf(root, 1)
+            let t = treeTestSplit(root, CON_TABBED)
+            treeTestLeaf(t, 2)
+            let v = treeTestSplit(t, CON_SPLITV)
+            let c3 = treeTestLeaf(v, 3)
+            treeTestLeaf(v, 4)
+            Yabai.tree_focus(c3)
+
+            // a card ordered below the focused window of a split tab orders the rest of the tab above it again
+            var list: [sa_window_order] = []
+            treeCollectCardOrder(root, 3, &list)
+            #expect(list.count == 1)
+            #expect(list.first.map { $0.a_wid == 4 && $0.order == 1 && $0.b_wid == 3 } == true)
+
+            // a card below any other window, or below the window of a single-window tab, orders nothing
+            list = []
+            treeCollectCardOrder(root, 4, &list)
+            #expect(list.isEmpty)
+            Yabai.tree_focus(t.children[0])
+            treeCollectCardOrder(root, 2, &list)
+            #expect(list.isEmpty)
+
+            Yabai.con_free(root)
+        }
+
         @Test("tree_window_ids_collect")
         func treeWindowIDsCollect()
         {

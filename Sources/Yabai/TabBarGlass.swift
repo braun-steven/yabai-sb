@@ -527,6 +527,7 @@ private final class Panel
 
         tab_bar_glass_set_level(id, snapshot.level, snapshot.subLevel)
         tab_bar_glass_order_panel(id, below, snapshot.aboveWid)
+        if below { EventLoop.post(.tabCardOrdered(windowID: snapshot.aboveWid)) }
     }
 
     func order(_ wid: UInt32)
@@ -535,6 +536,7 @@ private final class Panel
         panel.order(below ? .below : .above, relativeTo: Int(wid))
         if let snapshot { tab_bar_glass_move_to_space(id, snapshot.sid) }
         tab_bar_glass_order_panel(id, below, wid)
+        if below { EventLoop.post(.tabCardOrdered(windowID: wid)) }
     }
 }
 

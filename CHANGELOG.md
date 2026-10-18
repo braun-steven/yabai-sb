@@ -28,6 +28,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - Split windows inside an active tab retain focus borders with *window_border_hide_single*
+- Windows of a split inside an active tab are no longer hidden behind the container backdrop after the focused window is raised by its application and the tab bar redraws
 - Tabbed containers use a subdued native background material by default (*tab_bar_backdrop blur*), with a subtle outline strengthened by Increase Contrast; the tab controls retain Liquid Glass, and *glass* and *off* backdrops remain available
 - Glass tab bars use native AppKit buttons with adaptive default text, hover and press feedback, accessible selection, and transitions that respect Reduce Motion; Reduce Transparency and Increase Contrast adjust their backing and outlines
 - *window_border_hide_single* preserves floating-window borders, including when a floating window is alone on its space

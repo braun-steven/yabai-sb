@@ -6,7 +6,7 @@ This file combines the repository guidelines with the Swift conventions from `.c
 
 In `doc/swift-port.md`, references to the Claude Swift conventions skill mean the section below for Codex. Translate Claude's `Edit` tool to `apply_patch`, and `Bash` to the shell execution tool: use patch-based edits rather than shell scripts to change source files. The named `output-summarizer` is a role for a subagent that runs long-output commands and returns concise results; no definition for it exists in this checkout. When delegation is available, give it the exact command, working directory, question and desired result format. Otherwise capture logs and inspect the relevant failures and warnings. Run state-changing commands yourself.
 
-For Swift-port work, the branch and commit rules in `doc/swift-port.md` take precedence over the general master-branch guidance below: stay on `swift-port`, preserve behavior one-to-one, and merge into `master` only when the user asks after P14.
+For Swift-port work, the branch and commit rules in `doc/swift-port.md` take precedence over the general main-branch guidance below: stay on `swift-port`, preserve behavior one-to-one, and merge into `main` only when the user asks after P14.
 
 yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock uses a Swift core with an Objective-C native adapter and loader (manual retain/release). On branch `swift-port`, read `doc/swift-port.md` before working.
 
@@ -87,7 +87,7 @@ P14 model and bridge pitfalls:
 **Platform gating.** The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.
 
 ## Commit & Pull Request Guidelines
-- Commit directly to `master`; no feature branches needed, unless the user asks for a separate branch (e.g. for experimental work).
+- Commit directly to `main`; no feature branches needed, unless the user asks for a separate branch (e.g. for experimental work).
 - Commits commonly use concise, imperative subjects, often prefixed with an issue/PR id (e.g. `#1234 fix …`) or a version tag (e.g. `v7.1.16`).
 - PRs should include: macOS version + arch, repro steps, expected vs actual behavior, and any relevant logs/output (e.g. `bin/yabai --version`, `--verbose` when appropriate).
 

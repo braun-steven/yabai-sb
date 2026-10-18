@@ -1040,14 +1040,14 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     var bounds = display_bounds_constrained(did, false)
     let dview = space_manager_find_view(sm, display_space_id(did))
 
-    if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
+    if dview.isPaddingEnabled {
         bounds.origin.x    += CGFloat(dview.left_padding)
         bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
         bounds.origin.y    += CGFloat(dview.top_padding)
         bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
     }
 
-    if hasViewFlag(dview, VIEW_ENABLE_GAP) {
+    if dview.isGapEnabled {
         let gap = CGFloat(dview.window_gap)
 
         if x > 0 {
@@ -1257,7 +1257,7 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
     let dview = space_manager_find_view(sm, sid)
 
     var bounds = display_bounds_constrained(did, false)
-    if hasViewFlag(dview, VIEW_ENABLE_PADDING) {
+    if dview.isPaddingEnabled {
         bounds.origin.x    += CGFloat(dview.left_padding)
         bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
         bounds.origin.y    += CGFloat(dview.top_padding)
@@ -1292,7 +1292,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
         window_manager_remove_managed_window(wm, target.id)
         window_manager_purify_window(wm, target)
 
-        setViewFlag(owner, VIEW_IS_DIRTY)
+        owner.isDirty = true
     }
 }
 
@@ -1319,7 +1319,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             window_manager_adjust_layer(target, .normal)
             window_manager_remove_managed_window(wm, target.id)
             window_manager_purify_window(wm, target)
-            setViewFlag(existingView, VIEW_IS_DIRTY)
+            existingView.isDirty = true
         }
 
         if existingView == nil || (existingView!.layout != .float && existingView != owner) {
@@ -1337,7 +1337,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             view_add_window(owner, target, 0)
             window_manager_adjust_layer(target, .below)
             window_manager_add_managed_window(wm, target, owner)
-            setViewFlag(owner, VIEW_IS_DIRTY)
+            owner.isDirty = true
         }
     }
 }

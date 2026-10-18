@@ -622,7 +622,7 @@ func tree_window_did_receive_focus(_ owner: View, _ windowID: UInt32)
     tree_focus(node)
 
     if !space_is_visible(owner.sid) {
-        setViewFlag(owner, VIEW_IS_DIRTY)
+        owner.isDirty = true
         return
     }
 

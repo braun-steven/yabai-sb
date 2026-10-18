@@ -281,7 +281,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if !space_is_user(selSid) {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
     } else {
-        space_manager_find_view(sm, selSid).flags |= UInt64(VIEW_LAYOUT.rawValue)
+        space_manager_find_view(sm, selSid).overrides.insert(.layout)
         space_manager_set_layout_for_space(sm, selSid, layout)
     }
 }
@@ -317,13 +317,13 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
     rsp.fail("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
 }
 
-private func spacing(for command: Token) -> view_flag?
+private func spacing(for command: Token) -> ViewSpacing?
 {
-    if command.equals(Config.topPadding)    { return VIEW_TOP_PADDING }
-    if command.equals(Config.bottomPadding) { return VIEW_BOTTOM_PADDING }
-    if command.equals(Config.leftPadding)   { return VIEW_LEFT_PADDING }
-    if command.equals(Config.rightPadding)  { return VIEW_RIGHT_PADDING }
-    if command.equals(Config.windowGap)     { return VIEW_WINDOW_GAP }
+    if command.equals(Config.topPadding)    { return .topPadding }
+    if command.equals(Config.bottomPadding) { return .bottomPadding }
+    if command.equals(Config.leftPadding)   { return .leftPadding }
+    if command.equals(Config.rightPadding)  { return .rightPadding }
+    if command.equals(Config.windowGap)     { return .windowGap }
     return nil
 }
 
@@ -584,20 +584,20 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normal_window_opacity, allowZero: false) { window_manager_set_normal_window_opacity(wm, opacity) }
     } else if command.equals(Config.insertFeedbackColor) {
         _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
-    } else if let flag = spacing(for: command) {
+    } else if let spacing = spacing(for: command) {
         let view = selSid != 0 ? space_manager_find_view(sm, selSid) : nil
-        let spacing = view.map { $0[keyPath: view_spacing(flag)] } ?? sm[keyPath: space_manager_spacing(flag)]
+        let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(spacing)\n")
+            rsp.write("\(current)\n")
         case .int(let value):
             if let view {
-                view.flags |= UInt64(flag.rawValue)
-                view[keyPath: view_spacing(flag)] = value
+                view.overrides.insert(spacing.override)
+                view[keyPath: spacing.view] = value
                 view_update_and_flush(view)
             } else {
-                space_manager_set_spacing_for_all_spaces(sm, flag, value)
+                space_manager_set_spacing_for_all_spaces(sm, spacing, value)
             }
         default:
             rsp.failUnknownValue(domain, command, token)

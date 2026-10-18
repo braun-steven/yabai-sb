@@ -27,8 +27,8 @@ extension DaemonState
             target.left_padding = 30
             target.right_padding = 40
             target.window_gap = 8
-            setViewFlag(target, VIEW_ENABLE_PADDING)
-            setViewFlag(target, VIEW_ENABLE_GAP)
+            target.isPaddingEnabled = true
+            target.isGapEnabled = true
 
             return target
         }
@@ -95,7 +95,7 @@ extension DaemonState
             #expect(Int(b.area.w) == 461)
 
             // one tiled window next to a zoom-fullscreen one: no padding, the gap stays
-            setViewFlag(target, VIEW_IS_UNPADDED)
+            target.isUnpadded = true
             #expect(view_window_gap(target) == 8)
 
             target.area = view_root_area(target, frame)
@@ -108,8 +108,8 @@ extension DaemonState
             // the configured gap used by --grid is unchanged
             #expect(target.window_gap == 8)
 
-            clearViewFlag(target, VIEW_IS_UNPADDED)
-            clearViewFlag(target, VIEW_ENABLE_GAP)
+            target.isUnpadded = false
+            target.isGapEnabled = false
             #expect(view_window_gap(target) == 0)
 
             Yabai.con_free(target.tree)
@@ -129,7 +129,7 @@ extension DaemonState
             // the tabbed container is the only container: no padding, but its split keeps the gap
             let unpadded = Yabai.view_auto_padding_applies(target.layout, target.auto_padding, view_tiled_count(target))
             #expect(unpadded == true)
-            setViewFlag(target, VIEW_IS_UNPADDED)
+            target.isUnpadded = true
 
             target.area = view_root_area(target, CGRect(x: 0, y: 0, width: 1000, height: 800))
             Yabai.tree_view_update(target)

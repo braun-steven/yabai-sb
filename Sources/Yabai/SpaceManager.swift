@@ -59,16 +59,18 @@ func space_manager_global() -> SpaceManager
     g_space_manager
 }
 
-/// `space_manager_spacing`: the padding or gap of the space manager that flag names.
-func space_manager_spacing(_ flag: view_flag) -> ReferenceWritableKeyPath<SpaceManager, Int32>
+extension ViewSpacing
 {
-    switch flag {
-    case VIEW_TOP_PADDING:    \.top_padding
-    case VIEW_BOTTOM_PADDING: \.bottom_padding
-    case VIEW_LEFT_PADDING:   \.left_padding
-    case VIEW_RIGHT_PADDING:  \.right_padding
-    case VIEW_WINDOW_GAP:     \.window_gap
-    default:                  preconditionFailure("space_manager_spacing: \(flag.rawValue) is not a spacing")
+    /// The default of the space manager, for the views without their own value.
+    var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int32>
+    {
+        switch self {
+        case .topPadding:    \.top_padding
+        case .bottomPadding: \.bottom_padding
+        case .leftPadding:   \.left_padding
+        case .rightPadding:  \.right_padding
+        case .windowGap:     \.window_gap
+        }
     }
 }
 
@@ -112,7 +114,7 @@ func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return }
 
-    clearViewFlag(target, VIEW_IS_VALID)
+    target.isValid = false
 }
 
 /// `space_manager_untile_window`
@@ -153,17 +155,13 @@ func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: 
     return true
 }
 
-/// `space_manager_toggle_view_flag`
-private func spaceManagerToggleViewFlag(_ sm: SpaceManager, _ sid: UInt64, _ flag: view_flag) -> Bool
+/// Toggles the padding or gap switch of a view.
+private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: UInt64, _ setting: ReferenceWritableKeyPath<View, Bool>) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
 
-    if hasViewFlag(target, flag) {
-        clearViewFlag(target, flag)
-    } else {
-        setViewFlag(target, flag)
-    }
+    target[keyPath: setting].toggle()
 
     view_update_and_flush(target)
 
@@ -173,7 +171,7 @@ private func spaceManagerToggleViewFlag(_ sm: SpaceManager, _ sid: UInt64, _ fla
 /// `space_manager_toggle_gap_for_space`
 func space_manager_toggle_gap_for_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 {
-    return spaceManagerToggleViewFlag(sm, sid, VIEW_ENABLE_GAP)
+    return spaceManagerToggleView(sm, sid, \.isGapEnabled)
 }
 
 /// `space_manager_toggle_mission_control`
@@ -196,7 +194,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
     sm.layout = layout
 
     for target in sm.view.values {
-        if !hasViewFlag(target, VIEW_LAYOUT) {
+        if !target.overrides.contains(.layout) {
             if space_is_user(target.sid) {
                 target.layout = layout
                 view_clear(target)
@@ -210,13 +208,13 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
 }
 
 /// `space_manager_set_spacing_for_all_spaces`
-func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ flag: view_flag, _ value: Int32)
+func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: ViewSpacing, _ value: Int32)
 {
-    sm[keyPath: space_manager_spacing(flag)] = value
+    sm[keyPath: spacing.spaceManager] = value
 
     for target in sm.view.values {
-        if !hasViewFlag(target, flag) {
-            target[keyPath: view_spacing(flag)] = value
+        if !target.overrides.contains(spacing.override) {
+            target[keyPath: spacing.view] = value
             view_update_and_flush(target)
         }
     }
@@ -239,7 +237,7 @@ func space_manager_set_auto_padding_for_all_spaces(_ sm: SpaceManager, _ autoPad
     sm.auto_padding = autoPadding
 
     for target in sm.view.values {
-        if !hasViewFlag(target, VIEW_AUTO_PADDING) {
+        if !target.overrides.contains(.autoPadding) {
             spaceManagerApplyAutoPadding(target, autoPadding)
         }
     }
@@ -249,7 +247,7 @@ func space_manager_set_auto_padding_for_all_spaces(_ sm: SpaceManager, _ autoPad
 func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ autoPadding: Bool)
 {
     let target = space_manager_find_view(sm, sid)
-    setViewFlag(target, VIEW_AUTO_PADDING)
+    target.overrides.insert(.autoPadding)
     spaceManagerApplyAutoPadding(target, autoPadding)
 }
 
@@ -279,7 +277,7 @@ func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ ty
 /// `space_manager_toggle_padding_for_space`
 func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 {
-    return spaceManagerToggleViewFlag(sm, sid, VIEW_ENABLE_PADDING)
+    return spaceManagerToggleView(sm, sid, \.isPaddingEnabled)
 }
 
 /// `space_manager_find_tree_view`: the view of a space when it is a tree with a root.

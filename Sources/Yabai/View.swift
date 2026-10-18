@@ -16,7 +16,56 @@ enum ViewType: String, CaseIterable, Sendable
     case tree
 }
 
-/// `struct view`
+/// The settings a space set for itself with `config --space`: the global config no longer changes them for its view.
+struct ViewOverrides: OptionSet, Sendable
+{
+    let rawValue: UInt32
+
+    static let layout        = ViewOverrides(rawValue: 1 << 0)
+    static let topPadding    = ViewOverrides(rawValue: 1 << 1)
+    static let bottomPadding = ViewOverrides(rawValue: 1 << 2)
+    static let leftPadding   = ViewOverrides(rawValue: 1 << 3)
+    static let rightPadding  = ViewOverrides(rawValue: 1 << 4)
+    static let windowGap     = ViewOverrides(rawValue: 1 << 5)
+    static let autoPadding   = ViewOverrides(rawValue: 1 << 6)
+}
+
+/// A padding or the gap of a view, and of the space manager defaults that views without their own value follow.
+enum ViewSpacing: CaseIterable, Sendable
+{
+    case topPadding
+    case bottomPadding
+    case leftPadding
+    case rightPadding
+    case windowGap
+
+    /// The value in a view.
+    var view: ReferenceWritableKeyPath<View, Int32>
+    {
+        switch self {
+        case .topPadding:    \.top_padding
+        case .bottomPadding: \.bottom_padding
+        case .leftPadding:   \.left_padding
+        case .rightPadding:  \.right_padding
+        case .windowGap:     \.window_gap
+        }
+    }
+
+    /// The override a view records once it has its own value.
+    var override: ViewOverrides
+    {
+        switch self {
+        case .topPadding:    .topPadding
+        case .bottomPadding: .bottomPadding
+        case .leftPadding:   .leftPadding
+        case .rightPadding:  .rightPadding
+        case .windowGap:     .windowGap
+        }
+    }
+}
+
+/// `struct view`. isValid is false once the area of the view must be recomputed, isDirty while its tree has not been
+/// laid out since it changed, and isUnpadded while auto padding removes its padding.
 final class View
 {
     var uuid: CFString?
@@ -31,7 +80,12 @@ final class View
     var right_padding: Int32 = 0
     var window_gap: Int32 = 0
     var auto_padding = false
-    var flags: UInt64 = 0
+    var overrides: ViewOverrides = []
+    var isPaddingEnabled = false
+    var isGapEnabled = false
+    var isValid = false
+    var isDirty = false
+    var isUnpadded = false
 }
 
 extension View: Equatable
@@ -39,41 +93,10 @@ extension View: Equatable
     static func == (a: View, b: View) -> Bool { a === b }
 }
 
-/// `view_spacing`: the padding or gap of the view that flag names.
-func view_spacing(_ flag: view_flag) -> ReferenceWritableKeyPath<View, Int32>
-{
-    switch flag {
-    case VIEW_TOP_PADDING:    \.top_padding
-    case VIEW_BOTTOM_PADDING: \.bottom_padding
-    case VIEW_LEFT_PADDING:   \.left_padding
-    case VIEW_RIGHT_PADDING:  \.right_padding
-    case VIEW_WINDOW_GAP:     \.window_gap
-    default:                  preconditionFailure("view_spacing: \(flag.rawValue) is not a spacing")
-    }
-}
-
-/// `view_check_flag`
-func hasViewFlag(_ target: View, _ flag: view_flag) -> Bool
-{
-    return target.flags & UInt64(flag.rawValue) != 0
-}
-
-/// `view_set_flag`
-func setViewFlag(_ target: View, _ flag: view_flag)
-{
-    target.flags |= UInt64(flag.rawValue)
-}
-
-/// `view_clear_flag`
-func clearViewFlag(_ target: View, _ flag: view_flag)
-{
-    target.flags &= ~UInt64(flag.rawValue)
-}
-
 /// `view_window_gap`
 func view_window_gap(_ target: View) -> Int32
 {
-    return ViewArea.windowGap(gapEnabled: hasViewFlag(target, VIEW_ENABLE_GAP), windowGap: target.window_gap)
+    return ViewArea.windowGap(gapEnabled: target.isGapEnabled, windowGap: target.window_gap)
 }
 
 /// `view_add_window`
@@ -81,7 +104,7 @@ func view_add_window(_ target: View, _ win: Window, _ insertionPoint: UInt32)
 {
     tree_add_window(target, win, insertionPoint)
     if !view_update_auto_padding(target) { tree_view_update(target) }
-    setViewFlag(target, VIEW_IS_DIRTY)
+    target.isDirty = true
 }
 
 /// `view_remove_window`
@@ -91,7 +114,7 @@ func view_remove_window(_ target: View, _ win: Window) -> Bool
     if !tree_remove_window(target, win) { return false }
 
     if !view_update_auto_padding(target) { tree_view_update(target) }
-    setViewFlag(target, VIEW_IS_DIRTY)
+    target.isDirty = true
     return true
 }
 
@@ -104,13 +127,13 @@ func view_find_window_list(_ target: View) -> [UInt32]
 /// `view_is_invalid`
 func view_is_invalid(_ target: View) -> Bool
 {
-    return !hasViewFlag(target, VIEW_IS_VALID)
+    return !target.isValid
 }
 
 /// `view_is_dirty`
 func view_is_dirty(_ target: View) -> Bool
 {
-    return hasViewFlag(target, VIEW_IS_DIRTY)
+    return target.isDirty
 }
 
 /// `view_flush`: lays out the tree when the space is visible, otherwise keeps the view dirty until it is.
@@ -118,9 +141,9 @@ func view_flush(_ target: View)
 {
     if space_is_visible(target.sid) {
         tree_flush(target)
-        clearViewFlag(target, VIEW_IS_DIRTY)
+        target.isDirty = false
     } else {
-        setViewFlag(target, VIEW_IS_DIRTY)
+        target.isDirty = true
     }
 }
 
@@ -140,8 +163,8 @@ func view_tiled_count(_ target: View) -> Int32
 func view_root_area(_ target: View, _ frame: CGRect) -> Area
 {
     let root = ViewArea.rootArea(Area(frame),
-                                 paddingEnabled: hasViewFlag(target, VIEW_ENABLE_PADDING),
-                                 unpadded: hasViewFlag(target, VIEW_IS_UNPADDED),
+                                 paddingEnabled: target.isPaddingEnabled,
+                                 unpadded: target.isUnpadded,
                                  top: target.top_padding,
                                  bottom: target.bottom_padding,
                                  left: target.left_padding,
@@ -153,19 +176,15 @@ func view_root_area(_ target: View, _ frame: CGRect) -> Area
 /// `view_update_with_auto_padding`
 private func view_update_with_auto_padding(_ target: View, _ unpadded: Bool)
 {
-    if unpadded {
-        setViewFlag(target, VIEW_IS_UNPADDED)
-    } else {
-        clearViewFlag(target, VIEW_IS_UNPADDED)
-    }
+    target.isUnpadded = unpadded
 
     let did = space_display_id(target.sid)
     let frame = display_bounds_constrained(did, false)
     target.area = view_root_area(target, frame)
 
     tree_view_update(target)
-    setViewFlag(target, VIEW_IS_VALID)
-    setViewFlag(target, VIEW_IS_DIRTY)
+    target.isValid = true
+    target.isDirty = true
 }
 
 //
@@ -177,7 +196,7 @@ private func view_update_with_auto_padding(_ target: View, _ unpadded: Bool)
 func view_update_auto_padding(_ target: View) -> Bool
 {
     let unpadded = view_auto_padding_applies(target.layout, target.auto_padding, view_tiled_count(target))
-    if unpadded == hasViewFlag(target, VIEW_IS_UNPADDED) { return false }
+    if unpadded == target.isUnpadded { return false }
 
     view_update_with_auto_padding(target, unpadded)
     return true
@@ -203,9 +222,8 @@ func view_create(_ sid: UInt64) -> View
 
     target.sid = sid
     target.uuid = SLS.spaceNameObject(connection_global(), sid)
-
-    setViewFlag(target, VIEW_ENABLE_PADDING)
-    setViewFlag(target, VIEW_ENABLE_GAP)
+    target.isPaddingEnabled = true
+    target.isGapEnabled = true
 
     if space_is_user(target.sid) {
         let sm = space_manager_global()

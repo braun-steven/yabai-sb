@@ -239,10 +239,10 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.isRoot           = window.is_root
     info.hasFocus         = wid == wm.focused_window_id
     info.hasAXReference   = true
-    info.isFullscreen     = window_check_flag(window, WINDOW_FULLSCREEN)
-    info.isMinimized      = window_check_flag(window, WINDOW_MINIMIZE)
+    info.isFullscreen     = window.isFullscreen
+    info.isMinimized      = window.isMinimized
     info.isHidden         = application.is_hidden
-    info.isFloating       = window_check_flag(window, WINDOW_FLOAT)
+    info.isFloating       = window.isFloating
     info.isGrabbed        = window == mouse_state_global().window
 
     if wanted(flags, WindowProperty.title)     { info.title     = window_title_ts(window) }
@@ -264,7 +264,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.isVisible | WindowProperty.isSticky) {
-        info.isSticky = window_check_flag(window, WINDOW_STICKY) || window_is_sticky(wid)
+        info.isSticky = window.isSticky || window_is_sticky(wid)
     }
 
     if wanted(flags, WindowProperty.isVisible) {

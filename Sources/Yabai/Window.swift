@@ -32,8 +32,24 @@ final class Window
     var is_root = false
     var is_eligible = false
     var notification: UInt8 = 0
-    var rule_flags: UInt8 = 0
-    var flags: UInt8 = 0
+    var hasShadow = false
+    var isFullscreen = false
+    var isMinimized = false
+    var isFloating = false
+    var isSticky = false
+    var isWindowed = false
+    var isMovable = false
+    var isResizable = false
+
+    //
+    // NOTE: What the rules applied to the window: isManagedByRule while a rule made it managed (manage=on), until a
+    // rule unmanages it; isFullscreenByRule from a native-fullscreen=on rule until window creation skips floating it
+    // once; mouseFollowsFocusByRule overrides mouse_follows_focus when a rule set it.
+    //
+
+    var isManagedByRule = false
+    var isFullscreenByRule = false
+    var mouseFollowsFocusByRule: Bool?
     var opacity: Float = 0
     var layer = WindowLayer.auto
     var scratchpad: String?
@@ -43,14 +59,6 @@ extension Window: Equatable
 {
     static func == (a: Window, b: Window) -> Bool { a === b }
 }
-
-func window_check_flag(_ w: Window, _ x: window_flag) -> Bool { w.flags & UInt8(x.rawValue) != 0 }
-func window_clear_flag(_ w: Window, _ x: window_flag) { w.flags &= ~UInt8(x.rawValue) }
-func window_set_flag(_ w: Window, _ x: window_flag) { w.flags |= UInt8(x.rawValue) }
-
-func window_check_rule_flag(_ w: Window, _ x: window_rule_flag) -> Bool { w.rule_flags & UInt8(x.rawValue) != 0 }
-func window_clear_rule_flag(_ w: Window, _ x: window_rule_flag) { w.rule_flags &= ~UInt8(x.rawValue) }
-func window_set_rule_flag(_ w: Window, _ x: window_rule_flag) { w.rule_flags |= UInt8(x.rawValue) }
 
 /// `window_is_valid`
 func window_is_valid(_ window: Window) -> Bool
@@ -218,7 +226,7 @@ func window_ax_can_move(_ target: Window) -> Bool
 /// `window_can_move`
 func window_can_move(_ target: Window) -> Bool
 {
-    return window_check_flag(target, WINDOW_MOVABLE)
+    return target.isMovable
 }
 
 /// `window_ax_can_resize`
@@ -230,7 +238,7 @@ func window_ax_can_resize(_ target: Window) -> Bool
 /// `window_can_resize`
 func window_can_resize(_ target: Window) -> Bool
 {
-    return window_check_flag(target, WINDOW_RESIZABLE)
+    return target.isResizable
 }
 
 /// `window_can_minimize`
@@ -416,17 +424,8 @@ func window_is_unknown(_ target: Window) -> Bool
 /// `window_refresh_ax_properties`
 func window_refresh_ax_properties(_ target: Window)
 {
-    if window_ax_can_move(target) {
-        window_set_flag(target, WINDOW_MOVABLE)
-    } else {
-        window_clear_flag(target, WINDOW_MOVABLE)
-    }
-
-    if window_ax_can_resize(target) {
-        window_set_flag(target, WINDOW_RESIZABLE)
-    } else {
-        window_clear_flag(target, WINDOW_RESIZABLE)
-    }
+    target.isMovable = window_ax_can_move(target)
+    target.isResizable = window_ax_can_resize(target)
 
     target.role = windowAXRole(target)
     target.subrole = windowAXSubrole(target)
@@ -448,23 +447,13 @@ func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: U
     result.title = window_title(result)
     result.is_root = window_parent(result.id) == 0 || windowIsRoot(result)
 
-    if window_shadow(result.id) {
-        window_set_flag(result, WINDOW_SHADOW)
-    }
-
-    if windowIsMinimized(result) {
-        window_set_flag(result, WINDOW_MINIMIZE)
-    }
+    result.hasShadow = window_shadow(result.id)
+    result.isMinimized = windowIsMinimized(result)
 
     window_refresh_ax_properties(result)
 
-    if window_is_fullscreen(result) || space_is_fullscreen(window_space(result.id)) {
-        window_set_flag(result, WINDOW_FULLSCREEN)
-    }
-
-    if window_is_sticky(result.id) {
-        window_set_flag(result, WINDOW_STICKY)
-    }
+    result.isFullscreen = window_is_fullscreen(result) || space_is_fullscreen(window_space(result.id))
+    result.isSticky = window_is_sticky(result.id)
 
     return result
 }

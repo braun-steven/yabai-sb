@@ -403,9 +403,9 @@ private func borderShouldShow(_ target: Window) -> Bool
 {
     if !target.is_eligible { return false }
     guard let app = target.application, !app.is_hidden else { return false }
-    if window_check_flag(target, WINDOW_MINIMIZE) { return false }
-    if window_check_flag(target, WINDOW_FULLSCREEN) { return false }
-    if window_check_rule_flag(target, WINDOW_RULE_MANAGED) { return true }
+    if target.isMinimized { return false }
+    if target.isFullscreen { return false }
+    if target.isManagedByRule { return true }
     return window_is_standard(target) && window_level_is_standard(target)
 }
 

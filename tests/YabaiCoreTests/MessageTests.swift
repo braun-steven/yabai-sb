@@ -390,9 +390,9 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(rule.app?.regex != nil)
     #expect(rule.app?.exclude == false)
     #expect(rule.title?.exclude == true)
-    #expect(rule.effects.manage == .off)
-    #expect(rule.effects.sticky == .on)
-    #expect(rule.effects.mff == .undefined)
+    #expect(rule.effects.manage == false)
+    #expect(rule.effects.sticky == true)
+    #expect(rule.effects.mouseFollowsFocus == nil)
     #expect(rule.effects.layer == .above)
     #expect(rule.effects.flags.contains(.layer))
     #expect(rule.effects.flags.contains(.opacity))
@@ -460,7 +460,7 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(rule.effects.flags.contains(.followSpace))
     #expect(rule.effects.grid == Grid(4, 4, 1, 1, 2, 2))
     #expect(rule.effects.scratchpad == "notes")
-    #expect(rule.effects.manage == .off)
+    #expect(rule.effects.manage == false)
     #expect(response == "")
 
     (result, rule, response) = parseRuleText("app=x\0space=3\0opacity=1.5\0grid=2:2\0", context)
@@ -509,7 +509,7 @@ private func spaceEffects(_ sid: UInt64, _ follow: Bool) -> RuleEffects
 {
     var effects = RuleEffects()
     effects.sid = sid
-    effects.manage = .off
+    effects.manage = false
     if follow { effects.flags.insert(.followSpace) }
     effects.grid = Grid(2, 2, 0, 0, 1, 1)
     return effects
@@ -521,16 +521,16 @@ private func spaceEffects(_ sid: UInt64, _ follow: Bool) -> RuleEffects
     combined.combine(spaceEffects(4, true))
     #expect(combined.sid == 4)
     #expect(combined.flags.contains(.followSpace))
-    #expect(combined.manage == .off)
+    #expect(combined.manage == false)
     #expect(combined.grid.width == 1)
 
     // NOTE: a later rule that does not set a property keeps the earlier value
     var second = RuleEffects()
-    second.sticky = .on
+    second.sticky = true
     combined.combine(second)
     #expect(combined.sid == 4)
-    #expect(combined.manage == .off)
-    #expect(combined.sticky == .on)
+    #expect(combined.manage == false)
+    #expect(combined.sticky == true)
 
     combined.combine(spaceEffects(6, false))
     #expect(combined.sid == 6)

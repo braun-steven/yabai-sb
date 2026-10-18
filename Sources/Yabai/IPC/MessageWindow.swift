@@ -87,8 +87,8 @@ private func windowToggle(_ toggle: WindowToggle, _ window: Window)
     let wm = window_manager_global()
 
     switch toggle {
-    case .float:              window_manager_make_window_floating(sm, wm, window, !window_check_flag(window, WINDOW_FLOAT), false)
-    case .sticky:             window_manager_make_window_sticky(sm, wm, window, !window_check_flag(window, WINDOW_STICKY))
+    case .float:              window_manager_make_window_floating(sm, wm, window, !window.isFloating, false)
+    case .sticky:             window_manager_make_window_sticky(sm, wm, window, !window.isSticky)
     case .shadow:             window_manager_toggle_window_shadow(window)
     case .split:              space_manager_toggle_window_split(sm, window)
     case .zoomParent:         window_manager_toggle_window_zoom_parent(wm, window)

@@ -107,7 +107,7 @@ import CPrivate
         return
     }
 
-    if window_check_flag(window, WINDOW_MINIMIZE) {
+    if window.isMinimized {
         window_manager_add_lost_focused_event(wm, window.id)
         return
     }
@@ -160,7 +160,7 @@ import CPrivate
     window.frame.origin = newOrigin
 
     if !windowedFullscreen {
-        window_clear_flag(window, WINDOW_WINDOWED)
+        window.isWindowed = false
 
         if ms.window == nil || ms.window != window {
             if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, window.frame) {
@@ -197,14 +197,10 @@ import CPrivate
     debug("EVENT_HANDLER_WINDOW_RESIZED: \(window.application.name) \(window.id)\n")
     eventSignalPush(.windowResized, signalObject(window))
 
-    let wasFullscreen = window_check_flag(window, WINDOW_FULLSCREEN)
+    let wasFullscreen = window.isFullscreen
 
     let isFullscreen = window_is_fullscreen(window)
-    if isFullscreen {
-        window_set_flag(window, WINDOW_FULLSCREEN)
-    } else {
-        window_clear_flag(window, WINDOW_FULLSCREEN)
-    }
+    window.isFullscreen = isFullscreen
 
     if wasFullscreen != isFullscreen {
         window_refresh_ax_properties(window)
@@ -231,7 +227,7 @@ import CPrivate
         }
 
         if !windowedFullscreen {
-            window_clear_flag(window, WINDOW_WINDOWED)
+            window.isWindowed = false
 
             if ms.window == nil || ms.window != window {
                 if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, newFrame) {
@@ -253,7 +249,7 @@ import CPrivate
     }
 
     debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.application.name) \(window.id)\n")
-    window_set_flag(window, WINDOW_MINIMIZE)
+    window.isMinimized = true
 
     window_refresh_ax_properties(window)
 
@@ -284,7 +280,7 @@ import CPrivate
         return
     }
 
-    window_clear_flag(window, WINDOW_MINIMIZE)
+    window.isMinimized = false
 
     window_refresh_ax_properties(window)
 

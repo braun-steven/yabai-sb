@@ -89,13 +89,13 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
             window_manager_purify_window(wm, target)
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
 
-            if owner.is_hidden                                { return target }
-            if window_check_flag(target, WINDOW_MINIMIZE)             { return target }
-            if window_check_flag(target, WINDOW_FULLSCREEN)           { return target }
-            if window_check_rule_flag(target, WINDOW_RULE_MANAGED)    { return target }
+            if owner.is_hidden        { return target }
+            if target.isMinimized     { return target }
+            if target.isFullscreen    { return target }
+            if target.isManagedByRule { return target }
 
-            if window_check_rule_flag(target, WINDOW_RULE_FULLSCREEN) {
-                window_clear_rule_flag(target, WINDOW_RULE_FULLSCREEN)
+            if target.isFullscreenByRule {
+                target.isFullscreenByRule = false
                 return target
             }
 
@@ -104,16 +104,16 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
                !window_is_standard(target) ||
                !window_level_is_standard(target) ||
                (!window_can_resize(target) && window_is_undersized(target)) {
-                window_set_flag(target, WINDOW_FLOAT)
+                target.isFloating = true
             }
         } else {
             debug("window_manager_create_and_add_window ignoring incorrectly marked window \(owner.name) \(target.id)\n")
-            window_set_flag(target, WINDOW_FLOAT)
+            target.isFloating = true
             windowManagerDebugWindowInfo(target)
         }
     } else {
         debug("window_manager_create_and_add_window ignoring child window \(owner.name) \(target.id)\n")
-        window_set_flag(target, WINDOW_FLOAT)
+        target.isFloating = true
         windowManagerDebugWindowInfo(target)
     }
 

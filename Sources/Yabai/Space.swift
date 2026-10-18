@@ -29,7 +29,7 @@ func space_window_list_for_connection(_ spaces: [UInt64], _ cid: Int32, _ count:
     var result: [UInt32] = []
     for window in SLS.queryWindows(connection_global(), candidates) {
         let known = window_manager_find_window(window_manager_global(), window.id).map { target in
-            includeMinimized || !window_check_flag(target, WINDOW_MINIMIZE)
+            includeMinimized || !target.isMinimized
         } ?? false
 
         if known ||

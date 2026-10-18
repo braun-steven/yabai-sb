@@ -7,14 +7,10 @@ import YabaiCore
 // applying them again.
 //
 
-/// `json_optional_bool`
-private func jsonOptionalBool(_ value: RuleProp) -> String
+/// true, false, or null for a property the rule leaves alone.
+private func jsonOptionalBool(_ value: Bool?) -> String
 {
-    switch value {
-    case .undefined: "null"
-    case .on:        "true"
-    case .off:       "false"
-    }
+    value.map(JSON.bool) ?? "null"
 }
 
 extension ResponseText.Interpolation
@@ -52,7 +48,7 @@ func rule_serialize(_ rsp: inout Response, _ candidate: Rule, _ index: Int)
               \t"opacity":\(JSON.number(Double(effects.opacity))),
               \t"manage":\(jsonOptionalBool(effects.manage)),
               \t"sticky":\(jsonOptionalBool(effects.sticky)),
-              \t"mouse_follows_focus":\(jsonOptionalBool(effects.mff)),
+              \t"mouse_follows_focus":\(jsonOptionalBool(effects.mouseFollowsFocus)),
               \t"sub-layer":"\(layer)",
               \t"native-fullscreen":\(jsonOptionalBool(effects.fullscreen)),
               \t"grid":"\(Int32(bitPattern: grid.rows)):\(Int32(bitPattern: grid.columns)):\(Int32(bitPattern: grid.x)):\(Int32(bitPattern: grid.y)):\(Int32(bitPattern: grid.width)):\(Int32(bitPattern: grid.height))",

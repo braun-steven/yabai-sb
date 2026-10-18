@@ -95,7 +95,7 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
     var shown = true
 
     if visibleSpace && orderedIn {
-        if wm.scratchpad_raise && wm.focused_window_id != target.id && !window_check_flag(target, WINDOW_MINIMIZE) && !target.application.is_hidden {
+        if wm.scratchpad_raise && wm.focused_window_id != target.id && !target.isMinimized && !target.application.is_hidden {
             window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
         } else {
             windowManagerHideScratchpadWindow(wm, target, sid)

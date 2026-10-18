@@ -165,12 +165,12 @@ private struct WindowStrings
     wm.rules.append(any)
 
     var dialog = windowRulesTestRule("^Safari$", "^AXDialog$")
-    dialog.effects.sticky = .on
+    dialog.effects.sticky = true
     dialog.effects.scratchpad = "notes"
     wm.rules.append(dialog)
 
     var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$")
-    otherApp.effects.mff = .on
+    otherApp.effects.mouseFollowsFocus = true
     wm.rules.append(otherApp)
 
     var oneShot = windowRulesTestRule("^Safari$", "^AXDialog$", oneShot: true)
@@ -181,8 +181,8 @@ private struct WindowStrings
     var effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
     #expect(effects.sid == 0)
-    #expect(effects.sticky == .on)
-    #expect(effects.mff == .undefined)
+    #expect(effects.sticky == true)
+    #expect(effects.mouseFollowsFocus == nil)
     #expect(effects.flags.contains(.layer) == false)
     #expect(effects.scratchpad == "notes")
     #expect(wm.rules[3].matched == false)
@@ -197,7 +197,7 @@ private struct WindowStrings
     #expect(wm.rules.count == 3)
 
     // NOTE: a window managed by a rule matches rules without a subrole pattern
-    window_set_rule_flag(target, WINDOW_RULE_MANAGED)
+    target.isManagedByRule = true
     effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
     #expect(effects.sid == 4)
@@ -213,21 +213,21 @@ private struct WindowStrings
 
     // NOTE: in the manage round only rules that make a window managed are limited to standard windows
     var manage = windowRulesTestRule("^Safari$", nil)
-    manage.effects.manage = .on
+    manage.effects.manage = true
     wm.rules.append(manage)
 
     var effectsOnly = windowRulesTestRule("^Safari$", nil)
-    effectsOnly.effects.sticky = .on
+    effectsOnly.effects.sticky = true
     wm.rules.append(effectsOnly)
 
     var effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, true, &effects) == true)
-    #expect(effects.manage == .undefined)
-    #expect(effects.sticky == .on)
+    #expect(effects.manage == nil)
+    #expect(effects.sticky == true)
 
     effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == true)
-    #expect(effects.manage == .on)
+    #expect(effects.manage == true)
 
     owner.name = "Mail"
     effects = RuleEffects()

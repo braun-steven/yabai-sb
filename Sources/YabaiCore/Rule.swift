@@ -51,14 +51,6 @@ public struct RulePattern
     }
 }
 
-/// A rule property that is set on, set off or left alone.
-public enum RuleProp: Int32, Sendable
-{
-    case undefined = 0
-    case on        = 1
-    case off       = 2
-}
-
 /// Which optional effects a rule sets.
 public struct RuleEffectsFlags: OptionSet, Sendable
 {
@@ -105,17 +97,18 @@ public struct Grid: Equatable, Sendable
     }
 }
 
-/// The effects of a rule on the windows it matches.
+/// The effects of a rule on the windows it matches. manage, sticky, mouseFollowsFocus and fullscreen are nil when the
+/// rule leaves them alone.
 public struct RuleEffects: Sendable
 {
     public var did: UInt32 = 0
     public var sid: UInt64 = 0
     public var opacity: Float = 0
-    public var manage = RuleProp.undefined
-    public var sticky = RuleProp.undefined
-    public var mff = RuleProp.undefined
+    public var manage: Bool?
+    public var sticky: Bool?
+    public var mouseFollowsFocus: Bool?
     public var layer = WindowLayer.auto
-    public var fullscreen = RuleProp.undefined
+    public var fullscreen: Bool?
     public var grid = Grid()
     public var scratchpad: String?
     public var flags: RuleEffectsFlags = []
@@ -150,10 +143,10 @@ public struct RuleEffects: Sendable
             self.scratchpad = scratchpad
         }
 
-        if effects.manage     != .undefined { manage     = effects.manage }
-        if effects.sticky     != .undefined { sticky     = effects.sticky }
-        if effects.mff        != .undefined { mff        = effects.mff }
-        if effects.fullscreen != .undefined { fullscreen = effects.fullscreen }
+        if let manage = effects.manage                       { self.manage = manage }
+        if let sticky = effects.sticky                       { self.sticky = sticky }
+        if let mouseFollowsFocus = effects.mouseFollowsFocus { self.mouseFollowsFocus = mouseFollowsFocus }
+        if let fullscreen = effects.fullscreen               { self.fullscreen = fullscreen }
 
         if effects.grid.rows != 0 && effects.grid.columns != 0 {
             grid = effects.grid
@@ -208,13 +201,13 @@ public struct Rule
     }
 }
 
-/// `parse_rule_prop`
-private func parseRuleProp(_ value: Token, _ prop: inout RuleProp) -> Bool
+/// Parses "on" or "off" into prop; false for any other value, which leaves prop as it was.
+private func parseRuleProp(_ value: Token, _ prop: inout Bool?) -> Bool
 {
     if value.equals(Argument.on) {
-        prop = .on
+        prop = true
     } else if value.equals(Argument.off) {
-        prop = .off
+        prop = false
     } else {
         return false
     }
@@ -268,7 +261,7 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
             validValue = !LabelKind.window.isReserved(value)
             if validValue {
                 rule.effects.scratchpad = value.string
-                rule.effects.manage = .off
+                rule.effects.manage = false
             }
         } else if key.equals("app") {
             isFilter = true
@@ -312,7 +305,7 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
         } else if key.equals("sticky") {
             validValue = parseRuleProp(value, &rule.effects.sticky)
         } else if key.equals("mouse_follows_focus") {
-            validValue = parseRuleProp(value, &rule.effects.mff)
+            validValue = parseRuleProp(value, &rule.effects.mouseFollowsFocus)
         } else if key.equals("native-fullscreen") {
             validValue = parseRuleProp(value, &rule.effects.fullscreen)
         } else if key.equals("sub-layer") {

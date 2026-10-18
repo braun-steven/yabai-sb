@@ -257,7 +257,7 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
 /// `window_manager_is_window_eligible`
 func window_manager_is_window_eligible(_ target: Window) -> Bool
 {
-    return target.is_root && (window_is_real(target) || window_check_rule_flag(target, WINDOW_RULE_MANAGED))
+    return target.is_root && (window_is_real(target) || target.isManagedByRule)
 }
 
 /// `window_manager_set_focus_follows_mouse`
@@ -286,15 +286,7 @@ func window_manager_set_window_opacity_enabled(_ wm: WindowManager, _ enabled: B
 /// `window_manager_center_mouse`
 func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
 {
-    if window_check_rule_flag(target, WINDOW_RULE_MFF) {
-        if !window_check_rule_flag(target, WINDOW_RULE_MFF_VALUE) {
-            return
-        }
-    } else {
-        if !wm.enable_mff {
-            return
-        }
-    }
+    if !(target.mouseFollowsFocusByRule ?? wm.enable_mff) { return }
 
     let cursor = SLS.cursorLocation(connection_global())
     if target.frame.contains(cursor) { return }
@@ -315,12 +307,12 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
 func window_manager_should_manage_window(_ target: Window) -> Bool
 {
     if !target.is_root                          { return false }
-    if window_check_flag(target, WINDOW_FLOAT)          { return false }
+    if target.isFloating                        { return false }
     if window_is_sticky(target.id)              { return false }
-    if window_check_flag(target, WINDOW_MINIMIZE)       { return false }
+    if target.isMinimized                       { return false }
     if target.application.is_hidden     { return false }
 
-    return (window_is_standard(target) && window_level_is_standard(target) && window_can_move(target)) || window_check_rule_flag(target, WINDOW_RULE_MANAGED)
+    return (window_is_standard(target) && window_level_is_standard(target) && window_can_move(target)) || target.isManagedByRule
 }
 
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
@@ -715,11 +707,7 @@ func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
     }
 
     if scripting_addition_set_shadow(target.id, value) {
-        if value {
-            window_set_flag(target, WINDOW_SHADOW)
-        } else {
-            window_clear_flag(target, WINDOW_SHADOW)
-        }
+        target.hasShadow = value
     }
 }
 
@@ -849,10 +837,10 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 
     if let bView = window_manager_find_managed_window(wm, b) {
         window_manager_unmanage_window(wm, bView, b)
-    } else if window_check_flag(b, WINDOW_FLOAT) {
+    } else if b.isFloating {
         if !window_manager_is_window_eligible(b) { return .invalidDestinationNode }
-        window_clear_flag(b, WINDOW_FLOAT)
-        if window_check_flag(b, WINDOW_STICKY) { window_manager_make_window_sticky(sm, wm, b, false) }
+        b.isFloating = false
+        if b.isSticky { window_manager_make_window_sticky(sm, wm, b, false) }
     }
 
     guard let aCon = tree_find_window(aView.tree, a.id) else { return .invalidSourceNode }
@@ -963,7 +951,7 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
 func window_manager_minimize_window(_ target: Window) -> WindowOperationResult
 {
     if !window_can_minimize(target) { return .cannotMinimize }
-    if window_check_flag(target, WINDOW_MINIMIZE) { return .alreadyMinimized }
+    if target.isMinimized { return .alreadyMinimized }
 
     let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
     return result == .success ? .success : .minimizeFailed
@@ -972,7 +960,7 @@ func window_manager_minimize_window(_ target: Window) -> WindowOperationResult
 /// `window_manager_deminimize_window`
 func window_manager_deminimize_window(_ target: Window) -> WindowOperationResult
 {
-    if !window_check_flag(target, WINDOW_MINIMIZE) { return .notMinimized }
+    if !target.isMinimized { return .notMinimized }
 
     let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
     return result == .success ? .success : .deminimizeFailed
@@ -1082,7 +1070,7 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
 
     if !force {
         if !window_is_standard(target) || !window_level_is_standard(target) || !window_can_move(target) {
-            if !window_check_rule_flag(target, WINDOW_RULE_MANAGED) {
+            if !target.isManagedByRule {
                 return
             }
         }
@@ -1092,11 +1080,11 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
         if let owner = window_manager_find_managed_window(wm, target) {
             window_manager_unmanage_window(wm, owner, target)
         }
-        window_set_flag(target, WINDOW_FLOAT)
+        target.isFloating = true
     } else {
-        window_clear_flag(target, WINDOW_FLOAT)
+        target.isFloating = false
 
-        if !window_check_flag(target, WINDOW_STICKY) {
+        if !target.isSticky {
             if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
                 window_manager_manage_window(sm, wm, target, space_manager_active_space(), 0)
             }
@@ -1114,13 +1102,13 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
             if let owner = window_manager_find_managed_window(wm, target) {
                 window_manager_unmanage_window(wm, owner, target)
             }
-            window_set_flag(target, WINDOW_STICKY)
+            target.isSticky = true
         }
     } else {
         if scripting_addition_set_sticky(target.id, false) {
-            window_clear_flag(target, WINDOW_STICKY)
+            target.isSticky = false
 
-            if !window_check_flag(target, WINDOW_FLOAT) {
+            if !target.isFloating {
                 if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
                     window_manager_manage_window(sm, wm, target, space_manager_active_space(), 0)
                 }
@@ -1132,13 +1120,9 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
 /// `window_manager_toggle_window_shadow`
 func window_manager_toggle_window_shadow(_ target: Window)
 {
-    let shadow = !window_check_flag(target, WINDOW_SHADOW)
+    let shadow = !target.hasShadow
     if scripting_addition_set_shadow(target.id, shadow) {
-        if shadow {
-            window_set_flag(target, WINDOW_SHADOW)
-        } else {
-            window_clear_flag(target, WINDOW_SHADOW)
-        }
+        target.hasShadow = shadow
     }
 }
 
@@ -1228,12 +1212,12 @@ func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
     let did = window_display_id(target.id)
     if did == 0 { return }
 
-    if window_check_flag(target, WINDOW_WINDOWED) {
-        window_clear_flag(target, WINDOW_WINDOWED)
+    if target.isWindowed {
+        target.isWindowed = false
         let frame = target.windowed_frame
         window_manager_animate_window(window_capture(window: target, x: Float(frame.origin.x), y: Float(frame.origin.y), w: Float(frame.size.width), h: Float(frame.size.height)))
     } else {
-        window_set_flag(target, WINDOW_WINDOWED)
+        target.isWindowed = true
         target.windowed_frame = target.frame
         let bounds = display_bounds_constrained(did, true)
         window_manager_animate_window(window_capture(window: target, x: Float(bounds.origin.x), y: Float(bounds.origin.y), w: Float(bounds.size.width), h: Float(bounds.size.height)))

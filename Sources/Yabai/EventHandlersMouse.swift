@@ -37,7 +37,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    guard let window = window_manager_find_window_at_point(window_manager_global(), point), !window_check_flag(window, WINDOW_FULLSCREEN) else { return }
+    guard let window = window_manager_find_window_at_point(window_manager_global(), point), !window.isFullscreen else { return }
 
     ms.window = window
     ms.window_frame = window.frame
@@ -115,7 +115,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
         return
     }
 
-    if window_check_flag(window, WINDOW_FULLSCREEN) {
+    if window.isFullscreen {
         debug("EVENT_HANDLER_MOUSE_UP: \(window.id) is transitioning into native-fullscreen mode, ignoring event..\n")
         return
     }
@@ -278,7 +278,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
         guard let subWindow = window_manager_find_window(wm, wid) else { continue }
 
-        if !window_check_flag(subWindow, WINDOW_FLOAT)       { continue }
+        if !subWindow.isFloating                      { continue }
         if level != window_level(subWindow.id)        { continue }
         if subLevel != window_sub_level(subWindow.id) { continue }
 

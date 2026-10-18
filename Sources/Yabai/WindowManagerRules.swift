@@ -30,12 +30,9 @@ func window_manager_rule_matches_window(_ candidate: Rule, _ target: Window, _ w
 /// `window_manager_apply_manage_rule_effects_to_window`
 func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: RuleEffects)
 {
-    if effects.manage == .on {
-        window_set_rule_flag(target, WINDOW_RULE_MANAGED)
-        window_manager_make_window_floating(sm, wm, target, false, true)
-    } else if effects.manage == .off {
-        window_clear_rule_flag(target, WINDOW_RULE_MANAGED)
-        window_manager_make_window_floating(sm, wm, target, true, true)
+    if let manage = effects.manage {
+        target.isManagedByRule = manage
+        window_manager_make_window_floating(sm, wm, target, !manage, true)
     }
 }
 
@@ -46,24 +43,18 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
         if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.id)) {
             let sid = effects.sid != 0 ? effects.sid : display_space_id(effects.did)
             window_manager_send_window_to_space(sm, wm, target, sid, true)
-            if effects.flags.contains(.followSpace) || effects.fullscreen == .on {
+            if effects.flags.contains(.followSpace) || effects.fullscreen == true {
                 _ = space_manager_focus_space(sid)
             }
         }
     }
 
-    if effects.sticky == .on {
-        window_manager_make_window_sticky(sm, wm, target, true)
-    } else if effects.sticky == .off {
-        window_manager_make_window_sticky(sm, wm, target, false)
+    if let sticky = effects.sticky {
+        window_manager_make_window_sticky(sm, wm, target, sticky)
     }
 
-    if effects.mff == .on {
-        window_set_rule_flag(target, WINDOW_RULE_MFF)
-        window_set_rule_flag(target, WINDOW_RULE_MFF_VALUE)
-    } else if effects.mff == .off {
-        window_set_rule_flag(target, WINDOW_RULE_MFF)
-        window_clear_rule_flag(target, WINDOW_RULE_MFF_VALUE)
+    if let mouseFollowsFocus = effects.mouseFollowsFocus {
+        target.mouseFollowsFocusByRule = mouseFollowsFocus
     }
 
     if effects.flags.contains(.layer) {
@@ -75,9 +66,9 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
         window_manager_set_opacity(wm, target, effects.opacity)
     }
 
-    if effects.fullscreen == .on {
+    if effects.fullscreen == true {
         AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
-        window_set_rule_flag(target, WINDOW_RULE_FULLSCREEN)
+        target.isFullscreenByRule = true
     }
 
     if let scratchpad = effects.scratchpad {
@@ -119,7 +110,7 @@ func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target:
         if !oneShotRules && candidate.oneShot { continue }
         if !window_manager_rule_matches_window(candidate, target, windowTitle, windowRole, windowSubrole) { continue }
 
-        let standardOnly = manageRound ? candidate.effects.manage == .on : !window_check_rule_flag(target, WINDOW_RULE_MANAGED)
+        let standardOnly = manageRound ? candidate.effects.manage == true : !target.isManagedByRule
         if standardOnly && windowManagerRuleSkipsNonstandardWindow(candidate, windowRole, windowSubrole) { continue }
 
         match = true

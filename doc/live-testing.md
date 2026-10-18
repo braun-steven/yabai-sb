@@ -92,6 +92,10 @@ resize that would move the border out of the window's creation frame.
 
 Rules for the user's machine:
 
+- The user does not touch keyboard or touchpad during live tests and watches the window that runs the agent
+  (usually iTerm2). Record its id before the first live step and focus it again
+  (`yabai -m window --focus <id>`) after the last one, also when a step fails or a deploy restarted yabai.
+
 - Two 2560×1440 displays. Display 1 has spaces 1–10, display 2 has 11–15. Spaces 1–3, 9–11 and 15
   hold the user's windows: use only 4–8 and 12–14. The harness uses 4, 5 and 12.
 - Before `setup`, check `pgrep -lx TextEdit`, `"Script Editor"`, `Calculator`; if one runs, ask the

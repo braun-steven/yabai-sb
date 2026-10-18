@@ -47,6 +47,12 @@ the IPC handlers against the final model, and 6 needs the compiler-checked isola
   directory, question, answer format).
 - **Live checks** (phases 2–6): follow `doc/live-testing.md`. Deploys restart yabai and reset layouts; tell the
   user first, use `bash scripts/live-tests/deploy.sh install`, and restore the installed binary afterwards.
+- **Return to the terminal after live work.** The user must not touch keyboard or touchpad during live tests and
+  watches the window that runs the agent (usually iTerm2) to see when they end. Before any live step, record its id
+  (`yabai -m query --windows --window`, while it has focus); after the last live step of a block (harness, bench,
+  perf, deploy/restore, mirror), focus it again with `yabai -m window --focus <id>` (this also shows its space) and
+  check that `query --windows --window` returns it. Do this on failures too. `live.py cleanup` does it for the window
+  `setup` recorded, but bench, perf and deploys run outside that pair.
 - **Performance** (end of phases 2, 3e, 4, 5, 6): `scripts/live-tests/bench.py` medians stay within 10% of the
   baseline recorded in phase 1, measured the same way; phases 5 and 6 also compare `perf.py` query/command latency.
 - **Out of scope:** `osax/` (payload, loader) and the SA protocol. CPrivate only shrinks (wrappers Swift no longer

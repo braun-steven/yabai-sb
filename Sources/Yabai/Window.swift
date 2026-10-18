@@ -36,8 +36,6 @@ final class Window
     var opacity: Float = 0
     var layer: Int32 = 0
     var scratchpad: String?
-
-    /// The window itself, for the code that still reads it like the C pointer.
 }
 
 extension Window: Equatable

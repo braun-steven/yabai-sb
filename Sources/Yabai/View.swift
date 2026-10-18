@@ -23,8 +23,6 @@ final class View
     var window_gap: Int32 = 0
     var auto_padding = false
     var flags: UInt64 = 0
-
-    /// The view itself, for the code that still reads it like the C pointer.
 }
 
 extension View: Equatable

@@ -5,10 +5,7 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the C managers until they are
-// Swift. Ported from display_serialize (src/display.c), display_manager_query_displays (src/display_manager.c),
-// view_serialize (src/view.c), the space queries of src/space_manager.c, window_info_* and window_serialize
-// (src/window.c), the window queries of src/window_manager.c and tree_serialize (src/tree_view.c).
+// NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the managers.
 //
 
 /// `con_layout_str` (src/tree.h)

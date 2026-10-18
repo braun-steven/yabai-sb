@@ -3,7 +3,7 @@ import CPrivate
 import YabaiCore
 @testable import Yabai
 
-// NOTE: Ported from tests/src/message.c. The handler changes the C managers, so the tests are part of DaemonState.
+// NOTE: The handler changes the global managers, so the tests are part of DaemonState.
 
 private func runConfig(_ message: String) -> String
 {

@@ -57,8 +57,6 @@ final class Con
     var render = ConRender()
 
     var child_count: Int32 { Int32(children.count) }
-
-    /// The container itself, for the code that still reads it like the C pointer.
 }
 
 extension Con: Equatable

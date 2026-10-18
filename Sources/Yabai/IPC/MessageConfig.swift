@@ -6,7 +6,7 @@ import YabaiCore
 
 //
 // NOTE: The handler of the config domain. Options print their value when none is given. The options are fields of the
-// C managers until those are Swift (P9, P11). Ported from src/message_config.c.
+// managers.
 //
 
 /// The commands, selector and arguments of the config domain (`COMMAND_CONFIG_*`, `SELECTOR_CONFIG_SPACE` and

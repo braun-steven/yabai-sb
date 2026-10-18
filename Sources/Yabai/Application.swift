@@ -21,8 +21,6 @@ final class Application
     var is_observing = false
     var is_hidden = false
     var ax_retry = false
-
-    /// The application itself, for the code that still reads it like the C pointer.
 }
 
 extension Application: Equatable

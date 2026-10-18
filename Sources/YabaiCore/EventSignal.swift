@@ -3,8 +3,8 @@ import Darwin
 //
 // NOTE: The signals of the daemon: the commands that a user runs on events (`yabai -m signal --add`). The event
 // handlers push a PendingSignal for each event that has signals, and after the handler the event loop runs the command
-// of every signal whose filters match it. Ported from src/event_signal.c; the part that reads the C managers and runs
-// the commands is Sources/Yabai/EventSignal.swift.
+// of every signal whose filters match it. The part that reads the managers and runs the commands is
+// Sources/Yabai/EventSignal.swift.
 //
 
 /// `enum signal_type` (the former src/event_signal.h) with the names of `signal_type_str`, and the raw values of the

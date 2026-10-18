@@ -17,8 +17,8 @@ private func runGroup(_ body: (inout Response, inout Message) -> CommandResult, 
 @Test("message_window_layout_values")
 func messageWindowLayoutValues()
 {
-    #expect(parseWindowLayout(Token("tabbed")) == WINDOW_LAYOUT_TABBED)
-    #expect(parseWindowLayout(Token("toggle-split")) == WINDOW_LAYOUT_TOGGLE_SPLIT)
+    #expect(parseWindowLayout(Token("tabbed")) == .tabbed)
+    #expect(parseWindowLayout(Token("toggle-split")) == .toggleSplit)
     #expect(parseWindowLayout(Token("stacked")) == nil)
 
     #expect(parseSplitOrientation(Token("vertical")) == .fixed(.vertical))

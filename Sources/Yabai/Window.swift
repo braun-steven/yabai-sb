@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Synchronization
+import YabaiCore
 
 //
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
@@ -34,7 +35,7 @@ final class Window
     var rule_flags: UInt8 = 0
     var flags: UInt8 = 0
     var opacity: Float = 0
-    var layer: Int32 = 0
+    var layer = WindowLayer.auto
     var scratchpad: String?
 }
 
@@ -393,7 +394,7 @@ func window_is_standard(_ target: Window) -> Bool
     return CFEqual(role, kAXWindowRole as CFString) && CFEqual(subrole, kAXStandardWindowSubrole as CFString)
 }
 
-/// `window_level_is_standard`: the level of the window is that of LAYER_NORMAL (g_layer_normal_window_level).
+/// `window_level_is_standard`: the level of the window is that of `WindowLayer.normal`.
 func window_level_is_standard(_ target: Window) -> Bool
 {
     let level = window_level(target.id)

@@ -8,6 +8,14 @@ import AppKit
 // src/window_manager_focus.c.
 //
 
+/// The options of `_SLPSSetFrontProcessWithOptions`: activate a process for a user action, or without raising any of
+/// its windows.
+enum FrontProcessMode: UInt32
+{
+    case userGenerated = 0x200
+    case noWindows     = 0x400
+}
+
 // the size of the event records that SLPSPostEventRecordTo sends (g_event_bytes of yabai.c, 0x100 bytes)
 private let eventRecordSize = 0x100
 
@@ -96,7 +104,7 @@ func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer
         return
     }
 
-    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, UInt32(kCPSUserGenerated))
+    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(windowPsn, windowID)
 }
 
@@ -105,7 +113,7 @@ func window_manager_focus_window_without_raise_deferred(_ target: Window)
 {
     windowManagerPostFocusRecord(&target.application.psn, target.id, 0x01)
 
-    _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id, UInt32(kCPSUserGenerated))
+    _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(&target.application.psn, target.id)
 }
 
@@ -117,7 +125,7 @@ func window_manager_focus_window_without_raise_deferred(_ target: Window)
 /// `window_manager_focus_window_with_raise`
 func window_manager_focus_window_with_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32, _ windowRef: AXUIElement)
 {
-    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, UInt32(kCPSUserGenerated))
+    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(windowPsn, windowID)
     AXUIElementPerformAction(windowRef, kAXRaiseAction as CFString)
 }

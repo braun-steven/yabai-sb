@@ -24,7 +24,7 @@ func window_manager_toggle_scratchpad_window_by_label(_ wm: WindowManager, _ lab
 func window_manager_set_scratchpad_layers(_ wm: WindowManager)
 {
     for entry in wm.scratchpad_window {
-        window_manager_adjust_layer(entry.window, wm.scratchpad_below ? layerValue(.below) : layerValue(.normal))
+        window_manager_adjust_layer(entry.window, wm.scratchpad_below ? .below : .normal)
     }
 }
 
@@ -62,7 +62,7 @@ private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Wi
     if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.id) {
         window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
     } else {
-        _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
+        _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
     }
 
     scripting_addition_order_window(target.id, 0, 0)
@@ -129,7 +129,7 @@ func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Win
     // tiled windows; scratchpad_below moves it to their sub-layer.
     //
 
-    if wm.scratchpad_below { window_manager_adjust_layer(target, layerValue(.below)) }
+    if wm.scratchpad_below { window_manager_adjust_layer(target, .below) }
 
     return true
 }
@@ -148,7 +148,7 @@ private func windowManagerReleaseScratchpadWindow(_ wm: WindowManager, _ target:
         border_refresh_window_space(target)
     }
 
-    if wm.scratchpad_below { window_manager_adjust_layer(target, layerValue(.normal)) }
+    if wm.scratchpad_below { window_manager_adjust_layer(target, .normal) }
     window_manager_make_window_floating(space_manager_global(), wm, target, false, false)
 }
 

@@ -37,49 +37,49 @@ private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: UInt32)
 }
 
 /// `window_manager_tree_focus_direction`: without a window (no window has focus) it fails like for an unmanaged one.
-func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?, _ direction: Direction) -> window_op_error
+func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?, _ direction: Direction) -> WindowOperationResult
 {
-    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
     let did = windowManagerTreeDisplayInDirection(owner, direction)
     var result: Con?
 
     switch tree_next(node, direction, wm.focus_wrapping, did != 0, &result) {
     case .done:
-        guard let result, con_is_leaf(result) else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
-        if result.window_id == target.id && con_is_leaf(node) { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+        guard let result, con_is_leaf(result) else { return .invalidDestinationNode }
+        if result.window_id == target.id && con_is_leaf(node) { return .invalidDestinationNode }
         tree_select(owner.tree, nil)
         windowManagerFocusWindowID(wm, result.window_id)
     case .output:
         tree_select(owner.tree, nil)
         windowManagerTreeFocusDisplay(wm, did)
     case .none:
-        return WINDOW_OP_ERROR_INVALID_DST_NODE
+        return .invalidDestinationNode
     }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_tree_focus_parent`
-func window_manager_tree_focus_parent(_ wm: WindowManager, _ target: Window?) -> window_op_error
+func window_manager_tree_focus_parent(_ wm: WindowManager, _ target: Window?) -> WindowOperationResult
 {
-    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
-    guard let parent = node.parent else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
+    guard let parent = node.parent else { return .invalidDestinationNode }
 
     tree_select(owner.tree, parent)
     if space_is_visible(owner.sid) { tree_selection_show(parent) }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_tree_focus_child`
-func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> window_op_error
+func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> WindowOperationResult
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
 
-    guard let selected = tree_find_selected(owner.tree), selected.child_count != 0 else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+    guard let selected = tree_find_selected(owner.tree), selected.child_count != 0 else { return .invalidDestinationNode }
 
     let child = selected.focus[0]
     if con_is_leaf(child) {
@@ -90,7 +90,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
         if space_is_visible(owner.sid) { tree_selection_show(child) }
     }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 //
@@ -147,10 +147,10 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
 }
 
 /// `window_manager_tree_move_direction`
-func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ direction: Direction) -> window_op_error
+func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ direction: Direction) -> WindowOperationResult
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
     let did = windowManagerTreeDisplayInDirection(owner, direction)
 
@@ -160,10 +160,10 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager,
     case .output:
         windowManagerTreeMoveToDisplay(sm, wm, owner, node, did, direction)
     case .none:
-        return WINDOW_OP_ERROR_INVALID_DST_NODE
+        return .invalidDestinationNode
     }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 //
@@ -210,10 +210,10 @@ enum SplitOrientation: Equatable, Sendable
 }
 
 /// `window_manager_tree_split`
-func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ split: SplitOrientation) -> window_op_error
+func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ split: SplitOrientation) -> WindowOperationResult
 {
-    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
     let orientation: ConOrientation
     switch split {
@@ -227,5 +227,5 @@ func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ split: 
     tree_split(node, orientation)
     windowManagerTreeApply(owner)
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }

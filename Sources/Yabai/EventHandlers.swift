@@ -106,7 +106,7 @@ func update_window_notifications()
 
 @WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: UInt32)
 {
-    window_manager_adjust_layer(window, layerValue(.below))
+    window_manager_adjust_layer(window, .below)
     view_add_window(view, window, insertionPoint)
     window_manager_add_managed_window(window_manager_global(), window, view)
 }
@@ -529,7 +529,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     for window in windows {
         if let view = window_manager_find_managed_window(wm, window) {
-            window_manager_adjust_layer(window, layerValue(.normal))
+            window_manager_adjust_layer(window, .normal)
             untileWindowBatched(view, window)
             window_manager_purify_window(wm, window)
             viewList.append(view)

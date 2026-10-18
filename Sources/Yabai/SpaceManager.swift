@@ -104,7 +104,7 @@ func space_manager_untile_window(_ target: View, _ win: Window)
 {
     if target.layout == .float { return }
 
-    window_manager_adjust_layer(win, CGWindowLevelKey.normalWindow.rawValue)
+    window_manager_adjust_layer(win, .normal)
     if view_remove_window(target, win) { view_flush(target) }
 }
 
@@ -312,7 +312,7 @@ func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager,
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return target }
 
-    window_manager_adjust_layer(win, CGWindowLevelKey.backstopMenu.rawValue)
+    window_manager_adjust_layer(win, .below)
     view_add_window(target, win, insertionPoint)
     view_flush(target)
 
@@ -331,7 +331,7 @@ func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
     let target = space_manager_find_view(sm, window_space(win.id))
     if target.layout != .tree { return }
 
-    _ = window_manager_set_window_layout(window_manager_global(), win, WINDOW_LAYOUT_TOGGLE_SPLIT)
+    _ = window_manager_set_window_layout(window_manager_global(), win, .toggleSplit)
 }
 
 //

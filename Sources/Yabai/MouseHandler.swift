@@ -173,13 +173,13 @@ func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CG
         var direction: Int32 = 0
         if info.pointee.changed_x { direction |= HANDLE_LEFT }
         if info.pointee.changed_y { direction |= HANDLE_TOP }
-        if window_manager_resize_window_relative(wm, target, direction, info.pointee.dx, info.pointee.dy, true) == WINDOW_OP_ERROR_INVALID_DST_NODE { success = false }
+        if window_manager_resize_window_relative(wm, target, direction, info.pointee.dx, info.pointee.dy, true) == .invalidDestinationNode { success = false }
     }
     if info.pointee.changed_size {
         var direction: Int32 = 0
         if info.pointee.changed_w && !info.pointee.changed_x { direction |= HANDLE_RIGHT }
         if info.pointee.changed_h && !info.pointee.changed_y { direction |= HANDLE_BOTTOM }
-        if window_manager_resize_window_relative(wm, target, direction, info.pointee.dw, info.pointee.dh, true) == WINDOW_OP_ERROR_INVALID_DST_NODE { success = false }
+        if window_manager_resize_window_relative(wm, target, direction, info.pointee.dw, info.pointee.dh, true) == .invalidDestinationNode { success = false }
     }
     if !success { view_flush(targetView) }
 }

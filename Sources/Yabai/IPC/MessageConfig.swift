@@ -74,9 +74,6 @@ private enum Config
     static let scratchpadGrid           = "scratchpad_grid"
 
     static let spaceSelector            = "--space"
-
-    static let ffmAutofocus             = "autofocus"
-    static let ffmAutoraise             = "autoraise"
 }
 
 //
@@ -84,11 +81,8 @@ private enum Config
 // is the value of the C enum; nil entries are the gaps of a bitmask enum (mouse_mod).
 //
 
-private let ffmModeNames: [String] = ["disabled", "autofocus", "autoraise"]
 private let externalBarModeNames: [String] = ["off", "main", "all"]
 private let displayArrangementOrderNames: [String?] = ["default", "horizontal", "vertical"]
-private let windowOriginModeNames: [String?] = ["default", "focused", "cursor"]
-private let purifyModeNames: [String?] = ["on", "float", "off"]
 private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
 private let mouseModeNames: [String?] = ["none", "move", "resize", "swap", "stack"]
 
@@ -577,13 +571,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.ffm) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(ffmModeNames[Int(wm.ffm_mode.rawValue)])\n")
+            rsp.write("\(wm.ffm_mode.rawValue)\n")
         } else if value.equals(Argument.off) {
-            window_manager_set_focus_follows_mouse(wm, FFM_DISABLED)
-        } else if value.equals(Config.ffmAutofocus) {
-            window_manager_set_focus_follows_mouse(wm, FFM_AUTOFOCUS)
-        } else if value.equals(Config.ffmAutoraise) {
-            window_manager_set_focus_follows_mouse(wm, FFM_AUTORAISE)
+            window_manager_set_focus_follows_mouse(wm, .disabled)
+        } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
+            window_manager_set_focus_follows_mouse(wm, mode)
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
@@ -594,8 +586,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.builtinLast) {
         if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
-        if let choice = parseChoice(&rsp, domain, command, &message, windowOriginModeNames, first: WINDOW_ORIGIN_DEFAULT.rawValue, last: WINDOW_ORIGIN_CURSOR.rawValue, current: wm.window_origin_mode.rawValue) {
-            wm.window_origin_mode = window_origin_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.window_origin_mode) {
+            wm.window_origin_mode = choice
         }
     } else if command.equals(Config.scratchpadExclusive) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_exclusive)
@@ -629,8 +621,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             wm.window_animation_easing = Int32(choice)
         }
     } else if command.equals(Config.shadow) {
-        if let choice = parseChoice(&rsp, domain, command, &message, purifyModeNames, first: PURIFY_DISABLED.rawValue, last: PURIFY_ALWAYS.rawValue, current: wm.purify_mode.rawValue) {
-            window_manager_set_purify_mode(wm, purify_mode(rawValue: choice))
+        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.purify_mode) {
+            window_manager_set_purify_mode(wm, choice)
         }
     } else if command.equals(Config.menubarOpacity) {
         if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menubar_opacity, allowZero: true) { window_manager_set_menubar_opacity(wm, opacity) }

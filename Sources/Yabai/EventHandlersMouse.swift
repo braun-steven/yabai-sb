@@ -297,11 +297,11 @@ private let mouseResizeThrottleMs: Float = 67.67
     if window.id == wm.focused_window_id { return }
     if !window_manager_is_window_eligible(window)       { return }
 
-    if wm.ffm_mode == FFM_AUTOFOCUS {
+    if wm.ffm_mode == .autofocus {
         let target = ffmWindowToFocus(window)
         window_manager_focus_window_without_raise(&target.application.psn, target.id)
         ms.ffm_window_id = target.id
-    } else if wm.ffm_mode == FFM_AUTORAISE {
+    } else if wm.ffm_mode == .autoraise {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
         window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
@@ -329,7 +329,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if mouseEventIsStale(pendingMouseMoved) { return }
 
-    if wm.ffm_mode == FFM_DISABLED                { return }
+    if wm.ffm_mode == .disabled                { return }
     if mission_control_is_active()                        { return }
     if mouse_state_global().ffm_window_id != 0 { return }
 

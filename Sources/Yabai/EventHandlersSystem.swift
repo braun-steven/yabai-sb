@@ -116,7 +116,7 @@ import CPrivate
 }
 
 /// The focus follows mouse mode while a menu is open, and the number of open menus.
-@WM private var ffmValue = FFM_DISABLED
+@WM private var ffmValue = FocusFollowsMouse.disabled
 @WM private var isMenuOpen = 0
 
 /// `EVENT_HANDLER(MENU_OPENED)`
@@ -128,7 +128,7 @@ import CPrivate
     if isMenuOpen == 1 {
         let wm = window_manager_global()
         ffmValue = wm.ffm_mode
-        wm.ffm_mode = FFM_DISABLED
+        wm.ffm_mode = .disabled
     }
 }
 

@@ -128,9 +128,9 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> UInt64
 {
     switch wm.window_origin_mode {
-    case WINDOW_ORIGIN_FOCUSED: return space_manager_global().current_space_id
-    case WINDOW_ORIGIN_CURSOR:  return space_manager_cursor_space()
-    default:                    return window_space(target.id)
+    case .focused: return space_manager_global().current_space_id
+    case .cursor:  return space_manager_cursor_space()
+    case .default: return window_space(target.id)
     }
 }
 

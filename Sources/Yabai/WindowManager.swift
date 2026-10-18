@@ -11,6 +11,76 @@ import YabaiCore
 // a space after Mission Control and display changes. Ported from src/window_manager.c.
 //
 
+/// The outcome of a window command: success, or why it failed (`Response.failUnmanagedWindow` words the failures of
+/// unmanaged windows).
+enum WindowOperationResult: Sendable
+{
+    case success
+    case invalidSourceView
+    case invalidSourceNode
+    case invalidDestinationView
+    case invalidDestinationNode
+    case invalidOperation
+    case sameWindow
+    case cannotMinimize
+    case alreadyMinimized
+    case minimizeFailed
+    case notMinimized
+    case deminimizeFailed
+}
+
+/// A value of `window --layout`, named by its token.
+enum WindowLayout: String, CaseIterable, Sendable
+{
+    case tabbed
+    case split
+    case toggle
+    case splitH      = "splith"
+    case splitV      = "splitv"
+    case toggleSplit = "toggle-split"
+}
+
+/// Focus follows mouse (`config focus_follows_mouse`): off, focus the window under the cursor, or also raise it. The
+/// raw values are the names the setting prints; `off` sets `.disabled`.
+enum FocusFollowsMouse: String, Sendable
+{
+    case disabled
+    case autofocus
+    case autoraise
+}
+
+/// Which windows lose their shadow (`config window_shadow`, named by its values): none, the managed ones, or all.
+enum PurifyMode: String, CaseIterable, Sendable
+{
+    case disabled = "on"
+    case managed  = "float"
+    case always   = "off"
+}
+
+/// The space a new window is placed on (`config window_origin_display`): where macOS put it, the focused space, or the
+/// space under the cursor.
+enum WindowOrigin: String, CaseIterable, Sendable
+{
+    case `default`
+    case focused
+    case cursor
+}
+
+/// The window level of a sub-layer: LAYER_AUTO is 0, the others are CGWindowLevelKey values (which Swift does not import
+/// from the C macros that named them).
+extension WindowLayer
+{
+    var level: Int32
+    {
+        switch self {
+        case .auto:   0
+        case .below:  CGWindowLevelKey.backstopMenu.rawValue
+        case .normal: CGWindowLevelKey.normalWindow.rawValue
+        case .above:  CGWindowLevelKey.floatingWindow.rawValue
+        }
+    }
+}
+
 /// `struct scratchpad`
 struct Scratchpad
 {
@@ -35,9 +105,9 @@ final class WindowManager
     var pending_focus_time: UInt64 = 0
     var last_window_id: UInt32 = 0
     var enable_mff = false
-    var ffm_mode = FFM_DISABLED
-    var purify_mode = PURIFY_DISABLED
-    var window_origin_mode = WINDOW_ORIGIN_DEFAULT
+    var ffm_mode = FocusFollowsMouse.disabled
+    var purify_mode = PurifyMode.disabled
+    var window_origin_mode = WindowOrigin.default
     var enable_window_opacity = false
     var menubar_opacity: Float = 0
     var active_window_opacity: Float = 0
@@ -191,11 +261,11 @@ func window_manager_is_window_eligible(_ target: Window) -> Bool
 }
 
 /// `window_manager_set_focus_follows_mouse`
-func window_manager_set_focus_follows_mouse(_ wm: WindowManager, _ mode: ffm_mode)
+func window_manager_set_focus_follows_mouse(_ wm: WindowManager, _ mode: FocusFollowsMouse)
 {
     mouse_handler_end(mouse_state_global())
 
-    if mode == FFM_DISABLED {
+    if mode == .disabled {
         mouse_handler_begin(mouse_state_global(), mouseEventMask)
     } else {
         mouse_handler_begin(mouse_state_global(), mouseEventMaskFFM)
@@ -376,9 +446,9 @@ func windowManagerTreeWaitForView(_ moveList: [UInt32], _ owner: View)
 //
 
 /// `window_manager_adjust_window_ratio`
-func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: Int32, _ ratio: Float) -> window_op_error
+func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: Int32, _ ratio: Float) -> WindowOperationResult
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
 
     //
     // NOTE: Tabs share the area of their container, so the ratio of a tab is the one of its tabbed
@@ -387,7 +457,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
 
     var node = windowManagerTreeActingCon(owner, target)
     while let current = node, let parent = current.parent, parent.layout == .tabbed { node = parent }
-    guard let node, let parent = node.parent else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let node, let parent = node.parent else { return .invalidSourceNode }
 
     let horizontal = parent.layout == .splitH
     let size = horizontal ? parent.area.w : parent.area.h
@@ -396,19 +466,19 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
 
     if !tree_resize(node, horizontal ? .east : .south, delta) &&
        !tree_resize(node, horizontal ? .west : .north, -delta) {
-        return WINDOW_OP_ERROR_INVALID_SRC_NODE
+        return .invalidSourceNode
     }
 
     tree_view_update(owner)
     view_flush(owner)
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_move_window_relative`
-func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: Int32, _ dx: Float, _ dy: Float) -> window_op_error
+func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: Int32, _ dx: Float, _ dy: Float) -> WindowOperationResult
 {
-    if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
 
     var dx = dx
     var dy = dy
@@ -419,7 +489,7 @@ func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, 
     }
 
     window_manager_animate_window(window_capture(window: target, x: dx, y: dy, w: Float(target.frame.size.width), h: Float(target.frame.size.height)))
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_resize_window_relative_internal`
@@ -444,19 +514,19 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 }
 
 /// `window_manager_resize_window_relative`
-func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> window_op_error
+func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> WindowOperationResult
 {
     if let owner = window_manager_find_managed_window(wm, target) {
-        if direction == HANDLE_ABS || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_OPERATION }
+        if direction == HANDLE_ABS || owner.tree == nil { return .invalidOperation }
 
-        guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+        guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
         var didResize = false
         if (direction & HANDLE_TOP)    != 0 { didResize = tree_resize(node, .north, dy) || didResize }
         if (direction & HANDLE_BOTTOM) != 0 { didResize = tree_resize(node, .south, dy) || didResize }
         if (direction & HANDLE_LEFT)   != 0 { didResize = tree_resize(node, .west, dx) || didResize }
         if (direction & HANDLE_RIGHT)  != 0 { didResize = tree_resize(node, .east, dx) || didResize }
-        if !didResize { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+        if !didResize { return .invalidDestinationNode }
 
         tree_view_update(owner)
         view_flush(owner)
@@ -472,7 +542,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
         }
     }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_move_window`
@@ -498,7 +568,7 @@ func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Fl
 }
 
 /// `window_manager_set_purify_mode`
-func window_manager_set_purify_mode(_ wm: WindowManager, _ mode: purify_mode)
+func window_manager_set_purify_mode(_ wm: WindowManager, _ mode: PurifyMode)
 {
     wm.purify_mode = mode
     for target in wm.window.values where window_manager_is_window_eligible(target) {
@@ -559,12 +629,12 @@ func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Fl
     }
 }
 
-/// `window_manager_adjust_layer`: only for windows without a layer of their own (LAYER_AUTO).
-func window_manager_adjust_layer(_ target: Window, _ layer: Int32)
+/// `window_manager_adjust_layer`: only for windows without a layer of their own (`WindowLayer.auto`).
+func window_manager_adjust_layer(_ target: Window, _ layer: WindowLayer)
 {
-    if target.layer != LAYER_AUTO { return }
+    if target.layer != .auto { return }
 
-    scripting_addition_set_layer(target.id, layer)
+    scripting_addition_set_layer(target.id, layer.level)
 }
 
 //
@@ -595,25 +665,25 @@ func window_manager_collect_child_windows(_ root: UInt32, _ parentList: inout [U
 }
 
 //
-// NOTE: The child windows (e.g. sheets) follow the layer of their window. With LAYER_AUTO, managed windows (and
+// NOTE: The child windows (e.g. sheets) follow the layer of their window. With WindowLayer.auto, managed windows (and
 // scratchpads with scratchpad_below) go to the below sub-layer and their child windows to the normal one.
 //
 
 /// `window_manager_set_window_layer`
-func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
+func window_manager_set_window_layer(_ target: Window, _ layer: WindowLayer) -> Bool
 {
     var parentLayer = layer
     var childLayer = layer
 
-    if layer == LAYER_AUTO {
+    if layer == .auto {
         let wm = window_manager_global()
         let below = window_manager_find_managed_window(wm, target) != nil || (wm.scratchpad_below && target.scratchpad != nil)
-        parentLayer = below ? layerValue(.below) : layerValue(.normal)
-        childLayer = layerValue(.normal)
+        parentLayer = below ? .below : .normal
+        childLayer = .normal
     }
 
     target.layer = layer
-    let result = scripting_addition_set_layer(target.id, parentLayer)
+    let result = scripting_addition_set_layer(target.id, parentLayer.level)
     if !result { return false }
 
     guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id) as? [NSNumber], !associated.isEmpty else { return result }
@@ -627,7 +697,7 @@ func window_manager_set_window_layer(_ target: Window, _ layer: Int32) -> Bool
     }
 
     for descendant in window_manager_collect_child_windows(target.id, &parentList, childList) {
-        scripting_addition_set_layer(descendant, childLayer)
+        scripting_addition_set_layer(descendant, childLayer.level)
     }
 
     return result
@@ -638,12 +708,10 @@ func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
 {
     let value: Bool
 
-    if wm.purify_mode == PURIFY_DISABLED {
-        value = true
-    } else if wm.purify_mode == PURIFY_MANAGED {
-        value = window_manager_find_managed_window(wm, target) == nil
-    } else /* if wm.purify_mode == PURIFY_ALWAYS */ {
-        value = false
+    switch wm.purify_mode {
+    case .disabled: value = true
+    case .managed:  value = window_manager_find_managed_window(wm, target) == nil
+    case .always:   value = false
     }
 
     if scripting_addition_set_shadow(target.id, value) {
@@ -736,14 +804,14 @@ func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Appli
 }
 
 /// `window_manager_set_window_insertion`
-func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: InsertDirection) -> window_op_error
+func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: InsertDirection) -> WindowOperationResult
 {
-    guard let target else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    guard let target else { return .invalidSourceView }
 
     let owner = space_manager_find_view(sm, window_space(target.id))
-    if owner.layout != .tree || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    if owner.layout != .tree || owner.tree == nil { return .invalidSourceView }
 
-    guard let node = tree_find_window(owner.tree, target.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let node = tree_find_window(owner.tree, target.id) else { return .invalidSourceNode }
 
     if owner.insertion_point != 0 && owner.insertion_point != target.id {
         if let insert = tree_find_window(owner.tree, owner.insertion_point) {
@@ -756,14 +824,14 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
         node.insert_dir = nil
         tree_feedback_hide(node)
         owner.insertion_point = 0
-        return WINDOW_OP_ERROR_SUCCESS
+        return .success
     }
 
     node.insert_dir = direction
     owner.insertion_point = target.id
     if space_is_visible(owner.sid) { tree_feedback_show(node, direction) }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 //
@@ -772,22 +840,22 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 //
 
 /// `window_manager_stack_window`
-func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> WindowOperationResult
 {
-    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return .sameWindow }
 
-    guard let aView = window_manager_find_tree_view(wm, a) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
-    if tree_find_window(aView.tree, a.id) == nil { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let aView = window_manager_find_tree_view(wm, a) else { return .invalidSourceNode }
+    if tree_find_window(aView.tree, a.id) == nil { return .invalidSourceNode }
 
     if let bView = window_manager_find_managed_window(wm, b) {
         window_manager_unmanage_window(wm, bView, b)
     } else if window_check_flag(b, WINDOW_FLOAT) {
-        if !window_manager_is_window_eligible(b) { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+        if !window_manager_is_window_eligible(b) { return .invalidDestinationNode }
         window_clear_flag(b, WINDOW_FLOAT)
         if window_check_flag(b, WINDOW_STICKY) { window_manager_make_window_sticky(sm, wm, b, false) }
     }
 
-    guard let aCon = tree_find_window(aView.tree, a.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let aCon = tree_find_window(aView.tree, a.id) else { return .invalidSourceNode }
 
     if window_space(b.id) != aView.sid {
         space_manager_move_window_to_space(aView.sid, b)
@@ -799,33 +867,32 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
     tree_insert_relative(aCon, node, .stack)
 
     window_manager_add_managed_window(wm, b, aView)
-    window_manager_adjust_layer(b, layerValue(.below))
+    window_manager_adjust_layer(b, .below)
     windowManagerTreeApply(aView)
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_set_window_layout`
-func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ layout: window_layout) -> window_op_error
+func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ layout: WindowLayout) -> WindowOperationResult
 {
-    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
+    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
     let parent = node.parent ?? node
 
     switch layout {
-    case WINDOW_LAYOUT_TABBED:       tree_set_layout(node, .tabbed)
-    case WINDOW_LAYOUT_SPLITH:       tree_set_layout(node, .splitH)
-    case WINDOW_LAYOUT_SPLITV:       tree_set_layout(node, .splitV)
-    case WINDOW_LAYOUT_SPLIT:        tree_set_layout(node, parent.layout == .tabbed ? parent.last_split : parent.layout)
-    case WINDOW_LAYOUT_TOGGLE:       tree_toggle_layout(node, false)
-    case WINDOW_LAYOUT_TOGGLE_SPLIT: tree_toggle_layout(node, true)
-    default:                         break
+    case .tabbed:      tree_set_layout(node, .tabbed)
+    case .splitH:      tree_set_layout(node, .splitH)
+    case .splitV:      tree_set_layout(node, .splitV)
+    case .split:       tree_set_layout(node, parent.layout == .tabbed ? parent.last_split : parent.layout)
+    case .toggle:      _ = tree_toggle_layout(node, false)
+    case .toggleSplit: _ = tree_toggle_layout(node, true)
     }
 
     tree_flatten(owner.tree)
     windowManagerTreeApply(owner)
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 //
@@ -833,19 +900,19 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
 //
 
 /// `window_manager_warp_window`
-func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Window, _ b: Window) -> WindowOperationResult
 {
-    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return .sameWindow }
 
     let aView = window_manager_find_tree_view(wm, a)
     let bView = window_manager_find_tree_view(wm, b)
-    guard let aView else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let bView else { return WINDOW_OP_ERROR_INVALID_DST_VIEW }
+    guard let aView else { return .invalidSourceView }
+    guard let bView else { return .invalidDestinationView }
 
     let aCon = tree_find_window(aView.tree, a.id)
     let bCon = tree_find_window(bView.tree, b.id)
-    guard let aCon else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
-    guard let bCon else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+    guard let aCon else { return .invalidSourceNode }
+    guard let bCon else { return .invalidDestinationNode }
 
     if aView == bView {
         tree_insert_con(aCon, bCon, .after)
@@ -860,23 +927,23 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
         _ = space_manager_tile_window_on_space_with_insertion_point(sm, a, bView.sid, b.id)
     }
 
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_swap_window`
-func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -> window_op_error
+func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -> WindowOperationResult
 {
-    if a.id == b.id { return WINDOW_OP_ERROR_SAME_WINDOW }
+    if a.id == b.id { return .sameWindow }
 
     let aView = window_manager_find_tree_view(wm, a)
     let bView = window_manager_find_tree_view(wm, b)
-    guard let aView else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
-    guard let bView else { return WINDOW_OP_ERROR_INVALID_DST_VIEW }
+    guard let aView else { return .invalidSourceView }
+    guard let bView else { return .invalidDestinationView }
 
     let aCon = tree_find_window(aView.tree, a.id)
     let bCon = tree_find_window(bView.tree, b.id)
-    guard let aCon else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
-    guard let bCon else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
+    guard let aCon else { return .invalidSourceNode }
+    guard let bCon else { return .invalidDestinationNode }
 
     tree_swap(aCon, bCon)
 
@@ -889,26 +956,26 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
     }
 
     windowManagerTreeApply(aView)
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_minimize_window`
-func window_manager_minimize_window(_ target: Window) -> window_op_error
+func window_manager_minimize_window(_ target: Window) -> WindowOperationResult
 {
-    if !window_can_minimize(target) { return WINDOW_OP_ERROR_CANT_MINIMIZE }
-    if window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_ALREADY_MINIMIZED }
+    if !window_can_minimize(target) { return .cannotMinimize }
+    if window_check_flag(target, WINDOW_MINIMIZE) { return .alreadyMinimized }
 
     let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
-    return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_MINIMIZE_FAILED
+    return result == .success ? .success : .minimizeFailed
 }
 
 /// `window_manager_deminimize_window`
-func window_manager_deminimize_window(_ target: Window) -> window_op_error
+func window_manager_deminimize_window(_ target: Window) -> WindowOperationResult
 {
-    if !window_check_flag(target, WINDOW_MINIMIZE) { return WINDOW_OP_ERROR_NOT_MINIMIZED }
+    if !window_check_flag(target, WINDOW_MINIMIZE) { return .notMinimized }
 
     let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-    return result == .success ? WINDOW_OP_ERROR_SUCCESS : WINDOW_OP_ERROR_DEMINIMIZE_FAILED
+    return result == .success ? .success : .deminimizeFailed
 }
 
 /// `window_manager_close_window`: presses the close button of the window; false without one.
@@ -932,7 +999,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
         if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.id) {
             window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
         } else {
-            _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, UInt32(kCPSNoWindows))
+            _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
         }
     }
 
@@ -954,13 +1021,13 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
 
 /// `window_manager_apply_grid`
 @discardableResult
-func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ grid: Grid) -> window_op_error
+func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ grid: Grid) -> WindowOperationResult
 {
     let r = grid.rows, c = grid.columns
-    if window_manager_find_managed_window(wm, target) != nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
 
     let did = window_display_id(target.id)
-    if did == 0 { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    if did == 0 { return .invalidSourceView }
 
     var x = grid.x, y = grid.y, w = grid.width, h = grid.height
     if x >= c     { x = c &- 1 }
@@ -1005,7 +1072,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     let fh = ch * Float(h)
 
     window_manager_animate_window(window_capture(window: target, x: fx, y: fy, w: fw, h: fh))
-    return WINDOW_OP_ERROR_SUCCESS
+    return .success
 }
 
 /// `window_manager_make_window_floating`
@@ -1221,7 +1288,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
         //
 
         view_remove_window(owner, target)
-        window_manager_adjust_layer(target, layerValue(.normal))
+        window_manager_adjust_layer(target, .normal)
         window_manager_remove_managed_window(wm, target.id)
         window_manager_purify_window(wm, target)
 
@@ -1249,7 +1316,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             //
 
             view_remove_window(existingView, target)
-            window_manager_adjust_layer(target, layerValue(.normal))
+            window_manager_adjust_layer(target, .normal)
             window_manager_remove_managed_window(wm, target.id)
             window_manager_purify_window(wm, target)
             setViewFlag(existingView, VIEW_IS_DIRTY)
@@ -1268,7 +1335,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             //
 
             view_add_window(owner, target, 0)
-            window_manager_adjust_layer(target, layerValue(.below))
+            window_manager_adjust_layer(target, .below)
             window_manager_add_managed_window(wm, target, owner)
             setViewFlag(owner, VIEW_IS_DIRTY)
         }
@@ -1362,9 +1429,9 @@ func window_manager_init(_ wm: WindowManager)
     AXUIElementSetMessagingTimeout(systemElement, 1.0)
     wm.system_element = systemElement
 
-    wm.ffm_mode = FFM_DISABLED
-    wm.purify_mode = PURIFY_DISABLED
-    wm.window_origin_mode = WINDOW_ORIGIN_DEFAULT
+    wm.ffm_mode = .disabled
+    wm.purify_mode = .disabled
+    wm.window_origin_mode = .default
     wm.enable_mff = false
     wm.enable_window_opacity = false
     wm.menubar_opacity = 1.0

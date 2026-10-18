@@ -19,23 +19,6 @@ let HANDLE_LEFT: Int32   = 0x04
 let HANDLE_RIGHT: Int32  = 0x08
 let HANDLE_ABS: Int32    = 0x10
 
-let LAYER_AUTO: Int32 = 0
-
-//
-// NOTE: The window levels of the sub-layers (LAYER_* in the C version). LAYER_AUTO is 0; the others are
-// CGWindowLevelKey values, which Swift does not import from the C macros that named them.
-//
-
-func layerValue(_ layer: WindowLayer) -> Int32
-{
-    switch layer {
-    case .auto:   Int32(LAYER_AUTO)
-    case .below:  CGWindowLevelKey.backstopMenu.rawValue
-    case .normal: CGWindowLevelKey.normalWindow.rawValue
-    case .above:  CGWindowLevelKey.floatingWindow.rawValue
-    }
-}
-
 // MARK: src/view.h
 
 
@@ -73,54 +56,6 @@ let WINDOW_RULE_MANAGED    = window_rule_flag(rawValue: 0x01)
 let WINDOW_RULE_FULLSCREEN = window_rule_flag(rawValue: 0x02)
 let WINDOW_RULE_MFF        = window_rule_flag(rawValue: 0x04)
 let WINDOW_RULE_MFF_VALUE  = window_rule_flag(rawValue: 0x08)
-
-// MARK: src/window_manager.h
-
-let kCPSAllWindows: Int32    = 0x100
-let kCPSUserGenerated: Int32 = 0x200
-let kCPSNoWindows: Int32     = 0x400
-
-/// `enum window_layout`
-struct window_layout: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let WINDOW_LAYOUT_TABBED       = window_layout(rawValue: 0)
-let WINDOW_LAYOUT_SPLIT        = window_layout(rawValue: 1)
-let WINDOW_LAYOUT_TOGGLE       = window_layout(rawValue: 2)
-let WINDOW_LAYOUT_SPLITH       = window_layout(rawValue: 3)
-let WINDOW_LAYOUT_SPLITV       = window_layout(rawValue: 4)
-let WINDOW_LAYOUT_TOGGLE_SPLIT = window_layout(rawValue: 5)
-
-/// `enum window_op_error`
-struct window_op_error: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let WINDOW_OP_ERROR_SUCCESS           = window_op_error(rawValue: 0)
-let WINDOW_OP_ERROR_INVALID_SRC_VIEW  = window_op_error(rawValue: 1)
-let WINDOW_OP_ERROR_INVALID_SRC_NODE  = window_op_error(rawValue: 2)
-let WINDOW_OP_ERROR_INVALID_DST_VIEW  = window_op_error(rawValue: 3)
-let WINDOW_OP_ERROR_INVALID_DST_NODE  = window_op_error(rawValue: 4)
-let WINDOW_OP_ERROR_INVALID_OPERATION = window_op_error(rawValue: 5)
-let WINDOW_OP_ERROR_SAME_WINDOW       = window_op_error(rawValue: 6)
-let WINDOW_OP_ERROR_CANT_MINIMIZE     = window_op_error(rawValue: 7)
-let WINDOW_OP_ERROR_ALREADY_MINIMIZED = window_op_error(rawValue: 8)
-let WINDOW_OP_ERROR_MINIMIZE_FAILED   = window_op_error(rawValue: 9)
-let WINDOW_OP_ERROR_NOT_MINIMIZED     = window_op_error(rawValue: 10)
-let WINDOW_OP_ERROR_DEMINIMIZE_FAILED = window_op_error(rawValue: 11)
-
-/// `enum purify_mode`
-struct purify_mode: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let PURIFY_DISABLED = purify_mode(rawValue: 0)
-let PURIFY_MANAGED  = purify_mode(rawValue: 1)
-let PURIFY_ALWAYS   = purify_mode(rawValue: 2)
-
-/// `enum ffm_mode`
-struct ffm_mode: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let FFM_DISABLED  = ffm_mode(rawValue: 0)
-let FFM_AUTOFOCUS = ffm_mode(rawValue: 1)
-let FFM_AUTORAISE = ffm_mode(rawValue: 2)
-
-/// `enum window_origin_mode`
-struct window_origin_mode: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let WINDOW_ORIGIN_DEFAULT = window_origin_mode(rawValue: 0)
-let WINDOW_ORIGIN_FOCUSED = window_origin_mode(rawValue: 1)
-let WINDOW_ORIGIN_CURSOR  = window_origin_mode(rawValue: 2)
 
 // MARK: src/space_manager.h, src/space_layout.h
 

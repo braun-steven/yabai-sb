@@ -67,7 +67,7 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
     }
 
     if effects.flags.contains(.layer) {
-        _ = window_manager_set_window_layer(target, layerValue(effects.layer))
+        _ = window_manager_set_window_layer(target, effects.layer)
     }
 
     if effects.flags.contains(.opacity) && effects.opacity >= 0.0 && effects.opacity <= 1.0 {

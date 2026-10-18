@@ -38,12 +38,6 @@ private enum WindowCommand
     static let resizeFormat = "%255[^:]:%f:%f"
     static let ratioFormat  = "%255[^:]:%f"
 
-    static let layoutTabbed      = "tabbed"
-    static let layoutSplit       = "split"
-    static let layoutToggle      = "toggle"
-    static let layoutSplitH      = "splith"
-    static let layoutSplitV      = "splitv"
-    static let layoutToggleSplit = "toggle-split"
     static let splitHorizontal   = "horizontal"
     static let splitVertical     = "vertical"
     static let splitToggle       = "toggle"
@@ -51,17 +45,17 @@ private enum WindowCommand
 
 extension Response
 {
-    mutating func failUnmanagedWindow(_ result: window_op_error)
+    mutating func failUnmanagedWindow(_ result: WindowOperationResult)
     {
-        if result == WINDOW_OP_ERROR_INVALID_SRC_VIEW || result == WINDOW_OP_ERROR_INVALID_SRC_NODE {
-            fail("the acting window is not managed.\n")
-        } else if result == WINDOW_OP_ERROR_INVALID_DST_VIEW || result == WINDOW_OP_ERROR_INVALID_DST_NODE {
-            fail("the selected window is not managed.\n")
+        switch result {
+        case .invalidSourceView, .invalidSourceNode:           fail("the acting window is not managed.\n")
+        case .invalidDestinationView, .invalidDestinationNode: fail("the selected window is not managed.\n")
+        default:                                               break
         }
     }
 }
 
-private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> window_op_error
+private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> WindowOperationResult
 {
     let wm = window_manager_global()
     switch focus {
@@ -72,15 +66,9 @@ private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> window_op
 }
 
 /// `parse_window_layout`
-func parseWindowLayout(_ value: Token) -> window_layout?
+func parseWindowLayout(_ value: Token) -> WindowLayout?
 {
-    if value.equals(WindowCommand.layoutTabbed)      { return WINDOW_LAYOUT_TABBED }
-    if value.equals(WindowCommand.layoutSplit)       { return WINDOW_LAYOUT_SPLIT }
-    if value.equals(WindowCommand.layoutToggle)      { return WINDOW_LAYOUT_TOGGLE }
-    if value.equals(WindowCommand.layoutSplitH)      { return WINDOW_LAYOUT_SPLITH }
-    if value.equals(WindowCommand.layoutSplitV)      { return WINDOW_LAYOUT_SPLITV }
-    if value.equals(WindowCommand.layoutToggleSplit) { return WINDOW_LAYOUT_TOGGLE_SPLIT }
-    return nil
+    WindowLayout.allCases.first { value.equals($0.rawValue) }
 }
 
 /// `parse_split_orientation`
@@ -125,7 +113,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if let treeFocus {
             _ = message.next()
 
-            if windowTreeFocus(actingWindow, treeFocus) != WINDOW_OP_ERROR_SUCCESS {
+            if windowTreeFocus(actingWindow, treeFocus) != .success {
                 rsp.fail("could not locate a container to focus.\n")
                 return .stop
             }
@@ -157,11 +145,11 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if let window = actingWindow {
             let id = Int32(bitPattern: window.id)
             let result = window_manager_minimize_window(window)
-            if result == WINDOW_OP_ERROR_CANT_MINIMIZE {
+            if result == .cannotMinimize {
                 rsp.fail("window with id '\(id)' does not support the minimize operation.\n")
-            } else if result == WINDOW_OP_ERROR_ALREADY_MINIMIZED {
+            } else if result == .alreadyMinimized {
                 rsp.fail("window with id '\(id)' is already minimized.\n")
-            } else if result == WINDOW_OP_ERROR_MINIMIZE_FAILED {
+            } else if result == .minimizeFailed {
                 rsp.fail("could not minimize window with id '\(id)'.\n")
             }
         } else {
@@ -172,9 +160,9 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if selector.didParse, let window = selector.value {
             let id = Int32(bitPattern: window.id)
             let result = window_manager_deminimize_window(window)
-            if result == WINDOW_OP_ERROR_NOT_MINIMIZED {
+            if result == .notMinimized {
                 rsp.fail("window with id '\(id)' is not minimized.\n")
-            } else if result == WINDOW_OP_ERROR_DEMINIMIZE_FAILED {
+            } else if result == .deminimizeFailed {
                 rsp.fail("could not deminimize window with id '\(id)'.\n")
             }
         }
@@ -218,7 +206,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
             let result = window_manager_swap_window(wm, actingWindow, window)
-            if result == WINDOW_OP_ERROR_SAME_WINDOW {
+            if result == .sameWindow {
                 rsp.fail("cannot swap a window with itself.\n")
             } else {
                 rsp.failUnmanagedWindow(result)
@@ -228,7 +216,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         if window_manager_find_tree_view(wm, actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
             _ = message.next()
 
-            if window_manager_tree_move_direction(sm, wm, actingWindow, direction) != WINDOW_OP_ERROR_SUCCESS {
+            if window_manager_tree_move_direction(sm, wm, actingWindow, direction) != .success {
                 rsp.fail("could not move the container in that direction.\n")
                 return .stop
             }
@@ -239,7 +227,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
             let result = window_manager_warp_window(sm, wm, actingWindow, window)
-            if result == WINDOW_OP_ERROR_SAME_WINDOW {
+            if result == .sameWindow {
                 rsp.fail("cannot warp a window onto itself.\n")
             } else {
                 rsp.failUnmanagedWindow(result)
@@ -249,7 +237,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
             let result = window_manager_stack_window(sm, wm, actingWindow, window)
-            if result == WINDOW_OP_ERROR_SAME_WINDOW {
+            if result == .sameWindow {
                 rsp.fail("cannot stack a window onto itself.\n")
             } else {
                 rsp.failUnmanagedWindow(result)
@@ -312,7 +300,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         let value = message.next()
         if grid.scan(value) == 6 {
             let result = window_manager_apply_grid(sm, wm, actingWindow, grid)
-            if result == WINDOW_OP_ERROR_INVALID_SRC_VIEW {
+            if result == .invalidSourceView {
                 rsp.fail("cannot apply grid layout to a managed window.\n")
             }
         } else {
@@ -324,7 +312,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         let value = message.next()
         if value.scan(WindowCommand.moveFormat, &type, &point) == 3 {
             let result = window_manager_move_window_relative(wm, actingWindow, Int32(valueType(type)), point[0], point[1])
-            if result == WINDOW_OP_ERROR_INVALID_SRC_VIEW {
+            if result == .invalidSourceView {
                 rsp.fail("cannot move a managed window.\n")
             }
         } else {
@@ -336,11 +324,11 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         let value = message.next()
         if value.scan(WindowCommand.resizeFormat, &handle, &size) == 3 {
             let result = window_manager_resize_window_relative(wm, actingWindow, Int32(parseResizeHandle(Token(cString: handle)).rawValue), size[0], size[1], true)
-            if result == WINDOW_OP_ERROR_INVALID_SRC_NODE {
+            if result == .invalidSourceNode {
                 rsp.fail("cannot locate the container of the managed window.\n")
-            } else if result == WINDOW_OP_ERROR_INVALID_DST_NODE {
+            } else if result == .invalidDestinationNode {
                 rsp.fail("cannot resize the container in that direction.\n")
-            } else if result == WINDOW_OP_ERROR_INVALID_OPERATION {
+            } else if result == .invalidOperation {
                 rsp.fail("cannot use absolute resizing on a managed window.\n")
             }
         } else {
@@ -352,9 +340,9 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         let value = message.next()
         if value.scan(WindowCommand.ratioFormat, &type, &ratio) == 2 {
             let result = window_manager_adjust_window_ratio(wm, actingWindow, Int32(valueType(type)), ratio[0])
-            if result == WINDOW_OP_ERROR_INVALID_SRC_VIEW {
+            if result == .invalidSourceView {
                 rsp.fail("cannot adjust ratio of a non-managed window.\n")
-            } else if result == WINDOW_OP_ERROR_INVALID_SRC_NODE {
+            } else if result == .invalidSourceNode {
                 rsp.fail("cannot adjust ratio of a root node.\n")
             }
         } else {
@@ -399,7 +387,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     if command.equals(WindowCommand.subLayer) {
         let value = message.next()
         if let layer = parseLayer(value) {
-            if !window_manager_set_window_layer(actingWindow, layerValue(layer)) {
+            if !window_manager_set_window_layer(actingWindow, layer) {
                 rsp.fail("could not change sub-layer of window with id '\(id)' due to an error with the scripting-addition.\n")
             }
         } else {

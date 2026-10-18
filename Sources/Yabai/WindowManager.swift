@@ -228,7 +228,7 @@ let mouseEventMask: UInt32 =
     (1 << CGEventType.rightMouseDown.rawValue) |
     (1 << CGEventType.rightMouseUp.rawValue) |
     (1 << CGEventType.rightMouseDragged.rawValue) |
-    (1 << UInt32(kCGSEventDockControl))
+    (1 << DockSwipe.eventType)
 
 // MOUSE_EVENT_MASK_FFM
 private let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
@@ -446,7 +446,7 @@ func windowManagerTreeWaitForView(_ moveList: [UInt32], _ owner: View)
 //
 
 /// `window_manager_adjust_window_ratio`
-func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: Int32, _ ratio: Float) -> WindowOperationResult
+func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ ratio: Float) -> WindowOperationResult
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
 
@@ -461,7 +461,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
 
     let horizontal = parent.layout == .splitH
     let size = horizontal ? parent.area.w : parent.area.h
-    let percent = type == TYPE_REL ? node.percent + ratio : ratio
+    let percent = type == .rel ? node.percent + ratio : ratio
     let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
 
     if !tree_resize(node, horizontal ? .east : .south, delta) &&
@@ -476,14 +476,14 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
 }
 
 /// `window_manager_move_window_relative`
-func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: Int32, _ dx: Float, _ dy: Float) -> WindowOperationResult
+func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ dx: Float, _ dy: Float) -> WindowOperationResult
 {
     if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
 
     var dx = dx
     var dy = dy
 
-    if type == TYPE_REL {
+    if type == .rel {
         dx += Float(target.frame.origin.x)
         dy += Float(target.frame.origin.y)
     }
@@ -493,15 +493,15 @@ func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, 
 }
 
 /// `window_manager_resize_window_relative_internal`
-func window_manager_resize_window_relative_internal(_ target: Window, _ frame: CGRect, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool)
+func window_manager_resize_window_relative_internal(_ target: Window, _ frame: CGRect, _ direction: ResizeHandle,_ dx: Float, _ dy: Float, _ animate: Bool)
 {
-    let xMod: CGFloat = (direction & HANDLE_LEFT) != 0 ? -1 : (direction & HANDLE_RIGHT)  != 0 ? 1 : 0
-    let yMod: CGFloat = (direction & HANDLE_TOP)  != 0 ? -1 : (direction & HANDLE_BOTTOM) != 0 ? 1 : 0
+    let xMod: CGFloat = direction.contains(.left) ? -1 : direction.contains(.right)  ? 1 : 0
+    let yMod: CGFloat = direction.contains(.top)  ? -1 : direction.contains(.bottom) ? 1 : 0
 
     let fw = Float(max(1, frame.size.width  + CGFloat(dx) * xMod))
     let fh = Float(max(1, frame.size.height + CGFloat(dy) * yMod))
-    let fx = (direction & HANDLE_LEFT) != 0 ? Float(frame.origin.x + frame.size.width  - CGFloat(fw)) : Float(frame.origin.x)
-    let fy = (direction & HANDLE_TOP)  != 0 ? Float(frame.origin.y + frame.size.height - CGFloat(fh)) : Float(frame.origin.y)
+    let fx = direction.contains(.left) ? Float(frame.origin.x + frame.size.width  - CGFloat(fw)) : Float(frame.origin.x)
+    let fy = direction.contains(.top)  ? Float(frame.origin.y + frame.size.height - CGFloat(fh)) : Float(frame.origin.y)
 
     if animate {
         window_manager_animate_window(window_capture(window: target, x: fx, y: fy, w: fw, h: fh))
@@ -514,24 +514,24 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 }
 
 /// `window_manager_resize_window_relative`
-func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: Int32, _ dx: Float, _ dy: Float, _ animate: Bool) -> WindowOperationResult
+func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: ResizeHandle, _ dx: Float, _ dy: Float, _ animate: Bool) -> WindowOperationResult
 {
     if let owner = window_manager_find_managed_window(wm, target) {
-        if direction == HANDLE_ABS || owner.tree == nil { return .invalidOperation }
+        if direction == .abs || owner.tree == nil { return .invalidOperation }
 
         guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
         var didResize = false
-        if (direction & HANDLE_TOP)    != 0 { didResize = tree_resize(node, .north, dy) || didResize }
-        if (direction & HANDLE_BOTTOM) != 0 { didResize = tree_resize(node, .south, dy) || didResize }
-        if (direction & HANDLE_LEFT)   != 0 { didResize = tree_resize(node, .west, dx) || didResize }
-        if (direction & HANDLE_RIGHT)  != 0 { didResize = tree_resize(node, .east, dx) || didResize }
+        if direction.contains(.top)    { didResize = tree_resize(node, .north, dy) || didResize }
+        if direction.contains(.bottom) { didResize = tree_resize(node, .south, dy) || didResize }
+        if direction.contains(.left)   { didResize = tree_resize(node, .west, dx) || didResize }
+        if direction.contains(.right)  { didResize = tree_resize(node, .east, dx) || didResize }
         if !didResize { return .invalidDestinationNode }
 
         tree_view_update(owner)
         view_flush(owner)
     } else {
-        if direction == HANDLE_ABS {
+        if direction == .abs {
             if animate {
                 window_manager_animate_window(window_capture(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
             } else {

@@ -81,10 +81,10 @@ enum Event: Sendable
     case displayMoved(displayID: UInt32)
     case displayResized(displayID: UInt32)
     case displayChanged
-    case mouseDown(Handoff<Unmanaged<CGEvent>>, modifiers: Int32)
+    case mouseDown(Handoff<Unmanaged<CGEvent>>, modifiers: MouseModifiers)
     case mouseUp(Handoff<Unmanaged<CGEvent>>)
     case mouseDragged(Handoff<Unmanaged<CGEvent>>)
-    case mouseMoved(Handoff<Unmanaged<CGEvent>>, modifiers: Int32)
+    case mouseMoved(Handoff<Unmanaged<CGEvent>>, modifiers: MouseModifiers)
     case tabBarClicked(windowID: UInt32)
     case tabCardOrdered(windowID: UInt32)
     case missionControlShowAllWindows

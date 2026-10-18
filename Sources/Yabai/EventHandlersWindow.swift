@@ -226,7 +226,7 @@ import CPrivate
             window_manager_manage_window(space_manager_global(), wm, window, window_space(window.id), 0)
         }
     } else {
-        if ms.current_action == MOUSE_MODE_MOVE && ms.window == window {
+        if ms.current_action == .move && ms.window == window {
             ms.window_frame.size = ms.window.frame.size
         }
 

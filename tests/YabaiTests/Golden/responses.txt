@@ -145,8 +145,8 @@ off
 ### 3 config focus_wrapping
 on
 
-### 7 config mouse_modifier
-(null)
+### 3 config mouse_modifier
+fn
 
 ### 5 config mouse_action1
 none

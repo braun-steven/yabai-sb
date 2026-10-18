@@ -82,22 +82,10 @@ private enum Config
 //
 
 private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
-private let mouseModeNames: [String?] = ["none", "move", "resize", "swap", "stack"]
 
 private let animationEasingNames: [String?] = ["sine", "quad", "cubic", "quart", "quint", "expo", "circ"].flatMap { curve in
     ["ease_in_\(curve)", "ease_out_\(curve)", "ease_in_out_\(curve)"]
 }
-
-private let mouseModNames: [String?] = {
-    var names = [String?](repeating: nil, count: Int(MOUSE_MOD_FN.rawValue) + 1)
-    names[Int(MOUSE_MOD_NONE.rawValue)]  = "none"
-    names[Int(MOUSE_MOD_ALT.rawValue)]   = "alt"
-    names[Int(MOUSE_MOD_SHIFT.rawValue)] = "shift"
-    names[Int(MOUSE_MOD_CMD.rawValue)]   = "cmd"
-    names[Int(MOUSE_MOD_CTRL.rawValue)]  = "ctrl"
-    names[Int(MOUSE_MOD_FN.rawValue)]    = "fn"
-    return names
-}()
 
 /// `parse_config_choice` for an enum named by its raw values: prints the current value without a value; otherwise the
 /// value among choices, or nil after the failure for any other value.
@@ -673,20 +661,20 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_all_spaces(sm, enabled) }
         }
     } else if command.equals(Config.mouseModifier) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModNames, first: MOUSE_MOD_ALT.rawValue, last: MOUSE_MOD_FN.rawValue, current: mouse.modifier) {
-            mouse.modifier = UInt8(choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, current: mouse.modifier) {
+            mouse.modifier = choice
         }
     } else if command.equals(Config.mouseAction1) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.action1.rawValue) {
-            mouse.action1 = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
+            mouse.action1 = choice
         }
     } else if command.equals(Config.mouseAction2) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_MOVE.rawValue, last: MOUSE_MODE_RESIZE.rawValue, current: mouse.action2.rawValue) {
-            mouse.action2 = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
+            mouse.action2 = choice
         }
     } else if command.equals(Config.mouseDropAction) {
-        if let choice = parseChoice(&rsp, domain, command, &message, mouseModeNames, first: MOUSE_MODE_SWAP.rawValue, last: MOUSE_MODE_STACK.rawValue, current: mouse.drop_action.rawValue) {
-            mouse.drop_action = mouse_mode(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.drop_action) {
+            mouse.drop_action = choice
         }
     } else if command.equals(Config.externalBar) {
         configExternalBar(&rsp, domain, command, &message)

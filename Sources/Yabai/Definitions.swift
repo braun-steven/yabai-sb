@@ -1,26 +1,7 @@
-import CoreGraphics
-import Darwin
-import YabaiCore
-
 //
-// NOTE: The constants and enums of the C headers that the daemon uses, with the names and types under which Swift
-// imported them: an int macro is an Int32, a C enum is a RawRepresentable struct with a UInt32 rawValue and a global
-// constant per case. Ported from src/misc/macros.h and the headers named in each section.
+// NOTE: The flags of views and windows, with the names and types under which Swift imported the C enums. Subphase 2.2
+// of doc/swift-refactor.md turns them into OptionSets or Bools next to their models.
 //
-
-// MARK: src/misc/macros.h
-
-let TYPE_ABS: Int32 = 0x1
-let TYPE_REL: Int32 = 0x2
-
-let HANDLE_TOP: Int32    = 0x01
-let HANDLE_BOTTOM: Int32 = 0x02
-let HANDLE_LEFT: Int32   = 0x04
-let HANDLE_RIGHT: Int32  = 0x08
-let HANDLE_ABS: Int32    = 0x10
-
-// MARK: src/view.h
-
 
 /// `enum view_flag`
 struct view_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
@@ -36,8 +17,6 @@ let VIEW_IS_VALID       = view_flag(rawValue: 0x200)
 let VIEW_IS_DIRTY       = view_flag(rawValue: 0x400)
 let VIEW_AUTO_PADDING   = view_flag(rawValue: 0x1000)
 let VIEW_IS_UNPADDED    = view_flag(rawValue: 0x2000)
-
-// MARK: src/window.h
 
 /// `enum window_flag`
 struct window_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
@@ -56,60 +35,3 @@ let WINDOW_RULE_MANAGED    = window_rule_flag(rawValue: 0x01)
 let WINDOW_RULE_FULLSCREEN = window_rule_flag(rawValue: 0x02)
 let WINDOW_RULE_MFF        = window_rule_flag(rawValue: 0x04)
 let WINDOW_RULE_MFF_VALUE  = window_rule_flag(rawValue: 0x08)
-
-// MARK: src/mouse_handler.h
-
-//
-// NOTE: The private event type and fields of the dock swipe gesture that switches spaces (an anonymous C enum, which
-// Swift imported as Int).
-//
-
-let kCGSEventDockControl          = 30
-let kCGSEventTypeField            = 55
-let kCGEventGestureHIDType        = 110
-let kCGEventGestureSwipeMotion    = 123
-let kCGEventGestureSwipeProgress  = 124
-let kCGEventGestureSwipeVelocityX = 129
-let kCGEventGesturePhase          = 132
-let kIOHIDEventTypeDockSwipe      = 23
-let kCGGestureMotionHorizontal    = 1
-let kCGSGesturePhaseBegan         = 1
-let kCGSGesturePhaseEnded         = 4
-let kCGSGesturePhaseCancelled     = 8
-
-/// `enum mouse_drop_action`
-struct mouse_drop_action: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let MOUSE_DROP_ACTION_NONE        = mouse_drop_action(rawValue: 0)
-let MOUSE_DROP_ACTION_STACK       = mouse_drop_action(rawValue: 1)
-let MOUSE_DROP_ACTION_SWAP        = mouse_drop_action(rawValue: 2)
-let MOUSE_DROP_ACTION_WARP_TOP    = mouse_drop_action(rawValue: 3)
-let MOUSE_DROP_ACTION_WARP_RIGHT  = mouse_drop_action(rawValue: 4)
-let MOUSE_DROP_ACTION_WARP_BOTTOM = mouse_drop_action(rawValue: 5)
-let MOUSE_DROP_ACTION_WARP_LEFT   = mouse_drop_action(rawValue: 6)
-
-/// `enum mouse_mod`
-struct mouse_mod: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let MOUSE_MOD_NONE  = mouse_mod(rawValue: 0x01)
-let MOUSE_MOD_ALT   = mouse_mod(rawValue: 0x02)
-let MOUSE_MOD_SHIFT = mouse_mod(rawValue: 0x04)
-let MOUSE_MOD_CMD   = mouse_mod(rawValue: 0x08)
-let MOUSE_MOD_CTRL  = mouse_mod(rawValue: 0x10)
-let MOUSE_MOD_FN    = mouse_mod(rawValue: 0x20)
-
-/// `enum mouse_mode`
-struct mouse_mode: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let MOUSE_MODE_NONE   = mouse_mode(rawValue: 0)
-let MOUSE_MODE_MOVE   = mouse_mode(rawValue: 1)
-let MOUSE_MODE_RESIZE = mouse_mode(rawValue: 2)
-let MOUSE_MODE_SWAP   = mouse_mode(rawValue: 3)
-let MOUSE_MODE_STACK  = mouse_mode(rawValue: 4)
-
-/// `struct mouse_window_info`: how a dragged window changed.
-struct mouse_window_info: Sendable
-{
-    var dx: Float = 0, dy: Float = 0, dw: Float = 0, dh: Float = 0
-    var changed_x = false, changed_y = false
-    var changed_w = false, changed_h = false
-    var changed_position = false
-    var changed_size = false
-}

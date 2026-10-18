@@ -311,7 +311,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var point: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.moveFormat, &type, &point) == 3 {
-            let result = window_manager_move_window_relative(wm, actingWindow, Int32(valueType(type)), point[0], point[1])
+            let result = window_manager_move_window_relative(wm, actingWindow, valueType(type), point[0], point[1])
             if result == .invalidSourceView {
                 rsp.fail("cannot move a managed window.\n")
             }
@@ -323,7 +323,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var size: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.resizeFormat, &handle, &size) == 3 {
-            let result = window_manager_resize_window_relative(wm, actingWindow, Int32(parseResizeHandle(Token(cString: handle)).rawValue), size[0], size[1], true)
+            let result = window_manager_resize_window_relative(wm, actingWindow, parseResizeHandle(Token(cString: handle)), size[0], size[1], true)
             if result == .invalidSourceNode {
                 rsp.fail("cannot locate the container of the managed window.\n")
             } else if result == .invalidDestinationNode {
@@ -339,7 +339,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var ratio: [Float] = [0]
         let value = message.next()
         if value.scan(WindowCommand.ratioFormat, &type, &ratio) == 2 {
-            let result = window_manager_adjust_window_ratio(wm, actingWindow, Int32(valueType(type)), ratio[0])
+            let result = window_manager_adjust_window_ratio(wm, actingWindow, valueType(type), ratio[0])
             if result == .invalidSourceView {
                 rsp.fail("cannot adjust ratio of a non-managed window.\n")
             } else if result == .invalidSourceNode {

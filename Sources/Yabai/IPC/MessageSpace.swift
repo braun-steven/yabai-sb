@@ -85,10 +85,10 @@ extension Token
     }
 }
 
-/// `parse_value_type` of the string a "%255[^:]" conversion read.
-func valueType(_ type: [CChar]) -> UInt8
+/// `parse_value_type` of the string a "%255[^:]" conversion read; nil for an unknown type.
+func valueType(_ type: [CChar]) -> ValueType?
 {
-    parseValueType(Token(cString: type))?.rawValue ?? 0
+    parseValueType(Token(cString: type))
 }
 
 extension Response
@@ -318,7 +318,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var spacing: [Int32] = [0, 0, 0, 0]
         let value = message.next()
         if value.scan(SpaceCommand.paddingFormat, &type, &spacing) == 5 {
-            if !space_manager_set_padding_for_space(sm, actingSid, Int32(valueType(type)), spacing[0], spacing[1], spacing[2], spacing[3]) {
+            if !space_manager_set_padding_for_space(sm, actingSid, valueType(type), spacing[0], spacing[1], spacing[2], spacing[3]) {
                 rsp.fail("cannot set padding for a non-managed space.\n")
             }
         } else {
@@ -329,7 +329,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var gap: [Int32] = [0]
         let value = message.next()
         if value.scan(SpaceCommand.gapFormat, &type, &gap) == 2 {
-            if !space_manager_set_gap_for_space(sm, actingSid, Int32(valueType(type)), gap[0]) {
+            if !space_manager_set_gap_for_space(sm, actingSid, valueType(type), gap[0]) {
                 rsp.fail("cannot set gap for a non-managed space.\n")
             }
         } else {

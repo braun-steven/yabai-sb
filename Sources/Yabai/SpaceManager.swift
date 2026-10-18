@@ -137,14 +137,14 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ lay
 }
 
 /// `space_manager_set_gap_for_space`
-func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ gap: Int32) -> Bool
+func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: ValueType?,_ gap: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
 
-    if type == TYPE_ABS {
+    if type == .abs {
         target.window_gap = gap
-    } else if type == TYPE_REL {
+    } else if type == .rel {
         target.window_gap = addAndClampToZero(target.window_gap, gap)
     }
 
@@ -254,17 +254,17 @@ func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64,
 }
 
 /// `space_manager_set_padding_for_space`
-func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
+func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: ValueType?,_ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
 
-    if type == TYPE_ABS {
+    if type == .abs {
         target.top_padding    = top
         target.bottom_padding = bottom
         target.left_padding   = left
         target.right_padding  = right
-    } else if type == TYPE_REL {
+    } else if type == .rel {
         target.top_padding    = addAndClampToZero(target.top_padding, top)
         target.bottom_padding = addAndClampToZero(target.bottom_padding, bottom)
         target.left_padding   = addAndClampToZero(target.left_padding, left)
@@ -779,16 +779,16 @@ func space_manager_focus_space_using_gesture(_ newDid: UInt32, _ newSid: UInt64)
     guard let eventDockControl = CGEvent(source: nil) else { return false }
 
     let sign: Double = (newIndex - curIndex) > 0 ? 1.0 : -1.0
-    eventDockControl.setIntegerValueField(CGEventField(rawValue: UInt32(kCGSEventTypeField))!, value: Int64(kCGSEventDockControl))
-    eventDockControl.setIntegerValueField(CGEventField(rawValue: UInt32(kCGEventGestureHIDType))!, value: Int64(kIOHIDEventTypeDockSwipe))
-    eventDockControl.setIntegerValueField(CGEventField(rawValue: UInt32(kCGEventGestureSwipeMotion))!, value: Int64(kCGGestureMotionHorizontal))
-    eventDockControl.setDoubleValueField(CGEventField(rawValue: UInt32(kCGEventGestureSwipeProgress))!, value: sign)
-    eventDockControl.setDoubleValueField(CGEventField(rawValue: UInt32(kCGEventGestureSwipeVelocityX))!, value: sign * 9999.0)
+    eventDockControl.setIntegerValueField(DockSwipe.typeField, value: Int64(DockSwipe.eventType))
+    eventDockControl.setIntegerValueField(DockSwipe.hidTypeField, value: DockSwipe.hidType)
+    eventDockControl.setIntegerValueField(DockSwipe.motionField, value: DockSwipe.motionHorizontal)
+    eventDockControl.setDoubleValueField(DockSwipe.progressField, value: sign)
+    eventDockControl.setDoubleValueField(DockSwipe.velocityXField, value: sign * 9999.0)
 
     for _ in 0..<count {
-        eventDockControl.setIntegerValueField(CGEventField(rawValue: UInt32(kCGEventGesturePhase))!, value: Int64(kCGSGesturePhaseBegan))
+        eventDockControl.setIntegerValueField(DockSwipe.phaseField, value: DockSwipe.phaseBegan)
         eventDockControl.post(tap: .cgSessionEventTap)
-        eventDockControl.setIntegerValueField(CGEventField(rawValue: UInt32(kCGEventGesturePhase))!, value: Int64(kCGSGesturePhaseEnded))
+        eventDockControl.setIntegerValueField(DockSwipe.phaseField, value: DockSwipe.phaseEnded)
         eventDockControl.post(tap: .cgSessionEventTap)
     }
 

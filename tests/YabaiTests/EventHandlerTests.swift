@@ -57,11 +57,11 @@ func mouseResizeHandle()
 {
     let frame = CGRect(x: 100, y: 100, width: 200, height: 100)
 
-    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 110)) == HANDLE_LEFT | HANDLE_TOP)
-    #expect(mouseResizeDirection(frame, CGPoint(x: 290, y: 190)) == HANDLE_RIGHT | HANDLE_BOTTOM)
+    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 110)) == [.left, .top])
+    #expect(mouseResizeDirection(frame, CGPoint(x: 290, y: 190)) == [.right, .bottom])
 
     // NOTE: on a center line only one edge is dragged
-    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 190)) == HANDLE_BOTTOM)
-    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 150)) == HANDLE_LEFT)
-    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 150)) == 0)
+    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 190)) == .bottom)
+    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 150)) == .left)
+    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 150)) == [])
 }

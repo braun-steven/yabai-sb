@@ -13,26 +13,26 @@ import YabaiCore
 // NOTE: A resize drags the corner (or edge) of the window that is closest to where the mouse went down.
 //
 
-func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
+func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 {
-    var direction: Int32 = 0
+    var direction: ResizeHandle = []
     let frameMid = CGPoint(x: frame.midX, y: frame.midY)
 
-    if point.x < frameMid.x { direction |= HANDLE_LEFT }
-    if point.y < frameMid.y { direction |= HANDLE_TOP }
-    if point.x > frameMid.x { direction |= HANDLE_RIGHT }
-    if point.y > frameMid.y { direction |= HANDLE_BOTTOM }
+    if point.x < frameMid.x { direction.insert(.left) }
+    if point.y < frameMid.y { direction.insert(.top) }
+    if point.x > frameMid.x { direction.insert(.right) }
+    if point.y > frameMid.y { direction.insert(.bottom) }
 
     return direction
 }
 
 /// `EVENT_HANDLER(MOUSE_DOWN)`
-@WM func mouseDown(_ event: CGEvent, _ modifiers: Int32)
+@WM func mouseDown(_ event: CGEvent, _ modifiers: MouseModifiers)
 {
     let ms = mouse_state_global()
 
     if mission_control_is_active()                    { return }
-    if ms.current_action != MOUSE_MODE_NONE { return }
+    if ms.current_action != .none { return }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
@@ -42,19 +42,18 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     ms.window = window
     ms.window_frame = window.frame
     ms.down_location = point
-    ms.direction = 0
+    ms.direction = []
 
     let button = event.getIntegerValueField(.mouseEventButtonNumber)
-    let mod = UInt8(truncatingIfNeeded: modifiers)
 
-    if button == Int64(CGMouseButton.left.rawValue) && ms.modifier == mod {
+    if button == Int64(CGMouseButton.left.rawValue) && ms.modifier.modifiers == modifiers {
         ms.current_action = ms.action1
-    } else if button == Int64(CGMouseButton.right.rawValue) && ms.modifier == mod {
+    } else if button == Int64(CGMouseButton.right.rawValue) && ms.modifier.modifiers == modifiers {
         ms.current_action = ms.action2
     }
 
-    if ms.current_action == MOUSE_MODE_RESIZE {
-        ms.direction = UInt8(truncatingIfNeeded: mouseResizeDirection(ms.window_frame, point))
+    if ms.current_action == .resize {
+        ms.direction = mouseResizeDirection(ms.window_frame, point)
     }
 }
 
@@ -102,13 +101,13 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
     if mission_control_is_active() { return }
 
     guard let window = ms.window else {
-        ms.current_action = MOUSE_MODE_NONE
+        ms.current_action = .none
         return
     }
 
     defer {
         ms.window = nil
-        ms.current_action = MOUSE_MODE_NONE
+        ms.current_action = .none
     }
 
     if !window_is_valid(window) {
@@ -126,7 +125,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> Int32
 
     guard let srcView = window_manager_find_managed_window(wm, window) else { return }
 
-    var info = mouse_window_info()
+    var info = MouseWindowChange()
     mouse_window_info_populate(ms, &info)
 
     if info.changed_position && !info.changed_size {
@@ -173,7 +172,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     let dx = Int32(point.x - ms.down_location.x)
     let dy = Int32(point.y - ms.down_location.y)
 
-    window_manager_resize_window_relative_internal(ms.window, ms.window.frame, Int32(ms.direction), Float(dx), Float(dy), false)
+    window_manager_resize_window_relative_internal(ms.window, ms.window.frame, ms.direction, Float(dx), Float(dy), false)
 
     ms.last_moved_time = eventTime
     ms.down_location = point
@@ -198,22 +197,22 @@ private let mouseResizeThrottleMs: Float = 67.67
     if !window_is_valid(window) {
         debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         ms.window = nil
-        ms.current_action = MOUSE_MODE_NONE
+        ms.current_action = .none
         return
     }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DRAGGED: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    if ms.current_action == MOUSE_MODE_MOVE {
+    if ms.current_action == .move {
         mouseDragMoveWindow(point)
-    } else if ms.current_action == MOUSE_MODE_RESIZE {
+    } else if ms.current_action == .resize {
         if !mouseDragResizeWindow(point) { return }
     }
 
     if window_manager_find_managed_window(window_manager_global(), ms.window) == nil { return }
 
-    var info = mouse_window_info()
+    var info = MouseWindowChange()
     mouse_window_info_populate(ms, &info)
 
     if info.changed_position && !info.changed_size {

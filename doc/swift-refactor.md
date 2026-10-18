@@ -82,7 +82,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 1 | Cleanup, one type per concept, Swift strings | [x] | c05a4dd6 | baseline in `doc/performance/2026-10-18-refactor-baseline/` |
 | **2** | **Swift types** | [~] | | |
 | 2.1 | Pseudo-enums → enums and OptionSets | [x] | 51ef4736 | flags left to 2.2 |
-| 2.2 | Bit fields → OptionSets and Bools | [ ] | | |
+| 2.2 | Bit fields → OptionSets and Bools | [x] | 78fcf65e | `Definitions.swift` deleted |
 | 2.3 | Typed IDs | [ ] | | |
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [ ] | | |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [ ] | | |
@@ -433,3 +433,22 @@ not here.
 - Notes for the next agent: `Edit` works on files read with `sed`/`grep`, so large files need no full `Read`.
   Converting a switch to an exhaustive enum turns `default:` into a "will never be executed" error. New pitfall about
   `.none` cases is in `AGENTS.md`.
+
+### 2026-10-18 Subphase 2.2 [x]
+- Commits: ccdfef12..78fcf65e (plus this report)
+- Done: `View.flags` → `ViewOverrides` OptionSet (`overrides`: layout, the paddings, gap, auto padding a space set
+  itself) and Bools `isPaddingEnabled`, `isGapEnabled`, `isValid`, `isDirty`, `isUnpadded`; the spacing selector is
+  `enum ViewSpacing` with `.view`/`.spaceManager` key paths and `.override`. `Window.flags` → Bools `hasShadow`,
+  `isFullscreen`, `isMinimized`, `isFloating`, `isSticky`, `isWindowed`, `isMovable`, `isResizable`;
+  `Window.rule_flags` → `isManagedByRule`, `isFullscreenByRule`, `mouseFollowsFocusByRule: Bool?` (MFF + MFF_VALUE).
+  `RuleProp` → `Bool?` in `RuleEffects` (`mff` renamed `mouseFollowsFocus`). AX notification masks →
+  `WindowNotifications` / `ApplicationNotifications` OptionSets (`.all`, `.required`). `Definitions.swift` deleted.
+- Output changes: none (golden unchanged).
+- Verification: `make`, `make test` (112 tests: 70 Yabai + 42 YabaiCore, golden included) at 78fcf65e.
+- Decisions: Bools rather than OptionSets for window and view state (only set/check/clear was used). `View()` keeps
+  padding and gap disabled by default (tests build bare views); `view_create` enables them as before. The query
+  property masks (`WindowProperty` etc., `UInt64` constants in YabaiCore `Query.swift`) stay for phase 5.5 (Codable
+  queries).
+- Next: 2.3 (typed IDs).
+- Notes for the next agent: free functions like `view_is_dirty`, `window_can_move` now just read the Bools; phase 3
+  folds them into the models.

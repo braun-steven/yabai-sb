@@ -10,7 +10,7 @@ import YabaiCore
 
 private struct Entry
 {
-    let windowID: UInt32
+    let windowID: WindowID
     let title: CFString?
     let icon: CGImage?
     let text: CGColor
@@ -30,7 +30,7 @@ private struct Snapshot: @unchecked Sendable
     let appearance: TabBarAppearance
     let cardRadius: CGFloat
     let sid: SpaceID
-    let aboveWid: UInt32
+    let aboveWid: WindowID
     let level: Int32
     let subLevel: Int32
     let font: CTFont?
@@ -46,7 +46,7 @@ private struct Snapshot: @unchecked Sendable
     // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
     // AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window.
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
-    init(_ bar: TabBar, _ aboveWid: UInt32, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
+    init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
     {
         let wm = window_manager_global()
         frame = bar.frame
@@ -115,7 +115,7 @@ func tabBarGlassInnerRect(_ bounds: CGRect) -> CGRect
 @MainActor
 private final class TabButton: NSButton
 {
-    var windowID: UInt32 = 0
+    var windowID: WindowID = 0
     var icon: CGImage?
 
     init()
@@ -217,7 +217,7 @@ private final class Panel
     var buttons: [TabButton] = []
     var separators: [NSView] = []
     var snapshot: Snapshot?
-    var pointerWindowID: UInt32?
+    var pointerWindowID: WindowID?
     var pressed = false
     var accessibilityObserver: NSObjectProtocol?
     var backdrop: NSView?
@@ -226,7 +226,7 @@ private final class Panel
     var backdropRadius: CGFloat = 0
     var below = false
 
-    var id: UInt32 { UInt32(panel.windowNumber) }
+    var id: WindowID { WindowID(UInt32(panel.windowNumber)) }
 
     init()
     {
@@ -292,7 +292,7 @@ private final class Panel
         return NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? color.copy(alpha: 1) ?? color : color
     }
 
-    func pointer(windowID: UInt32?, pressed: Bool)
+    func pointer(windowID: WindowID?, pressed: Bool)
     {
         pointerWindowID = windowID
         self.pressed = pressed
@@ -528,7 +528,7 @@ private final class Panel
         tab_bar_glass_move_to_space(id, snapshot.sid)
         // NOTE: Keep AppKit's order in sync with SkyLight even for visible panels. Otherwise a newly created
         // outer card can be put back above an existing inner card when AppKit next displays its windows.
-        panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid))
+        panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid.rawValue))
         tab_bar_glass_move_to_space(id, snapshot.sid)
 
         tab_bar_glass_set_level(id, snapshot.level, snapshot.subLevel)
@@ -536,10 +536,10 @@ private final class Panel
         if below { EventLoop.post(.tabCardOrdered(windowID: snapshot.aboveWid)) }
     }
 
-    func order(_ wid: UInt32)
+    func order(_ wid: WindowID)
     {
         guard panel.isVisible else { return }
-        panel.order(below ? .below : .above, relativeTo: Int(wid))
+        panel.order(below ? .below : .above, relativeTo: Int(wid.rawValue))
         if let snapshot { tab_bar_glass_move_to_space(id, snapshot.sid) }
         tab_bar_glass_order_panel(id, below, wid)
         if below { EventLoop.post(.tabCardOrdered(windowID: wid)) }
@@ -555,10 +555,10 @@ private final class Panel
 final class TabBarGlass: @unchecked Sendable
 {
     private let lock = NSLock()
-    private var panelId: UInt32 = 0
+    private var panelId: WindowID = 0
     private var panel: Panel? // main queue only
 
-    var id: UInt32 { lock.withLock { panelId } }
+    var id: WindowID { lock.withLock { panelId } }
 
     @MainActor
     fileprivate func apply(_ snapshot: Snapshot)
@@ -579,7 +579,7 @@ final class TabBarGlass: @unchecked Sendable
     }
 
     @MainActor
-    func order(_ wid: UInt32)
+    func order(_ wid: WindowID)
     {
         panel?.order(wid)
     }
@@ -592,7 +592,7 @@ final class TabBarGlass: @unchecked Sendable
         lock.withLock { panelId = 0 }
     }
 
-    func pointer(windowID: UInt32?, pressed: Bool)
+    func pointer(windowID: WindowID?, pressed: Bool)
     {
         onMain { $0.panel?.pointer(windowID: windowID, pressed: pressed) }
     }
@@ -616,29 +616,29 @@ func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> 
     return color
 }
 
-func tab_bar_glass_move_to_space(_ wid: UInt32, _ sid: SpaceID)
+func tab_bar_glass_move_to_space(_ wid: WindowID, _ sid: SpaceID)
 {
-    let windows = [NSNumber(value: Int32(bitPattern: wid))] as CFArray
+    let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
     SLSMoveWindowsToManagedSpace(connection_global(), windows, sid.rawValue)
 }
 
-func tab_bar_glass_set_level(_ wid: UInt32, _ level: Int32, _ subLevel: Int32)
+func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
 {
-    SLSSetWindowLevel(connection_global(), wid, level)
-    SLSSetWindowSubLevel(connection_global(), wid, subLevel)
+    SLSSetWindowLevel(connection_global(), wid.rawValue, level)
+    SLSSetWindowSubLevel(connection_global(), wid.rawValue, subLevel)
 }
 
 //
 // NOTE: A card ordered below the window lands between the window and its border, so the border is ordered
 // right below the window again to stay on top of the card.
 //
-func tab_bar_glass_order_panel(_ wid: UInt32, _ below: Bool, _ relativeWid: UInt32)
+func tab_bar_glass_order_panel(_ wid: WindowID, _ below: Bool, _ relativeWid: WindowID)
 {
-    SLSOrderWindow(connection_global(), wid, below ? -1 : 1, relativeWid)
+    SLSOrderWindow(connection_global(), wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
     if below { border_window_ordered(relativeWid) }
 }
 
-func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
+func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
 {
     let snapshot = Snapshot(bar, aboveWid, entries, count)
     if bar.glass == nil { bar.glass = TabBarGlass() }
@@ -650,7 +650,7 @@ func tab_bar_glass_hide(_ bar: TabBar)
     bar.glass?.onMain { $0.hide() }
 }
 
-func tab_bar_glass_order(_ bar: TabBar, _ wid: UInt32)
+func tab_bar_glass_order(_ bar: TabBar, _ wid: WindowID)
 {
     bar.glass?.onMain { $0.order(wid) }
 }
@@ -662,7 +662,7 @@ func tab_bar_glass_release(_ bar: TabBar)
     bar.glass = nil
 }
 
-func tab_bar_glass_panel_id(_ bar: TabBar) -> UInt32
+func tab_bar_glass_panel_id(_ bar: TabBar) -> WindowID
 {
     bar.glass?.id ?? 0
 }

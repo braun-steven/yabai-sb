@@ -7,15 +7,15 @@ import YabaiCore
 /// The classic bar window or native glass panel, and the tabs it shows.
 final class TabBar
 {
-    var id: UInt32 = 0
+    var id: WindowID = 0
     var context: CGContext?
     var frame = CGRect.zero
     var card = CGRect.zero
     var sid: SpaceID = 0
-    var above_wid: UInt32 = 0
+    var above_wid: WindowID = 0
     var hidden = false
     var entry_count: Int32 = 0
-    var entry_list: [UInt32] = []
+    var entry_list: [WindowID] = []
     var glass: TabBarGlass?
     var owner: UnsafeMutableRawPointer?
     var redraw: (@convention(c) (UnsafeMutableRawPointer?) -> Void)?
@@ -89,7 +89,7 @@ func tab_bar_slot(_ area: CGRect, _ index: Int32, _ count: Int32) -> CGRect
 /// `struct tab_bar_entry` (tab_bar.h)
 struct TabBarEntry
 {
-    var focus_wid: UInt32
+    var focus_wid: WindowID
     var title: CFString?
     var icon: CGImage?
     var state: TabBarState
@@ -110,8 +110,8 @@ private struct TabBarHit: Sendable
 {
     let frame: CGRect
     let sid: SpaceID
-    let aboveWid: UInt32
-    let entries: [UInt32]
+    let aboveWid: WindowID
+    let entries: [WindowID]
     let glass: TabBarGlass?
 }
 private let tabBarHits = Mutex<[TabBarHit]>([])
@@ -162,21 +162,21 @@ private func tabBarPublishHits()
 // window (menu bar extras, Control Center, notifications, floating windows) may cover it. A click goes
 // to the bar only when the window that would receive it is one of ours or is ordered behind the bar.
 //
-private func tabBarIsCovered(_ point: CGPoint, _ aboveWid: UInt32) -> Bool
+private func tabBarIsCovered(_ point: CGPoint, _ aboveWid: WindowID) -> Bool
 {
     var point = point
     var windowPoint = CGPoint.zero
     var wid: UInt32 = 0
     var cid: Int32 = 0
     SLSFindWindowAndOwner(connection_global(), 0, 1, 0, &point, &windowPoint, &wid, &cid)
-    if wid == 0 || cid == connection_global() || wid == aboveWid { return false }
-    guard let windows = CGWindowListCreateC(.optionOnScreenAboveWindow, aboveWid) else { return false }
+    if wid == 0 || cid == connection_global() || wid == aboveWid.rawValue { return false }
+    guard let windows = CGWindowListCreateC(.optionOnScreenAboveWindow, aboveWid.rawValue) else { return false }
     return CFArrayContainsValue(windows, CFRange(location: 0, length: CFArrayGetCount(windows)), UnsafeRawPointer(bitPattern: UInt(wid)))
 }
 
-func tab_bar_hit_test(_ point: CGPoint, _ wid: UnsafeMutablePointer<UInt32>!) -> Bool
+func tab_bar_hit_test(_ point: CGPoint, _ wid: UnsafeMutablePointer<WindowID>!) -> Bool
 {
-    let above: UInt32? = tabBarHits.withLock { hits in
+    let above: WindowID? = tabBarHits.withLock { hits in
         for hit in hits {
             if !hit.frame.contains(point) || !space_is_visible(hit.sid) { continue }
             guard let index = tabBarHitIndex(point, frame: hit.frame, count: hit.entries.count, glass: hit.glass != nil) else { continue }
@@ -203,7 +203,7 @@ func tabBarHitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) ->
 private struct TabBarPointer: Sendable
 {
     var glass: TabBarGlass?
-    var windowID: UInt32?
+    var windowID: WindowID?
     var pressed = false
 }
 private let tabBarPointer = Mutex(TabBarPointer())
@@ -214,7 +214,7 @@ func tab_bar_pointer_update(_ point: CGPoint, pressed: Bool)
         hits.first { $0.glass != nil && $0.frame.contains(point) && space_is_visible($0.sid) }
     }
     var glass: TabBarGlass?
-    var windowID: UInt32?
+    var windowID: WindowID?
     if let hit, !tabBarIsCovered(point, hit.aboveWid),
        let index = tabBarHitIndex(point, frame: hit.frame, count: hit.entries.count, glass: true) {
         glass = hit.glass
@@ -296,7 +296,7 @@ func tab_bar_draw_title(_ context: CGContext, _ font: CTFont?, _ glass: Bool, _ 
     }
 }
 
-func tab_bar_copy_title(_ wid: UInt32) -> CFString?
+func tab_bar_copy_title(_ wid: WindowID) -> CFString?
 {
     guard let target = window_manager_find_window(window_manager_global(), wid) else { return nil }
     if let title = target.title, CFStringGetLength(title) > 0 { return title }
@@ -307,7 +307,7 @@ func tab_bar_copy_title(_ wid: UInt32) -> CFString?
 //
 // NOTE: The application icon of a window, loaded once per application and owned by it.
 //
-func tab_bar_icon(_ wid: UInt32) -> CGImage?
+func tab_bar_icon(_ wid: WindowID) -> CGImage?
 {
     guard window_manager_global().tab_bar_icons,
           let target = window_manager_find_window(window_manager_global(), wid), let app = target.application else { return nil }
@@ -387,13 +387,15 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
     var region: CFTypeRef?
     CGSNewRegionWithRect(&frame, &region)
     let shape = region!
-    SLSNewWindow(connection_global(), 2, 0, 0, shape, &bar.id)
+    var barID: UInt32 = 0
+    SLSNewWindow(connection_global(), 2, 0, 0, shape, &barID)
+    bar.id = WindowID(barID)
     var tags: UInt64 = (1 << 1) | (1 << 9)
-    SLSSetWindowTags(connection_global(), bar.id, &tags, 64)
-    sls_window_disable_shadow(bar.id)
-    SLSSetWindowResolution(connection_global(), bar.id, 2)
-    SLSSetWindowOpacity(connection_global(), bar.id, false)
-    bar.context = SLWindowContextCreate(connection_global(), bar.id, nil)
+    SLSSetWindowTags(connection_global(), bar.id.rawValue, &tags, 64)
+    sls_window_disable_shadow(bar.id.rawValue)
+    SLSSetWindowResolution(connection_global(), bar.id.rawValue, 2)
+    SLSSetWindowOpacity(connection_global(), bar.id.rawValue, false)
+    bar.context = SLWindowContextCreate(connection_global(), bar.id.rawValue, nil)
 }
 
 //
@@ -411,7 +413,7 @@ private func tabBarKeepOnSpace(_ bar: TabBar)
 // sits above, draws the entries and orders it right above that window (right below it for a glass bar
 // with a backdrop card, which then covers the whole card). Titles stay owned by the caller.
 //
-func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int32)
+func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int32)
 {
     bar.card = card
     let count = min(entryCount, tabBarMaxEntryCount)
@@ -423,7 +425,7 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
             CGSNewRegionWithRect(&frame, &region)
             let shape = region!
             SLSDisableUpdate(connection_global())
-            SLSSetWindowShape(connection_global(), bar.id, 0, 0, shape)
+            SLSSetWindowShape(connection_global(), bar.id.rawValue, 0, 0, shape)
             SLSReenableUpdate(connection_global())
         }
         bar.frame = frame
@@ -439,9 +441,9 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
     bar.entry_list = (0..<Int(count)).map { entries[$0].focus_wid }
     if bar.id != 0 {
         tabBarDraw(bar, entries, count)
-        SLSSetWindowLevel(connection_global(), bar.id, window_level(aboveWid))
-        SLSSetWindowSubLevel(connection_global(), bar.id, window_sub_level(aboveWid))
-        SLSOrderWindow(connection_global(), bar.id, 1, aboveWid)
+        SLSSetWindowLevel(connection_global(), bar.id.rawValue, window_level(aboveWid))
+        SLSSetWindowSubLevel(connection_global(), bar.id.rawValue, window_sub_level(aboveWid))
+        SLSOrderWindow(connection_global(), bar.id.rawValue, 1, aboveWid.rawValue)
         tabBarKeepOnSpace(bar)
     } else { tab_bar_glass_render(bar, aboveWid, entries, count) }
     tabBarPublishHits()
@@ -450,7 +452,7 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
 func tab_bar_hide(_ bar: TabBar)
 {
     if !tabBarExists(bar) || bar.hidden { return }
-    if bar.id != 0 { SLSOrderWindow(connection_global(), bar.id, 0, 0) }
+    if bar.id != 0 { SLSOrderWindow(connection_global(), bar.id.rawValue, 0, 0) }
     else { tab_bar_glass_hide(bar) }
     bar.hidden = true
     tabBarPublishHits()
@@ -461,9 +463,9 @@ func tab_bar_release(_ bar: TabBar)
     if !tabBarExists(bar) { return }
     if let i = tabBarList.firstIndex(of: bar) { tabBarList.remove(at: i) }
     if bar.id != 0 {
-        SLSOrderWindow(connection_global(), bar.id, 0, 0)
+        SLSOrderWindow(connection_global(), bar.id.rawValue, 0, 0)
         bar.context = nil
-        SLSReleaseWindow(connection_global(), bar.id)
+        SLSReleaseWindow(connection_global(), bar.id.rawValue)
     } else { tab_bar_glass_release(bar) }
     bar.reset()
     tabBarPublishHits()
@@ -473,18 +475,18 @@ func tab_bar_release(_ bar: TabBar)
 // NOTE: Window id of the backdrop card of a visible bar, or 0 when it has none (yet). The panel is created on the
 // main queue, so the id only becomes known after the first update of the bar reaches it.
 //
-func tab_bar_card_id(_ bar: TabBar) -> UInt32
+func tab_bar_card_id(_ bar: TabBar) -> WindowID
 {
     if bar.hidden || bar.glass == nil { return 0 }
     if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return 0 }
     return tab_bar_glass_panel_id(bar)
 }
 
-func tab_bar_order(_ wid: UInt32)
+func tab_bar_order(_ wid: WindowID)
 {
     for bar in tabBarOuterFirst(tabBarList.filter { !$0.hidden && $0.above_wid == wid }) {
         if bar.id != 0 {
-            SLSOrderWindow(connection_global(), bar.id, 1, wid)
+            SLSOrderWindow(connection_global(), bar.id.rawValue, 1, wid.rawValue)
             tabBarKeepOnSpace(bar)
         } else { tab_bar_glass_order(bar, wid) }
     }
@@ -502,7 +504,7 @@ func tab_bar_redraw_all()
     for bar in tabBarOuterFirst(tabBarList) { bar.redraw?(bar.owner) }
 }
 
-func tab_bar_refresh_for_window(_ wid: UInt32)
+func tab_bar_refresh_for_window(_ wid: WindowID)
 {
     if wid == 0 { return }
     guard let owner = window_manager_global().managed_window.find(wid) else { return }

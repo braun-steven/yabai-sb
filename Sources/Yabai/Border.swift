@@ -50,7 +50,7 @@ struct BorderEdges
 //
 private final class Border
 {
-    let wid: UInt32
+    let wid: WindowID
     var ids: [UInt32] = [0, 0, 0, 0]
     var contexts: [CGContext?] = [nil, nil, nil, nil]
     var edges = BorderEdges()
@@ -74,7 +74,7 @@ private final class Border
     var level: Int32 = 0
     var subLevel: Int32 = 0
 
-    init(_ wid: UInt32) { self.wid = wid }
+    init(_ wid: WindowID) { self.wid = wid }
 }
 
 private struct BorderSettings
@@ -88,11 +88,11 @@ private struct BorderSettings
 // NOTE: Every access to the reference objects in this state holds borderLock, including the main-thread callbacks.
 private struct BorderState: @unchecked Sendable
 {
-    var borders: [UInt32: Border] = [:]
+    var borders: [WindowID: Border] = [:]
     var settings = BorderSettings()
     var batchDepth = 0
-    var show: [UInt32] = []
-    var hide: [UInt32] = []
+    var show: [WindowID] = []
+    var hide: [WindowID] = []
 }
 private let borderLock = Mutex(BorderState())
 
@@ -146,10 +146,10 @@ func border_edge_frames(_ frame: CGRect, _ width: Float, _ radius: Float, _ edge
 //
 // NOTE: Since macOS 26 windows have different corner radii, which SkyLight reports per window.
 //
-private func borderWindowRadius(_ wid: UInt32) -> Float
+private func borderWindowRadius(_ wid: WindowID) -> Float
 {
     var radius: Int32 = 0
-    let windows = [NSNumber(value: Int32(bitPattern: wid))] as CFArray
+    let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
     if let query = SLSWindowQueryWindows(connection_global(), windows, 1),
        let iterator = SLSWindowQueryResultCopyWindows(query), SLSWindowIteratorAdvance(iterator),
        let radii = SLSWindowIteratorGetCornerRadii(iterator), CFArrayGetCount(radii) > 0 {
@@ -339,7 +339,7 @@ private func borderUpdateOrderLocked(_ border: Border)
         //
         // NOTE: A side edge of a window shorter than two corners is empty, so it stays hidden.
         //
-        if border.edges[i].width > 0 && border.edges[i].height > 0 { SLSOrderWindow(connection_global(), border.ids[i], -1, border.wid) }
+        if border.edges[i].width > 0 && border.edges[i].height > 0 { SLSOrderWindow(connection_global(), border.ids[i], -1, border.wid.rawValue) }
         else { SLSOrderWindow(connection_global(), border.ids[i], 0, 0) }
     }
     border.level = level
@@ -350,7 +350,7 @@ private func borderUpdateOrderLocked(_ border: Border)
     //
     let sticky = window_is_sticky(border.wid)
     let sid = window_space(border.wid)
-    if !sticky && sid != 0 && window_space(border.ids[0]) != sid { borderMoveToSpace(border, sid) }
+    if !sticky && sid != 0 && window_space(WindowID(border.ids[0])) != sid { borderMoveToSpace(border, sid) }
     if sid != 0 { border.sid = sid }
     borderSetSticky(border, sticky)
 }
@@ -394,7 +394,7 @@ private func borderHandOver(_ from: Border, _ to: Border, _ settings: BorderSett
     SLSDisableUpdate(connection_global())
     borderUpdateLocked(to, borderUpdateFrame, settings)
     if to.shown {
-        for i in 0..<4 where to.edges[i].width > 0 && to.edges[i].height > 0 { SLSOrderWindow(connection_global(), to.ids[i], -1, to.wid) }
+        for i in 0..<4 where to.edges[i].width > 0 && to.edges[i].height > 0 { SLSOrderWindow(connection_global(), to.ids[i], -1, to.wid.rawValue) }
     }
     SLSReenableUpdate(connection_global())
 }
@@ -527,7 +527,7 @@ func border_refresh_space(_ sid: SpaceID)
         for target in window_manager_global().window.values where window_space(target.id) == sid { borderRefreshWithCount(target, sid, count) }
         return
     }
-    var windows: [UInt32] = []
+    var windows: [WindowID] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
     if owner.layout == .tree { windows = treeViewWindowList(owner) }
     let capacity = windows.count + Int(window_manager_global().window.count)
@@ -564,7 +564,7 @@ func border_refresh_all()
     }
 }
 
-func border_remove(_ wid: UInt32)
+func border_remove(_ wid: WindowID)
 {
     borderLock.withLock { state in
         if let border = state.borders.removeValue(forKey: wid) { borderRelease(border) }
@@ -575,7 +575,7 @@ func border_remove(_ wid: UInt32)
 // NOTE: A window that is animated is drawn by a proxy window in its place while the real window already sits at its
 // final frame, so its border is hidden for the duration of the animation and put back at the end.
 //
-func border_suspend(_ wid: UInt32, _ suspended: Bool)
+func border_suspend(_ wid: WindowID, _ suspended: Bool)
 {
     borderLock.withLock { state in
         if let border = state.borders[wid] {
@@ -588,7 +588,7 @@ func border_suspend(_ wid: UInt32, _ suspended: Bool)
 //
 // NOTE: The handlers below run on the main thread, straight from the SkyLight notifications of the window.
 //
-func border_window_moved(_ wid: UInt32)
+func border_window_moved(_ wid: WindowID)
 {
     borderLock.withLock { state in
         guard let border = state.borders[wid], border.shown, let bounds = SLS.windowBounds(connection_global(), wid) else { return }
@@ -600,17 +600,17 @@ func border_window_moved(_ wid: UInt32)
     }
 }
 
-private func borderWindowUpdate(_ wid: UInt32, _ what: Int)
+private func borderWindowUpdate(_ wid: WindowID, _ what: Int)
 {
     borderLock.withLock { state in
         if let border = state.borders[wid], border.enabled { borderUpdateLocked(border, what, state.settings) }
     }
 }
 
-func border_window_resized(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateFrame) }
-func border_window_ordered(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateOrder) }
-func border_window_changed(_ wid: UInt32) { borderWindowUpdate(wid, borderUpdateAll) }
-func border_window_hidden(_ wid: UInt32)
+func border_window_resized(_ wid: WindowID) { borderWindowUpdate(wid, borderUpdateFrame) }
+func border_window_ordered(_ wid: WindowID) { borderWindowUpdate(wid, borderUpdateOrder) }
+func border_window_changed(_ wid: WindowID) { borderWindowUpdate(wid, borderUpdateAll) }
+func border_window_hidden(_ wid: WindowID)
 {
     borderLock.withLock { state in
         if let border = state.borders[wid] { borderHide(border) }

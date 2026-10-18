@@ -128,7 +128,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
     }
 
     // the C code collected at most 256 windows (a fixed array)
-    var windowList: [UInt32] = []
+    var windowList: [WindowID] = []
 
     var leaf = tree_first_leaf(node)
     while let current = leaf, windowList.count < 256 {
@@ -172,7 +172,7 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager,
 //
 
 /// `window_manager_tree_focus_candidate`
-func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ target: Window) -> UInt32
+func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ target: Window) -> WindowID
 {
     guard let owner, owner.layout == .tree else { return 0 }
 
@@ -196,7 +196,7 @@ func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ 
 }
 
 /// `window_manager_tree_focus_after_close`
-func window_manager_tree_focus_after_close(_ wm: WindowManager, _ owner: View, _ windowID: UInt32)
+func window_manager_tree_focus_after_close(_ wm: WindowManager, _ owner: View, _ windowID: WindowID)
 {
     if windowID == 0 || !space_is_visible(owner.sid) { return }
     windowManagerFocusWindowID(wm, windowID)

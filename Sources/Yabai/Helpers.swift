@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Darwin
+import YabaiCore
 
 //
 // NOTE: The helpers of src/misc/helpers.h that the daemon uses: the easing curves of the animations, the timer, colors,
@@ -155,11 +156,11 @@ func sls_window_disable_shadow(_ id: UInt32)
 }
 
 /// `ax_window_id`
-func ax_window_id(_ ref: AXUIElement) -> UInt32
+func ax_window_id(_ ref: AXUIElement) -> WindowID
 {
     var wid: UInt32 = 0
     _AXUIElementGetWindow(ref, &wid)
-    return wid
+    return WindowID(wid)
 }
 
 /// `ax_window_pid`: the pid that the AX element stores at offset 0x10.

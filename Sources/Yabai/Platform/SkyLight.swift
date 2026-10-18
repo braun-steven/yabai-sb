@@ -15,8 +15,8 @@ enum SLS
     /// functions report it.
     struct QueriedWindow
     {
-        let id: UInt32
-        let parent: UInt32
+        let id: WindowID
+        let parent: WindowID
         let tags: UInt64
         let attributes: UInt64
         let level: Int32
@@ -33,9 +33,9 @@ enum SLS
     // kCFNumberSInt64Type. NSNumber(value: Int32) and NSNumber(value: Int64) create the same CFNumber types.
     //
 
-    private static func cfArray(windows: [UInt32]) -> CFArray
+    private static func cfArray(windows: [WindowID]) -> CFArray
     {
-        return windows.map { NSNumber(value: Int32(bitPattern: $0)) } as CFArray
+        return windows.map { NSNumber(value: Int32(bitPattern: $0.rawValue)) } as CFArray
     }
 
     private static func cfArray(spaces: [SpaceID]) -> CFArray
@@ -50,48 +50,48 @@ enum SLS
     }
 
     /// `SLSGetWindowBounds`
-    static func windowBounds(_ cid: Int32, _ wid: UInt32) -> CGRect?
+    static func windowBounds(_ cid: Int32, _ wid: WindowID) -> CGRect?
     {
         var frame = CGRect.zero
-        guard SLSGetWindowBounds(cid, wid, &frame) == .success else { return nil }
+        guard SLSGetWindowBounds(cid, wid.rawValue, &frame) == .success else { return nil }
         return frame
     }
 
     /// `SLSGetWindowAlpha`; 0 if the call fails, like `window_opacity`.
-    static func windowAlpha(_ cid: Int32, _ wid: UInt32) -> Float
+    static func windowAlpha(_ cid: Int32, _ wid: WindowID) -> Float
     {
         var alpha: Float = 0
-        SLSGetWindowAlpha(cid, wid, &alpha)
+        SLSGetWindowAlpha(cid, wid.rawValue, &alpha)
         return alpha
     }
 
     /// `SLSGetWindowSubLevel`
-    static func windowSubLevel(_ cid: Int32, _ wid: UInt32) -> Int32
+    static func windowSubLevel(_ cid: Int32, _ wid: WindowID) -> Int32
     {
-        return SLSGetWindowSubLevel(cid, wid)
+        return SLSGetWindowSubLevel(cid, wid.rawValue)
     }
 
     /// `SLSCopyWindowProperty` with `kCGSWindowTitle`, as `window_property_title_ts` reads it.
-    static func windowTitle(_ cid: Int32, _ wid: UInt32) -> String?
+    static func windowTitle(_ cid: Int32, _ wid: WindowID) -> String?
     {
         var value: Unmanaged<CFTypeRef>?
-        SLSCopyWindowProperty(cid, wid, "kCGSWindowTitle" as CFString, &value)
+        SLSCopyWindowProperty(cid, wid.rawValue, "kCGSWindowTitle" as CFString, &value)
         return value?.takeRetainedValue() as? String
     }
 
     /// `SLSWindowIsOrderedIn`
-    static func windowIsOrderedIn(_ cid: Int32, _ wid: UInt32) -> Bool
+    static func windowIsOrderedIn(_ cid: Int32, _ wid: WindowID) -> Bool
     {
         var orderedIn: UInt8 = 0
-        SLSWindowIsOrderedIn(cid, wid, &orderedIn)
+        SLSWindowIsOrderedIn(cid, wid.rawValue, &orderedIn)
         return orderedIn != 0
     }
 
     /// `SLSGetWindowOwner`: the connection of the process that owns the window.
-    static func windowOwner(_ cid: Int32, _ wid: UInt32) -> Int32?
+    static func windowOwner(_ cid: Int32, _ wid: WindowID) -> Int32?
     {
         var owner: Int32 = 0
-        guard SLSGetWindowOwner(cid, wid, &owner) == .success else { return nil }
+        guard SLSGetWindowOwner(cid, wid.rawValue, &owner) == .success else { return nil }
         return owner
     }
 
@@ -104,24 +104,24 @@ enum SLS
     }
 
     /// `SLSCopySpacesForWindows`; `window_space` and `window_space_list` pass the selector 0x7.
-    static func spaces(_ cid: Int32, forWindows windows: [UInt32], selector: Int32 = 0x7) -> [SpaceID]
+    static func spaces(_ cid: Int32, forWindows windows: [WindowID], selector: Int32 = 0x7) -> [SpaceID]
     {
         return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self).map { SpaceID($0) }
     }
 
     /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `space_window_list_for_connection` calls it. nil when
     /// the call fails, which the caller must tell apart from an empty list.
-    static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [UInt32]?
+    static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [WindowID]?
     {
         var setTags: UInt64 = 0
         var clearTags: UInt64 = 0
         guard let windows = SLSCopyWindowsWithOptionsAndTags(cid, owner, cfArray(spaces: spaces), options, &setTags, &clearTags) else { return nil }
-        return ids(windows, as: UInt32.self)
+        return ids(windows, as: UInt32.self).map { WindowID($0) }
     }
 
     /// `SLSWindowQueryWindows`, `SLSWindowQueryResultCopyWindows` and the `SLSWindowIterator*` functions: the windows of
     /// the list that the window server knows, in its order.
-    static func queryWindows(_ cid: Int32, _ windows: [UInt32]) -> [QueriedWindow]
+    static func queryWindows(_ cid: Int32, _ windows: [WindowID]) -> [QueriedWindow]
     {
         guard let query = SLSWindowQueryWindows(cid, cfArray(windows: windows), Int32(windows.count)) else { return [] }
         guard let iterator = SLSWindowQueryResultCopyWindows(query) else { return [] }
@@ -130,8 +130,8 @@ enum SLS
         result.reserveCapacity(Int(SLSWindowIteratorGetCount(iterator)))
 
         while SLSWindowIteratorAdvance(iterator) {
-            result.append(QueriedWindow(id: SLSWindowIteratorGetWindowID(iterator),
-                                        parent: SLSWindowIteratorGetParentID(iterator),
+            result.append(QueriedWindow(id: WindowID(SLSWindowIteratorGetWindowID(iterator)),
+                                        parent: WindowID(SLSWindowIteratorGetParentID(iterator)),
                                         tags: SLSWindowIteratorGetTags(iterator),
                                         attributes: SLSWindowIteratorGetAttributes(iterator),
                                         level: SLSWindowIteratorGetLevel(iterator)))
@@ -141,9 +141,9 @@ enum SLS
     }
 
     /// `SLSCopyManagedDisplayForWindow`
-    static func managedDisplay(_ cid: Int32, forWindow wid: UInt32) -> String?
+    static func managedDisplay(_ cid: Int32, forWindow wid: WindowID) -> String?
     {
-        return SLSCopyManagedDisplayForWindow(cid, wid) as String?
+        return SLSCopyManagedDisplayForWindow(cid, wid.rawValue) as String?
     }
 
     /// `SLSCopyBestManagedDisplayForRect`
@@ -275,7 +275,7 @@ enum SLS
     /// `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]`, run through
     /// `SLSPerformAsynchronousBridgedWindowManagementOperation` and released after the window server took it.
     /// The Objective-C messages go through objc_msgSend, cast to the signature of each call as space_manager.c did.
-    static func bridgedMoveWindows(_ windows: [UInt32], toSpace sid: SpaceID)
+    static func bridgedMoveWindows(_ windows: [WindowID], toSpace sid: SpaceID)
     {
         guard let cls = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation"),
               let send = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "objc_msgSend") else { return }
@@ -286,7 +286,7 @@ enum SLS
         let initWithWindows = unsafeBitCast(send, to: InitWithWindows.self)
 
         let classObject = Unmanaged.passUnretained(cls as AnyObject).toOpaque()
-        let windowList = windows.map { NSNumber(value: Int32(bitPattern: $0)) } as NSArray
+        let windowList = windows.map { NSNumber(value: Int32(bitPattern: $0.rawValue)) } as NSArray
 
         let selectorAlloc = unsafeBitCast(sel_registerName("alloc"), to: UnsafeMutableRawPointer.self)
         let selectorInit = unsafeBitCast(sel_registerName("initWithWindows:spaceID:"), to: UnsafeMutableRawPointer.self)

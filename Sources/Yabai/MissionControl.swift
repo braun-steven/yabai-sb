@@ -50,20 +50,20 @@ func connection_handler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ data
         EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
     case 808:
         let wid = data!.loadUnaligned(as: UInt32.self)
-        border_window_ordered(wid)
-        EventLoop.post(.slsWindowOrdered(windowID: wid))
+        border_window_ordered(WindowID(wid))
+        EventLoop.post(.slsWindowOrdered(windowID: WindowID(wid)))
     case 804:
         let wid = data!.loadUnaligned(as: UInt32.self)
-        border_window_hidden(wid)
-        EventLoop.post(.slsWindowDestroyed(windowID: wid))
+        border_window_hidden(WindowID(wid))
+        EventLoop.post(.slsWindowDestroyed(windowID: WindowID(wid)))
     case 806:
-        border_window_moved(data!.loadUnaligned(as: UInt32.self))
+        border_window_moved(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 807:
-        border_window_resized(data!.loadUnaligned(as: UInt32.self))
+        border_window_resized(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 815:
-        border_window_changed(data!.loadUnaligned(as: UInt32.self))
+        border_window_changed(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 816:
-        border_window_hidden(data!.loadUnaligned(as: UInt32.self))
+        border_window_hidden(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 1202:
         lastCmdTabTime.store(read_os_timer(), ordering: .releasing)
     default:

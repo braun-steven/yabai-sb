@@ -33,7 +33,7 @@ private func axElements(_ list: CFArray) -> [AXUIElement]
 
 /// `window_manager_create_and_add_window`: nil when the window is ignored (AXUnknown, or it cannot be observed).
 @discardableResult
-func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ windowRef: AXUIElement, _ windowID: UInt32, _ oneShotRules: Bool) -> Window?
+func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ windowRef: AXUIElement, _ windowID: WindowID, _ oneShotRules: Bool) -> Window?
 {
     let target = window_create(owner, windowRef, windowID)
 
@@ -156,7 +156,7 @@ func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowMana
 
 /// `window_manager_existing_application_window_list`: the windows of the application (of every application for nil)
 /// on the spaces of Mission Control, minimized ones included; nil when there are none or the window server fails.
-func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [UInt32]?
+func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [WindowID]?
 {
     guard let spaceList = space_manager_mission_control_space_list() else { return nil }
 
@@ -165,7 +165,7 @@ func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [UInt3
 }
 
 /// `window_manager_unresolved_windows`: the windows of the list that the window manager does not know.
-func window_manager_unresolved_windows(_ wm: WindowManager, _ windowList: [UInt32]) -> [UInt32]
+func window_manager_unresolved_windows(_ wm: WindowManager, _ windowList: [WindowID]) -> [WindowID]
 {
     return windowList.filter { window_manager_find_window(wm, $0) == nil }
 }
@@ -181,7 +181,7 @@ func window_manager_unresolved_windows(_ wm: WindowManager, _ windowList: [UInt3
 //
 
 /// `window_manager_add_windows_by_element_id`
-private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ unresolved: inout [UInt32])
+private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ unresolved: inout [WindowID])
 {
     var data = Data(count: 0x14)
     data.withUnsafeMutableBytes { bytes in

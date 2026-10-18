@@ -117,7 +117,7 @@ public enum WindowSplit: Sendable
 /// window server alone. A string that is nil is written as "", like json_string(NULL).
 public struct WindowInfo: Sendable
 {
-    public var id: UInt32 = 0
+    public var id: WindowID = 0
     public var pid: Int32 = 0
     public var app: String?
     public var title: String?
@@ -156,7 +156,7 @@ public struct WindowInfo: Sendable
     {
         var json = JSONWriter(flags: flags)
 
-        json.property(WindowProperty.id,                "\"id\":\(Int32(bitPattern: id))")
+        json.property(WindowProperty.id,                "\"id\":\(Int32(bitPattern: id.rawValue))")
         json.property(WindowProperty.pid,               "\"pid\":\(pid)")
         json.property(WindowProperty.app,               "\"app\":\"\(JSON.string(app))\"")
         json.property(WindowProperty.title,             "\"title\":\"\(JSON.string(title))\"")

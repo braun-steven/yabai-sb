@@ -65,15 +65,15 @@ enum Event: Sendable
     case applicationHidden(pid: pid_t)
     case windowCreated(Handoff<Unmanaged<AXUIElement>>)
     case windowDestroyed(Handoff<Window>)
-    case windowFocused(windowID: UInt32)
-    case windowFocusDeferred(windowID: UInt32)
-    case windowMoved(windowID: UInt32)
-    case windowResized(windowID: UInt32)
+    case windowFocused(windowID: WindowID)
+    case windowFocusDeferred(windowID: WindowID)
+    case windowMoved(windowID: WindowID)
+    case windowResized(windowID: WindowID)
     case windowMinimized(Handoff<Window>)
     case windowDeminimized(Handoff<Window>)
-    case windowTitleChanged(windowID: UInt32)
-    case slsWindowOrdered(windowID: UInt32)
-    case slsWindowDestroyed(windowID: UInt32)
+    case windowTitleChanged(windowID: WindowID)
+    case slsWindowOrdered(windowID: WindowID)
+    case slsWindowDestroyed(windowID: WindowID)
     case slsSpaceCreated(spaceID: SpaceID)
     case slsSpaceDestroyed(spaceID: SpaceID)
     case spaceChanged
@@ -86,8 +86,8 @@ enum Event: Sendable
     case mouseUp(Handoff<Unmanaged<CGEvent>>)
     case mouseDragged(Handoff<Unmanaged<CGEvent>>)
     case mouseMoved(Handoff<Unmanaged<CGEvent>>, modifiers: MouseModifiers)
-    case tabBarClicked(windowID: UInt32)
-    case tabCardOrdered(windowID: UInt32)
+    case tabBarClicked(windowID: WindowID)
+    case tabCardOrdered(windowID: WindowID)
     case missionControlShowAllWindows
     case missionControlShowFrontWindows
     case missionControlShowDesktop
@@ -95,7 +95,7 @@ enum Event: Sendable
     case missionControlCheckForExit
     case missionControlExit
     case dockDidRestart
-    case menuOpened(windowID: UInt32)
+    case menuOpened(windowID: WindowID)
     case menuClosed
     case menuBarHiddenChanged
     case dockDidChangePref

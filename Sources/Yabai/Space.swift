@@ -17,7 +17,7 @@ func space_display_id(_ sid: SpaceID) -> DisplayID
 
 /// `space_window_list_for_connection`: the windows on the spaces; count gets their number. nil when the window server
 /// fails (count is left alone), or when no window is on the spaces (count is 0).
-func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
+func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count: inout Int32, _ includeMinimized: Bool) -> [WindowID]?
 {
     let options: UInt32 = includeMinimized ? 0x7 : 0x2
 
@@ -26,7 +26,7 @@ func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count
     count = Int32(candidates.count)
     if candidates.isEmpty { return nil }
 
-    var result: [UInt32] = []
+    var result: [WindowID] = []
     for window in SLS.queryWindows(connection_global(), candidates) {
         let known = window_manager_find_window(window_manager_global(), window.id).map { target in
             includeMinimized || !target.isMinimized
@@ -44,7 +44,7 @@ func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count
 }
 
 /// `space_window_list`: the windows on one space.
-func space_window_list(_ sid: SpaceID, _ count: inout Int32, _ includeMinimized: Bool) -> [UInt32]?
+func space_window_list(_ sid: SpaceID, _ count: inout Int32, _ includeMinimized: Bool) -> [WindowID]?
 {
     return space_window_list_for_connection([sid], 0, &count, includeMinimized)
 }

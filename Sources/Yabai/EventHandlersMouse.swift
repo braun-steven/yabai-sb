@@ -58,7 +58,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 }
 
 /// `EVENT_HANDLER(TAB_BAR_CLICKED)`
-@WM func tabBarClicked(_ wid: UInt32)
+@WM func tabBarClicked(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_TAB_BAR_CLICKED: \(wid)\n")
 
@@ -68,7 +68,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 }
 
 /// `EVENT_HANDLER(TAB_CARD_ORDERED)`
-@WM func tabCardOrdered(_ wid: UInt32)
+@WM func tabCardOrdered(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_TAB_CARD_ORDERED: \(wid)\n")
     tree_card_did_order(wid)
@@ -230,13 +230,13 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmWindowToFocus(_ window: Window) -> Window
 {
-    guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.id) else { return window }
+    guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.id.rawValue) else { return window }
 
     let wm = window_manager_global()
 
     for i in 0..<CFArrayGetCount(associatedWindows) {
         let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
-        var childWid: UInt32 = 0
+        var childWid: WindowID = 0
         CFNumberGetValue(number, .sInt32Type, &childWid)
         guard let child = window_manager_find_window(wm, childWid) else { continue }
 

@@ -348,7 +348,7 @@ public enum SpaceQuery: Sendable
 /// The windows a window selector asks for: managed windows, and the windows of the stack (tabbed container) of a window.
 public enum WindowQuery<Window>
 {
-    case id(UInt32)
+    case id(WindowID)
     case inDirection(Direction, from: Window)
     case belowCursor
     case largest
@@ -537,7 +537,7 @@ public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ tok
 
     switch token.value {
     case .int(let id):
-        result.value = context.window(.id(UInt32(bitPattern: id)))
+        result.value = context.window(.id(WindowID(UInt32(bitPattern: id))))
         if result.value == nil { rsp.fail("could not locate window with the specified id '\(id)'.\n") }
     case .string:
         let direction = parseDirection(token)

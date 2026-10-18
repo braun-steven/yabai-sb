@@ -3,6 +3,7 @@ import ApplicationServices
 import QuartzCore
 import Synchronization
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: Moving and resizing windows: frame requests that are grouped per application and skipped when
@@ -37,7 +38,7 @@ struct WindowProxy
 final class WindowAnimation: @unchecked Sendable
 {
     let cid: Int32
-    var wid: UInt32
+    var wid: WindowID
     let x: Float, y: Float, w: Float, h: Float
     var proxy = WindowProxy()
     var skip = false
@@ -50,7 +51,7 @@ final class WindowAnimation: @unchecked Sendable
     }
 }
 
-private let windowAnimations = Mutex<[UInt32: WindowAnimation]>([:])
+private let windowAnimations = Mutex<[WindowID: WindowAnimation]>([:])
 
 private func windowManagerCreateWindowProxy(_ animation: WindowAnimation, alpha: Float)
 {
@@ -132,15 +133,16 @@ func animationRestoreAlpha(_ image: CGImage) -> CGImage?
 private func windowManagerBuildWindowProxy(_ animation: WindowAnimation)
 {
     var alpha: Float = 1
-    SLSGetWindowAlpha(animation.cid, animation.wid, &alpha)
+    SLSGetWindowAlpha(animation.cid, animation.wid.rawValue, &alpha)
     animation.proxy.level = window_level(animation.wid)
     animation.proxy.sub_level = window_sub_level(animation.wid)
-    SLSGetWindowBounds(animation.cid, animation.wid, &animation.proxy.frame)
+    SLSGetWindowBounds(animation.cid, animation.wid.rawValue, &animation.proxy.frame)
     animation.proxy.tx = Float(animation.proxy.frame.origin.x)
     animation.proxy.ty = Float(animation.proxy.frame.origin.y)
     animation.proxy.tw = Float(animation.proxy.frame.width)
     animation.proxy.th = Float(animation.proxy.frame.height)
-    if let images = SLSHWCaptureWindowList(animation.cid, &animation.wid, 1, (1 << 11) | (1 << 8)), CFArrayGetCount(images) > 0 {
+    var capturedID = animation.wid.rawValue
+    if let images = SLSHWCaptureWindowList(animation.cid, &capturedID, 1, (1 << 11) | (1 << 8)), CFArrayGetCount(images) > 0 {
         let image = unsafeBitCast(CFArrayGetValueAtIndex(images, 0), to: CGImage.self)
         animation.proxy.image = alpha == 1 ? image : animationRestoreAlpha(image)
     }
@@ -198,7 +200,7 @@ private final class WindowAnimationDisplayLink: NSObject
                                                   y: animation.proxy.frame.height / CGFloat(animation.proxy.th))
                     SLSTransactionSetWindowTransform(transaction, animation.proxy.id, 0, 0, transform.concatenating(scale))
                     var alpha: Float = 0
-                    SLSGetWindowAlpha(connection, animation.wid, &alpha)
+                    SLSGetWindowAlpha(connection, animation.wid.rawValue, &alpha)
                     if alpha != 0 { SLSTransactionSetWindowAlpha(transaction, animation.proxy.id, alpha) }
                 }
                 SLSTransactionCommit(transaction, 0)
@@ -242,10 +244,10 @@ private func windowAnimationTakeOver(_ animation: WindowAnimation, _ existing: W
     animation.proxy.sub_level = existing.proxy.sub_level
     animation.proxy.image = existing.proxy.image
     var alpha: Float = 1
-    SLSGetWindowAlpha(animation.cid, animation.wid, &alpha)
+    SLSGetWindowAlpha(animation.cid, animation.wid.rawValue, &alpha)
     windowManagerCreateWindowProxy(animation, alpha: alpha)
     if let transaction = SLSTransactionCreate(animation.cid) {
-        SLSTransactionOrderWindowGroup(transaction, animation.proxy.id, 1, animation.wid)
+        SLSTransactionOrderWindowGroup(transaction, animation.proxy.id, 1, animation.wid.rawValue)
         SLSTransactionSetWindowSystemAlpha(transaction, existing.proxy.id, 0)
         SLSTransactionCommit(transaction, 0)
     }
@@ -314,7 +316,7 @@ private func windowManagerWindowFrameNeedsUpdate(_ target: Window, _ x: Float, _
 {
     if !window_frame_is_close(target.frame_request, x, y, w, h) { return true }
     var bounds = CGRect.zero
-    let hasBounds = SLSGetWindowBounds(connection_global(), target.id, &bounds) == .success
+    let hasBounds = SLSGetWindowBounds(connection_global(), target.id.rawValue, &bounds) == .success
     return window_frame_needs_update(target.frame_request, hasBounds, bounds, x, y, w, h)
 }
 

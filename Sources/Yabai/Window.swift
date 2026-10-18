@@ -13,7 +13,7 @@ final class Window
 {
     var application: Application!
     var ref: AXUIElement!
-    var id: UInt32 = 0
+    var id: WindowID = 0
 
     //
     // NOTE: valid is true until the window is invalidated. Events that are already queued for a window hold on to it,
@@ -128,7 +128,7 @@ func window_unobserve(_ target: Window)
 }
 
 /// `window_display_uuid`
-private func windowDisplayUUID(_ wid: UInt32) -> String?
+private func windowDisplayUUID(_ wid: WindowID) -> String?
 {
     if let uuid = SLS.managedDisplay(connection_global(), forWindow: wid) { return uuid }
 
@@ -137,28 +137,28 @@ private func windowDisplayUUID(_ wid: UInt32) -> String?
 }
 
 /// `window_display_id`
-func window_display_id(_ wid: UInt32) -> DisplayID
+func window_display_id(_ wid: WindowID) -> DisplayID
 {
     guard let uuid = windowDisplayUUID(wid) else { return 0 }
     return displayID(uuid)
 }
 
 /// `window_display_space`
-private func windowDisplaySpace(_ wid: UInt32) -> SpaceID
+private func windowDisplaySpace(_ wid: WindowID) -> SpaceID
 {
     guard let uuid = windowDisplayUUID(wid) else { return 0 }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
 }
 
 /// `window_space`: the first space of the window, or the current space of its display.
-func window_space(_ wid: UInt32) -> SpaceID
+func window_space(_ wid: WindowID) -> SpaceID
 {
     let sid = SLS.spaces(connection_global(), forWindows: [wid]).first ?? 0
     return sid != 0 ? sid : windowDisplaySpace(wid)
 }
 
 /// `window_space_list`: the spaces of the window (more than one for a sticky window).
-func window_space_list(_ wid: UInt32) -> [SpaceID]
+func window_space_list(_ wid: WindowID) -> [SpaceID]
 {
     return SLS.spaces(connection_global(), forWindows: [wid])
 }
@@ -282,48 +282,48 @@ func window_is_fullscreen(_ target: Window) -> Bool
 }
 
 /// `window_is_sticky`: true if the window is on more than one space.
-func window_is_sticky(_ wid: UInt32) -> Bool
+func window_is_sticky(_ wid: WindowID) -> Bool
 {
     return SLS.spaces(connection_global(), forWindows: [wid]).count > 1
 }
 
 /// `window_shadow`
-func window_shadow(_ wid: UInt32) -> Bool
+func window_shadow(_ wid: WindowID) -> Bool
 {
     let tags = window_tags(wid)
     return (tags & 0x8) == 0
 }
 
 /// `window_opacity`
-func window_opacity(_ wid: UInt32) -> Float
+func window_opacity(_ wid: WindowID) -> Float
 {
     return SLS.windowAlpha(connection_global(), wid)
 }
 
 /// The window as the window server reports it, when it knows exactly this window.
-private func windowQuery(_ wid: UInt32) -> SLS.QueriedWindow?
+private func windowQuery(_ wid: WindowID) -> SLS.QueriedWindow?
 {
     let windows = SLS.queryWindows(connection_global(), [wid])
     return windows.count == 1 ? windows[0] : nil
 }
 
 /// `window_parent`
-func window_parent(_ wid: UInt32) -> UInt32
+func window_parent(_ wid: WindowID) -> WindowID
 {
     return windowQuery(wid)?.parent ?? 0
 }
 
 /// `window_level`
-func window_level(_ wid: UInt32) -> Int32
+func window_level(_ wid: WindowID) -> Int32
 {
     return windowQuery(wid)?.level ?? 0
 }
 
 /// `window_sub_level`: through the bounded message of SLSGetWindowSubLevelBounded (CPrivate.h) when it works.
-func window_sub_level(_ wid: UInt32) -> Int32
+func window_sub_level(_ wid: WindowID) -> Int32
 {
     var subLevel: Int32 = 0
-    if SLSGetWindowSubLevelBounded(connection_global(), wid, &subLevel) {
+    if SLSGetWindowSubLevelBounded(connection_global(), wid.rawValue, &subLevel) {
         return subLevel
     }
 
@@ -331,7 +331,7 @@ func window_sub_level(_ wid: UInt32) -> Int32
 }
 
 /// `window_tags`
-func window_tags(_ wid: UInt32) -> UInt64
+func window_tags(_ wid: WindowID) -> UInt64
 {
     return windowQuery(wid)?.tags ?? 0
 }
@@ -442,7 +442,7 @@ func window_refresh_ax_properties(_ target: Window)
 //
 
 /// `window_create`: retains the element.
-func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: UInt32) -> Window
+func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: WindowID) -> Window
 {
     let result = Window()
 

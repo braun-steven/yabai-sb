@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import AppKit
+import YabaiCore
 
 //
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and AX observer. Ported from
@@ -157,7 +158,7 @@ func application_unobserve(_ target: Application)
 }
 
 /// `application_focused_window`: the id of the focused window of the application, or 0.
-func application_focused_window(_ target: Application) -> UInt32
+func application_focused_window(_ target: Application) -> WindowID
 {
     var windowRef: CFTypeRef?
     AXUIElementCopyAttributeValue(target.ref, kAXFocusedWindowAttribute as CFString, &windowRef)

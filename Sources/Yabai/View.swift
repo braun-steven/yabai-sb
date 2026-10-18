@@ -72,7 +72,7 @@ final class View
     var sid: SpaceID = 0
     var area = Area.zero
     var tree: Con!
-    var insertion_point: UInt32 = 0
+    var insertion_point: WindowID = 0
     var layout = ViewType.default
     var top_padding: Int32 = 0
     var bottom_padding: Int32 = 0
@@ -100,7 +100,7 @@ func view_window_gap(_ target: View) -> Int32
 }
 
 /// `view_add_window`
-func view_add_window(_ target: View, _ win: Window, _ insertionPoint: UInt32)
+func view_add_window(_ target: View, _ win: Window, _ insertionPoint: WindowID)
 {
     tree_add_window(target, win, insertionPoint)
     if !view_update_auto_padding(target) { tree_view_update(target) }
@@ -119,7 +119,7 @@ func view_remove_window(_ target: View, _ win: Window) -> Bool
 }
 
 /// `view_find_window_list`
-func view_find_window_list(_ target: View) -> [UInt32]
+func view_find_window_list(_ target: View) -> [WindowID]
 {
     return treeViewWindowList(target)
 }

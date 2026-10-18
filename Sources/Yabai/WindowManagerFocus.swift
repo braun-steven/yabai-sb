@@ -2,6 +2,7 @@ import ApplicationServices
 import Dispatch
 import CPrivate
 import AppKit
+import YabaiCore
 
 //
 // NOTE: Focusing windows through synthesized event records, and the window that commands act on. Ported from
@@ -30,13 +31,13 @@ private func withEventRecord(_ fill: (UnsafeMutablePointer<UInt8>) -> Void)
 }
 
 /// Writes a window id into an event record at the offset.
-private func storeWindowID(_ bytes: UnsafeMutablePointer<UInt8>, _ offset: Int, _ windowID: UInt32)
+private func storeWindowID(_ bytes: UnsafeMutablePointer<UInt8>, _ offset: Int, _ windowID: WindowID)
 {
-    UnsafeMutableRawPointer(bytes + offset).storeBytes(of: windowID, as: UInt32.self)
+    UnsafeMutableRawPointer(bytes + offset).storeBytes(of: windowID.rawValue, as: UInt32.self)
 }
 
 /// `window_manager_make_key_window`
-private func windowManagerMakeKeyWindow(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32)
+private func windowManagerMakeKeyWindow(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID)
 {
     //
     // :SynthesizedEvent
@@ -67,7 +68,7 @@ private func windowManagerMakeKeyWindow(_ windowPsn: UnsafeMutablePointer<Proces
 //
 
 /// `window_manager_post_focus_record`
-private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32, _ state: UInt8)
+private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID, _ state: UInt8)
 {
     withEventRecord { bytes in
         bytes[0x04] = 0xf8
@@ -80,7 +81,7 @@ private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSer
 }
 
 /// `window_manager_focus_window_without_raise`
-func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32)
+func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID)
 {
     let wm = window_manager_global()
 
@@ -104,7 +105,7 @@ func window_manager_focus_window_without_raise(_ windowPsn: UnsafeMutablePointer
         return
     }
 
-    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, FrontProcessMode.userGenerated.rawValue)
+    _SLPSSetFrontProcessWithOptions(windowPsn, windowID.rawValue, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(windowPsn, windowID)
 }
 
@@ -113,7 +114,7 @@ func window_manager_focus_window_without_raise_deferred(_ target: Window)
 {
     windowManagerPostFocusRecord(&target.application.psn, target.id, 0x01)
 
-    _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id, FrontProcessMode.userGenerated.rawValue)
+    _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id.rawValue, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(&target.application.psn, target.id)
 }
 
@@ -123,9 +124,9 @@ func window_manager_focus_window_without_raise_deferred(_ target: Window)
 //
 
 /// `window_manager_focus_window_with_raise`
-func window_manager_focus_window_with_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: UInt32, _ windowRef: AXUIElement)
+func window_manager_focus_window_with_raise(_ windowPsn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID, _ windowRef: AXUIElement)
 {
-    _SLPSSetFrontProcessWithOptions(windowPsn, windowID, FrontProcessMode.userGenerated.rawValue)
+    _SLPSSetFrontProcessWithOptions(windowPsn, windowID.rawValue, FrontProcessMode.userGenerated.rawValue)
     windowManagerMakeKeyWindow(windowPsn, windowID)
     AXUIElementPerformAction(windowRef, kAXRaiseAction as CFString)
 }
@@ -156,7 +157,7 @@ func window_manager_focused_window(_ wm: WindowManager) -> Window?
 private let pendingFocusTimeoutMs: Float = 500.0
 
 /// `window_manager_set_pending_focus`
-func window_manager_set_pending_focus(_ wm: WindowManager, _ windowID: UInt32)
+func window_manager_set_pending_focus(_ wm: WindowManager, _ windowID: WindowID)
 {
     wm.pending_focus_window_id = windowID
     wm.pending_focus_time = read_os_timer()

@@ -1,5 +1,6 @@
 import ApplicationServices
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: A Swift view of an AXUIElementRef, for the code that the port moves to Swift. AX calls block for as long as the
@@ -74,10 +75,10 @@ struct AXElement
     }
 
     /// `_AXUIElementGetWindow`; 0 if the element is not a window, like `ax_window_id`.
-    var windowID: UInt32
+    var windowID: WindowID
     {
         var wid: UInt32 = 0
         _AXUIElementGetWindow(ref, &wid)
-        return wid
+        return WindowID(wid)
     }
 }

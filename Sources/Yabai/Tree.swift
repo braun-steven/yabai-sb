@@ -70,7 +70,7 @@ enum FocusWrapping: String, CaseIterable, Sendable
 /// `struct feedback_window` (view.h): the outline of a container.
 struct FeedbackWindow
 {
-    var id: UInt32 = 0
+    var id: WindowID = 0
     var context: CGContext?
 }
 
@@ -84,8 +84,8 @@ struct FeedbackWindow
 struct ConRender
 {
     weak var raised: Con!
-    var raised_anchor: UInt32 = 0
-    var raised_card: UInt32 = 0
+    var raised_anchor: WindowID = 0
+    var raised_card: WindowID = 0
     var feedback_window = FeedbackWindow()
     let tab_bar = TabBar()
 }
@@ -103,7 +103,7 @@ final class Con
     var layout = ConLayout.splitH
     var last_split = ConLayout.splitH
     var percent: Float = 0
-    var window_id: UInt32 = 0
+    var window_id: WindowID = 0
     var area = Area.zero
     var zoom = ConZoom.none
     var selected = false
@@ -496,7 +496,7 @@ func tree_flatten(_ node: Con!)
 }
 
 /// `tree_find_window`
-func tree_find_window(_ root: Con!, _ windowID: UInt32) -> Con!
+func tree_find_window(_ root: Con!, _ windowID: WindowID) -> Con!
 {
     guard let root, windowID != 0 else { return nil }
     if root.window_id == windowID { return root }
@@ -569,7 +569,7 @@ func tree_window_count(_ node: Con) -> Int32
 //
 
 /// `tree_collect_window_ids`
-func tree_collect_window_ids(_ node: Con, _ list: inout [UInt32])
+func tree_collect_window_ids(_ node: Con, _ list: inout [WindowID])
 {
     if con_is_leaf(node) {
         if node.window_id != 0 { list.append(node.window_id) }

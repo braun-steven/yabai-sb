@@ -112,17 +112,17 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
 
     switch es.type {
     case .windowCreated, .windowFocused, .windowDeminimized:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
         es.app   = target.application.name
         es.title = window_title_ts(target)
     case .windowDestroyed:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
         es.app = target.application.map { $0.name } ?? "<unknown>"
         es.active = focusedWindowID == target.id
     case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
-        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
+        es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
         es.app   = target.application.name
         es.title = window_title_ts(target)

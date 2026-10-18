@@ -8,14 +8,14 @@ private struct FixtureContext: SelectorContext
 {
     var activeDisplay: DisplayID = 0
     var activeSpace: SpaceID = 0
-    var actingWindow: UInt32? = nil
+    var actingWindow: WindowID? = nil
     var displays: [DisplayID] = []
     var spaces: [SpaceID] = []
     var recentSpace: SpaceID = 0
     var displayLabels: [String: DisplayID] = [:]
     var spaceLabels: [String: SpaceID] = [:]
-    var windows: [UInt32] = []
-    var stack: [UInt32] = []
+    var windows: [WindowID] = []
+    var stack: [WindowID] = []
 
     func display(_ query: DisplayQuery) -> DisplayID
     {
@@ -40,7 +40,7 @@ private struct FixtureContext: SelectorContext
 
     func spaceLabel(_ label: Token) -> SpaceID? { spaceLabels[label.string] }
 
-    func window(_ query: WindowQuery<UInt32>) -> UInt32?
+    func window(_ query: WindowQuery<WindowID>) -> WindowID?
     {
         switch query {
         case .id(let id):                      windows.contains(id) ? id : nil
@@ -342,7 +342,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
 
     rsp = Response()
     var message = Message("9\0")
-    var acting: UInt32? = 7
+    var acting: WindowID? = 7
     #expect(parseOptionalWindowSelector(&rsp, &message, &acting, context) == false)
     #expect(acting == 7)
     #expect(rsp.text == "\u{07}could not locate window with the specified id '9'.\n")
@@ -353,7 +353,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(sid == 10)
 }
 
-private func parseQuery(_ option: String, _ context: FixtureContext = FixtureContext()) -> (QueryTarget<UInt32>?, String)
+private func parseQuery(_ option: String, _ context: FixtureContext = FixtureContext()) -> (QueryTarget<WindowID>?, String)
 {
     var rsp = Response()
     var message = Message("\0")

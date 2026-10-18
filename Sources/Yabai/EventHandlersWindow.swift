@@ -1,6 +1,7 @@
 import ApplicationServices
 import AppKit
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: The handlers of window events: windows created, destroyed, focused, moved, resized, minimized
@@ -81,7 +82,7 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)`
-@WM func windowFocusDeferred(_ windowID: UInt32)
+@WM func windowFocusDeferred(_ windowID: WindowID)
 {
     guard let window = window_manager_find_window(window_manager_global(), windowID), window.application != nil else {
         debug("EVENT_HANDLER_WINDOW_FOCUS_DEFERRED: \(windowID) no longer exists, ignoring event..\n")
@@ -92,7 +93,7 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(WINDOW_FOCUSED)`
-@WM func windowFocused(_ windowID: UInt32)
+@WM func windowFocused(_ windowID: WindowID)
 {
     pendingWindowFocus.store(false, ordering: .releasing)
     let wm = window_manager_global()
@@ -131,7 +132,7 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(WINDOW_MOVED)`
-@WM func windowMoved(_ windowID: UInt32)
+@WM func windowMoved(_ windowID: WindowID)
 {
     let wm = window_manager_global()
     let ms = mouse_state_global()
@@ -171,7 +172,7 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(WINDOW_RESIZED)`
-@WM func windowResized(_ windowID: UInt32)
+@WM func windowResized(_ windowID: WindowID)
 {
     let wm = window_manager_global()
     let ms = mouse_state_global()
@@ -289,7 +290,7 @@ import CPrivate
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
             let lastWindow = window_manager_find_window(wm, wm.last_window_id)
-            let insertionPoint = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { UInt32(0) }
+            let insertionPoint = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { WindowID(0) }
             window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
         }
     } else {
@@ -306,7 +307,7 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(WINDOW_TITLE_CHANGED)`
-@WM func windowTitleChanged(_ windowID: UInt32)
+@WM func windowTitleChanged(_ windowID: WindowID)
 {
     guard let window = window_manager_find_window(window_manager_global(), windowID) else { return }
 
@@ -324,14 +325,14 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_ORDERED)`
-@WM func slsWindowOrdered(_ wid: UInt32)
+@WM func slsWindowOrdered(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_SLS_WINDOW_ORDERED: \(wid)\n")
     tab_bar_order(wid)
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_DESTROYED)`
-@WM func slsWindowDestroyed(_ wid: UInt32)
+@WM func slsWindowDestroyed(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_SLS_WINDOW_DESTROYED: \(wid)\n")
 

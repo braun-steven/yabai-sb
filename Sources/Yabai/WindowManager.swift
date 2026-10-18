@@ -93,17 +93,17 @@ final class WindowManager
 {
     var system_element: AXUIElement?
     var application = Table<pid_t, Application>(capacity: 150)
-    var window = Table<UInt32, Window>(capacity: 150)
-    var managed_window = Table<UInt32, View>(capacity: 150)
-    var window_lost_focused_event = Table<UInt32, Bool>(capacity: 150)
+    var window = Table<WindowID, Window>(capacity: 150)
+    var managed_window = Table<WindowID, View>(capacity: 150)
+    var window_lost_focused_event = Table<WindowID, Bool>(capacity: 150)
     var application_lost_front_switched_event = Table<pid_t, Bool>(capacity: 150)
     var rules: [Rule] = []
     var applications_to_refresh: [Application] = []
-    var focused_window_id: UInt32 = 0
+    var focused_window_id: WindowID = 0
     var focused_window_psn = ProcessSerialNumber()
-    var pending_focus_window_id: UInt32 = 0
+    var pending_focus_window_id: WindowID = 0
     var pending_focus_time: UInt64 = 0
-    var last_window_id: UInt32 = 0
+    var last_window_id: WindowID = 0
     var enable_mff = false
     var ffm_mode = FocusFollowsMouse.disabled
     var purify_mode = PurifyMode.disabled
@@ -322,7 +322,7 @@ func window_manager_find_managed_window(_ wm: WindowManager, _ target: Window) -
 }
 
 /// `window_manager_remove_managed_window`
-func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: UInt32)
+func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: WindowID)
 {
     wm.managed_window.remove(wid)
 }
@@ -354,7 +354,7 @@ func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target
 }
 
 /// `window_manager_manage_window`
-func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: UInt32)
+func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: WindowID)
 {
     let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
     window_manager_add_managed_window(wm, target, owner)
@@ -388,7 +388,7 @@ func windowManagerTreeApply(_ owner: View)
 }
 
 /// `window_manager_focus_window_id`
-func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: UInt32)
+func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID)
 {
     if let target = window_manager_find_window(wm, windowID) {
         window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
@@ -403,12 +403,12 @@ func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: UInt32)
 //
 
 /// `window_manager_tree_set_view`
-func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -> [UInt32]
+func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -> [WindowID]
 {
-    var windowList: [UInt32] = []
+    var windowList: [WindowID] = []
     tree_collect_window_ids(node, &windowList)
 
-    var moveList: [UInt32] = []
+    var moveList: [WindowID] = []
     for windowID in windowList {
         guard let target = window_manager_find_window(wm, windowID) else { continue }
 
@@ -424,7 +424,7 @@ func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -
 }
 
 /// `window_manager_tree_wait_for_view`
-func windowManagerTreeWaitForView(_ moveList: [UInt32], _ owner: View)
+func windowManagerTreeWaitForView(_ moveList: [WindowID], _ owner: View)
 {
     if moveList.isEmpty { return }
 
@@ -635,9 +635,9 @@ func window_manager_adjust_layer(_ target: Window, _ layer: WindowLayer)
 //
 
 /// `window_manager_collect_child_windows`
-func window_manager_collect_child_windows(_ root: UInt32, _ parentList: inout [UInt32], _ childList: [UInt32]) -> [UInt32]
+func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout [WindowID], _ childList: [WindowID]) -> [WindowID]
 {
-    var result: [UInt32] = []
+    var result: [WindowID] = []
 
     var i = -1
     while i < result.count {
@@ -678,12 +678,12 @@ func window_manager_set_window_layer(_ target: Window, _ layer: WindowLayer) -> 
     let result = scripting_addition_set_layer(target.id, parentLayer.level)
     if !result { return false }
 
-    guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id) as? [NSNumber], !associated.isEmpty else { return result }
+    guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
 
-    var parentList: [UInt32] = []
-    var childList: [UInt32] = []
+    var parentList: [WindowID] = []
+    var childList: [WindowID] = []
 
-    for queried in SLS.queryWindows(connection_global(), associated.map { $0.uint32Value }).prefix(associated.count) {
+    for queried in SLS.queryWindows(connection_global(), associated.map { WindowID($0.uint32Value) }).prefix(associated.count) {
         parentList.append(queried.parent)
         childList.append(queried.id)
     }
@@ -730,31 +730,31 @@ func window_manager_add_lost_front_switched_event(_ wm: WindowManager, _ pid: pi
 }
 
 /// `window_manager_find_lost_focused_event`
-func window_manager_find_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32) -> Bool
+func window_manager_find_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID) -> Bool
 {
     return wm.window_lost_focused_event.find(windowID) != nil
 }
 
 /// `window_manager_remove_lost_focused_event`
-func window_manager_remove_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32)
+func window_manager_remove_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID)
 {
     wm.window_lost_focused_event.remove(windowID)
 }
 
 /// `window_manager_add_lost_focused_event`
-func window_manager_add_lost_focused_event(_ wm: WindowManager, _ windowID: UInt32)
+func window_manager_add_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID)
 {
     wm.window_lost_focused_event.add(windowID, true)
 }
 
 /// `window_manager_find_window`
-func window_manager_find_window(_ wm: WindowManager, _ windowID: UInt32) -> Window?
+func window_manager_find_window(_ wm: WindowManager, _ windowID: WindowID) -> Window?
 {
     return wm.window.find(windowID)
 }
 
 /// `window_manager_remove_window`
-func window_manager_remove_window(_ wm: WindowManager, _ windowID: UInt32)
+func window_manager_remove_window(_ wm: WindowManager, _ windowID: WindowID)
 {
     border_remove(windowID)
 
@@ -1252,7 +1252,7 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 }
 
 /// `window_manager_validate_windows_on_space`
-private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [UInt32])
+private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [WindowID])
 {
     let viewWindowList = view_find_window_list(owner)
 
@@ -1281,7 +1281,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
 }
 
 /// `window_manager_check_for_windows_on_space`
-private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [UInt32])
+private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [WindowID])
 {
     for windowID in windowList {
         guard let target = window_manager_find_window(wm, windowID), window_manager_should_manage_window(target) else { continue }
@@ -1327,7 +1327,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 }
 
 /// The windows of space_window_list (without minimized windows) as an array.
-private func spaceWindows(_ sid: SpaceID) -> [UInt32]?
+private func spaceWindows(_ sid: SpaceID) -> [WindowID]?
 {
     var count: Int32 = 0
     return space_window_list(sid, &count, false)

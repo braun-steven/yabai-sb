@@ -84,16 +84,16 @@ private func viewWindowList(_ sid: SpaceID) -> String
 {
     var count: Int32 = 0
     guard let windowList = space_window_list(sid, &count, true) else { return "[]" }
-    return jsonList((0..<Int(count)).map { Int32(bitPattern: windowList[$0]) })
+    return jsonList((0..<Int(count)).map { Int32(bitPattern: windowList[$0].rawValue) })
 }
 
-private func viewFirstWindow(_ view: View) -> UInt32
+private func viewFirstWindow(_ view: View) -> WindowID
 {
     guard let tree = view.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return 0 }
     return first.window_id
 }
 
-private func viewLastWindow(_ view: View) -> UInt32
+private func viewLastWindow(_ view: View) -> WindowID
 {
     guard let tree = view.tree, let last = tree_last_leaf(tree) else { return 0 }
     return last.window_id
@@ -113,8 +113,8 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
     json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
     json.property(SpaceProperty.display,      "\"display\":\(display_manager_display_id_arrangement(space_display_id(sid)))")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
-    json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)))")
-    json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)))")
+    json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view).rawValue))")
+    json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view).rawValue))")
     json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.current_space_id))")
     json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(space_is_visible(sid)))")
     json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(space_is_fullscreen(sid)))")
@@ -193,7 +193,7 @@ private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID, _ flag
     if wanted(flags, WindowProperty.space)   { info.space   = space_manager_mission_control_index(sid) }
 }
 
-private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: UInt32, _ flags: UInt64)
+private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ flags: UInt64)
 {
     if wanted(flags, WindowProperty.level | WindowProperty.layer)         { info.level     = window_level(wid) }
     if wanted(flags, WindowProperty.subLevel | WindowProperty.subLayer)   { info.subLevel  = window_sub_level(wid) }
@@ -279,7 +279,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 //
 
 /// `window_info_for_window_id`
-func windowInfo(forID wid: UInt32, _ flags: UInt64) -> WindowInfo
+func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 {
     var info = WindowInfo()
     info.id         = wid
@@ -321,7 +321,7 @@ func windowSerialize(_ window: Window, _ flags: UInt64) -> String
 }
 
 /// `window_nonax_serialize`
-func windowNonAXSerialize(_ wid: UInt32, _ flags: UInt64) -> String
+func windowNonAXSerialize(_ wid: WindowID, _ flags: UInt64) -> String
 {
     let flags = flags == 0 ? ~flags : flags
     return windowInfo(forID: wid, flags).serialize(flags, layer: layerName)
@@ -371,7 +371,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     let focused = leaf && node.window_id == window_manager_global().focused_window_id
 
     output += String(repeating: " ", count: depth)
-    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id))"
+    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id.rawValue))"
     output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
     output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
 

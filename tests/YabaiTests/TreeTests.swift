@@ -9,14 +9,14 @@ import YabaiCore
 //
 
 /// `tree_test_window`
-private func treeTestWindow(_ node: Con?) -> UInt32
+private func treeTestWindow(_ node: Con?) -> WindowID
 {
     guard let node, con_is_leaf(node) else { return 0 }
     return node.window_id
 }
 
 /// `tree_test_child`
-private func treeTestChild(_ node: Con, _ index: Int32) -> UInt32
+private func treeTestChild(_ node: Con, _ index: Int32) -> WindowID
 {
     return index < node.child_count ? treeTestWindow(node.children[Int(index)]) : 0
 }
@@ -28,7 +28,7 @@ private func percent(_ node: Con, _ scale: Float = 100) -> Int32
 }
 
 /// A leaf that is not part of a tree.
-private func treeTestCon(_ windowID: UInt32) -> Con
+private func treeTestCon(_ windowID: WindowID) -> Con
 {
     let node = Yabai.con_create(.splitH)!
     node.window_id = windowID
@@ -688,7 +688,7 @@ extension DaemonState
         func treeWindowOrderCollect()
         {
             /// `tree_test_order_is`
-            func orderIs(_ list: [sa_window_order], _ index: Int, _ aWid: UInt32, _ order: Int32, _ bWid: UInt32) -> Bool
+            func orderIs(_ list: [sa_window_order], _ index: Int, _ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
             {
                 if index >= list.count { return false }
                 return list[index].a_wid == aWid && list[index].order == order && list[index].b_wid == bWid
@@ -797,7 +797,7 @@ extension DaemonState
             treeTestLeaf(v, 3)
             treeTestLeaf(v, 4)
 
-            var list: [UInt32] = []
+            var list: [WindowID] = []
             tree_collect_window_ids(root, &list)
             #expect(list == [1, 2, 3, 4])
 
@@ -817,12 +817,12 @@ extension DaemonState
         {
             let root = Yabai.con_create(.splitH)!
             let tabs = treeTestSplit(root, .tabbed)
-            for wid in UInt32(1)...10 { treeTestLeaf(tabs, wid) }
-            for wid in UInt32(11)...20 { treeTestLeaf(root, wid) }
+            for wid in (UInt32(1)...10).map(WindowID.init(rawValue:)) { treeTestLeaf(tabs, wid) }
+            for wid in (UInt32(11)...20).map(WindowID.init(rawValue:)) { treeTestLeaf(root, wid) }
             let target = treeViewTestView(root)
 
             // NOTE: the C test checked that the list grows past its initial capacity; the list is an array now
-            #expect(treeViewWindowList(target) == Array(UInt32(1)...20))
+            #expect(treeViewWindowList(target) == (UInt32(1)...20).map(WindowID.init(rawValue:)))
 
             let empty = treeViewTestView(nil)
             #expect(treeViewWindowList(empty).isEmpty)

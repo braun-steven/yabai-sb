@@ -112,9 +112,9 @@ final class MouseState
     var last_moved_time: UInt64 = 0
     var window: Window!
     var window_frame = CGRect.zero
-    var ffm_window_id: UInt32 = 0
+    var ffm_window_id: WindowID = 0
     var direction: ResizeHandle = []
-    var feedback_wid: UInt32 = 0
+    var feedback_wid: WindowID = 0
     var feedback_dir: InsertDirection?
 
     /// `mouse_handle_load`
@@ -168,7 +168,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         if let handle = ms.handlePort { CGEvent.tapEnable(tap: handle, enable: true) }
     case .leftMouseDown, .rightMouseDown:
         let mod = mouseModFromCGFlags(event.flags)
-        var tabWid: UInt32 = 0
+        var tabWid: WindowID = 0
         if type == .leftMouseDown && mod != ms.modifier.modifiers && tab_bar_hit_test(event.location, &tabWid) {
             tab_bar_pointer_update(event.location, pressed: true)
             ms.consume_tab_click = true

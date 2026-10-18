@@ -321,7 +321,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
 }
 
 /// `space_manager_tile_window_on_space_with_insertion_point`
-func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID, _ insertionPoint: UInt32) -> View
+func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID, _ insertionPoint: WindowID) -> View
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return target }
@@ -467,14 +467,14 @@ func space_manager_active_space() -> SpaceID
 }
 
 /// The windows of a space, as `space_window_list` lists them.
-private func spaceWindowIDs(_ sid: SpaceID) -> [UInt32]
+private func spaceWindowIDs(_ sid: SpaceID) -> [WindowID]
 {
     var count: Int32 = 0
     return space_window_list(sid, &count, true) ?? []
 }
 
 /// `space_manager_move_window_list_to_space`
-func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32)
+func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<WindowID>, _ windowCount: Int32)
 {
     var windows = Array(UnsafeBufferPointer(start: windowList, count: Int(windowCount)))
 
@@ -482,13 +482,14 @@ func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windowList: Unsaf
         SLS.bridgedMoveWindows(windows, toSpace: sid)
     } else if !scripting_addition_move_window_list_to_space(sid, &windows, Int32(windows.count)) {
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
-        SLSSetWindowListWorkspace(connection_global(), &windows, Int32(windows.count), 0x79616265)
+        var rawWindows = windows.map(\.rawValue)
+        SLSSetWindowListWorkspace(connection_global(), &rawWindows, Int32(rawWindows.count), 0x79616265)
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
     }
 }
 
 /// Moves a list of windows to a space, as `space_manager_move_window_list_to_space` does.
-private func moveWindows(_ windows: [UInt32], to sid: SpaceID)
+private func moveWindows(_ windows: [WindowID], to sid: SpaceID)
 {
     var list = windows
     space_manager_move_window_list_to_space(sid, &list, Int32(list.count))
@@ -501,7 +502,7 @@ private func moveWindows(_ windows: [UInt32], to sid: SpaceID)
 //
 
 /// `space_manager_wait_for_window_on_space`
-func space_manager_wait_for_window_on_space(_ wid: UInt32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
 {
     var i: Int32 = 0
     while i < timeoutMS / 10 {
@@ -514,7 +515,7 @@ func space_manager_wait_for_window_on_space(_ wid: UInt32, _ sid: SpaceID, _ tim
 }
 
 /// `space_manager_wait_for_windows_on_space`
-func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<UInt32>, _ windowCount: Int32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<WindowID>, _ windowCount: Int32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
 {
     var arrived: Int32 = 0
 
@@ -537,7 +538,7 @@ func space_manager_move_window_to_space(_ sid: SpaceID, _ win: Window)
     if SLS.hasBridgedWindowOperation {
         SLS.bridgedMoveWindows([win.id], toSpace: sid)
     } else if !scripting_addition_move_window_to_space(sid, win.id) {
-        var windows = [win.id]
+        var windows = [win.id.rawValue]
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
         SLSSetWindowListWorkspace(connection_global(), &windows, 1, 0x79616265)
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)

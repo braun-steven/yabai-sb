@@ -88,7 +88,7 @@ func update_window_notifications()
     let wm = window_manager_global()
 
     // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
-    var windowIDs = wm.window.values.map { $0.id }
+    var windowIDs = wm.window.values.map { $0.id.rawValue }
 
     SLSRequestNotificationsForWindows(connection_global(), &windowIDs, Int32(windowIDs.count))
 }
@@ -104,7 +104,7 @@ func update_window_notifications()
 // The handlers collect the views they modified and flush them once with flushDirtyViews.
 //
 
-@WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: UInt32)
+@WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: WindowID)
 {
     window_manager_adjust_layer(window, .below)
     view_add_window(view, window, insertionPoint)
@@ -133,7 +133,7 @@ func update_window_notifications()
 // windows stay on their space.
 //
 
-@WM private func tileWindowsBatched(_ windows: [Window], _ insertionPoint: UInt32, _ newWindows: Bool)
+@WM private func tileWindowsBatched(_ windows: [Window], _ insertionPoint: WindowID, _ newWindows: Bool)
 {
     let wm = window_manager_global()
     var insertionPoint = insertionPoint

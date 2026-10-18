@@ -8,7 +8,7 @@
 public enum SpaceWindow
 {
     /// `space_window_has_user_level`
-    public static func hasUserLevel(parentID: UInt32, level: Int32) -> Bool
+    public static func hasUserLevel(parentID: WindowID, level: Int32) -> Bool
     {
         parentID == 0 && (level == 0 || level == 3 || level == 8)
     }
@@ -20,7 +20,7 @@ public enum SpaceWindow
     }
 
     /// `space_window_is_user_window`
-    public static func isUserWindow(parentID: UInt32, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
+    public static func isUserWindow(parentID: WindowID, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
     {
         hasUserLevel(parentID: parentID, level: level) &&
         ((attributes & 0x2) != 0 || (tags & 0x400000000000000) != 0) &&
@@ -28,7 +28,7 @@ public enum SpaceWindow
     }
 
     /// `space_window_is_minimized_user_window`
-    public static func isMinimizedUserWindow(parentID: UInt32, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
+    public static func isMinimizedUserWindow(parentID: WindowID, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
     {
         hasUserLevel(parentID: parentID, level: level) &&
         (attributes == 0x0 || attributes == 0x1) &&

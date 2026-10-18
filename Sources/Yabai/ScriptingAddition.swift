@@ -20,9 +20,9 @@ nonisolated(unsafe) var g_sa_socket_file = ""
 /// `struct sa_window_order`: a window ordered relative to another one; the payload gets the fields one by one.
 struct sa_window_order
 {
-    var a_wid: UInt32
+    var a_wid: WindowID
     var order: Int32
-    var b_wid: UInt32
+    var b_wid: WindowID
 }
 
 private enum SAPath
@@ -307,6 +307,10 @@ struct SAPayload
         withUnsafeBytes(of: value) { bytes.append(contentsOf: $0) }
     }
 
+    /// The payload carries ids as their raw window server values.
+    mutating func pack(_ id: WindowID) { pack(id.rawValue) }
+    mutating func pack(_ id: SpaceID) { pack(id.rawValue) }
+
     mutating func message(_ opcode: sa_opcode) -> [UInt8]?
     {
         if overflow { return nil }
@@ -361,43 +365,43 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
     scripting_addition_move_space_to_display(srcSid, dstSid, 0, focus)
 }
 
-@discardableResult func scripting_addition_move_window(_ wid: UInt32, _ x: Int32, _ y: Int32) -> Bool
+@discardableResult func scripting_addition_move_window(_ wid: WindowID, _ x: Int32, _ y: Int32) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(x); payload.pack(y)
     return payload.send(SA_OPCODE_WINDOW_MOVE)
 }
 
-@discardableResult func scripting_addition_set_opacity(_ wid: UInt32, _ opacity: Float, _ duration: Float) -> Bool
+@discardableResult func scripting_addition_set_opacity(_ wid: WindowID, _ opacity: Float, _ duration: Float) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(opacity); payload.pack(duration)
     return payload.send(duration > 0 ? SA_OPCODE_WINDOW_OPACITY_FADE : SA_OPCODE_WINDOW_OPACITY)
 }
 
-@discardableResult func scripting_addition_set_layer(_ wid: UInt32, _ layer: Int32) -> Bool
+@discardableResult func scripting_addition_set_layer(_ wid: WindowID, _ layer: Int32) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(layer)
     return payload.send(SA_OPCODE_WINDOW_LAYER)
 }
 
-@discardableResult func scripting_addition_set_sticky(_ wid: UInt32, _ sticky: Bool) -> Bool
+@discardableResult func scripting_addition_set_sticky(_ wid: WindowID, _ sticky: Bool) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(sticky)
     return payload.send(SA_OPCODE_WINDOW_STICKY)
 }
 
-@discardableResult func scripting_addition_set_shadow(_ wid: UInt32, _ shadow: Bool) -> Bool
+@discardableResult func scripting_addition_set_shadow(_ wid: WindowID, _ shadow: Bool) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(shadow)
     return payload.send(SA_OPCODE_WINDOW_SHADOW)
 }
 
-@discardableResult func scripting_addition_focus_window(_ wid: UInt32) -> Bool
+@discardableResult func scripting_addition_focus_window(_ wid: WindowID) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid)
     return payload.send(SA_OPCODE_WINDOW_FOCUS)
 }
 
-@discardableResult func scripting_addition_scale_window(_ wid: UInt32, _ x: Float, _ y: Float, _ w: Float, _ h: Float) -> Bool
+@discardableResult func scripting_addition_scale_window(_ wid: WindowID, _ x: Float, _ y: Float, _ w: Float, _ h: Float) -> Bool
 {
     var payload = SAPayload(); payload.pack(wid); payload.pack(x); payload.pack(y); payload.pack(w); payload.pack(h)
     return payload.send(SA_OPCODE_WINDOW_SCALE)
@@ -407,7 +411,7 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 {
     var payload = SAPayload(); payload.pack(Int32(animations.count))
     for animation in animations {
-        payload.pack(animation.skip ? UInt32(0) : animation.wid)
+        payload.pack(animation.skip ? 0 : animation.wid)
         if !animation.skip { payload.pack(animation.proxy.id) }
     }
     return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_IN)
@@ -417,13 +421,13 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 {
     var payload = SAPayload(); payload.pack(Int32(animations.count))
     for animation in animations {
-        payload.pack(animation.skip ? UInt32(0) : animation.wid)
+        payload.pack(animation.skip ? 0 : animation.wid)
         if !animation.skip { payload.pack(animation.proxy.id) }
     }
     return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_OUT)
 }
 
-@discardableResult func scripting_addition_order_window(_ aWid: UInt32, _ order: Int32, _ bWid: UInt32) -> Bool
+@discardableResult func scripting_addition_order_window(_ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
 {
     var payload = SAPayload(); payload.pack(aWid); payload.pack(order); payload.pack(bWid)
     return payload.send(SA_OPCODE_WINDOW_ORDER)
@@ -471,25 +475,25 @@ func scripting_addition_payload_changed()
     return result
 }
 
-@discardableResult func scripting_addition_order_window_in(_ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_order_window_in(_ windowList: UnsafeMutablePointer<WindowID>?, _ count: Int32) -> Bool
 {
     var orderedIn: UInt8 = 0
     var payload = SAPayload(); payload.pack(count)
     for i in 0..<max(0, Int(count)) {
-        SLSWindowIsOrderedIn(connection_global(), windowList![i], &orderedIn)
-        payload.pack(orderedIn != 0 ? UInt32(0) : windowList![i])
+        SLSWindowIsOrderedIn(connection_global(), windowList![i].rawValue, &orderedIn)
+        payload.pack(orderedIn != 0 ? 0 : windowList![i])
     }
     return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
 }
 
-@discardableResult func scripting_addition_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<UInt32>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<WindowID>?, _ count: Int32) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid); payload.pack(count)
     for i in 0..<max(0, Int(count)) { payload.pack(windowList![i]) }
     return payload.send(SA_OPCODE_WINDOW_LIST_TO_SPACE)
 }
 
-@discardableResult func scripting_addition_move_window_to_space(_ sid: SpaceID, _ wid: UInt32) -> Bool
+@discardableResult func scripting_addition_move_window_to_space(_ sid: SpaceID, _ wid: WindowID) -> Bool
 {
     var payload = SAPayload(); payload.pack(sid); payload.pack(wid)
     return payload.send(SA_OPCODE_WINDOW_TO_SPACE)

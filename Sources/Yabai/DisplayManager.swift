@@ -355,7 +355,7 @@ private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
 }
 
 /// `display_manager_focus_display_with_window_at_point`: focuses the window under a point; returns its id, or 0.
-func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> UInt32
+func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> WindowID
 {
     guard let elementRef = displayManagerFindElementAtPoint(point) else { return 0 }
 

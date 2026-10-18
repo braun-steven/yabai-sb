@@ -20,7 +20,7 @@ private func windowManagerFree(_ wm: WindowManager)
 }
 
 /// A valid window with an id and an application, as window_create sets them.
-private func windowCreate(_ id: UInt32, _ owner: Application? = nil) -> Window
+private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
 {
     let result = Window()
     result.id = id
@@ -118,17 +118,17 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 
 @Test("window_child_windows_collect") func windowChildWindowsCollect()
 {
-    var parentList: [UInt32] = [3, 1, 9, 1]
+    var parentList: [WindowID] = [3, 1, 9, 1]
     #expect(window_manager_collect_child_windows(1, &parentList, [4, 2, 8, 3]) == [2, 3, 4])
 
-    var directParent: [UInt32] = [1, 1, 1]
+    var directParent: [WindowID] = [1, 1, 1]
     #expect(window_manager_collect_child_windows(1, &directParent, [2, 3, 4]).count == 3)
 
     // NOTE: a cycle does not repeat windows
-    var cycleParent: [UInt32] = [1, 2]
+    var cycleParent: [WindowID] = [1, 2]
     #expect(window_manager_collect_child_windows(1, &cycleParent, [2, 1]).count == 2)
 
-    var emptyParent: [UInt32] = []
+    var emptyParent: [WindowID] = []
     #expect(window_manager_collect_child_windows(1, &emptyParent, []).isEmpty)
 }
 

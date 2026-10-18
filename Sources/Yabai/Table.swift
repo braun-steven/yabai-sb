@@ -98,12 +98,12 @@ struct Table<Key, Value>
     }
 }
 
-extension Table where Key == UInt32
+extension Table where Key == WindowID
 {
-    /// `hash_wm` and `compare_wm`: window ids and pids.
+    /// `hash_wm` and `compare_wm`: window ids.
     init(capacity: Int)
     {
-        self.init(capacity: capacity, hash: { UInt($0) }, equals: { $0 == $1 })
+        self.init(capacity: capacity, hash: { UInt($0.rawValue) }, equals: { $0 == $1 })
     }
 }
 

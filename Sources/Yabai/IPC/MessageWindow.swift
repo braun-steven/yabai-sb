@@ -134,7 +134,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
         if let window = actingWindow {
             if !window_manager_close_window(window) {
-                rsp.fail("could not close window with id '\(Int32(bitPattern: window.id))'.\n")
+                rsp.fail("could not close window with id '\(Int32(bitPattern: window.id.rawValue))'.\n")
             }
         } else {
             rsp.fail("could not locate the window to act on!\n")
@@ -143,7 +143,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            let id = Int32(bitPattern: window.id)
+            let id = Int32(bitPattern: window.id.rawValue)
             let result = window_manager_minimize_window(window)
             if result == .cannotMinimize {
                 rsp.fail("window with id '\(id)' does not support the minimize operation.\n")
@@ -158,7 +158,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
     } else if command.equals(WindowCommand.deminimize) {
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
-            let id = Int32(bitPattern: window.id)
+            let id = Int32(bitPattern: window.id.rawValue)
             let result = window_manager_deminimize_window(window)
             if result == .notMinimized {
                 rsp.fail("window with id '\(id)' is not minimized.\n")
@@ -382,7 +382,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     }
 
     guard let actingWindow else { return .unknown }
-    let id = Int32(bitPattern: actingWindow.id)
+    let id = Int32(bitPattern: actingWindow.id.rawValue)
 
     if command.equals(WindowCommand.subLayer) {
         let value = message.next()
@@ -407,7 +407,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     } else if command.equals(WindowCommand.raise) || command.equals(WindowCommand.lower) {
         let raise = command.equals(WindowCommand.raise)
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: true, CSelectorContext())
-        var relativeWid: UInt32 = 0
+        var relativeWid: WindowID = 0
 
         if selector.token.isValid {
             guard selector.didParse, let window = selector.value else { return .stop }

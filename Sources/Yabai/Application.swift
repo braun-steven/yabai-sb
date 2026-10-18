@@ -17,7 +17,7 @@ final class Application
     var name = ""
     var icon: CGImage?
     var observer_ref: AXObserver!
-    var notification: UInt8 = 0
+    var notifications: ApplicationNotifications = []
     var is_observing = false
     var is_hidden = false
     var ax_retry = false
@@ -28,20 +28,34 @@ extension Application: Equatable
     static func == (a: Application, b: Application) -> Bool { a === b }
 }
 
-// the notifications of application_observe, in the order of the bits of application->notification
-private let axApplicationNotifications: [(name: String, text: String)] =
-[
-    (kAXCreatedNotification,              "kAXCreatedNotification"),
-    (kAXFocusedWindowChangedNotification, "kAXFocusedWindowChangedNotification"),
-    (kAXWindowMovedNotification,          "kAXWindowMovedNotification"),
-    (kAXWindowResizedNotification,        "kAXWindowResizedNotification"),
-    (kAXTitleChangedNotification,         "kAXTitleChangedNotification"),
-    (kAXMenuOpenedNotification,           "kAXMenuOpenedNotification"),
-    (kAXMenuClosedNotification,           "kAXMenuClosedNotification"),
-]
+/// The AX notifications that application_observe registered for an application.
+struct ApplicationNotifications: OptionSet, Sendable
+{
+    let rawValue: UInt8
 
-// AX_APPLICATION_ALL (application.h, which Swift does not import): the window notifications, not the menu ones
-private let axApplicationAll: UInt8 = 0b11111
+    static let created              = ApplicationNotifications(rawValue: 1 << 0)
+    static let focusedWindowChanged = ApplicationNotifications(rawValue: 1 << 1)
+    static let windowMoved          = ApplicationNotifications(rawValue: 1 << 2)
+    static let windowResized        = ApplicationNotifications(rawValue: 1 << 3)
+    static let titleChanged         = ApplicationNotifications(rawValue: 1 << 4)
+    static let menuOpened           = ApplicationNotifications(rawValue: 1 << 5)
+    static let menuClosed           = ApplicationNotifications(rawValue: 1 << 6)
+
+    /// The window notifications, which application_observe needs; the menu ones are optional.
+    static let required: ApplicationNotifications = [.created, .focusedWindowChanged, .windowMoved, .windowResized, .titleChanged]
+}
+
+// the notifications of application_observe, with their names for the debug output
+private let axApplicationNotifications: [(notification: ApplicationNotifications, name: String, text: String)] =
+[
+    (.created,              kAXCreatedNotification,              "kAXCreatedNotification"),
+    (.focusedWindowChanged, kAXFocusedWindowChangedNotification, "kAXFocusedWindowChangedNotification"),
+    (.windowMoved,          kAXWindowMovedNotification,          "kAXWindowMovedNotification"),
+    (.windowResized,        kAXWindowResizedNotification,        "kAXWindowResizedNotification"),
+    (.titleChanged,         kAXTitleChangedNotification,         "kAXTitleChangedNotification"),
+    (.menuOpened,           kAXMenuOpenedNotification,           "kAXMenuOpenedNotification"),
+    (.menuClosed,           kAXMenuClosedNotification,           "kAXMenuClosedNotification"),
+]
 
 //
 // NOTE: The callback of the observer of each application. It runs on the main run loop and only posts events. Its
@@ -91,7 +105,7 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     }
 }
 
-/// `application_observe`: true if every notification of AX_APPLICATION_ALL is registered. Sets ax_retry when the
+/// `application_observe`: true if every notification of ApplicationNotifications.required is registered. Sets ax_retry when the
 /// application did not answer in time.
 func application_observe(_ target: Application) -> Bool
 {
@@ -99,10 +113,10 @@ func application_observe(_ target: Application) -> Bool
     if AXObserverCreate(target.pid, applicationNotificationHandler, &observerRef) == .success, let observerRef {
         target.observer_ref = observerRef
 
-        for (i, notification) in axApplicationNotifications.enumerated() {
+        for notification in axApplicationNotifications {
             let result = AXObserverAddNotification(observerRef, target.ref, notification.name as CFString, Unmanaged.passUnretained(target).toOpaque())
             if result == .success || result == .notificationAlreadyRegistered {
-                target.notification |= UInt8(1 << i)
+                target.notifications.insert(notification.notification)
             } else {
                 debug("application_observe: error '\(axErrorName(result))' for application '\(target.name)' and notification '\(notification.text)'\n")
 
@@ -122,7 +136,7 @@ func application_observe(_ target: Application) -> Bool
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observerRef), .defaultMode)
     }
 
-    return (target.notification & axApplicationAll) == axApplicationAll
+    return target.notifications.isSuperset(of: .required)
 }
 
 /// `application_unobserve`
@@ -132,11 +146,9 @@ func application_unobserve(_ target: Application)
 
     let observerRef = target.observer_ref!
 
-    for (i, notification) in axApplicationNotifications.enumerated() {
-        if target.notification & UInt8(1 << i) == 0 { continue }
-
+    for notification in axApplicationNotifications where target.notifications.contains(notification.notification) {
         AXObserverRemoveNotification(observerRef, target.ref, notification.name as CFString)
-        target.notification &= ~UInt8(1 << i)
+        target.notifications.remove(notification.notification)
     }
 
     target.is_observing = false

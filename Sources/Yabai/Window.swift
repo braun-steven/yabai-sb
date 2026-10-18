@@ -8,8 +8,7 @@ import YabaiCore
 // Ported from src/window.c.
 //
 
-/// `struct window`. notification has the bits of the notifications of window_observe (minimized, deminimized,
-/// destroyed).
+/// `struct window`. notifications holds the AX notifications window_observe registered.
 final class Window
 {
     var application: Application!
@@ -31,7 +30,7 @@ final class Window
     var windowed_frame = CGRect.zero
     var is_root = false
     var is_eligible = false
-    var notification: UInt8 = 0
+    var notifications: WindowNotifications = []
     var hasShadow = false
     var isFullscreen = false
     var isMinimized = false
@@ -72,16 +71,25 @@ func window_invalidate(_ window: Window) -> Bool
     return window.valid.compareExchange(expected: true, desired: false, ordering: .sequentiallyConsistent).exchanged
 }
 
-// the notifications of window_observe, in the order of the bits of window->notification (AX_WINDOW_*_INDEX)
-private let axWindowNotifications: [(name: String, text: String)] =
-[
-    (kAXWindowMiniaturizedNotification,   "kAXWindowMiniaturizedNotification"),
-    (kAXWindowDeminiaturizedNotification, "kAXWindowDeminiaturizedNotification"),
-    (kAXUIElementDestroyedNotification,   "kAXUIElementDestroyedNotification"),
-]
+/// The AX notifications that window_observe registered for a window.
+struct WindowNotifications: OptionSet, Sendable
+{
+    let rawValue: UInt8
 
-// AX_WINDOW_ALL
-private let axWindowAll: UInt8 = 0b111
+    static let miniaturized   = WindowNotifications(rawValue: 1 << 0)
+    static let deminiaturized = WindowNotifications(rawValue: 1 << 1)
+    static let destroyed      = WindowNotifications(rawValue: 1 << 2)
+
+    static let all: WindowNotifications = [.miniaturized, .deminiaturized, .destroyed]
+}
+
+// the notifications of window_observe, with their names for the debug output
+private let axWindowNotifications: [(notification: WindowNotifications, name: String, text: String)] =
+[
+    (.miniaturized,   kAXWindowMiniaturizedNotification,   "kAXWindowMiniaturizedNotification"),
+    (.deminiaturized, kAXWindowDeminiaturizedNotification, "kAXWindowDeminiaturizedNotification"),
+    (.destroyed,      kAXUIElementDestroyedNotification,   "kAXUIElementDestroyedNotification"),
+]
 
 // kAXFullscreenAttribute (window.h)
 let axFullscreenAttribute = "AXFullScreen"
@@ -91,21 +99,21 @@ let axFullscreenAttribute = "AXFullScreen"
 // callback is applicationNotificationHandler (Application.swift), whose NOTE says who owns the window.
 //
 
-/// `window_observe`: true if every notification of AX_WINDOW_ALL is registered.
+/// `window_observe`: true if every notification of WindowNotifications.all is registered.
 func window_observe(_ target: Window) -> Bool
 {
     let observerRef = target.application.observer_ref!
 
-    for (i, notification) in axWindowNotifications.enumerated() {
+    for notification in axWindowNotifications {
         let result = AXObserverAddNotification(observerRef, target.ref, notification.name as CFString, Unmanaged.passUnretained(target).toOpaque())
         if result == .success || result == .notificationAlreadyRegistered {
-            target.notification |= UInt8(1 << i)
+            target.notifications.insert(notification.notification)
         } else {
             debug("window_observe: \(notification.text) failed with error \(axErrorName(result))\n")
         }
     }
 
-    return (target.notification & axWindowAll) == axWindowAll
+    return target.notifications.isSuperset(of: .all)
 }
 
 /// `window_unobserve`
@@ -113,11 +121,9 @@ func window_unobserve(_ target: Window)
 {
     let observerRef = target.application.observer_ref!
 
-    for (i, notification) in axWindowNotifications.enumerated() {
-        if target.notification & UInt8(1 << i) == 0 { continue }
-
+    for notification in axWindowNotifications where target.notifications.contains(notification.notification) {
         AXObserverRemoveNotification(observerRef, target.ref, notification.name as CFString)
-        target.notification &= ~UInt8(1 << i)
+        target.notifications.remove(notification.notification)
     }
 }
 

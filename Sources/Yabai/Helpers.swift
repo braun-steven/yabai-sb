@@ -138,14 +138,7 @@ func socket_close(_ sockfd: Int32)
     close(sockfd)
 }
 
-/// `string_equals`: false when either string is NULL.
-func string_equals(_ a: UnsafePointer<CChar>?, _ b: UnsafePointer<CChar>?) -> Bool
-{
-    guard let a, let b else { return false }
-    return strcmp(a, b) == 0
-}
-
-/// `string_equals` of a C string and a Swift string, compared byte by byte like strcmp.
+/// `string_equals`: the strings compared byte by byte like strcmp, not by canonical equivalence.
 func string_equals(_ a: String, _ b: String) -> Bool
 {
     return a.utf8.elementsEqual(b.utf8)
@@ -156,20 +149,6 @@ func sls_window_disable_shadow(_ id: UInt32)
 {
     let options = ["com.apple.WindowShadowDensity" as CFString: NSNumber(value: Int32(0))] as CFDictionary
     SLSWindowSetShadowProperties(id, options)
-}
-
-/// `cfstring_copy`: a malloc'ed UTF-8 copy, or nil.
-func cfstring_copy(_ string: CFString) -> UnsafeMutablePointer<CChar>?
-{
-    let numBytes = CFStringGetMaximumSizeForEncoding(CFStringGetLength(string), CFStringBuiltInEncodings.UTF8.rawValue)
-    guard let result = malloc(numBytes + 1)?.assumingMemoryBound(to: CChar.self) else { return nil }
-
-    if !CFStringGetCString(string, result, numBytes + 1, CFStringBuiltInEncodings.UTF8.rawValue) {
-        free(result)
-        return nil
-    }
-
-    return result
 }
 
 /// `ax_window_id`

@@ -17,12 +17,6 @@ private let conLayoutNames = ["splith", "splitv", "tabbed"]
 /// The SkyLight connection of the daemon (`g_connection`).
 var connection: Int32 { connection_global() }
 
-/// A C string in temporary storage or a field, as a String; nil stays nil, like json_string(NULL) writes "".
-func string(_ cString: UnsafePointer<CChar>?) -> String?
-{
-    cString.map { String(cString: $0) }
-}
-
 /// The name of a label of a display or space, escaped for json; "" when it has none.
 private func labelJSON(_ list: LabelList, _ id: UInt64) -> String
 {
@@ -248,8 +242,8 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     var info = WindowInfo()
     info.id               = wid
     info.pid              = application.pid
-    info.app              = string(application.name)
-    info.scratchpad       = string(window.scratchpad) ?? ""
+    info.app              = application.name
+    info.scratchpad       = window.scratchpad ?? ""
     info.frame            = window.frame
     info.isRoot           = window.is_root
     info.hasFocus         = wid == wm.focused_window_id

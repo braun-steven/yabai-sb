@@ -11,10 +11,10 @@ import YabaiCore
 // a space after Mission Control and display changes. Ported from src/window_manager.c.
 //
 
-/// `struct scratchpad`: the window manager owns the malloc'ed label.
+/// `struct scratchpad`
 struct Scratchpad
 {
-    var label: UnsafeMutablePointer<CChar>
+    var label: String
     var window: Window
 }
 
@@ -61,7 +61,7 @@ final class WindowManager
     var tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
     var tab_bar_card_padding: Int32 = 0
     var tab_bar_window_radius: Int32 = 0
-    var tab_bar_font_name: UnsafeMutablePointer<CChar>!
+    var tab_bar_font_name = ""
     var tab_bar_font: CTFont?
     var tab_bar_focused_color = rgba_color()
     var tab_bar_focused_text_color = rgba_color()
@@ -139,7 +139,7 @@ func window_manager_scratchpad_count(_ wm: WindowManager) -> Int32
     return Int32(wm.scratchpad_window.count)
 }
 
-func window_manager_add_scratchpad(_ wm: WindowManager, _ label: UnsafeMutablePointer<CChar>, _ target: Window)
+func window_manager_add_scratchpad(_ wm: WindowManager, _ label: String, _ target: Window)
 {
     wm.scratchpad_window.append(Scratchpad(label: label, window: target))
 }
@@ -1396,7 +1396,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.tab_bar_unfocused_color = rgba_color_from_hex(0xff222222)
     wm.tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888)
     wm.tab_bar_backdrop_color = rgba_color_from_hex(0xff48484a)
-    _ = TAB_BAR_DEFAULT_FONT.withCString { tab_bar_set_font(UnsafeMutablePointer(mutating: $0)) }
+    _ = tab_bar_set_font(TAB_BAR_DEFAULT_FONT)
     wm.scratchpad_exclusive = false
     wm.scratchpad_raise = false
     wm.scratchpad_below = false

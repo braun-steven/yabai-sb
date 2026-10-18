@@ -901,7 +901,7 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
     var i = 0
     while i < refreshCount {
         let application = window_manager_application_refresh_at(wm, Int32(i))
-        debug("space_manager_refresh_application_windows: \(String(cString: application.name)) has windows that are not yet resolved\n")
+        debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
 
         if window_manager_add_existing_application_windows(sm, wm, application, Int32(i)) {
             refreshCount -= 1

@@ -24,7 +24,7 @@ func window_manager_query_window_rules(_ rsp: inout Response)
 /// `window_manager_rule_matches_window`
 func window_manager_rule_matches_window(_ candidate: Rule, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String) -> Bool
 {
-    candidate.matches(app: String(cString: target.application.name), title: windowTitle, role: windowRole, subrole: windowSubrole)
+    candidate.matches(app: target.application.name, title: windowTitle, role: windowRole, subrole: windowSubrole)
 }
 
 /// `window_manager_apply_manage_rule_effects_to_window`
@@ -81,10 +81,7 @@ func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: Windo
     }
 
     if let scratchpad = effects.scratchpad {
-        let label = strdup(scratchpad)!
-        if !window_manager_set_scratchpad_for_window(wm, target, label) {
-            free(label)
-        }
+        _ = window_manager_set_scratchpad_for_window(wm, target, scratchpad)
     }
 
     let grid = effects.grid

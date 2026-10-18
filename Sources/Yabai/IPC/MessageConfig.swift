@@ -471,7 +471,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         var style = tab_bar_style(rawValue: 0)
         if !value.isValid {
             rsp.write("\(tabBarStyleNames[Int(wm.tab_bar_style.rawValue)])\n")
-        } else if value.withCString({ tab_bar_parse_style(UnsafeMutablePointer(mutating: $0), &style) }) {
+        } else if tab_bar_parse_style(value.string, &style) {
             wm.tab_bar_style = style
             tab_bar_refresh_all()
         } else {
@@ -492,7 +492,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         var backdrop = tab_bar_backdrop(rawValue: 0)
         if !value.isValid {
             rsp.write("\(tabBarBackdropNames[Int(wm.tab_bar_backdrop.rawValue)])\n")
-        } else if value.withCString({ tab_bar_parse_backdrop(UnsafeMutablePointer(mutating: $0), &backdrop) }) {
+        } else if tab_bar_parse_backdrop(value.string, &backdrop) {
             wm.tab_bar_backdrop = backdrop
             tab_bar_refresh_all()
         } else {
@@ -523,8 +523,8 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if command.equals(Config.tabBarFont) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(Token(cString: wm.tab_bar_font_name))\n")
-        } else if value.withCString({ tab_bar_set_font(UnsafeMutablePointer(mutating: $0)) }) {
+            rsp.write("\(Token(wm.tab_bar_font_name))\n")
+        } else if let name = String(validating: value.bytes, as: UTF8.self), tab_bar_set_font(name) {
             tab_bar_redraw_all()
         } else {
             rsp.failUnknownValue(domain, command, value)

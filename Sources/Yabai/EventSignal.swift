@@ -55,11 +55,6 @@ private func eventSignalSpawn(_ command: String, _ arguments: [(name: String, va
     }
 }
 
-private func string(_ s: UnsafeMutablePointer<CChar>?) -> String?
-{
-    s.map { String(cString: $0) }
-}
-
 /// The context of the signal of an application or a window (unretained: eventSignalPush describes it at once).
 func signalObject(_ object: AnyObject) -> UnsafeMutableRawPointer
 {
@@ -76,13 +71,13 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
-        es.app = string(app.name)
+        es.app = app.name
     case .applicationTerminated:
         let app = Unmanaged<Application>.fromOpaque(context!).takeUnretainedValue()
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
-        es.app = string(app.name)
+        es.app = app.name
 
         //
         // NOTE(asmvik): We always receive an application_front_switched event *before* an application_terminated
@@ -106,7 +101,7 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
-        es.app = string(app.name)
+        es.app = app.name
         es.active = pm.front_pid == app.pid
     default:
         break
@@ -122,17 +117,17 @@ private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableR
     case .windowCreated, .windowFocused, .windowDeminimized:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
-        es.app   = string(target.application.name)
+        es.app   = target.application.name
         es.title = window_title_ts(target)
     case .windowDestroyed:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
-        es.app = target.application.map { string($0.name) } ?? "<unknown>"
+        es.app = target.application.map { $0.name } ?? "<unknown>"
         es.active = focusedWindowID == target.id
     case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
         es.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id))")
 
-        es.app   = string(target.application.name)
+        es.app   = target.application.name
         es.title = window_title_ts(target)
         es.active = focusedWindowID == target.id
     default:

@@ -76,16 +76,10 @@ func mouseEventIsStale(_ pending: borrowing Atomic<UInt32>) -> Bool
     pending.wrappingSubtract(1, ordering: .acquiringAndReleasing).newValue > 0
 }
 
-/// A C string as printf's `%s` prints it.
-func cName(_ string: UnsafeMutablePointer<CChar>?) -> String
-{
-    string.map { String(cString: $0) } ?? "(null)"
-}
-
 /// The name and pid of a process, as the debug output prints them (`%s (%d)`).
 func describe(_ process: Process) -> String
 {
-    "\(cName(process.name)) (\(process.pid))"
+    "\(process.name) (\(process.pid))"
 }
 
 /// `update_window_notifications`. yabai_main calls it before the event loop runs, so it is not @WM.
@@ -481,7 +475,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)
     if refreshIndex >= 0 {
-        debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(cName(application.name)) has windows that are not yet resolved\n")
+        debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(application.name) has windows that are not yet resolved\n")
         _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
     }
 
@@ -508,7 +502,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     let wm = window_manager_global()
     guard let application = window_manager_find_application(wm, pid) else { return }
 
-    debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(cName(application.name))\n")
+    debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(application.name)\n")
     application.is_hidden = false
 
     let windows = window_manager_find_application_windows(wm, application)
@@ -527,7 +521,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     let wm = window_manager_global()
     guard let application = window_manager_find_application(wm, pid) else { return }
 
-    debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(cName(application.name))\n")
+    debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(application.name)\n")
     application.is_hidden = true
 
     let windows = window_manager_find_application_windows(wm, application)

@@ -4,17 +4,17 @@ import CPrivate
 //
 // NOTE: Scratchpads: windows with a label that are floated and toggled between hidden (ordered out)
 // and shown on the active space, configured by the scratchpad_* options. Ported from
-// src/window_manager_scratchpad.c. The list is window_manager.scratchpad_window.
+// src/window_manager_scratchpad.c. The list is WindowManager.scratchpad_window.
 //
 
 /// `window_manager_find_scratchpad_window`
-private func windowManagerFindScratchpadWindow(_ wm: WindowManager, _ label: UnsafeMutablePointer<CChar>) -> Window?
+private func windowManagerFindScratchpadWindow(_ wm: WindowManager, _ label: String) -> Window?
 {
     return wm.scratchpad_window.first { string_equals($0.label, label) }?.window
 }
 
 /// `window_manager_toggle_scratchpad_window_by_label`
-func window_manager_toggle_scratchpad_window_by_label(_ wm: WindowManager, _ label: UnsafeMutablePointer<CChar>) -> Bool
+func window_manager_toggle_scratchpad_window_by_label(_ wm: WindowManager, _ label: String) -> Bool
 {
     guard let target = windowManagerFindScratchpadWindow(wm, label) else { return false }
     return window_manager_toggle_scratchpad_window(wm, target)
@@ -114,8 +114,8 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
     return true
 }
 
-/// `window_manager_set_scratchpad_for_window`: the window manager takes over the malloc'ed label on success.
-func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Window, _ label: UnsafeMutablePointer<CChar>) -> Bool
+/// `window_manager_set_scratchpad_for_window`: fails when another window has the label.
+func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Window, _ label: String) -> Bool
 {
     if windowManagerFindScratchpadWindow(wm, label) != nil { return false }
 
@@ -159,7 +159,6 @@ func window_manager_remove_scratchpad_for_window(_ wm: WindowManager, _ target: 
     for i in 0..<window_manager_scratchpad_count(wm) where wm.scratchpad_window[Int(i)].window == target {
         target.scratchpad = nil
 
-        free(wm.scratchpad_window[Int(i)].label)
         window_manager_remove_scratchpad(wm, i)
 
         if unfloat { windowManagerReleaseScratchpadWindow(wm, target) }

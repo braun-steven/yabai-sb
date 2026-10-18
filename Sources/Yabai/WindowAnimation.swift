@@ -443,7 +443,7 @@ final class WindowFrameGroup: @unchecked Sendable
     {
         application = target
         ref = target.ref
-        name = cName(target.name)
+        name = target.name
     }
 }
 

@@ -52,7 +52,7 @@ import CPrivate
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? cName(window.application.name) : "<unknown>") \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
 
     if let view = window_manager_find_managed_window(wm, window) {
         let nextFocus = window_manager_tree_focus_candidate(wm, view, window)
@@ -116,7 +116,7 @@ import CPrivate
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_FOCUSED: \(cName(window.application.name)) \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
     if space_manager_global().skip_window_focus_animation {
         let sid = window_space(window.id)
@@ -150,11 +150,11 @@ import CPrivate
 
     let newOrigin = window_ax_origin(window)
     if newOrigin.equalTo(window.frame.origin) {
-        debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(cName(window.application.name)) \(window.id)\n")
+        debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(window.application.name) \(window.id)\n")
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_MOVED: \(cName(window.application.name)) \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_MOVED: \(window.application.name) \(window.id)\n")
     eventSignalPush(.windowMoved, signalObject(window))
     let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
     window.frame.origin = newOrigin
@@ -190,11 +190,11 @@ import CPrivate
 
     let newFrame = window_ax_frame(window)
     if newFrame.equalTo(window.frame) {
-        debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(cName(window.application.name)) \(window.id)\n")
+        debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(window.application.name) \(window.id)\n")
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_RESIZED: \(cName(window.application.name)) \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_RESIZED: \(window.application.name) \(window.id)\n")
     eventSignalPush(.windowResized, signalObject(window))
 
     let wasFullscreen = window_check_flag(window, WINDOW_FULLSCREEN)
@@ -252,7 +252,7 @@ import CPrivate
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(cName(window.application.name)) \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.application.name) \(window.id)\n")
     window_set_flag(window, WINDOW_MINIMIZE)
 
     window_refresh_ax_properties(window)
@@ -290,14 +290,14 @@ import CPrivate
 
     let sid = space_manager_active_space()
     if space_manager_is_window_on_space(sid, window) {
-        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.application.name)) \(window.id) is deminimized on active space\n")
+        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
             let lastWindow = window_manager_find_window(wm, wm.last_window_id)
             let insertionPoint = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { UInt32(0) }
             window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
         }
     } else {
-        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(cName(window.application.name)) \(window.id) is deminimized on inactive space\n")
+        debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on inactive space\n")
     }
 
     if window_manager_find_lost_focused_event(wm, window.id) {
@@ -319,7 +319,7 @@ import CPrivate
         return
     }
 
-    debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(cName(window.application.name)) \(window.id)\n")
+    debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(window.application.name) \(window.id)\n")
 
     window.title = window_title(window)
     tab_bar_refresh_for_window(window.id)

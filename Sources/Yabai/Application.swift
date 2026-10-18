@@ -7,14 +7,14 @@ import AppKit
 // src/application.c.
 //
 
-/// `struct application`: name is the name of the process, which the process owns. The tab bars load icon.
+/// `struct application`: name is the name of the process. The tab bars load icon.
 final class Application
 {
     var ref: AXUIElement!
     var connection: Int32 = 0
     var psn = ProcessSerialNumber()
     var pid: pid_t = 0
-    var name: UnsafeMutablePointer<CChar>!
+    var name = ""
     var icon: CGImage?
     var observer_ref: AXObserver!
     var notification: UInt8 = 0
@@ -106,7 +106,7 @@ func application_observe(_ target: Application) -> Bool
             if result == .success || result == .notificationAlreadyRegistered {
                 target.notification |= UInt8(1 << i)
             } else {
-                debug("application_observe: error '\(axErrorName(result))' for application '\(cName(target.name))' and notification '\(notification.text)'\n")
+                debug("application_observe: error '\(axErrorName(result))' for application '\(target.name)' and notification '\(notification.text)'\n")
 
                 //
                 // NOTE: The application did not respond within the accessibility timeout. Every other

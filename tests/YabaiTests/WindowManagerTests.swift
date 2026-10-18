@@ -32,7 +32,7 @@ private func windowCreate(_ id: UInt32, _ owner: Application? = nil) -> Window
 private func applicationCreate(_ name: String) -> Application
 {
     let result = Application()
-    result.name = strdup(name)
+    result.name = name
     return result
 }
 
@@ -141,7 +141,7 @@ private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Boo
     return result
 }
 
-/// The strings that window_manager_combine_matching_rule_effects takes, freed by the caller.
+/// The window properties that window_manager_combine_matching_rule_effects takes.
 private struct WindowStrings
 {
     let title = ""
@@ -149,7 +149,6 @@ private struct WindowStrings
     let dialog = "AXDialog"
     let standard = "AXStandardWindow"
 
-    func free() {}
 }
 
 @Test("window_rules_combine_matching") func windowRulesCombineMatching()
@@ -158,7 +157,7 @@ private struct WindowStrings
     let target = windowCreate(1, owner)
     let wm = windowManagerCreate()
     let strings = WindowStrings()
-    defer { windowManagerFree(wm); free(owner.name); strings.free() }
+    defer { windowManagerFree(wm) }
 
     // NOTE: without a subrole pattern a rule does not match a dialog
     var any = windowRulesTestRule("^Safari$", nil)
@@ -210,7 +209,7 @@ private struct WindowStrings
     let target = windowCreate(1, owner)
     let wm = windowManagerCreate()
     let strings = WindowStrings()
-    defer { windowManagerFree(wm); free(owner.name); strings.free() }
+    defer { windowManagerFree(wm) }
 
     // NOTE: in the manage round only rules that make a window managed are limited to standard windows
     var manage = windowRulesTestRule("^Safari$", nil)
@@ -230,8 +229,7 @@ private struct WindowStrings
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == true)
     #expect(effects.manage == .on)
 
-    free(owner.name)
-    owner.name = strdup("Mail")
+    owner.name = "Mail"
     effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == false)
 }

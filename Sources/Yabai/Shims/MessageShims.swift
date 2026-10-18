@@ -20,20 +20,6 @@ extension Token
     }
 }
 
-/// A malloc'ed copy of bytes with a null terminator, which the C code frees.
-func mallocString(_ bytes: some Collection<UInt8>) -> UnsafeMutablePointer<CChar>
-{
-    let result = malloc(bytes.count + 1)!.bindMemory(to: CChar.self, capacity: bytes.count + 1)
-    for (i, byte) in bytes.enumerated() { result[i] = CChar(bitPattern: byte) }
-    result[bytes.count] = 0
-    return result
-}
-
-func mallocString(_ string: String?) -> UnsafeMutablePointer<CChar>?
-{
-    string.map { mallocString($0.utf8) }
-}
-
 /// The selectors look up displays, spaces and windows in the managers.
 struct CSelectorContext: SelectorContext
 {

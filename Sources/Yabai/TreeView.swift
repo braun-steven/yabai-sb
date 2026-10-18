@@ -14,8 +14,8 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 {
     if con_is_leaf(node) {
         if let target = window_manager_find_window(window_manager_global(), node.window_id),
-           let application = target.application, let name = application.name {
-            CFStringAppendCString(string, name, CFStringBuiltInEncodings.UTF8.rawValue)
+           let application = target.application {
+            CFStringAppend(string, application.name as CFString)
         }
         return
     }

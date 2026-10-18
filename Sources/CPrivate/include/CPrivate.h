@@ -161,7 +161,6 @@ static inline int SystemC(const char *command) { return system(command); }
 static inline FILE *_Nullable PopenC(const char *command, const char *mode) { return popen(command, mode); }
 static inline int PcloseC(FILE *handle) { return pclose(handle); }
 static inline int sscanfUIntC(const char *text, unsigned int *value) { return sscanf(text, "%u", value); }
-static inline int sscanfFloatC(const char *text, float *value) { return sscanf(text, "%f", value); }
 
 #ifdef __OBJC__
 //

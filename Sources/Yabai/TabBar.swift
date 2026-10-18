@@ -2,6 +2,7 @@ import AppKit
 import CoreText
 import Synchronization
 import CPrivate
+import YabaiCore
 
 /// The classic bar window or native glass panel, and the tabs it shows.
 final class TabBar
@@ -70,39 +71,41 @@ private struct TabBarHit: Sendable
 }
 private let tabBarHits = Mutex<[TabBarHit]>([])
 
-func tab_bar_set_font(_ name: UnsafeMutablePointer<CChar>!) -> Bool
+//
+// NOTE: The font is "<family>:<size>", split at the last ':'. The size is read with sscanf "%f", which skips leading
+// whitespace and ignores trailing text. The family "system" is the system UI font.
+//
+
+func tab_bar_set_font(_ name: String) -> Bool
 {
-    guard let separator = strrchr(name, 58), separator != name else { return false }
+    let utf8 = name.utf8
+    guard let separator = utf8.lastIndex(of: UInt8(ascii: ":")), separator != utf8.startIndex else { return false }
     var size: Float = 0
-    guard sscanfFloatC(separator + 1, &size) == 1, !(size <= 0) else { return false }
-    let length = name.distance(to: separator)
-    let font: CTFont?
-    if length == 6 && strncmp(name, "system", length) == 0 {
-        font = CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)
-    } else {
-        guard let family = CFStringCreateWithBytes(nil, UnsafeRawPointer(name).assumingMemoryBound(to: UInt8.self), length, CFStringBuiltInEncodings.UTF8.rawValue, false) else { return false }
-        font = CTFontCreateWithName(family, CGFloat(size), nil)
-    }
+    let sizeText = Token(utf8[utf8.index(after: separator)...])
+    guard withUnsafeMutablePointer(to: &size, { sizeText.scan("%f", $0) }) == 1, !(size <= 0) else { return false }
+    let family = String(decoding: utf8[..<separator], as: UTF8.self)
+    let font: CTFont? = string_equals(family, "system")
+        ? CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)
+        : CTFontCreateWithName(family as CFString, CGFloat(size), nil)
     guard let font else { return false }
     let wm = window_manager_global()
-    free(wm.tab_bar_font_name)
     wm.tab_bar_font = font
-    wm.tab_bar_font_name = strdup(name)
+    wm.tab_bar_font_name = name
     return true
 }
 
-func tab_bar_parse_style(_ name: UnsafeMutablePointer<CChar>!, _ style: UnsafeMutablePointer<tab_bar_style>!) -> Bool
+func tab_bar_parse_style(_ name: String, _ style: inout tab_bar_style) -> Bool
 {
-    if strcmp(name, "glass") == 0 { style.pointee = TAB_BAR_STYLE_GLASS; return true }
-    if strcmp(name, "i3") == 0 { style.pointee = TAB_BAR_STYLE_I3; return true }
+    if string_equals(name, "glass") { style = TAB_BAR_STYLE_GLASS; return true }
+    if string_equals(name, "i3") { style = TAB_BAR_STYLE_I3; return true }
     return false
 }
 
-func tab_bar_parse_backdrop(_ name: UnsafeMutablePointer<CChar>!, _ backdrop: UnsafeMutablePointer<tab_bar_backdrop>!) -> Bool
+func tab_bar_parse_backdrop(_ name: String, _ backdrop: inout tab_bar_backdrop) -> Bool
 {
-    if strcmp(name, "off") == 0 { backdrop.pointee = TAB_BAR_BACKDROP_OFF; return true }
-    if strcmp(name, "glass") == 0 { backdrop.pointee = TAB_BAR_BACKDROP_GLASS; return true }
-    if strcmp(name, "blur") == 0 { backdrop.pointee = TAB_BAR_BACKDROP_BLUR; return true }
+    if string_equals(name, "off") { backdrop = TAB_BAR_BACKDROP_OFF; return true }
+    if string_equals(name, "glass") { backdrop = TAB_BAR_BACKDROP_GLASS; return true }
+    if string_equals(name, "blur") { backdrop = TAB_BAR_BACKDROP_BLUR; return true }
     return false
 }
 
@@ -267,8 +270,7 @@ func tab_bar_copy_title(_ wid: UInt32) -> CFString?
 {
     guard let target = window_manager_find_window(window_manager_global(), wid) else { return nil }
     if let title = target.title, CFStringGetLength(title) > 0 { return title }
-    if let app = target.application, let name = app.name,
-       let title = CFStringCreateWithCString(nil, name, CFStringBuiltInEncodings.UTF8.rawValue) { return title }
+    if let app = target.application { return app.name as CFString }
     return nil
 }
 

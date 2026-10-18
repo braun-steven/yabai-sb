@@ -39,10 +39,10 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     let windowTitle = window_title_ts(target)
     let windowRole = window_role_ts(target)
     let windowSubrole = window_subrole_ts(target)
-    debug("window_manager_create_and_add_window:\(target.id) \(cName(owner.name)) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
+    debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
 
     if window_is_unknown(target) {
-        debug("window_manager_create_and_add_window: ignoring AXUnknown window \(cName(owner.name)) \(target.id)\n")
+        debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
         window_manager_remove_lost_focused_event(wm, target.id)
         window_destroy(target)
         return nil
@@ -53,7 +53,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     //
 
     if !window_observe(target) {
-        debug("window_manager_create_and_add_window: could not observe \(cName(owner.name)) \(target.id)\n")
+        debug("window_manager_create_and_add_window: could not observe \(owner.name) \(target.id)\n")
         window_manager_remove_lost_focused_event(wm, target.id)
         window_unobserve(target)
         window_destroy(target)
@@ -107,12 +107,12 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
                 window_set_flag(target, WINDOW_FLOAT)
             }
         } else {
-            debug("window_manager_create_and_add_window ignoring incorrectly marked window \(cName(owner.name)) \(target.id)\n")
+            debug("window_manager_create_and_add_window ignoring incorrectly marked window \(owner.name) \(target.id)\n")
             window_set_flag(target, WINDOW_FLOAT)
             windowManagerDebugWindowInfo(target)
         }
     } else {
-        debug("window_manager_create_and_add_window ignoring child window \(cName(owner.name)) \(target.id)\n")
+        debug("window_manager_create_and_add_window ignoring child window \(owner.name) \(target.id)\n")
         window_set_flag(target, WINDOW_FLOAT)
         windowManagerDebugWindowInfo(target)
     }
@@ -255,14 +255,14 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
         resolved = unresolved.isEmpty
 
         if !resolved && refreshIndex == -1 {
-            debug("window_manager_add_existing_application_windows: \(cName(owner.name)) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
+            debug("window_manager_add_existing_application_windows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
             windowManagerAddWindowsByElementID(sm, wm, owner, &unresolved)
 
             if !unresolved.isEmpty {
-                debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(cName(owner.name))\n")
+                debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(owner.name)\n")
                 window_manager_add_application_refresh(wm, owner)
             } else {
-                debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(cName(owner.name))\n")
+                debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(owner.name)\n")
             }
 
             return false
@@ -271,7 +271,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
 
     if !resolved || refreshIndex == -1 { return false }
 
-    debug("window_manager_add_existing_application_windows: all windows for \(cName(owner.name)) are now resolved\n")
+    debug("window_manager_add_existing_application_windows: all windows for \(owner.name) are now resolved\n")
     window_manager_remove_application_refresh(wm, refreshIndex)
     return true
 }

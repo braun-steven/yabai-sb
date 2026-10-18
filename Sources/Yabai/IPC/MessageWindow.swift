@@ -391,7 +391,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
             } else {
                 rsp.fail("could not locate the window to act on!\n")
             }
-        } else if !value.withCString({ window_manager_toggle_scratchpad_window_by_label(wm, UnsafeMutablePointer(mutating: $0)) }) {
+        } else if !window_manager_toggle_scratchpad_window_by_label(wm, value.string) {
             rsp.failUnknownValue(domain, command, value)
         }
         return .done
@@ -441,9 +441,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
             let parsed = parseLabel(&rsp, token, .window)
             if parsed.valid {
                 if let label = parsed.label {
-                    let scratchpad = mallocString(label.bytes)
-                    if !window_manager_set_scratchpad_for_window(wm, actingWindow, scratchpad) {
-                        free(scratchpad)
+                    if !window_manager_set_scratchpad_for_window(wm, actingWindow, label.string) {
                         rsp.fail("the given scratchpad is already assigned to a different window!\n")
                     }
                 } else if !window_manager_remove_scratchpad_for_window(wm, actingWindow, true) {

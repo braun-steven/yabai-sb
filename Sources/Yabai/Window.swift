@@ -35,7 +35,7 @@ final class Window
     var flags: UInt8 = 0
     var opacity: Float = 0
     var layer: Int32 = 0
-    var scratchpad: UnsafeMutablePointer<CChar>!
+    var scratchpad: String?
 
     /// The window itself, for the code that still reads it like the C pointer.
 }

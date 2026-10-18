@@ -9,12 +9,12 @@ import YabaiCore
 // only keeps the process table and posts events; the handlers run on the event loop. Ported from src/process_manager.c.
 //
 
-/// `struct process`: the process owns the malloc'ed name, which its application borrows.
+/// `struct process`
 final class Process
 {
     var psn: ProcessSerialNumber
     var pid: pid_t
-    var name: UnsafeMutablePointer<CChar>!
+    var name: String
 
     //
     // NOTE: terminated and ns_application (the NSRunningApplication at +1) are also written on other threads, and read
@@ -27,7 +27,7 @@ final class Process
     var launch_given_up = false
     let terminated = Atomic<Bool>(false)
 
-    init(psn: ProcessSerialNumber, pid: pid_t, name: UnsafeMutablePointer<CChar>)
+    init(psn: ProcessSerialNumber, pid: pid_t, name: String)
     {
         self.psn = psn
         self.pid = pid
@@ -87,17 +87,15 @@ private func processCreate(_ psn: ProcessSerialNumber, _ pid: pid_t) -> Process?
         return nil
     }
 
-    let processName = cfstring_copy(processNameRef)!
+    let processName = processNameRef as String
 
     if processType == processTypeXPC {
-        debug("process_create: xpc service '\(cName(processName))' detected! ignoring..\n")
-        free(processName)
+        debug("process_create: xpc service '\(processName)' detected! ignoring..\n")
         return nil
     }
 
-    for blacklisted in processNameBlacklist where strcmp(processName, blacklisted) == 0 {
-        debug("process_create: \(cName(processName)) is blacklisted! ignoring..\n")
-        free(processName)
+    for blacklisted in processNameBlacklist where string_equals(processName, blacklisted) {
+        debug("process_create: \(processName) is blacklisted! ignoring..\n")
         return nil
     }
 
@@ -204,7 +202,7 @@ private func processManagerAddRunningProcesses(_ pm: ProcessManager)
 
         guard let process = processCreate(psn, pid) else { continue }
 
-        if strcmp(process.name, "Finder") == 0 {
+        if string_equals(process.name, "Finder") {
             debug("process_manager_add_running_processes: \(describe(process)) was found! caching psn..\n")
             pm.finder_psn = psn
         }
@@ -254,6 +252,4 @@ func process_manager_find_process(_ pm: ProcessManager, _ psn: UnsafeMutablePoin
 func process_destroy(_ process: Process)
 {
     workspace_application_destroy_running_ns_application(process)
-    free(process.name)
-    process.name = nil
 }

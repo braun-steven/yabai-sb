@@ -95,7 +95,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | **2** | **Swift types** | [~] | | |
 | 2.1 | Pseudo-enums → enums and OptionSets | [x] | 51ef4736 | flags left to 2.2 |
 | 2.2 | Bit fields → OptionSets and Bools | [x] | 78fcf65e | `Definitions.swift` deleted |
-| 2.3 | Typed IDs | [ ] | | |
+| 2.3 | Typed IDs | [x] | c97529ef | own border/proxy windows stay raw |
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [ ] | | |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [ ] | | |
 | 2.6 | Verification: live check, benchmark | [ ] | | |
@@ -464,3 +464,25 @@ not here.
 - Next: 2.3 (typed IDs).
 - Notes for the next agent: free functions like `view_is_dirty`, `window_can_move` now just read the Bools; phase 3
   folds them into the models.
+
+### 2026-10-18 Subphase 2.3 [x]
+- Commits: b9d85070..c97529ef (plus this report)
+- Done: `WindowID`/`SpaceID`/`DisplayID` in YabaiCore `Identifiers.swift` (RawRepresentable structs of the C width;
+  Hashable, Comparable, Sendable, printed as the number, integer literals allowed). They replace the raw ids in
+  models (`Window.id`, `Con.window_id`, `View.sid`/`insertion_point`, tab bars, borders, scratchpads), managers
+  (current/last/focused ids, `Table` keys, `LabelList<ID>` now generic), events, selectors (`SelectorContext`,
+  `DisplayQuery`, `SpaceQuery`, `WindowQuery.id`, `QueryTarget`), `Rule.did/sid`, `WindowInfo.id`, `SpaceWindow`,
+  `SpaceList`/`SpaceLayout` math and the `SLS`/`AXElement` wrappers, which now take and return typed ids.
+- Output changes: none (golden unchanged).
+- Verification: `make`, `make test` (112 tests: 70 Yabai + 42 YabaiCore, golden included) at c97529ef.
+- Decisions: `.rawValue` only at C calls (CPrivate, SkyLight, CoreGraphics), JSON/env output (`Int32(bitPattern:)` as
+  before) and the SA payload (`SAPayload.pack(_: WindowID/SpaceID)`; `sa_window_order` holds `WindowID`s). yabai's
+  own windows that are ordered against managed ones (`TabBar.id`, glass panel id, feedback window) are `WindowID`;
+  border edge windows (`Border.ids`) and animation proxies (`proxy.id`) stay raw `UInt32` handles that only reach
+  SkyLight. Signal contexts still carry ids as raw pointers (3.4 types the signal payload). C-shaped
+  pointer+count window lists (`UnsafeMutablePointer<WindowID>`) stay for now.
+- Next: 2.4. Sentinel ids (`0`) remain; `ExpressibleByIntegerLiteral` keeps `== 0`/`= 0` compiling, so 2.4 can drop
+  that conformance to find every sentinel once ids are optionals.
+- Notes for the next agent: compile-error-driven mass edits worked well (a script reading `swift build` errors and
+  appending `.rawValue`/wrapping), but review its output: it also "fixes" Swift declarations that should change type.
+  New pitfall (ambiguous `.map(ID.init)`, C out-parameters) is in `AGENTS.md`.

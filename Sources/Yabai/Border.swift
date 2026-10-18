@@ -156,8 +156,11 @@ private func borderWindowRadius(_ wid: UInt32) -> Float
         let number = unsafeBitCast(CFArrayGetValueAtIndex(radii, 0), to: CFNumber.self)
         CFNumberGetValue(number, .intType, &radius)
     }
-    return radius > 0 ? Float(radius) : BORDER_DEFAULT_RADIUS
+    return radius > 0 ? Float(radius) : borderDefaultRadius
 }
+
+/// The corner radius of a border when the window server reports none for its window.
+private let borderDefaultRadius: Float = 9
 
 private func borderCreateEdge(_ border: Border, _ index: Int)
 {

@@ -9,33 +9,14 @@ extension DaemonState
     @Suite
     struct TabBarTests
     {
-        @Test("tab_bar_style_parse")
-        func styleParse()
+        @Test("Tab bar styles, backdrops and appearances are named by their config values")
+        func configNames()
         {
-            var style = TAB_BAR_STYLE_COUNT
-            func parse(_ name: String) -> Bool {
-                return Yabai.tab_bar_parse_style(name, &style)
-            }
-            #expect(parse("glass"))
-            #expect(style == TAB_BAR_STYLE_GLASS)
-            #expect(!parse("classic"))
-            #expect(parse("i3"))
-            #expect(style == TAB_BAR_STYLE_I3)
-            #expect(!parse("auto"))
-            #expect(!parse(""))
-            #expect(style == TAB_BAR_STYLE_I3)
-        }
-
-        @Test("tab_bar_backdrop_parse")
-        func backdropParse()
-        {
-            var backdrop = TAB_BAR_BACKDROP_COUNT
-            for (name, expected) in [("glass", TAB_BAR_BACKDROP_GLASS), ("blur", TAB_BAR_BACKDROP_BLUR), ("off", TAB_BAR_BACKDROP_OFF)] {
-                #expect(Yabai.tab_bar_parse_backdrop(name, &backdrop))
-                #expect(backdrop == expected)
-            }
-            #expect(!Yabai.tab_bar_parse_backdrop("solid", &backdrop))
-            #expect(backdrop == TAB_BAR_BACKDROP_OFF)
+            #expect(TabBarStyle.allCases.map(\.rawValue) == ["glass", "i3"])
+            #expect(TabBarBackdrop.allCases.map(\.rawValue) == ["off", "glass", "blur"])
+            #expect(TabBarAppearance.allCases.map(\.rawValue) == ["dark", "system"])
+            #expect(TabBarStyle(rawValue: "classic") == nil)
+            #expect(TabBarBackdrop(rawValue: "solid") == nil)
         }
 
         @Test("tab_bar_font_parse")

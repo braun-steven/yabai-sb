@@ -38,7 +38,6 @@ func layerValue(_ layer: WindowLayer) -> Int32
 
 // MARK: src/view.h
 
-let TAB_BAR_MAX_ENTRY_COUNT: Int32 = 64
 
 /// `enum view_flag`
 struct view_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
@@ -54,58 +53,6 @@ let VIEW_IS_VALID       = view_flag(rawValue: 0x200)
 let VIEW_IS_DIRTY       = view_flag(rawValue: 0x400)
 let VIEW_AUTO_PADDING   = view_flag(rawValue: 0x1000)
 let VIEW_IS_UNPADDED    = view_flag(rawValue: 0x2000)
-
-// MARK: src/tab_bar.h, src/tab_bar_glass.h
-
-let TAB_BAR_DEFAULT_FONT = "system:12"
-let TAB_BAR_SYSTEM_FONT  = "system"
-
-/// `enum tab_bar_style`
-struct tab_bar_style: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TAB_BAR_STYLE_GLASS = tab_bar_style(rawValue: 0)
-let TAB_BAR_STYLE_I3    = tab_bar_style(rawValue: 1)
-let TAB_BAR_STYLE_COUNT = tab_bar_style(rawValue: 2)
-
-/// `enum tab_bar_state`
-struct tab_bar_state: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TAB_BAR_UNFOCUSED = tab_bar_state(rawValue: 0)
-let TAB_BAR_INACTIVE  = tab_bar_state(rawValue: 1)
-let TAB_BAR_FOCUSED   = tab_bar_state(rawValue: 2)
-
-/// `enum tab_bar_backdrop`
-struct tab_bar_backdrop: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TAB_BAR_BACKDROP_OFF   = tab_bar_backdrop(rawValue: 0)
-let TAB_BAR_BACKDROP_GLASS = tab_bar_backdrop(rawValue: 1)
-let TAB_BAR_BACKDROP_BLUR  = tab_bar_backdrop(rawValue: 2)
-let TAB_BAR_BACKDROP_COUNT = tab_bar_backdrop(rawValue: 3)
-
-let TAB_BAR_GLASS_TRACK_MARGIN: Float = 2.0
-let TAB_BAR_GLASS_PILL_INSET: Float = 2.0
-let TAB_BAR_GLASS_ANIMATION_DURATION: Double = 0.2
-
-enum TabBarAppearance: String, Sendable, CaseIterable
-{
-    case dark, system
-}
-
-/// `tab_bar_slot`: the tab at the index among count tabs of the area, with the C rounding (float widths, int offsets).
-func tab_bar_slot(_ area: CGRect, _ index: Int32, _ count: Int32) -> CGRect
-{
-    let width = Float(area.size.width / CGFloat(count))
-    let x0 = Float(area.origin.x + CGFloat(Int32(Float(index) * width)))
-    let x1 = index == count - 1 ? Float(area.origin.x + area.size.width) : Float(area.origin.x + CGFloat(Int32(Float(index + 1) * width)))
-    return CGRect(x: CGFloat(x0), y: area.origin.y, width: CGFloat(x1 - x0), height: area.size.height)
-}
-
-// MARK: src/border.h
-
-let BORDER_EDGE_TOP: Int32    = 0
-let BORDER_EDGE_BOTTOM: Int32 = 1
-let BORDER_EDGE_LEFT: Int32   = 2
-let BORDER_EDGE_RIGHT: Int32  = 3
-let BORDER_EDGE_COUNT: Int32  = 4
-
-let BORDER_DEFAULT_RADIUS: Float = 9.0
 
 // MARK: src/window.h
 

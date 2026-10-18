@@ -56,9 +56,9 @@ final class WindowManager
     var tab_bar_height: Int32 = 0
     var tab_bar_offset: Int32 = 0
     var tab_bar_icons = false
-    var tab_bar_style = TAB_BAR_STYLE_GLASS
+    var tab_bar_style = TabBarStyle.glass
     var tab_bar_appearance = TabBarAppearance.dark
-    var tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
+    var tab_bar_backdrop = TabBarBackdrop.off
     var tab_bar_card_padding: Int32 = 0
     var tab_bar_window_radius: Int32 = 0
     var tab_bar_font_name = ""
@@ -1384,9 +1384,9 @@ func window_manager_init(_ wm: WindowManager)
     wm.tab_bar_height = 24
     wm.tab_bar_offset = 0
     wm.tab_bar_icons = true
-    wm.tab_bar_style = TAB_BAR_STYLE_GLASS
+    wm.tab_bar_style = .glass
     wm.tab_bar_appearance = .dark
-    wm.tab_bar_backdrop = TAB_BAR_BACKDROP_BLUR
+    wm.tab_bar_backdrop = .blur
     wm.tab_bar_card_padding = 6
     wm.tab_bar_window_radius = 16
     wm.tab_bar_focused_color = rgba_color_from_hex(0xff285577)
@@ -1396,7 +1396,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.tab_bar_unfocused_color = rgba_color_from_hex(0xff222222)
     wm.tab_bar_unfocused_text_color = rgba_color_from_hex(0xff888888)
     wm.tab_bar_backdrop_color = rgba_color_from_hex(0xff48484a)
-    _ = tab_bar_set_font(TAB_BAR_DEFAULT_FONT)
+    _ = tab_bar_set_font(tabBarDefaultFont)
     wm.scratchpad_exclusive = false
     wm.scratchpad_raise = false
     wm.scratchpad_below = false

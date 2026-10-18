@@ -25,7 +25,7 @@ private struct Snapshot: @unchecked Sendable
 {
     let frame: CGRect
     let card: CGRect
-    let backdrop: tab_bar_backdrop
+    let backdrop: TabBarBackdrop
     let appearance: TabBarAppearance
     let cardRadius: CGFloat
     let sid: UInt64
@@ -68,15 +68,15 @@ private struct Snapshot: @unchecked Sendable
         for i in 0..<Int(count) {
             let source = list[i]
             let (background, text) = tabBarStateColors(source.state)
-            let customText = source.state == TAB_BAR_FOCUSED ? wm.tab_bar_focused_text_color_custom
-                           : source.state == TAB_BAR_INACTIVE ? wm.tab_bar_inactive_text_color_custom
+            let customText = source.state == .focused ? wm.tab_bar_focused_text_color_custom
+                           : source.state == .inactive ? wm.tab_bar_inactive_text_color_custom
                            : wm.tab_bar_unfocused_text_color_custom
-            entries.append(Entry(windowID: source.focus_wid, title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != TAB_BAR_UNFOCUSED, customText: customText))
-            if source.state == TAB_BAR_FOCUSED {
+            entries.append(Entry(windowID: source.focus_wid, title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != .unfocused, customText: customText))
+            if source.state == .focused {
                 pill = tab_bar_glass_tint(background, wm.tab_bar_focused_color_custom, 0.8)
                 customPill = wm.tab_bar_focused_color_custom
                 focused = true
-            } else if source.state == TAB_BAR_INACTIVE {
+            } else if source.state == .inactive {
                 pill = tab_bar_glass_tint(background, wm.tab_bar_inactive_color_custom, 0.8)
                 customPill = wm.tab_bar_inactive_color_custom
             }
@@ -89,20 +89,25 @@ private struct Snapshot: @unchecked Sendable
         self.focused = focused
     }
 
-    var hasCard: Bool { backdrop != TAB_BAR_BACKDROP_OFF }
+    var hasCard: Bool { backdrop != .off }
 }
+
+/// The space above the track of the tabs, the inset of the pill of the active tab and the duration of its move.
+private let glassTrackMargin: CGFloat = 2
+private let glassPillInset: CGFloat = 2
+private let glassAnimationDuration: Double = 0.2
 
 private func trackRect(_ bounds: CGRect) -> CGRect
 {
     var track = bounds
-    track.origin.y += CGFloat(TAB_BAR_GLASS_TRACK_MARGIN)
-    track.size.height -= CGFloat(TAB_BAR_GLASS_TRACK_MARGIN)
-    return track.height <= 2 * CGFloat(TAB_BAR_GLASS_PILL_INSET) ? bounds : track
+    track.origin.y += glassTrackMargin
+    track.size.height -= glassTrackMargin
+    return track.height <= 2 * glassPillInset ? bounds : track
 }
 
 func tabBarGlassInnerRect(_ bounds: CGRect) -> CGRect
 {
-    let inset = min(CGFloat(TAB_BAR_GLASS_PILL_INSET), max(0, min(bounds.width, bounds.height) * 0.5))
+    let inset = min(glassPillInset, max(0, min(bounds.width, bounds.height) * 0.5))
     return trackRect(bounds).insetBy(dx: inset, dy: inset)
 }
 
@@ -216,7 +221,7 @@ private final class Panel
     var accessibilityObserver: NSObjectProtocol?
     var backdrop: NSView?
     var backdropTint: NSView?
-    var backdropKind = TAB_BAR_BACKDROP_OFF
+    var backdropKind = TabBarBackdrop.off
     var backdropRadius: CGFloat = 0
     var below = false
 
@@ -329,7 +334,7 @@ private final class Panel
             if animate && (button.title != title || button.contentTintColor != color) {
                 let transition = CATransition()
                 transition.type = .fade
-                transition.duration = TAB_BAR_GLASS_ANIMATION_DURATION
+                transition.duration = glassAnimationDuration
                 button.layer?.add(transition, forKey: "tabContent")
             } else if !animate {
                 button.layer?.removeAnimation(forKey: "tabContent")
@@ -376,7 +381,7 @@ private final class Panel
     // tabs of the container. The card has its own tint, so the track of the bar stays visible on top of it.
     //
 
-    private func setBackdrop(_ kind: tab_bar_backdrop)
+    private func setBackdrop(_ kind: TabBarBackdrop)
     {
         guard kind != backdropKind else { return }
 
@@ -386,13 +391,13 @@ private final class Panel
         backdropKind = kind
         backdropRadius = -1
 
-        guard kind != TAB_BAR_BACKDROP_OFF else { return }
+        guard kind != .off else { return }
 
         let tint = makeTint()
         tint.autoresizingMask = [.width, .height]
 
         let view: NSView
-        if kind == TAB_BAR_BACKDROP_GLASS {
+        if kind == .glass {
             let glass = NSGlassEffectView(frame: .zero)
             glass.contentView = tint
             view = glass
@@ -420,7 +425,7 @@ private final class Panel
         // NOTE: The standard backdrop supplies its own adaptive color. Only overlay a tint when configured;
         // an opaque semantic backing replaces translucency when requested by the accessibility setting.
         let color: CGColor
-        if snapshot.backdrop == TAB_BAR_BACKDROP_BLUR && !snapshot.customBackdrop {
+        if snapshot.backdrop == .blur && !snapshot.customBackdrop {
             color = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
                   ? NSColor.windowBackgroundColor.cgColor : NSColor.clear.cgColor
         } else {
@@ -482,7 +487,7 @@ private final class Panel
 
         if animate && pill.frame != pillFrame {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = TAB_BAR_GLASS_ANIMATION_DURATION
+                context.duration = glassAnimationDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 context.allowsImplicitAnimation = true
                 self.pillTint.animator().frame = pillFrame

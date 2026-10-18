@@ -384,7 +384,7 @@ private func treeRenderBar(_ node: Con)
     }
 
     let wm = window_manager_global()
-    let entryCount = min(node.child_count, TAB_BAR_MAX_ENTRY_COUNT)
+    let entryCount = min(node.child_count, tabBarMaxEntryCount)
     let hasFocus = treeContainsWindow(node, wm.focused_window_id)
     let active = node.focus[0]
 
@@ -398,7 +398,7 @@ private func treeRenderBar(_ node: Con)
             focus_wid: leaf?.window_id ?? 0,
             title: tree_copy_title(next),
             icon: con_is_leaf(next) ? tab_bar_icon(next.window_id) : nil,
-            state: next != active ? TAB_BAR_UNFOCUSED : hasFocus ? TAB_BAR_FOCUSED : TAB_BAR_INACTIVE))
+            state: next != active ? .unfocused : hasFocus ? .focused : .inactive))
     }
 
     node.render.tab_bar.owner = Unmanaged.passUnretained(node).toOpaque()

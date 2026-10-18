@@ -41,13 +41,58 @@ extension TabBar: Equatable
     static func == (a: TabBar, b: TabBar) -> Bool { a === b }
 }
 
+/// How tab bars are drawn (`config tab_bar_style`).
+enum TabBarStyle: String, CaseIterable, Sendable
+{
+    case glass
+    case i3
+}
+
+/// The card behind a glass tab bar (`config tab_bar_backdrop`).
+enum TabBarBackdrop: String, CaseIterable, Sendable
+{
+    case off
+    case glass
+    case blur
+}
+
+/// The colors of glass tab bars (`config tab_bar_appearance`).
+enum TabBarAppearance: String, CaseIterable, Sendable
+{
+    case dark
+    case system
+}
+
+/// The state of a tab: the focused window's tab, the active tab of an unfocused container, or any other tab.
+enum TabBarState: Sendable
+{
+    case unfocused
+    case inactive
+    case focused
+}
+
+/// The font of the tab bars until `config tab_bar_font` sets one.
+let tabBarDefaultFont = "system:12"
+
+/// The most tabs a tab bar shows.
+let tabBarMaxEntryCount: Int32 = 64
+
+/// `tab_bar_slot`: the tab at the index among count tabs of the area, with the C rounding (float widths, int offsets).
+func tab_bar_slot(_ area: CGRect, _ index: Int32, _ count: Int32) -> CGRect
+{
+    let width = Float(area.size.width / CGFloat(count))
+    let x0 = Float(area.origin.x + CGFloat(Int32(Float(index) * width)))
+    let x1 = index == count - 1 ? Float(area.origin.x + area.size.width) : Float(area.origin.x + CGFloat(Int32(Float(index + 1) * width)))
+    return CGRect(x: CGFloat(x0), y: area.origin.y, width: CGFloat(x1 - x0), height: area.size.height)
+}
+
 /// `struct tab_bar_entry` (tab_bar.h)
 struct TabBarEntry
 {
     var focus_wid: UInt32
     var title: CFString?
     var icon: CGImage?
-    var state: tab_bar_state
+    var state: TabBarState
 }
 
 //
@@ -92,21 +137,6 @@ func tab_bar_set_font(_ name: String) -> Bool
     wm.tab_bar_font = font
     wm.tab_bar_font_name = name
     return true
-}
-
-func tab_bar_parse_style(_ name: String, _ style: inout tab_bar_style) -> Bool
-{
-    if string_equals(name, "glass") { style = TAB_BAR_STYLE_GLASS; return true }
-    if string_equals(name, "i3") { style = TAB_BAR_STYLE_I3; return true }
-    return false
-}
-
-func tab_bar_parse_backdrop(_ name: String, _ backdrop: inout tab_bar_backdrop) -> Bool
-{
-    if string_equals(name, "off") { backdrop = TAB_BAR_BACKDROP_OFF; return true }
-    if string_equals(name, "glass") { backdrop = TAB_BAR_BACKDROP_GLASS; return true }
-    if string_equals(name, "blur") { backdrop = TAB_BAR_BACKDROP_BLUR; return true }
-    return false
 }
 
 func tab_bar_is_enabled() -> Bool
@@ -291,13 +321,13 @@ func tab_bar_icon(_ wid: UInt32) -> CGImage?
     return app.icon
 }
 
-func tabBarStateColors(_ state: tab_bar_state) -> (rgba_color, rgba_color)
+func tabBarStateColors(_ state: TabBarState) -> (rgba_color, rgba_color)
 {
     let wm = window_manager_global()
     switch state {
-    case TAB_BAR_FOCUSED: return (wm.tab_bar_focused_color, wm.tab_bar_focused_text_color)
-    case TAB_BAR_INACTIVE: return (wm.tab_bar_inactive_color, wm.tab_bar_inactive_text_color)
-    default: return (wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_text_color)
+    case .focused:   return (wm.tab_bar_focused_color, wm.tab_bar_focused_text_color)
+    case .inactive:  return (wm.tab_bar_inactive_color, wm.tab_bar_inactive_text_color)
+    case .unfocused: return (wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_text_color)
     }
 }
 
@@ -333,11 +363,11 @@ private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEnt
     context.flush()
 }
 
-private func tabBarUsesGlass() -> Bool { window_manager_global().tab_bar_style == TAB_BAR_STYLE_GLASS }
+private func tabBarUsesGlass() -> Bool { window_manager_global().tab_bar_style == .glass }
 
 func tab_bar_card_padding() -> Int32
 {
-    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
+    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return 0 }
     return window_manager_global().tab_bar_card_padding
 }
 
@@ -384,7 +414,7 @@ private func tabBarKeepOnSpace(_ bar: TabBar)
 func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: UInt32, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int32)
 {
     bar.card = card
-    let count = min(entryCount, Int32(TAB_BAR_MAX_ENTRY_COUNT))
+    let count = min(entryCount, tabBarMaxEntryCount)
     if !tabBarExists(bar) { tabBarCreate(bar, frame) }
     else if frame != bar.frame {
         if bar.id != 0 {
@@ -446,7 +476,7 @@ func tab_bar_release(_ bar: TabBar)
 func tab_bar_card_id(_ bar: TabBar) -> UInt32
 {
     if bar.hidden || bar.glass == nil { return 0 }
-    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == TAB_BAR_BACKDROP_OFF { return 0 }
+    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return 0 }
     return tab_bar_glass_panel_id(bar)
 }
 

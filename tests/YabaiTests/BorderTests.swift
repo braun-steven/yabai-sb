@@ -68,7 +68,7 @@ extension DaemonState
             }
             wm.enable_tab_bar = true
             wm.tab_bar_height = 24
-            wm.tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
+            wm.tab_bar_backdrop = .off
             space_manager_global().tree_workspace_tabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
             let root = Yabai.con_create(.splitH)!

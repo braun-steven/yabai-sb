@@ -91,8 +91,6 @@ private let windowOriginModeNames: [String?] = ["default", "focused", "cursor"]
 private let purifyModeNames: [String?] = ["on", "float", "off"]
 private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
 private let mouseModeNames: [String?] = ["none", "move", "resize", "swap", "stack"]
-private let tabBarStyleNames: [String] = ["glass", "i3"]
-private let tabBarBackdropNames: [String] = ["off", "glass", "blur"]
 
 private let animationEasingNames: [String?] = ["sine", "quad", "cubic", "quart", "quint", "expo", "circ"].flatMap { curve in
     ["ease_in_\(curve)", "ease_out_\(curve)", "ease_in_out_\(curve)"]
@@ -483,36 +481,19 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if command.equals(Config.tabBarIcons) {
         if parseConfigBool(&rsp, domain, command, &message, &wm.tab_bar_icons) { tab_bar_redraw_all() }
     } else if command.equals(Config.tabBarStyle) {
-        let value = message.next()
-        var style = tab_bar_style(rawValue: 0)
-        if !value.isValid {
-            rsp.write("\(tabBarStyleNames[Int(wm.tab_bar_style.rawValue)])\n")
-        } else if tab_bar_parse_style(value.string, &style) {
+        if let style = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_style) {
             wm.tab_bar_style = style
             tab_bar_refresh_all()
-        } else {
-            rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.tabBarAppearance) {
-        let value = message.next()
-        if !value.isValid {
-            rsp.write("\(wm.tab_bar_appearance.rawValue)\n")
-        } else if let appearance = TabBarAppearance.allCases.first(where: { value.equals($0.rawValue) }) {
+        if let appearance = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_appearance) {
             wm.tab_bar_appearance = appearance
             tab_bar_redraw_all()
-        } else {
-            rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.tabBarBackdrop) {
-        let value = message.next()
-        var backdrop = tab_bar_backdrop(rawValue: 0)
-        if !value.isValid {
-            rsp.write("\(tabBarBackdropNames[Int(wm.tab_bar_backdrop.rawValue)])\n")
-        } else if tab_bar_parse_backdrop(value.string, &backdrop) {
+        if let backdrop = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_backdrop) {
             wm.tab_bar_backdrop = backdrop
             tab_bar_refresh_all()
-        } else {
-            rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.tabBarCardPadding) {
         let token = message.next()

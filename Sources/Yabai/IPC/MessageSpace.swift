@@ -71,6 +71,20 @@ extension Token
     }
 }
 
+/// The token of a buffer that sscanf filled.
+extension Token
+{
+    init(cString: UnsafePointer<CChar>?)
+    {
+        guard let cString else {
+            self.init(ArraySlice<UInt8>())
+            return
+        }
+
+        self.init(UnsafeRawBufferPointer(start: cString, count: strlen(cString)))
+    }
+}
+
 /// `parse_value_type` of the string a "%255[^:]" conversion read.
 func valueType(_ type: [CChar]) -> UInt8
 {

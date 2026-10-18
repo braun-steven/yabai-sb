@@ -1,24 +1,5 @@
-import AppKit
 import CPrivate
 import YabaiCore
-
-//
-// NOTE: What the handlers of the IPC domains (Sources/Yabai/IPC/) need from the managers: the selectors look up
-// displays, spaces and windows in them.
-//
-
-extension Token
-{
-    init(cString: UnsafePointer<CChar>?)
-    {
-        guard let cString else {
-            self.init(ArraySlice<UInt8>())
-            return
-        }
-
-        self.init(UnsafeRawBufferPointer(start: cString, count: strlen(cString)))
-    }
-}
 
 /// The selectors look up displays, spaces and windows in the managers.
 struct CSelectorContext: SelectorContext
@@ -86,20 +67,5 @@ struct CSelectorContext: SelectorContext
         case .stackRecent(let window):             window_manager_find_recent_window_in_stack(space_manager_global(), window_manager_global(), window)
         case .stackPosition(let window, let index): window_manager_find_window_in_stack(space_manager_global(), window_manager_global(), window, index)
         }
-    }
-}
-
-//
-// NOTE: The values of LAYER_* (src/misc/macros.h). Swift does not import the macros that name the CGWindowLevelKey
-// constants.
-//
-
-func layerValue(_ layer: WindowLayer) -> Int32
-{
-    switch layer {
-    case .auto:   Int32(LAYER_AUTO)
-    case .below:  CGWindowLevelKey.backstopMenu.rawValue
-    case .normal: CGWindowLevelKey.normalWindow.rawValue
-    case .above:  CGWindowLevelKey.floatingWindow.rawValue
     }
 }

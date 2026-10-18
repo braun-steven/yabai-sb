@@ -9,16 +9,14 @@ import YabaiCore
 // (daemon_message_handle). Ported from src/message.c and the DAEMON_MESSAGE handler of src/event_handlers_system.c.
 //
 
-func message_loop_begin(_ socketPath: UnsafeMutablePointer<CChar>?) -> Bool
+func message_loop_begin(_ socketPath: String) -> Bool
 {
-    guard let socketPath else { return false }
-
     var address = sockaddr_un()
     address.sun_family = sa_family_t(AF_UNIX)
     withUnsafeMutableBytes(of: &address.sun_path) { sunPath in
-        let length = min(strlen(socketPath), sunPath.count - 1)
-        sunPath.copyBytes(from: UnsafeRawBufferPointer(start: socketPath, count: length))
-        sunPath[length] = 0
+        let path = Array(socketPath.utf8.prefix(sunPath.count - 1))
+        sunPath.copyBytes(from: path)
+        sunPath[path.count] = 0
     }
     unlink(socketPath)
 

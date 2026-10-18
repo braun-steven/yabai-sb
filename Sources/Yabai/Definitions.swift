@@ -1,5 +1,6 @@
 import CoreGraphics
 import Darwin
+import YabaiCore
 
 //
 // NOTE: The constants and enums of the C headers that the daemon uses, with the names and types under which Swift
@@ -18,8 +19,22 @@ let HANDLE_LEFT: Int32   = 0x04
 let HANDLE_RIGHT: Int32  = 0x08
 let HANDLE_ABS: Int32    = 0x10
 
-// LAYER_BELOW, LAYER_NORMAL and LAYER_ABOVE are CGWindowLevelKey values (layerValue in MessageShims.swift)
 let LAYER_AUTO: Int32 = 0
+
+//
+// NOTE: The window levels of the sub-layers (LAYER_* in the C version). LAYER_AUTO is 0; the others are
+// CGWindowLevelKey values, which Swift does not import from the C macros that named them.
+//
+
+func layerValue(_ layer: WindowLayer) -> Int32
+{
+    switch layer {
+    case .auto:   Int32(LAYER_AUTO)
+    case .below:  CGWindowLevelKey.backstopMenu.rawValue
+    case .normal: CGWindowLevelKey.normalWindow.rawValue
+    case .above:  CGWindowLevelKey.floatingWindow.rawValue
+    }
+}
 
 // MARK: src/view.h
 

@@ -325,7 +325,7 @@ private func parseArguments(_ arguments: [String]) -> String?
     update_window_notifications()
 
     let socketFile = "/tmp/yabai_\(String(cString: getenv("USER")!)).socket"
-    if !socketFile.withCString({ message_loop_begin(UnsafeMutablePointer(mutating: $0)) }) {
+    if !message_loop_begin(socketFile) {
         error("yabai: could not start message loop! abort..\n")
     }
 

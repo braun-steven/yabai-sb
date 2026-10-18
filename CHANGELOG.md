@@ -27,7 +27,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
-- Split windows inside an active tab retain focus borders with *window_border_hide_single*, and container backgrounds stay behind every visible split window when focus changes
 - Tabbed containers use a subdued native background material by default (*tab_bar_backdrop blur*), with a subtle outline strengthened by Increase Contrast; the tab controls retain Liquid Glass, and *glass* and *off* backdrops remain available
 - Glass tab bars use native AppKit buttons with adaptive default text, hover and press feedback, accessible selection, and transitions that respect Reduce Motion; Reduce Transparency and Increase Contrast adjust their backing and outlines
 - *window_border_hide_single* preserves floating-window borders, including when a floating window is alone on its space

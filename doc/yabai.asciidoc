@@ -226,8 +226,8 @@ Global Settings
     included; windows of hidden tabs have no border.
 
 *window_border_hide_single* ['<BOOL_SEL>']::
-    Hide the border while a tiled window is alone on its space. Count the visible windows of each active tab,
-    including windows in splits; hidden tabs and scratchpads do not count. Floating windows always retain their borders.
+    Hide the border while a tiled window is alone on its space. A tabbed container counts as one window, like for
+    *auto_padding*, and scratchpads do not count. Floating windows always retain their borders.
 
 *window_border_width* ['<FLOAT_SEL>']::
     Width of the window border in points.

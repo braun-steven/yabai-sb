@@ -86,8 +86,6 @@ enum Event: Sendable
     case mouseDragged(Handoff<Unmanaged<CGEvent>>)
     case mouseMoved(Handoff<Unmanaged<CGEvent>>, modifiers: Int32)
     case tabBarClicked(windowID: UInt32)
-    case tabBarCreated
-    case tabBarRendered(spaceID: UInt64)
     case missionControlShowAllWindows
     case missionControlShowFrontWindows
     case missionControlShowDesktop
@@ -152,8 +150,6 @@ enum EventLoop
     case .mouseDragged(let event):                   mouseDragged(event.value.takeRetainedValue())
     case .mouseMoved(let event, _):                  mouseMoved(event.value.takeRetainedValue())
     case .tabBarClicked(let wid):                    tabBarClicked(wid)
-    case .tabBarCreated:                             tabBarCreated()
-    case .tabBarRendered(let sid):                   tabBarRendered(sid)
     case .missionControlShowAllWindows:              missionControlShowAllWindows()
     case .missionControlShowFrontWindows:            missionControlShowFrontWindows()
     case .missionControlShowDesktop:                 missionControlShowDesktop()

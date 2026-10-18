@@ -67,7 +67,7 @@ private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> window_op
     switch focus {
     case .parent:                   return window_manager_tree_focus_parent(wm, window)
     case .child:                    return window_manager_tree_focus_child(wm, window)
-    case .direction(let direction): return window_manager_tree_focus_direction(wm, window, direction.rawValue)
+    case .direction(let direction): return window_manager_tree_focus_direction(wm, window, direction)
     }
 }
 
@@ -232,7 +232,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         if window_manager_find_tree_view(wm, actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
             _ = message.next()
 
-            if window_manager_tree_move_direction(sm, wm, actingWindow, direction.rawValue) != WINDOW_OP_ERROR_SUCCESS {
+            if window_manager_tree_move_direction(sm, wm, actingWindow, direction) != WINDOW_OP_ERROR_SUCCESS {
                 rsp.fail("could not move the container in that direction.\n")
                 return .stop
             }
@@ -293,7 +293,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
     } else if command.equals(WindowCommand.insert) {
         let selector = parseInsertSelector(&rsp, message.next())
         if selector.didParse, let direction = selector.value {
-            rsp.failUnmanagedWindow(window_manager_set_window_insertion(space_manager_global(), actingWindow, direction.rawValue))
+            rsp.failUnmanagedWindow(window_manager_set_window_insertion(space_manager_global(), actingWindow, direction))
         }
     } else {
         return .unknown

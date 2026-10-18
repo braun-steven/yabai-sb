@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: i3 navigation in the container tree of a space: focus and move in a direction, into the parent
@@ -9,7 +10,7 @@ import CPrivate
 //
 
 /// `window_manager_tree_display_in_direction`: the display in the direction, unless its space is a fullscreen space.
-private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Int32) -> UInt32
+private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Direction) -> UInt32
 {
     let did = display_manager_find_closest_display_in_direction(space_display_id(owner.sid), direction)
     if did == 0 || space_is_fullscreen(display_space_id(did)) { return 0 }
@@ -36,7 +37,7 @@ private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: UInt32)
 }
 
 /// `window_manager_tree_focus_direction`: without a window (no window has focus) it fails like for an unmanaged one.
-func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?, _ direction: Int32) -> window_op_error
+func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?, _ direction: Direction) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
@@ -101,7 +102,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 //
 
 /// `window_manager_tree_move_to_display`
-private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Int32)
+private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Direction)
 {
     tree_select(owner.tree, nil)
 
@@ -148,7 +149,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
 }
 
 /// `window_manager_tree_move_direction`
-func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ direction: Int32) -> window_op_error
+func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ direction: Direction) -> window_op_error
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }

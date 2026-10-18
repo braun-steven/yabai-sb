@@ -9,13 +9,6 @@ import Darwin
 
 // MARK: src/misc/macros.h
 
-let DIR_NORTH: Int32 = 360
-let DIR_EAST: Int32  =  90
-let DIR_SOUTH: Int32 = 180
-let DIR_WEST: Int32  = 270
-
-let STACK: Int32 = 111
-
 let TYPE_ABS: Int32 = 0x1
 let TYPE_REL: Int32 = 0x2
 

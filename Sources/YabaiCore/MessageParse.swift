@@ -617,7 +617,7 @@ public func parseOptionalWindowSelector<C: SelectorContext>(_ rsp: inout Respons
     return true
 }
 
-/// Where `window --insert` puts the next window, with the values of `DIR_*` and `STACK` (src/misc/macros.h).
+/// Where `window --insert` or a mouse drop puts a window: on one side of the target, or into its tabbed container.
 public enum InsertDirection: Int32, Sendable
 {
     case north = 360
@@ -625,6 +625,14 @@ public enum InsertDirection: Int32, Sendable
     case south = 180
     case west  = 270
     case stack = 111
+
+    public init(_ direction: Direction)
+    {
+        self.init(rawValue: direction.rawValue)!
+    }
+
+    /// The side, nil for stack.
+    public var direction: Direction? { Direction(rawValue: rawValue) }
 }
 
 /// `parse_insert_selector`
@@ -633,7 +641,7 @@ public func parseInsertSelector(_ rsp: inout Response, _ token: Token) -> Select
     var result = Selection<InsertDirection?>(token: token, didParse: true, value: nil)
 
     if let direction = parseDirection(token) {
-        result.value = InsertDirection(rawValue: direction.rawValue)
+        result.value = InsertDirection(direction)
     } else if token.equals(Argument.stack) {
         result.value = .stack
     } else {

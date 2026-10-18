@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import CPrivate
 import AppKit
+import YabaiCore
 
 //
 // NOTE: Finding windows for the window selectors: by stacking rank on a space, at a point, in a direction,
@@ -69,7 +70,7 @@ func window_manager_find_window_below_cursor(_ wm: WindowManager) -> Window?
 }
 
 /// `window_manager_find_closest_managed_window_in_direction`
-func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Int32) -> Window?
+func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Direction) -> Window?
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return nil }
     guard let node = tree_find_window(owner.tree, target.id) else { return nil }

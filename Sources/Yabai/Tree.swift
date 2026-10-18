@@ -53,7 +53,7 @@ final class Con
     var area = Area.zero
     var zoom = CON_ZOOM_NONE
     var selected = false
-    var insert_dir: Int32 = 0
+    var insert_dir: InsertDirection?
     var render = ConRender()
 
     var child_count: Int32 { Int32(children.count) }
@@ -115,15 +115,15 @@ func con_orientation(_ node: Con) -> ConOrientation
 }
 
 /// `direction_orientation`
-private func directionOrientation(_ direction: Int32) -> ConOrientation
+private func directionOrientation(_ direction: Direction) -> ConOrientation
 {
-    return direction == DIR_NORTH || direction == DIR_SOUTH ? CON_VERTICAL : CON_HORIZONTAL
+    return direction == .north || direction == .south ? CON_VERTICAL : CON_HORIZONTAL
 }
 
 /// `direction_is_backward`
-private func directionIsBackward(_ direction: Int32) -> Bool
+private func directionIsBackward(_ direction: Direction) -> Bool
 {
-    return direction == DIR_NORTH || direction == DIR_WEST
+    return direction == .north || direction == .west
 }
 
 /// `orientation_layout`
@@ -641,12 +641,12 @@ func tree_descend_focused(_ node: Con?) -> Con?
 //
 
 /// `tree_descend_direction`
-func tree_descend_direction(_ node: Con, _ direction: Int32) -> Con
+func tree_descend_direction(_ node: Con, _ direction: Direction) -> Con
 {
     var node = node
     while !con_is_leaf(node) && node.child_count != 0 {
         if con_orientation(node) == directionOrientation(direction) {
-            node = direction == DIR_EAST || direction == DIR_SOUTH ? child(node, 0) : child(node, node.child_count - 1)
+            node = direction == .east || direction == .south ? child(node, 0) : child(node, node.child_count - 1)
         } else {
             node = focusChild(node, 0)
         }
@@ -664,7 +664,7 @@ func tree_descend_direction(_ node: Con, _ direction: Int32) -> Con
 //
 
 /// `tree_next`
-func tree_next(_ node: Con, _ direction: Int32, _ wrapping: focus_wrapping, _ hasOutput: Bool, _ result: inout Con?) -> tree_result
+func tree_next(_ node: Con, _ direction: Direction, _ wrapping: focus_wrapping, _ hasOutput: Bool, _ result: inout Con?) -> tree_result
 {
     let orientation = directionOrientation(direction)
     let backward = directionIsBackward(direction)
@@ -817,7 +817,7 @@ func tree_insert_con(_ node: Con, _ target: Con, _ position: tree_position)
 //
 
 /// `tree_move_toward`
-private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction: Int32)
+private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction: Direction)
 {
     let backward = directionIsBackward(direction)
 
@@ -847,7 +847,7 @@ private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction:
 //
 
 /// `tree_move`
-func tree_move(_ root: Con, _ node: Con, _ direction: Int32, _ hasOutput: Bool) -> tree_result
+func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bool) -> tree_result
 {
     if node == root || node.parent == nil { return TREE_RESULT_NONE }
 
@@ -908,13 +908,13 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Int32, _ hasOutput: Bool) 
 //
 // NOTE: Places the container on one side of the target, as seen on screen. Used for insertion points
 // and mouse drops. Within a split of the matching orientation it becomes a sibling, otherwise the
-// target is split first. STACK puts it into the tabbed container of the target, creating one if needed.
+// target is split first. stack puts it into the tabbed container of the target, creating one if needed.
 //
 
 /// `tree_insert_relative`
-func tree_insert_relative(_ target: Con!, _ node: Con!, _ direction: Int32)
+func tree_insert_relative(_ target: Con!, _ node: Con!, _ insertion: InsertDirection)
 {
-    if direction == STACK {
+    guard let direction = insertion.direction else {
         if target.parent.layout != CON_TABBED {
             let lastSplit = target.parent.layout
             conWrap(target, CON_TABBED).last_split = lastSplit
@@ -1014,7 +1014,7 @@ func tree_open_con(_ root: Con, _ node: Con, _ target: Con?, _ autotile: Bool)
 //
 
 /// `tree_attach_from_direction`
-func tree_attach_from_direction(_ root: Con, _ node: Con, _ direction: Int32)
+func tree_attach_from_direction(_ root: Con, _ node: Con, _ direction: Direction)
 {
     if root.child_count == 0 || con_orientation(root) == directionOrientation(direction) {
         node.percent = 0.0
@@ -1103,7 +1103,7 @@ func tree_toggle_layout(_ node: Con, _ splitOnly: Bool) -> con_layout
 
 /// `tree_resize`
 @discardableResult
-func tree_resize(_ node: Con, _ direction: Int32, _ delta: Float) -> Bool
+func tree_resize(_ node: Con, _ direction: Direction, _ delta: Float) -> Bool
 {
     let orientation = directionOrientation(direction)
     let backward = directionIsBackward(direction)

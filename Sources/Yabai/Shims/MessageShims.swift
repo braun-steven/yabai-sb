@@ -47,7 +47,7 @@ struct CSelectorContext: SelectorContext
     {
         switch query {
         case .arrangement(let index):         display_manager_arrangement_display_id(index)
-        case .inDirection(let direction, let did): display_manager_find_closest_display_in_direction(did, direction.rawValue)
+        case .inDirection(let direction, let did): display_manager_find_closest_display_in_direction(did, direction)
         case .prev(let did):                  display_manager_prev_display_id(did)
         case .next(let did):                  display_manager_next_display_id(did)
         case .first:                          display_manager_first_display_id()
@@ -84,7 +84,7 @@ struct CSelectorContext: SelectorContext
     {
         switch query {
         case .id(let id):                          window_manager_find_window(window_manager_global(), id)
-        case .inDirection(let direction, let from): window_manager_find_closest_managed_window_in_direction(window_manager_global(), from, direction.rawValue)
+        case .inDirection(let direction, let from): window_manager_find_closest_managed_window_in_direction(window_manager_global(), from, direction)
         case .belowCursor:                         window_manager_find_window_below_cursor(window_manager_global())
         case .largest:                             window_manager_find_largest_managed_window(space_manager_global(), window_manager_global())
         case .smallest:                            window_manager_find_smallest_managed_window(space_manager_global(), window_manager_global())

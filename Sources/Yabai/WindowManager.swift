@@ -394,8 +394,8 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     let percent = type == TYPE_REL ? node.percent + ratio : ratio
     let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
 
-    if !tree_resize(node, horizontal ? DIR_EAST : DIR_SOUTH, delta) &&
-       !tree_resize(node, horizontal ? DIR_WEST : DIR_NORTH, -delta) {
+    if !tree_resize(node, horizontal ? .east : .south, delta) &&
+       !tree_resize(node, horizontal ? .west : .north, -delta) {
         return WINDOW_OP_ERROR_INVALID_SRC_NODE
     }
 
@@ -452,10 +452,10 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
         guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
         var didResize = false
-        if (direction & HANDLE_TOP)    != 0 { didResize = tree_resize(node, DIR_NORTH, dy) || didResize }
-        if (direction & HANDLE_BOTTOM) != 0 { didResize = tree_resize(node, DIR_SOUTH, dy) || didResize }
-        if (direction & HANDLE_LEFT)   != 0 { didResize = tree_resize(node, DIR_WEST, dx) || didResize }
-        if (direction & HANDLE_RIGHT)  != 0 { didResize = tree_resize(node, DIR_EAST, dx) || didResize }
+        if (direction & HANDLE_TOP)    != 0 { didResize = tree_resize(node, .north, dy) || didResize }
+        if (direction & HANDLE_BOTTOM) != 0 { didResize = tree_resize(node, .south, dy) || didResize }
+        if (direction & HANDLE_LEFT)   != 0 { didResize = tree_resize(node, .west, dx) || didResize }
+        if (direction & HANDLE_RIGHT)  != 0 { didResize = tree_resize(node, .east, dx) || didResize }
         if !didResize { return WINDOW_OP_ERROR_INVALID_DST_NODE }
 
         tree_view_update(owner)
@@ -736,7 +736,7 @@ func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Appli
 }
 
 /// `window_manager_set_window_insertion`
-func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: Int32) -> window_op_error
+func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: InsertDirection) -> window_op_error
 {
     guard let target else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
@@ -747,13 +747,13 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 
     if owner.insertion_point != 0 && owner.insertion_point != target.id {
         if let insert = tree_find_window(owner.tree, owner.insertion_point) {
-            insert.insert_dir = 0
+            insert.insert_dir = nil
             tree_feedback_hide(insert)
         }
     }
 
     if direction == node.insert_dir {
-        node.insert_dir = 0
+        node.insert_dir = nil
         tree_feedback_hide(node)
         owner.insertion_point = 0
         return WINDOW_OP_ERROR_SUCCESS
@@ -796,7 +796,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 
     let node = con_create(CON_SPLITH)!
     node.window_id = b.id
-    tree_insert_relative(aCon, node, STACK)
+    tree_insert_relative(aCon, node, .stack)
 
     window_manager_add_managed_window(wm, b, aView)
     window_manager_adjust_layer(b, layerValue(.below))

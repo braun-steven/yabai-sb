@@ -217,9 +217,8 @@ func display_manager_last_display_id() -> UInt32
 }
 
 /// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, 0 if there is none.
-func display_manager_find_closest_display_in_direction(_ sourceDid: UInt32, _ direction: Int32) -> UInt32
+func display_manager_find_closest_display_in_direction(_ sourceDid: UInt32, _ direction: Direction) -> UInt32
 {
-    guard let direction = Direction(rawValue: direction) else { return 0 }
 
     var bestDid: UInt32 = 0
     var bestDistance = Int.max

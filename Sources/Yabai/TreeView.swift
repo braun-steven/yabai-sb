@@ -173,9 +173,8 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
 
     treeViewResetEmptyRoot(owner, root)
 
-    if owner.insertion_point != 0, let anchor = tree_find_window(root, owner.insertion_point), anchor.insert_dir != 0 {
-        let direction = anchor.insert_dir
-        anchor.insert_dir = 0
+    if owner.insertion_point != 0, let anchor = tree_find_window(root, owner.insertion_point), let direction = anchor.insert_dir {
+        anchor.insert_dir = nil
         treeFeedbackDestroy(anchor)
         owner.insertion_point = 0
 
@@ -203,7 +202,7 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
 //
 
 /// `tree_view_attach_from_direction`
-func tree_view_attach_from_direction(_ owner: View, _ node: Con, _ direction: Int32)
+func tree_view_attach_from_direction(_ owner: View, _ node: Con, _ direction: Direction)
 {
     let root = tree_view_root(owner)
     treeViewResetEmptyRoot(owner, root)
@@ -609,8 +608,8 @@ func tree_flush(_ owner: View)
 
     if let selected = tree_find_selected(root) { tree_selection_show(selected) }
 
-    if owner.insertion_point != 0, let insert = tree_find_window(root, owner.insertion_point), insert.insert_dir != 0 {
-        tree_feedback_show(insert, insert.insert_dir)
+    if owner.insertion_point != 0, let insert = tree_find_window(root, owner.insertion_point), let insertDir = insert.insert_dir {
+        tree_feedback_show(insert, insertDir)
     }
 
     border_refresh_space(owner.sid)
@@ -656,7 +655,7 @@ private let insertFeedbackWidth: CGFloat = 2
 private let insertFeedbackRadius: Float = 9
 
 /// `tree_feedback_show`
-func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
+func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
 {
     guard let leaf = tree_descend_focused(node), con_is_leaf(leaf) else { return }
 
@@ -684,7 +683,7 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
     // NOTE: the CGContext calls of the C code did nothing without a context
     let context = node.render.feedback_window.context
     let color = window_manager_global().insert_feedback_color
-    context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != 0 ? 0.25 : 0.15)))
+    context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
     context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
 
     var clipX = -0.5 * insertFeedbackWidth
@@ -695,10 +694,10 @@ func tree_feedback_show(_ node: Con!, _ insertDir: Int32)
     let midy = frame.midY
 
     switch insertDir {
-    case DIR_NORTH: clipY = midy - 0.5 * insertFeedbackWidth
-    case DIR_EAST:  clipX = midx - 0.5 * insertFeedbackWidth
-    case DIR_SOUTH: clipH = -midy + insertFeedbackWidth
-    case DIR_WEST:  clipW = -midx + insertFeedbackWidth
+    case .north: clipY = midy - 0.5 * insertFeedbackWidth
+    case .east:  clipX = midx - 0.5 * insertFeedbackWidth
+    case .south: clipH = -midy + insertFeedbackWidth
+    case .west:  clipW = -midx + insertFeedbackWidth
     default:        break
     }
 
@@ -732,5 +731,5 @@ func tree_feedback_hide(_ node: Con!)
 /// `tree_selection_show`
 func tree_selection_show(_ node: Con)
 {
-    tree_feedback_show(node, 0)
+    tree_feedback_show(node, nil)
 }

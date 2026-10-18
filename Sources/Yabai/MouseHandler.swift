@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Synchronization
+import YabaiCore
 
 // Ported from src/mouse_handler.c. The event tap runs on the main run loop and only posts events.
 
@@ -28,7 +29,7 @@ final class MouseState
     var ffm_window_id: UInt32 = 0
     var direction: UInt8 = 0
     var feedback_wid: UInt32 = 0
-    var feedback_dir: Int32 = 0
+    var feedback_dir: InsertDirection?
 
     /// `mouse_handle_load`
     var handlePort: CFMachPort?
@@ -183,15 +184,15 @@ func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CG
     if !success { view_flush(targetView) }
 }
 
-private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
+private func mouseDropActionDirection(_ action: mouse_drop_action) -> InsertDirection?
 {
     switch action {
-    case MOUSE_DROP_ACTION_STACK, MOUSE_DROP_ACTION_SWAP: return STACK
-    case MOUSE_DROP_ACTION_WARP_TOP: return DIR_NORTH
-    case MOUSE_DROP_ACTION_WARP_RIGHT: return DIR_EAST
-    case MOUSE_DROP_ACTION_WARP_BOTTOM: return DIR_SOUTH
-    case MOUSE_DROP_ACTION_WARP_LEFT: return DIR_WEST
-    default: return 0
+    case MOUSE_DROP_ACTION_STACK, MOUSE_DROP_ACTION_SWAP: return .stack
+    case MOUSE_DROP_ACTION_WARP_TOP: return .north
+    case MOUSE_DROP_ACTION_WARP_RIGHT: return .east
+    case MOUSE_DROP_ACTION_WARP_BOTTOM: return .south
+    case MOUSE_DROP_ACTION_WARP_LEFT: return .west
+    default: return nil
     }
 }
 
@@ -207,9 +208,9 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     let wm = window_manager_global()
     let target = window_manager_find_window(wm, ms.feedback_wid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
-    if let container = mouseFindCon(targetView, target), container.insert_dir == 0 { tree_feedback_hide(container) }
+    if let container = mouseFindCon(targetView, target), container.insert_dir == nil { tree_feedback_hide(container) }
     ms.feedback_wid = 0
-    ms.feedback_dir = 0
+    ms.feedback_dir = nil
 }
 
 //
@@ -223,7 +224,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
     let direction = mouseDropActionDirection(mouse_determine_drop_action(ms, dstWindow, point))
     if ms.feedback_wid == dstWindow.id && ms.feedback_dir == direction { return }
     mouse_feedback_clear(ms)
-    if direction == 0 { return }
+    guard let direction else { return }
     tree_feedback_show(container, direction)
     ms.feedback_wid = dstWindow.id
     ms.feedback_dir = direction
@@ -253,11 +254,12 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> Int32
         view_flush(srcView)
     } else if action == MOUSE_DROP_ACTION_SWAP {
         _ = window_manager_swap_window(wm, srcWindow, dstWindow)
-    } else if direction == STACK {
+    } else if direction == .stack {
         _ = window_manager_stack_window(sm!, wm, dstWindow, srcWindow)
         if srcView != dstView { view_flush(srcView) }
     } else if srcView == dstView {
-        guard let container = tree_find_window(srcView.tree, srcWindow.id) else { return }
+        // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
+        guard let container = tree_find_window(srcView.tree, srcWindow.id), let direction else { return }
         tree_detach(container)
         tree_insert_relative(dstCon, container, direction)
         tree_focus(container)

@@ -6,9 +6,9 @@ This file combines the repository guidelines with the Swift conventions from `.c
 
 In `doc/swift-port.md`, references to the Claude Swift conventions skill mean the section below for Codex. Translate Claude's `Edit` tool to `apply_patch`, and `Bash` to the shell execution tool: use patch-based edits rather than shell scripts to change source files. The named `output-summarizer` is a role for a subagent that runs long-output commands and returns concise results; no definition for it exists in this checkout. When delegation is available, give it the exact command, working directory, question and desired result format. Otherwise capture logs and inspect the relevant failures and warnings. Run state-changing commands yourself.
 
-For Swift-port work, the branch and commit rules in `doc/swift-port.md` take precedence over the general main-branch guidance below: stay on `swift-port`, preserve behavior one-to-one, and merge into `main` only when the user asks after P14.
+The Swift port is complete (P14) and merged into `main`; the `swift-port` branch is no longer used. Work on `main` under the commit rules below. `doc/swift-port.md` keeps the port's plan and Handoff log; its branch rules are historical.
 
-yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock uses a Swift core with an Objective-C native adapter and loader (manual retain/release). On branch `swift-port`, read `doc/swift-port.md` before working.
+yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock uses a Swift core with an Objective-C native adapter and loader (manual retain/release). Read the Handoff log in `doc/swift-port.md` for earlier findings before working.
 
 This is a personal fork. Whenever a new feature is added, update the "Fork changes" list at the top of `README.md` in the same commit. Only features go there: fixes to features of this fork do not get an entry.
 

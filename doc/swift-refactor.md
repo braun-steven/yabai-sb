@@ -80,8 +80,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | Phase | Title | Status | Last commit | Note |
 |---|---|---|---|---|
 | 1 | Cleanup, one type per concept, Swift strings | [x] | c05a4dd6 | baseline in `doc/performance/2026-10-18-refactor-baseline/` |
-| **2** | **Swift types** | [ ] | | |
-| 2.1 | Pseudo-enums → enums and OptionSets | [ ] | | |
+| **2** | **Swift types** | [~] | | |
+| 2.1 | Pseudo-enums → enums and OptionSets | [x] | 51ef4736 | flags left to 2.2 |
 | 2.2 | Bit fields → OptionSets and Bools | [ ] | | |
 | 2.3 | Typed IDs | [ ] | | |
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [ ] | | |
@@ -407,3 +407,29 @@ not here.
   socket buffer, argv `strdup`s for posix_spawn. Many daemon files did not import YabaiCore; add the import when a
   YabaiCore type is missing. Shell edits: BSD sed has no `\b` (use perl), and grep build logs for
   `error:` anywhere in the line, not only at its start (`swift build` prints `error: /path:line:col …`).
+
+### 2026-10-18 Subphase 2.1 [x]
+- Commits: 40c21c73..51ef4736 (plus this report)
+- Done: every RawRepresentable pseudo-enum and global enum constant except the 2.2 flags became a Swift enum next
+  to its user: tree/view (`ConLayout`, `ConOrientation`, `ConZoom`, `TreeResult`, `TreePosition`, `TreeOrientation`,
+  `FocusWrapping`, `ViewType`), tab bar (`TabBarStyle`, `TabBarBackdrop`, `TabBarState`), window manager
+  (`WindowOperationResult`, `WindowLayout`, `FocusFollowsMouse`, `PurifyMode`, `WindowOrigin`, `FrontProcessMode`),
+  spaces/displays (`SpaceOperationResult`, `SpaceLayoutResult`, `DisplayArrangementOrder`, `ExternalBarMode`,
+  `DockOrientation`), mouse (`MouseAction`, `MouseDropAction`, `MouseModifierKey`, `MouseModifiers` OptionSet,
+  `DockSwipe` field namespace), `AnimationEasing` (curves as `value(at:)`), `MissionControlMode`. Merged with
+  YabaiCore: `window_split`→`WindowSplit`, `layerValue`/`LAYER_AUTO`→`WindowLayer.level` (`Window.layer` is a
+  `WindowLayer`), `TYPE_*`→`ValueType?`, `HANDLE_*`→`ResizeHandle`. Config names come from String raw values through
+  YabaiCore's generic `parseConfigChoice`; the `*Names` index tables and `tab_bar_parse_style/backdrop` are gone.
+  `Definitions.swift` holds only `view_flag`, `window_flag`, `window_rule_flag`.
+- Output changes: golden `config mouse_modifier` before `mouse_state_init` prints `fn` instead of `(null)` (the
+  property now defaults to fn; the daemon always initialized it to fn, so no user-visible change, no CHANGELOG).
+- Verification: `make`, `make test` (112 tests: 70 Yabai + 42 YabaiCore; the two tab bar parse tests became one
+  names test), golden re-recorded for the one record above.
+- Decisions: the op-error types are named `WindowOperationResult`/`SpaceOperationResult` (they include `.success`;
+  5.1 turns them into `Error`s). `window --split` parses into `SplitOrientation` (`.fixed`/`.toggle`) instead of -1.
+  An unknown `abs`/`rel` type stays a nil `ValueType?` with the old behavior (no change for gap/padding, absolute for
+  move/ratio). `MouseState.modifier` stores the config key; the tap compares `MouseModifiers`.
+- Next: 2.2 (`view_flag`, `window_flag`, `window_rule_flag` in `Definitions.swift`, then delete the file).
+- Notes for the next agent: `Edit` works on files read with `sed`/`grep`, so large files need no full `Read`.
+  Converting a switch to an exhaustive enum turns `default:` into a "will never be executed" error. New pitfall about
+  `.none` cases is in `AGENTS.md`.

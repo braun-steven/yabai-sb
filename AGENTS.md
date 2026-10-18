@@ -14,7 +14,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 
 ## Project Structure
 - `Package.swift`: complete SwiftPM build, with `OSAXEmbed` generating embedded C sources. The makefile wraps SwiftPM and publishes to `bin/yabai`.
-- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `yabai_main` in `Yabai.swift`. `Service.swift` handles launchd; `Definitions.swift` holds model constants and value types; `Helpers.swift` contains shared helpers.
+- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `yabai_main` in `Yabai.swift`. `Service.swift` handles launchd; `Definitions.swift` holds the view and window flags until they become OptionSets; `Helpers.swift` contains shared helpers.
 - `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus ordered query JSON in `Serialize.swift`.
 - `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, ordered JSON, message tokens, values, selectors and rule/signal parsing.
@@ -50,6 +50,7 @@ There is no linter or `make analyze` target. Keep builds warning-free. CPrivate'
 
 Model pitfalls:
 - Enum tags can collide with functions (`ConOrientation` versus `con_orientation`); a property named like a lowercase type needs a module qualifier. Swift raw-value initializers use `rawValue:` explicitly.
+- Enums with a `none` case (`ConZoom`, `TreeResult`, `MouseAction`): on an Optional of such an enum `.none` means `nil`, so keep them non-optional or spell `ConZoom.none`. Config values named `default` need backticks in the declaration (`ViewType`).
 - Former pointer fields may remain IUOs to preserve nil behavior. Files must import `AppKit` / `CPrivate` explicitly; nothing re-exports them.
 - Type byte fixtures as `[UInt8]` when mixing typed bytes and integer literals; inferred `[Any]` gives raw-pointer APIs the wrong storage (`WindowAnimationTests.swift`).
 
@@ -64,7 +65,7 @@ Model pitfalls:
 
 ## Architecture
 
-**Targets and startup.** SwiftPM builds the executable `Yabai`, pure library `YabaiCore`, and C targets `CPrivate` and `OSAX`. `Yabai.swift` holds the startup sequence and `Service.swift` the launchd commands. Constants and small shared structs live in `Definitions.swift`, shared math and string helpers in `Helpers.swift`. CPrivate wrappers preserve unavailable or deprecated calls and ObjC exception handling. Private +1 CF functions need `CF_RETURNS_RETAINED` even when their names lack Copy/Create.
+**Targets and startup.** SwiftPM builds the executable `Yabai`, pure library `YabaiCore`, and C targets `CPrivate` and `OSAX`. `Yabai.swift` holds the startup sequence and `Service.swift` the launchd commands. Enums live with the type or manager that uses them (`ConLayout` in `Tree.swift`, `FocusFollowsMouse` in `WindowManager.swift`), shared math and string helpers in `Helpers.swift`. Config values are parsed and printed through their String raw values (`parseConfigChoice`). CPrivate wrappers preserve unavailable or deprecated calls and ObjC exception handling. Private +1 CF functions need `CF_RETURNS_RETAINED` even when their names lack Copy/Create.
 
 **Models and managers.** `WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MouseState` own Swift state. Their globals/accessors live with the managers. `Window`, `Application`, `Process`, `View`, `Con` and `TabBar` are reference models with identity equality and ARC lifetimes. `Table.swift` keeps the old C hash-table bucket, insertion and rehash iteration order because query JSON depends on it; do not substitute a Dictionary until the refactor makes those orders explicit (phase 2). Labels use `LabelList`, lists use arrays.
 
@@ -127,7 +128,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **Nullability is per file:** after one annotation, clang requires all pointers annotated (`-Wnullability-completeness`), including macro expansions. `CONNECTION_CALLBACK` is unannotated; the `connection_callback` typedef carries qualifiers. Spell both levels of multi-level pointers inside `CF_ASSUME_NONNULL`, e.g. `CFTypeRef _Nullable *_Nonnull`.
 - **Imported C types:** `Boolean` imports as `Bool`, `CGError` as an enum (`== .success`), CF out-parameters as `UnsafeMutablePointer<Unmanaged<T>?>` (use `takeRetainedValue()` for Copy/Create functions). See `Sources/Yabai/Platform/SkyLight.swift`.
 - **C enums:** anonymous `enum { kX = 1 }` imports as `Int` without `.rawValue`; `CF_ENUM` types like `CGEventField` import as structs with failable `init(rawValue:)`.
-- **Macros naming constants** do not import (`LAYER_BELOW kCGBackstopMenuLevelKey`), while literals (`LAYER_AUTO 0`) do. Use the imported constant (`CGWindowLevelKey.backstopMenu.rawValue`, `layerValue` in `Definitions.swift`). **Macros composed from macros** do not import either: spell the value with a comment naming the macro (`axApplicationAll` in `Application.swift`).
+- **Macros naming constants** do not import (`LAYER_BELOW kCGBackstopMenuLevelKey`), while literals (`LAYER_AUTO 0`) do. Use the imported constant (`CGWindowLevelKey.backstopMenu.rawValue`, `WindowLayer.level` in `WindowManager.swift`). **Macros composed from macros** do not import either: spell the value with a comment naming the macro (`axApplicationAll` in `Application.swift`).
 - **`&x` in `CVarArg...`** does not compile: inout-to-pointer conversion requires pointer parameters. Use `withUnsafeMutablePointer(to:)` or a buffer.
 - **Fixed-size C arrays import as tuples:** use `withUnsafe(Mutable)Bytes(of:)`.
 - **Swift honors `CF_CONSUMED`:** it retains before the call. Pass owned objects normally (`takeRetainedValue()` then the consuming call); do not add `retain()`.

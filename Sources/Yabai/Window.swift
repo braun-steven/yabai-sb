@@ -137,7 +137,7 @@ private func windowDisplayUUID(_ wid: UInt32) -> String?
 }
 
 /// `window_display_id`
-func window_display_id(_ wid: UInt32) -> UInt32
+func window_display_id(_ wid: UInt32) -> DisplayID
 {
     guard let uuid = windowDisplayUUID(wid) else { return 0 }
     return displayID(uuid)

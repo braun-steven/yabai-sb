@@ -1,10 +1,10 @@
 /// A label names a display or a space (id). Ported from `struct label` (src/misc/label.h).
-public struct Label: Equatable, Sendable
+public struct Label<ID: Hashable & Sendable>: Equatable, Sendable
 {
-    public var id: UInt64
+    public var id: ID
     public var name: String
 
-    public init(id: UInt64, name: String)
+    public init(id: ID, name: String)
     {
         self.id = id
         self.name = name
@@ -16,13 +16,13 @@ public struct Label: Equatable, Sendable
 // not by Swift's canonical equivalence: "é" precomposed and decomposed are two names.
 //
 
-public struct LabelList: Sendable
+public struct LabelList<ID: Hashable & Sendable>: Sendable
 {
-    public private(set) var labels: [Label] = []
+    public private(set) var labels: [Label<ID>] = []
 
     public init() {}
 
-    private func index(id: UInt64) -> Int?
+    private func index(id: ID) -> Int?
     {
         labels.firstIndex { $0.id == id }
     }
@@ -33,13 +33,13 @@ public struct LabelList: Sendable
     }
 
     /// `label_find_id`
-    public func find(id: UInt64) -> Label?
+    public func find(id: ID) -> Label<ID>?
     {
         index(id: id).map { labels[$0] }
     }
 
     /// `label_find_name`
-    public func find(name: String) -> Label?
+    public func find(name: String) -> Label<ID>?
     {
         index(name: name).map { labels[$0] }
     }
@@ -53,7 +53,7 @@ public struct LabelList: Sendable
 
     /// `label_remove_id`
     @discardableResult
-    public mutating func remove(id: UInt64) -> Bool
+    public mutating func remove(id: ID) -> Bool
     {
         guard let index = index(id: id) else { return false }
 
@@ -66,7 +66,7 @@ public struct LabelList: Sendable
     //
 
     /// `label_set`
-    public mutating func set(id: UInt64, name: String)
+    public mutating func set(id: ID, name: String)
     {
         remove(id: id)
 
@@ -79,14 +79,14 @@ public struct LabelList: Sendable
 
     /// The label of id moves to newID: space_manager_handle_display_add (src/space_manager.c) keeps the label of
     /// a space whose id changed.
-    public mutating func replace(id: UInt64, with newID: UInt64)
+    public mutating func replace(id: ID, with newID: ID)
     {
         guard let index = index(id: id) else { return }
         labels[index].id = newID
     }
 
     /// The labels of two ids trade places: space_manager_swap_space_with_space_on_display (src/space_manager.c).
-    public mutating func swap(_ a: UInt64, _ b: UInt64)
+    public mutating func swap(_ a: ID, _ b: ID)
     {
         for i in labels.indices {
             if labels[i].id == a {

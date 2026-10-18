@@ -297,7 +297,7 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
     let center = CGPoint(x: target.frame.origin.x + target.frame.size.width / 2,
                          y: target.frame.origin.y + target.frame.size.height / 2)
 
-    let bounds = CGDisplayBounds(did)
+    let bounds = CGDisplayBounds(did.rawValue)
     if !bounds.contains(center) { return }
 
     CGWarpMouseCursorPosition(center)
@@ -1382,7 +1382,7 @@ func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm
 }
 
 /// `window_manager_handle_display_add_and_remove`
-func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: WindowManager, _ did: UInt32)
+func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: WindowManager, _ did: DisplayID)
 {
     guard let spaceList = displaySpaces(did) else { return }
 

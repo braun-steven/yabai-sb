@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: Swift wrappers of the SkyLight functions in CPrivate.h, for the code that the port moves to Swift. They take the
@@ -220,10 +221,10 @@ enum SLS
     }
 
     /// `SLSGetDisplayMenubarHeight`; 0 if the call fails.
-    static func displayMenuBarHeight(_ did: UInt32) -> UInt32
+    static func displayMenuBarHeight(_ did: DisplayID) -> UInt32
     {
         var height: UInt32 = 0
-        SLSGetDisplayMenubarHeight(did, &height)
+        SLSGetDisplayMenubarHeight(did.rawValue, &height)
         return height
     }
 

@@ -37,8 +37,8 @@ enum DockOrientation: Int32, Sendable
 /// `struct display_manager`
 final class DisplayManager
 {
-    var current_display_id: UInt32 = 0
-    var last_display_id: UInt32 = 0
+    var current_display_id: DisplayID = 0
+    var last_display_id: DisplayID = 0
 
     var top_padding: Int32 = 0
     var bottom_padding: Int32 = 0
@@ -47,7 +47,7 @@ final class DisplayManager
     var builtin_last = false
     var mode = ExternalBarMode.off
 
-    var labels = LabelList()
+    var labels = LabelList<DisplayID>()
 }
 
 //
@@ -64,13 +64,13 @@ func display_manager_global() -> DisplayManager
 }
 
 /// `display_manager_main_display_id`
-func display_manager_main_display_id() -> UInt32
+func display_manager_main_display_id() -> DisplayID
 {
-    return CGMainDisplayID()
+    return DisplayID(CGMainDisplayID())
 }
 
 /// `display_manager_active_display_id`
-func display_manager_active_display_id() -> UInt32
+func display_manager_active_display_id() -> DisplayID
 {
     let uuid = SLS.activeMenuBarDisplay(connection_global())
     assert(uuid != nil)
@@ -79,14 +79,14 @@ func display_manager_active_display_id() -> UInt32
 }
 
 /// `display_manager_dock_display_id`
-func display_manager_dock_display_id() -> UInt32
+func display_manager_dock_display_id() -> DisplayID
 {
     guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) else { return 0 }
     return displayID(uuid)
 }
 
 /// `display_manager_point_display_id`
-func display_manager_point_display_id(_ point: CGPoint) -> UInt32
+func display_manager_point_display_id(_ point: CGPoint) -> DisplayID
 {
     guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return 0 }
     return displayID(uuid)
@@ -124,7 +124,7 @@ private func displayManagerUUIDIsBuiltin(_ value: Any?) -> Bool
     guard let uuid = value as? String else { return false }
 
     let did = displayID(uuid)
-    return did != 0 && CGDisplayIsBuiltin(did) != 0
+    return did != 0 && CGDisplayIsBuiltin(did.rawValue) != 0
 }
 
 /// `display_manager_order_builtin_last`: moves the first builtin display of a list to its end, when builtin_display_last
@@ -177,7 +177,7 @@ private func displayManagerCopyArrangedDisplays() -> [String]?
 }
 
 /// `display_manager_display_id_arrangement`
-func display_manager_display_id_arrangement(_ did: UInt32) -> Int32
+func display_manager_display_id_arrangement(_ did: DisplayID) -> Int32
 {
     guard let uuid = displayUUID(did) else { return 0 }
     guard let displays = displayManagerCopyArrangedDisplays() else { return 0 }
@@ -198,20 +198,20 @@ func displayManagerArrangementDisplayUUID(_ arrangement: Int32) -> String?
 }
 
 /// `display_manager_arrangement_display_id`
-func display_manager_arrangement_display_id(_ arrangement: Int32) -> UInt32
+func display_manager_arrangement_display_id(_ arrangement: Int32) -> DisplayID
 {
     guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return 0 }
     return displayID(uuid)
 }
 
 /// `display_manager_cursor_display_id`
-func display_manager_cursor_display_id() -> UInt32
+func display_manager_cursor_display_id() -> DisplayID
 {
     return display_manager_point_display_id(SLS.cursorLocation(connection_global()))
 }
 
 /// `display_manager_prev_display_id`
-func display_manager_prev_display_id(_ did: UInt32) -> UInt32
+func display_manager_prev_display_id(_ did: DisplayID) -> DisplayID
 {
     let arrangement = display_manager_display_id_arrangement(did)
     if arrangement <= 1 { return 0 }
@@ -220,7 +220,7 @@ func display_manager_prev_display_id(_ did: UInt32) -> UInt32
 }
 
 /// `display_manager_next_display_id`
-func display_manager_next_display_id(_ did: UInt32) -> UInt32
+func display_manager_next_display_id(_ did: DisplayID) -> DisplayID
 {
     let arrangement = display_manager_display_id_arrangement(did)
     if arrangement >= display_manager_active_display_count() { return 0 }
@@ -229,32 +229,32 @@ func display_manager_next_display_id(_ did: UInt32) -> UInt32
 }
 
 /// `display_manager_first_display_id`
-func display_manager_first_display_id() -> UInt32
+func display_manager_first_display_id() -> DisplayID
 {
     return display_manager_arrangement_display_id(1)
 }
 
 /// `display_manager_last_display_id`
-func display_manager_last_display_id() -> UInt32
+func display_manager_last_display_id() -> DisplayID
 {
     let arrangement = display_manager_active_display_count()
     return display_manager_arrangement_display_id(arrangement)
 }
 
 /// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, 0 if there is none.
-func display_manager_find_closest_display_in_direction(_ sourceDid: UInt32, _ direction: Direction) -> UInt32
+func display_manager_find_closest_display_in_direction(_ sourceDid: DisplayID, _ direction: Direction) -> DisplayID
 {
 
-    var bestDid: UInt32 = 0
+    var bestDid: DisplayID = 0
     var bestDistance = Int.max
 
-    let sourceArea = Area(CGDisplayBounds(sourceDid))
+    let sourceArea = Area(CGDisplayBounds(sourceDid.rawValue))
     let sourceAreaMax = sourceArea.maxPoint
 
     for did in displayManagerActiveDisplays() {
         if did == sourceDid { continue }
 
-        let targetArea = Area(CGDisplayBounds(did))
+        let targetArea = Area(CGDisplayBounds(did.rawValue))
         let targetAreaMax = targetArea.maxPoint
 
         if Area.isInDirection(sourceArea, sourceAreaMax, targetArea, targetAreaMax, direction) {
@@ -276,7 +276,7 @@ func display_manager_menu_bar_hidden() -> Bool
 }
 
 /// `display_manager_menu_bar_rect`
-func display_manager_menu_bar_rect(_ did: UInt32) -> CGRect
+func display_manager_menu_bar_rect(_ did: DisplayID) -> CGRect
 {
     //
     // NOTE(asmvik): SLSGetRevealedMenuBarBounds is broken on Apple Silicon,
@@ -284,7 +284,7 @@ func display_manager_menu_bar_rect(_ did: UInt32) -> CGRect
     // height. Combine this information ourselves using two separate functions..
     //
 
-    var bounds = CGDisplayBounds(did)
+    var bounds = CGDisplayBounds(did.rawValue)
     bounds.size.height = CGFloat(SLS.displayMenuBarHeight(did))
 
     //
@@ -323,7 +323,7 @@ func display_manager_active_display_count() -> Int32
 }
 
 /// The active displays, as `display_manager_active_display_list` lists them.
-func displayManagerActiveDisplays() -> [UInt32]
+func displayManagerActiveDisplays() -> [DisplayID]
 {
     let displayCount = display_manager_active_display_count()
 
@@ -331,7 +331,7 @@ func displayManagerActiveDisplays() -> [UInt32]
     var actual: UInt32 = 0
     CGGetActiveDisplayList(UInt32(displayCount), &displays, &actual)
 
-    return Array(displays.prefix(Int(actual)))
+    return displays.prefix(Int(actual)).map { DisplayID($0) }
 }
 
 /// `display_manager_find_element_at_point`: the window under a point, found through the accessibility element at it.
@@ -369,14 +369,14 @@ func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> UIn
 }
 
 /// `display_manager_set_active_display_id`
-func display_manager_set_active_display_id(_ did: UInt32)
+func display_manager_set_active_display_id(_ did: DisplayID)
 {
     guard let uuid = displayUUID(did) else { return }
     SLS.setActiveMenuBarDisplay(connection_global(), uuid)
 }
 
 /// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
-func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
+func display_manager_focus_display(_ did: DisplayID, _ sid: UInt64)
 {
     let wm = window_manager_global()
 
@@ -397,7 +397,7 @@ func display_manager_focus_display(_ did: UInt32, _ sid: UInt64)
 }
 
 /// `display_manager_focus_space`
-func display_manager_focus_space(_ did: UInt32, _ sid: UInt64) -> SpaceOperationResult
+func display_manager_focus_space(_ did: DisplayID, _ sid: UInt64) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
 

@@ -169,15 +169,15 @@ func describeDisplay(_ es: inout PendingSignal, _ context: UnsafeMutableRawPoint
 {
     switch es.type {
     case .displayAdded, .displayMoved, .displayResized:
-        let did = UInt32(truncatingIfNeeded: UInt(bitPattern: context))
+        let did = DisplayID(UInt32(truncatingIfNeeded: UInt(bitPattern: context)))
         let index = display_manager_display_id_arrangement(did)
 
-        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did))")
+        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
         es.addArgument("YABAI_DISPLAY_INDEX", "\(index)")
     case .displayRemoved:
-        let did = UInt32(truncatingIfNeeded: UInt(bitPattern: context))
+        let did = DisplayID(UInt32(truncatingIfNeeded: UInt(bitPattern: context)))
 
-        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did))")
+        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
     case .displayChanged:
         let dm = display_manager_global()
         let did = dm.current_display_id
@@ -186,8 +186,8 @@ func describeDisplay(_ es: inout PendingSignal, _ context: UnsafeMutableRawPoint
         let index = display_manager_display_id_arrangement(did)
         let recentIndex = display_manager_display_id_arrangement(recentDid)
 
-        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did))")
-        es.addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid))")
+        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
+        es.addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid.rawValue))")
 
         es.addArgument("YABAI_DISPLAY_INDEX", "\(index)")
         es.addArgument("YABAI_RECENT_DISPLAY_INDEX", "\(recentIndex)")

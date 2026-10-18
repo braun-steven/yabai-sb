@@ -1,6 +1,7 @@
 import CoreGraphics
 import AppKit
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays
@@ -16,9 +17,9 @@ private func signalContext(_ id: UInt64) -> UnsafeMutableRawPointer?
     UnsafeMutableRawPointer(bitPattern: UInt(id))
 }
 
-private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
+private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
-    UnsafeMutableRawPointer(bitPattern: Int(id))
+    UnsafeMutableRawPointer(bitPattern: Int(id.rawValue))
 }
 
 /// `EVENT_HANDLER(SLS_SPACE_CREATED)`
@@ -131,7 +132,7 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 }
 
 /// `EVENT_HANDLER(DISPLAY_ADDED)`
-@WM func displayAdded(_ did: UInt32)
+@WM func displayAdded(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
     space_manager_handle_display_add(space_manager_global(), did)
@@ -141,17 +142,17 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 }
 
 /// `EVENT_HANDLER(DISPLAY_REMOVED)`
-@WM func displayRemoved(_ did: UInt32)
+@WM func displayRemoved(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
-    _ = display_manager_global().labels.remove(id: UInt64(did))
+    _ = display_manager_global().labels.remove(id: did)
     window_manager_handle_display_add_and_remove(space_manager_global(), window_manager_global(), display_manager_main_display_id())
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayRemoved, signalContext(did))
 }
 
 /// `EVENT_HANDLER(DISPLAY_MOVED)`
-@WM func displayMoved(_ did: UInt32)
+@WM func displayMoved(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
     space_manager_mark_spaces_invalid(space_manager_global())
@@ -160,7 +161,7 @@ private func signalContext(_ id: UInt32) -> UnsafeMutableRawPointer?
 }
 
 /// `EVENT_HANDLER(DISPLAY_RESIZED)`
-@WM func displayResized(_ did: UInt32)
+@WM func displayResized(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_RESIZED: \(did)\n")
     space_manager_mark_spaces_invalid_for_display(space_manager_global(), did)

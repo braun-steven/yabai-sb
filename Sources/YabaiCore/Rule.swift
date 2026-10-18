@@ -101,7 +101,7 @@ public struct Grid: Equatable, Sendable
 /// rule leaves them alone.
 public struct RuleEffects: Sendable
 {
-    public var did: UInt32 = 0
+    public var did: DisplayID = 0
     public var sid: UInt64 = 0
     public var opacity: Float = 0
     public var manage: Bool?

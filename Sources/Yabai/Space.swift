@@ -9,7 +9,7 @@ import YabaiCore
 //
 
 /// `space_display_id`
-func space_display_id(_ sid: UInt64) -> UInt32
+func space_display_id(_ sid: UInt64) -> DisplayID
 {
     guard let uuid = SLS.managedDisplay(connection_global(), forSpace: sid) else { return 0 }
     return displayID(uuid)

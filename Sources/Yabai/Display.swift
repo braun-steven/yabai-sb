@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreFoundation
 import CPrivate
 import Foundation
+import YabaiCore
 
 //
 // NOTE: The reconfiguration callback runs on a thread of the window server. It only posts events; the handlers change
@@ -11,48 +12,48 @@ import Foundation
 /// `display_handler`: registered by `display_manager_begin`.
 let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     if flags.contains(.addFlag) {
-        EventLoop.post(.displayAdded(displayID: did))
+        EventLoop.post(.displayAdded(displayID: DisplayID(did)))
     } else if flags.contains(.removeFlag) {
-        EventLoop.post(.displayRemoved(displayID: did))
+        EventLoop.post(.displayRemoved(displayID: DisplayID(did)))
     } else if flags.contains(.movedFlag) {
-        EventLoop.post(.displayMoved(displayID: did))
+        EventLoop.post(.displayMoved(displayID: DisplayID(did)))
     } else if flags.contains(.desktopShapeChangedFlag) {
-        EventLoop.post(.displayResized(displayID: did))
+        EventLoop.post(.displayResized(displayID: DisplayID(did)))
     }
 }
 
 /// `display_uuid` as a CFString.
-func displayUUIDObject(_ did: UInt32) -> CFString?
+func displayUUIDObject(_ did: DisplayID) -> CFString?
 {
-    guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(did) else { return nil }
+    guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(did.rawValue) else { return nil }
     return CFUUIDCreateString(nil, uuidRef)
 }
 
 /// `display_uuid` as a Swift string.
-func displayUUID(_ did: UInt32) -> String?
+func displayUUID(_ did: DisplayID) -> String?
 {
     return displayUUIDObject(did) as String?
 }
 
 /// `display_id`
-func display_id(_ uuid: CFString?) -> UInt32
+func display_id(_ uuid: CFString?) -> DisplayID
 {
     guard let uuid else { return 0 }
     return displayID(uuid as String)
 }
 
 /// `display_id` for a uuid string.
-func displayID(_ uuid: String) -> UInt32
+func displayID(_ uuid: String) -> DisplayID
 {
     guard let uuidRef = CFUUIDCreateFromString(nil, uuid as CFString) else { return 0 }
-    return CGDisplayGetDisplayIDFromUUID(uuidRef)
+    return DisplayID(CGDisplayGetDisplayIDFromUUID(uuidRef))
 }
 
 /// `display_bounds_constrained`
-func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGRect
+func display_bounds_constrained(_ did: DisplayID, _ ignoreExternalBar: Bool) -> CGRect
 {
     let dm = display_manager_global()
-    var frame = CGDisplayBounds(did)
+    var frame = CGDisplayBounds(did.rawValue)
     var effectiveExtTopPadding: Int32 = 0
 
     if !ignoreExternalBar {
@@ -98,14 +99,14 @@ func display_bounds_constrained(_ did: UInt32, _ ignoreExternalBar: Bool) -> CGR
 }
 
 /// `display_center`
-func display_center(_ did: UInt32) -> CGPoint
+func display_center(_ did: DisplayID) -> CGPoint
 {
-    let bounds = CGDisplayBounds(did)
+    let bounds = CGDisplayBounds(did.rawValue)
     return CGPoint(x: bounds.origin.x + bounds.size.width/2, y: bounds.origin.y + bounds.size.height/2)
 }
 
 /// `display_space_id`
-func display_space_id(_ did: UInt32) -> UInt64
+func display_space_id(_ did: DisplayID) -> UInt64
 {
     guard let uuid = displayUUID(did) else { return 0 }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
@@ -113,7 +114,7 @@ func display_space_id(_ did: UInt32) -> UInt64
 
 /// `display_space_list`: the spaces of a display in the order of the window server; nil when the display or the
 /// window server does not know it.
-func displaySpaces(_ did: UInt32) -> [UInt64]?
+func displaySpaces(_ did: DisplayID) -> [UInt64]?
 {
     guard let uuid = displayUUID(did) else { return nil }
 

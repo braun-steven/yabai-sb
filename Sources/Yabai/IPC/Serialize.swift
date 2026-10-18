@@ -12,7 +12,7 @@ import YabaiCore
 var connection: Int32 { connection_global() }
 
 /// The name of a label of a display or space, escaped for json; "" when it has none.
-private func labelJSON(_ list: LabelList, _ id: UInt64) -> String
+private func labelJSON<ID>(_ list: LabelList<ID>, _ id: ID) -> String
 {
     list.find(id: id).map { JSON.string($0.name) } ?? ""
 }
@@ -25,7 +25,7 @@ private func jsonList(_ values: some Sequence<Int32>) -> String
 
 // MARK: Displays
 
-private func displayUUIDText(_ did: UInt32) -> String
+private func displayUUIDText(_ did: DisplayID) -> String
 {
     return displayUUID(did) ?? "<unknown>"
 }
@@ -34,7 +34,7 @@ private func displayUUIDText(_ did: UInt32) -> String
 // NOTE: The Mission Control indices of the spaces of a display.
 //
 
-private func displaySpaceIndexList(_ did: UInt32) -> String
+private func displaySpaceIndexList(_ did: DisplayID) -> String
 {
     guard let spaceList = displaySpaces(did), spaceList.count > 0 else { return "[]" }
 
@@ -43,16 +43,16 @@ private func displaySpaceIndexList(_ did: UInt32) -> String
 }
 
 /// `display_serialize`
-func displaySerialize(_ did: UInt32, _ flags: UInt64) -> String
+func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
 {
     let dm = display_manager_global()
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
-    json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did))")
+    json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did.rawValue))")
     json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUIDText(did))\"")
     json.property(DisplayProperty.index,    "\"index\":\(display_manager_display_id_arrangement(did))")
-    json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.labels, UInt64(did)))\"")
-    json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did)))
+    json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.labels, did))\"")
+    json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did.rawValue)))
     json.property(DisplayProperty.spaces,   "\"spaces\":\(displaySpaceIndexList(did))")
     json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.current_display_id))")
 
@@ -154,7 +154,7 @@ func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _
 }
 
 /// `space_manager_query_spaces_for_display`
-func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: UInt32, _ flags: UInt64) -> Bool
+func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64) -> Bool
 {
     guard let spaceList = displaySpaces(did) else { return false }
 
@@ -345,7 +345,7 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [UIn
 }
 
 /// `window_manager_query_windows_for_display`
-func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: UInt32, _ flags: UInt64)
+func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64)
 {
     windowManagerQueryWindowsForSpaces(&rsp, displaySpaces(did) ?? [], flags)
 }

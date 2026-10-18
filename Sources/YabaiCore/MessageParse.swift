@@ -324,9 +324,9 @@ public func directionDescription(_ direction: Direction) -> String
 public enum DisplayQuery: Sendable
 {
     case arrangement(Int32)
-    case inDirection(Direction, from: UInt32)
-    case prev(UInt32)
-    case next(UInt32)
+    case inDirection(Direction, from: DisplayID)
+    case prev(DisplayID)
+    case next(DisplayID)
     case first
     case last
     case recent
@@ -372,15 +372,15 @@ public protocol SelectorContext
     associatedtype Window
 
     /// `display_manager_active_display_id`
-    var activeDisplay: UInt32 { get }
+    var activeDisplay: DisplayID { get }
     /// `space_manager_active_space`
     var activeSpace: UInt64 { get }
     /// `window_manager_acting_window`
     var actingWindow: Window? { get }
 
-    func display(_ query: DisplayQuery) -> UInt32
+    func display(_ query: DisplayQuery) -> DisplayID
     /// The id of a display label (`label_find_name` on the labels of the display manager).
-    func displayLabel(_ label: Token) -> UInt64?
+    func displayLabel(_ label: Token) -> DisplayID?
     func space(_ query: SpaceQuery) -> UInt64
     /// The id of a space label.
     func spaceLabel(_ label: Token) -> UInt64?
@@ -400,7 +400,7 @@ public struct Selection<Value>
 // NOTE: Reports that a selector found nothing, described by what, and passes the result through.
 //
 
-private func require(_ rsp: inout Response, _ id: UInt32, _ what: String) -> UInt32
+private func require(_ rsp: inout Response, _ id: DisplayID, _ what: String) -> DisplayID
 {
     if id == 0 { rsp.fail("could not locate \(what).\n") }
     return id
@@ -419,9 +419,9 @@ private func require<Window>(_ rsp: inout Response, _ window: Window?, _ what: S
 }
 
 /// `parse_display_selector`
-public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: UInt32, optional: Bool, _ context: C) -> Selection<UInt32>
+public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: DisplayID, optional: Bool, _ context: C) -> Selection<DisplayID>
 {
-    var result = Selection(token: token, didParse: true, value: UInt32(0))
+    var result = Selection(token: token, didParse: true, value: DisplayID(0))
 
     switch token.value {
     case .int(let index):
@@ -448,7 +448,7 @@ public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ to
         } else if token.equals(Argument.mouse) {
             result.value = require(&rsp, context.display(.cursor), "display containing cursor")
         } else if let id = context.displayLabel(token) {
-            result.value = UInt32(truncatingIfNeeded: id)
+            result.value = id
         } else {
             result.didParse = false
             rsp.fail("value '\(token)' is not a valid option for DISPLAY_SEL\n")
@@ -586,7 +586,7 @@ public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ tok
 //
 
 /// `parse_optional_display_selector`
-public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ did: inout UInt32, _ context: C) -> Bool
+public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ did: inout DisplayID, _ context: C) -> Bool
 {
     let selector = parseDisplaySelector(&rsp, message.next(), acting: did, optional: true, context)
     if !selector.token.isValid { return true }
@@ -674,7 +674,7 @@ public func parseTreeFocus(_ token: Token) -> TreeFocus?
 public enum QueryTarget<Window>
 {
     case all
-    case display(UInt32)
+    case display(DisplayID)
     case space(UInt64)
     case window(Window?)
 }

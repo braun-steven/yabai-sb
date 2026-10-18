@@ -24,7 +24,7 @@ private func spaceLayoutUserSpaceCount(_ spaces: [UInt64]) -> Int
 }
 
 /// `space_layout_destroy_candidate`: an empty user space of the display to destroy, preferring one that is not visible.
-private func spaceLayoutDestroyCandidate(_ did: UInt32) -> UInt64
+private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> UInt64
 {
     guard let spaces = displaySpaces(did) else { return 0 }
 
@@ -57,7 +57,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
         return .done
     }
 
-    var didList: [UInt32] = []
+    var didList: [DisplayID] = []
     var builtin = -1
 
     for i in 0..<Int(displayCount) {
@@ -65,7 +65,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
         if did == 0 { return .failed }
 
         didList.append(did)
-        if builtin == -1 && CGDisplayIsBuiltin(did) != 0 { builtin = i }
+        if builtin == -1 && CGDisplayIsBuiltin(did.rawValue) != 0 { builtin = i }
     }
 
     let target = layout.targets(builtin: builtin == -1 ? nil : builtin)

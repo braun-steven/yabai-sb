@@ -1,5 +1,6 @@
 import ApplicationServices
 import Dispatch
+import YabaiCore
 
 //
 // NOTE: The event loop. Producers on other threads (AX observers, SkyLight notify procs, the NSWorkspace notifications,
@@ -76,10 +77,10 @@ enum Event: Sendable
     case slsSpaceCreated(spaceID: UInt64)
     case slsSpaceDestroyed(spaceID: UInt64)
     case spaceChanged
-    case displayAdded(displayID: UInt32)
-    case displayRemoved(displayID: UInt32)
-    case displayMoved(displayID: UInt32)
-    case displayResized(displayID: UInt32)
+    case displayAdded(displayID: DisplayID)
+    case displayRemoved(displayID: DisplayID)
+    case displayMoved(displayID: DisplayID)
+    case displayResized(displayID: DisplayID)
     case displayChanged
     case mouseDown(Handoff<Unmanaged<CGEvent>>, modifiers: MouseModifiers)
     case mouseUp(Handoff<Unmanaged<CGEvent>>)

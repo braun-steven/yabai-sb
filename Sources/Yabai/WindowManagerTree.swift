@@ -10,7 +10,7 @@ import YabaiCore
 //
 
 /// `window_manager_tree_display_in_direction`: the display in the direction, unless its space is a fullscreen space.
-private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Direction) -> UInt32
+private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Direction) -> DisplayID
 {
     let did = display_manager_find_closest_display_in_direction(space_display_id(owner.sid), direction)
     if did == 0 || space_is_fullscreen(display_space_id(did)) { return 0 }
@@ -23,7 +23,7 @@ private func windowManagerTreeDisplayInDirection(_ owner: View, _ direction: Dir
 //
 
 /// `window_manager_tree_focus_display`
-private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: UInt32)
+private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: DisplayID)
 {
     let sid = display_space_id(did)
     let owner = space_manager_find_view(space_manager_global(), sid)
@@ -100,7 +100,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 //
 
 /// `window_manager_tree_move_to_display`
-private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: UInt32, _ direction: Direction)
+private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: DisplayID, _ direction: Direction)
 {
     tree_select(owner.tree, nil)
 

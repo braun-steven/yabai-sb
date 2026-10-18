@@ -6,18 +6,18 @@ import Testing
 /// The lookups of the selectors, on fixtures. Windows are their ids.
 private struct FixtureContext: SelectorContext
 {
-    var activeDisplay: UInt32 = 0
+    var activeDisplay: DisplayID = 0
     var activeSpace: UInt64 = 0
     var actingWindow: UInt32? = nil
-    var displays: [UInt32] = []
+    var displays: [DisplayID] = []
     var spaces: [UInt64] = []
     var recentSpace: UInt64 = 0
-    var displayLabels: [String: UInt64] = [:]
+    var displayLabels: [String: DisplayID] = [:]
     var spaceLabels: [String: UInt64] = [:]
     var windows: [UInt32] = []
     var stack: [UInt32] = []
 
-    func display(_ query: DisplayQuery) -> UInt32
+    func display(_ query: DisplayQuery) -> DisplayID
     {
         switch query {
         case .arrangement(let index): index >= 1 && Int(index) <= displays.count ? displays[Int(index) - 1] : 0
@@ -27,7 +27,7 @@ private struct FixtureContext: SelectorContext
         }
     }
 
-    func displayLabel(_ label: Token) -> UInt64? { displayLabels[label.string] }
+    func displayLabel(_ label: Token) -> DisplayID? { displayLabels[label.string] }
 
     func space(_ query: SpaceQuery) -> UInt64
     {

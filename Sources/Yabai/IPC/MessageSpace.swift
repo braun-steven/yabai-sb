@@ -154,8 +154,8 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let parsed = parseLabel(&rsp, message.next(), .display)
         if parsed.valid {
             if let label = parsed.label {
-                dm.labels.set(id: UInt64(actingDid), name: label.string)
-            } else if !dm.labels.remove(id: UInt64(actingDid)) {
+                dm.labels.set(id: actingDid, name: label.string)
+            } else if !dm.labels.remove(id: actingDid) {
                 rsp.fail("the selected display was not associated with a label!\n")
             }
         }

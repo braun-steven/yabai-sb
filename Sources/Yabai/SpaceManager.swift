@@ -43,7 +43,7 @@ final class SpaceManager
     var tree_default_orientation = TreeOrientation.auto
     var tree_workspace_tabbed = false
     var tree_autotiling = false
-    var labels = LabelList()
+    var labels = LabelList<UInt64>()
     var skip_window_focus_animation = false
     var space_layouts: [SpaceLayout] = []
     var space_layout_spec: String?
@@ -456,7 +456,7 @@ private func spaceManagerFocusedWindow() -> Window?
 /// `space_manager_active_space`: the space of the focused window, or of the active display.
 func space_manager_active_space() -> UInt64
 {
-    var did: UInt32 = 0
+    var did: DisplayID = 0
     let focused = spaceManagerFocusedWindow()
 
     if let focused { did = window_display_id(focused.id) }
@@ -545,7 +545,7 @@ func space_manager_move_window_to_space(_ sid: UInt64, _ win: Window)
 }
 
 /// `space_manager_find_first_user_space_for_display`
-private func spaceManagerFindFirstUserSpaceForDisplay(_ did: UInt32) -> UInt64
+private func spaceManagerFindFirstUserSpaceForDisplay(_ did: DisplayID) -> UInt64
 {
     return displaySpaces(did)?.first(where: { space_is_user($0) }) ?? 0
 }
@@ -707,7 +707,7 @@ func space_manager_move_space_to_space(_ actingSid: UInt64, _ selectorSid: UInt6
 }
 
 /// `space_manager_move_space_to_display`
-func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ did: UInt32) -> SpaceOperationResult
+func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ did: DisplayID) -> SpaceOperationResult
 {
     if mission_control_is_active() { return .inMissionControl }
     if sid == 0 { return .missingSource }
@@ -746,7 +746,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: UInt64, _ di
 
 /// `space_manager_focus_space_using_gesture`: switches spaces with the gestures of the Dock, without its animation.
 @discardableResult
-func space_manager_focus_space_using_gesture(_ newDid: UInt32, _ newSid: UInt64) -> Bool
+func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: UInt64) -> Bool
 {
     let curIndex = space_manager_mission_control_index(display_space_id(newDid))
     let newIndex = space_manager_mission_control_index(newSid)
@@ -881,7 +881,7 @@ func space_manager_is_window_on_space(_ sid: UInt64, _ win: Window) -> Bool
 }
 
 /// `space_manager_mark_spaces_invalid_for_display`
-func space_manager_mark_spaces_invalid_for_display(_ sm: SpaceManager, _ did: UInt32)
+func space_manager_mark_spaces_invalid_for_display(_ sm: SpaceManager, _ did: DisplayID)
 {
     guard let spaceList = displaySpaces(did) else { return }
 
@@ -929,7 +929,7 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 }
 
 /// `space_manager_handle_display_add`: the views of the spaces of a new display keep their names, and take the new ids.
-func space_manager_handle_display_add(_ sm: SpaceManager, _ did: UInt32)
+func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
 {
     guard let spaceList = displaySpaces(did) else { return }
 
@@ -970,7 +970,7 @@ func space_manager_init(_ sm: SpaceManager)
     sm.tree_default_orientation = .auto
     sm.tree_workspace_tabbed = false
     sm.tree_autotiling = false
-    sm.labels = LabelList()
+    sm.labels = LabelList<UInt64>()
     sm.skip_window_focus_animation = false
     //
     // NOTE: The table of views is keyed by the space id.

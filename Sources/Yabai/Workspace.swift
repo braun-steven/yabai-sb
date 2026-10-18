@@ -1,5 +1,6 @@
 import AppKit
 import CPrivate
+import YabaiCore
 
 //
 // NOTE: The NSWorkspace, distributed and local notifications that yabai follows, and the key-value observations of the
@@ -305,12 +306,12 @@ func workspace_application_is_finished_launching(_ process: Process) -> Bool
 }
 
 /// `workspace_display_notch_height`: the top safe area inset of a builtin display, else 0.
-func workspace_display_notch_height(_ did: UInt32) -> Int32
+func workspace_display_notch_height(_ did: DisplayID) -> Int32
 {
-    if CGDisplayIsBuiltin(did) == 0 { return 0 }
+    if CGDisplayIsBuiltin(did.rawValue) == 0 { return 0 }
 
     for screen in NSScreen.screens {
-        if (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == did {
+        if (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == did.rawValue {
             return Int32(screen.safeAreaInsets.top)
         }
     }

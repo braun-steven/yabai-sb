@@ -13,13 +13,13 @@ extension DaemonState
         func visibleSplitCount()
         {
             // H[T[1 H[2 H[3 4]]]]: hidden tabs do not suppress split-window borders.
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             defer { Yabai.con_free(root) }
-            let tabs = treeTestSplit(root, CON_TABBED)
+            let tabs = treeTestSplit(root, .tabbed)
             let single = treeTestLeaf(tabs, 1)
-            let split = treeTestSplit(tabs, CON_SPLITH)
+            let split = treeTestSplit(tabs, .splitH)
             treeTestLeaf(split, 2)
-            let nested = treeTestSplit(split, CON_SPLITH)
+            let nested = treeTestSplit(split, .splitH)
             let focused = treeTestLeaf(nested, 3)
             treeTestLeaf(nested, 4)
             let owner = View()
@@ -71,12 +71,12 @@ extension DaemonState
             wm.tab_bar_backdrop = TAB_BAR_BACKDROP_OFF
             space_manager_global().tree_workspace_tabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             defer { Yabai.con_free(root) }
             let a = treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             let b = treeTestLeaf(t, 2)
-            let nested = treeTestSplit(t, CON_TABBED)
+            let nested = treeTestSplit(t, .tabbed)
             let d = treeTestLeaf(nested, 4)
             treeTestLeaf(nested, 5)
             treeTestLeaf(t, 3)

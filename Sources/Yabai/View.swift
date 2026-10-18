@@ -7,6 +7,15 @@ import YabaiCore
 // NOTE: A view is the layout state of one space: its tree, its area and its padding and gap. Ported from src/view.c.
 //
 
+/// The layout of a space, named as in `config layout` and `query --spaces`. A view of the default type follows the
+/// global layout.
+enum ViewType: String, CaseIterable, Sendable
+{
+    case `default`
+    case float
+    case tree
+}
+
 /// `struct view`
 final class View
 {
@@ -15,7 +24,7 @@ final class View
     var area = Area.zero
     var tree: Con!
     var insertion_point: UInt32 = 0
-    var layout = VIEW_DEFAULT
+    var layout = ViewType.default
     var top_padding: Int32 = 0
     var bottom_padding: Int32 = 0
     var left_padding: Int32 = 0
@@ -116,9 +125,9 @@ func view_flush(_ target: View)
 }
 
 /// `view_auto_padding_applies`
-func view_auto_padding_applies(_ layout: view_type, _ autoPadding: Bool, _ tiledCount: Int32) -> Bool
+func view_auto_padding_applies(_ layout: ViewType, _ autoPadding: Bool, _ tiledCount: Int32) -> Bool
 {
-    return ViewArea.autoPaddingApplies(isTree: layout == VIEW_TREE, autoPadding: autoPadding, tiledCount: Int(tiledCount))
+    return ViewArea.autoPaddingApplies(isTree: layout == .tree, autoPadding: autoPadding, tiledCount: Int(tiledCount))
 }
 
 /// `view_tiled_count`
@@ -210,7 +219,7 @@ func view_create(_ sid: UInt64) -> View
         target.auto_padding   = sm.auto_padding
         view_update(target)
     } else {
-        target.layout = VIEW_FLOAT
+        target.layout = .float
     }
 
     return target

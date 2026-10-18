@@ -413,7 +413,7 @@ private func borderShouldShow(_ target: Window) -> Bool
 private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
-    var count = owner.layout == VIEW_TREE ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
+    var count = owner.layout == .tree ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
     for target in window_manager_global().window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
         if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }
@@ -526,7 +526,7 @@ func border_refresh_space(_ sid: UInt64)
     }
     var windows: [UInt32] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
-    if owner.layout == VIEW_TREE { windows = treeViewWindowList(owner) }
+    if owner.layout == .tree { windows = treeViewWindowList(owner) }
     let capacity = windows.count + Int(window_manager_global().window.count)
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {

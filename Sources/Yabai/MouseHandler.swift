@@ -232,7 +232,7 @@ private func mouseDropActionDirection(_ action: mouse_drop_action) -> InsertDire
 
 @WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
 {
-    if srcView.sid == dstView.sid || dstView.layout == VIEW_FLOAT { view_flush(srcView); return }
+    if srcView.sid == dstView.sid || dstView.layout == .float { view_flush(srcView); return }
     window_manager_unmanage_window(wm, srcView, target)
     window_manager_manage_window(sm, wm, target, dstView.sid, 0)
 }

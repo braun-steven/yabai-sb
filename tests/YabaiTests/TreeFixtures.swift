@@ -7,14 +7,14 @@ import CPrivate
 @discardableResult
 func treeTestLeaf(_ parent: Con, _ windowID: UInt32) -> Con
 {
-    let node = Yabai.con_create(CON_SPLITH)!
+    let node = Yabai.con_create(.splitH)!
     node.window_id = windowID
     Yabai.tree_attach(parent, node, -1)
     return node
 }
 
 @discardableResult
-func treeTestSplit(_ parent: Con, _ layout: con_layout) -> Con
+func treeTestSplit(_ parent: Con, _ layout: ConLayout) -> Con
 {
     let node = Yabai.con_create(layout)!
     Yabai.tree_attach(parent, node, -1)

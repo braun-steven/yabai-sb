@@ -14,15 +14,15 @@ extension DaemonState
         @Test("window_info_tree_fields")
         func windowInfoTreeFields()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             defer { Yabai.con_free(root) }
 
-            let tabs = treeTestSplit(root, CON_TABBED)
+            let tabs = treeTestSplit(root, .tabbed)
             treeTestLeaf(tabs, 1)
-            let split = treeTestSplit(tabs, CON_SPLITV)
+            let split = treeTestSplit(tabs, .splitV)
             let leaf = treeTestLeaf(split, 2)
             let side = treeTestLeaf(root, 3)
-            leaf.zoom = CON_ZOOM_PARENT
+            leaf.zoom = .parent
 
             var info = WindowInfo()
             windowInfoSetTree(&info, leaf)
@@ -44,14 +44,14 @@ extension DaemonState
         @Test("tree_view_serialize_tree")
         func treeViewSerializeTree()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             defer { Yabai.con_free(root) }
 
-            let tabs = treeTestSplit(root, CON_TABBED)
+            let tabs = treeTestSplit(root, .tabbed)
             treeTestLeaf(tabs, 7)
 
             let testView = View()
-            testView.layout = VIEW_TREE
+            testView.layout = .tree
             testView.tree = root
 
             var response = Response()
@@ -60,7 +60,7 @@ extension DaemonState
             #expect(response.text.contains("{\"type\":\"container\",\"layout\":\"tabbed\""))
             #expect(response.text.contains("{\"type\":\"window\",\"layout\":null,\"percent\":1.0000,\"window\":7"))
 
-            testView.layout = VIEW_FLOAT
+            testView.layout = .float
             var floating = Response()
             #expect(!treeSerialize(&floating, testView))
             #expect(floating.bytes.isEmpty)

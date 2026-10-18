@@ -76,7 +76,7 @@ func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager
     guard let node = tree_find_window(owner.tree, target.id) else { return nil }
 
     var result: Con?
-    if tree_next(node, direction, FOCUS_WRAPPING_OFF, false, &result) != TREE_RESULT_DONE { return nil }
+    if tree_next(node, direction, .off, false, &result) != .done { return nil }
     guard let result, con_is_leaf(result), result != node else { return nil }
 
     return window_manager_find_window(wm, result.window_id)

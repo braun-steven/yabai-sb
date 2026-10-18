@@ -51,7 +51,7 @@ final class WindowManager
     var window_border_width: Float = 0
     var active_window_border_color = rgba_color()
     var normal_window_border_color = rgba_color()
-    var focus_wrapping = FOCUS_WRAPPING_OFF
+    var focus_wrapping = FocusWrapping.off
     var enable_tab_bar = false
     var tab_bar_height: Int32 = 0
     var tab_bar_offset: Int32 = 0
@@ -268,7 +268,7 @@ func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: UInt32)
 /// `window_manager_add_managed_window`
 func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ owner: View)
 {
-    if owner.layout == VIEW_FLOAT { return }
+    if owner.layout == .float { return }
 
     wm.managed_window.add(target.id, owner)
     window_manager_purify_window(wm, target)
@@ -386,10 +386,10 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     //
 
     var node = windowManagerTreeActingCon(owner, target)
-    while let current = node, let parent = current.parent, parent.layout == CON_TABBED { node = parent }
+    while let current = node, let parent = current.parent, parent.layout == .tabbed { node = parent }
     guard let node, let parent = node.parent else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    let horizontal = parent.layout == CON_SPLITH
+    let horizontal = parent.layout == .splitH
     let size = horizontal ? parent.area.w : parent.area.h
     let percent = type == TYPE_REL ? node.percent + ratio : ratio
     let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
@@ -741,7 +741,7 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
     guard let target else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
     let owner = space_manager_find_view(sm, window_space(target.id))
-    if owner.layout != VIEW_TREE || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
+    if owner.layout != .tree || owner.tree == nil { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
 
     guard let node = tree_find_window(owner.tree, target.id) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
@@ -794,7 +794,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
         _ = space_manager_wait_for_window_on_space(b.id, aView.sid, 200)
     }
 
-    let node = con_create(CON_SPLITH)!
+    let node = con_create(.splitH)!
     node.window_id = b.id
     tree_insert_relative(aCon, node, .stack)
 
@@ -814,10 +814,10 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
     let parent = node.parent ?? node
 
     switch layout {
-    case WINDOW_LAYOUT_TABBED:       tree_set_layout(node, CON_TABBED)
-    case WINDOW_LAYOUT_SPLITH:       tree_set_layout(node, CON_SPLITH)
-    case WINDOW_LAYOUT_SPLITV:       tree_set_layout(node, CON_SPLITV)
-    case WINDOW_LAYOUT_SPLIT:        tree_set_layout(node, parent.layout == CON_TABBED ? parent.last_split : parent.layout)
+    case WINDOW_LAYOUT_TABBED:       tree_set_layout(node, .tabbed)
+    case WINDOW_LAYOUT_SPLITH:       tree_set_layout(node, .splitH)
+    case WINDOW_LAYOUT_SPLITV:       tree_set_layout(node, .splitV)
+    case WINDOW_LAYOUT_SPLIT:        tree_set_layout(node, parent.layout == .tabbed ? parent.last_split : parent.layout)
     case WINDOW_LAYOUT_TOGGLE:       tree_toggle_layout(node, false)
     case WINDOW_LAYOUT_TOGGLE_SPLIT: tree_toggle_layout(node, true)
     default:                         break
@@ -848,7 +848,7 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
     guard let bCon else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
 
     if aView == bView {
-        tree_insert_con(aCon, bCon, TREE_AFTER)
+        tree_insert_con(aCon, bCon, .after)
         tree_flatten(aView.tree)
         windowManagerTreeApply(aView)
     } else {
@@ -1130,29 +1130,29 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
 }
 
 /// `window_manager_toggle_window_zoom`
-private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window, _ zoom: con_zoom)
+private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window, _ zoom: ConZoom)
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return }
 
     guard let node = tree_find_window(owner.tree, target.id), node != owner.tree else { return }
 
     var zoom = zoom
-    if zoom == CON_ZOOM_PARENT && node.parent == owner.tree { zoom = CON_ZOOM_FULLSCREEN }
+    if zoom == .parent && node.parent == owner.tree { zoom = .fullscreen }
 
-    node.zoom = node.zoom == zoom ? CON_ZOOM_NONE : zoom
+    node.zoom = node.zoom == zoom ? .none : zoom
     windowManagerTreeApply(owner)
 }
 
 /// `window_manager_toggle_window_zoom_parent`
 func window_manager_toggle_window_zoom_parent(_ wm: WindowManager, _ target: Window)
 {
-    windowManagerToggleWindowZoom(wm, target, CON_ZOOM_PARENT)
+    windowManagerToggleWindowZoom(wm, target, .parent)
 }
 
 /// `window_manager_toggle_window_zoom_fullscreen`
 func window_manager_toggle_window_zoom_fullscreen(_ wm: WindowManager, _ target: Window)
 {
-    windowManagerToggleWindowZoom(wm, target, CON_ZOOM_FULLSCREEN)
+    windowManagerToggleWindowZoom(wm, target, .fullscreen)
 }
 
 /// `window_manager_toggle_window_windowed_fullscreen`
@@ -1236,7 +1236,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
         guard let target = window_manager_find_window(wm, windowID), window_manager_should_manage_window(target) else { continue }
 
         let existingView = window_manager_find_managed_window(wm, target)
-        if let existingView, existingView.layout != VIEW_FLOAT, existingView != owner {
+        if let existingView, existingView.layout != .float, existingView != owner {
 
             //
             // @cleanup
@@ -1255,7 +1255,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             setViewFlag(existingView, VIEW_IS_DIRTY)
         }
 
-        if existingView == nil || (existingView!.layout != VIEW_FLOAT && existingView != owner) {
+        if existingView == nil || (existingView!.layout != .float && existingView != owner) {
 
             //
             // @cleanup
@@ -1286,7 +1286,7 @@ private func spaceWindows(_ sid: UInt64) -> [UInt32]?
 func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, _ wm: WindowManager, _ sid: UInt64)
 {
     let owner = space_manager_find_view(sm, sid)
-    if owner.layout == VIEW_FLOAT { return }
+    if owner.layout == .float { return }
 
     let windowList = spaceWindows(sid) ?? []
     windowManagerValidateWindowsOnSpace(wm, owner, windowList)
@@ -1338,7 +1338,7 @@ func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: Wind
     for space in spaceList where space_is_user(space) {
         if let windowList = spaceWindows(space) {
             let owner = space_manager_find_view(sm, space)
-            if owner.layout != VIEW_FLOAT {
+            if owner.layout != .float {
                 windowManagerCheckForWindowsOnSpace(wm, owner, windowList)
             }
         }
@@ -1379,7 +1379,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.window_border_width = 4.0
     wm.active_window_border_color = rgba_color_from_hex(0xffe1e3e4)
     wm.normal_window_border_color = rgba_color_from_hex(0xff494d64)
-    wm.focus_wrapping = FOCUS_WRAPPING_ON
+    wm.focus_wrapping = .on
     wm.enable_tab_bar = true
     wm.tab_bar_height = 24
     wm.tab_bar_offset = 0

@@ -17,14 +17,14 @@ final class SpaceManager
     var current_space_id: UInt64 = 0
     var last_space_id: UInt64 = 0
     var did_begin = false
-    var layout = VIEW_DEFAULT
+    var layout = ViewType.default
     var top_padding: Int32 = 0
     var bottom_padding: Int32 = 0
     var left_padding: Int32 = 0
     var right_padding: Int32 = 0
     var window_gap: Int32 = 0
     var auto_padding = false
-    var tree_default_orientation = TREE_ORIENTATION_AUTO
+    var tree_default_orientation = TreeOrientation.auto
     var tree_workspace_tabbed = false
     var tree_autotiling = false
     var labels = LabelList()
@@ -85,7 +85,7 @@ func space_manager_find_view(_ sm: SpaceManager, _ sid: UInt64) -> View
 func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return }
+    if target.layout == .float { return }
 
     view_update_and_flush(target)
 }
@@ -94,7 +94,7 @@ func space_manager_refresh_view(_ sm: SpaceManager, _ sid: UInt64)
 func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return }
+    if target.layout == .float { return }
 
     clearViewFlag(target, VIEW_IS_VALID)
 }
@@ -102,20 +102,20 @@ func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: UInt64)
 /// `space_manager_untile_window`
 func space_manager_untile_window(_ target: View, _ win: Window)
 {
-    if target.layout == VIEW_FLOAT { return }
+    if target.layout == .float { return }
 
     window_manager_adjust_layer(win, CGWindowLevelKey.normalWindow.rawValue)
     if view_remove_window(target, win) { view_flush(target) }
 }
 
 /// `space_manager_set_layout_for_space`
-func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ layout: view_type)
+func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ layout: ViewType)
 {
     let target = space_manager_find_view(sm, sid)
     target.layout = layout
     view_clear(target)
 
-    if target.layout != VIEW_FLOAT {
+    if target.layout != .float {
         window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), sid)
     }
 }
@@ -124,7 +124,7 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: UInt64, _ lay
 func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ gap: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return false }
+    if target.layout == .float { return false }
 
     if type == TYPE_ABS {
         target.window_gap = gap
@@ -141,7 +141,7 @@ func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: 
 private func spaceManagerToggleViewFlag(_ sm: SpaceManager, _ sid: UInt64, _ flag: view_flag) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return false }
+    if target.layout == .float { return false }
 
     if hasViewFlag(target, flag) {
         clearViewFlag(target, flag)
@@ -175,7 +175,7 @@ func space_manager_toggle_show_desktop(_ sid: UInt64)
 }
 
 /// `space_manager_set_layout_for_all_spaces`: the views without their own layout take the layout.
-func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: view_type)
+func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewType)
 {
     sm.layout = layout
 
@@ -185,7 +185,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: view_
                 target.layout = layout
                 view_clear(target)
 
-                if target.layout != VIEW_FLOAT {
+                if target.layout != .float {
                     window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), target.sid)
                 }
             }
@@ -212,7 +212,7 @@ private func spaceManagerApplyAutoPadding(_ target: View, _ autoPadding: Bool)
     if target.auto_padding == autoPadding { return }
 
     target.auto_padding = autoPadding
-    if target.layout == VIEW_FLOAT { return }
+    if target.layout == .float { return }
 
     view_update_and_flush(target)
 }
@@ -241,7 +241,7 @@ func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: UInt64,
 func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: UInt64, _ type: Int32, _ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return false }
+    if target.layout == .float { return false }
 
     if type == TYPE_ABS {
         target.top_padding    = top
@@ -270,7 +270,7 @@ func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: UInt64) -
 private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: UInt64) -> View?
 {
     let target = space_manager_find_view(sm, sid)
-    return target.layout == VIEW_TREE && target.tree != nil ? target : nil
+    return target.layout == .tree && target.tree != nil ? target : nil
 }
 
 /// `space_manager_rotate_space`
@@ -285,11 +285,11 @@ func space_manager_rotate_space(_ sm: SpaceManager, _ sid: UInt64, _ degrees: In
 }
 
 /// `space_manager_mirror_space`
-func space_manager_mirror_space(_ sm: SpaceManager, _ sid: UInt64, _ axis: window_split) -> Bool
+func space_manager_mirror_space(_ sm: SpaceManager, _ sid: UInt64, _ axis: WindowSplit) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_mirror(target.tree, axis == SPLIT_X ? CON_VERTICAL : CON_HORIZONTAL)
+    tree_mirror(target.tree, axis == .x ? .vertical : .horizontal)
     view_update_and_flush(target)
 
     return true
@@ -310,7 +310,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: UInt64) -> Bool
 func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: UInt64, _ insertionPoint: UInt32) -> View
 {
     let target = space_manager_find_view(sm, sid)
-    if target.layout == VIEW_FLOAT { return target }
+    if target.layout == .float { return target }
 
     window_manager_adjust_layer(win, CGWindowLevelKey.backstopMenu.rawValue)
     view_add_window(target, win, insertionPoint)
@@ -329,7 +329,7 @@ func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid
 func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
 {
     let target = space_manager_find_view(sm, window_space(win.id))
-    if target.layout != VIEW_TREE { return }
+    if target.layout != .tree { return }
 
     _ = window_manager_set_window_layout(window_manager_global(), win, WINDOW_LAYOUT_TOGGLE_SPLIT)
 }
@@ -951,9 +951,9 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: UInt32)
 /// `space_manager_init`: the defaults of the space manager and an empty table of views.
 func space_manager_init(_ sm: SpaceManager)
 {
-    sm.layout = VIEW_TREE
+    sm.layout = .tree
     sm.auto_padding = false
-    sm.tree_default_orientation = TREE_ORIENTATION_AUTO
+    sm.tree_default_orientation = .auto
     sm.tree_workspace_tabbed = false
     sm.tree_autotiling = false
     sm.labels = LabelList()

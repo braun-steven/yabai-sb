@@ -38,19 +38,7 @@ func layerValue(_ layer: WindowLayer) -> Int32
 
 // MARK: src/view.h
 
-/// `enum window_split`
-struct window_split: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let SPLIT_NONE = window_split(rawValue: 0)
-let SPLIT_Y    = window_split(rawValue: 1)
-let SPLIT_X    = window_split(rawValue: 2)
-
 let TAB_BAR_MAX_ENTRY_COUNT: Int32 = 64
-
-/// `enum view_type`
-struct view_type: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let VIEW_DEFAULT = view_type(rawValue: 0)
-let VIEW_FLOAT   = view_type(rawValue: 1)
-let VIEW_TREE    = view_type(rawValue: 2)
 
 /// `enum view_flag`
 struct view_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
@@ -66,48 +54,6 @@ let VIEW_IS_VALID       = view_flag(rawValue: 0x200)
 let VIEW_IS_DIRTY       = view_flag(rawValue: 0x400)
 let VIEW_AUTO_PADDING   = view_flag(rawValue: 0x1000)
 let VIEW_IS_UNPADDED    = view_flag(rawValue: 0x2000)
-
-// MARK: src/tree.h
-
-/// `enum con_layout`
-struct con_layout: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let CON_SPLITH = con_layout(rawValue: 0)
-let CON_SPLITV = con_layout(rawValue: 1)
-let CON_TABBED = con_layout(rawValue: 2)
-
-/// `enum con_orientation` (the function con_orientation in Tree.swift has the C name)
-struct ConOrientation: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let CON_HORIZONTAL = ConOrientation(rawValue: 0)
-let CON_VERTICAL   = ConOrientation(rawValue: 1)
-
-/// `enum tree_orientation`
-struct tree_orientation: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TREE_ORIENTATION_AUTO       = tree_orientation(rawValue: 0)
-let TREE_ORIENTATION_HORIZONTAL = tree_orientation(rawValue: 1)
-let TREE_ORIENTATION_VERTICAL   = tree_orientation(rawValue: 2)
-
-/// `enum focus_wrapping`
-struct focus_wrapping: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let FOCUS_WRAPPING_OFF   = focus_wrapping(rawValue: 0)
-let FOCUS_WRAPPING_ON    = focus_wrapping(rawValue: 1)
-let FOCUS_WRAPPING_FORCE = focus_wrapping(rawValue: 2)
-
-/// `enum con_zoom`
-struct con_zoom: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let CON_ZOOM_NONE       = con_zoom(rawValue: 0)
-let CON_ZOOM_PARENT     = con_zoom(rawValue: 1)
-let CON_ZOOM_FULLSCREEN = con_zoom(rawValue: 2)
-
-/// `enum tree_result`
-struct tree_result: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TREE_RESULT_NONE   = tree_result(rawValue: 0)
-let TREE_RESULT_DONE   = tree_result(rawValue: 1)
-let TREE_RESULT_OUTPUT = tree_result(rawValue: 2)
-
-/// `enum tree_position`
-struct tree_position: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let TREE_BEFORE = tree_position(rawValue: 0)
-let TREE_AFTER  = tree_position(rawValue: 1)
 
 // MARK: src/tab_bar.h, src/tab_bar_glass.h
 

@@ -21,8 +21,8 @@ func messageWindowLayoutValues()
     #expect(parseWindowLayout(Token("toggle-split")) == WINDOW_LAYOUT_TOGGLE_SPLIT)
     #expect(parseWindowLayout(Token("stacked")) == nil)
 
-    #expect(parseSplitOrientation(Token("vertical")) == Int32(CON_VERTICAL.rawValue))
-    #expect(parseSplitOrientation(Token("toggle")) == -1)
+    #expect(parseSplitOrientation(Token("vertical")) == .fixed(.vertical))
+    #expect(parseSplitOrientation(Token("toggle")) == .toggle)
     #expect(parseSplitOrientation(Token("diagonal")) == nil)
 }
 

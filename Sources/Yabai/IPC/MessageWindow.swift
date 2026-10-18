@@ -83,16 +83,12 @@ func parseWindowLayout(_ value: Token) -> window_layout?
     return nil
 }
 
-//
-// NOTE: -1 toggles the orientation of the parent container.
-//
-
 /// `parse_split_orientation`
-func parseSplitOrientation(_ value: Token) -> Int32?
+func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 {
-    if value.equals(WindowCommand.splitHorizontal) { return Int32(CON_HORIZONTAL.rawValue) }
-    if value.equals(WindowCommand.splitVertical)   { return Int32(CON_VERTICAL.rawValue) }
-    if value.equals(WindowCommand.splitToggle)     { return -1 }
+    if value.equals(WindowCommand.splitHorizontal) { return .fixed(.horizontal) }
+    if value.equals(WindowCommand.splitVertical)   { return .fixed(.vertical) }
+    if value.equals(WindowCommand.splitToggle)     { return .toggle }
     return nil
 }
 

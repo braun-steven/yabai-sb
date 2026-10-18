@@ -21,7 +21,7 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
     }
 
     let layout = node.layout
-    CFStringAppendCString(string, layout == CON_SPLITH ? "H[" : layout == CON_SPLITV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
+    CFStringAppendCString(string, layout == .splitH ? "H[" : layout == .splitV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
 
     for i in 0..<Int(node.child_count) {
         if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
@@ -70,15 +70,13 @@ private func treeBarInset() -> Int32
 }
 
 /// `tree_default_layout`
-private func treeDefaultLayout(_ owner: View) -> con_layout
+private func treeDefaultLayout(_ owner: View) -> ConLayout
 {
     switch space_manager_global().tree_default_orientation {
-    case TREE_ORIENTATION_HORIZONTAL: return CON_SPLITH
-    case TREE_ORIENTATION_VERTICAL:   return CON_SPLITV
-    default:                          break
+    case .horizontal: .splitH
+    case .vertical:   .splitV
+    case .auto:       owner.area.w >= owner.area.h ? .splitH : .splitV
     }
-
-    return owner.area.w >= owner.area.h ? CON_SPLITH : CON_SPLITV
 }
 
 /// `tree_view_root`
@@ -168,7 +166,7 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: UInt32)
     let root = tree_view_root(owner)
     if tree_find_window(root, target.id) != nil { return }
 
-    let node = con_create(CON_SPLITH)!
+    let node = con_create(.splitH)!
     node.window_id = target.id
 
     treeViewResetEmptyRoot(owner, root)
@@ -252,14 +250,14 @@ func treeViewWindowList(_ owner: View) -> [UInt32]
 /// `tree_tiled_count`
 private func treeTiledCount(_ node: Con) -> Int32
 {
-    if con_is_leaf(node) { return node.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
+    if con_is_leaf(node) { return node.zoom == .fullscreen ? 0 : 1 }
 
     var count: Int32 = 0
     for i in 0..<Int(node.child_count) {
         count += treeTiledCount(node.children[i])
     }
 
-    return node.layout == CON_TABBED && count > 1 ? 1 : count
+    return node.layout == .tabbed && count > 1 ? 1 : count
 }
 
 /// `tree_view_tiled_count`
@@ -273,8 +271,8 @@ func tree_view_tiled_count(_ owner: View!) -> Int32
 // keeps counting a whole tabbed container as one area, even when its active tab contains a split.
 func treeVisibleWindowCount(_ node: Con) -> Int32
 {
-    if con_is_leaf(node) { return node.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
-    if node.layout == CON_TABBED {
+    if con_is_leaf(node) { return node.zoom == .fullscreen ? 0 : 1 }
+    if node.layout == .tabbed {
         return node.child_count == 0 ? 0 : treeVisibleWindowCount(node.focus[0])
     }
     var count: Int32 = 0
@@ -285,8 +283,8 @@ func treeVisibleWindowCount(_ node: Con) -> Int32
 /// `tree_con_frame`
 func tree_con_frame(_ owner: View, _ node: Con) -> Area
 {
-    if node.zoom == CON_ZOOM_FULLSCREEN { return owner.tree.area }
-    if node.zoom == CON_ZOOM_PARENT, let parent = node.parent { return parent.area }
+    if node.zoom == .fullscreen { return owner.tree.area }
+    if node.zoom == .parent, let parent = node.parent { return parent.area }
     return node.area
 }
 
@@ -325,9 +323,9 @@ private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout 
 }
 
 /// `tree_has_zoom`
-func treeHasZoom(_ node: Con, _ zoom: con_zoom) -> Bool
+func treeHasZoom(_ node: Con, _ zoom: ConZoom) -> Bool
 {
-    if con_is_leaf(node) { return zoom == CON_ZOOM_NONE ? node.zoom != CON_ZOOM_NONE : node.zoom == zoom }
+    if con_is_leaf(node) { return zoom == .none ? node.zoom != .none : node.zoom == zoom }
 
     for i in 0..<Int(node.child_count) {
         if treeHasZoom(node.children[i], zoom) { return true }
@@ -359,12 +357,12 @@ func treeContainsWindow(_ node: Con, _ windowID: UInt32) -> Bool
 private func treeBarIsShown(_ node: Con) -> Bool
 {
     return tab_bar_is_enabled() &&
-           node.layout == CON_TABBED &&
+           node.layout == .tabbed &&
            node.child_count > 0 &&
            node.area.h > Float(2 * window_manager_global().tab_bar_height) &&
            tree_con_is_visible(node) &&
-           !treeHasZoom(node, CON_ZOOM_NONE) &&
-           !treeHasZoom(treeRootOf(node), CON_ZOOM_FULLSCREEN)
+           !treeHasZoom(node, .none) &&
+           !treeHasZoom(treeRootOf(node), .fullscreen)
 }
 
 //
@@ -436,7 +434,7 @@ func tree_window_border_area(_ owner: View!, _ windowID: UInt32, _ windowArea: U
 
     var outer: Con?
     var node = leaf
-    while let parent = node.parent, parent.layout == CON_TABBED, treeBarIsShown(parent) {
+    while let parent = node.parent, parent.layout == .tabbed, treeBarIsShown(parent) {
         outer = parent
         node = parent
     }
@@ -458,7 +456,7 @@ func tree_render_bars(_ node: Con)
 {
     if con_is_leaf(node) { return }
 
-    if node.layout == CON_TABBED {
+    if node.layout == .tabbed {
         treeRenderBar(node)
     } else {
         tab_bar_release(node.render.tab_bar)
@@ -487,7 +485,7 @@ func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: UInt32, _ l
         return
     }
 
-    if order == 1 && node.layout == CON_TABBED {
+    if order == 1 && node.layout == .tabbed {
         if node.child_count != 0 { treeCollectWindowOrder(node.focus[0], order, relative, &list) }
         return
     }
@@ -514,7 +512,7 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
 {
     if con_is_leaf(node) { return }
 
-    if node.layout == CON_TABBED && node.child_count != 0 && tree_con_is_visible(node) {
+    if node.layout == .tabbed && node.child_count != 0 && tree_con_is_visible(node) {
         let active = node.focus[0]
 
         let anchor = tree_descend_focused(active)
@@ -570,7 +568,7 @@ func treeCollectCardOrder(_ node: Con, _ windowID: UInt32, _ list: inout [sa_win
 {
     if con_is_leaf(node) { return }
 
-    if node.layout == CON_TABBED && node.child_count != 0 && tree_con_is_visible(node) {
+    if node.layout == .tabbed && node.child_count != 0 && tree_con_is_visible(node) {
         let active = node.focus[0]
         if !con_is_leaf(active) && tree_descend_focused(active)?.window_id == windowID {
             treeCollectWindowOrder(active, 1, windowID, &list)
@@ -587,7 +585,7 @@ func treeCollectCardOrder(_ node: Con, _ windowID: UInt32, _ list: inout [sa_win
 func tree_card_did_order(_ windowID: UInt32)
 {
     guard let owner = window_manager_global().managed_window.find(windowID) else { return }
-    if owner.layout != VIEW_TREE || owner.tree == nil || !space_is_visible(owner.sid) { return }
+    if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
 
     var list: [sa_window_order] = []
     treeCollectCardOrder(owner.tree, windowID, &list)
@@ -638,7 +636,7 @@ func tree_refresh_for_window(_ windowID: UInt32)
     if windowID == 0 { return }
 
     guard let owner = window_manager_global().managed_window.find(windowID) else { return }
-    if owner.layout != VIEW_TREE || owner.tree == nil { return }
+    if owner.layout != .tree || owner.tree == nil { return }
 
     if space_is_visible(owner.sid) { tree_render_bars(owner.tree) }
 }

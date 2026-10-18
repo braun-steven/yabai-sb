@@ -95,14 +95,14 @@ public enum WindowProperty
     ]
 }
 
-/// `enum window_split` (src/view.h): the split a window's container makes with its sibling, by its parent's layout.
-public enum WindowSplit: Int32, Sendable
+/// The split a window's container makes with its sibling, by its parent's layout; also the axis of `space --mirror`.
+public enum WindowSplit: Sendable
 {
-    case none = 0
-    case y    = 1
-    case x    = 2
+    case none
+    case y
+    case x
 
-    /// `window_split_str`
+    /// The name in `query --windows`.
     public var name: String
     {
         switch self {

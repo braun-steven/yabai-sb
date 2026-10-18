@@ -30,7 +30,7 @@ private func percent(_ node: Con, _ scale: Float = 100) -> Int32
 /// A leaf that is not part of a tree.
 private func treeTestCon(_ windowID: UInt32) -> Con
 {
-    let node = Yabai.con_create(CON_SPLITH)!
+    let node = Yabai.con_create(.splitH)!
     node.window_id = windowID
     return node
 }
@@ -39,7 +39,7 @@ private func treeTestCon(_ windowID: UInt32) -> Con
 private func treeViewTestView(_ root: Con?) -> View
 {
     let target = View()
-    target.layout = VIEW_TREE
+    target.layout = .tree
     target.tree = root
     return target
 }
@@ -59,7 +59,7 @@ extension DaemonState
         @Test("tree_attach_detach")
         func treeAttachDetach()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
             let b = treeTestLeaf(root, 2)
 
@@ -72,7 +72,7 @@ extension DaemonState
             #expect(percent(c, 300) == 100)
 
             // detaching the last window of a container closes the container, but never the workspace
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             let d = treeTestLeaf(v, 4)
             #expect(root.child_count == 4)
             #expect(Yabai.tree_detach(d) == root)
@@ -94,9 +94,9 @@ extension DaemonState
         func treeFlatten()
         {
             // H[ V[ H[1 2] ] 3 ] flattens to H[1 2 3]
-            let root = Yabai.con_create(CON_SPLITH)!
-            let v = treeTestSplit(root, CON_SPLITV)
-            let h = treeTestSplit(v, CON_SPLITH)
+            let root = Yabai.con_create(.splitH)!
+            let v = treeTestSplit(root, .splitV)
+            let h = treeTestSplit(v, .splitH)
             treeTestLeaf(h, 1)
             treeTestLeaf(h, 2)
             treeTestLeaf(root, 3)
@@ -112,7 +112,7 @@ extension DaemonState
             #expect(Int32(total * 100 + 0.5) == 100)
 
             // a single split around a window is kept, so that the next window opens inside of it
-            let w = treeTestSplit(root, CON_SPLITV)
+            let w = treeTestSplit(root, .splitV)
             treeTestLeaf(w, 4)
             Yabai.tree_flatten(root)
             #expect(root.child_count == 4)
@@ -125,9 +125,9 @@ extension DaemonState
         func treeFocusDirection()
         {
             // H[ 1 V[ 2 3 ] 4 ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             let b = treeTestLeaf(v, 2)
             let c = treeTestLeaf(v, 3)
             let d = treeTestLeaf(root, 4)
@@ -137,29 +137,29 @@ extension DaemonState
             Yabai.tree_focus(a)
 
             // entering the vertical split restores the window focused there last
-            #expect(tree_next(a, .east, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(a, .east, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 3)
 
-            #expect(tree_next(c, .north, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(c, .north, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 2)
 
-            #expect(tree_next(b, .east, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(b, .east, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 4)
 
             // at the edge of the workspace, a display in that direction comes first
-            #expect(tree_next(d, .east, FOCUS_WRAPPING_ON, true, &result) == TREE_RESULT_OUTPUT)
+            #expect(tree_next(d, .east, .on, true, &result) == .output)
 
             // otherwise focus wraps around, unless wrapping is off
-            #expect(tree_next(d, .east, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(d, .east, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 1)
-            #expect(tree_next(d, .east, FOCUS_WRAPPING_OFF, false, &result) == TREE_RESULT_NONE)
+            #expect(tree_next(d, .east, .off, false, &result) == .none)
 
             // 'up' from the top of the vertical split has nowhere to go and wraps within it
-            #expect(tree_next(b, .north, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(b, .north, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 3)
 
             // forced wrapping stays inside the innermost container
-            #expect(tree_next(c, .south, FOCUS_WRAPPING_FORCE, true, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(c, .south, .force, true, &result) == .done)
             #expect(treeTestWindow(result) == 2)
 
             Yabai.con_free(root)
@@ -169,9 +169,9 @@ extension DaemonState
         func treeFocusTabbed()
         {
             // H[ 1 T[ 2 3 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             let b = treeTestLeaf(t, 2)
             let c = treeTestLeaf(t, 3)
 
@@ -179,9 +179,9 @@ extension DaemonState
             Yabai.tree_focus(b)
 
             // tabs are laid out horizontally, so east/west cycles them
-            #expect(tree_next(b, .east, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(b, .east, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 3)
-            #expect(tree_next(b, .west, FOCUS_WRAPPING_ON, false, &result) == TREE_RESULT_DONE)
+            #expect(tree_next(b, .west, .on, false, &result) == .done)
             #expect(treeTestWindow(result) == 1)
 
             // only the active tab is visible
@@ -198,21 +198,21 @@ extension DaemonState
         func treeMoveWithin()
         {
             // H[ 1 2 V[ 3 4 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             treeTestLeaf(v, 3)
             let d = treeTestLeaf(v, 4)
             Yabai.tree_focus(d)
 
             // a window swaps with a neighbouring window
-            #expect(tree_move(root, a, .east, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .east, false) == .done)
             #expect(treeTestChild(root, 0) == 2)
             #expect(treeTestChild(root, 1) == 1)
 
             // and enters a neighbouring container, next to its last focused window
-            #expect(tree_move(root, a, .east, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .east, false) == .done)
             #expect(root.child_count == 2)
             #expect(v.child_count == 3)
             #expect(treeTestChild(v, 0) == 3)
@@ -220,18 +220,18 @@ extension DaemonState
             #expect(treeTestChild(v, 2) == 1)
 
             // a vertical move inside the vertical split swaps
-            #expect(tree_move(root, a, .north, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .north, false) == .done)
             #expect(treeTestChild(v, 1) == 1)
 
             // leaving the container at its edge places the window next to it in the workspace
-            #expect(tree_move(root, a, .east, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .east, false) == .done)
             #expect(root.child_count == 3)
             #expect(treeTestChild(root, 2) == 1)
             #expect(v.child_count == 2)
 
             // at the edge of the workspace a display in that direction is used
-            #expect(tree_move(root, a, .east, true) == TREE_RESULT_OUTPUT)
-            #expect(tree_move(root, a, .east, false) == TREE_RESULT_NONE)
+            #expect(tree_move(root, a, .east, true) == .output)
+            #expect(tree_move(root, a, .east, false) == .none)
 
             Yabai.con_free(root)
         }
@@ -240,19 +240,19 @@ extension DaemonState
         func treeMoveForceOrientation()
         {
             // H[ 1 2 ]: moving 2 down re-orients the workspace to V[ H[1] 2 ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             treeTestLeaf(root, 1)
             let b = treeTestLeaf(root, 2)
 
-            #expect(tree_move(root, b, .south, false) == TREE_RESULT_DONE)
-            #expect(root.layout == CON_SPLITV)
+            #expect(tree_move(root, b, .south, false) == .done)
+            #expect(root.layout == .splitV)
             #expect(root.child_count == 2)
-            #expect(root.children[0].layout == CON_SPLITH)
+            #expect(root.children[0].layout == .splitH)
             #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(treeTestChild(root, 1) == 2)
 
             // moving it back up enters the horizontal container next to window 1, like i3 does
-            #expect(tree_move(root, b, .north, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, b, .north, false) == .done)
             #expect(root.child_count == 1)
             #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(treeTestChild(root.children[0], 1) == 2)
@@ -264,27 +264,27 @@ extension DaemonState
         func treeMoveTabbed()
         {
             // H[ 1 T[ 2 3 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             treeTestLeaf(t, 2)
             let c = treeTestLeaf(t, 3)
 
             // moving inside the tabs reorders them
-            #expect(tree_move(root, c, .west, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, c, .west, false) == .done)
             #expect(treeTestChild(t, 0) == 3)
 
             // the first tab leaves the container to the west
-            #expect(tree_move(root, c, .west, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, c, .west, false) == .done)
             #expect(root.child_count == 3)
             #expect(treeTestChild(root, 1) == 3)
             #expect(t.child_count == 1)
 
             // and a window moving into the tabbed container becomes a tab
-            #expect(tree_move(root, c, .east, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, c, .east, false) == .done)
             #expect(t.child_count == 2)
             #expect(treeTestChild(t, 0) == 3)
-            #expect(tree_move(root, a, .east, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .east, false) == .done)
             #expect(t.child_count == 3)
             #expect(root.child_count == 1)
 
@@ -294,36 +294,36 @@ extension DaemonState
         @Test("tree_split_layout")
         func treeSplitLayout()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
             let b = treeTestLeaf(root, 2)
 
             // splitting wraps the window, so the next window opens below it
-            tree_split(b, CON_VERTICAL)
+            tree_split(b, .vertical)
             let v = b.parent!
             #expect(v != root)
-            #expect(v.layout == CON_SPLITV)
+            #expect(v.layout == .splitV)
             #expect(v.child_count == 1)
             #expect(root.children[1] == v)
 
             // splitting the only child again just changes the orientation
-            tree_split(b, CON_HORIZONTAL)
+            tree_split(b, .horizontal)
             #expect(b.parent == v)
-            #expect(v.layout == CON_SPLITH)
+            #expect(v.layout == .splitH)
 
             // tabbed on a workspace window wraps the workspace in a tabbed container
-            tree_set_layout(a, CON_TABBED)
+            tree_set_layout(a, .tabbed)
             #expect(root.child_count == 1)
             let t = a.parent!
-            #expect(t.layout == CON_TABBED)
+            #expect(t.layout == .tabbed)
             #expect(t.parent == root)
 
             // toggle returns to the last split layout, toggle split flips the orientation
-            #expect(tree_toggle_layout(a, false) == CON_SPLITH)
-            #expect(t.layout == CON_SPLITH)
-            #expect(tree_toggle_layout(a, true) == CON_SPLITV)
-            #expect(tree_toggle_layout(a, false) == CON_TABBED)
-            #expect(tree_toggle_layout(a, false) == CON_SPLITV)
+            #expect(tree_toggle_layout(a, false) == .splitH)
+            #expect(t.layout == .splitH)
+            #expect(tree_toggle_layout(a, true) == .splitV)
+            #expect(tree_toggle_layout(a, false) == .tabbed)
+            #expect(tree_toggle_layout(a, false) == .splitV)
 
             Yabai.con_free(root)
         }
@@ -331,7 +331,7 @@ extension DaemonState
         @Test("tree_insert_relative")
         func treeInsertRelative()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
             let b = treeTestLeaf(root, 2)
 
@@ -341,12 +341,12 @@ extension DaemonState
 
             // south of it splits the window
             Yabai.tree_insert_relative(b, treeTestCon(4), .south)
-            #expect(b.parent.layout == CON_SPLITV)
+            #expect(b.parent.layout == .splitV)
             #expect(treeTestChild(b.parent, 1) == 4)
 
             // stacking creates a tabbed container around the target
             Yabai.tree_insert_relative(a, treeTestCon(5), .stack)
-            #expect(a.parent.layout == CON_TABBED)
+            #expect(a.parent.layout == .tabbed)
             #expect(treeTestChild(a.parent, 1) == 5)
             #expect(root.children[0] == a.parent)
 
@@ -357,9 +357,9 @@ extension DaemonState
         func treeResizeUpdate()
         {
             // H[ 1 V[ 2 3 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             let b = treeTestLeaf(v, 2)
             let c = treeTestLeaf(v, 3)
             let full = Area(x: 0, y: 0, w: 1010, h: 810)
@@ -377,7 +377,7 @@ extension DaemonState
             #expect(tree_resize(a, .west, 10) == false)
 
             // the children of a tabbed container share its area below the bar
-            tree_set_layout(b, CON_TABBED)
+            tree_set_layout(b, .tabbed)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
             #expect(Int32(b.area.y) == 24)
             #expect(Int32(c.area.y) == 24)
@@ -413,18 +413,18 @@ extension DaemonState
         func treeRotateMirrorSwap()
         {
             // H[ 1 V[ 2 3 ] ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             let b = treeTestLeaf(v, 2)
             treeTestLeaf(v, 3)
 
             tree_rotate(root, 90)
-            #expect(root.layout == CON_SPLITV)
-            #expect(v.layout == CON_SPLITH)
+            #expect(root.layout == .splitV)
+            #expect(v.layout == .splitH)
             #expect(root.children[1] == a)
 
-            tree_mirror(root, CON_HORIZONTAL)
+            tree_mirror(root, .horizontal)
             #expect(treeTestChild(v, 0) == 3)
 
             tree_swap(a, b)
@@ -438,9 +438,9 @@ extension DaemonState
         func treeFocusCandidate()
         {
             // H[ 1 T[ 2 3 ] ]: closing the active tab focuses the tab focused before it
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             let b = treeTestLeaf(t, 2)
             let c = treeTestLeaf(t, 3)
 
@@ -462,8 +462,8 @@ extension DaemonState
         func treeFlattenSameOrientation()
         {
             // H[ H[ 1 2 ] ] flattens to H[ 1 2 ], keeping the shares
-            let root = Yabai.con_create(CON_SPLITH)!
-            let h = treeTestSplit(root, CON_SPLITH)
+            let root = Yabai.con_create(.splitH)!
+            let h = treeTestSplit(root, .splitH)
             let a = treeTestLeaf(h, 1)
             treeTestLeaf(h, 2)
             a.percent = 0.7
@@ -483,7 +483,7 @@ extension DaemonState
         func treeAutotiling()
         {
             // a wide window in a vertical split is split side by side
-            var root = Yabai.con_create(CON_SPLITV)!
+            var root = Yabai.con_create(.splitV)!
             var a = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
             a.area.w = 800
@@ -491,7 +491,7 @@ extension DaemonState
 
             tree_autotile(a)
             #expect(a.parent != root)
-            #expect(a.parent.layout == CON_SPLITH)
+            #expect(a.parent.layout == .splitH)
             #expect(a.parent.parent == root)
 
             // a tall window in a vertical split stays, the new window goes below it
@@ -503,7 +503,7 @@ extension DaemonState
             Yabai.con_free(root)
 
             // a tall window in a horizontal split is split on top of each other
-            root = Yabai.con_create(CON_SPLITH)!
+            root = Yabai.con_create(.splitH)!
             a = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
             a.area.w = 500
@@ -511,12 +511,12 @@ extension DaemonState
 
             tree_autotile(a)
             #expect(a.parent != root)
-            #expect(a.parent.layout == CON_SPLITV)
+            #expect(a.parent.layout == .splitV)
             Yabai.con_free(root)
 
             // a tab is never split
-            root = Yabai.con_create(CON_SPLITH)!
-            let tabbed = treeTestSplit(root, CON_TABBED)
+            root = Yabai.con_create(.splitH)!
+            let tabbed = treeTestSplit(root, .tabbed)
             a = treeTestLeaf(tabbed, 1)
             treeTestLeaf(tabbed, 2)
             a.area.w = 500
@@ -524,7 +524,7 @@ extension DaemonState
 
             tree_autotile(a)
             #expect(a.parent == tabbed)
-            #expect(tabbed.layout == CON_TABBED)
+            #expect(tabbed.layout == .tabbed)
             Yabai.con_free(root)
         }
 
@@ -532,25 +532,25 @@ extension DaemonState
         func treeSetLayoutSingleTab()
         {
             // H[ 1 T[ V[ 2 ] ] ]: splitting a single tab nests a split inside the tabbed container
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             let a = treeTestLeaf(t, 2)
-            tree_split(a, CON_VERTICAL)
+            tree_split(a, .vertical)
             #expect(a.parent.parent == t)
-            #expect(a.parent.layout == CON_SPLITV)
+            #expect(a.parent.layout == .splitV)
 
             // switching it to tabbed closes the redundant split instead of nesting a tabbed container, like i3
-            tree_set_layout(a, CON_TABBED)
+            tree_set_layout(a, .tabbed)
             #expect(a.parent == t)
-            #expect(t.layout == CON_TABBED)
+            #expect(t.layout == .tabbed)
             #expect(root.children[1] == t)
 
             // and toggling back and forth keeps a single container
             tree_toggle_layout(a, false)
-            #expect(t.layout == CON_SPLITV)
+            #expect(t.layout == .splitV)
             tree_toggle_layout(a, false)
-            #expect(t.layout == CON_TABBED)
+            #expect(t.layout == .tabbed)
             #expect(a.parent == t)
             #expect(t.parent == root)
 
@@ -566,11 +566,11 @@ extension DaemonState
             defer { sm.tree_workspace_tabbed = workspaceTabbed }
 
             // the first window of an empty workspace opens in a tabbed container
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestCon(1)
             tree_open_con(root, a, nil, false)
             #expect(root.child_count == 1)
-            #expect(root.children[0].layout == CON_TABBED)
+            #expect(root.children[0].layout == .tabbed)
             let t = a.parent!
 
             let b = treeTestCon(2)
@@ -579,9 +579,9 @@ extension DaemonState
             Yabai.tree_focus(b)
 
             // a tab that moves out to the workspace gets its own tabbed container, like i3 workspace_layout
-            #expect(tree_move(root, a, .west, false) == TREE_RESULT_DONE)
+            #expect(tree_move(root, a, .west, false) == .done)
             #expect(root.child_count == 2)
-            #expect(root.children[0].layout == CON_TABBED)
+            #expect(root.children[0].layout == .tabbed)
             #expect(treeTestChild(root.children[0], 0) == 1)
             #expect(root.children[1] == t)
 
@@ -592,11 +592,11 @@ extension DaemonState
         func treeInsertFocusOrder()
         {
             // H[ V[ 1 2 ] T[ 3 4 ] 5 ], with 5 focused and tab 3 active
-            let root = Yabai.con_create(CON_SPLITH)!
-            let v = treeTestSplit(root, CON_SPLITV)
+            let root = Yabai.con_create(.splitH)!
+            let v = treeTestSplit(root, .splitV)
             let a = treeTestLeaf(v, 1)
             let b = treeTestLeaf(v, 2)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             let c = treeTestLeaf(t, 3)
             let d = treeTestLeaf(t, 4)
             let e = treeTestLeaf(root, 5)
@@ -604,13 +604,13 @@ extension DaemonState
             Yabai.tree_focus(e)
 
             // a window that was focused less recently than the tabs does not become the active tab
-            tree_insert_con(b, c, TREE_AFTER)
+            tree_insert_con(b, c, .after)
             #expect(t.children[1] == b)
             #expect(t.focus[0] == c)
 
             // the focused window takes the focus with it
             Yabai.tree_focus(a)
-            tree_insert_con(a, d, TREE_AFTER)
+            tree_insert_con(a, d, .after)
             #expect(t.focus[0] == a)
             #expect(root.focus[0] == t)
             #expect(root.child_count == 2)
@@ -623,9 +623,9 @@ extension DaemonState
         func treeOpenConSelected()
         {
             // H[ 1 V[ 2 3 ] 4 ]
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let a = treeTestLeaf(root, 1)
-            let v = treeTestSplit(root, CON_SPLITV)
+            let v = treeTestSplit(root, .splitV)
             treeTestLeaf(v, 2)
             treeTestLeaf(v, 3)
             treeTestLeaf(root, 4)
@@ -649,10 +649,10 @@ extension DaemonState
         func treeAttachFromDirection()
         {
             // H[ 1 2 ] receives T[ 3 4 ] from another display
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             let x = treeTestLeaf(root, 1)
             treeTestLeaf(root, 2)
-            let t = Yabai.con_create(CON_TABBED)!
+            let t = Yabai.con_create(.tabbed)!
             treeTestLeaf(t, 3)
             treeTestLeaf(t, 4)
 
@@ -674,7 +674,7 @@ extension DaemonState
             #expect(root.children[1] == t)
 
             // an empty workspace takes it as it is
-            let empty = Yabai.con_create(CON_SPLITH)!
+            let empty = Yabai.con_create(.splitH)!
             Yabai.tree_detach(t)
             tree_attach_from_direction(empty, t, .north)
             #expect(empty.children[0] == t)
@@ -695,14 +695,14 @@ extension DaemonState
             }
 
             // H[ 1 T[ 2 V[ 3 4 ] T[ 5 6 ] ] ] with 3 focused and 5 the active tab of the hidden tabbed container
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             treeTestLeaf(t, 2)
-            let v = treeTestSplit(t, CON_SPLITV)
+            let v = treeTestSplit(t, .splitV)
             let c3 = treeTestLeaf(v, 3)
             treeTestLeaf(v, 4)
-            let t2 = treeTestSplit(t, CON_TABBED)
+            let t2 = treeTestSplit(t, .tabbed)
             let c5 = treeTestLeaf(t2, 5)
             let c6 = treeTestLeaf(t2, 6)
             Yabai.tree_focus(c6)
@@ -759,11 +759,11 @@ extension DaemonState
         func treeCardOrder()
         {
             // H[ 1 T[ 2 V[ 3 4 ] ] ] with 3 focused
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             treeTestLeaf(t, 2)
-            let v = treeTestSplit(t, CON_SPLITV)
+            let v = treeTestSplit(t, .splitV)
             let c3 = treeTestLeaf(v, 3)
             treeTestLeaf(v, 4)
             Yabai.tree_focus(c3)
@@ -789,11 +789,11 @@ extension DaemonState
         func treeWindowIDsCollect()
         {
             // H[ 1 T[ 2 V[ 3 4 ] ] ]: every window, hidden tabs included, in tree order
-            let root = Yabai.con_create(CON_SPLITH)!
+            let root = Yabai.con_create(.splitH)!
             treeTestLeaf(root, 1)
-            let t = treeTestSplit(root, CON_TABBED)
+            let t = treeTestSplit(root, .tabbed)
             treeTestLeaf(t, 2)
-            let v = treeTestSplit(t, CON_SPLITV)
+            let v = treeTestSplit(t, .splitV)
             treeTestLeaf(v, 3)
             treeTestLeaf(v, 4)
 
@@ -815,8 +815,8 @@ extension DaemonState
         @Test("tree_view_window_list_order")
         func treeViewWindowListOrder()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
-            let tabs = treeTestSplit(root, CON_TABBED)
+            let root = Yabai.con_create(.splitH)!
+            let tabs = treeTestSplit(root, .tabbed)
             for wid in UInt32(1)...10 { treeTestLeaf(tabs, wid) }
             for wid in UInt32(11)...20 { treeTestLeaf(root, wid) }
             let target = treeViewTestView(root)
@@ -833,8 +833,8 @@ extension DaemonState
         @Test("tree_view_zoom_frames")
         func treeViewZoomFrames()
         {
-            let root = Yabai.con_create(CON_SPLITH)!
-            let split = treeTestSplit(root, CON_SPLITV)
+            let root = Yabai.con_create(.splitH)!
+            let split = treeTestSplit(root, .splitV)
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(root, 2)
             let target = treeViewTestView(root)
@@ -844,17 +844,17 @@ extension DaemonState
             a.area     = Area(x: 0,   y: 0, w: 500,  h: 400)
             b.area     = Area(x: 500, y: 0, w: 500,  h: 800)
 
-            #expect(treeHasZoom(root, CON_ZOOM_NONE) == false)
+            #expect(treeHasZoom(root, .none) == false)
             #expect(Int32(tree_con_frame(target, a).h) == 400)
 
-            a.zoom = CON_ZOOM_PARENT
-            #expect(treeHasZoom(root, CON_ZOOM_NONE) == true)
-            #expect(treeHasZoom(root, CON_ZOOM_FULLSCREEN) == false)
+            a.zoom = .parent
+            #expect(treeHasZoom(root, .none) == true)
+            #expect(treeHasZoom(root, .fullscreen) == false)
             #expect(Int32(tree_con_frame(target, a).h) == 800)
             #expect(Int32(tree_con_frame(target, a).w) == 500)
 
-            a.zoom = CON_ZOOM_FULLSCREEN
-            #expect(treeHasZoom(root, CON_ZOOM_FULLSCREEN) == true)
+            a.zoom = .fullscreen
+            #expect(treeHasZoom(root, .fullscreen) == true)
             #expect(Int32(tree_con_frame(target, a).w) == 1000)
 
             #expect(treeContainsWindow(root, 2) == true)

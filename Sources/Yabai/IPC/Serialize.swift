@@ -8,9 +8,6 @@ import YabaiCore
 // NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the managers.
 //
 
-/// `con_layout_str` (src/tree.h)
-private let conLayoutNames = ["splith", "splitv", "tabbed"]
-
 /// The SkyLight connection of the daemon (`g_connection`).
 var connection: Int32 { connection_global() }
 
@@ -102,9 +99,6 @@ private func viewLastWindow(_ view: View) -> UInt32
     return last.window_id
 }
 
-/// `view_type_str` (src/view.h)
-private let viewTypeNames = ["default", "float", "tree"]
-
 /// `view_serialize`
 func viewSerialize(_ view: View, _ flags: UInt64) -> String
 {
@@ -116,7 +110,7 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
     json.property(SpaceProperty.uuid,         "\"uuid\":\"\(viewUUID(view))\"")
     json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
     json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
-    json.property(SpaceProperty.type,         "\"type\":\"\(viewTypeNames[Int(view.layout.rawValue)])\"")
+    json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
     json.property(SpaceProperty.display,      "\"display\":\(display_manager_display_id_arrangement(space_display_id(sid)))")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)))")
@@ -213,16 +207,16 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
     guard let node else { return }
 
     if let parent = node.parent {
-        if parent.layout == CON_SPLITH { info.split = .y }
-        if parent.layout == CON_SPLITV { info.split = .x }
+        if parent.layout == .splitH { info.split = .y }
+        if parent.layout == .splitV { info.split = .x }
     }
 
     var tab = node
-    while let parent = tab.parent, parent.layout != CON_TABBED { tab = parent }
+    while let parent = tab.parent, parent.layout != .tabbed { tab = parent }
     info.stackIndex = tab.parent != nil ? con_index(tab) + 1 : 0
 
-    info.hasParentZoom = node.zoom == CON_ZOOM_PARENT
-    info.hasFullscreenZoom = node.zoom == CON_ZOOM_FULLSCREEN
+    info.hasParentZoom = node.zoom == .parent
+    info.hasFullscreenZoom = node.zoom == .fullscreen
 }
 
 //
@@ -372,7 +366,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     let parent = node.parent
 
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
-    let layout = leaf ? "null" : "\"\(conLayoutNames[Int(node.layout.rawValue)])\""
+    let layout = leaf ? "null" : "\"\(node.layout.rawValue)\""
     let percent = parent != nil ? node.percent : 1.0
     let focused = leaf && node.window_id == window_manager_global().focused_window_id
 
@@ -398,7 +392,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
 /// `tree_serialize`
 func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
 {
-    guard view.layout == VIEW_TREE else { return false }
+    guard view.layout == .tree else { return false }
 
     var output = ""
     treeSerializeCon(&output, view, tree_view_root(view), 0)

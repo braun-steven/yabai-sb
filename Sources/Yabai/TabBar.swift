@@ -476,7 +476,7 @@ func tab_bar_refresh_for_window(_ wid: UInt32)
 {
     if wid == 0 { return }
     guard let owner = window_manager_global().managed_window.find(wid) else { return }
-    if owner.layout != VIEW_TREE { return }
+    if owner.layout != .tree { return }
     tree_refresh_for_window(wid)
 }
 
@@ -486,7 +486,7 @@ func tab_bar_refresh_for_window(_ wid: UInt32)
 //
 func tab_bar_refresh_all()
 {
-    for owner in space_manager_global().view.values where owner.layout == VIEW_TREE {
+    for owner in space_manager_global().view.values where owner.layout == .tree {
         if let root = owner.tree { tree_release_bars(root) }
         view_update_and_flush(owner)
     }

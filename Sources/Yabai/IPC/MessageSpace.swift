@@ -292,13 +292,15 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         }
     } else if command.equals(SpaceCommand.mirror) {
         let value = message.next()
-        let axis = value.equals(Axis.x) ? SPLIT_X
-                 : value.equals(Axis.y) ? SPLIT_Y
-                 : SPLIT_NONE
-        if axis == SPLIT_NONE {
+        let axis: WindowSplit? = value.equals(Axis.x) ? .x
+                               : value.equals(Axis.y) ? .y
+                               : nil
+        if let axis {
+            if !space_manager_mirror_space(sm, actingSid, axis) {
+                rsp.fail("cannot mirror a non-managed space.\n")
+            }
+        } else {
             rsp.failUnknownValue(domain, command, value)
-        } else if !space_manager_mirror_space(sm, actingSid, axis) {
-            rsp.fail("cannot mirror a non-managed space.\n")
         }
     } else if command.equals(SpaceCommand.rotate) {
         let value = message.next()
@@ -354,13 +356,13 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         let value = message.next()
         if value.equals(SpaceCommand.layoutFloat) {
             if space_is_user(actingSid) {
-                space_manager_set_layout_for_space(sm, actingSid, VIEW_FLOAT)
+                space_manager_set_layout_for_space(sm, actingSid, .float)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
             }
         } else if value.equals(SpaceCommand.layoutTree) {
             if space_is_user(actingSid) {
-                space_manager_set_layout_for_space(sm, actingSid, VIEW_TREE)
+                space_manager_set_layout_for_space(sm, actingSid, .tree)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
             }

@@ -145,7 +145,7 @@ func update_window_notifications()
 
         let sid = newWindows ? window_manager_origin_space(wm, window) : window_space(window.id)
         let view = space_manager_find_view(space_manager_global(), sid)
-        if view.layout == VIEW_FLOAT { continue }
+        if view.layout == .float { continue }
 
         tileWindowBatched(view, window, insertionPoint)
         viewList.append(view)
@@ -185,7 +185,7 @@ func update_window_notifications()
 
     if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = 0 }
 
-    if let view = window_manager_find_managed_window(window_manager_global(), window), view.layout == VIEW_TREE {
+    if let view = window_manager_find_managed_window(window_manager_global(), window), view.layout == .tree {
         tree_window_did_receive_focus(view, window.id)
     }
 

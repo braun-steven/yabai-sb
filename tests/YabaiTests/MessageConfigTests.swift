@@ -56,7 +56,7 @@ extension DaemonState
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
             #expect(wm.enable_mff)
             #expect(UInt32(mouse.modifier) == MOUSE_MOD_CTRL.rawValue)
-            #expect(wm.focus_wrapping == FOCUS_WRAPPING_FORCE)
+            #expect(wm.focus_wrapping == .force)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")

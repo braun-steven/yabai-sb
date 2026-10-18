@@ -13,6 +13,60 @@ import YabaiCore
 // and tree_reap_empty closes the containers that are left without children.
 //
 
+/// The layout of a container, named as in `query --tree`.
+enum ConLayout: String, Sendable
+{
+    case splitH = "splith"
+    case splitV = "splitv"
+    case tabbed
+}
+
+/// The axis along which a split container places its children.
+enum ConOrientation: Sendable
+{
+    case horizontal
+    case vertical
+}
+
+/// The zoom of a window's container: to its parent's area or to the whole view.
+enum ConZoom: Sendable
+{
+    case none
+    case parent
+    case fullscreen
+}
+
+/// What a focus or move in the tree did: nothing, done within the tree, or it left the tree towards another output.
+enum TreeResult: Sendable
+{
+    case none
+    case done
+    case output
+}
+
+/// Where a container is inserted relative to its target.
+enum TreePosition: Sendable
+{
+    case before
+    case after
+}
+
+/// The orientation of the first split of a new tree (`config tree_default_orientation`).
+enum TreeOrientation: String, CaseIterable, Sendable
+{
+    case auto
+    case horizontal
+    case vertical
+}
+
+/// Whether directional focus wraps around at the edge of the tree (`config focus_wrapping`).
+enum FocusWrapping: String, CaseIterable, Sendable
+{
+    case off
+    case on
+    case force
+}
+
 /// `struct feedback_window` (view.h): the outline of a container.
 struct FeedbackWindow
 {
@@ -46,12 +100,12 @@ final class Con
     weak var parent: Con!
     var children: [Con] = []
     var focus: [Con] = []
-    var layout = CON_SPLITH
-    var last_split = CON_SPLITH
+    var layout = ConLayout.splitH
+    var last_split = ConLayout.splitH
     var percent: Float = 0
     var window_id: UInt32 = 0
     var area = Area.zero
-    var zoom = CON_ZOOM_NONE
+    var zoom = ConZoom.none
     var selected = false
     var insert_dir: InsertDirection?
     var render = ConRender()
@@ -78,11 +132,11 @@ private func focusChild(_ node: Con, _ index: Int32) -> Con
 }
 
 /// `con_create`
-func con_create(_ layout: con_layout) -> Con!
+func con_create(_ layout: ConLayout) -> Con!
 {
     let node = Con()
     node.layout = layout
-    node.last_split = layout == CON_TABBED ? CON_SPLITH : layout
+    node.last_split = layout == .tabbed ? .splitH : layout
     return node
 }
 
@@ -109,13 +163,13 @@ func con_is_leaf(_ node: Con) -> Bool
 /// `con_orientation`
 func con_orientation(_ node: Con) -> ConOrientation
 {
-    return node.layout == CON_SPLITV ? CON_VERTICAL : CON_HORIZONTAL
+    return node.layout == .splitV ? .vertical : .horizontal
 }
 
 /// `direction_orientation`
 private func directionOrientation(_ direction: Direction) -> ConOrientation
 {
-    return direction == .north || direction == .south ? CON_VERTICAL : CON_HORIZONTAL
+    return direction == .north || direction == .south ? .vertical : .horizontal
 }
 
 /// `direction_is_backward`
@@ -125,15 +179,15 @@ private func directionIsBackward(_ direction: Direction) -> Bool
 }
 
 /// `orientation_layout`
-private func orientationLayout(_ orientation: ConOrientation) -> con_layout
+private func orientationLayout(_ orientation: ConOrientation) -> ConLayout
 {
-    return orientation == CON_VERTICAL ? CON_SPLITV : CON_SPLITH
+    return orientation == .vertical ? .splitV : .splitH
 }
 
 /// `con_is_split`
 private func conIsSplit(_ node: Con) -> Bool
 {
-    return !con_is_leaf(node) && (node.layout == CON_SPLITH || node.layout == CON_SPLITV)
+    return !con_is_leaf(node) && (node.layout == .splitH || node.layout == .splitV)
 }
 
 /// `con_index`
@@ -225,7 +279,7 @@ private func conInsert(_ parent: Con, _ node: Con, _ index: Int32, _ focusIndex:
 
     var ancestor: Con? = parent
     while let current = ancestor {
-        if current.layout == CON_TABBED { current.render.raised = nil }
+        if current.layout == .tabbed { current.render.raised = nil }
         ancestor = current.parent
     }
 }
@@ -271,7 +325,7 @@ private func conReplace(_ node: Con, _ replacement: Con)
 
 /// `con_wrap`
 @discardableResult
-private func conWrap(_ node: Con, _ layout: con_layout) -> Con
+private func conWrap(_ node: Con, _ layout: ConLayout) -> Con
 {
     let wrap = con_create(layout)!
     conReplace(node, wrap)
@@ -362,9 +416,9 @@ private func conApplyWorkspaceLayout(_ node: Con)
     if !space_manager_global().tree_workspace_tabbed { return }
 
     guard let root = node.parent, root.parent == nil else { return }
-    if !con_is_leaf(node) && node.layout == CON_TABBED { return }
+    if !con_is_leaf(node) && node.layout == .tabbed { return }
 
-    conWrap(node, CON_TABBED).last_split = root.layout
+    conWrap(node, .tabbed).last_split = root.layout
 }
 
 /// `tree_attach`
@@ -406,7 +460,7 @@ func tree_flatten(_ node: Con!)
         i += 1
     }
 
-    guard let parent = node.parent, parent.layout != CON_TABBED else { return }
+    guard let parent = node.parent, parent.layout != .tabbed else { return }
     if !conIsSplit(node) || node.child_count == 0 { return }
 
     //
@@ -586,7 +640,7 @@ func tree_tabbed_ancestor(_ node: Con) -> Con?
 {
     var parent = node.parent
     while let current = parent {
-        if current.layout == CON_TABBED { return current }
+        if current.layout == .tabbed { return current }
         parent = current.parent
     }
 
@@ -602,7 +656,7 @@ func tree_con_is_visible(_ node: Con) -> Bool
 {
     var node = node
     while let parent = node.parent {
-        if parent.layout == CON_TABBED && focusChild(parent, 0) != node { return false }
+        if parent.layout == .tabbed && focusChild(parent, 0) != node { return false }
         node = parent
     }
 
@@ -662,7 +716,7 @@ func tree_descend_direction(_ node: Con, _ direction: Direction) -> Con
 //
 
 /// `tree_next`
-func tree_next(_ node: Con, _ direction: Direction, _ wrapping: focus_wrapping, _ hasOutput: Bool, _ result: inout Con?) -> tree_result
+func tree_next(_ node: Con, _ direction: Direction, _ wrapping: FocusWrapping, _ hasOutput: Bool, _ result: inout Con?) -> TreeResult
 {
     let orientation = directionOrientation(direction)
     let backward = directionIsBackward(direction)
@@ -676,23 +730,23 @@ func tree_next(_ node: Con, _ direction: Direction, _ wrapping: focus_wrapping, 
         let index = con_index(node) + (backward ? -1 : 1)
         if index >= 0 && index < parent.child_count {
             result = tree_descend_focused(child(parent, index))
-            return TREE_RESULT_DONE
+            return .done
         }
 
         let first = child(parent, backward ? parent.child_count - 1 : 0)
-        if wrapping == FOCUS_WRAPPING_FORCE {
+        if wrapping == .force {
             result = tree_descend_focused(first)
-            return TREE_RESULT_DONE
+            return .done
         }
 
-        if wrapping == FOCUS_WRAPPING_ON && wrap == nil { wrap = first }
+        if wrapping == .on && wrap == nil { wrap = first }
     }
 
-    if hasOutput { return TREE_RESULT_OUTPUT }
-    guard let wrap else { return TREE_RESULT_NONE }
+    if hasOutput { return .output }
+    guard let wrap else { return .none }
 
     result = tree_descend_focused(wrap)
-    return TREE_RESULT_DONE
+    return .done
 }
 
 //
@@ -756,7 +810,7 @@ private func conIsFocusedDescendant(_ node: Con, _ ancestor: Con) -> Bool
 //
 
 /// `tree_insert_con`
-func tree_insert_con(_ node: Con, _ target: Con, _ position: tree_position)
+func tree_insert_con(_ node: Con, _ target: Con, _ position: TreePosition)
 {
     let parent = target.parent!
     let oldParent = node.parent
@@ -800,7 +854,7 @@ func tree_insert_con(_ node: Con, _ target: Con, _ position: tree_position)
     }
 
     node.percent = 0.0
-    conInsert(parent, node, con_index(target) + (position == TREE_AFTER ? 1 : 0), focusIndex)
+    conInsert(parent, node, con_index(target) + (position == .after ? 1 : 0), focusIndex)
     tree_fix_percent(parent)
     conApplyWorkspaceLayout(node)
 
@@ -822,7 +876,7 @@ private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction:
     if !con_is_leaf(next) {
         let target = tree_descend_direction(next, direction)
         let after = con_orientation(target.parent!) != directionOrientation(direction) || backward
-        tree_insert_con(node, target, after ? TREE_AFTER : TREE_BEFORE)
+        tree_insert_con(node, target, after ? .after : .before)
     } else if above == node {
         let parent = node.parent!
         let index = con_index(node)
@@ -830,7 +884,7 @@ private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction:
         parent.children[Int(index)] = next
         parent.children[Int(nextIndex)] = node
     } else {
-        tree_insert_con(node, above, backward ? TREE_BEFORE : TREE_AFTER)
+        tree_insert_con(node, above, backward ? .before : .after)
     }
 }
 
@@ -845,11 +899,11 @@ private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction:
 //
 
 /// `tree_move`
-func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bool) -> tree_result
+func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bool) -> TreeResult
 {
-    if node == root || node.parent == nil { return TREE_RESULT_NONE }
+    if node == root || node.parent == nil { return .none }
 
-    let edge = hasOutput ? TREE_RESULT_OUTPUT : TREE_RESULT_NONE
+    let edge: TreeResult = hasOutput ? .output : .none
     if node.parent == root && root.child_count == 1 { return edge }
 
     let orientation = directionOrientation(direction)
@@ -861,7 +915,7 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
 
     while true {
         guard let parent = current.parent else {
-            if hasOutput { return TREE_RESULT_OUTPUT }
+            if hasOutput { return .output }
             current = tree_force_orientation(root, orientation)
             wrapped = true
             continue
@@ -879,7 +933,7 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
         if let next {
             treeMoveToward(node, node, next, direction)
             tree_flatten(root)
-            return TREE_RESULT_DONE
+            return .done
         }
 
         if parent == root { return edge }
@@ -896,11 +950,11 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
 
         return edge
     } else {
-        tree_insert_con(node, current, offset < 0 ? TREE_BEFORE : TREE_AFTER)
+        tree_insert_con(node, current, offset < 0 ? .before : .after)
     }
 
     tree_flatten(root)
-    return TREE_RESULT_DONE
+    return .done
 }
 
 //
@@ -913,9 +967,9 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
 func tree_insert_relative(_ target: Con!, _ node: Con!, _ insertion: InsertDirection)
 {
     guard let direction = insertion.direction else {
-        if target.parent.layout != CON_TABBED {
+        if target.parent.layout != .tabbed {
             let lastSplit = target.parent.layout
-            conWrap(target, CON_TABBED).last_split = lastSplit
+            conWrap(target, .tabbed).last_split = lastSplit
         }
 
         tree_attach(target.parent, node, con_index(target) + 1)
@@ -978,9 +1032,9 @@ func tree_split(_ node: Con, _ orientation: ConOrientation)
 /// `tree_autotile`
 func tree_autotile(_ target: Con)
 {
-    guard let parent = target.parent, parent.layout != CON_TABBED else { return }
+    guard let parent = target.parent, parent.layout != .tabbed else { return }
 
-    let orientation = target.area.w >= target.area.h ? CON_HORIZONTAL : CON_VERTICAL
+    let orientation: ConOrientation = target.area.w >= target.area.h ? .horizontal : .vertical
     if con_orientation(parent) != orientation { tree_split(target, orientation) }
 }
 
@@ -1024,7 +1078,7 @@ func tree_attach_from_direction(_ root: Con, _ node: Con, _ direction: Direction
 
     let target = tree_descend_direction(root, direction)
     let after = con_orientation(target.parent!) != directionOrientation(direction) || directionIsBackward(direction)
-    tree_insert_con(node, target, after ? TREE_AFTER : TREE_BEFORE)
+    tree_insert_con(node, target, after ? .after : .before)
 }
 
 //
@@ -1036,11 +1090,11 @@ func tree_attach_from_direction(_ root: Con, _ node: Con, _ direction: Direction
 //
 
 /// `tree_set_layout`
-func tree_set_layout(_ node: Con, _ layout: con_layout)
+func tree_set_layout(_ node: Con, _ layout: ConLayout)
 {
     var node = node
     if let parent = node.parent { node = parent }
-    if node.layout != CON_TABBED { node.last_split = node.layout }
+    if node.layout != .tabbed { node.last_split = node.layout }
 
     if let parent = node.parent, parent.parent != nil, node.child_count == 1, parent.child_count == 1 {
         let only = child(node, 0)
@@ -1053,12 +1107,12 @@ func tree_set_layout(_ node: Con, _ layout: con_layout)
     }
 
     if node.parent == nil {
-        if layout != CON_TABBED {
+        if layout != .tabbed {
             node.layout = layout
             node.last_split = layout
         } else if node.child_count != 0 {
             let wrap = conWrapChildren(node)
-            wrap.layout = CON_TABBED
+            wrap.layout = .tabbed
         }
 
         return
@@ -1074,19 +1128,19 @@ func tree_set_layout(_ node: Con, _ layout: con_layout)
 
 /// `tree_toggle_layout`
 @discardableResult
-func tree_toggle_layout(_ node: Con, _ splitOnly: Bool) -> con_layout
+func tree_toggle_layout(_ node: Con, _ splitOnly: Bool) -> ConLayout
 {
     let parent = node.parent ?? node
-    let layout: con_layout
+    let layout: ConLayout
 
     if splitOnly {
-        if parent.layout == CON_TABBED {
+        if parent.layout == .tabbed {
             layout = parent.last_split
         } else {
-            layout = parent.layout == CON_SPLITH ? CON_SPLITV : CON_SPLITH
+            layout = parent.layout == .splitH ? .splitV : .splitH
         }
     } else {
-        layout = parent.layout == CON_TABBED ? parent.last_split : CON_TABBED
+        layout = parent.layout == .tabbed ? parent.last_split : .tabbed
     }
 
     tree_set_layout(node, layout)
@@ -1110,7 +1164,7 @@ func tree_resize(_ node: Con, _ direction: Direction, _ delta: Float) -> Bool
     var second: Con?
 
     while let parent = first.parent, second == nil {
-        if con_orientation(parent) != orientation || parent.layout == CON_TABBED {
+        if con_orientation(parent) != orientation || parent.layout == .tabbed {
             first = parent
             continue
         }
@@ -1126,7 +1180,7 @@ func tree_resize(_ node: Con, _ direction: Direction, _ delta: Float) -> Bool
     guard let second else { return false }
 
     let parent = first.parent!
-    let size = orientation == CON_HORIZONTAL ? parent.area.w : parent.area.h
+    let size = orientation == .horizontal ? parent.area.w : parent.area.h
     if size <= 0.0 { return false }
 
     let change = (backward ? -delta : delta) / size
@@ -1182,14 +1236,14 @@ private func conReverseChildren(_ node: Con)
 func tree_rotate(_ node: Con, _ degrees: Int32)
 {
     if conIsSplit(node) {
-        if (degrees ==  90 && node.layout == CON_SPLITH) ||
-           (degrees == 270 && node.layout == CON_SPLITV) ||
+        if (degrees ==  90 && node.layout == .splitH) ||
+           (degrees == 270 && node.layout == .splitV) ||
            (degrees == 180) {
             conReverseChildren(node)
         }
 
         if degrees != 180 {
-            node.layout = node.layout == CON_SPLITH ? CON_SPLITV : CON_SPLITH
+            node.layout = node.layout == .splitH ? .splitV : .splitH
             node.last_split = node.layout
         }
     }
@@ -1265,7 +1319,7 @@ func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _
     node.area = area
     if con_is_leaf(node) || node.child_count == 0 { return }
 
-    if node.layout == CON_TABBED {
+    if node.layout == .tabbed {
         var childArea = area
         if barHeight > 0 && area.h > Float(2 * barHeight) {
             let inset = tree_bar_card_inset(area, barHeight, barInset)
@@ -1286,7 +1340,7 @@ func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _
         return
     }
 
-    let horizontal = node.layout == CON_SPLITH
+    let horizontal = node.layout == .splitH
     let total = (horizontal ? area.w : area.h) - Float(gap * (node.child_count - 1))
     var offset = horizontal ? area.x : area.y
     let end = horizontal ? area.x + area.w : area.y + area.h

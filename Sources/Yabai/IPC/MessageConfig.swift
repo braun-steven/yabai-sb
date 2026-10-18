@@ -77,8 +77,6 @@ private enum Config
 
     static let ffmAutofocus             = "autofocus"
     static let ffmAutoraise             = "autoraise"
-    static let layoutFloat              = "float"
-    static let layoutTree               = "tree"
 }
 
 //
@@ -87,14 +85,11 @@ private enum Config
 //
 
 private let ffmModeNames: [String] = ["disabled", "autofocus", "autoraise"]
-private let viewTypeNames: [String] = ["default", "float", "tree"]
 private let externalBarModeNames: [String] = ["off", "main", "all"]
 private let displayArrangementOrderNames: [String?] = ["default", "horizontal", "vertical"]
 private let windowOriginModeNames: [String?] = ["default", "focused", "cursor"]
 private let purifyModeNames: [String?] = ["on", "float", "off"]
-private let treeOrientationNames: [String?] = ["auto", "horizontal", "vertical"]
 private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
-private let focusWrappingNames: [String?] = ["off", "on", "force"]
 private let mouseModeNames: [String?] = ["none", "move", "resize", "swap", "stack"]
 private let tabBarStyleNames: [String] = ["glass", "i3"]
 private let tabBarBackdropNames: [String] = ["off", "glass", "blur"]
@@ -113,6 +108,28 @@ private let mouseModNames: [String?] = {
     names[Int(MOUSE_MOD_FN.rawValue)]    = "fn"
     return names
 }()
+
+/// `parse_config_choice` for an enum named by its raw values: prints the current value without a value; otherwise the
+/// value among choices, or nil after the failure for any other value.
+private func parseChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) -> Choice?
+{
+    let value = message.next()
+    if !value.isValid {
+        rsp.write("\(current.rawValue)\n")
+        return nil
+    }
+
+    if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
+
+    rsp.failUnknownValue(domain, command, value)
+    return nil
+}
+
+/// `parse_config_choice` for every case of an enum named by its raw values.
+private func parseChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) -> Choice?
+{
+    parseChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
+}
 
 /// `parse_config_choice` for a C enum: the selected value, or nil when none was selected.
 private func parseChoice(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ names: [String?], first: UInt32, last: UInt32, current: some BinaryInteger) -> UInt32?
@@ -306,17 +323,16 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
     if !value.isValid {
         let layout = selSid != 0 ? space_manager_find_view(sm, selSid).layout : sm.layout
-        rsp.write("\(viewTypeNames[Int(layout.rawValue)])\n")
+        rsp.write("\(layout.rawValue)\n")
         return
     }
 
-    let layout = value.equals(Config.layoutFloat) ? VIEW_FLOAT
-               : value.equals(Config.layoutTree)  ? VIEW_TREE
-               : VIEW_DEFAULT
-
-    if layout == VIEW_DEFAULT {
+    guard let layout = [ViewType.float, .tree].first(where: { value.equals($0.rawValue) }) else {
         rsp.failUnknownValue(domain, command, value)
-    } else if selSid == 0 {
+        return
+    }
+
+    if selSid == 0 {
         space_manager_set_layout_for_all_spaces(sm, layout)
     } else if !space_is_user(selSid) {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
@@ -664,8 +680,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.layout) {
         configLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.treeOrientation) {
-        if let choice = parseChoice(&rsp, domain, command, &message, treeOrientationNames, first: TREE_ORIENTATION_AUTO.rawValue, last: TREE_ORIENTATION_VERTICAL.rawValue, current: sm.tree_default_orientation.rawValue) {
-            sm.tree_default_orientation = tree_orientation(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, current: sm.tree_default_orientation) {
+            sm.tree_default_orientation = choice
         }
     } else if command.equals(Config.treeWorkspaceLayout) {
         if let choice = parseChoice(&rsp, domain, command, &message, workspaceLayoutNames, first: 0, last: 1, current: sm.tree_workspace_tabbed ? 1 : 0) {
@@ -674,8 +690,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.treeAutotiling) {
         _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
     } else if command.equals(Config.focusWrapping) {
-        if let choice = parseChoice(&rsp, domain, command, &message, focusWrappingNames, first: FOCUS_WRAPPING_OFF.rawValue, last: FOCUS_WRAPPING_FORCE.rawValue, current: wm.focus_wrapping.rawValue) {
-            wm.focus_wrapping = focus_wrapping(rawValue: choice)
+        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.focus_wrapping) {
+            wm.focus_wrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
         if selSid != 0 {

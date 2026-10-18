@@ -19,8 +19,8 @@ extension DaemonState
         {
             let target = View()
 
-            target.tree = Yabai.con_create(CON_SPLITH)
-            target.layout = VIEW_TREE
+            target.tree = Yabai.con_create(.splitH)
+            target.layout = .tree
             target.auto_padding = true
             target.top_padding = 10
             target.bottom_padding = 20
@@ -44,30 +44,30 @@ extension DaemonState
             #expect(view_tiled_count(target) == 1)
 
             // a tabbed container counts once, however many tabs it holds
-            let tabbed = Yabai.con_create(CON_TABBED)!
+            let tabbed = Yabai.con_create(.tabbed)!
             Yabai.tree_attach(target.tree, tabbed, -1)
             let b = treeTestLeaf(tabbed, 2)
             let c = treeTestLeaf(tabbed, 3)
             #expect(view_tiled_count(target) == 2)
 
             // a split inside a tab is still part of that one container
-            tree_split(c, CON_VERTICAL)
+            tree_split(c, .vertical)
             treeTestLeaf(c.parent, 4)
             #expect(view_tiled_count(target) == 2)
 
             // a window in zoom-fullscreen does not count
-            a.zoom = CON_ZOOM_FULLSCREEN
+            a.zoom = .fullscreen
             #expect(view_tiled_count(target) == 1)
 
             // zoom-parent still counts
-            b.zoom = CON_ZOOM_PARENT
+            b.zoom = .parent
             #expect(view_tiled_count(target) == 1)
 
             // a tabbed container as the only container: no padding
             #expect(Yabai.view_auto_padding_applies(target.layout, target.auto_padding, view_tiled_count(target)) == true)
 
             // tabs turned into a split count individually again
-            tabbed.layout = CON_SPLITH
+            tabbed.layout = .splitH
             #expect(view_tiled_count(target) == 3)
 
             Yabai.con_free(target.tree)
@@ -119,9 +119,9 @@ extension DaemonState
         func autoPaddingSplitInTab()
         {
             let target = autoPaddingView()
-            target.tree.layout = CON_TABBED
+            target.tree.layout = .tabbed
 
-            let split = Yabai.con_create(CON_SPLITH)!
+            let split = Yabai.con_create(.splitH)!
             Yabai.tree_attach(target.tree, split, -1)
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(split, 2)

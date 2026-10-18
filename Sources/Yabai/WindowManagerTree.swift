@@ -27,7 +27,7 @@ private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: UInt32)
 {
     let sid = display_space_id(did)
     let owner = space_manager_find_view(space_manager_global(), sid)
-    let leaf = owner.layout == VIEW_TREE && owner.tree != nil ? tree_descend_focused(owner.tree) : nil
+    let leaf = owner.layout == .tree && owner.tree != nil ? tree_descend_focused(owner.tree) : nil
 
     if let leaf, con_is_leaf(leaf) {
         windowManagerFocusWindowID(wm, leaf.window_id)
@@ -46,18 +46,16 @@ func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?,
     var result: Con?
 
     switch tree_next(node, direction, wm.focus_wrapping, did != 0, &result) {
-    case TREE_RESULT_DONE:
+    case .done:
         guard let result, con_is_leaf(result) else { return WINDOW_OP_ERROR_INVALID_DST_NODE }
         if result.window_id == target.id && con_is_leaf(node) { return WINDOW_OP_ERROR_INVALID_DST_NODE }
         tree_select(owner.tree, nil)
         windowManagerFocusWindowID(wm, result.window_id)
-    case TREE_RESULT_OUTPUT:
+    case .output:
         tree_select(owner.tree, nil)
         windowManagerTreeFocusDisplay(wm, did)
-    case TREE_RESULT_NONE:
+    case .none:
         return WINDOW_OP_ERROR_INVALID_DST_NODE
-    default:
-        break
     }
 
     return WINDOW_OP_ERROR_SUCCESS
@@ -109,7 +107,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
     let sid = display_space_id(did)
     let dstView = space_manager_find_view(sm, sid)
 
-    if dstView.layout == VIEW_TREE {
+    if dstView.layout == .tree {
         let focus = tree_descend_focused(node)
 
         tree_detach(node)
@@ -157,14 +155,12 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager,
     let did = windowManagerTreeDisplayInDirection(owner, direction)
 
     switch tree_move(owner.tree, node, direction, did != 0) {
-    case TREE_RESULT_DONE:
+    case .done:
         windowManagerTreeApply(owner)
-    case TREE_RESULT_OUTPUT:
+    case .output:
         windowManagerTreeMoveToDisplay(sm, wm, owner, node, did, direction)
-    case TREE_RESULT_NONE:
+    case .none:
         return WINDOW_OP_ERROR_INVALID_DST_NODE
-    default:
-        break
     }
 
     return WINDOW_OP_ERROR_SUCCESS
@@ -178,7 +174,7 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager,
 /// `window_manager_tree_focus_candidate`
 func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ target: Window) -> UInt32
 {
-    guard let owner, owner.layout == VIEW_TREE else { return 0 }
+    guard let owner, owner.layout == .tree else { return 0 }
 
     //
     // NOTE: macOS often focuses another window of the application before the window is reported as
@@ -206,19 +202,29 @@ func window_manager_tree_focus_after_close(_ wm: WindowManager, _ owner: View, _
     windowManagerFocusWindowID(wm, windowID)
 }
 
-/// `window_manager_tree_split`: orientation -1 splits across the orientation of the parent.
-func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ orientation: Int32) -> window_op_error
+/// The orientation of `window --split`: a fixed one, or across the orientation of the parent container (`toggle`).
+enum SplitOrientation: Equatable, Sendable
+{
+    case fixed(ConOrientation)
+    case toggle
+}
+
+/// `window_manager_tree_split`
+func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ split: SplitOrientation) -> window_op_error
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return WINDOW_OP_ERROR_INVALID_SRC_VIEW }
     guard let node = windowManagerTreeActingCon(owner, target) else { return WINDOW_OP_ERROR_INVALID_SRC_NODE }
 
-    var orientation = orientation
-    if orientation < 0 {
+    let orientation: ConOrientation
+    switch split {
+    case .fixed(let fixed):
+        orientation = fixed
+    case .toggle:
         let parent = node.parent ?? node
-        orientation = Int32(parent.layout == CON_SPLITH ? CON_VERTICAL.rawValue : CON_HORIZONTAL.rawValue)
+        orientation = parent.layout == .splitH ? .vertical : .horizontal
     }
 
-    tree_split(node, ConOrientation(rawValue: UInt32(orientation)))
+    tree_split(node, orientation)
     windowManagerTreeApply(owner)
 
     return WINDOW_OP_ERROR_SUCCESS

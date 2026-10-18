@@ -182,7 +182,7 @@ import CPrivate
     let sm = space_manager_global()
 
     if UInt32(bitPattern: generation) != sm.space_layout_gen { return }
-    if sm.space_layout_count == 0 { return }
+    if sm.space_layouts.isEmpty { return }
 
     if mission_control_is_active() {
         space_layout_schedule(0.5, false)

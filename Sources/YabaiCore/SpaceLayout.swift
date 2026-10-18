@@ -1,14 +1,14 @@
 //
 // NOTE: space_layout keeps a number of user spaces per display, chosen by the number of displays. When the
 // displays change, reconcile passes move, create or destroy one space each until the counts match.
-// This is the pure part of the former src/space_layout.c; the reconcile passes are Sources/Yabai/SpaceLayout.swift.
+// This is the pure part; the reconcile passes are Sources/Yabai/SpaceLayout.swift.
 //
 
 /// The number of user spaces per display, for one display count (`count`). builtinIndex is the entry for the
-/// builtin display ('b' suffix). Ported from `struct space_layout` (src/space_layout.h).
+/// builtin display ('b' suffix).
 public struct SpaceLayout: Equatable, Sendable
 {
-    /// `SPACE_LAYOUT_MAX`
+    /// The most layouts `space_layout` takes, and the most displays it lays out.
     public static let max = 8
 
     public var target: [Int]

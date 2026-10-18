@@ -42,17 +42,9 @@ private func spaceLayoutDestroyCandidate(_ did: UInt32) -> UInt64
 func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
 {
     let displayCount = display_manager_active_display_count()
-    if displayCount < 1 || displayCount > SPACE_LAYOUT_MAX { return SPACE_LAYOUT_RESULT_DONE }
+    if displayCount < 1 || displayCount > SpaceLayout.max { return SPACE_LAYOUT_RESULT_DONE }
 
-    //
-    // NOTE: The C struct is a fixed array, which Swift sees as a tuple: the entries are read as values.
-    //
-
-    let layouts = withUnsafeBytes(of: sm.space_layout) { bytes in
-        Array(bytes.bindMemory(to: space_layout.self).prefix(Int(sm.space_layout_count)))
-    }
-
-    guard let layout = layouts.first(where: { $0.count == displayCount }) else {
+    guard let layout = sm.space_layouts.first(where: { $0.count == displayCount }) else {
         debug("space_layout_reconcile: no space_layout for \(displayCount) display(s)\n")
         return SPACE_LAYOUT_RESULT_DONE
     }
@@ -68,7 +60,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> space_layout_result
         if builtin == -1 && CGDisplayIsBuiltin(did) != 0 { builtin = i }
     }
 
-    let target = SpaceLayout(layout).targets(builtin: builtin == -1 ? nil : builtin)
+    let target = layout.targets(builtin: builtin == -1 ? nil : builtin)
 
     var actual: [Int] = []
     for did in didList {
@@ -122,7 +114,7 @@ func space_layout_schedule(_ delay: Double, _ resetPasses: Bool)
 {
     let sm = space_manager_global()
 
-    if sm.space_layout_count == 0 { return }
+    if sm.space_layouts.isEmpty { return }
     if resetPasses { sm.space_layout_passes = 0 }
 
     sm.space_layout_gen &+= 1

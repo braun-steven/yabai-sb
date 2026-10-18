@@ -194,7 +194,7 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
 
     if !value.isValid {
         if let spec = sm.space_layout_spec {
-            rsp.write("\(Token(cString: spec))\n")
+            rsp.write("\(Token(spec))\n")
         } else {
             rsp.write("\(Argument.off)\n")
         }
@@ -202,9 +202,8 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if value.equals(Argument.off) {
-        free(sm.space_layout_spec)
         sm.space_layout_spec = nil
-        sm.space_layout_count = 0
+        sm.space_layouts = []
         return true
     }
 
@@ -214,13 +213,11 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
         return first >= UInt8(ascii: "0") && first <= UInt8(ascii: "9")
     }
 
-    var layoutList: [space_layout] = []
+    var layoutList: [SpaceLayout] = []
     var spec: [UInt8] = []
 
     while isLayout(value) {
-        var layout = space_layout()
-        let parsed = value.withCString { space_layout_parse(UnsafeMutablePointer(mutating: $0), Int32(value.bytes.count), &layout) }
-        if layoutList.count == Int(SPACE_LAYOUT_MAX) || !parsed {
+        guard layoutList.count < SpaceLayout.max, let layout = SpaceLayout(parsing: value.bytes) else {
             rsp.fail("invalid value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
             return false
         }
@@ -249,13 +246,8 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
         return false
     }
 
-    withUnsafeMutableBytes(of: &sm.space_layout) { bytes in
-        let layouts = bytes.bindMemory(to: space_layout.self)
-        for (i, layout) in layoutList.enumerated() { layouts[i] = layout }
-    }
-    sm.space_layout_count = Int32(layoutList.count)
-    free(sm.space_layout_spec)
-    sm.space_layout_spec = mallocString(spec)
+    sm.space_layouts = layoutList
+    sm.space_layout_spec = String(decoding: spec, as: UTF8.self)
     space_layout_schedule(0.0, true)
     return true
 }

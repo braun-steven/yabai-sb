@@ -229,17 +229,6 @@ let SPACE_OP_ERROR_SAME_DISPLAY       = space_op_error(rawValue: 7)
 let SPACE_OP_ERROR_IN_MISSION_CONTROL = space_op_error(rawValue: 9)
 let SPACE_OP_ERROR_SCRIPTING_ADDITION = space_op_error(rawValue: 10)
 
-let SPACE_LAYOUT_MAX: Int32 = 8
-
-/// `struct space_layout`: the number of user spaces per display, for one display count (count). builtin_index is the
-/// entry for the builtin display ('b' suffix), or -1.
-struct space_layout: Sendable
-{
-    var count: Int32 = 0
-    var target: (Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32) = (0, 0, 0, 0, 0, 0, 0, 0)
-    var builtin_index: Int32 = 0
-}
-
 /// `enum space_layout_result`
 struct space_layout_result: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
 let SPACE_LAYOUT_RESULT_DONE      = space_layout_result(rawValue: 0)

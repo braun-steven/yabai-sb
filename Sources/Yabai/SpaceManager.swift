@@ -29,10 +29,8 @@ final class SpaceManager
     var tree_autotiling = false
     var labels = LabelList()
     var skip_window_focus_animation = false
-    var space_layout = (Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(),
-                        Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout(), Yabai.space_layout())
-    var space_layout_count: Int32 = 0
-    var space_layout_spec: UnsafeMutablePointer<CChar>?
+    var space_layouts: [SpaceLayout] = []
+    var space_layout_spec: String?
     var space_layout_gen: UInt32 = 0
     var space_layout_passes: Int32 = 0
 }

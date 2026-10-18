@@ -114,7 +114,7 @@ final class WindowManager
     var normal_window_opacity: Float = 0
     var window_opacity_duration: Float = 0
     var window_animation_duration: Float = 0
-    var window_animation_easing: Int32 = 0
+    var window_animation_easing = AnimationEasing.easeInSine
     var insert_feedback_color = rgba_color()
     var enable_window_border = false
     var window_border_hide_single = false
@@ -1439,7 +1439,7 @@ func window_manager_init(_ wm: WindowManager)
     wm.normal_window_opacity = 1.0
     wm.window_opacity_duration = 0.0
     wm.window_animation_duration = 0.0
-    wm.window_animation_easing = Int32(ease_out_circ_type.rawValue)
+    wm.window_animation_easing = .easeOutCirc
     wm.insert_feedback_color = rgba_color_from_hex(0xffd75f5f)
     wm.enable_window_border = false
     wm.window_border_hide_single = false

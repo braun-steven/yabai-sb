@@ -59,28 +59,29 @@ public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: T
 }
 
 //
-// NOTE: names[i] is the value that selects choice i. Only names[first..last] are accepted,
-// nil entries (gaps in a bitmask enum) are skipped.
+// NOTE: A setting whose values are the String raw values of an enum. Without a value, the current one is printed;
+// only the given choices are accepted (e.g. mouse_action1 takes move and resize, not swap).
 //
 
-/// `parse_config_choice`
-public func parseConfigChoice(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, names: [String?], first: Int, last: Int, current: Int, _ choice: inout Int) -> Bool
+/// `parse_config_choice`: the selected value, or nil when the current one was printed or the value is unknown.
+public func parseConfigChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) -> Choice?
 {
     let value = message.next()
     if !value.isValid {
-        rsp.write("\(names[current] ?? "(null)")\n")
-        return false
+        rsp.write("\(current.rawValue)\n")
+        return nil
     }
 
-    for i in first...last {
-        if let name = names[i], value.equals(name) {
-            choice = i
-            return true
-        }
-    }
+    if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
 
     rsp.failUnknownValue(domain, command, value)
-    return false
+    return nil
+}
+
+/// `parse_config_choice` among every case of the enum.
+public func parseConfigChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) -> Choice?
+{
+    parseConfigChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
 }
 
 /// An argument of a rule or signal: `key=value`, or `key!=value` for an exclusion.

@@ -147,44 +147,16 @@ private func windowManagerBuildWindowProxy(_ animation: WindowAnimation)
     windowManagerCreateWindowProxy(animation, alpha: alpha)
 }
 
-private func animationEase(_ type: Int32, _ t: Float) -> Float
-{
-    switch animation_easing_type(rawValue: UInt32(type)) {
-    case ease_in_sine_type: return ease_in_sine(t)
-    case ease_out_sine_type: return ease_out_sine(t)
-    case ease_in_out_sine_type: return ease_in_out_sine(t)
-    case ease_in_quad_type: return ease_in_quad(t)
-    case ease_out_quad_type: return ease_out_quad(t)
-    case ease_in_out_quad_type: return ease_in_out_quad(t)
-    case ease_in_cubic_type: return ease_in_cubic(t)
-    case ease_out_cubic_type: return ease_out_cubic(t)
-    case ease_in_out_cubic_type: return ease_in_out_cubic(t)
-    case ease_in_quart_type: return ease_in_quart(t)
-    case ease_out_quart_type: return ease_out_quart(t)
-    case ease_in_out_quart_type: return ease_in_out_quart(t)
-    case ease_in_quint_type: return ease_in_quint(t)
-    case ease_out_quint_type: return ease_out_quint(t)
-    case ease_in_out_quint_type: return ease_in_out_quint(t)
-    case ease_in_expo_type: return ease_in_expo(t)
-    case ease_out_expo_type: return ease_out_expo(t)
-    case ease_in_out_expo_type: return ease_in_out_expo(t)
-    case ease_in_circ_type: return ease_in_circ(t)
-    case ease_out_circ_type: return ease_out_circ(t)
-    case ease_in_out_circ_type: return ease_in_out_circ(t)
-    default: return t
-    }
-}
-
 @MainActor
 private final class WindowAnimationDisplayLink: NSObject
 {
     let connection: Int32
     let animations: [WindowAnimation]
     let duration: Float
-    let easing: Int32
+    let easing: AnimationEasing
     private var clock: CFTimeInterval?
 
-    init(connection: Int32, animations: [WindowAnimation], duration: Float, easing: Int32)
+    init(connection: Int32, animations: [WindowAnimation], duration: Float, easing: AnimationEasing)
     {
         self.connection = connection
         self.animations = animations
@@ -207,7 +179,7 @@ private final class WindowAnimationDisplayLink: NSObject
     {
         if clock == nil { clock = link.timestamp }
         let t = min(1, max(0, (link.targetTimestamp - clock!) / Double(duration)))
-        let mt = animationEase(easing, Float(t))
+        let mt = easing.value(at: Float(t))
 
         //
         // NOTE: A new animation of the same window marks this entry as skipped and destroys its proxy

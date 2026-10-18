@@ -7,61 +7,64 @@ import Darwin
 // sockets, C strings, AX elements and geometry.
 //
 
-/// `enum animation_easing_type`
-struct animation_easing_type: RawRepresentable, Equatable, Sendable
+/// The easing curve of the window animations (`config window_animation_easing`), named by its config value.
+enum AnimationEasing: String, CaseIterable, Sendable
 {
-    var rawValue: UInt32
+    case easeInSine     = "ease_in_sine"
+    case easeOutSine    = "ease_out_sine"
+    case easeInOutSine  = "ease_in_out_sine"
+    case easeInQuad     = "ease_in_quad"
+    case easeOutQuad    = "ease_out_quad"
+    case easeInOutQuad  = "ease_in_out_quad"
+    case easeInCubic    = "ease_in_cubic"
+    case easeOutCubic   = "ease_out_cubic"
+    case easeInOutCubic = "ease_in_out_cubic"
+    case easeInQuart    = "ease_in_quart"
+    case easeOutQuart   = "ease_out_quart"
+    case easeInOutQuart = "ease_in_out_quart"
+    case easeInQuint    = "ease_in_quint"
+    case easeOutQuint   = "ease_out_quint"
+    case easeInOutQuint = "ease_in_out_quint"
+    case easeInExpo     = "ease_in_expo"
+    case easeOutExpo    = "ease_out_expo"
+    case easeInOutExpo  = "ease_in_out_expo"
+    case easeInCirc     = "ease_in_circ"
+    case easeOutCirc    = "ease_out_circ"
+    case easeInOutCirc  = "ease_in_out_circ"
+
+    //
+    // NOTE: The curves compute in Float like the C functions; the sine curves multiply by M_PI in Double first, as the
+    // C expressions promoted t to double before cosf and sinf took a float again.
+    //
+
+    /// The eased progress at the linear progress t (0...1).
+    func value(at t: Float) -> Float
+    {
+        switch self {
+        case .easeInSine:     1.0 - cosf(Float((Double(t) * Double.pi) / 2.0))
+        case .easeOutSine:    sinf(Float((Double(t) * Double.pi) / 2.0))
+        case .easeInOutSine:  -(cosf(Float(Double.pi * Double(t))) - 1.0) / 2.0
+        case .easeInQuad:     t * t
+        case .easeOutQuad:    1.0 - (1.0 - t) * (1.0 - t)
+        case .easeInOutQuad:  t < 0.5 ? 2.0 * t * t : 1.0 - powf(-2.0 * t + 2.0, 2.0) / 2.0
+        case .easeInCubic:    t * t * t
+        case .easeOutCubic:   1.0 - powf(1.0 - t, 3)
+        case .easeInOutCubic: t < 0.5 ? 4.0 * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 3.0) / 2.0
+        case .easeInQuart:    t * t * t * t
+        case .easeOutQuart:   1.0 - powf(1.0 - t, 4)
+        case .easeInOutQuart: t < 0.5 ? 8.0 * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 4.0) / 2.0
+        case .easeInQuint:    t * t * t * t * t
+        case .easeOutQuint:   1.0 - powf(1.0 - t, 5)
+        case .easeInOutQuint: t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 5.0) / 2.0
+        case .easeInExpo:     t == 0.0 ? 0.0 : powf(2.0, 10.0 * t - 10.0)
+        case .easeOutExpo:    t == 1.0 ? 1.0 : 1.0 - powf(2.0, -10.0 * t)
+        case .easeInOutExpo:  t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? powf(2.0, 20.0 * t - 10.0) / 2.0 : (2.0 - powf(2.0, -20.0 * t + 10.0)) / 2.0
+        case .easeInCirc:     1.0 - sqrtf(1.0 - powf(t, 2.0))
+        case .easeOutCirc:    sqrtf(1.0 - powf(t - 1.0, 2.0))
+        case .easeInOutCirc:  t < 0.5 ? (1.0 - sqrtf(1.0 - powf(2.0 * t, 2.0))) / 2.0 : (sqrtf(1.0 - powf(-2.0 * t + 2.0, 2.0)) + 1.0) / 2.0
+        }
+    }
 }
-
-let ease_in_sine_type      = animation_easing_type(rawValue: 0)
-let ease_out_sine_type     = animation_easing_type(rawValue: 1)
-let ease_in_out_sine_type  = animation_easing_type(rawValue: 2)
-let ease_in_quad_type      = animation_easing_type(rawValue: 3)
-let ease_out_quad_type     = animation_easing_type(rawValue: 4)
-let ease_in_out_quad_type  = animation_easing_type(rawValue: 5)
-let ease_in_cubic_type     = animation_easing_type(rawValue: 6)
-let ease_out_cubic_type    = animation_easing_type(rawValue: 7)
-let ease_in_out_cubic_type = animation_easing_type(rawValue: 8)
-let ease_in_quart_type     = animation_easing_type(rawValue: 9)
-let ease_out_quart_type    = animation_easing_type(rawValue: 10)
-let ease_in_out_quart_type = animation_easing_type(rawValue: 11)
-let ease_in_quint_type     = animation_easing_type(rawValue: 12)
-let ease_out_quint_type    = animation_easing_type(rawValue: 13)
-let ease_in_out_quint_type = animation_easing_type(rawValue: 14)
-let ease_in_expo_type      = animation_easing_type(rawValue: 15)
-let ease_out_expo_type     = animation_easing_type(rawValue: 16)
-let ease_in_out_expo_type  = animation_easing_type(rawValue: 17)
-let ease_in_circ_type      = animation_easing_type(rawValue: 18)
-let ease_out_circ_type     = animation_easing_type(rawValue: 19)
-let ease_in_out_circ_type  = animation_easing_type(rawValue: 20)
-let EASING_TYPE_COUNT      = animation_easing_type(rawValue: 21)
-
-//
-// NOTE: The curves compute in Float like the C functions; the sine curves multiply by M_PI in Double first, as the
-// C expressions promoted t to double before cosf and sinf took a float again.
-//
-
-func ease_in_sine(_ t: Float) -> Float { 1.0 - cosf(Float((Double(t) * Double.pi) / 2.0)) }
-func ease_out_sine(_ t: Float) -> Float { sinf(Float((Double(t) * Double.pi) / 2.0)) }
-func ease_in_out_sine(_ t: Float) -> Float { -(cosf(Float(Double.pi * Double(t))) - 1.0) / 2.0 }
-func ease_in_quad(_ t: Float) -> Float { t * t }
-func ease_out_quad(_ t: Float) -> Float { 1.0 - (1.0 - t) * (1.0 - t) }
-func ease_in_out_quad(_ t: Float) -> Float { t < 0.5 ? 2.0 * t * t : 1.0 - powf(-2.0 * t + 2.0, 2.0) / 2.0 }
-func ease_in_cubic(_ t: Float) -> Float { t * t * t }
-func ease_out_cubic(_ t: Float) -> Float { 1.0 - powf(1.0 - t, 3) }
-func ease_in_out_cubic(_ t: Float) -> Float { t < 0.5 ? 4.0 * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 3.0) / 2.0 }
-func ease_in_quart(_ t: Float) -> Float { t * t * t * t }
-func ease_out_quart(_ t: Float) -> Float { 1.0 - powf(1.0 - t, 4) }
-func ease_in_out_quart(_ t: Float) -> Float { t < 0.5 ? 8.0 * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 4.0) / 2.0 }
-func ease_in_quint(_ t: Float) -> Float { t * t * t * t * t }
-func ease_out_quint(_ t: Float) -> Float { 1.0 - powf(1.0 - t, 5) }
-func ease_in_out_quint(_ t: Float) -> Float { t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 5.0) / 2.0 }
-func ease_in_expo(_ t: Float) -> Float { t == 0.0 ? 0.0 : powf(2.0, 10.0 * t - 10.0) }
-func ease_out_expo(_ t: Float) -> Float { t == 1.0 ? 1.0 : 1.0 - powf(2.0, -10.0 * t) }
-func ease_in_out_expo(_ t: Float) -> Float { t == 0.0 ? 0.0 : t == 1.0 ? 1.0 : t < 0.5 ? powf(2.0, 20.0 * t - 10.0) / 2.0 : (2.0 - powf(2.0, -20.0 * t + 10.0)) / 2.0 }
-func ease_in_circ(_ t: Float) -> Float { 1.0 - sqrtf(1.0 - powf(t, 2.0)) }
-func ease_out_circ(_ t: Float) -> Float { sqrtf(1.0 - powf(t - 1.0, 2.0)) }
-func ease_in_out_circ(_ t: Float) -> Float { t < 0.5 ? (1.0 - sqrtf(1.0 - powf(2.0 * t, 2.0))) / 2.0 : (sqrtf(1.0 - powf(-2.0 * t + 2.0, 2.0)) + 1.0) / 2.0 }
 
 /// `read_os_timer`: nanoseconds since boot.
 func read_os_timer() -> UInt64

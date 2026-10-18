@@ -128,42 +128,38 @@ private func parseBool(_ text: String, _ flag: inout Bool) -> (Bool, String)
     #expect(response.contains("unknown value 'yes' given to command 'test'"))
 }
 
-/// `mouse_mod_str` (src/mouse_handler.h): the names of a bitmask enum, MOUSE_MOD_ALT = 0x02 to MOUSE_MOD_FN = 0x20.
-private let mouseModifierNames: [String?] = {
-    var names = [String?](repeating: nil, count: 0x21)
-    for (value, name) in [(0x01, "none"), (0x02, "alt"), (0x04, "shift"), (0x08, "cmd"), (0x10, "ctrl"), (0x20, "fn")] { names[value] = name }
-    return names
-}()
+private enum TestAction: String, CaseIterable
+{
+    case none
+    case move
+    case resize
+    case swap
+}
 
-private func parseChoice(_ text: String, _ current: Int, _ choice: inout Int) -> (Bool, String)
+private func parseChoice(_ text: String, _ choices: [TestAction], current: TestAction) -> (TestAction?, String)
 {
     var rsp = Response()
     var message = Message(text)
-    let result = parseConfigChoice(&rsp, domain, command, &message, names: mouseModifierNames, first: 0x02, last: 0x20, current: current, &choice)
+    let result = parseConfigChoice(&rsp, domain, command, &message, choices, current: current)
     return (result, rsp.text)
 }
 
-@Test("message_config_choice") func messageConfigChoice()
+@Test("A config choice is one of the accepted raw values, and prints the current one without a value")
+func messageConfigChoice()
 {
-    var choice = 0
+    #expect(parseChoice("move\0", [.move, .resize], current: .none).0 == .move)
+    #expect(parseChoice("resize\0", [.move, .resize], current: .none).0 == .resize)
 
-    #expect(parseChoice("cmd\0", 0x02, &choice).0 == true)
-    #expect(choice == 0x08)
+    // NOTE: values of the enum outside of the accepted choices are rejected
+    let (result, response) = parseChoice("swap\0", [.move, .resize], current: .move)
+    #expect(result == nil)
+    #expect(response.contains("unknown value 'swap'"))
 
-    #expect(parseChoice("fn\0", 0x02, &choice).0 == true)
-    #expect(choice == 0x20)
+    #expect(parseChoice("\0", [.move, .resize], current: .none) == (nil, "none\n"))
 
-    // NOTE: names outside of first..last are rejected, gaps of the bitmask enum are skipped
-    choice = 0
-    let (result, response) = parseChoice("none\0", 0x02, &choice)
-    #expect(result == false)
-    #expect(choice == 0)
-    #expect(response.contains("unknown value 'none'"))
-
-    #expect(parseChoice("\0", 0x04, &choice).1 == "shift\n")
-
-    // NOTE: the C version printed a NULL name with "%s"
-    #expect(parseChoice("\0", 0, &choice).1 == "(null)\n")
+    var rsp = Response()
+    var message = Message("swap\0")
+    #expect(parseConfigChoice(&rsp, domain, command, &message, current: TestAction.none) == .swap)
 }
 
 @Test("message_window_toggle_lookup") func messageWindowToggleLookup()

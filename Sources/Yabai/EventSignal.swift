@@ -17,9 +17,6 @@ import YabaiCore
 /// `g_signal_storage`: the signals pushed while the current event is handled.
 @WM var pendingSignals: [PendingSignal] = []
 
-/// `mission_control_mode_str` (src/mission_control.c), which Swift cannot read (a static C array).
-private let missionControlModeNames = ["inactive", "show", "show-all-windows", "show-front-windows", "show-desktop"]
-
 //
 // NOTE: The C version forked a copy of the daemon for each event with signals, and that copy forked and exec'd a
 // process for each command. Swift cannot call fork (it is unavailable: only async-signal-safe code may run between
@@ -201,8 +198,8 @@ func describeDisplay(_ es: inout PendingSignal, _ context: UnsafeMutableRawPoint
 
 private func describeMissionControl(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
-    let mode = Int(bitPattern: context)
-    es.addArgument("YABAI_MISSION_CONTROL_MODE", missionControlModeNames[mode])
+    let mode = MissionControlMode(rawValue: Int(bitPattern: context))!
+    es.addArgument("YABAI_MISSION_CONTROL_MODE", mode.name)
 }
 
 /// `event_signal_push`: stores a signal of the event that is handled, with the values its commands get, when the

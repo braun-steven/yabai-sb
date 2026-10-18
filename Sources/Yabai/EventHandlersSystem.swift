@@ -10,44 +10,44 @@ import CPrivate
 //
 
 /// Sets the Mission Control mode and pushes the signal of entering it.
-@WM private func missionControlShow(_ mode: mission_control_mode)
+@WM private func missionControlShow(_ mode: MissionControlMode)
 {
     g_mission_control_mode = mode
-    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: UInt(mode.rawValue)))
+    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: mode.rawValue))
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_SHOW_ALL_WINDOWS)`
 @WM func missionControlShowAllWindows()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_ALL_WINDOWS:\n")
-    missionControlShow(MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS)
+    missionControlShow(.showAllWindows)
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_SHOW_FRONT_WINDOWS)`
 @WM func missionControlShowFrontWindows()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_FRONT_WINDOWS:\n")
-    missionControlShow(MISSION_CONTROL_MODE_SHOW_FRONT_WINDOWS)
+    missionControlShow(.showFrontWindows)
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_SHOW_DESKTOP)`
 @WM func missionControlShowDesktop()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_DESKTOP:\n")
-    missionControlShow(MISSION_CONTROL_MODE_SHOW_DESKTOP)
+    missionControlShow(.showDesktop)
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_ENTER)`
 @WM func missionControlEnter()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_ENTER:\n")
-    g_mission_control_mode = MISSION_CONTROL_MODE_SHOW
+    g_mission_control_mode = .show
 
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
         EventLoop.post(.missionControlCheckForExit)
     }
 
-    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: UInt(MISSION_CONTROL_MODE_SHOW.rawValue)))
+    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: MissionControlMode.show.rawValue))
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)`
@@ -94,12 +94,12 @@ import CPrivate
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    if g_mission_control_mode == MISSION_CONTROL_MODE_SHOW || g_mission_control_mode == MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS {
+    if g_mission_control_mode == .show || g_mission_control_mode == .showAllWindows {
         window_manager_correct_for_mission_control_changes(sm, wm)
     }
 
-    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: UInt(g_mission_control_mode.rawValue)))
-    g_mission_control_mode = MISSION_CONTROL_MODE_INACTIVE
+    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: g_mission_control_mode.rawValue))
+    g_mission_control_mode = .inactive
 }
 
 /// `EVENT_HANDLER(DOCK_DID_RESTART)`

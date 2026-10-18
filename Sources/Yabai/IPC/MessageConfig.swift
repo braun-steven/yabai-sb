@@ -76,45 +76,11 @@ private enum Config
     static let spaceSelector            = "--space"
 }
 
-//
-// NOTE: The names of the values, from the `*_str` tables of the C headers (static, so Swift cannot read them). An index
-// is the value of the C enum; nil entries are the gaps of a bitmask enum (mouse_mod).
-//
-
-private let workspaceLayoutNames: [String?] = ["default", "tabbed"]
-
-private let animationEasingNames: [String?] = ["sine", "quad", "cubic", "quart", "quint", "expo", "circ"].flatMap { curve in
-    ["ease_in_\(curve)", "ease_out_\(curve)", "ease_in_out_\(curve)"]
-}
-
-/// `parse_config_choice` for an enum named by its raw values: prints the current value without a value; otherwise the
-/// value among choices, or nil after the failure for any other value.
-private func parseChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) -> Choice?
+/// The layout of the workspace root of new trees (`config tree_workspace_layout`).
+private enum WorkspaceLayout: String, CaseIterable
 {
-    let value = message.next()
-    if !value.isValid {
-        rsp.write("\(current.rawValue)\n")
-        return nil
-    }
-
-    if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
-
-    rsp.failUnknownValue(domain, command, value)
-    return nil
-}
-
-/// `parse_config_choice` for every case of an enum named by its raw values.
-private func parseChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) -> Choice?
-{
-    parseChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
-}
-
-/// `parse_config_choice` for a C enum: the selected value, or nil when none was selected.
-private func parseChoice(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ names: [String?], first: UInt32, last: UInt32, current: some BinaryInteger) -> UInt32?
-{
-    var choice = 0
-    guard parseConfigChoice(&rsp, domain, command, &message, names: names, first: Int(first), last: Int(last), current: Int(current), &choice) else { return nil }
-    return UInt32(choice)
+    case `default`
+    case tabbed
 }
 
 private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, rgba_color>?
@@ -461,17 +427,17 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if command.equals(Config.tabBarIcons) {
         if parseConfigBool(&rsp, domain, command, &message, &wm.tab_bar_icons) { tab_bar_redraw_all() }
     } else if command.equals(Config.tabBarStyle) {
-        if let style = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_style) {
+        if let style = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_style) {
             wm.tab_bar_style = style
             tab_bar_refresh_all()
         }
     } else if command.equals(Config.tabBarAppearance) {
-        if let appearance = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_appearance) {
+        if let appearance = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_appearance) {
             wm.tab_bar_appearance = appearance
             tab_bar_redraw_all()
         }
     } else if command.equals(Config.tabBarBackdrop) {
-        if let backdrop = parseChoice(&rsp, domain, command, &message, current: wm.tab_bar_backdrop) {
+        if let backdrop = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_backdrop) {
             wm.tab_bar_backdrop = backdrop
             tab_bar_refresh_all()
         }
@@ -566,13 +532,13 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             rsp.failUnknownValue(domain, command, value)
         }
     } else if command.equals(Config.displayOrder) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: dm.order) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: dm.order) {
             dm.order = choice
         }
     } else if command.equals(Config.builtinLast) {
         if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.window_origin_mode) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.window_origin_mode) {
             wm.window_origin_mode = choice
         }
     } else if command.equals(Config.scratchpadExclusive) {
@@ -603,11 +569,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.animationDuration) {
         configAnimationDuration(&rsp, domain, command, &message)
     } else if command.equals(Config.animationEasing) {
-        if let choice = parseChoice(&rsp, domain, command, &message, animationEasingNames, first: 0, last: EASING_TYPE_COUNT.rawValue - 1, current: wm.window_animation_easing) {
-            wm.window_animation_easing = Int32(choice)
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.window_animation_easing) {
+            wm.window_animation_easing = choice
         }
     } else if command.equals(Config.shadow) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.purify_mode) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purify_mode) {
             window_manager_set_purify_mode(wm, choice)
         }
     } else if command.equals(Config.menubarOpacity) {
@@ -639,17 +605,17 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.layout) {
         configLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.treeOrientation) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: sm.tree_default_orientation) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.tree_default_orientation) {
             sm.tree_default_orientation = choice
         }
     } else if command.equals(Config.treeWorkspaceLayout) {
-        if let choice = parseChoice(&rsp, domain, command, &message, workspaceLayoutNames, first: 0, last: 1, current: sm.tree_workspace_tabbed ? 1 : 0) {
-            sm.tree_workspace_tabbed = choice != 0
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.tree_workspace_tabbed ? WorkspaceLayout.tabbed : .default) {
+            sm.tree_workspace_tabbed = choice == .tabbed
         }
     } else if command.equals(Config.treeAutotiling) {
         _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
     } else if command.equals(Config.focusWrapping) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: wm.focus_wrapping) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.focus_wrapping) {
             wm.focus_wrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
@@ -661,19 +627,19 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_all_spaces(sm, enabled) }
         }
     } else if command.equals(Config.mouseModifier) {
-        if let choice = parseChoice(&rsp, domain, command, &message, current: mouse.modifier) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: mouse.modifier) {
             mouse.modifier = choice
         }
     } else if command.equals(Config.mouseAction1) {
-        if let choice = parseChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
             mouse.action1 = choice
         }
     } else if command.equals(Config.mouseAction2) {
-        if let choice = parseChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
             mouse.action2 = choice
         }
     } else if command.equals(Config.mouseDropAction) {
-        if let choice = parseChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.drop_action) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.drop_action) {
             mouse.drop_action = choice
         }
     } else if command.equals(Config.externalBar) {

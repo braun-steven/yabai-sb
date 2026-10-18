@@ -8,25 +8,35 @@ import Foundation
 // src/mission_control.c and src/mission_control.h.
 //
 
-/// `enum mission_control_mode`
-struct mission_control_mode: RawRepresentable, Equatable, Sendable
+/// What Mission Control shows. The raw value is the context of the Mission Control signals.
+enum MissionControlMode: Int, Sendable
 {
-    var rawValue: UInt32
+    case inactive
+    case show
+    case showAllWindows
+    case showFrontWindows
+    case showDesktop
+
+    /// The value of `YABAI_MISSION_CONTROL_MODE` in the signals.
+    var name: String
+    {
+        switch self {
+        case .inactive:         "inactive"
+        case .show:             "show"
+        case .showAllWindows:   "show-all-windows"
+        case .showFrontWindows: "show-front-windows"
+        case .showDesktop:      "show-desktop"
+        }
+    }
 }
 
-let MISSION_CONTROL_MODE_INACTIVE           = mission_control_mode(rawValue: 0)
-let MISSION_CONTROL_MODE_SHOW               = mission_control_mode(rawValue: 1)
-let MISSION_CONTROL_MODE_SHOW_ALL_WINDOWS   = mission_control_mode(rawValue: 2)
-let MISSION_CONTROL_MODE_SHOW_FRONT_WINDOWS = mission_control_mode(rawValue: 3)
-let MISSION_CONTROL_MODE_SHOW_DESKTOP       = mission_control_mode(rawValue: 4)
-
 /// `g_mission_control_mode`: the handlers on the event loop own it, like the C global (see the NOTE of g_display_manager).
-nonisolated(unsafe) var g_mission_control_mode = MISSION_CONTROL_MODE_INACTIVE
+nonisolated(unsafe) var g_mission_control_mode = MissionControlMode.inactive
 
 /// `mission_control_is_active`
 func mission_control_is_active() -> Bool
 {
-    return g_mission_control_mode != MISSION_CONTROL_MODE_INACTIVE
+    return g_mission_control_mode != .inactive
 }
 
 /// `connection_handler`: registered for each notification type by yabai_main.

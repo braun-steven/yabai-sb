@@ -203,7 +203,7 @@ func update_window_notifications()
     if prevFocusedWindowID != window.id {
         border_refresh(window_manager_find_window(wm, prevFocusedWindowID))
     }
-    border_refresh(window)
+    border_refresh_window_space(window)
     border_end_batch()
 }
 

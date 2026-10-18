@@ -407,12 +407,12 @@ private func borderShouldShow(_ target: Window) -> Bool
 
 //
 // NOTE: The number of windows that count for window_border_hide_single on a space: the tiled windows, where a tabbed
-// container counts as one like for auto_padding, and the visible floating windows. Scratchpads do not count.
+// container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
 //
 private func borderSpaceWindowCount(_ sid: UInt64) -> Int32
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
-    var count = owner.layout == VIEW_TREE ? tree_view_tiled_count(owner) : 0
+    var count = owner.layout == VIEW_TREE ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
     for target in window_manager_global().window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
         if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }

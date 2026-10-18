@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-17
+.\"      Date: 2026-10-18
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-17" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-18" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -336,8 +336,8 @@ included; windows of hidden tabs have no border.
 .sp
 \fBwindow_border_hide_single\fP [\fI<BOOL_SEL>\fP]
 .RS 4
-Hide the border while a tiled window is alone on its space. A tabbed container counts as one window, like for
-\fBauto_padding\fP, and scratchpads do not count. Floating windows always retain their borders.
+Hide the border while a tiled window is alone on its space. Count the visible windows of each active tab,
+including windows in splits; hidden tabs and scratchpads do not count. Floating windows always retain their borders.
 .RE
 .sp
 \fBwindow_border_width\fP [\fI<FLOAT_SEL>\fP]

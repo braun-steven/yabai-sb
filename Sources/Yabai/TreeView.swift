@@ -269,6 +269,19 @@ func tree_view_tiled_count(_ owner: View!) -> Int32
     return treeTiledCount(root)
 }
 
+// NOTE: Border suppression counts the windows actually shown by the active tabs. Auto-padding
+// keeps counting a whole tabbed container as one area, even when its active tab contains a split.
+func treeVisibleWindowCount(_ node: Con) -> Int32
+{
+    if con_is_leaf(node) { return node.zoom == CON_ZOOM_FULLSCREEN ? 0 : 1 }
+    if node.layout == CON_TABBED {
+        return node.child_count == 0 ? 0 : treeVisibleWindowCount(node.focus[0])
+    }
+    var count: Int32 = 0
+    for child in node.children { count += treeVisibleWindowCount(child) }
+    return count
+}
+
 /// `tree_con_frame`
 func tree_con_frame(_ owner: View, _ node: Con) -> area
 {

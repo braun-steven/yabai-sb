@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import CPrivate
+import YabaiCore
 @testable import Yabai
 
 // NOTE: Ported from tests/src/window_frame.c and tests/src/window_rules.c. The window managers of these tests are local,
@@ -14,8 +15,7 @@ private func windowManagerCreate() -> WindowManager
 
 private func windowManagerFree(_ wm: WindowManager)
 {
-    for i in 0..<window_manager_rule_count(wm) { rule_destroy(window_manager_rule_at(wm, i)) }
-    window_manager_free_rules(wm)
+    wm.rules = []
     wm.window.removeAll()
 }
 
@@ -90,11 +90,12 @@ private func applicationCreate(_ name: String) -> Application
     #expect(window_invalidate(target) == false)
 }
 
-private func oneShotTestRule(_ flags: rule_flag, _ label: String) -> rule
+private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 {
-    var result = rule()
-    result.flags = UInt16(flags.rawValue)
-    result.label = strdup(label)
+    var result = Rule()
+    result.oneShot = matched
+    result.matched = matched
+    result.label = label
     return result
 }
 
@@ -103,15 +104,11 @@ private func oneShotTestRule(_ flags: rule_flag, _ label: String) -> rule
     let wm = windowManagerCreate()
     defer { windowManagerFree(wm) }
 
-    let remove = rule_flag(rawValue: RULE_ONE_SHOT.rawValue | RULE_ONE_SHOT_REMOVE.rawValue)
-    window_manager_add_rule(wm, oneShotTestRule(remove, "a"))
-    window_manager_add_rule(wm, oneShotTestRule(rule_flag(rawValue: 0), "b"))
-    window_manager_add_rule(wm, oneShotTestRule(remove, "c"))
-    window_manager_add_rule(wm, oneShotTestRule(remove, "d"))
+    wm.rules = [oneShotTestRule(matched: true, "a"), oneShotTestRule(matched: false, "b"),
+                oneShotTestRule(matched: true, "c"), oneShotTestRule(matched: true, "d")]
 
     window_manager_remove_one_shot_rules(wm)
-    #expect(window_manager_rule_count(wm) == 1)
-    #expect(String(cString: window_manager_rule_at(wm, 0).pointee.label) == "b")
+    #expect(wm.rules.map(\.label) == ["b"])
 }
 
 //
@@ -135,17 +132,12 @@ private func oneShotTestRule(_ flags: rule_flag, _ label: String) -> rule
     #expect(window_manager_collect_child_windows(1, &emptyParent, []).isEmpty)
 }
 
-private func windowRulesTestRule(_ app: String, _ subrole: String?, _ flags: rule_flag) -> rule
+private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Bool = false) -> Rule
 {
-    var result = rule()
-    result.flags = UInt16(flags.rawValue | RULE_APP_VALID.rawValue)
-    regcomp(&result.app_regex, app, REG_EXTENDED)
-
-    if let subrole {
-        regcomp(&result.subrole_regex, subrole, REG_EXTENDED)
-        rule_set_flag(&result, RULE_SUBROLE_VALID)
-    }
-
+    var result = Rule()
+    result.oneShot = oneShot
+    result.app = RulePattern(Token(app), exclude: false)
+    result.subrole = subrole.map { RulePattern(Token($0), exclude: false) }
     return result
 }
 
@@ -169,50 +161,47 @@ private struct WindowStrings
     defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: without a subrole pattern a rule does not match a dialog
-    var any = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
+    var any = windowRulesTestRule("^Safari$", nil)
     any.effects.sid = 4
-    window_manager_add_rule(wm, any)
+    wm.rules.append(any)
 
-    var dialog = windowRulesTestRule("^Safari$", "^AXDialog$", rule_flag(rawValue: 0))
-    dialog.effects.sticky = RULE_PROP_ON
-    dialog.effects.scratchpad = strdup("notes")
-    window_manager_add_rule(wm, dialog)
+    var dialog = windowRulesTestRule("^Safari$", "^AXDialog$")
+    dialog.effects.sticky = .on
+    dialog.effects.scratchpad = "notes"
+    wm.rules.append(dialog)
 
-    var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$", rule_flag(rawValue: 0))
-    otherApp.effects.mff = RULE_PROP_ON
-    window_manager_add_rule(wm, otherApp)
+    var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$")
+    otherApp.effects.mff = .on
+    wm.rules.append(otherApp)
 
-    var oneShot = windowRulesTestRule("^Safari$", "^AXDialog$", RULE_ONE_SHOT)
-    oneShot.effects.layer = layerValue(.above)
-    rule_effects_set_flag(&oneShot.effects, RULE_LAYER)
-    window_manager_add_rule(wm, oneShot)
+    var oneShot = windowRulesTestRule("^Safari$", "^AXDialog$", oneShot: true)
+    oneShot.effects.layer = .above
+    oneShot.effects.flags.insert(.layer)
+    wm.rules.append(oneShot)
 
-    var effects = rule_effects()
+    var effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
     #expect(effects.sid == 0)
-    #expect(effects.sticky == RULE_PROP_ON)
-    #expect(effects.mff == RULE_PROP_UD)
-    #expect(rule_effects_check_flag(&effects, RULE_LAYER) == false)
-    #expect(effects.scratchpad.map { String(cString: $0) } == "notes")
-    #expect(rule_check_flag(window_manager_rule_at(wm, 3), RULE_ONE_SHOT_REMOVE) == false)
-    free(effects.scratchpad)
+    #expect(effects.sticky == .on)
+    #expect(effects.mff == .undefined)
+    #expect(effects.flags.contains(.layer) == false)
+    #expect(effects.scratchpad == "notes")
+    #expect(wm.rules[3].matched == false)
 
     // NOTE: one-shot rules only apply to new windows, and are then marked for removal
-    effects = rule_effects()
+    effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, true, false, &effects) == true)
-    #expect(rule_effects_check_flag(&effects, RULE_LAYER) == true)
-    #expect(rule_check_flag(window_manager_rule_at(wm, 3), RULE_ONE_SHOT_REMOVE) == true)
-    free(effects.scratchpad)
+    #expect(effects.flags.contains(.layer) == true)
+    #expect(wm.rules[3].matched == true)
 
     window_manager_remove_one_shot_rules(wm)
-    #expect(window_manager_rule_count(wm) == 3)
+    #expect(wm.rules.count == 3)
 
     // NOTE: a window managed by a rule matches rules without a subrole pattern
     window_set_rule_flag(target, WINDOW_RULE_MANAGED)
-    effects = rule_effects()
+    effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
     #expect(effects.sid == 4)
-    free(effects.scratchpad)
 }
 
 @Test("window_rules_manage_round") func windowRulesManageRound()
@@ -224,25 +213,25 @@ private struct WindowStrings
     defer { windowManagerFree(wm); free(owner.name); strings.free() }
 
     // NOTE: in the manage round only rules that make a window managed are limited to standard windows
-    var manage = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
-    manage.effects.manage = RULE_PROP_ON
-    window_manager_add_rule(wm, manage)
+    var manage = windowRulesTestRule("^Safari$", nil)
+    manage.effects.manage = .on
+    wm.rules.append(manage)
 
-    var effectsOnly = windowRulesTestRule("^Safari$", nil, rule_flag(rawValue: 0))
-    effectsOnly.effects.sticky = RULE_PROP_ON
-    window_manager_add_rule(wm, effectsOnly)
+    var effectsOnly = windowRulesTestRule("^Safari$", nil)
+    effectsOnly.effects.sticky = .on
+    wm.rules.append(effectsOnly)
 
-    var effects = rule_effects()
+    var effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, true, &effects) == true)
-    #expect(effects.manage == RULE_PROP_UD)
-    #expect(effects.sticky == RULE_PROP_ON)
+    #expect(effects.manage == .undefined)
+    #expect(effects.sticky == .on)
 
-    effects = rule_effects()
+    effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == true)
-    #expect(effects.manage == RULE_PROP_ON)
+    #expect(effects.manage == .on)
 
     free(owner.name)
     owner.name = strdup("Mail")
-    effects = rule_effects()
+    effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == false)
 }

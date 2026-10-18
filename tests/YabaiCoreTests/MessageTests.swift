@@ -438,6 +438,22 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(response.contains("missing required key-value pair"))
 }
 
+@Test func ruleMatchingAndListFlags()
+{
+    var (_, rule, _) = parseRuleText("app=^Safari$\0title!=Preferences\0subrole=(\0sub-layer=above\0")
+    #expect(rule.matches(app: "Safari", title: "Downloads", role: "AXWindow", subrole: "AXDialog"))
+    #expect(!rule.matches(app: "Safari", title: "Preferences", role: "AXWindow", subrole: "AXDialog"))
+    #expect(!rule.matches(app: "Mail", title: "Downloads", role: "AXWindow", subrole: "AXDialog"))
+    #expect(!rule.hasRole && !rule.hasSubrole)
+
+    // NOTE: valid app and title, title excluded, the subrole pattern is invalid; the layer flag in the high half
+    #expect(rule.listFlags == 0x0004_0023)
+
+    rule.oneShot = true
+    rule.matched = true
+    #expect(rule.listFlags == 0x0004_0323)
+}
+
 @Test func messageRuleValues()
 {
     let context = FixtureContext(activeDisplay: 1, displays: [1, 2], spaces: [10, 11])

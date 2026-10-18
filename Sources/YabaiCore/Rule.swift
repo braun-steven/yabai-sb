@@ -41,9 +41,17 @@ public struct RulePattern
         self.exclude = exclude
         self.regex = POSIXRegex(text)
     }
+
+    /// Whether text passes the filter: it matches the pattern, or does not match an excluding one. An invalid pattern
+    /// filters nothing.
+    public func admits(_ text: String) -> Bool
+    {
+        guard let regex else { return true }
+        return (regexec(regex.pointer, text, 0, nil, 0) == 0) != exclude
+    }
 }
 
-/// `RULE_PROP_UD`, `RULE_PROP_ON` and `RULE_PROP_OFF` (src/rule.h)
+/// A rule property that is set on, set off or left alone.
 public enum RuleProp: Int32, Sendable
 {
     case undefined = 0
@@ -51,7 +59,7 @@ public enum RuleProp: Int32, Sendable
     case off       = 2
 }
 
-/// `enum rule_effects_flag` (src/rule.h)
+/// Which optional effects a rule sets.
 public struct RuleEffectsFlags: OptionSet, Sendable
 {
     public let rawValue: UInt16
@@ -97,7 +105,7 @@ public struct Grid: Equatable, Sendable
     }
 }
 
-/// `struct rule_effects` (src/rule.h)
+/// The effects of a rule on the windows it matches.
 public struct RuleEffects: Sendable
 {
     public var did: UInt32 = 0
@@ -153,7 +161,8 @@ public struct RuleEffects: Sendable
     }
 }
 
-/// `struct rule` (src/rule.h): its filters and effects. The C flags RULE_*_VALID and RULE_*_EXCLUDE are the patterns.
+/// A rule: its filters and effects. A one-shot rule applies only to windows created after it was added, and is
+/// removed once it matched one (matched).
 public struct Rule
 {
     public var label: String?
@@ -163,8 +172,40 @@ public struct Rule
     public var subrole: RulePattern?
     public var effects = RuleEffects()
     public var oneShot = false
+    public var matched = false
 
     public init() {}
+
+    /// Whether the rule has a valid role or subrole pattern.
+    public var hasRole: Bool { role?.regex != nil }
+    public var hasSubrole: Bool { subrole?.regex != nil }
+
+    /// Whether a window with these properties passes every filter of the rule.
+    public func matches(app appName: String, title windowTitle: String, role windowRole: String, subrole windowSubrole: String) -> Bool
+    {
+        (app?.admits(appName) ?? true) && (title?.admits(windowTitle) ?? true) &&
+            (role?.admits(windowRole) ?? true) && (subrole?.admits(windowSubrole) ?? true)
+    }
+
+    //
+    // NOTE: The "flags" of `rule --list` keep the bits of the C struct rule: the effects flags in the high half, and
+    // 0x1/0x2/0x4/0x8 for a valid app/title/role/subrole pattern, 0x10 to 0x80 for their exclusion, 0x100 for one-shot
+    // and 0x200 for a matched one-shot rule.
+    //
+
+    public var listFlags: UInt32
+    {
+        var flags: UInt32 = 0
+        for (bit, pattern) in [app, title, role, subrole].enumerated() {
+            guard let pattern else { continue }
+            if pattern.regex != nil { flags |= 0x01 << bit }
+            if pattern.exclude      { flags |= 0x10 << bit }
+        }
+
+        if oneShot { flags |= 0x100 }
+        if matched { flags |= 0x200 }
+        return UInt32(effects.flags.rawValue) << 16 | flags
+    }
 }
 
 /// `parse_rule_prop`

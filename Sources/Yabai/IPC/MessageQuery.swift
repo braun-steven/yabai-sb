@@ -121,33 +121,30 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
     let command = message.next()
 
     if command.equals(RuleCommand.add) {
-        var result = rule()
+        var result = Rule()
 
         var token = message.next()
         if token.equals(RuleCommand.oneShot) {
-            rule_set_flag(&result, RULE_ONE_SHOT)
+            result.oneShot = true
             token = message.next()
         }
 
-        if parseCRule(&rsp, &message, &result, token) {
-            rule_add(&result)
-        } else {
-            rule_destroy(&result)
+        if parseRule(&rsp, &message, &result, token, CSelectorContext()) {
+            rule_add(result)
         }
     } else if command.equals(RuleCommand.apply) {
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !rule_reapply_by_index(index) {
+            if !rule_reapply_by_index(Int(index)) {
                 rsp.fail("rule with index '\(index)' not found.\n")
             }
         case .string:
-            if !token.withCString({ rule_reapply_by_label(UnsafeMutablePointer(mutating: $0)) }) {
-                var result = rule()
-                if parseCRule(&rsp, &message, &result, token) {
-                    rule_apply(&result)
+            if !rule_reapply_by_label(token.bytes) {
+                var result = Rule()
+                if parseRule(&rsp, &message, &result, token, CSelectorContext()) {
+                    rule_apply(result)
                 }
-                rule_destroy(&result)
             }
         case .invalid:
             rule_reapply_all()
@@ -158,11 +155,11 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !rule_remove_by_index(index) {
+            if !rule_remove_by_index(Int(index)) {
                 rsp.fail("rule with index '\(index)' not found.\n")
             }
         case .string:
-            if !token.withCString({ rule_remove_by_label(UnsafeMutablePointer(mutating: $0)) }) {
+            if !rule_remove_by_label(token.bytes) {
                 rsp.fail("rule with label '\(token)' not found.\n")
             }
         default:

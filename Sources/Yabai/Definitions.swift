@@ -9,10 +9,6 @@ import Darwin
 
 // MARK: src/misc/macros.h
 
-let REGEX_MATCH_UD: Int32  = 0
-let REGEX_MATCH_YES: Int32 = 1
-let REGEX_MATCH_NO: Int32  = 2
-
 let DIR_NORTH: Int32 = 360
 let DIR_EAST: Int32  =  90
 let DIR_SOUTH: Int32 = 180
@@ -340,69 +336,3 @@ struct mouse_window_info: Sendable
     var changed_position = false
     var changed_size = false
 }
-
-// MARK: src/rule.h
-
-let RULE_PROP_UD: Int32  = 0
-let RULE_PROP_ON: Int32  = 1
-let RULE_PROP_OFF: Int32 = 2
-
-/// `enum rule_flag`
-struct rule_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let RULE_APP_VALID       = rule_flag(rawValue: 0x001)
-let RULE_TITLE_VALID     = rule_flag(rawValue: 0x002)
-let RULE_ROLE_VALID      = rule_flag(rawValue: 0x004)
-let RULE_SUBROLE_VALID   = rule_flag(rawValue: 0x008)
-let RULE_APP_EXCLUDE     = rule_flag(rawValue: 0x010)
-let RULE_TITLE_EXCLUDE   = rule_flag(rawValue: 0x020)
-let RULE_ROLE_EXCLUDE    = rule_flag(rawValue: 0x040)
-let RULE_SUBROLE_EXCLUDE = rule_flag(rawValue: 0x080)
-let RULE_ONE_SHOT        = rule_flag(rawValue: 0x100)
-let RULE_ONE_SHOT_REMOVE = rule_flag(rawValue: 0x200)
-
-/// `enum rule_effects_flag`
-struct rule_effects_flag: RawRepresentable, Equatable, Sendable { var rawValue: UInt32 }
-let RULE_FOLLOW_SPACE = rule_effects_flag(rawValue: 0x01)
-let RULE_OPACITY      = rule_effects_flag(rawValue: 0x02)
-let RULE_LAYER        = rule_effects_flag(rawValue: 0x04)
-
-/// `struct rule_effects`: the scratchpad is malloc'ed.
-struct rule_effects
-{
-    var did: UInt32 = 0
-    var sid: UInt64 = 0
-    var opacity: Float = 0
-    var manage: Int32 = 0
-    var sticky: Int32 = 0
-    var mff: Int32 = 0
-    var layer: Int32 = 0
-    var fullscreen: Int32 = 0
-    var grid: (UInt32, UInt32, UInt32, UInt32, UInt32, UInt32) = (0, 0, 0, 0, 0, 0)
-    var scratchpad: UnsafeMutablePointer<CChar>!
-    var flags: UInt16 = 0
-}
-
-/// `struct rule`: the strings are malloc'ed, and the patterns compiled when their VALID flag is set (rule_destroy frees
-/// both).
-struct rule
-{
-    var label: UnsafeMutablePointer<CChar>!
-    var app: UnsafeMutablePointer<CChar>!
-    var title: UnsafeMutablePointer<CChar>!
-    var role: UnsafeMutablePointer<CChar>!
-    var subrole: UnsafeMutablePointer<CChar>!
-    var app_regex = regex_t()
-    var title_regex = regex_t()
-    var role_regex = regex_t()
-    var subrole_regex = regex_t()
-    var effects = rule_effects()
-    var flags: UInt16 = 0
-}
-
-func rule_check_flag(_ r: UnsafeMutablePointer<rule>, _ x: rule_flag) -> Bool { r.pointee.flags & UInt16(x.rawValue) != 0 }
-func rule_clear_flag(_ r: UnsafeMutablePointer<rule>, _ x: rule_flag) { r.pointee.flags &= ~UInt16(x.rawValue) }
-func rule_set_flag(_ r: UnsafeMutablePointer<rule>, _ x: rule_flag) { r.pointee.flags |= UInt16(x.rawValue) }
-
-func rule_effects_check_flag(_ e: UnsafeMutablePointer<rule_effects>, _ x: rule_effects_flag) -> Bool { e.pointee.flags & UInt16(x.rawValue) != 0 }
-func rule_effects_clear_flag(_ e: UnsafeMutablePointer<rule_effects>, _ x: rule_effects_flag) { e.pointee.flags &= ~UInt16(x.rawValue) }
-func rule_effects_set_flag(_ e: UnsafeMutablePointer<rule_effects>, _ x: rule_effects_flag) { e.pointee.flags |= UInt16(x.rawValue) }

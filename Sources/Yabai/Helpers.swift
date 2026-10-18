@@ -223,15 +223,6 @@ func triangle_contains_point(_ t: UnsafeMutablePointer<CGPoint>, _ p: CGPoint) -
     return (l1 > 0.0 && l2 > 0.0 && l3 > 0.0) || (l1 < 0.0 && l2 < 0.0 && l3 < 0.0)
 }
 
-/// `regex_match`
-func regex_match(_ valid: Bool, _ regex: UnsafeMutablePointer<regex_t>, _ match: UnsafePointer<CChar>) -> Int32
-{
-    if !valid { return REGEX_MATCH_UD }
-
-    let result = regexec(regex, match, 0, nil, 0)
-    return result == 0 ? REGEX_MATCH_YES : REGEX_MATCH_NO
-}
-
 /// `clampf_range`
 func clampf_range(_ value: Float, _ min: Float, _ max: Float) -> Float
 {

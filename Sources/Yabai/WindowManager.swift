@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import CPrivate
 import AppKit
+import YabaiCore
 
 //
 // NOTE: The windows of yabai: the tables of applications, windows and managed windows, the commands on windows (move,
@@ -26,7 +27,7 @@ final class WindowManager
     var managed_window = Table<UInt32, View>(capacity: 150)
     var window_lost_focused_event = Table<UInt32, Bool>(capacity: 150)
     var application_lost_front_switched_event = Table<pid_t, Bool>(capacity: 150)
-    var rules: [UnsafeMutablePointer<rule>] = []
+    var rules: [Rule] = []
     var applications_to_refresh: [Application] = []
     var focused_window_id: UInt32 = 0
     var focused_window_psn = ProcessSerialNumber()
@@ -122,41 +123,15 @@ func window_manager_add_application_refresh(_ wm: WindowManager, _ owner: Applic
     wm.applications_to_refresh.append(owner)
 }
 
-func window_manager_rule_count(_ wm: WindowManager) -> Int32
-{
-    return Int32(wm.rules.count)
-}
+//
+// NOTE: Removing a rule moves the last rule into its place, as the sbuffer of the C version did; `rule --list` shows
+// that order.
+//
 
-func window_manager_rule_at(_ wm: WindowManager, _ index: Int32) -> UnsafeMutablePointer<rule>
+func window_manager_remove_rule(_ wm: WindowManager, _ index: Int)
 {
-    return wm.rules[Int(index)]
-}
-
-/// Takes over the strings and patterns of the rule.
-func window_manager_add_rule(_ wm: WindowManager, _ value: rule)
-{
-    let stored = UnsafeMutablePointer<rule>.allocate(capacity: 1)
-    stored.initialize(to: value)
-    wm.rules.append(stored)
-}
-
-/// The caller destroys the rule first (rule_destroy).
-func window_manager_remove_rule(_ wm: WindowManager, _ index: Int32)
-{
-    let removed = wm.rules[Int(index)]
-    wm.rules.swapAt(Int(index), wm.rules.count - 1)
+    wm.rules.swapAt(index, wm.rules.count - 1)
     wm.rules.removeLast()
-    removed.deinitialize(count: 1)
-    removed.deallocate()
-}
-
-func window_manager_free_rules(_ wm: WindowManager)
-{
-    for stored in wm.rules {
-        stored.deinitialize(count: 1)
-        stored.deallocate()
-    }
-    wm.rules = []
 }
 
 func window_manager_scratchpad_count(_ wm: WindowManager) -> Int32

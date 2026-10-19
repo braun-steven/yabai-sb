@@ -88,14 +88,14 @@ private func viewWindowList(_ sid: SpaceID) -> String
 
 private func viewFirstWindow(_ view: View) -> WindowID?
 {
-    guard let tree = view.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return nil }
-    return first.window_id
+    guard let tree = view.tree, let first = tree.firstLeaf?.focusedDescendant else { return nil }
+    return first.windowID
 }
 
 private func viewLastWindow(_ view: View) -> WindowID?
 {
-    guard let tree = view.tree, let last = tree_last_leaf(tree) else { return nil }
-    return last.window_id
+    guard let tree = view.tree, let last = tree.lastLeaf else { return nil }
+    return last.windowID
 }
 
 /// `view_serialize`
@@ -213,7 +213,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 
     var tab = node
     while let parent = tab.parent, parent.layout != .tabbed { tab = parent }
-    info.stackIndex = con_index(tab).map { $0 + 1 } ?? 0
+    info.stackIndex = tab.index.map { $0 + 1 } ?? 0
 
     info.hasParentZoom = node.zoom == .parent
     info.hasFullscreenZoom = node.zoom == .fullscreen
@@ -356,22 +356,22 @@ func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64
 
 private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
 {
-    let leaf = con_is_leaf(node)
+    let leaf = node.isLeaf
     let frame = leaf ? tree_con_frame(view, node) : node.area
-    let visible = tree_con_is_visible(node)
+    let visible = node.isVisible
     let parent = node.parent
 
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
     let layout = leaf ? "null" : "\"\(node.layout.rawValue)\""
     let percent = parent != nil ? node.percent : 1.0
-    let focused = leaf && node.window_id == window_manager_global().focused_window_id
+    let focused = leaf && node.windowID == window_manager_global().focused_window_id
 
     output += String(repeating: " ", count: depth)
-    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id?.rawValue ?? 0))"
+    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.windowID?.rawValue ?? 0))"
     output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
-    output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
+    output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.isSelected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
 
-    let childCount = node.child_count
+    let childCount = node.children.count
     for i in 0..<childCount {
         output += i != 0 ? ",\n" : "\n"
         treeSerializeCon(&output, view, node.children[i], depth + 1)

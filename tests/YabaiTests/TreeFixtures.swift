@@ -8,16 +8,15 @@ import YabaiCore
 @discardableResult
 func treeTestLeaf(_ parent: Con, _ windowID: WindowID) -> Con
 {
-    let node = Yabai.con_create(.splitH)!
-    node.window_id = windowID
-    Yabai.tree_attach(parent, node, nil)
+    let node = Con(windowID: windowID)
+    parent.attach(node, at: nil)
     return node
 }
 
 @discardableResult
 func treeTestSplit(_ parent: Con, _ layout: ConLayout) -> Con
 {
-    let node = Yabai.con_create(layout)!
-    Yabai.tree_attach(parent, node, nil)
+    let node = Con(layout: layout)
+    parent.attach(node, at: nil)
     return node
 }

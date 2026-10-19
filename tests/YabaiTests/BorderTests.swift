@@ -13,8 +13,8 @@ extension DaemonState
         func visibleSplitCount()
         {
             // H[T[1 H[2 H[3 4]]]]: hidden tabs do not suppress split-window borders.
-            let root = Yabai.con_create(.splitH)!
-            defer { Yabai.con_free(root) }
+            let root = Con(layout: .splitH)
+            defer { root.destroy() }
             let tabs = treeTestSplit(root, .tabbed)
             let single = treeTestLeaf(tabs, 1)
             let split = treeTestSplit(tabs, .splitH)
@@ -24,12 +24,12 @@ extension DaemonState
             treeTestLeaf(nested, 4)
             let owner = View(sid: 1)
             owner.tree = root
-            Yabai.tree_focus(focused)
+            focused.focus()
             #expect(treeVisibleWindowCount(root) == 3)
             #expect(Yabai.tree_view_tiled_count(owner) == 1)
-            Yabai.tree_focus(single)
+            single.focus()
             #expect(treeVisibleWindowCount(root) == 1)
-            Yabai.tree_focus(focused)
+            focused.focus()
             #expect(treeVisibleWindowCount(root) == 3)
         }
 
@@ -71,8 +71,8 @@ extension DaemonState
             wm.tab_bar_backdrop = .off
             space_manager_global().tree_workspace_tabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
-            let root = Yabai.con_create(.splitH)!
-            defer { Yabai.con_free(root) }
+            let root = Con(layout: .splitH)
+            defer { root.destroy() }
             let a = treeTestLeaf(root, 1)
             let t = treeTestSplit(root, .tabbed)
             let b = treeTestLeaf(t, 2)
@@ -80,8 +80,8 @@ extension DaemonState
             let d = treeTestLeaf(nested, 4)
             treeTestLeaf(nested, 5)
             treeTestLeaf(t, 3)
-            Yabai.tree_focus(b)
-            Yabai.tree_update(root, Area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            b.focus()
+            root.layOut(Area(x: 0, y: 0, w: 1010, h: 810), gap: 10, barHeight: 24, barOffset: 0, barInset: 0)
             let owner = View(sid: 1)
             owner.tree = root
             var windowArea = Area.zero
@@ -97,8 +97,8 @@ extension DaemonState
             #expect(windowArea.y - borderArea.y == 24)
             #expect(!Yabai.tree_window_border_area(owner,3, &windowArea, &borderArea, &radius))
             #expect(!Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
-            Yabai.tree_focus(d)
-            Yabai.tree_update(root, Area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
+            d.focus()
+            root.layOut(Area(x: 0, y: 0, w: 1010, h: 810), gap: 10, barHeight: 24, barOffset: 0, barInset: 0)
             #expect(Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
             #expect(same(borderArea, t.area))
             #expect(windowArea.y - borderArea.y == 48)

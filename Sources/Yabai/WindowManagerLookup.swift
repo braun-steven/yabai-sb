@@ -73,13 +73,12 @@ func window_manager_find_window_below_cursor(_ wm: WindowManager) -> Window?
 func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Direction) -> Window?
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return nil }
-    guard let node = tree_find_window(owner.tree, target.id) else { return nil }
+    guard let node = owner.tree?.find(target.id) else { return nil }
 
-    var result: Con?
-    if tree_next(node, direction, .off, false, &result) != .done { return nil }
-    guard let result, con_is_leaf(result), result != node else { return nil }
+    guard let result = node.neighbor(direction, wrapping: .off, hasOutput: false).target else { return nil }
+    guard result.isLeaf, result != node else { return nil }
 
-    return result.window_id.flatMap { window_manager_find_window(wm, $0) }
+    return result.windowID.flatMap { window_manager_find_window(wm, $0) }
 }
 
 /// `window_manager_active_tree_view`
@@ -93,7 +92,7 @@ private func windowManagerActiveTreeView(_ sm: SpaceManager) -> View?
 /// `window_manager_find_window_for_con`
 private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) -> Window?
 {
-    guard let node, con_is_leaf(node), let wid = node.window_id else { return nil }
+    guard let node, node.isLeaf, let wid = node.windowID else { return nil }
     return window_manager_find_window(wm, wid)
 }
 
@@ -101,35 +100,35 @@ private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) ->
 private func windowManagerActiveCon(_ sm: SpaceManager, _ target: Window) -> Con?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return tree_find_window(owner.tree, target.id)
+    return owner.tree?.find(target.id)
 }
 
 /// `window_manager_find_prev_managed_window`
 func window_manager_find_prev_managed_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     guard let node = windowManagerActiveCon(sm, target) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_prev_leaf(node))
+    return windowManagerFindWindowForCon(wm, node.previousLeaf)
 }
 
 /// `window_manager_find_next_managed_window`
 func window_manager_find_next_managed_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
     guard let node = windowManagerActiveCon(sm, target) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_next_leaf(node))
+    return windowManagerFindWindowForCon(wm, node.nextLeaf)
 }
 
 /// `window_manager_find_first_managed_window`
 func window_manager_find_first_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_first_leaf(owner.tree))
+    return windowManagerFindWindowForCon(wm, owner.tree?.firstLeaf)
 }
 
 /// `window_manager_find_last_managed_window`
 func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowManager) -> Window?
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
-    return windowManagerFindWindowForCon(wm, tree_last_leaf(owner.tree))
+    return windowManagerFindWindowForCon(wm, owner.tree?.lastLeaf)
 }
 
 /// `window_manager_find_recent_managed_window`
@@ -150,9 +149,9 @@ func window_manager_find_recent_managed_window(_ wm: WindowManager) -> Window?
 private func windowManagerFindTab(_ sm: SpaceManager, _ target: Window) -> (tab: Con, tabbed: Con)?
 {
     guard var node = windowManagerActiveCon(sm, target) else { return nil }
-    guard let parent = tree_tabbed_ancestor(node) else { return nil }
+    guard let parent = node.tabbedAncestor else { return nil }
 
-    while node.parent != parent { node = node.parent }
+    while node.parent != parent { node = node.parent! }
     return (node, parent)
 }
 
@@ -173,13 +172,13 @@ private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: WindowManager,
     let (tab, tabbed) = found
 
     let index = switch position {
-    case .offset(let offset): con_index(tab)! + offset
+    case .offset(let offset): tab.index! + offset
     case .index(let index):   index
-    case .last:               tabbed.child_count - 1
+    case .last:               tabbed.children.count - 1
     }
-    if index < 0 || index >= tabbed.child_count { return nil }
+    if index < 0 || index >= tabbed.children.count { return nil }
 
-    return windowManagerFindWindowForCon(wm, tree_descend_focused(tabbed.children[index]))
+    return windowManagerFindWindowForCon(wm, tabbed.children[index].focusedDescendant)
 }
 
 /// `window_manager_find_prev_window_in_stack`
@@ -209,11 +208,11 @@ func window_manager_find_last_window_in_stack(_ sm: SpaceManager, _ wm: WindowMa
 /// `window_manager_find_recent_window_in_stack`
 func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    guard let found = windowManagerFindTab(sm, target), found.tabbed.child_count >= 2 else { return nil }
+    guard let found = windowManagerFindTab(sm, target), found.tabbed.children.count >= 2 else { return nil }
     let (tab, tabbed) = found
 
-    let recent = tabbed.focus[0] == tab ? tabbed.focus[1] : tabbed.focus[0]
-    return windowManagerFindWindowForCon(wm, tree_descend_focused(recent))
+    let recent = tabbed.focusOrder[0] == tab ? tabbed.focusOrder[1] : tabbed.focusOrder[0]
+    return windowManagerFindWindowForCon(wm, recent.focusedDescendant)
 }
 
 /// `window_manager_find_window_in_stack`: the tab at the index (from 1).
@@ -231,17 +230,17 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Wind
     var bestID: WindowID?
     var bestArea: Float = largest ? 0 : Float.greatestFiniteMagnitude
 
-    var node = tree_first_leaf(owner.tree)
-    while let leaf = node, con_is_leaf(leaf) {
-        if tree_con_is_visible(leaf) {
+    var node = owner.tree?.firstLeaf
+    while let leaf = node, leaf.isLeaf {
+        if leaf.isVisible {
             let area = leaf.area.w * leaf.area.h
             if largest ? area > bestArea : area <= bestArea {
-                bestID = leaf.window_id
+                bestID = leaf.windowID
                 bestArea = area
             }
         }
 
-        node = tree_next_leaf(leaf)
+        node = leaf.nextLeaf
     }
 
     return bestID.flatMap { window_manager_find_window(wm, $0) }

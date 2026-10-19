@@ -28,10 +28,10 @@ private func windowManagerTreeFocusDisplay(_ wm: WindowManager, _ did: DisplayID
 {
     let sid = display_space_id(did)
     let owner = sid.map { space_manager_find_view(space_manager_global(), $0) }
-    let leaf = owner?.layout == .tree && owner?.tree != nil ? tree_descend_focused(owner?.tree) : nil
+    let leaf = owner?.layout == .tree && owner?.tree != nil ? owner?.tree?.focusedDescendant : nil
 
-    if let leaf, con_is_leaf(leaf) {
-        windowManagerFocusWindowID(wm, leaf.window_id)
+    if let leaf, leaf.isLeaf {
+        windowManagerFocusWindowID(wm, leaf.windowID)
     } else {
         display_manager_focus_display(did, sid)
     }
@@ -44,16 +44,15 @@ func window_manager_tree_focus_direction(_ wm: WindowManager, _ target: Window?,
     guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
     let did = windowManagerTreeDisplayInDirection(owner, direction)
-    var result: Con?
 
-    switch tree_next(node, direction, wm.focus_wrapping, did != nil, &result) {
-    case .done:
-        guard let result, con_is_leaf(result) else { return .invalidDestinationNode }
-        if result.window_id == target.id && con_is_leaf(node) { return .invalidDestinationNode }
-        tree_select(owner.tree, nil)
-        windowManagerFocusWindowID(wm, result.window_id)
+    switch node.neighbor(direction, wrapping: wm.focus_wrapping, hasOutput: did != nil) {
+    case .focus(let result):
+        guard result.isLeaf else { return .invalidDestinationNode }
+        if result.windowID == target.id && node.isLeaf { return .invalidDestinationNode }
+        owner.tree?.select(nil)
+        windowManagerFocusWindowID(wm, result.windowID)
     case .output:
-        tree_select(owner.tree, nil)
+        owner.tree?.select(nil)
         guard let did else { return .invalidDestinationNode }
         windowManagerTreeFocusDisplay(wm, did)
     case .none:
@@ -70,7 +69,7 @@ func window_manager_tree_focus_parent(_ wm: WindowManager, _ target: Window?) ->
     guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
     guard let parent = node.parent else { return .invalidDestinationNode }
 
-    tree_select(owner.tree, parent)
+    owner.tree?.select(parent)
     if space_is_visible(owner.sid) { tree_selection_show(parent) }
 
     return .success
@@ -81,14 +80,14 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
 
-    guard let selected = tree_find_selected(owner.tree), selected.child_count != 0 else { return .invalidDestinationNode }
+    guard let selected = owner.tree?.findSelected(), selected.children.count != 0 else { return .invalidDestinationNode }
 
-    let child = selected.focus[0]
-    if con_is_leaf(child) {
-        tree_select(owner.tree, nil)
-        windowManagerFocusWindowID(wm, child.window_id)
+    let child = selected.focusOrder[0]
+    if child.isLeaf {
+        owner.tree?.select(nil)
+        windowManagerFocusWindowID(wm, child.windowID)
     } else {
-        tree_select(owner.tree, child)
+        owner.tree?.select(child)
         if space_is_visible(owner.sid) { tree_selection_show(child) }
     }
 
@@ -104,7 +103,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 /// `window_manager_tree_move_to_display`
 private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowManager, _ owner: View, _ node: Con, _ did: DisplayID, _ direction: Direction)
 {
-    tree_select(owner.tree, nil)
+    owner.tree?.select(nil)
 
     //
     // NOTE: A display without a current space has no space to move the node to.
@@ -114,33 +113,33 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
     let dstView = space_manager_find_view(sm, sid)
 
     if dstView.layout == .tree {
-        let focus = tree_descend_focused(node)
+        let focus = node.focusedDescendant
 
-        tree_detach(node)
-        tree_flatten(owner.tree)
+        node.detach()
+        owner.tree!.flatten()
 
         if view_is_invalid(dstView) { view_update(dstView) }
         tree_view_attach_from_direction(dstView, node, direction)
         let moved = windowManagerTreeSetView(wm, node, dstView)
         windowManagerTreeWaitForView(moved, dstView)
-        tree_flatten(dstView.tree)
+        dstView.tree!.flatten()
 
-        if let focus { tree_focus(focus) }
+        focus.focus()
         windowManagerTreeApply(owner)
         windowManagerTreeApply(dstView)
 
-        if let focus, con_is_leaf(focus) { windowManagerFocusWindowID(wm, focus.window_id) }
+        if focus.isLeaf { windowManagerFocusWindowID(wm, focus.windowID) }
         return
     }
 
     // the C code collected at most 256 windows (a fixed array)
     var windowList: [WindowID?] = []
 
-    var leaf = tree_first_leaf(node)
+    var leaf = node.firstLeaf
     while let current = leaf, windowList.count < 256 {
-        windowList.append(current.window_id)
-        if current == tree_last_leaf(node) { break }
-        leaf = tree_next_leaf(current)
+        windowList.append(current.windowID)
+        if current == node.lastLeaf { break }
+        leaf = current.nextLeaf
     }
 
     for windowID in windowList {
@@ -160,7 +159,7 @@ func window_manager_tree_move_direction(_ sm: SpaceManager, _ wm: WindowManager,
 
     let did = windowManagerTreeDisplayInDirection(owner, direction)
 
-    switch tree_move(owner.tree, node, direction, did != nil) {
+    switch node.move(direction, in: owner.tree!, hasOutput: did != nil) {
     case .done:
         windowManagerTreeApply(owner)
     case .output:
@@ -198,8 +197,8 @@ func window_manager_tree_focus_candidate(_ wm: WindowManager, _ owner: View?, _ 
 
     if !wasFocused { return nil }
 
-    guard let node = tree_find_window(owner.tree, target.id), let candidate = tree_focus_candidate(node) else { return nil }
-    return con_is_leaf(candidate) ? candidate.window_id : nil
+    guard let node = owner.tree?.find(target.id), let candidate = node.focusCandidate else { return nil }
+    return candidate.isLeaf ? candidate.windowID : nil
 }
 
 /// `window_manager_tree_focus_after_close`: nothing without a candidate.
@@ -231,7 +230,7 @@ func window_manager_tree_split(_ wm: WindowManager, _ target: Window?, _ split: 
         orientation = parent.layout == .splitH ? .vertical : .horizontal
     }
 
-    tree_split(node, orientation)
+    node.split(orientation)
     windowManagerTreeApply(owner)
 
     return .success

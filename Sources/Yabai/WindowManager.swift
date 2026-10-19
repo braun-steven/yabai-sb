@@ -162,6 +162,11 @@ func window_manager_global() -> WindowManager
     g_window_manager
 }
 
+extension WindowManager
+{
+    static var shared: WindowManager { g_window_manager }
+}
+
 //
 // NOTE: The lists of the window manager that were sbuffers (applications_to_refresh, rules, scratchpad_window). Their
 // removal moves the last element into the hole, as buf_del did.
@@ -369,8 +374,8 @@ func window_manager_find_tree_view(_ wm: WindowManager, _ target: Window?) -> Vi
 /// `window_manager_tree_acting_con`
 func windowManagerTreeActingCon(_ owner: View, _ target: Window) -> Con?
 {
-    if let selected = tree_find_selected(owner.tree), target.id == window_manager_global().focused_window_id { return selected }
-    return tree_find_window(owner.tree, target.id)
+    if let selected = owner.tree?.findSelected(), target.id == window_manager_global().focused_window_id { return selected }
+    return owner.tree?.find(target.id)
 }
 
 /// `window_manager_tree_apply`
@@ -380,7 +385,7 @@ func windowManagerTreeApply(_ owner: View)
     // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
     //
 
-    if let focused = tree_find_window(owner.tree, window_manager_global().focused_window_id) { tree_focus(focused) }
+    if let focused = owner.tree?.find(window_manager_global().focused_window_id) { focused.focus() }
 
     if !view_update_auto_padding(owner) { tree_view_update(owner) }
     view_flush(owner)
@@ -405,8 +410,7 @@ func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
 /// `window_manager_tree_set_view`
 func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -> [WindowID]
 {
-    var windowList: [WindowID] = []
-    tree_collect_window_ids(node, &windowList)
+    let windowList = node.windowIDs
 
     var moveList: [WindowID] = []
     for windowID in windowList {
@@ -455,8 +459,8 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     let percent = type == .rel ? node.percent + ratio : ratio
     let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
 
-    if !tree_resize(node, horizontal ? .east : .south, delta) &&
-       !tree_resize(node, horizontal ? .west : .north, -delta) {
+    if !node.resize(horizontal ? .east : .south, by: delta) &&
+       !node.resize(horizontal ? .west : .north, by: -delta) {
         return .invalidSourceNode
     }
 
@@ -513,10 +517,10 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
         guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
 
         var didResize = false
-        if direction.contains(.top)    { didResize = tree_resize(node, .north, dy) || didResize }
-        if direction.contains(.bottom) { didResize = tree_resize(node, .south, dy) || didResize }
-        if direction.contains(.left)   { didResize = tree_resize(node, .west, dx) || didResize }
-        if direction.contains(.right)  { didResize = tree_resize(node, .east, dx) || didResize }
+        if direction.contains(.top)    { didResize = node.resize(.north, by: dy) || didResize }
+        if direction.contains(.bottom) { didResize = node.resize(.south, by: dy) || didResize }
+        if direction.contains(.left)   { didResize = node.resize(.west, by: dx) || didResize }
+        if direction.contains(.right)  { didResize = node.resize(.east, by: dx) || didResize }
         if !didResize { return .invalidDestinationNode }
 
         tree_view_update(owner)
@@ -798,23 +802,23 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
     let owner = space_manager_find_view(sm, sid)
     if owner.layout != .tree || owner.tree == nil { return .invalidSourceView }
 
-    guard let node = tree_find_window(owner.tree, target.id) else { return .invalidSourceNode }
+    guard let node = owner.tree?.find(target.id) else { return .invalidSourceNode }
 
     if owner.insertion_point != nil && owner.insertion_point != target.id {
-        if let insert = tree_find_window(owner.tree, owner.insertion_point) {
-            insert.insert_dir = nil
+        if let insert = owner.tree?.find(owner.insertion_point) {
+            insert.insertDirection = nil
             tree_feedback_hide(insert)
         }
     }
 
-    if direction == node.insert_dir {
-        node.insert_dir = nil
+    if direction == node.insertDirection {
+        node.insertDirection = nil
         tree_feedback_hide(node)
         owner.insertion_point = nil
         return .success
     }
 
-    node.insert_dir = direction
+    node.insertDirection = direction
     owner.insertion_point = target.id
     if space_is_visible(owner.sid) { tree_feedback_show(node, direction) }
 
@@ -832,7 +836,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
     if a.id == b.id { return .sameWindow }
 
     guard let aView = window_manager_find_tree_view(wm, a) else { return .invalidSourceNode }
-    if tree_find_window(aView.tree, a.id) == nil { return .invalidSourceNode }
+    if aView.tree?.find(a.id) == nil { return .invalidSourceNode }
 
     if let bView = window_manager_find_managed_window(wm, b) {
         window_manager_unmanage_window(wm, bView, b)
@@ -842,16 +846,15 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
         if b.isSticky { window_manager_make_window_sticky(sm, wm, b, false) }
     }
 
-    guard let aCon = tree_find_window(aView.tree, a.id) else { return .invalidSourceNode }
+    guard let aCon = aView.tree?.find(a.id) else { return .invalidSourceNode }
 
     if window_space(b.id) != aView.sid {
         space_manager_move_window_to_space(aView.sid, b)
         _ = space_manager_wait_for_window_on_space(b.id, aView.sid, 200)
     }
 
-    let node = con_create(.splitH)!
-    node.window_id = b.id
-    tree_insert_relative(aCon, node, .stack)
+    let node = Con(windowID: b.id)
+    aCon.insert(node, toward: .stack)
 
     window_manager_add_managed_window(wm, b, aView)
     window_manager_adjust_layer(b, .below)
@@ -869,15 +872,15 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
     let parent = node.parent ?? node
 
     switch layout {
-    case .tabbed:      tree_set_layout(node, .tabbed)
-    case .splitH:      tree_set_layout(node, .splitH)
-    case .splitV:      tree_set_layout(node, .splitV)
-    case .split:       tree_set_layout(node, parent.layout == .tabbed ? parent.last_split : parent.layout)
-    case .toggle:      _ = tree_toggle_layout(node, false)
-    case .toggleSplit: _ = tree_toggle_layout(node, true)
+    case .tabbed:      node.setLayout(.tabbed)
+    case .splitH:      node.setLayout(.splitH)
+    case .splitV:      node.setLayout(.splitV)
+    case .split:       node.setLayout(parent.layout == .tabbed ? parent.lastSplit : parent.layout)
+    case .toggle:      _ = node.toggleLayout(splitOnly: false)
+    case .toggleSplit: _ = node.toggleLayout(splitOnly: true)
     }
 
-    tree_flatten(owner.tree)
+    owner.tree!.flatten()
     windowManagerTreeApply(owner)
     return .success
 }
@@ -896,14 +899,14 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
     guard let aView else { return .invalidSourceView }
     guard let bView else { return .invalidDestinationView }
 
-    let aCon = tree_find_window(aView.tree, a.id)
-    let bCon = tree_find_window(bView.tree, b.id)
+    let aCon = aView.tree?.find(a.id)
+    let bCon = bView.tree?.find(b.id)
     guard let aCon else { return .invalidSourceNode }
     guard let bCon else { return .invalidDestinationNode }
 
     if aView == bView {
-        tree_insert_con(aCon, bCon, .after)
-        tree_flatten(aView.tree)
+        aCon.place(.after, of: bCon)
+        aView.tree!.flatten()
         windowManagerTreeApply(aView)
     } else {
         space_manager_untile_window(aView, a)
@@ -927,12 +930,12 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
     guard let aView else { return .invalidSourceView }
     guard let bView else { return .invalidDestinationView }
 
-    let aCon = tree_find_window(aView.tree, a.id)
-    let bCon = tree_find_window(bView.tree, b.id)
+    let aCon = aView.tree?.find(a.id)
+    let bCon = bView.tree?.find(b.id)
     guard let aCon else { return .invalidSourceNode }
     guard let bCon else { return .invalidDestinationNode }
 
-    tree_swap(aCon, bCon)
+    aCon.swap(with: bCon)
 
     if aView != bView {
         let aMoved = windowManagerTreeSetView(wm, aCon, bView)
@@ -1189,7 +1192,7 @@ private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window
 {
     guard let owner = window_manager_find_tree_view(wm, target) else { return }
 
-    guard let node = tree_find_window(owner.tree, target.id), node != owner.tree else { return }
+    guard let node = owner.tree?.find(target.id), node != owner.tree else { return }
 
     var zoom = zoom
     if zoom == .parent && node.parent == owner.tree { zoom = .fullscreen }

@@ -71,7 +71,7 @@ final class View
     var uuid: CFString?
     var sid: SpaceID
     var area = Area.zero
-    var tree: Con!
+    var tree: Con?
     var insertion_point: WindowID?
     var layout = ViewType.default
     var top_padding: Int = 0

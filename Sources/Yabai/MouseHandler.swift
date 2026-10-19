@@ -294,7 +294,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     let wm = window_manager_global()
     let target = window_manager_find_window(wm, feedbackWid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
-    if let container = mouseFindCon(targetView, target), container.insert_dir == nil { tree_feedback_hide(container) }
+    if let container = mouseFindCon(targetView, target), container.insertDirection == nil { tree_feedback_hide(container) }
     ms.feedback_wid = nil
     ms.feedback_dir = nil
 }
@@ -345,15 +345,15 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
         if srcView != dstView { view_flush(srcView) }
     } else if srcView == dstView {
         // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
-        guard let container = tree_find_window(srcView.tree, srcWindow.id), let direction else { return }
-        tree_detach(container)
-        tree_insert_relative(dstCon, container, direction)
-        tree_focus(container)
-        tree_flatten(srcView.tree)
+        guard let container = srcView.tree?.find(srcWindow.id), let direction else { return }
+        container.detach()
+        dstCon.insert(container, toward: direction)
+        container.focus()
+        srcView.tree!.flatten()
         if !view_update_auto_padding(srcView) { tree_view_update(srcView) }
         view_flush(srcView)
     } else {
-        dstCon.insert_dir = direction
+        dstCon.insertDirection = direction
         dstView.insertion_point = dstWindow.id
         window_manager_unmanage_window(wm, srcView, srcWindow)
         window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, nil)

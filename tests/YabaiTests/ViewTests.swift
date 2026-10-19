@@ -19,7 +19,7 @@ extension DaemonState
         {
             let target = View(sid: 1)
 
-            target.tree = Yabai.con_create(.splitH)
+            target.tree = Con(layout: .splitH)
             target.layout = .tree
             target.auto_padding = true
             target.top_padding = 10
@@ -40,19 +40,19 @@ extension DaemonState
 
             #expect(view_tiled_count(target) == 0)
 
-            let a = treeTestLeaf(target.tree, 1)
+            let a = treeTestLeaf(target.tree!, 1)
             #expect(view_tiled_count(target) == 1)
 
             // a tabbed container counts once, however many tabs it holds
-            let tabbed = Yabai.con_create(.tabbed)!
-            Yabai.tree_attach(target.tree, tabbed, nil)
+            let tabbed = Con(layout: .tabbed)
+            target.tree!.attach(tabbed, at: nil)
             let b = treeTestLeaf(tabbed, 2)
             let c = treeTestLeaf(tabbed, 3)
             #expect(view_tiled_count(target) == 2)
 
             // a split inside a tab is still part of that one container
-            tree_split(c, .vertical)
-            treeTestLeaf(c.parent, 4)
+            c.split(.vertical)
+            treeTestLeaf(c.parent!, 4)
             #expect(view_tiled_count(target) == 2)
 
             // a window in zoom-fullscreen does not count
@@ -70,7 +70,7 @@ extension DaemonState
             tabbed.layout = .splitH
             #expect(view_tiled_count(target) == 3)
 
-            Yabai.con_free(target.tree)
+            target.tree!.destroy()
             target.tree = nil
             #expect(view_tiled_count(target) == 0)
         }
@@ -80,8 +80,8 @@ extension DaemonState
         {
             let target = autoPaddingView()
 
-            let a = treeTestLeaf(target.tree, 1)
-            let b = treeTestLeaf(target.tree, 2)
+            let a = treeTestLeaf(target.tree!, 1)
+            let b = treeTestLeaf(target.tree!, 2)
 
             let frame = CGRect(x: 0, y: 0, width: 1000, height: 800)
 
@@ -112,17 +112,17 @@ extension DaemonState
             target.isGapEnabled = false
             #expect(view_window_gap(target) == 0)
 
-            Yabai.con_free(target.tree)
+            target.tree!.destroy()
         }
 
         @Test("auto_padding_split_in_tab")
         func autoPaddingSplitInTab()
         {
             let target = autoPaddingView()
-            target.tree.layout = .tabbed
+            target.tree!.layout = .tabbed
 
-            let split = Yabai.con_create(.splitH)!
-            Yabai.tree_attach(target.tree, split, nil)
+            let split = Con(layout: .splitH)
+            target.tree!.attach(split, at: nil)
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(split, 2)
 
@@ -138,7 +138,7 @@ extension DaemonState
             #expect(Int(b.area.x) == 496 + 8)
             #expect(Int(b.area.x) + Int(b.area.w) == 1000)
 
-            Yabai.con_free(target.tree)
+            target.tree!.destroy()
         }
     }
 }

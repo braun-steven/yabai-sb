@@ -59,6 +59,11 @@ func space_manager_global() -> SpaceManager
     g_space_manager
 }
 
+extension SpaceManager
+{
+    static var shared: SpaceManager { g_space_manager }
+}
+
 extension ViewSpacing
 {
     /// The default of the space manager, for the views without their own value.
@@ -292,7 +297,7 @@ func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: I
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_rotate(target.tree, degrees)
+    target.tree!.rotate(by: degrees)
     view_update_and_flush(target)
 
     return true
@@ -303,7 +308,7 @@ func space_manager_mirror_space(_ sm: SpaceManager, _ sid: SpaceID, _ axis: Wind
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_mirror(target.tree, axis == .x ? .vertical : .horizontal)
+    target.tree!.mirror(axis == .x ? .vertical : .horizontal)
     view_update_and_flush(target)
 
     return true
@@ -314,7 +319,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
-    tree_balance(target.tree)
+    target.tree!.balance()
     view_update_and_flush(target)
 
     return true

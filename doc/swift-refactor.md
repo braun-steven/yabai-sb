@@ -144,7 +144,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
 | **4** | **Compiler-checked isolation** | [~] | 4bd853c4 | |
 | 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
-| 4.2 | Process table | [ ] | | |
+| 4.2 | Process table | [x] | d21e375e | Carbon posts `ProcessKey`s; table and startup enumeration on yabai.wm |
 | 4.3 | Remaining globals | [ ] | | |
 | 4.4 | Managers and models `@WM` | [ ] | | |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [ ] | | |
@@ -797,3 +797,25 @@ not here.
 - Next: 4.2 (its commit 13237fa9 also exists outside the workflow). `MouseState.shared` keeps
   `nonisolated(unsafe)` until 4.4.
 - Notes for the next agent: none.
+
+### 2026-10-19 Subphase 4.2 [x]
+- Commits: 13237fa9 (Codex, outside the workflow; reviewed here), d21e375e (one Haiku piece), plus this report.
+- Done: 13237fa9 makes Carbon's process handler (main thread) post only `ProcessKey` events
+  (`carbonProcessLaunched/Terminated/FrontSwitched`). The duplicate-launch, debugger and creation checks, the table
+  updates and `isTerminated` now run on yabai.wm. `ProcessManager.begin` enumerates the running processes inside
+  `WM.shared.queue.sync`, then installs the handler (with no context pointer). `Daemon.run` runs window manager
+  init/begin and space begin in a `WM.shared.queue.sync` too, so earlier Workspace/display events cannot race them.
+  Carbon events arrive only once `NSApp.run` starts. No `nonisolated(unsafe)` was added. Review gap: the Carbon handlers
+  and the launch-retry event re-posted `applicationLaunched/Terminated/FrontSwitched`, an extra queue hop that let
+  later events overtake them. d21e375e calls the application handler in the same event, so the order and the retry
+  delay match the old single hop. `process(for:)` takes a `ProcessKey`, and the stale NOTEs (Process `terminated`,
+  `processTerminated`, `begin` doc) name the threads.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden at d21e375e. No live check (4.6); startup
+  with `queue.sync` from the main thread is first exercised live there.
+- Decisions: kept the table `@WM` (plan option 1), not a `Mutex`. The table and `isTerminated` now change when the
+  event is handled, not when Carbon posts it: handlers of events queued before the termination see the process
+  as alive, as they would if the events had arrived in that order. The KVO observer in `Workspace.swift` still
+  writes `process.policy` on the main thread (a model field, left to 4.4/4.5).
+- Next: 4.3.
+- Notes for the next agent: `ProcessManager.shared` keeps `nonisolated(unsafe)` until 4.4.

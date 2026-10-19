@@ -171,7 +171,7 @@ extension SLS
     {
         var capturedID = wid.rawValue
         guard let images = SLSHWCaptureWindowList(cid, &capturedID, 1, (1 << 11) | (1 << 8)), CFArrayGetCount(images) > 0 else { return nil }
-        return unsafeBitCast(CFArrayGetValueAtIndex(images, 0), to: CGImage.self)
+        return Unmanaged<CGImage>.fromOpaque(CFArrayGetValueAtIndex(images, 0)).retain().takeRetainedValue()
     }
 
     /// A SkyLight transaction: the changes it collects take effect together on `commit()`.

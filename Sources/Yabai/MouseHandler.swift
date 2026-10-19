@@ -91,24 +91,76 @@ struct MouseWindowChange: Sendable
     var changedSize = false
 }
 
-/// The mouse event tap and the state of the mouse action in progress.
-final class MouseState
+/// State owned by the main run-loop event tap, with synchronized settings shared with yabai.wm.
+final class MouseTapState
 {
-    // NOTE: The event tap reads the fields on the main thread, see the NOTE of `DisplayManager.shared`.
-    nonisolated(unsafe) static let shared = MouseState()
-
-    // NOTE: The event tap reads the handle (a +1 CFMachPort) while the event loop tears it down (endEventTap).
-    let handle = Atomic<UnsafeMutableRawPointer?>(nil)
-    // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
+    // NOTE: The main run-loop tap owns click/drag/replay state; it and yabai.wm share modifier config and tap lifetime through locks, and focus tracking through an atomic.
+    private let modifierLock = Mutex(MouseModifierKey.fn)
+    private let portLock = Mutex<UInt>(0)
     let tracksFocus = Atomic(false)
-    var runLoopSource: CFRunLoopSource?
     var consumeMouseClick = false
     var consumeTabClick = false
     var dragDetected = false
     var consumedEvent: CGEvent?
+
+    var modifier: MouseModifierKey
+    {
+        get { modifierLock.withLock { $0 } }
+        set { modifierLock.withLock { $0 = newValue } }
+    }
+
+    func withPort<R>(_ body: (CFMachPort?) -> R) -> R
+    {
+        let retainedPort = portLock.withLock { rawPort -> Unmanaged<CFMachPort>? in
+            guard rawPort != 0 else { return nil }
+            let pointer = UnsafeMutableRawPointer(bitPattern: rawPort)!
+            return Unmanaged<CFMachPort>.fromOpaque(pointer).retain()
+        }
+        guard let retainedPort else { return body(nil) }
+        defer { retainedPort.release() }
+        return body(retainedPort.takeUnretainedValue())
+    }
+
+    func retainPort(_ port: CFMachPort)
+    {
+        portLock.withLock { rawPort in
+            rawPort = UInt(bitPattern: Unmanaged.passRetained(port).toOpaque())
+        }
+    }
+
+    var hasPort: Bool
+    {
+        portLock.withLock { $0 != 0 }
+    }
+
+    func endEventTap(removeSource: () -> Void)
+    {
+        let retainedPointer = portLock.withLock { rawPort -> UnsafeMutableRawPointer? in
+            guard rawPort != 0 else { return nil }
+            let pointer = UnsafeMutableRawPointer(bitPattern: rawPort)!
+            rawPort = 0
+            return pointer
+        }
+        guard let retainedPointer else { return }
+        let port = Unmanaged<CFMachPort>.fromOpaque(retainedPointer).takeUnretainedValue()
+        CGEvent.tapEnable(tap: port, enable: false)
+        CFMachPortInvalidate(port)
+        removeSource()
+        Unmanaged<CFMachPort>.fromOpaque(retainedPointer).release()
+    }
+}
+
+/// The mouse action state used by yabai.wm while a window is being dragged.
+final class MouseState
+{
+    nonisolated(unsafe) static let shared = MouseState()
+
+    // NOTE: The tap state is retained by this daemon-lifetime singleton and is passed unretained as callback context.
+    let tap = MouseTapState()
+    var runLoopSource: CFRunLoopSource?
+
     var action1 = MouseAction.none
     var action2 = MouseAction.none
-    var modifier = MouseModifierKey.fn
     var dropAction = MouseAction.none
     var currentAction = MouseAction.none
     var downLocation = CGPoint.zero
@@ -120,9 +172,10 @@ final class MouseState
     var feedbackWindowID: WindowID?
     var feedbackDirection: InsertDirection?
 
-    var handlePort: CFMachPort?
+    var modifier: MouseModifierKey
     {
-        handle.load(ordering: .relaxed).map { Unmanaged<CFMachPort>.fromOpaque($0).takeUnretainedValue() }
+        get { tap.modifier }
+        set { tap.modifier = newValue }
     }
 }
 
@@ -158,55 +211,57 @@ private func mouseHandleDockGesture(_ event: CGEvent)
 
 private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event: CGEvent, _ context: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>?
 {
-    let ms = Unmanaged<MouseState>.fromOpaque(context!).takeUnretainedValue()
+    let tap = Unmanaged<MouseTapState>.fromOpaque(context!).takeUnretainedValue()
     switch type {
     case .tapDisabledByTimeout, .tapDisabledByUserInput:
-        if let handle = ms.handlePort { CGEvent.tapEnable(tap: handle, enable: true) }
+        tap.withPort { port in
+            if let port { CGEvent.tapEnable(tap: port, enable: true) }
+        }
     case .leftMouseDown, .rightMouseDown:
         let mod = MouseModifiers(event.flags)
         var tabWid: WindowID?
-        if type == .leftMouseDown && mod != ms.modifier.modifiers && TabBar.hitTest(event.location, window: &tabWid) {
+        if type == .leftMouseDown && mod != tap.modifier.modifiers && TabBar.hitTest(event.location, window: &tabWid) {
             TabBar.updatePointer(event.location, pressed: true)
-            ms.consumeTabClick = true
+            tap.consumeTabClick = true
             if let tabWid { EventLoop.post(.tabBarClicked(windowID: tabWid)) }
             return nil
         }
         EventLoop.post(.mouseDown(Handoff(value: .passRetained(event)), modifiers: mod))
-        if mod == ms.modifier.modifiers {
-            ms.consumeMouseClick = true
-            ms.consumedEvent = event
+        if mod == tap.modifier.modifiers {
+            tap.consumeMouseClick = true
+            tap.consumedEvent = event
             return nil
         }
     case .leftMouseUp, .rightMouseUp:
-        if type == .leftMouseUp && ms.consumeTabClick {
+        if type == .leftMouseUp && tap.consumeTabClick {
             TabBar.updatePointer(event.location, pressed: false)
-            ms.consumeTabClick = false
+            tap.consumeTabClick = false
             return nil
         }
         EventLoop.post(.mouseUp(Handoff(value: .passRetained(event))))
-        if ms.consumeMouseClick {
-            if !ms.dragDetected {
-                ms.consumedEvent!.tapPostEvent(proxy)
+        if tap.consumeMouseClick {
+            if !tap.dragDetected {
+                tap.consumedEvent!.tapPostEvent(proxy)
                 event.tapPostEvent(proxy)
             }
-            ms.dragDetected = false
-            ms.consumeMouseClick = false
-            ms.consumedEvent = nil
+            tap.dragDetected = false
+            tap.consumeMouseClick = false
+            tap.consumedEvent = nil
             return nil
         }
     case .leftMouseDragged, .rightMouseDragged:
-        if type == .leftMouseDragged && ms.consumeTabClick {
+        if type == .leftMouseDragged && tap.consumeTabClick {
             TabBar.updatePointer(event.location, pressed: true)
             return nil
         }
-        ms.dragDetected = true
+        tap.dragDetected = true
         _ = pendingMouseDragged.wrappingAdd(1, ordering: .acquiringAndReleasing)
         EventLoop.post(.mouseDragged(Handoff(value: .passRetained(event))))
     case .mouseMoved:
         TabBar.updatePointer(event.location, pressed: false)
-        if !ms.tracksFocus.load(ordering: .relaxed) { return .passUnretained(event) }
+        if !tap.tracksFocus.load(ordering: .relaxed) { return .passUnretained(event) }
         let mod = MouseModifiers(event.flags)
-        if mod == ms.modifier.modifiers { return .passUnretained(event) }
+        if mod == tap.modifier.modifiers { return .passUnretained(event) }
         _ = pendingMouseMoved.wrappingAdd(1, ordering: .acquiringAndReleasing)
         EventLoop.post(.mouseMoved(Handoff(value: .passRetained(event)), modifiers: mod))
     default:
@@ -343,21 +398,19 @@ extension MouseState
     }
 
     //
-    // NOTE: The tap gets the state as its context, unretained: the state is a global that lives as long as the daemon.
+    // NOTE: The main run-loop tap receives its dedicated state unretained; MouseState.shared retains it for daemon lifetime.
     //
 
     @discardableResult
     func beginEventTap(mask: UInt32) -> Bool
     {
-        if handle.load(ordering: .relaxed) != nil { return true }
+        if tap.hasPort { return true }
         let moveMask = UInt32(1 << CGEventType.mouseMoved.rawValue)
-        guard let port = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return false }
-        tracksFocus.store(mask & moveMask != 0, ordering: .relaxed)
-        handle.store(Unmanaged.passRetained(port).toOpaque(), ordering: .relaxed)
+        guard let port = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(tap).toOpaque()) else { return false }
+        tap.tracksFocus.store(mask & moveMask != 0, ordering: .relaxed)
+        tap.retainPort(port)
         if !CGEvent.tapIsEnabled(tap: port) {
-            CFMachPortInvalidate(port)
-            Unmanaged<CFMachPort>.passUnretained(port).release()
-            handle.store(nil, ordering: .releasing)
+            tap.endEventTap {}
             return false
         }
         let source = CFMachPortCreateRunLoopSource(nil, port, 0)!
@@ -368,13 +421,11 @@ extension MouseState
 
     func endEventTap()
     {
-        guard let port = handlePort else { return }
-        CGEvent.tapEnable(tap: port, enable: false)
-        CFMachPortInvalidate(port)
-        CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource!, .commonModes)
-        runLoopSource = nil
-        Unmanaged<CFMachPort>.passUnretained(port).release()
-        handle.store(nil, ordering: .releasing)
+        tap.endEventTap {
+            guard let runLoopSource else { return }
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+            self.runLoopSource = nil
+        }
     }
 }
 

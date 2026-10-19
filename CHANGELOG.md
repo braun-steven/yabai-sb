@@ -56,6 +56,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - An application that cannot be observed after launch is tried again with a growing delay and given up on after about 36 seconds instead of every 100ms forever; activating it tries again. Each attempt stops at the first notification the application does not respond to, instead of waiting for the timeout of every notification
 - Moving a container to another display, or swapping windows across spaces, moves its windows with one operation and waits for them to arrive before laying them out
 - Fixed a crash of the process that runs signal commands, which left a crash report each time signals were sent
+- Query responses (*query*, *rule --list*, *signal --list*) are compact JSON with alphabetically sorted keys and numbers in their shortest form (`0`, `1512.5`, `0.9` instead of `0.0000`, `1512.5000`, `0.9000`); non-finite numbers are the strings "nan", "inf" and "-inf". Keys, values and types are unchanged; pipe the output through `jq` for indented JSON
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

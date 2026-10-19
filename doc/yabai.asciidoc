@@ -626,6 +626,8 @@ The name of the provided fields must be present in the dataformat of the corresp
 DATAFORMAT
 ^^^^^^^^^^
 
+Responses are compact JSON on a single line, with keys in alphabetical order rather than the order listed below. A query of several entities returns an array of them. Numbers use their shortest form; a non-finite number is the string 'nan', 'inf' or '-inf'.
+
 DISPLAY
 [subs=+macros]
 ----
@@ -824,6 +826,8 @@ ARGUMENT
 DATAFORMAT
 ^^^^^^^^^^
 
+*--list* returns a JSON array of these objects on a single line, with keys in alphabetical order.
+
 [subs=+macros]
 ----
 {
@@ -1011,6 +1015,8 @@ Arbitrary command executed through */usr/bin/env sh -c*
 
 DATAFORMAT
 ^^^^^^^^^^
+
+*--list* returns a JSON array of these objects on a single line, with keys in alphabetical order.
 
 [subs=+macros]
 ----

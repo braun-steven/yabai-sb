@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-18
+.\"      Date: 2026-10-19
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-18" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-19" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -961,6 +961,8 @@ A comma\-separated string containing the name of fields to include in the output
 The name of the provided fields must be present in the dataformat of the corresponding entity.
 .SS "DATAFORMAT"
 .sp
+Responses are compact JSON on a single line, with keys in alphabetical order rather than the order listed below. A query of several entities returns an array of them. Numbers use their shortest form; a non\-finite number is the string \fInan\fP, \fIinf\fP or \fI\-inf\fP.
+.sp
 DISPLAY
 .sp
 .if n .RS 4
@@ -1233,6 +1235,8 @@ If this rule matches multiple windows, only the first window that matched will b
 System Integrity Protection must be partially disabled.
 .RE
 .SS "DATAFORMAT"
+.sp
+\fB\-\-list\fP returns a JSON array of these objects on a single line, with keys in alphabetical order.
 .sp
 .if n .RS 4
 .nf
@@ -1519,6 +1523,8 @@ Triggered when macOS wakes from sleep.
 .sp
 Arbitrary command executed through \fB/usr/bin/env sh \-c\fP
 .SS "DATAFORMAT"
+.sp
+\fB\-\-list\fP returns a JSON array of these objects on a single line, with keys in alphabetical order.
 .sp
 .if n .RS 4
 .nf

@@ -49,6 +49,8 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
+Builds from before and after the JSONEncoder queries (refactor phase 5.5) format query json differently; normalize both outputs with `jq -S .` per response before diffing.
+
 ### Comparing performance builds
 
 `perf.py <label> --samples 50 --out <results.json>` records raw timings, nearest-rank

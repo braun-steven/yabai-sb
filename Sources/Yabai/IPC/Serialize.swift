@@ -86,15 +86,15 @@ private func viewWindowList(_ sid: SpaceID) -> String
     return jsonList(windowList.map { Int32(bitPattern: $0.rawValue) })
 }
 
-private func viewFirstWindow(_ view: View) -> WindowID
+private func viewFirstWindow(_ view: View) -> WindowID?
 {
-    guard let tree = view.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return 0 }
+    guard let tree = view.tree, let first = tree_descend_focused(tree_first_leaf(tree)) else { return nil }
     return first.window_id
 }
 
-private func viewLastWindow(_ view: View) -> WindowID
+private func viewLastWindow(_ view: View) -> WindowID?
 {
-    guard let tree = view.tree, let last = tree_last_leaf(tree) else { return 0 }
+    guard let tree = view.tree, let last = tree_last_leaf(tree) else { return nil }
     return last.window_id
 }
 
@@ -110,10 +110,10 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
     json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
     json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
     json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
-    json.property(SpaceProperty.display,      "\"display\":\(display_manager_display_id_arrangement(space_display_id(sid)))")
+    json.property(SpaceProperty.display,      "\"display\":\(space_display_id(sid).map { display_manager_display_id_arrangement($0) } ?? 0)")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
-    json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view).rawValue))")
-    json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view).rawValue))")
+    json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)?.rawValue ?? 0))")
+    json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)?.rawValue ?? 0))")
     json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.current_space_id))")
     json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(space_is_visible(sid)))")
     json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(space_is_fullscreen(sid)))")
@@ -186,10 +186,11 @@ private func wanted(_ flags: UInt64, _ properties: UInt64) -> Bool
     flags & properties != 0
 }
 
-private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID, _ flags: UInt64)
+// NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
+private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
 {
-    if wanted(flags, WindowProperty.display) { info.display = display_manager_display_id_arrangement(space_display_id(sid)) }
-    if wanted(flags, WindowProperty.space)   { info.space   = space_manager_mission_control_index(sid) }
+    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { space_display_id($0) }.map { display_manager_display_id_arrangement($0) } ?? 0 }
+    if wanted(flags, WindowProperty.space)   { info.space   = sid.map { space_manager_mission_control_index($0) } ?? 0 }
 }
 
 private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ flags: UInt64)
@@ -229,8 +230,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     let application = window.application!
     let wid = window.id
 
-    var info = WindowInfo()
-    info.id               = wid
+    var info = WindowInfo(id: wid)
     info.pid              = application.pid
     info.app              = application.name
     info.scratchpad       = window.scratchpad ?? ""
@@ -251,7 +251,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     if wanted(flags, WindowProperty.canResize) { info.canResize = window_can_resize(window) }
     windowInfoSetLevels(&info, wid, flags)
 
-    var sid: SpaceID = 0
+    var sid: SpaceID?
     if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isVisible) {
         sid = window_space(wid)
         windowInfoSetSpace(&info, sid, flags)
@@ -267,7 +267,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.isVisible) {
-        info.isVisible = SLS.windowIsOrderedIn(connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || space_is_visible(sid))
+        info.isVisible = SLS.windowIsOrderedIn(connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { space_is_visible($0) } ?? false))
     }
 
     return info
@@ -280,8 +280,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 /// `window_info_for_window_id`
 func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 {
-    var info = WindowInfo()
-    info.id         = wid
+    var info = WindowInfo(id: wid)
     info.app        = ""
     info.scratchpad = ""
     info.role       = ""
@@ -299,14 +298,14 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 
     if wanted(flags, WindowProperty.title)      { info.title    = SLS.windowTitle(connection, wid) ?? "" }
     if wanted(flags, WindowProperty.frame)      { info.frame    = SLS.windowBounds(connection, wid) ?? .zero }
-    if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = window_parent(wid) == 0 }
+    if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = window_parent(wid) == nil }
     if wanted(flags, WindowProperty.isSticky)   { info.isSticky = window_is_sticky(wid) }
     windowInfoSetLevels(&info, wid, flags)
 
     if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isFullscreen) {
         let sid = window_space(wid)
         windowInfoSetSpace(&info, sid, flags)
-        if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = space_is_fullscreen(sid) }
+        if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = sid.map { space_is_fullscreen($0) } ?? false }
     }
 
     return info
@@ -368,7 +367,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     let focused = leaf && node.window_id == window_manager_global().focused_window_id
 
     output += String(repeating: " ", count: depth)
-    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id.rawValue))"
+    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.window_id?.rawValue ?? 0))"
     output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
     output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
 

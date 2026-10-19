@@ -90,7 +90,8 @@ import CPrivate
     let wm = window_manager_global()
     let sm = space_manager_global()
     if wm.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.menubar_opacity
+        let isFullscreen = sm.current_space_id.map { space_is_fullscreen($0) } ?? false
+        let alpha: Float = isFullscreen ? 1.0 : wm.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
@@ -167,7 +168,7 @@ import CPrivate
     debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
 
     let wm = window_manager_global()
-    if let focusedWindow = window_manager_find_window(wm, wm.focused_window_id) {
+    if let focusedWindowID = wm.focused_window_id, let focusedWindow = window_manager_find_window(wm, focusedWindowID) {
         window_manager_set_window_opacity(wm, focusedWindow, wm.active_window_opacity)
         window_manager_center_mouse(wm, focusedWindow)
     }

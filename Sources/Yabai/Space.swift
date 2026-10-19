@@ -8,10 +8,10 @@ import YabaiCore
 // src/space.c. The predicates that classify the windows of a query are in YabaiCore (SpaceWindow).
 //
 
-/// `space_display_id`
-func space_display_id(_ sid: SpaceID) -> DisplayID
+/// `space_display_id`; nil when the window server does not know the display of the space.
+func space_display_id(_ sid: SpaceID) -> DisplayID?
 {
-    guard let uuid = SLS.managedDisplay(connection_global(), forSpace: sid) else { return 0 }
+    guard let uuid = SLS.managedDisplay(connection_global(), forSpace: sid) else { return nil }
     return displayID(uuid)
 }
 
@@ -72,5 +72,6 @@ func space_is_fullscreen(_ sid: SpaceID) -> Bool
 /// `space_is_visible`: the space is the one that its display shows.
 func space_is_visible(_ sid: SpaceID) -> Bool
 {
-    return sid == display_space_id(space_display_id(sid))
+    guard let did = space_display_id(sid) else { return false }
+    return sid == display_space_id(did)
 }

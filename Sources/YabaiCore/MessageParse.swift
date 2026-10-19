@@ -320,7 +320,7 @@ public func directionDescription(_ direction: Direction) -> String
     }
 }
 
-/// The displays a display selector asks for. 0 is no display.
+/// The displays a display selector asks for.
 public enum DisplayQuery: Sendable
 {
     case arrangement(Int)
@@ -333,7 +333,7 @@ public enum DisplayQuery: Sendable
     case cursor
 }
 
-/// The spaces a space selector asks for. 0 is no space.
+/// The spaces a space selector asks for.
 public enum SpaceQuery: Sendable
 {
     case missionControl(Int)
@@ -372,23 +372,23 @@ public protocol SelectorContext
     associatedtype Window
 
     /// `display_manager_active_display_id`
-    var activeDisplay: DisplayID { get }
+    var activeDisplay: DisplayID? { get }
     /// `space_manager_active_space`
-    var activeSpace: SpaceID { get }
+    var activeSpace: SpaceID? { get }
     /// `window_manager_acting_window`
     var actingWindow: Window? { get }
 
-    func display(_ query: DisplayQuery) -> DisplayID
+    func display(_ query: DisplayQuery) -> DisplayID?
     /// The id of a display label (`label_find_name` on the labels of the display manager).
     func displayLabel(_ label: Token) -> DisplayID?
-    func space(_ query: SpaceQuery) -> SpaceID
+    func space(_ query: SpaceQuery) -> SpaceID?
     /// The id of a space label.
     func spaceLabel(_ label: Token) -> SpaceID?
     func window(_ query: WindowQuery<Window>) -> Window?
 }
 
 /// `struct selector`: didParse is false when the token is no valid selector. A valid selector may still find nothing
-/// (0 or nil), and then the parser has reported why.
+/// (nil), and then the parser has reported why.
 public struct Selection<Value>
 {
     public var token: Token
@@ -400,44 +400,32 @@ public struct Selection<Value>
 // NOTE: Reports that a selector found nothing, described by what, and passes the result through.
 //
 
-private func require(_ rsp: inout Response, _ id: DisplayID, _ what: String) -> DisplayID
+private func require<Value>(_ rsp: inout Response, _ value: Value?, _ what: String) -> Value?
 {
-    if id == 0 { rsp.fail("could not locate \(what).\n") }
-    return id
-}
-
-private func require(_ rsp: inout Response, _ id: SpaceID, _ what: String) -> SpaceID
-{
-    if id == 0 { rsp.fail("could not locate \(what).\n") }
-    return id
-}
-
-private func require<Window>(_ rsp: inout Response, _ window: Window?, _ what: String) -> Window?
-{
-    if window == nil { rsp.fail("could not locate \(what).\n") }
-    return window
+    if value == nil { rsp.fail("could not locate \(what).\n") }
+    return value
 }
 
 /// `parse_display_selector`
-public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: DisplayID, optional: Bool, _ context: C) -> Selection<DisplayID>
+public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: DisplayID?, optional: Bool, _ context: C) -> Selection<DisplayID?>
 {
-    var result = Selection(token: token, didParse: true, value: DisplayID(0))
+    var result = Selection<DisplayID?>(token: token, didParse: true, value: nil)
 
     switch token.value {
     case .int(let index):
         result.value = context.display(.arrangement(index))
-        if result.value == 0 { rsp.fail("could not locate display with arrangement index '\(index)'.\n") }
+        if result.value == nil { rsp.fail("could not locate display with arrangement index '\(index)'.\n") }
     case .string:
         let direction = parseDirection(token)
         let relative = direction != nil || token.equals(Argument.prev) || token.equals(Argument.next)
 
-        if relative && acting == 0 {
+        if relative && acting == nil {
             rsp.fail("could not locate the selected display.\n")
-        } else if let direction {
+        } else if let direction, let acting {
             result.value = require(&rsp, context.display(.inDirection(direction, from: acting)), "\(directionDescription(direction)) display")
-        } else if token.equals(Argument.prev) {
+        } else if token.equals(Argument.prev), let acting {
             result.value = require(&rsp, context.display(.prev(acting)), "the previous display")
-        } else if token.equals(Argument.next) {
+        } else if token.equals(Argument.next), let acting {
             result.value = require(&rsp, context.display(.next(acting)), "the next display")
         } else if token.equals(Argument.first) {
             result.value = require(&rsp, context.display(.first), "the first display")
@@ -464,22 +452,22 @@ public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ to
 }
 
 /// `parse_space_selector`
-public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: SpaceID, optional: Bool, _ context: C) -> Selection<SpaceID>
+public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: SpaceID?, optional: Bool, _ context: C) -> Selection<SpaceID?>
 {
-    var result = Selection(token: token, didParse: true, value: SpaceID(0))
+    var result = Selection<SpaceID?>(token: token, didParse: true, value: nil)
 
     switch token.value {
     case .int(let index):
         result.value = context.space(.missionControl(index))
-        if result.value == 0 { rsp.fail("could not locate space with mission-control index '\(index)'.\n") }
+        if result.value == nil { rsp.fail("could not locate space with mission-control index '\(index)'.\n") }
     case .string:
         let relative = token.equals(Argument.prev) || token.equals(Argument.next)
 
-        if relative && acting == 0 {
+        if relative && acting == nil {
             rsp.fail("could not locate the selected space.\n")
-        } else if token.equals(Argument.prev) {
+        } else if token.equals(Argument.prev), let acting {
             result.value = require(&rsp, context.space(.prev(acting)), "the previous space")
-        } else if token.equals(Argument.next) {
+        } else if token.equals(Argument.next), let acting {
             result.value = require(&rsp, context.space(.next(acting)), "the next space")
         } else if token.equals(Argument.first) {
             result.value = require(&rsp, context.space(.first), "the first space")
@@ -586,24 +574,24 @@ public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ tok
 //
 
 /// `parse_optional_display_selector`
-public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ did: inout DisplayID, _ context: C) -> Bool
+public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ did: inout DisplayID?, _ context: C) -> Bool
 {
     let selector = parseDisplaySelector(&rsp, message.next(), acting: did, optional: true, context)
     if !selector.token.isValid { return true }
-    if !selector.didParse || selector.value == 0 { return false }
+    guard selector.didParse, let selected = selector.value else { return false }
 
-    did = selector.value
+    did = selected
     return true
 }
 
 /// `parse_optional_space_selector`
-public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ sid: inout SpaceID, _ context: C) -> Bool
+public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ sid: inout SpaceID?, _ context: C) -> Bool
 {
     let selector = parseSpaceSelector(&rsp, message.next(), acting: sid, optional: true, context)
     if !selector.token.isValid { return true }
-    if !selector.didParse || selector.value == 0 { return false }
+    guard selector.didParse, let selected = selector.value else { return false }
 
-    sid = selector.value
+    sid = selected
     return true
 }
 
@@ -691,12 +679,22 @@ public func parseQueryTarget<C: SelectorContext>(_ rsp: inout Response, _ domain
 
     if option.equals("--display") {
         var did = context.activeDisplay
-        return parseOptionalDisplaySelector(&rsp, &message, &did, context) ? .display(did) : nil
+        guard parseOptionalDisplaySelector(&rsp, &message, &did, context) else { return nil }
+        guard let did else {
+            rsp.fail("could not locate the selected display.\n")
+            return nil
+        }
+        return .display(did)
     }
 
     if option.equals("--space") {
         var sid = context.activeSpace
-        return parseOptionalSpaceSelector(&rsp, &message, &sid, context) ? .space(sid) : nil
+        guard parseOptionalSpaceSelector(&rsp, &message, &sid, context) else { return nil }
+        guard let sid else {
+            rsp.fail("could not locate the selected space.\n")
+            return nil
+        }
+        return .space(sid)
     }
 
     if option.equals("--window") {

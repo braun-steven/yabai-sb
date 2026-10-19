@@ -76,11 +76,11 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
         pending_window_focus_set(true)
         EventLoop.post(.windowFocused(windowID: ax_window_id(element)))
     case kAXWindowMovedNotification:
-        EventLoop.post(.windowMoved(windowID: ax_window_id(element)))
+        if let windowID = ax_window_id(element) { EventLoop.post(.windowMoved(windowID: windowID)) }
     case kAXWindowResizedNotification:
-        EventLoop.post(.windowResized(windowID: ax_window_id(element)))
+        if let windowID = ax_window_id(element) { EventLoop.post(.windowResized(windowID: windowID)) }
     case kAXTitleChangedNotification:
-        EventLoop.post(.windowTitleChanged(windowID: ax_window_id(element)))
+        if let windowID = ax_window_id(element) { EventLoop.post(.windowTitleChanged(windowID: windowID)) }
     case kAXMenuOpenedNotification:
         EventLoop.post(.menuOpened(windowID: ax_window_id(element)))
     case kAXMenuClosedNotification:
@@ -157,12 +157,12 @@ func application_unobserve(_ target: Application)
     target.observer_ref = nil
 }
 
-/// `application_focused_window`: the id of the focused window of the application, or 0.
-func application_focused_window(_ target: Application) -> WindowID
+/// `application_focused_window`: the id of the focused window of the application, or nil.
+func application_focused_window(_ target: Application) -> WindowID?
 {
     var windowRef: CFTypeRef?
     AXUIElementCopyAttributeValue(target.ref, kAXFocusedWindowAttribute as CFString, &windowRef)
-    guard let windowRef else { return 0 }
+    guard let windowRef else { return nil }
 
     return ax_window_id(unsafeDowncast(windowRef, to: AXUIElement.self))
 }

@@ -13,7 +13,7 @@ final class Window
 {
     var application: Application!
     var ref: AXUIElement!
-    var id: WindowID = 0
+    var id: WindowID
 
     //
     // NOTE: valid is true until the window is invalidated. Events that are already queued for a window hold on to it,
@@ -39,6 +39,8 @@ final class Window
     var isWindowed = false
     var isMovable = false
     var isResizable = false
+    /// Set by window_destroy; queued events and border updates then ignore the window.
+    var isDestroyed = false
 
     //
     // NOTE: What the rules applied to the window: isManagedByRule while a rule made it managed (manage=on), until a
@@ -52,6 +54,11 @@ final class Window
     var opacity: Float = 0
     var layer = WindowLayer.auto
     var scratchpad: String?
+
+    init(id: WindowID)
+    {
+        self.id = id
+    }
 }
 
 extension Window: Equatable
@@ -136,25 +143,25 @@ private func windowDisplayUUID(_ wid: WindowID) -> String?
     return SLS.bestManagedDisplay(connection_global(), forRect: frame)
 }
 
-/// `window_display_id`
-func window_display_id(_ wid: WindowID) -> DisplayID
+/// `window_display_id`: nil when the window server does not know the display of the window.
+func window_display_id(_ wid: WindowID) -> DisplayID?
 {
-    guard let uuid = windowDisplayUUID(wid) else { return 0 }
+    guard let uuid = windowDisplayUUID(wid) else { return nil }
     return displayID(uuid)
 }
 
 /// `window_display_space`
-private func windowDisplaySpace(_ wid: WindowID) -> SpaceID
+private func windowDisplaySpace(_ wid: WindowID) -> SpaceID?
 {
-    guard let uuid = windowDisplayUUID(wid) else { return 0 }
+    guard let uuid = windowDisplayUUID(wid) else { return nil }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
 }
 
-/// `window_space`: the first space of the window, or the current space of its display.
-func window_space(_ wid: WindowID) -> SpaceID
+/// `window_space`: the first space of the window, or the current space of its display; nil when neither is known.
+func window_space(_ wid: WindowID) -> SpaceID?
 {
-    let sid = SLS.spaces(connection_global(), forWindows: [wid]).first ?? 0
-    return sid != 0 ? sid : windowDisplaySpace(wid)
+    let sid = SLS.spaces(connection_global(), forWindows: [wid]).first.flatMap { SpaceID(nonzero: $0.rawValue) }
+    return sid ?? windowDisplaySpace(wid)
 }
 
 /// `window_space_list`: the spaces of the window (more than one for a sticky window).
@@ -307,10 +314,10 @@ private func windowQuery(_ wid: WindowID) -> SLS.QueriedWindow?
     return windows.count == 1 ? windows[0] : nil
 }
 
-/// `window_parent`
-func window_parent(_ wid: WindowID) -> WindowID
+/// `window_parent`: nil for a window without a parent.
+func window_parent(_ wid: WindowID) -> WindowID?
 {
-    return windowQuery(wid)?.parent ?? 0
+    return windowQuery(wid)?.parent
 }
 
 /// `window_level`
@@ -444,21 +451,20 @@ func window_refresh_ax_properties(_ target: Window)
 /// `window_create`: retains the element.
 func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: WindowID) -> Window
 {
-    let result = Window()
+    let result = Window(id: windowID)
 
     result.application = owner
     result.ref = windowRef
-    result.id = windowID
     result.frame = window_ax_frame(result)
     result.title = window_title(result)
-    result.is_root = window_parent(result.id) == 0 || windowIsRoot(result)
+    result.is_root = window_parent(result.id) == nil || windowIsRoot(result)
 
     result.hasShadow = window_shadow(result.id)
     result.isMinimized = windowIsMinimized(result)
 
     window_refresh_ax_properties(result)
 
-    result.isFullscreen = window_is_fullscreen(result) || space_is_fullscreen(window_space(result.id))
+    result.isFullscreen = window_is_fullscreen(result) || (window_space(result.id).map { space_is_fullscreen($0) } ?? false)
     result.isSticky = window_is_sticky(result.id)
 
     return result
@@ -467,7 +473,7 @@ func window_create(_ owner: Application, _ windowRef: AXUIElement, _ windowID: W
 /// `window_destroy`: releases what the window holds; the object goes away with the last event that refers to it.
 func window_destroy(_ target: Window)
 {
-    target.id = 0
+    target.isDestroyed = true
     target.role = nil
     target.subrole = nil
     target.title = nil

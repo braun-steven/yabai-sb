@@ -9,16 +9,16 @@ import YabaiCore
 //
 
 /// `tree_test_window`
-private func treeTestWindow(_ node: Con?) -> WindowID
+private func treeTestWindow(_ node: Con?) -> WindowID?
 {
-    guard let node, con_is_leaf(node) else { return 0 }
+    guard let node, con_is_leaf(node) else { return nil }
     return node.window_id
 }
 
 /// `tree_test_child`
-private func treeTestChild(_ node: Con, _ index: Int32) -> WindowID
+private func treeTestChild(_ node: Con, _ index: Int32) -> WindowID?
 {
-    return index < node.child_count ? treeTestWindow(node.children[Int(index)]) : 0
+    return index < node.child_count ? treeTestWindow(node.children[Int(index)]) : nil
 }
 
 /// A share of space in percent, rounded like the C tests did.
@@ -38,7 +38,7 @@ private func treeTestCon(_ windowID: WindowID) -> Con
 /// `tree_view_test_view`
 private func treeViewTestView(_ root: Con?) -> View
 {
-    let target = View()
+    let target = View(sid: 1)
     target.layout = .tree
     target.tree = root
     return target

@@ -22,7 +22,7 @@ struct sa_window_order
 {
     var a_wid: WindowID
     var order: Int32
-    var b_wid: WindowID
+    var b_wid: WindowID?
 }
 
 private enum SAPath
@@ -354,15 +354,15 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
     return payload.send(SA_OPCODE_SPACE_DESTROY)
 }
 
-@discardableResult func scripting_addition_move_space_to_display(_ srcSid: SpaceID, _ dstSid: SpaceID, _ srcPrevSid: SpaceID, _ focus: Bool) -> Bool
+@discardableResult func scripting_addition_move_space_to_display(_ srcSid: SpaceID, _ dstSid: SpaceID, _ srcPrevSid: SpaceID?, _ focus: Bool) -> Bool
 {
-    var payload = SAPayload(); payload.pack(srcSid); payload.pack(dstSid); payload.pack(srcPrevSid); payload.pack(focus)
+    var payload = SAPayload(); payload.pack(srcSid); payload.pack(dstSid); payload.pack(srcPrevSid?.rawValue ?? 0); payload.pack(focus)
     return payload.send(SA_OPCODE_SPACE_MOVE)
 }
 
 @discardableResult func scripting_addition_move_space_after_space(_ srcSid: SpaceID, _ dstSid: SpaceID, _ focus: Bool) -> Bool
 {
-    scripting_addition_move_space_to_display(srcSid, dstSid, 0, focus)
+    scripting_addition_move_space_to_display(srcSid, dstSid, nil, focus)
 }
 
 @discardableResult func scripting_addition_move_window(_ wid: WindowID, _ x: Int32, _ y: Int32) -> Bool
@@ -411,7 +411,7 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 {
     var payload = SAPayload(); payload.pack(Int32(animations.count))
     for animation in animations {
-        payload.pack(animation.skip ? 0 : animation.wid)
+        payload.pack(animation.skip ? 0 : animation.wid.rawValue)
         if !animation.skip { payload.pack(animation.proxy.id) }
     }
     return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_IN)
@@ -421,15 +421,15 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 {
     var payload = SAPayload(); payload.pack(Int32(animations.count))
     for animation in animations {
-        payload.pack(animation.skip ? 0 : animation.wid)
+        payload.pack(animation.skip ? 0 : animation.wid.rawValue)
         if !animation.skip { payload.pack(animation.proxy.id) }
     }
     return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_OUT)
 }
 
-@discardableResult func scripting_addition_order_window(_ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
+@discardableResult func scripting_addition_order_window(_ aWid: WindowID, _ order: Int32, _ bWid: WindowID?) -> Bool
 {
-    var payload = SAPayload(); payload.pack(aWid); payload.pack(order); payload.pack(bWid)
+    var payload = SAPayload(); payload.pack(aWid); payload.pack(order); payload.pack(bWid?.rawValue ?? 0)
     return payload.send(SA_OPCODE_WINDOW_ORDER)
 }
 
@@ -468,7 +468,7 @@ func scripting_addition_payload_changed()
     for offset in stride(from: 0, to: list.count, by: 256) { // SA_WINDOW_ORDER_CHUNK
         let chunk = list[offset..<min(offset + 256, list.count)]
         var payload = SAPayload(); payload.pack(Int32(chunk.count))
-        for entry in chunk { payload.pack(entry.a_wid); payload.pack(entry.order); payload.pack(entry.b_wid) }
+        for entry in chunk { payload.pack(entry.a_wid); payload.pack(entry.order); payload.pack(entry.b_wid?.rawValue ?? 0) }
         result = payload.send(SA_OPCODE_WINDOW_ORDER_LIST) && result
     }
     return result
@@ -480,7 +480,7 @@ func scripting_addition_payload_changed()
     var payload = SAPayload(); payload.pack(Int32(windows.count))
     for wid in windows {
         SLSWindowIsOrderedIn(connection_global(), wid.rawValue, &orderedIn)
-        payload.pack(orderedIn != 0 ? 0 : wid)
+        payload.pack(orderedIn != 0 ? 0 : wid.rawValue)
     }
     return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
 }

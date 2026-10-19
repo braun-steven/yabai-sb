@@ -16,7 +16,7 @@ enum SLS
     struct QueriedWindow
     {
         let id: WindowID
-        let parent: WindowID
+        let parent: WindowID?
         let tags: UInt64
         let attributes: UInt64
         let level: Int32
@@ -131,7 +131,7 @@ enum SLS
 
         while SLSWindowIteratorAdvance(iterator) {
             result.append(QueriedWindow(id: WindowID(SLSWindowIteratorGetWindowID(iterator)),
-                                        parent: WindowID(SLSWindowIteratorGetParentID(iterator)),
+                                        parent: WindowID(nonzero: SLSWindowIteratorGetParentID(iterator)),
                                         tags: SLSWindowIteratorGetTags(iterator),
                                         attributes: SLSWindowIteratorGetAttributes(iterator),
                                         level: SLSWindowIteratorGetLevel(iterator)))
@@ -170,10 +170,10 @@ enum SLS
         return SLSCopyActiveMenuBarDisplayIdentifier(cid) as String?
     }
 
-    /// `SLSManagedDisplayGetCurrentSpace`
-    static func currentSpace(_ cid: Int32, forDisplay uuid: String) -> SpaceID
+    /// `SLSManagedDisplayGetCurrentSpace`; nil when the window server reports no space (0).
+    static func currentSpace(_ cid: Int32, forDisplay uuid: String) -> SpaceID?
     {
-        return SpaceID(SLSManagedDisplayGetCurrentSpace(cid, uuid as CFString))
+        return SpaceID(nonzero: SLSManagedDisplayGetCurrentSpace(cid, uuid as CFString))
     }
 
     /// `SLSCopyManagedDisplaySpaces`: one dictionary per display, as `display_space_list` reads it.

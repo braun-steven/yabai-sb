@@ -65,18 +65,22 @@ End your final message with exactly one of:
 2. Do only your subphase. Work that belongs to a later subphase goes into your report's "Next"; a bug goes into
    **Open issues** (or its own fix commit, see **Rules**).
 3. **Plan, then implement through Haiku subagents.** Before you edit anything, read what the subphase touches and write
-   a plan in your own context: the files, symbols and call sites that change, and the order of the changes. Decide
+   a plan in your own context: the files, symbols and call sites that change (search for every reference to a
+   renamed symbol), and the order of the changes. Decide
    every open question in the plan yourself (design, API and model choices, comment wording, anything that changes
    behavior). Split the plan into pieces, one subagent per piece: when the subphase names several independent changes
    (say foo, bar and baz), spawn one subagent for each; when it is a single change, spawn one. Spawn them with the
    Agent tool: `subagent_type: "general-purpose"`, `model: "haiku"` (Haiku 5.5), `effort: "high"`. Spawn them one at a
-   time, never in parallel: they share the working tree. Each prompt stands alone: the exact files and symbols, the
-   exact change (old and new text, the rename, or the rule in precise words), the **Rules** and **Target conventions**
-   that apply, and these instructions: edit with `Edit`; do not commit; do not build or test; if the change needs a
-   decision the plan does not cover, stop and report it instead of guessing; finish with the files changed and
-   anything you were unsure about. When a subagent returns, check its `git diff` yourself: each hunk must be the
-   change its piece asked for. Send a wrong or incomplete hunk back to a new Haiku subagent with the fix (a one-line
-   fix you may make yourself). For a large diff, have `output-summarizer` run `git diff` and list every hunk that
+   time, never in parallel: they share the working tree. Each prompt stands alone: the files and symbols the plan
+   names, the exact change (old and new text, the rename, or the rule in precise words), the **Rules** and **Target
+   conventions** that apply, and these instructions: edit with `Edit`; do not commit. You may build and test to check your piece; the subphase agent runs the full build and tests after all pieces. The file
+   list is a starting point, not a limit: when the change renames or alters a symbol that other files use, search the
+   tree for the old name (`grep` across `Sources/`, `tests/` and `doc/`) and update every reference the change breaks,
+   in any file, and list each extra file in the report. If the change needs a decision the plan does not cover, stop
+   and report it instead of guessing; finish with the files changed and anything you were unsure about. When a
+   subagent returns, check its `git diff` yourself: each hunk must be the change its piece asked for, or a reference
+   the change broke. Send a wrong or incomplete hunk back to a new Haiku subagent with the fix (a one-line fix you
+   may make yourself). For a large diff, have `output-summarizer` run `git diff` and list every hunk that
    goes beyond its piece. If you cannot spawn subagents, implement the plan yourself, piece by piece.
 4. Commit in small steps; every commit builds and passes the tests. After each piece's diff check, build and test it
    through `output-summarizer` if you can spawn it; otherwise run them yourself and filter the output

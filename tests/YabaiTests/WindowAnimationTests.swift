@@ -21,7 +21,7 @@ func windowFrameClose()
 func windowFrameGroupByApplication()
 {
     let owners = [Application(), Application()]
-    let windows = (0..<5).map { _ in Window() }
+    let windows = (0..<5).map { _ in Window(id: 0) }
     let ownerRefs = [AXUIElementCreateApplication(1), AXUIElementCreateApplication(2)]
     let windowRefs = (3...7).map { AXUIElementCreateApplication(pid_t($0)) }
     for i in 0..<2 { owners[i].ref = ownerRefs[i] }

@@ -22,8 +22,7 @@ private func windowManagerFree(_ wm: WindowManager)
 /// A valid window with an id and an application, as window_create sets them.
 private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
 {
-    let result = Window()
-    result.id = id
+    let result = Window(id: id)
     result.application = owner
     return result
 }
@@ -56,11 +55,11 @@ private func applicationCreate(_ name: String) -> Application
 
     wm.pending_focus_time = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
     #expect(window_manager_pending_focus_window(wm) == nil)
-    #expect(wm.pending_focus_window_id == 0)
+    #expect(wm.pending_focus_window_id == nil)
 
     window_manager_set_pending_focus(wm, 7)
     #expect(window_manager_pending_focus_window(wm) == nil)
-    #expect(wm.pending_focus_window_id == 0)
+    #expect(wm.pending_focus_window_id == nil)
 }
 
 @Test("window_unresolved_list") func windowUnresolvedList()
@@ -118,17 +117,17 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 
 @Test("window_child_windows_collect") func windowChildWindowsCollect()
 {
-    var parentList: [WindowID] = [3, 1, 9, 1]
+    var parentList: [WindowID?] = [3, 1, 9, 1]
     #expect(window_manager_collect_child_windows(1, &parentList, [4, 2, 8, 3]) == [2, 3, 4])
 
-    var directParent: [WindowID] = [1, 1, 1]
+    var directParent: [WindowID?] = [1, 1, 1]
     #expect(window_manager_collect_child_windows(1, &directParent, [2, 3, 4]).count == 3)
 
     // NOTE: a cycle does not repeat windows
-    var cycleParent: [WindowID] = [1, 2]
+    var cycleParent: [WindowID?] = [1, 2]
     #expect(window_manager_collect_child_windows(1, &cycleParent, [2, 1]).count == 2)
 
-    var emptyParent: [WindowID] = []
+    var emptyParent: [WindowID?] = []
     #expect(window_manager_collect_child_windows(1, &emptyParent, []).isEmpty)
 }
 
@@ -180,7 +179,7 @@ private struct WindowStrings
 
     var effects = RuleEffects()
     #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
-    #expect(effects.sid == 0)
+    #expect(effects.sid == nil)
     #expect(effects.sticky == true)
     #expect(effects.mouseFollowsFocus == nil)
     #expect(effects.flags.contains(.layer) == false)

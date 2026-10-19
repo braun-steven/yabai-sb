@@ -65,7 +65,7 @@ enum Event: Sendable
     case applicationHidden(pid: pid_t)
     case windowCreated(Handoff<Unmanaged<AXUIElement>>)
     case windowDestroyed(Handoff<Window>)
-    case windowFocused(windowID: WindowID)
+    case windowFocused(windowID: WindowID?)
     case windowFocusDeferred(windowID: WindowID)
     case windowMoved(windowID: WindowID)
     case windowResized(windowID: WindowID)
@@ -95,7 +95,7 @@ enum Event: Sendable
     case missionControlCheckForExit
     case missionControlExit
     case dockDidRestart
-    case menuOpened(windowID: WindowID)
+    case menuOpened(windowID: WindowID?)
     case menuClosed
     case menuBarHiddenChanged
     case dockDidChangePref

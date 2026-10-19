@@ -12,7 +12,7 @@ import YabaiCore
 
 /// `window_manager_find_window_on_space_by_rank_filtering_window`: the window with the rank (from 1, top first) among the
 /// known windows of the space, without filterWid.
-func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: SpaceID, _ rank: Int, _ filterWid: WindowID) -> Window?
+func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: SpaceID, _ rank: Int, _ filterWid: WindowID?) -> Window?
 {
     guard let windowList = space_window_list(sid, false) else { return nil }
 
@@ -35,19 +35,20 @@ func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowMa
 //
 
 /// `window_manager_find_window_at_point_from`
-private func windowManagerFindWindowAtPointFrom(_ wm: WindowManager, _ point: CGPoint, _ startWid: WindowID, _ order: Int32) -> Window?
+private func windowManagerFindWindowAtPointFrom(_ wm: WindowManager, _ point: CGPoint, _ startWid: WindowID?, _ order: Int32) -> Window?
 {
     var point = point
     var windowPoint = CGPoint.zero
     var windowID: UInt32 = 0
     var windowCid: Int32 = 0
 
-    SLSFindWindowAndOwner(connection_global(), Int32(bitPattern: startWid.rawValue), order, 0, &point, &windowPoint, &windowID, &windowCid)
+    SLSFindWindowAndOwner(connection_global(), Int32(bitPattern: startWid?.rawValue ?? 0), order, 0, &point, &windowPoint, &windowID, &windowCid)
     while windowID != 0 && connection_global() == windowCid {
         SLSFindWindowAndOwner(connection_global(), Int32(bitPattern: windowID), -1, 0, &point, &windowPoint, &windowID, &windowCid)
     }
 
-    return window_manager_find_window(wm, WindowID(windowID))
+    guard let foundID = WindowID(nonzero: windowID) else { return nil }
+    return window_manager_find_window(wm, foundID)
 }
 
 /// `window_manager_find_window_at_point_filtering_window`
@@ -59,7 +60,7 @@ func window_manager_find_window_at_point_filtering_window(_ wm: WindowManager, _
 /// `window_manager_find_window_at_point`
 func window_manager_find_window_at_point(_ wm: WindowManager, _ point: CGPoint) -> Window?
 {
-    return windowManagerFindWindowAtPointFrom(wm, point, 0, 1)
+    return windowManagerFindWindowAtPointFrom(wm, point, nil, 1)
 }
 
 /// `window_manager_find_window_below_cursor`
@@ -78,21 +79,22 @@ func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager
     if tree_next(node, direction, .off, false, &result) != .done { return nil }
     guard let result, con_is_leaf(result), result != node else { return nil }
 
-    return window_manager_find_window(wm, result.window_id)
+    return result.window_id.flatMap { window_manager_find_window(wm, $0) }
 }
 
 /// `window_manager_active_tree_view`
 private func windowManagerActiveTreeView(_ sm: SpaceManager) -> View?
 {
-    let owner = space_manager_find_view(sm, space_manager_active_space())
+    guard let sid = space_manager_active_space() else { return nil }
+    let owner = space_manager_find_view(sm, sid)
     return owner.tree != nil ? owner : nil
 }
 
 /// `window_manager_find_window_for_con`
 private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) -> Window?
 {
-    guard let node, con_is_leaf(node) else { return nil }
-    return window_manager_find_window(wm, node.window_id)
+    guard let node, con_is_leaf(node), let wid = node.window_id else { return nil }
+    return window_manager_find_window(wm, wid)
 }
 
 /// The leaf of the window in the tree of the active space.
@@ -133,7 +135,7 @@ func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowMan
 /// `window_manager_find_recent_managed_window`
 func window_manager_find_recent_managed_window(_ wm: WindowManager) -> Window?
 {
-    guard let target = window_manager_find_window(wm, wm.last_window_id) else { return nil }
+    guard let lastWindowID = wm.last_window_id, let target = window_manager_find_window(wm, lastWindowID) else { return nil }
     if window_manager_find_managed_window(wm, target) == nil { return nil }
 
     return target
@@ -226,7 +228,7 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Wind
 {
     guard let owner = windowManagerActiveTreeView(sm) else { return nil }
 
-    var bestID: WindowID = 0
+    var bestID: WindowID?
     var bestArea: Float = largest ? 0 : Float.greatestFiniteMagnitude
 
     var node = tree_first_leaf(owner.tree)
@@ -242,7 +244,7 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Wind
         node = tree_next_leaf(leaf)
     }
 
-    return bestID != 0 ? window_manager_find_window(wm, bestID) : nil
+    return bestID.flatMap { window_manager_find_window(wm, $0) }
 }
 
 /// `window_manager_find_largest_managed_window`

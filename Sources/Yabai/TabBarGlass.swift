@@ -10,7 +10,7 @@ import YabaiCore
 
 private struct Entry
 {
-    let windowID: WindowID
+    let windowID: WindowID?
     let title: CFString?
     let icon: CGImage?
     let text: CGColor
@@ -29,7 +29,7 @@ private struct Snapshot: @unchecked Sendable
     let backdrop: TabBarBackdrop
     let appearance: TabBarAppearance
     let cardRadius: CGFloat
-    let sid: SpaceID
+    let sid: SpaceID?
     let aboveWid: WindowID
     let level: Int32
     let subLevel: Int32
@@ -115,7 +115,7 @@ func tabBarGlassInnerRect(_ bounds: CGRect) -> CGRect
 @MainActor
 private final class TabButton: NSButton
 {
-    var windowID: WindowID = 0
+    var windowID: WindowID?
     var icon: CGImage?
 
     init()
@@ -140,6 +140,7 @@ private final class TabButton: NSButton
 
     @objc private func selectTab()
     {
+        guard let windowID else { return }
         EventLoop.post(.tabBarClicked(windowID: windowID))
     }
 }
@@ -302,7 +303,8 @@ private final class Panel
     private func updatePointer()
     {
         panel.effectiveAppearance.performAsCurrentDrawingAppearance {
-            let hovered = buttons.first { $0.windowID == pointerWindowID }
+            // NOTE: A tab without a window is never hovered, not even while the pointer is on no tab at all (nil).
+            let hovered = buttons.first { $0.windowID != nil && $0.windowID == pointerWindowID }
             feedback.isHidden = hovered == nil
             if let hovered {
                 feedback.frame = hovered.frame
@@ -549,16 +551,16 @@ private final class Panel
 //
 // NOTE: The object is created on the event loop thread, but AppKit only allows windows and views on the main thread.
 // The panel is therefore created by the first update that reaches the main queue. Until then hide and order are no-ops,
-// and the id of the panel is 0.
+// and the id of the panel is nil.
 //
 
 final class TabBarGlass: @unchecked Sendable
 {
     private let lock = NSLock()
-    private var panelId: WindowID = 0
+    private var panelId: WindowID?
     private var panel: Panel? // main queue only
 
-    var id: WindowID { lock.withLock { panelId } }
+    var id: WindowID? { lock.withLock { panelId } }
 
     @MainActor
     fileprivate func apply(_ snapshot: Snapshot)
@@ -566,7 +568,7 @@ final class TabBarGlass: @unchecked Sendable
         let panel = self.panel ?? Panel()
         if self.panel == nil {
             self.panel = panel
-            lock.withLock { panelId = panel.id }
+            lock.withLock { panelId = WindowID(nonzero: panel.id.rawValue) }
         }
         panel.apply(snapshot)
     }
@@ -589,7 +591,7 @@ final class TabBarGlass: @unchecked Sendable
     {
         panel?.close()
         panel = nil
-        lock.withLock { panelId = 0 }
+        lock.withLock { panelId = nil }
     }
 
     func pointer(windowID: WindowID?, pressed: Bool)
@@ -616,10 +618,10 @@ func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> 
     return color
 }
 
-func tab_bar_glass_move_to_space(_ wid: WindowID, _ sid: SpaceID)
+func tab_bar_glass_move_to_space(_ wid: WindowID, _ sid: SpaceID?)
 {
     let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
-    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid.rawValue)
+    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid?.rawValue ?? 0)
 }
 
 func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
@@ -662,7 +664,7 @@ func tab_bar_glass_release(_ bar: TabBar)
     bar.glass = nil
 }
 
-func tab_bar_glass_panel_id(_ bar: TabBar) -> WindowID
+func tab_bar_glass_panel_id(_ bar: TabBar) -> WindowID?
 {
-    bar.glass?.id ?? 0
+    bar.glass?.id
 }

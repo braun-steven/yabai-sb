@@ -13,8 +13,7 @@ import YabaiCore
 {
     let wm = window_manager_global()
 
-    let windowID = ax_window_id(element)
-    if windowID == 0 { return }
+    guard let windowID = ax_window_id(element) else { return }
 
     if window_manager_find_window(wm, windowID) != nil { return }
 
@@ -32,7 +31,7 @@ import YabaiCore
     window_manager_remove_one_shot_rules(wm)
 
     if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-        window_manager_manage_window(space_manager_global(), wm, window, window_manager_origin_space(wm, window), 0)
+        if let sid = window_manager_origin_space(wm, window) { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
     }
 
     if window_manager_is_window_eligible(window) {
@@ -45,7 +44,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_DESTROYED)`
 @WM func windowDestroyed(_ window: Window?)
 {
-    guard let window, window.id != 0 else {
+    guard let window, !window.isDestroyed else {
         debug("EVENT_HANDLER_WINDOW_DESTROYED: window has already been destroyed, ignoring event..\n")
         return
     }
@@ -63,7 +62,7 @@ import YabaiCore
     }
 
     if ms.window == window { ms.window = nil }
-    if ms.ffm_window_id == window.id { ms.ffm_window_id = 0 }
+    if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
     if window.is_eligible {
         eventSignalPush(.windowDestroyed, signalObject(window))
@@ -93,10 +92,13 @@ import YabaiCore
 }
 
 /// `EVENT_HANDLER(WINDOW_FOCUSED)`
-@WM func windowFocused(_ windowID: WindowID)
+@WM func windowFocused(_ windowID: WindowID?)
 {
     pendingWindowFocus.store(false, ordering: .releasing)
     let wm = window_manager_global()
+
+    // NOTE: A focus event without a window id (the element is not a window) only clears the pending focus.
+    guard let windowID else { return }
 
     guard let window = window_manager_find_window(wm, windowID) else {
         window_manager_add_lost_focused_event(wm, windowID)
@@ -120,10 +122,11 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
     if space_manager_global().skip_window_focus_animation {
-        let sid = window_space(window.id)
-        if sid != 0 && !space_is_visible(sid) {
+        if let sid = window_space(window.id), !space_is_visible(sid) {
             SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
-            space_manager_focus_space_using_gesture(space_display_id(sid), sid)
+            if let did = space_display_id(sid) {
+                space_manager_focus_space_using_gesture(did, sid)
+            }
         }
     }
 
@@ -220,7 +223,7 @@ import YabaiCore
         window_manager_wait_for_native_fullscreen_transition()
 
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            window_manager_manage_window(space_manager_global(), wm, window, window_space(window.id), 0)
+            if let sid = window_space(window.id) { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
         }
     } else {
         if ms.current_action == .move && ms.window == window {
@@ -255,7 +258,7 @@ import YabaiCore
     window_refresh_ax_properties(window)
 
     let view = window_manager_find_managed_window(wm, window)
-    let nextFocus = view.map { window_manager_tree_focus_candidate(wm, $0, window) } ?? 0
+    let nextFocus = view.flatMap { window_manager_tree_focus_candidate(wm, $0, window) }
 
     if window.id == wm.last_window_id {
         wm.last_window_id = wm.focused_window_id
@@ -286,11 +289,11 @@ import YabaiCore
     window_refresh_ax_properties(window)
 
     let sid = space_manager_active_space()
-    if space_manager_is_window_on_space(sid, window) {
+    if let sid, space_manager_is_window_on_space(sid, window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            let lastWindow = window_manager_find_window(wm, wm.last_window_id)
-            let insertionPoint = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { WindowID(0) }
+            let lastWindow = wm.last_window_id.flatMap { window_manager_find_window(wm, $0) }
+            let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
             window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
         }
     } else {

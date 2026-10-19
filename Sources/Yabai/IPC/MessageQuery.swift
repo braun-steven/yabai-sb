@@ -51,10 +51,15 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
         switch target {
         case .all:              displayManagerQueryDisplays(&rsp, properties.flags)
         case .display(let did): rsp.write("\(displaySerialize(did, properties.flags))\n")
-        case .space(let sid):   rsp.write("\(displaySerialize(space_display_id(sid), properties.flags))\n")
+        case .space(let sid):
+            if let did = space_display_id(sid) {
+                rsp.write("\(displaySerialize(did, properties.flags))\n")
+            } else {
+                rsp.fail("could not find display details.\n")
+            }
         case .window(let window):
-            if let window {
-                rsp.write("\(displaySerialize(window_display_id(window.id), properties.flags))\n")
+            if let window, let did = window_display_id(window.id) {
+                rsp.write("\(displaySerialize(did, properties.flags))\n")
             } else {
                 rsp.fail("could not find window to retrieve display details.\n")
             }
@@ -107,7 +112,12 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
             return
         }
 
-        let view = space_manager_find_view(space_manager_global(), actingSid)
+        guard let sid = actingSid else {
+            rsp.fail("the selected space does not use the tree layout.\n")
+            return
+        }
+
+        let view = space_manager_find_view(space_manager_global(), sid)
         if !treeSerialize(&rsp, view) {
             rsp.fail("the selected space does not use the tree layout.\n")
         }

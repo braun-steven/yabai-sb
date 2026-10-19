@@ -101,8 +101,8 @@ public struct Grid: Equatable, Sendable
 /// rule leaves them alone.
 public struct RuleEffects: Sendable
 {
-    public var did: DisplayID = 0
-    public var sid: SpaceID = 0
+    public var did: DisplayID?
+    public var sid: SpaceID?
     public var opacity: Float = 0
     public var manage: Bool?
     public var sticky: Bool?
@@ -118,10 +118,10 @@ public struct RuleEffects: Sendable
     /// `rule_combine_effects`: applies the effects of a later rule that matches the same window to self.
     public mutating func combine(_ effects: RuleEffects)
     {
-        if effects.did != 0 { did = effects.did }
-        if effects.sid != 0 { sid = effects.sid }
+        if let did = effects.did { self.did = did }
+        if let sid = effects.sid { self.sid = sid }
 
-        if effects.did != 0 || effects.sid != 0 {
+        if effects.did != nil || effects.sid != nil {
             if effects.flags.contains(.followSpace) {
                 flags.insert(.followSpace)
             } else {
@@ -282,16 +282,16 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
         } else if key.equals("display") {
             value = parseRuleFollowPrefix(&rule.effects, value)
             let selector = parseDisplaySelector(&rsp, value, acting: context.activeDisplay, optional: false, context)
-            if selector.didParse && selector.value != 0 {
-                rule.effects.did = selector.value
+            if selector.didParse, let did = selector.value {
+                rule.effects.did = did
             } else {
                 didParse = false
             }
         } else if key.equals("space") {
             value = parseRuleFollowPrefix(&rule.effects, value)
             let selector = parseSpaceSelector(&rsp, value, acting: context.activeSpace, optional: false, context)
-            if selector.didParse && selector.value != 0 {
-                rule.effects.sid = selector.value
+            if selector.didParse, let sid = selector.value {
+                rule.effects.sid = sid
             } else {
                 didParse = false
             }

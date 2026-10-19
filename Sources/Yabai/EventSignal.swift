@@ -151,11 +151,11 @@ func describeSpace(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer
         let sid = sm.current_space_id
         let recentSid = sm.last_space_id
 
-        let index = space_manager_mission_control_index(sid)
-        let recentIndex = space_manager_mission_control_index(recentSid)
+        let index = sid.map { space_manager_mission_control_index($0) } ?? 0
+        let recentIndex = recentSid.map { space_manager_mission_control_index($0) } ?? 0
 
-        es.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
-        es.addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid.rawValue))")
+        es.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid?.rawValue ?? 0))")
+        es.addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid?.rawValue ?? 0))")
 
         es.addArgument("YABAI_SPACE_INDEX", "\(index)")
         es.addArgument("YABAI_RECENT_SPACE_INDEX", "\(recentIndex)")
@@ -183,11 +183,11 @@ func describeDisplay(_ es: inout PendingSignal, _ context: UnsafeMutableRawPoint
         let did = dm.current_display_id
         let recentDid = dm.last_display_id
 
-        let index = display_manager_display_id_arrangement(did)
-        let recentIndex = display_manager_display_id_arrangement(recentDid)
+        let index = did.map { display_manager_display_id_arrangement($0) } ?? 0
+        let recentIndex = recentDid.map { display_manager_display_id_arrangement($0) } ?? 0
 
-        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
-        es.addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid.rawValue))")
+        es.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did?.rawValue ?? 0))")
+        es.addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid?.rawValue ?? 0))")
 
         es.addArgument("YABAI_DISPLAY_INDEX", "\(index)")
         es.addArgument("YABAI_RECENT_DISPLAY_INDEX", "\(recentIndex)")

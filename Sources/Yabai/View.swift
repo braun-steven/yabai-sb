@@ -69,10 +69,10 @@ enum ViewSpacing: CaseIterable, Sendable
 final class View
 {
     var uuid: CFString?
-    var sid: SpaceID = 0
+    var sid: SpaceID
     var area = Area.zero
     var tree: Con!
-    var insertion_point: WindowID = 0
+    var insertion_point: WindowID?
     var layout = ViewType.default
     var top_padding: Int = 0
     var bottom_padding: Int = 0
@@ -86,6 +86,11 @@ final class View
     var isValid = false
     var isDirty = false
     var isUnpadded = false
+
+    init(sid: SpaceID)
+    {
+        self.sid = sid
+    }
 }
 
 extension View: Equatable
@@ -100,7 +105,7 @@ func view_window_gap(_ target: View) -> Int
 }
 
 /// `view_add_window`
-func view_add_window(_ target: View, _ win: Window, _ insertionPoint: WindowID)
+func view_add_window(_ target: View, _ win: Window, _ insertionPoint: WindowID?)
 {
     tree_add_window(target, win, insertionPoint)
     if !view_update_auto_padding(target) { tree_view_update(target) }
@@ -178,7 +183,7 @@ private func view_update_with_auto_padding(_ target: View, _ unpadded: Bool)
 {
     target.isUnpadded = unpadded
 
-    let did = space_display_id(target.sid)
+    guard let did = space_display_id(target.sid) else { return }
     let frame = display_bounds_constrained(did, false)
     target.area = view_root_area(target, frame)
 
@@ -218,9 +223,8 @@ func view_update_and_flush(_ target: View)
 /// `view_create`: the view of a space, with the layout of the space manager for user spaces.
 func view_create(_ sid: SpaceID) -> View
 {
-    let target = View()
+    let target = View(sid: sid)
 
-    target.sid = sid
     target.uuid = SLS.spaceNameObject(connection_global(), sid)
     target.isPaddingEnabled = true
     target.isGapEnabled = true
@@ -246,7 +250,7 @@ func view_create(_ sid: SpaceID) -> View
 /// `view_clear`
 func view_clear(_ target: View)
 {
-    target.insertion_point = 0
+    target.insertion_point = nil
     tree_view_clear(target)
     view_update(target)
 }

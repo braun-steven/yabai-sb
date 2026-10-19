@@ -139,11 +139,11 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
 // is invalid and the remaining commands must not be run.
 //
 
-private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID) -> Bool
+private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
     let sm = space_manager_global()
 
-    if selSid != 0 {
+    if selSid != nil {
         rsp.fail("command '\(command)' for domain '\(domain)' does not support the '\(Config.spaceSelector)' selector\n")
         return false
     }
@@ -260,13 +260,13 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
     }
 }
 
-private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID)
+private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?)
 {
     let sm = space_manager_global()
     let value = message.next()
 
     if !value.isValid {
-        let layout = selSid != 0 ? space_manager_find_view(sm, selSid).layout : sm.layout
+        let layout = selSid.map { space_manager_find_view(sm, $0).layout } ?? sm.layout
         rsp.write("\(layout.rawValue)\n")
         return
     }
@@ -276,11 +276,11 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
         return
     }
 
-    if selSid == 0 {
+    if selSid == nil {
         space_manager_set_layout_for_all_spaces(sm, layout)
-    } else if !space_is_user(selSid) {
+    } else if let selSid, !space_is_user(selSid) {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
-    } else {
+    } else if let selSid {
         space_manager_find_view(sm, selSid).overrides.insert(.layout)
         space_manager_set_layout_for_space(sm, selSid, layout)
     }
@@ -487,15 +487,15 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
 /// `handle_domain_config`
 func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
-    var selSid: SpaceID = 0
+    var selSid: SpaceID?
     let selector = message.next()
     var command = selector
 
     if selector.equals(Config.spaceSelector) {
-        let spaceSelector = parseSpaceSelector(&rsp, message.next(), acting: 0, optional: false, CSelectorContext())
-        guard spaceSelector.didParse, spaceSelector.value != 0 else { return }
+        let spaceSelector = parseSpaceSelector(&rsp, message.next(), acting: nil, optional: false, CSelectorContext())
+        guard spaceSelector.didParse, let target = spaceSelector.value else { return }
 
-        selSid = spaceSelector.value
+        selSid = target
         command = message.next()
     }
 
@@ -506,7 +506,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 }
 
 /// One command of the config domain. Returns false when the remaining commands must not be run.
-private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID) -> Bool
+private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
     let wm = window_manager_global()
     let sm = space_manager_global()
@@ -585,7 +585,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.insertFeedbackColor) {
         _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
     } else if let spacing = spacing(for: command) {
-        let view = selSid != 0 ? space_manager_find_view(sm, selSid) : nil
+        let view = selSid.map { space_manager_find_view(sm, $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
         let token = message.next()
         switch token.value {
@@ -619,7 +619,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             wm.focus_wrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
-        if selSid != 0 {
+        if let selSid {
             var enabled = space_manager_find_view(sm, selSid).auto_padding
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_space(sm, selSid, enabled) }
         } else {

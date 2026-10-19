@@ -61,11 +61,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     let sm = space_manager_global()
 
     if wm.menubar_opacity != 1.0 {
-        let alpha: Float = space_is_fullscreen(sm.current_space_id) ? 1.0 : wm.menubar_opacity
+        let isFullscreen = sm.current_space_id.map { space_is_fullscreen($0) } ?? false
+        let alpha: Float = isFullscreen ? 1.0 : wm.menubar_opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    let view = space_manager_find_view(sm, sm.current_space_id)
+    let view = sm.current_space_id.map { space_manager_find_view(sm, $0) }
 
     if space_manager_refresh_application_windows(sm) {
         if let focusedWindow = window_manager_focused_window(wm), window_manager_find_lost_focused_event(wm, focusedWindow.id) {
@@ -74,14 +75,14 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         }
     }
 
-    if !mission_control_is_active() && space_is_user(sm.current_space_id) {
-        window_manager_validate_and_check_for_windows_on_space(sm, wm, sm.current_space_id)
+    if !mission_control_is_active(), let sid = sm.current_space_id, space_is_user(sid) {
+        window_manager_validate_and_check_for_windows_on_space(sm, wm, sid)
 
-        if view_is_invalid(view) {
+        if let view, view_is_invalid(view) {
             view_update(view)
         }
 
-        if view_is_dirty(view) {
+        if let view, view_is_dirty(view) {
             view_flush(view)
         }
     }
@@ -95,7 +96,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     sm.last_space_id = sm.current_space_id
     sm.current_space_id = space_manager_active_space()
 
-    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id.rawValue))\n")
+    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.spaceChanged, nil)
@@ -109,7 +110,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 
     let newDid = display_manager_active_display_id()
     if dm.current_display_id == newDid {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: newly activated display \(dm.current_display_id) was already active (\(newDid))! ignoring event..\n")
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: newly activated display \(dm.current_display_id?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0))! ignoring event..\n")
         return
     }
 
@@ -117,15 +118,15 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     dm.current_display_id = newDid
 
     sm.last_space_id = sm.current_space_id
-    sm.current_space_id = display_space_id(dm.current_display_id)
+    sm.current_space_id = dm.current_display_id.flatMap(display_space_id)
 
-    let expectedDisplayID = space_display_id(sm.current_space_id)
+    let expectedDisplayID = sm.current_space_id.flatMap(space_display_id)
     if dm.current_display_id != expectedDisplayID {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id.rawValue)) did not match \(expectedDisplayID)! ignoring event..\n")
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id) \(Int64(bitPattern: sm.current_space_id.rawValue))\n")
+    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.displayChanged, nil)

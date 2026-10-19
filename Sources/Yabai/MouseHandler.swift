@@ -112,9 +112,9 @@ final class MouseState
     var last_moved_time: UInt64 = 0
     var window: Window!
     var window_frame = CGRect.zero
-    var ffm_window_id: WindowID = 0
+    var ffm_window_id: WindowID?
     var direction: ResizeHandle = []
-    var feedback_wid: WindowID = 0
+    var feedback_wid: WindowID?
     var feedback_dir: InsertDirection?
 
     /// `mouse_handle_load`
@@ -168,11 +168,11 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         if let handle = ms.handlePort { CGEvent.tapEnable(tap: handle, enable: true) }
     case .leftMouseDown, .rightMouseDown:
         let mod = mouseModFromCGFlags(event.flags)
-        var tabWid: WindowID = 0
+        var tabWid: WindowID?
         if type == .leftMouseDown && mod != ms.modifier.modifiers && tab_bar_hit_test(event.location, &tabWid) {
             tab_bar_pointer_update(event.location, pressed: true)
             ms.consume_tab_click = true
-            EventLoop.post(.tabBarClicked(windowID: tabWid))
+            if let tabWid { EventLoop.post(.tabBarClicked(windowID: tabWid)) }
             return nil
         }
         EventLoop.post(.mouseDown(Handoff(value: .passRetained(event)), modifiers: mod))
@@ -290,12 +290,12 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 
 @WM func mouse_feedback_clear(_ ms: MouseState)
 {
-    if ms.feedback_wid == 0 { return }
+    guard let feedbackWid = ms.feedback_wid else { return }
     let wm = window_manager_global()
-    let target = window_manager_find_window(wm, ms.feedback_wid)
+    let target = window_manager_find_window(wm, feedbackWid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
     if let container = mouseFindCon(targetView, target), container.insert_dir == nil { tree_feedback_hide(container) }
-    ms.feedback_wid = 0
+    ms.feedback_wid = nil
     ms.feedback_dir = nil
 }
 
@@ -320,7 +320,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 {
     if srcView.sid == dstView.sid || dstView.layout == .float { view_flush(srcView); return }
     window_manager_unmanage_window(wm, srcView, target)
-    window_manager_manage_window(sm, wm, target, dstView.sid, 0)
+    window_manager_manage_window(sm, wm, target, dstView.sid, nil)
 }
 
 //
@@ -356,7 +356,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
         dstCon.insert_dir = direction
         dstView.insertion_point = dstWindow.id
         window_manager_unmanage_window(wm, srcView, srcWindow)
-        window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, 0)
+        window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, nil)
     }
 }
 

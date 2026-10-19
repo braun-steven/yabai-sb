@@ -70,7 +70,7 @@ enum FocusWrapping: String, CaseIterable, Sendable
 /// `struct feedback_window` (view.h): the outline of a container.
 struct FeedbackWindow
 {
-    var id: WindowID = 0
+    var id: WindowID?
     var context: CGContext?
 }
 
@@ -84,8 +84,8 @@ struct FeedbackWindow
 struct ConRender
 {
     weak var raised: Con!
-    var raised_anchor: WindowID = 0
-    var raised_card: WindowID = 0
+    var raised_anchor: WindowID?
+    var raised_card: WindowID?
     var feedback_window = FeedbackWindow()
     let tab_bar = TabBar()
 }
@@ -103,7 +103,7 @@ final class Con
     var layout = ConLayout.splitH
     var last_split = ConLayout.splitH
     var percent: Float = 0
-    var window_id: WindowID = 0
+    var window_id: WindowID?
     var area = Area.zero
     var zoom = ConZoom.none
     var selected = false
@@ -157,7 +157,7 @@ func con_free(_ node: Con!)
 /// `con_is_leaf`
 func con_is_leaf(_ node: Con) -> Bool
 {
-    return node.window_id != 0
+    return node.window_id != nil
 }
 
 /// `con_orientation`
@@ -485,9 +485,9 @@ func tree_flatten(_ node: Con!)
 }
 
 /// `tree_find_window`
-func tree_find_window(_ root: Con!, _ windowID: WindowID) -> Con!
+func tree_find_window(_ root: Con!, _ windowID: WindowID?) -> Con!
 {
-    guard let root, windowID != 0 else { return nil }
+    guard let root, let windowID else { return nil }
     if root.window_id == windowID { return root }
 
     for i in 0..<root.child_count {
@@ -561,7 +561,7 @@ func tree_window_count(_ node: Con) -> Int
 func tree_collect_window_ids(_ node: Con, _ list: inout [WindowID])
 {
     if con_is_leaf(node) {
-        if node.window_id != 0 { list.append(node.window_id) }
+        if let windowID = node.window_id { list.append(windowID) }
         return
     }
 

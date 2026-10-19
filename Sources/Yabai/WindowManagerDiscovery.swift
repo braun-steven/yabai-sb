@@ -126,7 +126,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 //
 
 /// `window_manager_origin_space`
-func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> SpaceID
+func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> SpaceID?
 {
     switch wm.window_origin_mode {
     case .focused: return space_manager_global().current_space_id
@@ -143,8 +143,7 @@ func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowMana
     var result: [Window] = []
 
     for windowRef in axElements(windowList) {
-        let windowID = ax_window_id(windowRef)
-        if windowID == 0 || window_manager_find_window(wm, windowID) != nil { continue }
+        guard let windowID = ax_window_id(windowRef), window_manager_find_window(wm, windowID) == nil else { continue }
 
         if let target = window_manager_create_and_add_window(sm, wm, owner, windowRef, windowID, true) { result.append(target) }
     }
@@ -206,9 +205,9 @@ private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: Window
         if error == .cannotComplete { break }
 
         if let role {
-            let elementWid = CFEqual(role, kAXWindowRole as CFString) ? element.windowID : 0
+            let elementWid = CFEqual(role, kAXWindowRole as CFString) ? element.windowID : nil
 
-            if elementWid != 0, let i = unresolved.firstIndex(of: elementWid) {
+            if let elementWid, let i = unresolved.firstIndex(of: elementWid) {
                 unresolved[i] = unresolved[unresolved.count - 1]
                 unresolved.removeLast()
                 window_manager_create_and_add_window(sm, wm, owner, element.ref, elementWid, false)
@@ -228,8 +227,6 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
 
     var emptyCount = 0
     for windowRef in windowList {
-        let windowID = ax_window_id(windowRef)
-
         //
         // @cleanup
         //
@@ -240,7 +237,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
         // we attempt to do an equality check to see if we have correctly discovered the number of windows to track.
         //
 
-        if windowID == 0 {
+        guard let windowID = ax_window_id(windowRef) else {
             emptyCount += 1
             continue
         }

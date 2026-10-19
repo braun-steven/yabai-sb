@@ -39,12 +39,13 @@ func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm
 /// `window_manager_apply_rule_effects_to_window`
 func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: RuleEffects)
 {
-    if effects.sid != 0 || effects.did != 0 {
-        if !window_is_fullscreen(target) && !space_is_fullscreen(window_space(target.id)) {
-            let sid = effects.sid != 0 ? effects.sid : display_space_id(effects.did)
-            window_manager_send_window_to_space(sm, wm, target, sid, true)
-            if effects.flags.contains(.followSpace) || effects.fullscreen == true {
-                _ = space_manager_focus_space(sid)
+    if effects.sid != nil || effects.did != nil {
+        if !window_is_fullscreen(target) && !(window_space(target.id).map(space_is_fullscreen) ?? false) {
+            if let sid = effects.sid ?? effects.did.flatMap({ display_space_id($0) }) {
+                window_manager_send_window_to_space(sm, wm, target, sid, true)
+                if effects.flags.contains(.followSpace) || effects.fullscreen == true {
+                    _ = space_manager_focus_space(sid)
+                }
             }
         }
     }

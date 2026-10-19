@@ -84,8 +84,8 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    let cursorSid = display_space_id(display_manager_point_display_id(point))
-    let dstView = space_manager_find_view(space_manager_global(), cursorSid)
+    let cursorSid = display_manager_point_display_id(point).flatMap(display_space_id)
+    let dstView = cursorSid.map { space_manager_find_view(space_manager_global(), $0) }
 
     var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.window.id)
     if window == nil { window = window_manager_find_window_at_point(wm, point) }
@@ -145,7 +145,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
                            y: ms.window_frame.origin.y + (point.y - ms.down_location.y))
 
     let did = display_manager_point_display_id(newPoint)
-    if did != 0 {
+    if let did {
         let bounds = display_bounds_constrained(did, false)
         if newPoint.y < bounds.origin.y { newPoint.y = bounds.origin.y }
     }
@@ -236,9 +236,9 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     for i in 0..<CFArrayGetCount(associatedWindows) {
         let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
-        var childWid: WindowID = 0
-        CFNumberGetValue(number, .sInt32Type, &childWid)
-        guard let child = window_manager_find_window(wm, childWid) else { continue }
+        var childRawWid: UInt32 = 0
+        CFNumberGetValue(number, .sInt32Type, &childRawWid)
+        guard let childWid = WindowID(nonzero: childRawWid), let child = window_manager_find_window(wm, childWid) else { continue }
 
         //
         // NOTE: window_role returns the role that the window keeps (not a +1 reference); the C version
@@ -266,7 +266,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let wm = window_manager_global()
 
-    guard let windowIDs = space_window_list(space_manager_global().current_space_id, false) else { return false }
+    guard let sid = space_manager_global().current_space_id, let windowIDs = space_window_list(sid, false) else { return false }
 
     let level = window_level(window.id)
     let subLevel = window_sub_level(window.id)
@@ -310,12 +310,13 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let cursorDid = display_manager_point_display_id(point)
     if display_manager_global().current_display_id == cursorDid { return }
+    guard let did = cursorDid else { return }
 
-    let bounds = display_bounds_constrained(cursorDid, false)
+    let bounds = display_bounds_constrained(did, false)
     if !cgrect_contains_point(bounds, point) { return }
 
     let wid = display_manager_focus_display_with_window_at_point(point)
-    if wid == 0 { display_manager_set_active_display_id(cursorDid) }
+    if wid == nil { display_manager_set_active_display_id(did) }
     mouse_state_global().ffm_window_id = wid
 }
 
@@ -328,7 +329,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if wm.ffm_mode == .disabled                { return }
     if mission_control_is_active()                        { return }
-    if mouse_state_global().ffm_window_id != 0 { return }
+    if mouse_state_global().ffm_window_id != nil { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
     let dt = os_timer_ms_between(lastGestureTime.load(ordering: .relaxed), read_os_timer())

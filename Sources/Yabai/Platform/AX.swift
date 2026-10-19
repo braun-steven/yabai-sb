@@ -74,11 +74,11 @@ struct AXElement
         return attribute(kAXSubroleAttribute) as? String
     }
 
-    /// `_AXUIElementGetWindow`; 0 if the element is not a window, like `ax_window_id`.
-    var windowID: WindowID
+    /// `_AXUIElementGetWindow`; nil if the element is not a window, like `ax_window_id`.
+    var windowID: WindowID?
     {
         var wid: UInt32 = 0
         _AXUIElementGetWindow(ref, &wid)
-        return WindowID(wid)
+        return WindowID(nonzero: wid)
     }
 }

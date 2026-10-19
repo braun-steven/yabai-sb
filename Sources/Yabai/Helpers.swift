@@ -155,12 +155,12 @@ func sls_window_disable_shadow(_ id: UInt32)
     SLSWindowSetShadowProperties(id, options)
 }
 
-/// `ax_window_id`
-func ax_window_id(_ ref: AXUIElement) -> WindowID
+/// `ax_window_id`: nil when the element is not a window.
+func ax_window_id(_ ref: AXUIElement) -> WindowID?
 {
     var wid: UInt32 = 0
     _AXUIElementGetWindow(ref, &wid)
-    return WindowID(wid)
+    return WindowID(nonzero: wid)
 }
 
 /// `ax_window_pid`: the pid that the AX element stores at offset 0x10.

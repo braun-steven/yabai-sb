@@ -46,13 +46,13 @@ private func spaceTestLists(_ mask: String) -> ([SpaceID], [Bool])
     ((0..<mask.count).map { SpaceID(UInt64($0 + 1)) }, mask.map { $0 == "u" })
 }
 
-private func moveReplacement(_ mask: String, _ sid: SpaceID, _ visible: SpaceID) -> SpaceID
+private func moveReplacement(_ mask: String, _ sid: SpaceID, _ visible: SpaceID) -> SpaceID?
 {
     let (spaces, user) = spaceTestLists(mask)
     return SpaceList.moveReplacement(spaces: spaces, user: user, sid: sid, visible: visible)
 }
 
-private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) -> SpaceID
+private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) -> SpaceID?
 {
     let (spaces, user) = spaceTestLists(mask)
     return SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: visible, fromEnd: fromEnd)
@@ -68,12 +68,12 @@ private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) 
     #expect(moveReplacement("uuuu", 4, 4) == 3)
 
     // A hidden space needs no replacement.
-    #expect(moveReplacement("uuuu", 2, 1) == 0)
+    #expect(moveReplacement("uuuu", 2, 1) == nil)
 
     // The replacement is always a user space on the same display.
     #expect(moveReplacement("-u-u", 2, 2) == 4)
     #expect(moveReplacement("-u-u", 4, 4) == 2)
-    #expect(moveReplacement("u", 1, 1) == 0)
+    #expect(moveReplacement("u", 1, 1) == nil)
 }
 
 @Test("space_layout_move_candidate") func spaceLayoutMoveCandidate()
@@ -89,5 +89,5 @@ private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) 
 
     // The visible space is only moved when it is the only user space.
     #expect(moveCandidate("-u--", 2, false) == 2)
-    #expect(moveCandidate("----", 2, false) == 0)
+    #expect(moveCandidate("----", 2, false) == nil)
 }

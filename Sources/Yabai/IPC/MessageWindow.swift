@@ -185,21 +185,24 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
 
     if command.equals(WindowCommand.display) {
         let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            let sid = display_space_id(selector.value)
-            if space_is_fullscreen(sid) {
-                rsp.fail("can not move window to a macOS fullscreen space!\n")
+        if selector.didParse, let target = selector.value {
+            if let sid = display_space_id(target) {
+                if space_is_fullscreen(sid) {
+                    rsp.fail("can not move window to a macOS fullscreen space!\n")
+                } else {
+                    window_manager_send_window_to_space(sm, wm, actingWindow, sid, false)
+                }
             } else {
-                window_manager_send_window_to_space(sm, wm, actingWindow, sid, false)
+                rsp.fail("could not locate the space to act on.\n")
             }
         }
     } else if command.equals(WindowCommand.space) {
         let selector = parseSpaceSelector(&rsp, message.next(), acting: space_manager_active_space(), optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            if space_is_fullscreen(selector.value) {
+        if selector.didParse, let target = selector.value {
+            if space_is_fullscreen(target) {
                 rsp.fail("can not move window to a macOS fullscreen space!\n")
             } else {
-                window_manager_send_window_to_space(sm, wm, actingWindow, selector.value, false)
+                window_manager_send_window_to_space(sm, wm, actingWindow, target, false)
             }
         }
     } else if command.equals(WindowCommand.swap) {
@@ -407,7 +410,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     } else if command.equals(WindowCommand.raise) || command.equals(WindowCommand.lower) {
         let raise = command.equals(WindowCommand.raise)
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: true, CSelectorContext())
-        var relativeWid: WindowID = 0
+        var relativeWid: WindowID?
 
         if selector.token.isValid {
             guard selector.didParse, let window = selector.value else { return .stop }

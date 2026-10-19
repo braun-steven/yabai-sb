@@ -126,24 +126,24 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         command = selector.token
     }
 
-    if actingDid == 0 {
+    guard let did = actingDid else {
         rsp.fail("could not locate the display to act on!\n")
         return
     }
 
     if command.equals(DisplayCommand.focus) {
-        let selector = parseDisplaySelector(&rsp, message.next(), acting: actingDid, optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            if actingDid != selector.value {
-                display_manager_focus_display(selector.value, display_space_id(selector.value))
+        let selector = parseDisplaySelector(&rsp, message.next(), acting: did, optional: false, context)
+        if selector.didParse, let target = selector.value {
+            if did != target {
+                display_manager_focus_display(target, display_space_id(target))
             } else {
                 rsp.fail("cannot focus an already focused display.\n")
             }
         }
     } else if command.equals(DisplayCommand.space) {
-        let selector = parseSpaceSelector(&rsp, message.next(), acting: display_space_id(actingDid), optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            let result = display_manager_focus_space(actingDid, selector.value)
+        let selector = parseSpaceSelector(&rsp, message.next(), acting: display_space_id(did), optional: false, context)
+        if selector.didParse, let target = selector.value {
+            let result = display_manager_focus_space(did, target)
             if result == .sameDisplay {
                 rsp.fail("acting display does not contain the given space.\n")
             } else {
@@ -154,8 +154,8 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let parsed = parseLabel(&rsp, message.next(), .display)
         if parsed.valid {
             if let label = parsed.label {
-                dm.labels.set(id: actingDid, name: label.string)
-            } else if !dm.labels.remove(id: actingDid) {
+                dm.labels.set(id: did, name: label.string)
+            } else if !dm.labels.remove(id: did) {
                 rsp.fail("the selected display was not associated with a label!\n")
             }
         }
@@ -180,16 +180,16 @@ enum CommandResult
 // NOTE: Focusing, moving, swapping, creating and destroying spaces.
 //
 
-private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout SpaceID) -> CommandResult
+private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout SpaceID?) -> CommandResult
 {
     let context = CSelectorContext()
 
     if command.equals(SpaceCommand.focus) || command.equals(SpaceCommand.switch) {
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
-        if selector.didParse && selector.value != 0 {
+        if selector.didParse, let target = selector.value {
             let result = command.equals(SpaceCommand.focus)
-                       ? space_manager_focus_space(selector.value)
-                       : space_manager_switch_space(selector.value)
+                       ? space_manager_focus_space(target)
+                       : space_manager_switch_space(target)
             if result == .sameSpace {
                 rsp.fail("cannot focus an already focused space.\n")
             } else {
@@ -198,8 +198,13 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         }
     } else if command.equals(SpaceCommand.move) {
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            let result = space_manager_move_space_to_space(actingSid, selector.value)
+        if selector.didParse, let target = selector.value {
+            guard let actingSid else {
+                rsp.fail("could not locate the space to act on.\n")
+                return .stop
+            }
+
+            let result = space_manager_move_space_to_space(actingSid, target)
             if result == .sameSpace {
                 rsp.fail("cannot move space to itself.\n")
             } else if result == .sameDisplay {
@@ -210,8 +215,13 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         }
     } else if command.equals(SpaceCommand.swap) {
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            let result = space_manager_swap_space_with_space(actingSid, selector.value)
+        if selector.didParse, let target = selector.value {
+            guard let actingSid else {
+                rsp.fail("could not locate the space to act on.\n")
+                return .stop
+            }
+
+            let result = space_manager_swap_space_with_space(actingSid, target)
             if result == .sameSpace {
                 rsp.fail("cannot swap space with itself.\n")
             } else {
@@ -220,8 +230,8 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         }
     } else if command.equals(SpaceCommand.display) {
         let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: false, context)
-        if selector.didParse && selector.value != 0 {
-            let result = space_manager_move_space_to_display(space_manager_global(), actingSid, selector.value)
+        if selector.didParse, let target = selector.value {
+            let result = space_manager_move_space_to_display(space_manager_global(), actingSid, target)
             if result == .missingSource {
                 rsp.fail("could not locate the space to act on.\n")
             } else if result == .missingDestination {
@@ -238,8 +248,8 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: true, context)
 
         if selector.token.isValid {
-            if selector.didParse && selector.value != 0 {
-                actingSid = display_space_id(selector.value)
+            if selector.didParse, let target = selector.value {
+                actingSid = display_space_id(target)
             } else {
                 return .stop
             }
@@ -399,14 +409,21 @@ func handleDomainSpace(_ rsp: inout Response, _ domain: Token, _ message: inout 
         command = selector.token
     }
 
-    if actingSid == 0 {
+    if actingSid == nil {
         rsp.fail("could not locate the space to act on!\n")
         return
     }
 
     while command.isValid {
         var result = spaceCommandArrange(&rsp, command, &message, &actingSid)
-        if result == .unknown { result = spaceCommandLayout(&rsp, domain, command, &message, actingSid) }
+        if result == .unknown {
+            guard let sid = actingSid else {
+                rsp.fail("could not locate the space to act on.\n")
+                return
+            }
+
+            result = spaceCommandLayout(&rsp, domain, command, &message, sid)
+        }
 
         if result == .stop { return }
         if result == .unknown { rsp.failUnknownCommand(domain, command) }

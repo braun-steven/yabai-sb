@@ -117,13 +117,13 @@ private func processIsBeingDebugged(_ pid: pid_t) -> Bool
     return (info.kp_proc.p_flag & P_TRACED) != 0
 }
 
-/// `process_manager_active_space_for_psn`: the space of the first user window of the connection, or 0.
-func process_manager_active_space_for_psn(_ connection: Int32) -> SpaceID
+/// `process_manager_active_space_for_psn`: the space of the first user window of the connection, or nil.
+func process_manager_active_space_for_psn(_ connection: Int32) -> SpaceID?
 {
     let spaces = missionControlSpaces()
-    if spaces.isEmpty { return 0 }
+    if spaces.isEmpty { return nil }
 
-    guard let windows = SLS.windows(connection_global(), owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return 0 }
+    guard let windows = SLS.windows(connection_global(), owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }
 
     for window in SLS.queryWindows(connection_global(), windows) {
         if SpaceWindow.isUserWindow(parentID: window.parent, level: window.level, tags: window.tags, attributes: window.attributes) {
@@ -131,7 +131,7 @@ func process_manager_active_space_for_psn(_ connection: Int32) -> SpaceID
         }
     }
 
-    return 0
+    return nil
 }
 
 private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ context: UnsafeMutableRawPointer?) -> OSStatus

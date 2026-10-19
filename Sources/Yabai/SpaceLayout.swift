@@ -24,12 +24,12 @@ private func spaceLayoutUserSpaceCount(_ spaces: [SpaceID]) -> Int
 }
 
 /// `space_layout_destroy_candidate`: an empty user space of the display to destroy, preferring one that is not visible.
-private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID
+private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID?
 {
-    guard let spaces = displaySpaces(did) else { return 0 }
+    guard let spaces = displaySpaces(did) else { return nil }
 
     let visibleSid = display_space_id(did)
-    var fallbackSid: SpaceID = 0
+    var fallbackSid: SpaceID? = nil
 
     for sid in spaces.reversed() {
         if !space_is_user(sid) { continue }
@@ -38,7 +38,7 @@ private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID
         guard let windows = space_window_list(sid, true), windows.isEmpty else { continue }
 
         if sid != visibleSid { return sid }
-        if fallbackSid == 0 { fallbackSid = sid }
+        if fallbackSid == nil { fallbackSid = sid }
     }
 
     return fallbackSid
@@ -59,8 +59,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
     var builtin: Int?
 
     for i in 0..<displayCount {
-        let did = display_manager_arrangement_display_id(i + 1)
-        if did == 0 { return .failed }
+        guard let did = display_manager_arrangement_display_id(i + 1) else { return .failed }
 
         didList.append(did)
         if builtin == nil && CGDisplayIsBuiltin(did.rawValue) != 0 { builtin = i }
@@ -91,14 +90,13 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
         let user = spaceUserList(spaces)
         let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: display_space_id(didList[surplus]), fromEnd: deficit > surplus)
 
-        debug("space_layout_reconcile: move space \(Int64(bitPattern: sid.rawValue)) from display \(surplus + 1) to display \(deficit + 1)\n")
+        debug("space_layout_reconcile: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
         result = space_manager_move_space_to_display(sm, sid, didList[deficit])
     } else if deficit != -1 {
         debug("space_layout_reconcile: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
         result = space_manager_add_space(display_space_id(didList[deficit]))
     } else {
-        let sid = spaceLayoutDestroyCandidate(didList[surplus])
-        if sid == 0 {
+        guard let sid = spaceLayoutDestroyCandidate(didList[surplus]) else {
             debug("space_layout_reconcile: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
             return .done
         }

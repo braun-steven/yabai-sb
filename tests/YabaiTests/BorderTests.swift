@@ -22,7 +22,7 @@ extension DaemonState
             let nested = treeTestSplit(split, .splitH)
             let focused = treeTestLeaf(nested, 3)
             treeTestLeaf(nested, 4)
-            let owner = View()
+            let owner = View(sid: 1)
             owner.tree = root
             Yabai.tree_focus(focused)
             #expect(treeVisibleWindowCount(root) == 3)
@@ -82,7 +82,7 @@ extension DaemonState
             treeTestLeaf(t, 3)
             Yabai.tree_focus(b)
             Yabai.tree_update(root, Area(x: 0, y: 0, w: 1010, h: 810), 10, 24, 0, 0)
-            let owner = View()
+            let owner = View(sid: 1)
             owner.tree = root
             var windowArea = Area.zero
             var borderArea = Area.zero

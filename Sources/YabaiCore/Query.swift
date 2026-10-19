@@ -117,7 +117,7 @@ public enum WindowSplit: Sendable
 /// window server alone. A string that is nil is written as "", like json_string(NULL).
 public struct WindowInfo: Sendable
 {
-    public var id: WindowID = 0
+    public var id: WindowID
     public var pid: Int32 = 0
     public var app: String?
     public var title: String?
@@ -148,7 +148,7 @@ public struct WindowInfo: Sendable
     public var isSticky = false
     public var isGrabbed = false
 
-    public init() {}
+    public init(id: WindowID) { self.id = id }
 
     /// `window_info_serialize`: layer names a window level (`window_layer`). Unlike the serializers of displays and
     /// spaces, flags 0 selects nothing here; the callers turn it into every property first.

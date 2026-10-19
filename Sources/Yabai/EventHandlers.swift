@@ -104,7 +104,7 @@ func update_window_notifications()
 // The handlers collect the views they modified and flush them once with flushDirtyViews.
 //
 
-@WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: WindowID)
+@WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: WindowID?)
 {
     window_manager_adjust_layer(window, .below)
     view_add_window(view, window, insertionPoint)
@@ -133,7 +133,7 @@ func update_window_notifications()
 // windows stay on their space.
 //
 
-@WM private func tileWindowsBatched(_ windows: [Window], _ insertionPoint: WindowID, _ newWindows: Bool)
+@WM private func tileWindowsBatched(_ windows: [Window], _ insertionPoint: WindowID?, _ newWindows: Bool)
 {
     let wm = window_manager_global()
     var insertionPoint = insertionPoint
@@ -143,7 +143,7 @@ func update_window_notifications()
         if !window_manager_should_manage_window(window)            { continue }
         if window_manager_find_managed_window(wm, window) != nil { continue }
 
-        let sid = newWindows ? window_manager_origin_space(wm, window) : window_space(window.id)
+        guard let sid = newWindows ? window_manager_origin_space(wm, window) : window_space(window.id) else { continue }
         let view = space_manager_find_view(space_manager_global(), sid)
         if view.layout == .float { continue }
 
@@ -158,7 +158,7 @@ func update_window_notifications()
 /// `window_did_receive_focus`
 @WM func windowDidReceiveFocus(_ wm: WindowManager, _ ms: MouseState, _ window: Window)
 {
-    let focusedWindow = window_manager_find_window(wm, wm.focused_window_id)
+    let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
     if let focusedWindow, focusedWindow != window, window_space(focusedWindow.id) == window_space(window.id) {
         window_manager_set_window_opacity(wm, focusedWindow, window_manager_global().normal_window_opacity)
     }
@@ -176,14 +176,14 @@ func update_window_notifications()
     let prevFocusedWindowID = wm.focused_window_id
     wm.focused_window_id = window.id
     wm.focused_window_psn = window.application.psn
-    ms.ffm_window_id = 0
+    ms.ffm_window_id = nil
 
     //
     // NOTE: Late focus events of windows focused earlier must not end a pending focus, so it is only
     // cleared when the window that was asked to be focused reports it.
     //
 
-    if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = 0 }
+    if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = nil }
 
     if let view = window_manager_find_managed_window(window_manager_global(), window), view.layout == .tree {
         tree_window_did_receive_focus(view, window.id)
@@ -195,7 +195,7 @@ func update_window_notifications()
 
     border_begin_batch()
     if prevFocusedWindowID != window.id {
-        border_refresh(window_manager_find_window(wm, prevFocusedWindowID))
+        border_refresh(prevFocusedWindowID.flatMap { window_manager_find_window(wm, $0) })
     }
     border_refresh_window_space(window)
     border_end_batch()
@@ -362,7 +362,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         }
 
         if ms.window == window { ms.window = nil }
-        if ms.ffm_window_id == window.id { ms.ffm_window_id = 0 }
+        if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
         if window.is_eligible {
             eventSignalPush(.windowDestroyed, signalObject(window))
@@ -398,9 +398,11 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     }
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
-        if psnSid != 0 && !space_is_visible(psnSid) {
+        if let psnSid, !space_is_visible(psnSid) {
             SLSSpaceSetFrontPSN(connection_global(), psnSid.rawValue, process.psn)
-            space_manager_focus_space_using_gesture(space_display_id(psnSid), psnSid)
+            if let psnDid = space_display_id(psnSid) {
+                space_manager_focus_space_using_gesture(psnDid, psnSid)
+            }
         }
     }
 }
@@ -409,7 +411,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     let wm = window_manager_global()
 
-    let focusedWindow = window_manager_find_window(wm, wm.focused_window_id)
+    let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
     if let focusedWindow {
         window_manager_set_window_opacity(wm, focusedWindow, wm.normal_window_opacity)
     }
@@ -429,11 +431,11 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     let prevFocusedWindowID = wm.focused_window_id
     wm.last_window_id = prevFocusedWindowID
-    wm.focused_window_id = 0
+    wm.focused_window_id = nil
     wm.focused_window_psn = application.psn
-    mouse_state_global().ffm_window_id = 0
+    mouse_state_global().ffm_window_id = nil
 
-    if prevFocusedWindowID != 0 {
+    if let prevFocusedWindowID {
         tab_bar_refresh_for_window(prevFocusedWindowID)
         border_refresh(focusedWindow)
     }
@@ -479,8 +481,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
     }
 
-    let applicationFocusedWindowID = application_focused_window(application)
-    if applicationFocusedWindowID == 0 {
+    guard let applicationFocusedWindowID = application_focused_window(application) else {
         applicationFrontSwitchedWithoutWindow(application)
         return
     }

@@ -30,10 +30,10 @@ private func withEventRecord(_ fill: (UnsafeMutablePointer<UInt8>) -> Void)
     }
 }
 
-/// Writes a window id into an event record at the offset.
-private func storeWindowID(_ bytes: UnsafeMutablePointer<UInt8>, _ offset: Int, _ windowID: WindowID)
+/// Writes a window id into an event record at the offset; 0 for no window, as the window server reads it.
+private func storeWindowID(_ bytes: UnsafeMutablePointer<UInt8>, _ offset: Int, _ windowID: WindowID?)
 {
-    UnsafeMutableRawPointer(bytes + offset).storeBytes(of: windowID.rawValue, as: UInt32.self)
+    UnsafeMutableRawPointer(bytes + offset).storeBytes(of: windowID?.rawValue ?? 0, as: UInt32.self)
 }
 
 /// `window_manager_make_key_window`
@@ -68,7 +68,7 @@ private func windowManagerMakeKeyWindow(_ windowPsn: UnsafeMutablePointer<Proces
 //
 
 /// `window_manager_post_focus_record`
-private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID, _ state: UInt8)
+private func windowManagerPostFocusRecord(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID?, _ state: UInt8)
 {
     withEventRecord { bytes in
         bytes[0x04] = 0xf8
@@ -143,7 +143,7 @@ func window_manager_focused_window(_ wm: WindowManager) -> Window?
 {
     guard let owner = window_manager_focused_application(wm) else { return nil }
 
-    let windowID = application_focused_window(owner)
+    guard let windowID = application_focused_window(owner) else { return nil }
     return window_manager_find_window(wm, windowID)
 }
 
@@ -166,11 +166,11 @@ func window_manager_set_pending_focus(_ wm: WindowManager, _ windowID: WindowID)
 /// `window_manager_pending_focus_window`
 func window_manager_pending_focus_window(_ wm: WindowManager) -> Window?
 {
-    if wm.pending_focus_window_id == 0 { return nil }
+    guard let pendingID = wm.pending_focus_window_id else { return nil }
 
     let dt = os_timer_ms_between(wm.pending_focus_time, read_os_timer())
-    let target = dt < pendingFocusTimeoutMs ? window_manager_find_window(wm, wm.pending_focus_window_id) : nil
-    if target == nil { wm.pending_focus_window_id = 0 }
+    let target = dt < pendingFocusTimeoutMs ? window_manager_find_window(wm, pendingID) : nil
+    if target == nil { wm.pending_focus_window_id = nil }
 
     return target
 }

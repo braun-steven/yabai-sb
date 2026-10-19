@@ -37,8 +37,8 @@ enum DockOrientation: Int32, Sendable
 /// `struct display_manager`
 final class DisplayManager
 {
-    var current_display_id: DisplayID = 0
-    var last_display_id: DisplayID = 0
+    var current_display_id: DisplayID?
+    var last_display_id: DisplayID?
 
     var top_padding: Int = 0
     var bottom_padding: Int = 0
@@ -69,26 +69,26 @@ func display_manager_main_display_id() -> DisplayID
     return DisplayID(CGMainDisplayID())
 }
 
-/// `display_manager_active_display_id`
-func display_manager_active_display_id() -> DisplayID
+/// `display_manager_active_display_id`; nil when the window server names no active display.
+func display_manager_active_display_id() -> DisplayID?
 {
     let uuid = SLS.activeMenuBarDisplay(connection_global())
     assert(uuid != nil)
 
-    return uuid.map(displayID) ?? 0
+    return uuid.flatMap(displayID)
 }
 
 /// `display_manager_dock_display_id`
-func display_manager_dock_display_id() -> DisplayID
+func display_manager_dock_display_id() -> DisplayID?
 {
-    guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) else { return 0 }
+    guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) else { return nil }
     return displayID(uuid)
 }
 
 /// `display_manager_point_display_id`
-func display_manager_point_display_id(_ point: CGPoint) -> DisplayID
+func display_manager_point_display_id(_ point: CGPoint) -> DisplayID?
 {
-    guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return 0 }
+    guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return nil }
     return displayID(uuid)
 }
 
@@ -123,8 +123,8 @@ private func displayManagerUUIDIsBuiltin(_ value: Any?) -> Bool
 {
     guard let uuid = value as? String else { return false }
 
-    let did = displayID(uuid)
-    return did != 0 && CGDisplayIsBuiltin(did.rawValue) != 0
+    guard let did = displayID(uuid) else { return false }
+    return CGDisplayIsBuiltin(did.rawValue) != 0
 }
 
 /// `display_manager_order_builtin_last`: moves the first builtin display of a list to its end, when builtin_display_last
@@ -198,54 +198,54 @@ func displayManagerArrangementDisplayUUID(_ arrangement: Int) -> String?
 }
 
 /// `display_manager_arrangement_display_id`
-func display_manager_arrangement_display_id(_ arrangement: Int) -> DisplayID
+func display_manager_arrangement_display_id(_ arrangement: Int) -> DisplayID?
 {
-    guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return 0 }
+    guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return nil }
     return displayID(uuid)
 }
 
 /// `display_manager_cursor_display_id`
-func display_manager_cursor_display_id() -> DisplayID
+func display_manager_cursor_display_id() -> DisplayID?
 {
     return display_manager_point_display_id(SLS.cursorLocation(connection_global()))
 }
 
 /// `display_manager_prev_display_id`
-func display_manager_prev_display_id(_ did: DisplayID) -> DisplayID
+func display_manager_prev_display_id(_ did: DisplayID) -> DisplayID?
 {
     let arrangement = display_manager_display_id_arrangement(did)
-    if arrangement <= 1 { return 0 }
+    if arrangement <= 1 { return nil }
 
     return display_manager_arrangement_display_id(arrangement - 1)
 }
 
 /// `display_manager_next_display_id`
-func display_manager_next_display_id(_ did: DisplayID) -> DisplayID
+func display_manager_next_display_id(_ did: DisplayID) -> DisplayID?
 {
     let arrangement = display_manager_display_id_arrangement(did)
-    if arrangement >= display_manager_active_display_count() { return 0 }
+    if arrangement >= display_manager_active_display_count() { return nil }
 
     return display_manager_arrangement_display_id(arrangement + 1)
 }
 
 /// `display_manager_first_display_id`
-func display_manager_first_display_id() -> DisplayID
+func display_manager_first_display_id() -> DisplayID?
 {
     return display_manager_arrangement_display_id(1)
 }
 
 /// `display_manager_last_display_id`
-func display_manager_last_display_id() -> DisplayID
+func display_manager_last_display_id() -> DisplayID?
 {
     let arrangement = display_manager_active_display_count()
     return display_manager_arrangement_display_id(arrangement)
 }
 
-/// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, 0 if there is none.
-func display_manager_find_closest_display_in_direction(_ sourceDid: DisplayID, _ direction: Direction) -> DisplayID
+/// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, nil if there is none.
+func display_manager_find_closest_display_in_direction(_ sourceDid: DisplayID, _ direction: Direction) -> DisplayID?
 {
 
-    var bestDid: DisplayID = 0
+    var bestDid: DisplayID? = nil
     var bestDistance = Int.max
 
     let sourceArea = Area(CGDisplayBounds(sourceDid.rawValue))
@@ -354,13 +354,12 @@ private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
     return (windowRef as! AXUIElement)
 }
 
-/// `display_manager_focus_display_with_window_at_point`: focuses the window under a point; returns its id, or 0.
-func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> WindowID
+/// `display_manager_focus_display_with_window_at_point`: focuses the window under a point; returns its id, or nil.
+func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> WindowID?
 {
-    guard let elementRef = displayManagerFindElementAtPoint(point) else { return 0 }
+    guard let elementRef = displayManagerFindElementAtPoint(point) else { return nil }
 
-    let elementID = ax_window_id(elementRef)
-    if elementID == 0 { return 0 }
+    guard let elementID = ax_window_id(elementRef) else { return nil }
 
     var elementPSN = SLS.connectionPSN(SLS.windowOwner(connection_global(), elementID) ?? 0)
     window_manager_focus_window_with_raise(&elementPSN, elementID, elementRef)
@@ -376,11 +375,11 @@ func display_manager_set_active_display_id(_ did: DisplayID)
 }
 
 /// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
-func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID)
+func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
 {
     let wm = window_manager_global()
 
-    if let window = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, 0) {
+    if let sid, let window = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, nil) {
         window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
         window_manager_center_mouse(wm, window)
         display_manager_set_active_display_id(did)

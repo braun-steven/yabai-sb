@@ -10,8 +10,7 @@ private func layerName(_ level: Int32) -> String
 
 private func windowInfoFixture() -> WindowInfo
 {
-    var info = WindowInfo()
-    info.id = 42
+    var info = WindowInfo(id: 42)
     info.app = "Text\"Edit"
     info.title = "a\tb"
     info.split = .x

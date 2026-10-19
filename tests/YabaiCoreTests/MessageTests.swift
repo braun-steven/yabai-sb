@@ -6,35 +6,35 @@ import Testing
 /// The lookups of the selectors, on fixtures. Windows are their ids.
 private struct FixtureContext: SelectorContext
 {
-    var activeDisplay: DisplayID = 0
-    var activeSpace: SpaceID = 0
+    var activeDisplay: DisplayID? = nil
+    var activeSpace: SpaceID? = nil
     var actingWindow: WindowID? = nil
     var displays: [DisplayID] = []
     var spaces: [SpaceID] = []
-    var recentSpace: SpaceID = 0
+    var recentSpace: SpaceID? = nil
     var displayLabels: [String: DisplayID] = [:]
     var spaceLabels: [String: SpaceID] = [:]
     var windows: [WindowID] = []
     var stack: [WindowID] = []
 
-    func display(_ query: DisplayQuery) -> DisplayID
+    func display(_ query: DisplayQuery) -> DisplayID?
     {
         switch query {
-        case .arrangement(let index): index >= 1 && Int(index) <= displays.count ? displays[Int(index) - 1] : 0
-        case .first:                  displays.first ?? 0
-        case .last:                   displays.last ?? 0
-        default:                      0
+        case .arrangement(let index): index >= 1 && Int(index) <= displays.count ? displays[Int(index) - 1] : nil
+        case .first:                  displays.first
+        case .last:                   displays.last
+        default:                      nil
         }
     }
 
     func displayLabel(_ label: Token) -> DisplayID? { displayLabels[label.string] }
 
-    func space(_ query: SpaceQuery) -> SpaceID
+    func space(_ query: SpaceQuery) -> SpaceID?
     {
         switch query {
-        case .missionControl(let index): index >= 1 && Int(index) <= spaces.count ? spaces[Int(index) - 1] : 0
+        case .missionControl(let index): index >= 1 && Int(index) <= spaces.count ? spaces[Int(index) - 1] : nil
         case .recent:                    recentSpace
-        default:                         0
+        default:                         nil
         }
     }
 
@@ -278,22 +278,22 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(rsp.text.contains("value 'bogus' is not a valid option for WINDOW_SEL"))
 
     rsp = Response()
-    var display = parseDisplaySelector(&rsp, Token("next"), acting: 0, optional: false, context)
+    var display = parseDisplaySelector(&rsp, Token("next"), acting: nil, optional: false, context)
     #expect(rsp.text.contains("could not locate the selected display."))
 
     rsp = Response()
-    display = parseDisplaySelector(&rsp, Token("unlabeled"), acting: 0, optional: false, context)
+    display = parseDisplaySelector(&rsp, Token("unlabeled"), acting: nil, optional: false, context)
     #expect(display.didParse == false)
     #expect(rsp.text.contains("is not a valid option for DISPLAY_SEL"))
 
     // NOTE: an optional selector that is missing does not report an error
     rsp = Response()
-    var space = parseSpaceSelector(&rsp, Token(""), acting: 0, optional: true, context)
+    var space = parseSpaceSelector(&rsp, Token(""), acting: nil, optional: true, context)
     #expect(space.didParse == false)
     #expect(rsp.bytes.isEmpty)
 
     context.recentSpace = 77
-    space = parseSpaceSelector(&rsp, Token("recent"), acting: 0, optional: true, context)
+    space = parseSpaceSelector(&rsp, Token("recent"), acting: nil, optional: true, context)
     #expect(space.value == 77)
 
     #expect(parseDirection(Token("west")) == .west)
@@ -310,7 +310,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(parseDisplaySelector(&rsp, Token("last"), acting: 1, optional: false, context).value == 2)
     #expect(rsp.bytes.isEmpty)
 
-    #expect(parseDisplaySelector(&rsp, Token("3"), acting: 1, optional: false, context).value == 0)
+    #expect(parseDisplaySelector(&rsp, Token("3"), acting: 1, optional: false, context).value == nil)
     #expect(rsp.text == "\u{07}could not locate display with arrangement index '3'.\n")
 
     rsp = Response()
@@ -347,7 +347,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(acting == 7)
     #expect(rsp.text == "\u{07}could not locate window with the specified id '9'.\n")
 
-    var sid: SpaceID = 10
+    var sid: SpaceID? = 10
     message = Message("\0")
     #expect(parseOptionalSpaceSelector(&rsp, &message, &sid, context) == true)
     #expect(sid == 10)
@@ -371,6 +371,15 @@ private func parseQuery(_ option: String, _ context: FixtureContext = FixtureCon
     #expect(response.contains("unknown option '--everything' given to command '--windows'"))
 
     guard case .window(7) = parseQuery("--window", FixtureContext(actingWindow: 7)).0 else { Issue.record("--window"); return }
+
+    // NOTE: without an active display or space there is nothing to query, which is reported as a failure
+    let (noDisplay, noDisplayResponse) = parseQuery("--display")
+    #expect(noDisplay == nil)
+    #expect(noDisplayResponse == "\u{07}could not locate the selected display.\n")
+
+    let (noSpace, noSpaceResponse) = parseQuery("--space")
+    #expect(noSpace == nil)
+    #expect(noSpaceResponse == "\u{07}could not locate the selected space.\n")
 }
 
 private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureContext()) -> (Bool, Rule, String)

@@ -35,18 +35,18 @@ func displayUUID(_ did: DisplayID) -> String?
     return displayUUIDObject(did) as String?
 }
 
-/// `display_id`
-func display_id(_ uuid: CFString?) -> DisplayID
+/// `display_id`; nil when the uuid is nil or unknown.
+func display_id(_ uuid: CFString?) -> DisplayID?
 {
-    guard let uuid else { return 0 }
+    guard let uuid else { return nil }
     return displayID(uuid as String)
 }
 
-/// `display_id` for a uuid string.
-func displayID(_ uuid: String) -> DisplayID
+/// `display_id` for a uuid string; nil when the window server does not know the uuid.
+func displayID(_ uuid: String) -> DisplayID?
 {
-    guard let uuidRef = CFUUIDCreateFromString(nil, uuid as CFString) else { return 0 }
-    return DisplayID(CGDisplayGetDisplayIDFromUUID(uuidRef))
+    guard let uuidRef = CFUUIDCreateFromString(nil, uuid as CFString) else { return nil }
+    return DisplayID(nonzero: CGDisplayGetDisplayIDFromUUID(uuidRef))
 }
 
 /// `display_bounds_constrained`
@@ -98,17 +98,17 @@ func display_bounds_constrained(_ did: DisplayID, _ ignoreExternalBar: Bool) -> 
     return frame
 }
 
-/// `display_center`
-func display_center(_ did: DisplayID) -> CGPoint
+/// `display_center`; the zero point for a nil display, as CGDisplayBounds gives for display 0.
+func display_center(_ did: DisplayID?) -> CGPoint
 {
-    let bounds = CGDisplayBounds(did.rawValue)
+    let bounds = CGDisplayBounds(did?.rawValue ?? 0)
     return CGPoint(x: bounds.origin.x + bounds.size.width/2, y: bounds.origin.y + bounds.size.height/2)
 }
 
-/// `display_space_id`
-func display_space_id(_ did: DisplayID) -> SpaceID
+/// `display_space_id`; nil when the window server reports no current space for the display.
+func display_space_id(_ did: DisplayID) -> SpaceID?
 {
-    guard let uuid = displayUUID(did) else { return 0 }
+    guard let uuid = displayUUID(did) else { return nil }
     return SLS.currentSpace(connection_global(), forDisplay: uuid)
 }
 
@@ -123,7 +123,7 @@ func displaySpaces(_ did: DisplayID) -> [SpaceID]?
         guard let identifier = display["Display Identifier"] as? String, identifier.utf8.elementsEqual(uuid.utf8) else { continue }
 
         let spaces = display["Spaces"] as? [NSDictionary] ?? []
-        result = spaces.map { SpaceID(($0["id64"] as? NSNumber)?.uint64Value ?? 0) }
+        result = spaces.compactMap { space in (space["id64"] as? NSNumber).flatMap { SpaceID(nonzero: $0.uint64Value) } }
     }
 
     return result

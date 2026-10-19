@@ -24,19 +24,19 @@ extension DaemonState
             let side = treeTestLeaf(root, 3)
             leaf.zoom = .parent
 
-            var info = WindowInfo()
+            var info = WindowInfo(id: 1)
             windowInfoSetTree(&info, leaf)
             #expect(info.split == .x)
             #expect(info.stackIndex == 2)
             #expect(info.hasParentZoom)
             #expect(!info.hasFullscreenZoom)
 
-            info = WindowInfo()
+            info = WindowInfo(id: 1)
             windowInfoSetTree(&info, side)
             #expect(info.split == .y)
             #expect(info.stackIndex == 0)
 
-            info = WindowInfo()
+            info = WindowInfo(id: 1)
             windowInfoSetTree(&info, nil)
             #expect(info.split == WindowSplit.none)
         }
@@ -50,7 +50,7 @@ extension DaemonState
             let tabs = treeTestSplit(root, .tabbed)
             treeTestLeaf(tabs, 7)
 
-            let testView = View()
+            let testView = View(sid: 1)
             testView.layout = .tree
             testView.tree = root
 

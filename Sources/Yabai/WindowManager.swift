@@ -99,11 +99,11 @@ final class WindowManager
     var application_lost_front_switched_event = Table<pid_t, Bool>(capacity: 150)
     var rules: [Rule] = []
     var applications_to_refresh: [Application] = []
-    var focused_window_id: WindowID = 0
+    var focused_window_id: WindowID?
     var focused_window_psn = ProcessSerialNumber()
-    var pending_focus_window_id: WindowID = 0
+    var pending_focus_window_id: WindowID?
     var pending_focus_time: UInt64 = 0
-    var last_window_id: WindowID = 0
+    var last_window_id: WindowID?
     var enable_mff = false
     var ffm_mode = FocusFollowsMouse.disabled
     var purify_mode = PurifyMode.disabled
@@ -291,8 +291,7 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
     let cursor = SLS.cursorLocation(connection_global())
     if target.frame.contains(cursor) { return }
 
-    let did = window_display_id(target.id)
-    if did == 0 { return }
+    guard let did = window_display_id(target.id) else { return }
 
     let center = CGPoint(x: target.frame.origin.x + target.frame.size.width / 2,
                          y: target.frame.origin.y + target.frame.size.height / 2)
@@ -354,7 +353,7 @@ func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target
 }
 
 /// `window_manager_manage_window`
-func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: WindowID)
+func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: WindowID?)
 {
     let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
     window_manager_add_managed_window(wm, target, owner)
@@ -388,8 +387,9 @@ func windowManagerTreeApply(_ owner: View)
 }
 
 /// `window_manager_focus_window_id`
-func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID)
+func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
 {
+    guard let windowID else { return }
     if let target = window_manager_find_window(wm, windowID) {
         window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
         window_manager_set_pending_focus(wm, target.id)
@@ -634,7 +634,7 @@ func window_manager_adjust_layer(_ target: Window, _ layer: WindowLayer)
 //
 
 /// `window_manager_collect_child_windows`
-func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout [WindowID], _ childList: [WindowID]) -> [WindowID]
+func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout [WindowID?], _ childList: [WindowID]) -> [WindowID]
 {
     var result: [WindowID] = []
 
@@ -645,7 +645,7 @@ func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout 
         for j in 0..<parentList.count {
             if parentList[j] != parent { continue }
 
-            parentList[j] = 0
+            parentList[j] = nil
             result.append(childList[j])
         }
 
@@ -679,7 +679,7 @@ func window_manager_set_window_layer(_ target: Window, _ layer: WindowLayer) -> 
 
     guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
 
-    var parentList: [WindowID] = []
+    var parentList: [WindowID?] = []
     var childList: [WindowID] = []
 
     for queried in SLS.queryWindows(connection_global(), associated.map { WindowID($0.uint32Value) }).prefix(associated.count) {
@@ -795,12 +795,13 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 {
     guard let target else { return .invalidSourceView }
 
-    let owner = space_manager_find_view(sm, window_space(target.id))
+    guard let sid = window_space(target.id) else { return .invalidSourceView }
+    let owner = space_manager_find_view(sm, sid)
     if owner.layout != .tree || owner.tree == nil { return .invalidSourceView }
 
     guard let node = tree_find_window(owner.tree, target.id) else { return .invalidSourceNode }
 
-    if owner.insertion_point != 0 && owner.insertion_point != target.id {
+    if owner.insertion_point != nil && owner.insertion_point != target.id {
         if let insert = tree_find_window(owner.tree, owner.insertion_point) {
             insert.insert_dir = nil
             tree_feedback_hide(insert)
@@ -810,7 +811,7 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
     if direction == node.insert_dir {
         node.insert_dir = nil
         tree_feedback_hide(node)
-        owner.insertion_point = 0
+        owner.insertion_point = nil
         return .success
     }
 
@@ -982,7 +983,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
     let srcSid = window_space(target.id)
     if srcSid == dstSid { return }
 
-    if space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.id) {
+    if let srcSid, space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.id) {
         if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, srcSid, 1, target.id) {
             window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
         } else {
@@ -999,7 +1000,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
     SLSSpaceSetFrontPSN(connection_global(), dstSid.rawValue, target.application.psn)
 
     if window_manager_should_manage_window(target) {
-        window_manager_manage_window(sm, wm, target, dstSid, 0)
+        window_manager_manage_window(sm, wm, target, dstSid, nil)
     }
 
     border_refresh_space(srcSid)
@@ -1013,8 +1014,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     let r = grid.rows, c = grid.columns
     if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
 
-    let did = window_display_id(target.id)
-    if did == 0 { return .invalidSourceView }
+    guard let did = window_display_id(target.id) else { return .invalidSourceView }
 
     var x = grid.x, y = grid.y, w = grid.width, h = grid.height
     if x >= c     { x = c &- 1 }
@@ -1025,16 +1025,22 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     if h > r &- y { h = r &- y }
 
     var bounds = display_bounds_constrained(did, false)
-    let dview = space_manager_find_view(sm, display_space_id(did))
 
-    if dview.isPaddingEnabled {
+    //
+    // NOTE: Without a space of the display, the grid is applied without padding and gaps (the view of such a
+    // space has none).
+    //
+
+    let dview = display_space_id(did).map { space_manager_find_view(sm, $0) }
+
+    if let dview, dview.isPaddingEnabled {
         bounds.origin.x    += CGFloat(dview.left_padding)
         bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
         bounds.origin.y    += CGFloat(dview.top_padding)
         bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
     }
 
-    if dview.isGapEnabled {
+    if let dview, dview.isGapEnabled {
         let gap = CGFloat(dview.window_gap)
 
         if x > 0 {
@@ -1085,7 +1091,7 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
 
         if !target.isSticky {
             if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
-                window_manager_manage_window(sm, wm, target, space_manager_active_space(), 0)
+                if let sid = space_manager_active_space() { window_manager_manage_window(sm, wm, target, sid, nil) }
             }
         }
     }
@@ -1109,7 +1115,7 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
 
             if !target.isFloating {
                 if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
-                    window_manager_manage_window(sm, wm, target, space_manager_active_space(), 0)
+                    if let sid = space_manager_active_space() { window_manager_manage_window(sm, wm, target, sid, nil) }
                 }
             }
         }
@@ -1132,7 +1138,7 @@ private let nativeFullscreenWaitIterations = 30
 func window_manager_wait_for_native_fullscreen_transition()
 {
     var i = 0
-    while i < nativeFullscreenWaitIterations && !space_is_user(space_manager_active_space()) {
+    while i < nativeFullscreenWaitIterations && !(space_manager_active_space().map(space_is_user) ?? false) {
 
         //
         // NOTE(asmvik): Window has exited native-fullscreen mode.
@@ -1208,8 +1214,7 @@ func window_manager_toggle_window_zoom_fullscreen(_ wm: WindowManager, _ target:
 /// `window_manager_toggle_window_windowed_fullscreen`
 func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
 {
-    let did = window_display_id(target.id)
-    if did == 0 { return }
+    guard let did = window_display_id(target.id) else { return }
 
     if target.isWindowed {
         target.isWindowed = false
@@ -1233,14 +1238,16 @@ func window_manager_toggle_window_expose(_ target: Window)
 /// `window_manager_toggle_window_pip`
 func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 {
-    let did = window_display_id(target.id)
-    if did == 0 { return }
+    guard let did = window_display_id(target.id) else { return }
 
-    let sid = display_space_id(did)
-    let dview = space_manager_find_view(sm, sid)
+    //
+    // NOTE: Without a space of the display, the bounds are not reduced by padding (the view of such a space has none).
+    //
+
+    let dview = display_space_id(did).map { space_manager_find_view(sm, $0) }
 
     var bounds = display_bounds_constrained(did, false)
-    if dview.isPaddingEnabled {
+    if let dview, dview.isPaddingEnabled {
         bounds.origin.x    += CGFloat(dview.left_padding)
         bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
         bounds.origin.y    += CGFloat(dview.top_padding)
@@ -1317,7 +1324,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_add_window(owner, target, 0)
+            view_add_window(owner, target, nil)
             window_manager_adjust_layer(target, .below)
             window_manager_add_managed_window(wm, target, owner)
             owner.isDirty = true
@@ -1368,7 +1375,7 @@ func window_manager_correct_for_mission_control_changes(_ sm: SpaceManager, _ wm
 
         let sid = display_space_id(did)
         for space in spaceList {
-            if space == sid {
+            if let sid, space == sid {
                 window_manager_validate_and_check_for_windows_on_space(sm, wm, sid)
             } else {
                 space_manager_mark_view_invalid(sm, space)
@@ -1396,7 +1403,7 @@ func window_manager_handle_display_add_and_remove(_ sm: SpaceManager, _ wm: Wind
 
     let sid = display_space_id(did)
     for space in spaceList {
-        if space == sid {
+        if let sid, space == sid {
             space_manager_refresh_view(sm, sid)
         } else {
             space_manager_mark_view_invalid(sm, space)

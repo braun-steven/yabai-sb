@@ -36,7 +36,7 @@ private func windowManagerHideOtherScratchpadWindows(_ wm: WindowManager, _ targ
         let other = entry.window
         if other == target { continue }
 
-        if SLS.windowIsOrderedIn(connection_global(), other.id) { scripting_addition_order_window(other.id, 0, 0) }
+        if SLS.windowIsOrderedIn(connection_global(), other.id) { scripting_addition_order_window(other.id, 0, nil) }
     }
 }
 
@@ -66,7 +66,7 @@ private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Wi
         _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
     }
 
-    scripting_addition_order_window(target.id, 0, 0)
+    scripting_addition_order_window(target.id, 0, nil)
 }
 
 /// `window_manager_show_scratchpad_window`
@@ -78,15 +78,14 @@ private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Wi
     }
 
     if applyGrid { windowManagerApplyScratchpadGrid(wm, target) }
-    scripting_addition_order_window(target.id, 1, 0)
+    scripting_addition_order_window(target.id, 1, nil)
     window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
 }
 
 /// `window_manager_toggle_scratchpad_window`
 func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Window) -> Bool
 {
-    let sid = space_manager_active_space()
-    if sid == 0 { return false }
+    guard let sid = space_manager_active_space() else { return false }
 
     // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
     let visibleSpace = window_space(target.id) == sid || window_is_sticky(target.id)
@@ -143,8 +142,7 @@ func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Win
 /// `window_manager_release_scratchpad_window`
 private func windowManagerReleaseScratchpadWindow(_ wm: WindowManager, _ target: Window)
 {
-    let sid = space_manager_active_space()
-    if sid != 0 {
+    if let sid = space_manager_active_space() {
         windowManagerShowScratchpadWindow(wm, target, sid, true, false)
         border_refresh_window_space(target)
     }

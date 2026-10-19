@@ -28,6 +28,6 @@ private func knownFocusPSN(_ low: UInt32) -> ProcessSerialNumber
     #expect(space_manager_can_use_known_focus(&other, wm, false) == false)
     #expect(space_manager_can_use_known_focus(&owner, wm, true) == false)
 
-    wm.focused_window_id = 0
+    wm.focused_window_id = nil
     #expect(space_manager_can_use_known_focus(&owner, wm, false) == false)
 }

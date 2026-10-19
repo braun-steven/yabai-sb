@@ -17,7 +17,7 @@ extension DaemonState
         /// `auto_padding_view_init`: a tree view with padding and a gap, and auto_padding on.
         private func autoPaddingView() -> View
         {
-            let target = View()
+            let target = View(sid: 1)
 
             target.tree = Yabai.con_create(.splitH)
             target.layout = .tree

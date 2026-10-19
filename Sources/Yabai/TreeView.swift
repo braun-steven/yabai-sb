@@ -13,7 +13,7 @@ import YabaiCore
 private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 {
     if con_is_leaf(node) {
-        if let target = window_manager_find_window(window_manager_global(), node.window_id),
+        if let windowID = node.window_id, let target = window_manager_find_window(window_manager_global(), windowID),
            let application = target.application {
             CFStringAppend(string, application.name as CFString)
         }
@@ -49,11 +49,11 @@ func tree_copy_title(_ node: Con) -> CFString?
 /// `tree_feedback_destroy`
 func treeFeedbackDestroy(_ node: Con)
 {
-    if node.render.feedback_window.id == 0 { return }
+    guard let feedbackWindowID = node.render.feedback_window.id else { return }
 
-    SLSOrderWindow(connection_global(), node.render.feedback_window.id.rawValue, 0, 0)
+    SLSOrderWindow(connection_global(), feedbackWindowID.rawValue, 0, 0)
     node.render.feedback_window.context = nil
-    SLSReleaseWindow(connection_global(), node.render.feedback_window.id.rawValue)
+    SLSReleaseWindow(connection_global(), feedbackWindowID.rawValue)
     node.render.feedback_window = FeedbackWindow()
 }
 
@@ -101,7 +101,7 @@ func tree_view_update(_ owner: View!)
 private func treeUnmanageWindows(_ node: Con)
 {
     if con_is_leaf(node) {
-        window_manager_remove_managed_window(window_manager_global(), node.window_id)
+        if let windowID = node.window_id { window_manager_remove_managed_window(window_manager_global(), windowID) }
         return
     }
 
@@ -161,7 +161,7 @@ private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 //
 
 /// `tree_add_window`
-func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: WindowID)
+func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: WindowID?)
 {
     let root = tree_view_root(owner)
     if tree_find_window(root, target.id) != nil { return }
@@ -171,17 +171,17 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: WindowID
 
     treeViewResetEmptyRoot(owner, root)
 
-    if owner.insertion_point != 0, let anchor = tree_find_window(root, owner.insertion_point), let direction = anchor.insert_dir {
+    if let ownerInsertionPoint = owner.insertion_point, let anchor = tree_find_window(root, ownerInsertionPoint), let direction = anchor.insert_dir {
         anchor.insert_dir = nil
         treeFeedbackDestroy(anchor)
-        owner.insertion_point = 0
+        owner.insertion_point = nil
 
         tree_insert_relative(anchor, node, direction)
         treeFocusNewWindow(root, node, target.id)
         return
     }
 
-    var anchor: Con? = insertionPoint != 0 ? tree_find_window(root, insertionPoint) : nil
+    var anchor: Con? = tree_find_window(root, insertionPoint)
 
     if anchor == nil, let selected = tree_find_selected(root), !con_is_leaf(selected) {
         anchor = selected
@@ -212,7 +212,7 @@ func tree_remove_window(_ owner: View, _ target: Window) -> Bool
 {
     guard let node = tree_find_window(owner.tree, target.id) else { return false }
 
-    if owner.insertion_point == target.id { owner.insertion_point = 0 }
+    if owner.insertion_point == target.id { owner.insertion_point = nil }
 
     tree_detach(node)
     con_free(node)
@@ -225,7 +225,7 @@ func tree_remove_window(_ owner: View, _ target: Window) -> Bool
 private func treeAppendWindowList(_ node: Con, _ windowList: inout [WindowID])
 {
     if con_is_leaf(node) {
-        windowList.append(node.window_id)
+        if let windowID = node.window_id { windowList.append(windowID) }
         return
     }
 
@@ -310,7 +310,7 @@ func tree_window_needs_flush(_ owner: View, _ windowID: WindowID, _ frame: CGRec
 private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout [window_capture])
 {
     if con_is_leaf(node) {
-        if let target = window_manager_find_window(window_manager_global(), node.window_id) {
+        if let windowID = node.window_id, let target = window_manager_find_window(window_manager_global(), windowID) {
             let area = tree_con_frame(owner, node)
             windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
         }
@@ -343,9 +343,9 @@ private func treeRootOf(_ node: Con) -> Con
 }
 
 /// `tree_contains_window`
-func treeContainsWindow(_ node: Con, _ windowID: WindowID) -> Bool
+func treeContainsWindow(_ node: Con, _ windowID: WindowID?) -> Bool
 {
-    return windowID != 0 && tree_find_window(node, windowID) != nil
+    return tree_find_window(node, windowID) != nil
 }
 
 //
@@ -395,7 +395,7 @@ private func treeRenderBar(_ node: Con)
         let leaf = tree_descend_focused(next)
 
         entryList.append(TabBarEntry(
-            focus_wid: leaf?.window_id ?? 0,
+            focus_wid: leaf?.window_id,
             title: tree_copy_title(next),
             icon: con_is_leaf(next) ? tab_bar_icon(next.window_id) : nil,
             state: next != active ? .unfocused : hasFocus ? .focused : .inactive))
@@ -410,7 +410,7 @@ private func treeRenderBar(_ node: Con)
     let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
     let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tab_bar_height))
     entryList.withUnsafeMutableBufferPointer { entries in
-        tab_bar_render(node.render.tab_bar, frame, card, above?.window_id ?? 0, entries.baseAddress!, entryCount)
+        tab_bar_render(node.render.tab_bar, frame, card, above?.window_id, entries.baseAddress!, entryCount)
     }
 }
 
@@ -481,7 +481,7 @@ func tree_release_bars(_ node: Con!)
 func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: WindowID, _ list: inout [sa_window_order])
 {
     if con_is_leaf(node) {
-        if node.window_id != relative { list.append(sa_window_order(a_wid: node.window_id, order: order, b_wid: relative)) }
+        if let windowID = node.window_id, windowID != relative { list.append(sa_window_order(a_wid: windowID, order: order, b_wid: relative)) }
         return
     }
 
@@ -516,7 +516,7 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
         let active = node.focus[0]
 
         let anchor = tree_descend_focused(active)
-        let anchorWid = anchor?.window_id ?? 0
+        let anchorWid = anchor?.window_id
         let cardWid = tab_bar_card_id(node.render.tab_bar)
 
         if force || node.render.raised != active || node.render.raised_anchor != anchorWid || node.render.raised_card != cardWid {
@@ -524,19 +524,21 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
             node.render.raised_anchor = anchorWid
             node.render.raised_card = cardWid
 
-            if anchor != nil && cardWid != 0 {
+            if let anchorWid, let cardWid {
                 list.append(sa_window_order(a_wid: anchorWid, order: 1, b_wid: cardWid))
             }
 
-            if anchor != nil && node.child_count > 1 {
+            // NOTE: The other tabs are ordered against the card, or the anchor when there is no card. Without either
+            // there is no window to order them against.
+            if anchor != nil && node.child_count > 1, let relative = cardWid ?? anchorWid {
                 for i in 0..<node.child_count {
                     let next = node.children[i]
-                    if next != active { treeCollectWindowOrder(next, -1, cardWid != 0 ? cardWid : anchorWid, &list) }
+                    if next != active { treeCollectWindowOrder(next, -1, relative, &list) }
                 }
             }
 
-            if let anchor, !con_is_leaf(active) {
-                treeCollectWindowOrder(active, 1, anchor.window_id, &list)
+            if anchor != nil, !con_is_leaf(active), let anchorWid {
+                treeCollectWindowOrder(active, 1, anchorWid, &list)
             }
         }
     }
@@ -606,7 +608,7 @@ func tree_flush(_ owner: View)
 
     if let selected = tree_find_selected(root) { tree_selection_show(selected) }
 
-    if owner.insertion_point != 0, let insert = tree_find_window(root, owner.insertion_point), let insertDir = insert.insert_dir {
+    if let insertionPoint = owner.insertion_point, let insert = tree_find_window(root, insertionPoint), let insertDir = insert.insert_dir {
         tree_feedback_show(insert, insertDir)
     }
 
@@ -631,11 +633,9 @@ func tree_window_did_receive_focus(_ owner: View, _ windowID: WindowID)
 }
 
 /// `tree_refresh_for_window`
-func tree_refresh_for_window(_ windowID: WindowID)
+func tree_refresh_for_window(_ windowID: WindowID?)
 {
-    if windowID == 0 { return }
-
-    guard let owner = window_manager_global().managed_window.find(windowID) else { return }
+    guard let windowID, let owner = window_manager_global().managed_window.find(windowID) else { return }
     if owner.layout != .tree || owner.tree == nil { return }
 
     if space_is_visible(owner.sid) { tree_render_bars(owner.tree) }
@@ -655,7 +655,7 @@ private let insertFeedbackRadius: Float = 9
 /// `tree_feedback_show`
 func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
 {
-    guard let leaf = tree_descend_focused(node), con_is_leaf(leaf) else { return }
+    guard let leaf = tree_descend_focused(node), let windowID = leaf.window_id else { return }
 
     let cid = connection_global()
     let area = node.area
@@ -665,20 +665,23 @@ func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
     let frameRegion = region!
     frame.origin.x = 0; frame.origin.y = 0
 
-    if node.render.feedback_window.id == 0 {
+    if node.render.feedback_window.id == nil {
         var tags: UInt64 = (1 << 1) | (1 << 9)
         let emptyRegion = CGRegionCreateEmptyRegion()
         var feedbackID: UInt32 = 0
         SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
-        node.render.feedback_window.id = WindowID(feedbackID)
+        node.render.feedback_window.id = WindowID(nonzero: feedbackID)
 
-        sls_window_disable_shadow(node.render.feedback_window.id.rawValue)
-        SLSSetWindowResolution(cid, node.render.feedback_window.id.rawValue, 1.0)
-        SLSSetWindowOpacity(cid, node.render.feedback_window.id.rawValue, false)
-        let context = SLWindowContextCreate(cid, node.render.feedback_window.id.rawValue, nil)
+        sls_window_disable_shadow(feedbackID)
+        SLSSetWindowResolution(cid, feedbackID, 1.0)
+        SLSSetWindowOpacity(cid, feedbackID, false)
+        let context = SLWindowContextCreate(cid, feedbackID, nil)
         node.render.feedback_window.context = context
         context?.setLineWidth(insertFeedbackWidth)
     }
+
+    // NOTE: A window server that did not create the outline leaves no window to draw into or order.
+    guard let feedbackWindowID = node.render.feedback_window.id else { return }
 
     // NOTE: the CGContext calls of the C code did nothing without a context
     let context = node.render.feedback_window.context
@@ -707,7 +710,7 @@ func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
     let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(cgrect_clamp_x_radius(rect, insertFeedbackRadius)), cornerHeight: CGFloat(cgrect_clamp_y_radius(rect, insertFeedbackRadius)), transform: nil)
 
     SLSDisableUpdate(cid)
-    SLSSetWindowShape(cid, node.render.feedback_window.id.rawValue, 0.0, 0.0, frameRegion)
+    SLSSetWindowShape(cid, feedbackWindowID.rawValue, 0.0, 0.0, frameRegion)
     context?.clear(frame)
     context?.clip(to: clip)
     context?.fill(fill)
@@ -717,9 +720,9 @@ func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
     context?.flush()
     SLSReenableUpdate(cid)
 
-    SLSSetWindowLevel(cid, node.render.feedback_window.id.rawValue, window_level(leaf.window_id))
-    SLSSetWindowSubLevel(cid, node.render.feedback_window.id.rawValue, window_sub_level(leaf.window_id))
-    SLSOrderWindow(cid, node.render.feedback_window.id.rawValue, 1, leaf.window_id.rawValue)
+    SLSSetWindowLevel(cid, feedbackWindowID.rawValue, window_level(windowID))
+    SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, window_sub_level(windowID))
+    SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
 }
 
 /// `tree_feedback_hide`

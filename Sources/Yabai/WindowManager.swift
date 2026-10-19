@@ -387,7 +387,7 @@ func windowManagerTreeApply(_ owner: View)
 
     if let focused = owner.tree?.find(window_manager_global().focused_window_id) { focused.focus() }
 
-    if !owner.updateAutoPadding() { tree_view_update(owner) }
+    if !owner.updateAutoPadding() { owner.updateTree() }
     owner.flush()
 }
 
@@ -464,7 +464,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
         return .invalidSourceNode
     }
 
-    tree_view_update(owner)
+    owner.updateTree()
     owner.flush()
 
     return .success
@@ -523,7 +523,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
         if direction.contains(.right)  { didResize = node.resize(.east, by: dx) || didResize }
         if !didResize { return .invalidDestinationNode }
 
-        tree_view_update(owner)
+        owner.updateTree()
         owner.flush()
     } else {
         if direction == .abs {
@@ -807,20 +807,20 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
     if owner.insertionPoint != nil && owner.insertionPoint != target.id {
         if let insert = owner.tree?.find(owner.insertionPoint) {
             insert.insertDirection = nil
-            tree_feedback_hide(insert)
+            insert.hideFeedback()
         }
     }
 
     if direction == node.insertDirection {
         node.insertDirection = nil
-        tree_feedback_hide(node)
+        node.hideFeedback()
         owner.insertionPoint = nil
         return .success
     }
 
     node.insertDirection = direction
     owner.insertionPoint = target.id
-    if space_is_visible(owner.sid) { tree_feedback_show(node, direction) }
+    if space_is_visible(owner.sid) { node.showFeedback(direction: direction) }
 
     return .success
 }

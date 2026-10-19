@@ -700,7 +700,7 @@ extension DaemonState
 
             // ordering below collects every window, hidden tabs included
             var list: [sa_window_order] = []
-            treeCollectWindowOrder(t, -1, 99, &list)
+            t.collectWindowOrder(order: -1, relative: 99, into: &list)
             #expect(list.count == 5)
             #expect(orderIs(list, 0, 2, -1, 99))
             #expect(list.map(\.a_wid) == [2, 3, 4, 5, 6])
@@ -708,18 +708,18 @@ extension DaemonState
 
             // ordering above skips hidden tabs and the relative window itself
             list = []
-            treeCollectWindowOrder(root, 1, 3, &list)
+            root.collectWindowOrder(order: 1, relative: 3, into: &list)
             #expect(list.count == 2)
             #expect(orderIs(list, 0, 1, 1, 3))
             #expect(orderIs(list, 1, 4, 1, 3))
 
             list = []
-            treeCollectWindowOrder(v, -1, 4, &list)
+            v.collectWindowOrder(order: -1, relative: 4, into: &list)
             #expect(list.map(\.a_wid) == [3])
 
             // a tab change orders the other tabs below the focused window, then the rest of the active tab above it
             list = []
-            treeCollectTabOrder(root, false, &list)
+            root.collectTabOrder(force: false, into: &list)
             #expect(list.count == 4)
             #expect(orderIs(list, 0, 2, -1, 3))
             #expect(orderIs(list, 1, 5, -1, 3))
@@ -728,15 +728,15 @@ extension DaemonState
 
             // nothing to do until the active tab changes, unless forced
             list = []
-            treeCollectTabOrder(root, false, &list)
+            root.collectTabOrder(force: false, into: &list)
             #expect(list.count == 0)
-            treeCollectTabOrder(root, true, &list)
+            root.collectTabOrder(force: true, into: &list)
             #expect(list.count == 4)
 
             // switching to the tab that holds 2 orders every other window of the container below it
             list = []
             t.children[0].focus()
-            treeCollectTabOrder(root, false, &list)
+            root.collectTabOrder(force: false, into: &list)
             #expect(list.count == 4)
             #expect(orderIs(list, 0, 3, -1, 2))
             #expect(orderIs(list, 3, 6, -1, 2))
@@ -759,16 +759,16 @@ extension DaemonState
 
             // a card ordered below the focused window of a split tab orders the rest of the tab above it again
             var list: [sa_window_order] = []
-            treeCollectCardOrder(root, 3, &list)
+            root.collectCardOrder(after: 3, into: &list)
             #expect(list.count == 1)
             #expect(list.first.map { $0.a_wid == 4 && $0.order == 1 && $0.b_wid == 3 } == true)
 
             // a card below any other window, or below the window of a single-window tab, orders nothing
             list = []
-            treeCollectCardOrder(root, 4, &list)
+            root.collectCardOrder(after: 4, into: &list)
             #expect(list.isEmpty)
             t.children[0].focus()
-            treeCollectCardOrder(root, 2, &list)
+            root.collectCardOrder(after: 2, into: &list)
             #expect(list.isEmpty)
 
             root.destroy()
@@ -803,10 +803,10 @@ extension DaemonState
             let target = treeViewTestView(root)
 
             // NOTE: the C test checked that the list grows past its initial capacity; the list is an array now
-            #expect(treeViewWindowList(target) == (UInt32(1)...20).map(WindowID.init(rawValue:)))
+            #expect(target.windowIDs == (UInt32(1)...20).map(WindowID.init(rawValue:)))
 
             let empty = treeViewTestView(nil)
-            #expect(treeViewWindowList(empty).isEmpty)
+            #expect(empty.windowIDs.isEmpty)
 
             root.destroy()
         }
@@ -825,22 +825,22 @@ extension DaemonState
             a.area     = Area(x: 0,   y: 0, w: 500,  h: 400)
             b.area     = Area(x: 500, y: 0, w: 500,  h: 800)
 
-            #expect(treeHasZoom(root, .none) == false)
-            #expect(Int(tree_con_frame(target, a).h) == 400)
+            #expect(root.hasZoom(.none) == false)
+            #expect(Int(target.frame(for: a).h) == 400)
 
             a.zoom = .parent
-            #expect(treeHasZoom(root, .none) == true)
-            #expect(treeHasZoom(root, .fullscreen) == false)
-            #expect(Int(tree_con_frame(target, a).h) == 800)
-            #expect(Int(tree_con_frame(target, a).w) == 500)
+            #expect(root.hasZoom(.none) == true)
+            #expect(root.hasZoom(.fullscreen) == false)
+            #expect(Int(target.frame(for: a).h) == 800)
+            #expect(Int(target.frame(for: a).w) == 500)
 
             a.zoom = .fullscreen
-            #expect(treeHasZoom(root, .fullscreen) == true)
-            #expect(Int(tree_con_frame(target, a).w) == 1000)
+            #expect(root.hasZoom(.fullscreen) == true)
+            #expect(Int(target.frame(for: a).w) == 1000)
 
-            #expect(treeContainsWindow(root, 2) == true)
-            #expect(treeContainsWindow(root, 3) == false)
-            #expect(treeContainsWindow(root, 0) == false)
+            #expect(root.contains(2) == true)
+            #expect(root.contains(3) == false)
+            #expect(root.contains(0) == false)
 
             root.destroy()
         }

@@ -418,7 +418,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
     var count = 0
     if let sid {
         let owner = space_manager_find_view(space_manager_global(), sid)
-        count = owner.layout == .tree ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
+        count = owner.layout == .tree ? owner.tree?.visibleWindowCount() ?? 0 : 0
     }
     for target in window_manager_global().window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
@@ -435,11 +435,12 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
 {
     guard let target, !target.isDestroyed else { return }
     let wm = window_manager_global()
-    var windowArea = Area.zero
-    var borderArea = Area.zero
-    var containerRadius = 0
     let owner = window_manager_find_managed_window(wm, target)
-    var enabled = wm.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.id, &windowArea, &borderArea, &containerRadius)
+    let border = owner?.borderArea(windowID: target.id) ?? (visible: true, window: Area.zero, border: Area.zero, radius: 0)
+    let windowArea = border.window
+    let borderArea = border.border
+    let containerRadius = border.radius
+    var enabled = wm.enable_window_border && borderShouldShow(target) && border.visible
     if enabled && wm.window_border_hide_single && owner != nil && target.scratchpad == nil {
         let count = windowCount ?? borderSpaceWindowCount(sid ?? window_space(target.id))
         enabled = count > 1
@@ -534,7 +535,7 @@ func border_refresh_space(_ sid: SpaceID?)
     }
     var windows: [WindowID] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
-    if owner.layout == .tree { windows = treeViewWindowList(owner) }
+    if owner.layout == .tree { windows = owner.windowIDs }
     let capacity = windows.count + window_manager_global().window.count
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {

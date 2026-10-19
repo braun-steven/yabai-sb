@@ -97,31 +97,10 @@ final class View
 
     var isInvalid: Bool { !isValid }
 
-    var windowIDs: [WindowID] { treeViewWindowList(self) }
-
-    var tiledCount: Int { tree_view_tiled_count(self) }
-
-    func add(_ window: Window, insertionPoint: WindowID?)
-    {
-        tree_add_window(self, window, insertionPoint)
-        if !updateAutoPadding() { tree_view_update(self) }
-        isDirty = true
-    }
-
-    @discardableResult
-    func remove(_ window: Window) -> Bool
-    {
-        if !tree_remove_window(self, window) { return false }
-
-        if !updateAutoPadding() { tree_view_update(self) }
-        isDirty = true
-        return true
-    }
-
     func flush()
     {
         if space_is_visible(sid) {
-            tree_flush(self)
+            flushTree()
             isDirty = false
         } else {
             isDirty = true
@@ -167,13 +146,13 @@ final class View
     func clear()
     {
         insertionPoint = nil
-        tree_view_clear(self)
+        clearTree()
         update()
     }
 
     func destroy()
     {
-        tree_view_clear(self)
+        clearTree()
         uuid = nil
     }
 
@@ -185,7 +164,7 @@ final class View
         let frame = display_bounds_constrained(did, false)
         area = rootArea(in: frame)
 
-        tree_view_update(self)
+        updateTree()
         isValid = true
         isDirty = true
     }

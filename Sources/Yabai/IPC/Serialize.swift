@@ -259,7 +259,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 
     if wanted(flags, WindowProperty.splitType | WindowProperty.stackIndex | WindowProperty.hasParentZoom | WindowProperty.hasFullscreenZoom) {
         let view = window_manager_find_managed_window(wm, window)
-        windowInfoSetTree(&info, view.flatMap { tree_view_find_window($0, wid) })
+        windowInfoSetTree(&info, view?.findWindow(wid))
     }
 
     if wanted(flags, WindowProperty.isVisible | WindowProperty.isSticky) {
@@ -357,7 +357,7 @@ func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64
 private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
 {
     let leaf = node.isLeaf
-    let frame = leaf ? tree_con_frame(view, node) : node.area
+    let frame = leaf ? view.frame(for: node) : node.area
     let visible = node.isVisible
     let parent = node.parent
 
@@ -391,7 +391,7 @@ func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
     guard view.layout == .tree else { return false }
 
     var output = ""
-    treeSerializeCon(&output, view, tree_view_root(view), 0)
+    treeSerializeCon(&output, view, view.root, 0)
     rsp.write("\(output)\n")
     return true
 }

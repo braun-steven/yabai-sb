@@ -4,13 +4,11 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: Applies the container trees of Tree.swift to the screen: the tree of a view, window frames,
-// tab bars, the stacking order of tabs, the outline of selected containers and the JSON of a tree.
-// A view that uses the 'tree' layout owns its root container in view->tree. Ported from src/tree_view.c.
+// NOTE: A view applies its container tree to the screen: window frames, tab bars, tab stacking, selected-container
+// outlines and tree JSON. A view using the tree layout owns its root container in `tree`.
 //
 
-/// `tree_append_title`
-private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
+private func appendTitle(_ string: CFMutableString, from node: Con)
 {
     if node.isLeaf {
         if let windowID = node.windowID, let target = window_manager_find_window(window_manager_global(), windowID),
@@ -25,7 +23,7 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 
     for i in 0..<node.children.count {
         if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
-        treeAppendTitle(string, node.children[i])
+        appendTitle(string, from: node.children[i])
     }
 
     CFStringAppendCString(string, "]", CFStringBuiltInEncodings.UTF8.rawValue)
@@ -36,40 +34,38 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
 // applications inside for a container, like i3 shows it (H[iTerm2 Safari]).
 //
 
-/// `tree_copy_title`
-func tree_copy_title(_ node: Con) -> CFString?
+extension Con
 {
-    if node.isLeaf { return tab_bar_copy_title(node.windowID) }
+    var title: CFString?
+    {
+        if isLeaf { return tab_bar_copy_title(windowID) }
 
-    let string = CFStringCreateMutable(nil, 0)!
-    treeAppendTitle(string, node)
-    return string
+        let string = CFStringCreateMutable(nil, 0)!
+        appendTitle(string, from: self)
+        return string
+    }
+
+    func destroyFeedback()
+    {
+        guard let feedbackWindowID = render.feedbackWindow.id else { return }
+
+        SLSOrderWindow(connection_global(), feedbackWindowID.rawValue, 0, 0)
+        render.feedbackWindow.context = nil
+        SLSReleaseWindow(connection_global(), feedbackWindowID.rawValue)
+        render.feedbackWindow = FeedbackWindow()
+    }
 }
 
-/// `tree_feedback_destroy`
-func treeFeedbackDestroy(_ node: Con)
-{
-    guard let feedbackWindowID = node.render.feedbackWindow.id else { return }
-
-    SLSOrderWindow(connection_global(), feedbackWindowID.rawValue, 0, 0)
-    node.render.feedbackWindow.context = nil
-    SLSReleaseWindow(connection_global(), feedbackWindowID.rawValue)
-    node.render.feedbackWindow = FeedbackWindow()
-}
-
-/// `tree_bar_height`
 private func treeBarHeight() -> Int
 {
     return tab_bar_is_enabled() ? window_manager_global().tab_bar_height : 0
 }
 
-/// `tree_bar_inset`
 private func treeBarInset() -> Int
 {
     return tab_bar_is_enabled() ? tab_bar_card_padding() : 0
 }
 
-/// `tree_default_layout`
 private func treeDefaultLayout(_ owner: View) -> ConLayout
 {
     switch space_manager_global().tree_default_orientation {
@@ -79,61 +75,55 @@ private func treeDefaultLayout(_ owner: View) -> ConLayout
     }
 }
 
-/// `tree_view_root`
-func tree_view_root(_ owner: View) -> Con
+extension View
 {
-    if owner.tree == nil {
-        owner.tree = Con(layout: treeDefaultLayout(owner))
-        owner.tree!.area = owner.area
+    var root: Con
+    {
+        if tree == nil {
+            tree = Con(layout: treeDefaultLayout(self))
+            tree!.area = area
+        }
+
+        return tree!
     }
 
-    return owner.tree!
-}
-
-/// `tree_view_update`
-func tree_view_update(_ owner: View!)
-{
-    guard let root = owner.tree else { return }
-    root.layOut(owner.area, gap: owner.windowGapValue, barHeight: treeBarHeight(), barOffset: window_manager_global().tab_bar_offset, barInset: treeBarInset())
-}
-
-/// `tree_unmanage_windows`
-private func treeUnmanageWindows(_ node: Con)
-{
-    if node.isLeaf {
-        if let windowID = node.windowID { window_manager_remove_managed_window(window_manager_global(), windowID) }
-        return
+    func updateTree()
+    {
+        guard let root = tree else { return }
+        root.layOut(area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: window_manager_global().tab_bar_offset, barInset: treeBarInset())
     }
 
-    for i in 0..<node.children.count {
-        treeUnmanageWindows(node.children[i])
+    private func unmanageWindows(in node: Con)
+    {
+        if node.isLeaf {
+            if let windowID = node.windowID { window_manager_remove_managed_window(window_manager_global(), windowID) }
+            return
+        }
+
+        for child in node.children { unmanageWindows(in: child) }
     }
-}
 
-/// `tree_view_clear`
-func tree_view_clear(_ owner: View)
-{
-    guard let root = owner.tree else { return }
+    func clearTree()
+    {
+        guard let root = tree else { return }
 
-    treeUnmanageWindows(root)
-    root.destroy()
-    owner.tree = nil
-}
+        unmanageWindows(in: root)
+        root.destroy()
+        tree = nil
+    }
 
-/// `tree_view_find_window`
-func tree_view_find_window(_ owner: View!, _ windowID: WindowID) -> Con!
-{
-    guard let root = owner.tree else { return nil }
-    return root.find(windowID)
+    func findWindow(_ windowID: WindowID) -> Con?
+    {
+        guard let root = tree else { return nil }
+        return root.find(windowID)
+    }
 }
 
 //
-// NOTE: A new window becomes the focused child of its containers, as i3 focuses new windows, unless
-// the focused window is on this space: a window that is moved here or stops floating then stays
-// behind it, so that the focused window is not hidden in another tab.
+// NOTE: A new window becomes the focused child of its containers unless the focused window is already on this space.
+// A window moved here or made tiled stays behind the focused window so it is not hidden in another tab.
 //
 
-/// `tree_focus_new_window`
 private func treeFocusNewWindow(_ root: Con, _ node: Con, _ windowID: WindowID)
 {
     node.focus()
@@ -144,7 +134,6 @@ private func treeFocusNewWindow(_ root: Con, _ node: Con, _ windowID: WindowID)
     }
 }
 
-/// `tree_view_reset_empty_root`
 private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 {
     if root.children.count != 0 { return }
@@ -154,197 +143,193 @@ private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 }
 
 //
-// NOTE: A new window opens where tree_open_con puts it: next to the focused window, or next to
+// NOTE: A new window opens next to the focused window, or next to
 // the selected container (focus parent). An insertion point set with 'window --insert' or by a
 // mouse drop places it on that side of its window instead, and the insertion point passed in is
 // used for windows that are restored or moved here, so they open next to that window.
 //
 
-/// `tree_add_window`
-func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: WindowID?)
+extension View
 {
-    let root = tree_view_root(owner)
-    if root.find(target.id) != nil { return }
+    func add(_ target: Window, insertionPoint: WindowID?)
+    {
+        let root = self.root
+        if root.find(target.id) != nil { return }
 
-    let node = Con(windowID: target.id)
+        let node = Con(windowID: target.id)
 
-    treeViewResetEmptyRoot(owner, root)
+        treeViewResetEmptyRoot(self, root)
 
-    if let ownerInsertionPoint = owner.insertionPoint, let anchor = root.find(ownerInsertionPoint), let direction = anchor.insertDirection {
-        anchor.insertDirection = nil
-        treeFeedbackDestroy(anchor)
-        owner.insertionPoint = nil
+        if let ownerInsertionPoint = self.insertionPoint, let anchor = root.find(ownerInsertionPoint), let direction = anchor.insertDirection {
+            anchor.insertDirection = nil
+            anchor.destroyFeedback()
+            self.insertionPoint = nil
 
-        anchor.insert(node, toward: direction)
-        treeFocusNewWindow(root, node, target.id)
-        return
+            anchor.insert(node, toward: direction)
+            treeFocusNewWindow(root, node, target.id)
+        } else {
+            var anchor = root.find(insertionPoint)
+
+            if anchor == nil, let selected = root.findSelected(), !selected.isLeaf {
+                anchor = selected
+            }
+
+            if anchor == nil { anchor = root.find(window_manager_global().focused_window_id) }
+            if anchor == nil { anchor = root.focusedDescendant }
+
+            root.open(node, after: anchor, autotile: space_manager_global().tree_autotiling)
+            treeFocusNewWindow(root, node, target.id)
+        }
+
+        if !updateAutoPadding() { updateTree() }
+        isDirty = true
     }
-
-    var anchor: Con? = root.find(insertionPoint)
-
-    if anchor == nil, let selected = root.findSelected(), !selected.isLeaf {
-        anchor = selected
-    }
-
-    if anchor == nil { anchor = root.find(window_manager_global().focused_window_id) }
-    if anchor == nil { anchor = root.focusedDescendant }
-
-    root.open(node, after: anchor, autotile: space_manager_global().tree_autotiling)
-    treeFocusNewWindow(root, node, target.id)
-}
 
 //
 // NOTE: A container that moves here from another display, with its windows already moved to the
 // space of this view. It keeps its structure and arrives on the side it comes from.
 //
 
-/// `tree_view_attach_from_direction`
-func tree_view_attach_from_direction(_ owner: View, _ node: Con, _ direction: Direction)
-{
-    let root = tree_view_root(owner)
-    treeViewResetEmptyRoot(owner, root)
-    root.attach(node, from: direction)
-}
-
-/// `tree_remove_window`
-func tree_remove_window(_ owner: View, _ target: Window) -> Bool
-{
-    guard let node = owner.tree?.find(target.id) else { return false }
-
-    if owner.insertionPoint == target.id { owner.insertionPoint = nil }
-
-    node.detach()
-    node.destroy()
-    owner.tree!.flatten()
-
-    return true
-}
-
-/// `tree_append_window_list`
-private func treeAppendWindowList(_ node: Con, _ windowList: inout [WindowID])
-{
-    if node.isLeaf {
-        if let windowID = node.windowID { windowList.append(windowID) }
-        return
+    func attach(_ node: Con, from direction: Direction)
+    {
+        let root = self.root
+        treeViewResetEmptyRoot(self, root)
+        root.attach(node, from: direction)
     }
 
-    for i in 0..<node.children.count {
-        treeAppendWindowList(node.children[i], &windowList)
-    }
-}
+    @discardableResult
+    func remove(_ target: Window) -> Bool
+    {
+        guard let node = tree?.find(target.id) else { return false }
 
-/// `tree_view_window_list`: the windows of the tree in its order.
-func treeViewWindowList(_ owner: View) -> [WindowID]
-{
-    var windowList: [WindowID] = []
-    if let root = owner.tree { treeAppendWindowList(root, &windowList) }
-    return windowList
-}
+        if insertionPoint == target.id { insertionPoint = nil }
+
+        node.detach()
+        node.destroy()
+        tree!.flatten()
+
+        if !updateAutoPadding() { updateTree() }
+        isDirty = true
+        return true
+    }
+
+    private func appendWindowIDs(in node: Con, to result: inout [WindowID])
+    {
+        if node.isLeaf {
+            if let windowID = node.windowID { result.append(windowID) }
+            return
+        }
+
+        for child in node.children { appendWindowIDs(in: child, to: &result) }
+    }
+
+    var windowIDs: [WindowID]
+    {
+        var result: [WindowID] = []
+        if let tree { appendWindowIDs(in: tree, to: &result) }
+        return result
+    }
 
 //
 // NOTE: Counts the areas auto_padding cares about. A tabbed container shows one tab at a time,
 // so it is a single area no matter how many tabs it holds.
 //
 
-/// `tree_tiled_count`
-private func treeTiledCount(_ node: Con) -> Int
-{
-    if node.isLeaf { return node.zoom == .fullscreen ? 0 : 1 }
+    private func tiledCount(in node: Con) -> Int
+    {
+        if node.isLeaf { return node.zoom == .fullscreen ? 0 : 1 }
 
-    var count = 0
-    for i in 0..<node.children.count {
-        count += treeTiledCount(node.children[i])
+        var count = 0
+        for child in node.children { count += tiledCount(in: child) }
+
+        return node.layout == .tabbed && count > 1 ? 1 : count
     }
 
-    return node.layout == .tabbed && count > 1 ? 1 : count
-}
-
-/// `tree_view_tiled_count`
-func tree_view_tiled_count(_ owner: View!) -> Int
-{
-    guard let root = owner.tree else { return 0 }
-    return treeTiledCount(root)
+    var tiledCount: Int { tree.map { tiledCount(in: $0) } ?? 0 }
 }
 
 // NOTE: Border suppression counts the windows actually shown by the active tabs. Auto-padding
 // keeps counting a whole tabbed container as one area, even when its active tab contains a split.
-func treeVisibleWindowCount(_ node: Con) -> Int
+extension Con
 {
-    if node.isLeaf { return node.zoom == .fullscreen ? 0 : 1 }
-    if node.layout == .tabbed {
-        return node.children.count == 0 ? 0 : treeVisibleWindowCount(node.focusOrder[0])
+    func visibleWindowCount() -> Int
+    {
+        if isLeaf { return zoom == .fullscreen ? 0 : 1 }
+        if layout == .tabbed {
+            return children.count == 0 ? 0 : focusOrder[0].visibleWindowCount()
+        }
+        var count = 0
+        for child in children { count += child.visibleWindowCount() }
+        return count
     }
-    var count = 0
-    for child in node.children { count += treeVisibleWindowCount(child) }
-    return count
 }
 
-/// `tree_con_frame`
-func tree_con_frame(_ owner: View, _ node: Con) -> Area
+extension View
 {
-    if node.zoom == .fullscreen { return owner.tree!.area }
-    if node.zoom == .parent, let parent = node.parent { return parent.area }
-    return node.area
+    func frame(for node: Con) -> Area
+    {
+        if node.zoom == .fullscreen { return tree!.area }
+        if node.zoom == .parent, let parent = node.parent { return parent.area }
+        return node.area
+    }
 }
 
-/// `AX_DIFF` (view.h)
 private func axDiff(_ a: Float, _ b: CGFloat) -> Bool
 {
     return abs(CGFloat(a) - b) >= 1.5
 }
 
-/// `tree_window_needs_flush`
-func tree_window_needs_flush(_ owner: View, _ windowID: WindowID, _ frame: CGRect) -> Bool
+extension View
 {
-    guard let node = tree_view_find_window(owner, windowID) else { return false }
+    func needsFlush(windowID: WindowID, frame: CGRect) -> Bool
+    {
+        guard let node = findWindow(windowID) else { return false }
 
-    let area = tree_con_frame(owner, node)
-    return axDiff(area.x, frame.origin.x) ||
-           axDiff(area.y, frame.origin.y) ||
-           axDiff(area.w, frame.size.width) ||
-           axDiff(area.h, frame.size.height)
-}
+        let area = self.frame(for: node)
+        return axDiff(area.x, frame.origin.x) ||
+               axDiff(area.y, frame.origin.y) ||
+               axDiff(area.w, frame.size.width) ||
+               axDiff(area.h, frame.size.height)
+    }
 
-/// `tree_capture_windows`
-private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout [window_capture])
-{
-    if node.isLeaf {
-        if let windowID = node.windowID, let target = window_manager_find_window(window_manager_global(), windowID) {
-            let area = tree_con_frame(owner, node)
-            windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
+    private func captureWindows(in node: Con, into windowList: inout [window_capture])
+    {
+        if node.isLeaf {
+            if let windowID = node.windowID, let target = window_manager_find_window(window_manager_global(), windowID) {
+                let area = frame(for: node)
+                windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
+            }
+            return
         }
-        return
-    }
 
-    for i in 0..<node.children.count {
-        treeCaptureWindows(owner, node.children[i], &windowList)
+        for child in node.children { captureWindows(in: child, into: &windowList) }
     }
 }
 
-/// `tree_has_zoom`
-func treeHasZoom(_ node: Con, _ zoom: ConZoom) -> Bool
+extension Con
 {
-    if node.isLeaf { return zoom == .none ? node.zoom != .none : node.zoom == zoom }
+    func hasZoom(_ zoom: ConZoom) -> Bool
+    {
+        if isLeaf { return zoom == .none ? self.zoom != .none : self.zoom == zoom }
 
-    for i in 0..<node.children.count {
-        if treeHasZoom(node.children[i], zoom) { return true }
+        for child in children {
+            if child.hasZoom(zoom) { return true }
+        }
+
+        return false
     }
 
-    return false
-}
+    var root: Con
+    {
+        var node = self
+        while let parent = node.parent { node = parent }
+        return node
+    }
 
-/// `tree_root_of`
-private func treeRootOf(_ node: Con) -> Con
-{
-    var node = node
-    while let parent = node.parent { node = parent }
-    return node
-}
-
-/// `tree_contains_window`
-func treeContainsWindow(_ node: Con, _ windowID: WindowID?) -> Bool
-{
-    return node.find(windowID) != nil
+    func contains(_ windowID: WindowID?) -> Bool
+    {
+        find(windowID) != nil
+    }
 }
 
 //
@@ -352,64 +337,63 @@ func treeContainsWindow(_ node: Con, _ windowID: WindowID?) -> Bool
 // window covers every bar on the space.
 //
 
-/// `tree_bar_is_shown`
-private func treeBarIsShown(_ node: Con) -> Bool
+extension Con
 {
-    return tab_bar_is_enabled() &&
-           node.layout == .tabbed &&
-           node.children.count > 0 &&
-           node.area.h > Float(2 * window_manager_global().tab_bar_height) &&
-           node.isVisible &&
-           !treeHasZoom(node, .none) &&
-           !treeHasZoom(treeRootOf(node), .fullscreen)
+    fileprivate var isBarShown: Bool
+    {
+        tab_bar_is_enabled() &&
+        layout == .tabbed &&
+        children.count > 0 &&
+        area.h > Float(2 * window_manager_global().tab_bar_height) &&
+        isVisible &&
+        !hasZoom(.none) &&
+        !root.hasZoom(.fullscreen)
+    }
 }
 
-//
-// NOTE: The redraw callback of the tab bar of a container (TabBar.swift calls it with the container as
-// the owner, unretained); the container outlives its bar, which con_free releases.
-//
-
-private func treeRenderBarCallback(_ owner: UnsafeMutableRawPointer?)
+private func redrawTabBar(_ owner: UnsafeMutableRawPointer?)
 {
-    treeRenderBar(Unmanaged<Con>.fromOpaque(owner!).takeUnretainedValue())
+    Unmanaged<Con>.fromOpaque(owner!).takeUnretainedValue().renderBar()
 }
 
-/// `tree_render_bar`
-private func treeRenderBar(_ node: Con)
+extension Con
 {
-    if !treeBarIsShown(node) {
-        tab_bar_hide(node.render.tabBar)
-        return
-    }
+    fileprivate func renderBar()
+    {
+        if !isBarShown {
+            tab_bar_hide(render.tabBar)
+            return
+        }
 
-    let wm = window_manager_global()
-    let entryCount = min(node.children.count, tabBarMaxEntryCount)
-    let hasFocus = treeContainsWindow(node, wm.focused_window_id)
-    let active = node.focusOrder[0]
+        let wm = window_manager_global()
+        let entryCount = min(children.count, tabBarMaxEntryCount)
+        let hasFocus = contains(wm.focused_window_id)
+        let active = focusOrder[0]
 
-    var entryList: [TabBarEntry] = []
+        var entryList: [TabBarEntry] = []
 
-    for i in 0..<entryCount {
-        let next = node.children[i]
-        let leaf = next.focusedDescendant
+        for i in 0..<entryCount {
+            let next = children[i]
+            let leaf = next.focusedDescendant
 
-        entryList.append(TabBarEntry(
-            focus_wid: leaf.windowID,
-            title: tree_copy_title(next),
-            icon: next.isLeaf ? tab_bar_icon(next.windowID) : nil,
-            state: next != active ? .unfocused : hasFocus ? .focused : .inactive))
-    }
+            entryList.append(TabBarEntry(
+                focus_wid: leaf.windowID,
+                title: next.title,
+                icon: next.isLeaf ? tab_bar_icon(next.windowID) : nil,
+                state: next != active ? .unfocused : hasFocus ? .focused : .inactive))
+        }
 
-    node.render.tabBar.owner = Unmanaged.passUnretained(node).toOpaque()
-    node.render.tabBar.redraw = treeRenderBarCallback
+        render.tabBar.owner = Unmanaged.passUnretained(self).toOpaque()
+        render.tabBar.redraw = redrawTabBar
 
-    let above = node.focusedDescendant
-    let area = node.area
-    let inset = Float(Con.cardInset(area, barHeight: wm.tab_bar_height, barInset: treeBarInset()))
-    let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-    let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tab_bar_height))
-    entryList.withUnsafeMutableBufferPointer { entries in
-        tab_bar_render(node.render.tabBar, frame, card, above.windowID, entries.baseAddress!, entryCount)
+        let above = focusedDescendant
+        let area = self.area
+        let inset = Float(Con.cardInset(area, barHeight: wm.tab_bar_height, barInset: treeBarInset()))
+        let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
+        let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tab_bar_height))
+        entryList.withUnsafeMutableBufferPointer { entries in
+            tab_bar_render(render.tabBar, frame, card, above.windowID, entries.baseAddress!, entryCount)
+        }
     }
 }
 
@@ -421,78 +405,76 @@ private func treeRenderBar(_ node: Con)
 // gets no border.
 //
 
-/// `tree_window_border_area`
-func tree_window_border_area(_ owner: View!, _ windowID: WindowID, _ windowArea: inout Area, _ borderArea: inout Area, _ radius: inout Int) -> Bool
+extension View
 {
-    windowArea = Area.zero
-    borderArea = Area.zero
-    radius = 0
+    func borderArea(windowID: WindowID) -> (visible: Bool, window: Area, border: Area, radius: Int)
+    {
+        var windowArea = Area.zero
+        var borderArea = Area.zero
+        var radius = 0
 
-    guard let owner, owner.tree != nil, let leaf = tree_view_find_window(owner, windowID) else { return true }
-    if !leaf.isVisible { return false }
+        guard tree != nil, let leaf = findWindow(windowID) else { return (true, windowArea, borderArea, radius) }
+        if !leaf.isVisible { return (false, windowArea, borderArea, radius) }
 
-    var outer: Con?
-    var node = leaf
-    while let parent = node.parent, parent.layout == .tabbed, treeBarIsShown(parent) {
-        outer = parent
-        node = parent
-    }
+        var outer: Con?
+        var node = leaf
+        while let parent = node.parent, parent.layout == .tabbed, parent.isBarShown {
+            outer = parent
+            node = parent
+        }
 
-    windowArea = leaf.area
-    borderArea = outer?.area ?? leaf.area
+        windowArea = leaf.area
+        borderArea = outer?.area ?? leaf.area
 
-    if let outer {
-        let wm = window_manager_global()
-        let inset = Con.cardInset(outer.area, barHeight: wm.tab_bar_height, barInset: treeBarInset())
-        if inset > 0 { radius = wm.tab_bar_window_radius + inset }
-    }
+        if let outer {
+            let wm = window_manager_global()
+            let inset = Con.cardInset(outer.area, barHeight: wm.tab_bar_height, barInset: treeBarInset())
+            if inset > 0 { radius = wm.tab_bar_window_radius + inset }
+        }
 
-    return true
-}
-
-/// `tree_render_bars`
-func tree_render_bars(_ node: Con)
-{
-    if node.isLeaf { return }
-
-    if node.layout == .tabbed {
-        treeRenderBar(node)
-    } else {
-        tab_bar_release(node.render.tabBar)
-    }
-
-    for i in 0..<node.children.count {
-        tree_render_bars(node.children[i])
+        return (true, windowArea, borderArea, radius)
     }
 }
 
-/// `tree_release_bars`
-func tree_release_bars(_ node: Con!)
+extension Con
 {
-    tab_bar_release(node.render.tabBar)
+    func renderBars()
+    {
+        if isLeaf { return }
 
-    for i in 0..<node.children.count {
-        tree_release_bars(node.children[i])
+        if layout == .tabbed {
+            renderBar()
+        } else {
+            tab_bar_release(render.tabBar)
+        }
+
+        for child in children { child.renderBars() }
+    }
+
+    func releaseBars()
+    {
+        tab_bar_release(render.tabBar)
+
+        for child in children { child.releaseBars() }
     }
 }
 
-/// `tree_collect_window_order`
-func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: WindowID, _ list: inout [sa_window_order])
+extension Con
 {
-    if node.isLeaf {
-        if let windowID = node.windowID, windowID != relative { list.append(sa_window_order(a_wid: windowID, order: order, b_wid: relative)) }
-        return
-    }
+    func collectWindowOrder(order: Int32, relative: WindowID, into list: inout [sa_window_order])
+    {
+        if isLeaf {
+            if let windowID = self.windowID, windowID != relative { list.append(sa_window_order(a_wid: windowID, order: order, b_wid: relative)) }
+            return
+        }
 
-    if order == 1 && node.layout == .tabbed {
-        if node.children.count != 0 { treeCollectWindowOrder(node.focusOrder[0], order, relative, &list) }
-        return
-    }
+        if order == 1 && layout == .tabbed {
+            if !children.isEmpty { focusOrder[0].collectWindowOrder(order: order, relative: relative, into: &list) }
+            return
+        }
 
-    for i in 0..<node.children.count {
-        treeCollectWindowOrder(node.children[i], order, relative, &list)
+        for child in children { child.collectWindowOrder(order: order, relative: relative, into: &list) }
     }
-}
 
 //
 // NOTE: Windows of hidden tabs keep the frame of their tabbed container and are hidden by
@@ -506,138 +488,136 @@ func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: WindowID, _
 // collected first and sent to the scripting addition in one message.
 //
 
-/// `tree_collect_tab_order`
-func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_order])
-{
-    if node.isLeaf { return }
+    func collectTabOrder(force: Bool, into list: inout [sa_window_order])
+    {
+        if isLeaf { return }
 
-    if node.layout == .tabbed && node.children.count != 0 && node.isVisible {
-        let active = node.focusOrder[0]
+        if layout == .tabbed && !children.isEmpty && isVisible {
+            let active = focusOrder[0]
 
-        let anchor = active.focusedDescendant
-        let anchorWid = anchor.windowID
-        let cardWid = tab_bar_card_id(node.render.tabBar)
+            let anchor = active.focusedDescendant
+            let anchorWid = anchor.windowID
+            let cardWid = tab_bar_card_id(render.tabBar)
 
-        if force || node.render.raised != active || node.render.raisedAnchor != anchorWid || node.render.raisedCard != cardWid {
-            node.render.raised = active
-            node.render.raisedAnchor = anchorWid
-            node.render.raisedCard = cardWid
+            if force || render.raised != active || render.raisedAnchor != anchorWid || render.raisedCard != cardWid {
+                render.raised = active
+                render.raisedAnchor = anchorWid
+                render.raisedCard = cardWid
 
-            if let anchorWid, let cardWid {
-                list.append(sa_window_order(a_wid: anchorWid, order: 1, b_wid: cardWid))
-            }
+                if let anchorWid, let cardWid {
+                    list.append(sa_window_order(a_wid: anchorWid, order: 1, b_wid: cardWid))
+                }
 
             // NOTE: The other tabs are ordered against the card, or the anchor when there is no card. Without either
             // there is no window to order them against.
-            if node.children.count > 1, let relative = cardWid ?? anchorWid {
-                for i in 0..<node.children.count {
-                    let next = node.children[i]
-                    if next != active { treeCollectWindowOrder(next, -1, relative, &list) }
+                if children.count > 1, let relative = cardWid ?? anchorWid {
+                    for next in children where next != active {
+                        next.collectWindowOrder(order: -1, relative: relative, into: &list)
+                    }
+                }
+
+                if !active.isLeaf, let anchorWid {
+                    active.collectWindowOrder(order: 1, relative: anchorWid, into: &list)
                 }
             }
-
-            if !active.isLeaf, let anchorWid {
-                treeCollectWindowOrder(active, 1, anchorWid, &list)
-            }
         }
+
+        for child in children { child.collectTabOrder(force: force, into: &list) }
     }
 
-    for i in 0..<node.children.count {
-        treeCollectTabOrder(node.children[i], force, &list)
+    func raiseTabs(force: Bool)
+    {
+        var list: [sa_window_order] = []
+        collectTabOrder(force: force, into: &list)
+
+        if !list.isEmpty { scripting_addition_order_window_list(list) }
     }
-}
-
-/// `tree_raise_tabs`
-func tree_raise_tabs(_ node: Con, _ force: Bool)
-{
-    var list: [sa_window_order] = []
-    treeCollectTabOrder(node, force, &list)
-
-    if !list.isEmpty { scripting_addition_order_window_list(list) }
-}
 
 //
-// NOTE: The card is ordered right below the focused window of the active tab on the main queue, independently
-// of tree_raise_tabs. The application raises a window above the other windows of a split tab whenever it gets
+// NOTE: The card is ordered right below the focused window of the active tab on the main queue. The application
+// raises a window above the other windows of a split tab whenever it gets
 // focus, so a card ordered after that (by any redraw of the bar, e.g. on a title change or when another
 // application gets focus) lands between them and hides the other windows. They are therefore ordered above
 // the focused window again each time the card has been ordered below it.
 //
 
-/// `tree_collect_card_order`
-func treeCollectCardOrder(_ node: Con, _ windowID: WindowID, _ list: inout [sa_window_order])
-{
-    if node.isLeaf { return }
+    func collectCardOrder(after windowID: WindowID, into list: inout [sa_window_order])
+    {
+        if isLeaf { return }
 
-    if node.layout == .tabbed && node.children.count != 0 && node.isVisible {
-        let active = node.focusOrder[0]
-        if !active.isLeaf && active.focusedDescendant.windowID == windowID {
-            treeCollectWindowOrder(active, 1, windowID, &list)
+        if layout == .tabbed && !children.isEmpty && isVisible {
+            let active = focusOrder[0]
+            if !active.isLeaf && active.focusedDescendant.windowID == windowID {
+                active.collectWindowOrder(order: 1, relative: windowID, into: &list)
+                return
+            }
+        }
+
+        for child in children { child.collectCardOrder(after: windowID, into: &list) }
+    }
+}
+
+extension WindowManager
+{
+    func cardDidOrder(_ windowID: WindowID)
+    {
+        guard let owner = managed_window[windowID] else { return }
+        if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
+
+        var list: [sa_window_order] = []
+        owner.tree!.collectCardOrder(after: windowID, into: &list)
+        if !list.isEmpty { scripting_addition_order_window_list(list) }
+    }
+}
+
+extension View
+{
+    func flushTree()
+    {
+        guard let root = tree else { return }
+
+        var windowList: [window_capture] = []
+        captureWindows(in: root, into: &windowList)
+        if !windowList.isEmpty { window_manager_animate_window_list(windowList) }
+
+        root.renderBars()
+        root.raiseTabs(force: false)
+
+        if let selected = root.findSelected() { selected.showSelection() }
+
+        if let insertionPoint, let insert = root.find(insertionPoint), let insertDir = insert.insertDirection {
+            insert.showFeedback(direction: insertDir)
+        }
+
+        border_refresh_space(sid)
+    }
+
+    func focusWindow(_ windowID: WindowID)
+    {
+        guard let node = findWindow(windowID) else { return }
+
+        tree?.select(nil)
+        node.focus()
+
+        if !space_is_visible(sid) {
+            isDirty = true
             return
         }
-    }
 
-    for i in 0..<node.children.count {
-        treeCollectCardOrder(node.children[i], windowID, &list)
+        tree!.raiseTabs(force: false)
+        tree!.renderBars()
     }
 }
 
-/// `tree_card_did_order`
-func tree_card_did_order(_ windowID: WindowID)
+extension View
 {
-    guard let owner = window_manager_global().managed_window[windowID] else { return }
-    if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
+    static func refreshBars(forWindowID windowID: WindowID?)
+    {
+        guard let windowID, let owner = window_manager_global().managed_window[windowID] else { return }
+        if owner.layout != .tree || owner.tree == nil { return }
 
-    var list: [sa_window_order] = []
-    treeCollectCardOrder(owner.tree!, windowID, &list)
-    if !list.isEmpty { scripting_addition_order_window_list(list) }
-}
-
-/// `tree_flush`
-func tree_flush(_ owner: View)
-{
-    guard let root = owner.tree else { return }
-
-    var windowList: [window_capture] = []
-    treeCaptureWindows(owner, root, &windowList)
-    if !windowList.isEmpty { window_manager_animate_window_list(windowList) }
-
-    tree_render_bars(root)
-    tree_raise_tabs(root, false)
-
-    if let selected = root.findSelected() { tree_selection_show(selected) }
-
-    if let insertionPoint = owner.insertionPoint, let insert = root.find(insertionPoint), let insertDir = insert.insertDirection {
-        tree_feedback_show(insert, insertDir)
+        if space_is_visible(owner.sid) { owner.tree!.renderBars() }
     }
-
-    border_refresh_space(owner.sid)
-}
-
-/// `tree_window_did_receive_focus`
-func tree_window_did_receive_focus(_ owner: View, _ windowID: WindowID)
-{
-    guard let node = tree_view_find_window(owner, windowID) else { return }
-
-    owner.tree?.select(nil)
-    node.focus()
-
-    if !space_is_visible(owner.sid) {
-        owner.isDirty = true
-        return
-    }
-
-    tree_raise_tabs(owner.tree!, false)
-    tree_render_bars(owner.tree!)
-}
-
-/// `tree_refresh_for_window`
-func tree_refresh_for_window(_ windowID: WindowID?)
-{
-    guard let windowID, let owner = window_manager_global().managed_window[windowID] else { return }
-    if owner.layout != .tree || owner.tree == nil { return }
-
-    if space_is_visible(owner.sid) { tree_render_bars(owner.tree!) }
 }
 
 //
@@ -651,39 +631,40 @@ func tree_refresh_for_window(_ windowID: WindowID?)
 private let insertFeedbackWidth: CGFloat = 2
 private let insertFeedbackRadius: Float = 9
 
-/// `tree_feedback_show`
-func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
+extension Con
 {
-    guard let node, let windowID = node.focusedDescendant.windowID else { return }
+    func showFeedback(direction insertDir: InsertDirection?)
+    {
+    guard let windowID = focusedDescendant.windowID else { return }
 
     let cid = connection_global()
-    let area = node.area
+    let area = self.area
     var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
     var region: CFTypeRef?
     CGSNewRegionWithRect(&frame, &region)
     let frameRegion = region!
     frame.origin.x = 0; frame.origin.y = 0
 
-    if node.render.feedbackWindow.id == nil {
+    if render.feedbackWindow.id == nil {
         var tags: UInt64 = (1 << 1) | (1 << 9)
         let emptyRegion = CGRegionCreateEmptyRegion()
         var feedbackID: UInt32 = 0
         SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
-        node.render.feedbackWindow.id = WindowID(nonzero: feedbackID)
+        render.feedbackWindow.id = WindowID(nonzero: feedbackID)
 
         sls_window_disable_shadow(feedbackID)
         SLSSetWindowResolution(cid, feedbackID, 1.0)
         SLSSetWindowOpacity(cid, feedbackID, false)
         let context = SLWindowContextCreate(cid, feedbackID, nil)
-        node.render.feedbackWindow.context = context
+        render.feedbackWindow.context = context
         context?.setLineWidth(insertFeedbackWidth)
     }
 
     // NOTE: A window server that did not create the outline leaves no window to draw into or order.
-    guard let feedbackWindowID = node.render.feedbackWindow.id else { return }
+    guard let feedbackWindowID = render.feedbackWindow.id else { return }
 
-    // NOTE: the CGContext calls of the C code did nothing without a context
-    let context = node.render.feedbackWindow.context
+    // NOTE: Drawing calls have no effect without a context.
+    let context = render.feedbackWindow.context
     let color = window_manager_global().insert_feedback_color
     context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
     context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
@@ -722,16 +703,9 @@ func tree_feedback_show(_ node: Con!, _ insertDir: InsertDirection?)
     SLSSetWindowLevel(cid, feedbackWindowID.rawValue, window_level(windowID))
     SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, window_sub_level(windowID))
     SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
-}
+    }
 
-/// `tree_feedback_hide`
-func tree_feedback_hide(_ node: Con!)
-{
-    treeFeedbackDestroy(node)
-}
+    func hideFeedback() { destroyFeedback() }
 
-/// `tree_selection_show`
-func tree_selection_show(_ node: Con)
-{
-    tree_feedback_show(node, nil)
+    func showSelection() { showFeedback(direction: nil) }
 }

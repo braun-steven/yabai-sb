@@ -71,7 +71,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 @WM func tabCardOrdered(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_TAB_CARD_ORDERED: \(wid)\n")
-    tree_card_did_order(wid)
+    window_manager_global().cardDidOrder(wid)
 }
 
 //

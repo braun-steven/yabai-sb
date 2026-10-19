@@ -88,7 +88,7 @@ extension DaemonState
             #expect(target.windowGapValue == 8)
 
             target.area = target.rootArea(in: frame)
-            Yabai.tree_view_update(target)
+            target.updateTree()
             #expect(Int(a.area.x) == 30)
             #expect(Int(a.area.w) == 461)
             #expect(Int(b.area.x) == 30 + 461 + 8)
@@ -99,7 +99,7 @@ extension DaemonState
             #expect(target.windowGapValue == 8)
 
             target.area = target.rootArea(in: frame)
-            Yabai.tree_view_update(target)
+            target.updateTree()
             #expect(Int(a.area.x) == 0)
             #expect(Int(a.area.w) == 496)
             #expect(Int(b.area.x) == 496 + 8)
@@ -132,7 +132,7 @@ extension DaemonState
             target.isUnpadded = true
 
             target.area = target.rootArea(in: CGRect(x: 0, y: 0, width: 1000, height: 800))
-            Yabai.tree_view_update(target)
+            target.updateTree()
             #expect(Int(a.area.x) == 0)
             #expect(Int(a.area.w) == 496)
             #expect(Int(b.area.x) == 496 + 8)

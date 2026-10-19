@@ -70,7 +70,7 @@ func window_manager_tree_focus_parent(_ wm: WindowManager, _ target: Window?) ->
     guard let parent = node.parent else { return .invalidDestinationNode }
 
     owner.tree?.select(parent)
-    if space_is_visible(owner.sid) { tree_selection_show(parent) }
+    if space_is_visible(owner.sid) { parent.showSelection() }
 
     return .success
 }
@@ -88,7 +88,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
         windowManagerFocusWindowID(wm, child.windowID)
     } else {
         owner.tree?.select(child)
-        if space_is_visible(owner.sid) { tree_selection_show(child) }
+        if space_is_visible(owner.sid) { child.showSelection() }
     }
 
     return .success
@@ -97,7 +97,7 @@ func window_manager_tree_focus_child(_ wm: WindowManager, _ target: Window?) -> 
 //
 // NOTE: Moves the container to the space on the display in the direction, like i3 and sway move a
 // container to the next output. On a tree space it keeps its structure and arrives on the side it
-// comes from (tree_attach_from_direction). On other spaces every window is sent there on its own.
+// comes from. On other spaces every window is sent there on its own.
 //
 
 /// `window_manager_tree_move_to_display`
@@ -119,7 +119,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
         owner.tree!.flatten()
 
         if dstView.isInvalid { dstView.update() }
-        tree_view_attach_from_direction(dstView, node, direction)
+        dstView.attach(node, from: direction)
         let moved = windowManagerTreeSetView(wm, node, dstView)
         windowManagerTreeWaitForView(moved, dstView)
         dstView.tree!.flatten()

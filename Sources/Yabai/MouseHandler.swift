@@ -285,7 +285,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 @WM private func mouseFindCon(_ targetView: View?, _ target: Window?) -> Con?
 {
     guard let targetView, let target else { return nil }
-    return tree_view_find_window(targetView, target.id)
+    return targetView.findWindow(target.id)
 }
 
 @WM func mouse_feedback_clear(_ ms: MouseState)
@@ -294,7 +294,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     let wm = window_manager_global()
     let target = window_manager_find_window(wm, feedbackWid)
     let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
-    if let container = mouseFindCon(targetView, target), container.insertDirection == nil { tree_feedback_hide(container) }
+    if let container = mouseFindCon(targetView, target), container.insertDirection == nil { container.hideFeedback() }
     ms.feedback_wid = nil
     ms.feedback_dir = nil
 }
@@ -311,7 +311,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     if ms.feedback_wid == dstWindow.id && ms.feedback_dir == direction { return }
     mouse_feedback_clear(ms)
     guard let direction else { return }
-    tree_feedback_show(container, direction)
+    container.showFeedback(direction: direction)
     ms.feedback_wid = dstWindow.id
     ms.feedback_dir = direction
 }
@@ -350,7 +350,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
         dstCon.insert(container, toward: direction)
         container.focus()
         srcView.tree!.flatten()
-        if !srcView.updateAutoPadding() { tree_view_update(srcView) }
+        if !srcView.updateAutoPadding() { srcView.updateTree() }
         srcView.flush()
     } else {
         dstCon.insertDirection = direction

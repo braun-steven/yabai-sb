@@ -170,7 +170,7 @@ extension Con
             child.destroy()
         }
 
-        treeFeedbackDestroy(self)
+        destroyFeedback()
         tab_bar_release(render.tabBar)
         children = []
         focusOrder = []
@@ -495,7 +495,7 @@ extension Con
     {
         if let selected = findSelected() {
             selected.isSelected = false
-            treeFeedbackDestroy(selected)
+            selected.destroyFeedback()
         }
 
         node?.isSelected = true

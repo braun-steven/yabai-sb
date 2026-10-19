@@ -186,7 +186,7 @@ func update_window_notifications()
     if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = nil }
 
     if let view = window_manager_find_managed_window(window_manager_global(), window), view.layout == .tree {
-        tree_window_did_receive_focus(view, window.id)
+        view.focusWindow(window.id)
     }
 
     if prevFocusedWindowID != window.id {

@@ -512,7 +512,7 @@ func tab_bar_refresh_for_window(_ wid: WindowID?)
 {
     guard let wid, let owner = window_manager_global().managed_window[wid] else { return }
     if owner.layout != .tree { return }
-    tree_refresh_for_window(wid)
+    View.refreshBars(forWindowID: wid)
 }
 
 //
@@ -522,7 +522,7 @@ func tab_bar_refresh_for_window(_ wid: WindowID?)
 func tab_bar_refresh_all()
 {
     for owner in space_manager_global().view.values.sorted(by: { $0.sid < $1.sid }) where owner.layout == .tree {
-        if let root = owner.tree { tree_release_bars(root) }
+        owner.tree?.releaseBars()
         owner.updateAndFlush()
     }
     tabBarPublishHits()

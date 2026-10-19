@@ -25,12 +25,12 @@ extension DaemonState
             let owner = View(sid: 1)
             owner.tree = root
             focused.focus()
-            #expect(treeVisibleWindowCount(root) == 3)
-            #expect(Yabai.tree_view_tiled_count(owner) == 1)
+            #expect(root.visibleWindowCount() == 3)
+            #expect(owner.tiledCount == 1)
             single.focus()
-            #expect(treeVisibleWindowCount(root) == 1)
+            #expect(root.visibleWindowCount() == 1)
             focused.focus()
-            #expect(treeVisibleWindowCount(root) == 3)
+            #expect(root.visibleWindowCount() == 3)
         }
 
         @Test("border_edge_frames_split")
@@ -84,26 +84,27 @@ extension DaemonState
             root.layOut(Area(x: 0, y: 0, w: 1010, h: 810), gap: 10, barHeight: 24, barOffset: 0, barInset: 0)
             let owner = View(sid: 1)
             owner.tree = root
-            var windowArea = Area.zero
-            var borderArea = Area.zero
-            var radius = -1
             func same(_ lhs: Area, _ rhs: Area) -> Bool { lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h }
-            #expect(Yabai.tree_window_border_area(owner,1, &windowArea, &borderArea, &radius))
-            #expect(same(borderArea, a.area))
-            #expect(radius == 0)
-            #expect(Yabai.tree_window_border_area(owner,2, &windowArea, &borderArea, &radius))
-            #expect(same(borderArea, t.area))
-            #expect(same(windowArea, b.area))
-            #expect(windowArea.y - borderArea.y == 24)
-            #expect(!Yabai.tree_window_border_area(owner,3, &windowArea, &borderArea, &radius))
-            #expect(!Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
+            var border = owner.borderArea(windowID: 1)
+            #expect(border.visible)
+            #expect(same(border.border, a.area))
+            #expect(border.radius == 0)
+            border = owner.borderArea(windowID: 2)
+            #expect(border.visible)
+            #expect(same(border.border, t.area))
+            #expect(same(border.window, b.area))
+            #expect(border.window.y - border.border.y == 24)
+            #expect(!owner.borderArea(windowID: 3).visible)
+            #expect(!owner.borderArea(windowID: 4).visible)
             d.focus()
             root.layOut(Area(x: 0, y: 0, w: 1010, h: 810), gap: 10, barHeight: 24, barOffset: 0, barInset: 0)
-            #expect(Yabai.tree_window_border_area(owner,4, &windowArea, &borderArea, &radius))
-            #expect(same(borderArea, t.area))
-            #expect(windowArea.y - borderArea.y == 48)
-            #expect(Yabai.tree_window_border_area(owner,99, &windowArea, &borderArea, &radius))
-            #expect(borderArea.w == 0)
+            border = owner.borderArea(windowID: 4)
+            #expect(border.visible)
+            #expect(same(border.border, t.area))
+            #expect(border.window.y - border.border.y == 48)
+            border = owner.borderArea(windowID: 99)
+            #expect(border.visible)
+            #expect(border.border.w == 0)
         }
     }
 }

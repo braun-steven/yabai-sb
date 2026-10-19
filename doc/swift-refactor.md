@@ -142,13 +142,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
-| **4** | **Compiler-checked isolation** | [~] | ae90086a | |
+| **4** | **Compiler-checked isolation** | [x] | 25219f86 | tsan live run clean; live check without mouse checks; bench within 10% (same-session baseline) |
 | 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
 | 4.2 | Process table | [x] | d21e375e | Carbon posts `ProcessKey`s; table and startup enumeration on yabai.wm |
 | 4.3 | Remaining globals | [x] | 4f34f728 | `Log.verbose` Atomic, SA socket paths immutable, Mission Control Mutex, tab bars on `WindowManager` |
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
-| 4.6 | Verification: tsan live run, live check, benchmark | [ ] | | |
+| 4.6 | Verification: tsan live run, live check, benchmark | [x] | 25219f86 | no code changes; mouse checks skipped (posting denied) |
 | **5** | **Commands, errors, config, Codable queries** | [ ] | | |
 | 5.1 | `CommandError` and throwing handlers | [ ] | | |
 | 5.2 | Typed commands: window | [ ] | | |
@@ -883,3 +883,29 @@ not here.
 - Next: 4.6.
 - Notes for the next agent: Mutex/`@MainActor var` pitfall added to AGENTS.md. The glass id is now read through a
   Mutex, the panel only on the main queue: watch tab-bar glass under tsan in 4.6.
+
+### 2026-10-19 Subphase 4.6 [x]
+- Commits: none for code; HEAD 25219f86 verified, plus this report.
+- Done: Done-when sweep: no `nonisolated(unsafe)` in `Sources/Yabai`. Live session: one display (laptop, spaces
+  1–15), screen unlocked, `mouse trusted` false even outside the sandbox, so T6/T7 ran nowhere: a temporary
+  `live.py` copy without them and without the posting preflight (as in 2.6).
+  - `make tsan` deploy (runtime confirmed): `run` 23/23, `extra` 5/5 (cross-display skipped), plus glass tab bars
+    (tab switches with backdrop off/blur/glass, style i3↔glass, `tab_bar` off/on, `--stack`), border off/on, space
+    switches while tabbed, scratchpad toggles across spaces 4/5 and `recover`, then `cleanup`. Same daemon pid
+    throughout, no Sanitizer/runtime-error report in the error log, no crash report. This first exercised live the
+    startup `WM.sync` path, the KVO `Process.policy` Atomic, the Carbon process events and the glass id Mutex.
+  - Release deploy: `run` 23/23, `extra` 5/5, same pid.
+  - Bench (ms, tab/rotate/split medians): HEAD 43.0/88.5/39.4 and 40.8/82.3/39.1; the historical baseline numbers
+    (29.2/124.9/30.1) would put tab and split ~40% over, so the installed binary (built from the baseline commit
+    a797d9aa, v7.1.25) was benched in the same session after `restore`: 38.3/146.1/39.5 and 41.3/147.0/38.0. Against
+    its two-run averages both HEAD runs are within 10% (tab +8.0%/+2.5%, rotate −40%, split +1.7%/+0.9%).
+  - Installed binary restored (`cmp` OK, backup removed), terminal window refocused and verified. During the final
+    `cleanup` the restored baseline binary hit the known rapid-app-quit crash (`window_unobserve` < `windowDestroyed`,
+    Open issues); launchd restarted it. HEAD did not crash.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests (70 + 42) incl. golden at 25219f86.
+- Decisions: the installed binary served as the same-session baseline (it is the phase 1 baseline build).
+- Next: phase 5. Still open: T6/T7 under the refactored isolation (needs posting access), a session with the SA
+  unloaded, cross-display checks (one display).
+- Notes for the next agent: absolute bench numbers drifted again (tab/split focus ~40 ms in this session for both
+  builds); always bench the installed baseline in the same session.

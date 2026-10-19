@@ -88,8 +88,159 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     })
 }
 
+@WM private func focusFollowsMouseOption() -> ConfigOption
+{
+    configOption(.focusFollowsMouse, print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouseMode.rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        let value: FocusFollowsMouse
+        if token.equals(Argument.off) { value = .disabled }
+        else if let choice = [FocusFollowsMouse.autofocus, .autoraise].first(where: { token.equals($0.rawValue) }) { value = choice }
+        else { throw CommandError.unknownValue(domain, command, token) }
+        return { WindowManager.shared.setFocusFollowsMouse(value) }
+    })
+}
+
+@WM private func scratchpadGridOption() -> ConfigOption
+{
+    configOption(.scratchpadGrid, print: { rsp, _ in
+        let grid = Config.current.scratchpad.scratchpadGrid
+        if grid.rows == 0 || grid.columns == 0 { rsp.write("\(Argument.off)\n") }
+        else {
+            let values = [grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height]
+            rsp.write("\(values.map { String($0) }.joined(separator: ":"))\n")
+        }
+    }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        if token.equals(Argument.off) { return { Config.current.scratchpad.scratchpadGrid = Grid() } }
+        var grid = Grid()
+        guard grid.scan(token) == 6, grid.rows > 0, grid.columns > 0 else { throw CommandError.unknownValue(domain, command, token) }
+        return { Config.current.scratchpad.scratchpadGrid = grid }
+    })
+}
+
+@WM private func spaceLayoutOption() -> ConfigOption
+{
+    configOption(.spaceLayout, print: { rsp, _ in
+        if let spec = Config.current.space.spaceLayoutSpec { rsp.write("\(Token(spec))\n") }
+        else { rsp.write("\(Argument.off)\n") }
+    }, parse: { (domain, command, message, selSid) throws(CommandError) in
+        if selSid != nil {
+            throw CommandError("command '\(command)' for domain '\(domain)' does not support the '--space' selector\n", stopsMessage: true)
+        }
+        var token = message.next()
+        guard token.isValid else { return nil }
+        if token.equals(Argument.off) {
+            return {
+                Config.current.space.spaceLayoutSpec = nil
+                Config.current.space.spaceLayouts = []
+            }
+        }
+
+        func isLayout(_ value: Token) -> Bool
+        {
+            guard let first = value.bytes.first else { return false }
+            return first >= UInt8(ascii: "0") && first <= UInt8(ascii: "9")
+        }
+
+        var layouts: [SpaceLayout] = []
+        var spec: [UInt8] = []
+        while isLayout(token) {
+            guard layouts.count < SpaceLayout.max, let layout = SpaceLayout(parsing: token.bytes) else {
+                throw CommandError("invalid value '\(token)' given to command '\(command)' for domain '\(domain)'\n", stopsMessage: true)
+            }
+            if let repeated = layouts.first(where: { $0.count == layout.count }) {
+                throw CommandError("value '\(token)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n", stopsMessage: true)
+            }
+            if !layouts.isEmpty { spec.append(UInt8(ascii: " ")) }
+            spec += token.bytes
+            if spec.count >= 256 {
+                throw CommandError("value given to command '\(command)' for domain '\(domain)' is too long\n", stopsMessage: true)
+            }
+            layouts.append(layout)
+            guard isLayout(message.peek()) else { break }
+            token = message.next()
+        }
+        guard !layouts.isEmpty else { throw CommandError.unknownValue(domain, command, token).stoppingMessage }
+        let layoutSpec = String(decoding: spec, as: UTF8.self)
+        return {
+            Config.current.space.spaceLayouts = layouts
+            Config.current.space.spaceLayoutSpec = layoutSpec
+            SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true)
+        }
+    })
+}
+
+@WM private func animationDurationOption() -> ConfigOption
+{
+    configOption(.windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.windowAnimationDuration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        guard let duration = token.value.floatValue else { throw CommandError.unknownValue(domain, command, token) }
+        return { () throws(CommandError) in
+            if duration == 0.0 {
+                Config.current.animation.windowAnimationDuration = duration
+            } else if !ScriptingAddition.shared.isSIPFriendly {
+                throw CommandError("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
+            } else if CGPreflightScreenCaptureAccess() {
+                Config.current.animation.windowAnimationDuration = duration
+            } else {
+                CGRequestScreenCaptureAccess()
+                throw CommandError("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
+            }
+        }
+    })
+}
+
+@WM private func tabBarFontOption() -> ConfigOption
+{
+    configOption(.tabBarFont, print: { rsp, _ in rsp.write("\(Token(Config.current.tabBar.fontName))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        guard let fontName = String(validating: token.bytes, as: UTF8.self) else { throw CommandError.unknownValue(domain, command, token) }
+        return { () throws(CommandError) in
+            guard TabBar.setFont(fontName) else { throw CommandError.unknownValue(domain, command, token) }
+            TabBar.redrawAll()
+        }
+    })
+}
+
+@WM private func externalBarOption() -> ConfigOption
+{
+    configOption(.externalBar, print: { rsp, _ in
+        let display = Config.current.display
+        rsp.write("\(display.mode.rawValue):\(display.topPadding):\(display.bottomPadding)\n")
+    }, parse: { (domain, command, message, _) throws(CommandError) in
+        let value = message.next()
+        var mode = [CChar](repeating: 0, count: 6)
+        var top: Int32 = 0
+        var bottom: Int32 = 0
+        let count = mode.withUnsafeMutableBufferPointer { m in
+            withUnsafeMutablePointer(to: &top) { t in
+                withUnsafeMutablePointer(to: &bottom) { b in value.scan("%5[^:]:%d:%d", m.baseAddress!, t, b) }
+            }
+        }
+        guard count == 3 else { return nil }
+        let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
+        guard let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) else {
+            throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+        }
+        let topPadding = Int(top)
+        let bottomPadding = Int(bottom)
+        return {
+            Config.current.display.mode = choice
+            Config.current.display.topPadding = topPadding
+            Config.current.display.bottomPadding = bottomPadding
+            SpaceManager.shared.markSpacesInvalid()
+        }
+    })
+}
+
 @WM private let configOptions: [ConfigOption] = [
+    boolOption(.debugOutput, get: { Log.verbose.load(ordering: .relaxed) }, set: { Log.verbose.store($0, ordering: .relaxed) }),
     boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocusEnabled }, set: { Config.current.window.mouseFollowsFocusEnabled = $0 }),
+    focusFollowsMouseOption(),
     choiceOption(.displayArrangementOrder, choices: DisplayArrangementOrder.allCases, get: { Config.current.display.order }, set: { Config.current.display.order = $0 }),
     boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0 }, applyChange: { _ in SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
     choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.windowOriginMode }, set: { Config.current.window.windowOriginMode = $0 }),
@@ -140,131 +291,14 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     floatOption(.activeWindowOpacity, get: { Config.current.window.activeWindowOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setActiveWindowOpacity($0) }),
     floatOption(.normalWindowOpacity, get: { Config.current.window.normalWindowOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setNormalWindowOpacity($0) }),
     colorOption(.insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor }, set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
+    scratchpadGridOption(),
+    spaceLayoutOption(),
+    animationDurationOption(),
+    tabBarFontOption(),
+    externalBarOption(),
 ]
 
 @WM let configOptionNames = configOptions.map(\.name)
-
-@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError)
-{
-    let command = Token(name.rawValue)
-    let value = message.next()
-
-    if !value.isValid {
-        let grid = Config.current.scratchpad.scratchpadGrid
-        if grid.rows == 0 || grid.columns == 0 {
-            rsp.write("\(Argument.off)\n")
-        } else {
-            let values = [grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height]
-            rsp.write("\(values.map { String($0) }.joined(separator: ":"))\n")
-        }
-    } else if value.equals(Argument.off) {
-        Config.current.scratchpad.scratchpadGrid = Grid()
-    } else {
-        // NOTE: like the C version, "%d" writes into unsigned values, so a negative row or column count passes the check
-        var grid = Grid()
-        if grid.scan(value) == 6 && grid.rows > 0 && grid.columns > 0 {
-            Config.current.scratchpad.scratchpadGrid = grid
-        } else {
-            throw CommandError.unknownValue(domain, command, value)
-        }
-    }
-}
-
-//
-// NOTE: space_layout takes one layout per display count, e.g. '15 10:5 10:5:1b'. The layouts are the
-// tokens that start with a digit, so the next command can follow them. An invalid value stops the
-// remaining commands of the message, since its layouts cannot be told apart from the next command.
-//
-
-@WM private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
-{
-    if selSid != nil {
-        throw CommandError("command '\(command)' for domain '\(domain)' does not support the '--space' selector\n", stopsMessage: true)
-    }
-
-    var value = message.next()
-
-    if !value.isValid {
-        if let spec = Config.current.space.spaceLayoutSpec {
-            rsp.write("\(Token(spec))\n")
-        } else {
-            rsp.write("\(Argument.off)\n")
-        }
-        return
-    }
-
-    if value.equals(Argument.off) {
-        Config.current.space.spaceLayoutSpec = nil
-        Config.current.space.spaceLayouts = []
-        return
-    }
-
-    func isLayout(_ token: Token) -> Bool
-    {
-        guard let first = token.bytes.first else { return false }
-        return first >= UInt8(ascii: "0") && first <= UInt8(ascii: "9")
-    }
-
-    var layoutList: [SpaceLayout] = []
-    var spec: [UInt8] = []
-
-    while isLayout(value) {
-        guard layoutList.count < SpaceLayout.max, let layout = SpaceLayout(parsing: value.bytes) else {
-            throw CommandError("invalid value '\(value)' given to command '\(command)' for domain '\(domain)'\n", stopsMessage: true)
-        }
-
-        if let repeated = layoutList.first(where: { $0.count == layout.count }) {
-            throw CommandError("value '\(value)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n", stopsMessage: true)
-        }
-
-        // NOTE: the C version built the spec in a buffer of 256 bytes, including the null terminator
-        if !layoutList.isEmpty { spec.append(UInt8(ascii: " ")) }
-        spec += value.bytes
-        if spec.count >= 256 {
-            throw CommandError("value given to command '\(command)' for domain '\(domain)' is too long\n", stopsMessage: true)
-        }
-
-        layoutList.append(layout)
-
-        guard isLayout(message.peek()) else { break }
-        value = message.next()
-    }
-
-    if layoutList.isEmpty {
-        throw CommandError.unknownValue(domain, command, value).stoppingMessage
-    }
-
-    Config.current.space.spaceLayouts = layoutList
-    Config.current.space.spaceLayoutSpec = String(decoding: spec, as: UTF8.self)
-    SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true)
-}
-
-//
-// NOTE: Animations need the scripting addition and Screen Recording permission; 0 turns them off.
-//
-
-@WM private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
-{
-    let token = message.next()
-    let value = token.value
-
-    if case .invalid = value {
-        rsp.write("\(cFormat("%f", Double(Config.current.animation.windowAnimationDuration)))\n")
-    } else if let duration = value.floatValue {
-        if duration == 0.0 {
-            Config.current.animation.windowAnimationDuration = duration
-        } else if !ScriptingAddition.shared.isSIPFriendly {
-            throw CommandError("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
-        } else if CGPreflightScreenCaptureAccess() {
-            Config.current.animation.windowAnimationDuration = duration
-        } else {
-            CGRequestScreenCaptureAccess()
-            throw CommandError("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
-        }
-    } else {
-        throw CommandError.unknownValue(domain, command, token)
-    }
-}
 
 @WM private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
 {
@@ -291,36 +325,6 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     }
 }
 
-@WM private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
-{
-    let value = message.next()
-
-    var mode = [CChar](repeating: 0, count: 6)
-    var top: Int32 = 0
-    var bottom: Int32 = 0
-    let count = mode.withUnsafeMutableBufferPointer { m in
-        withUnsafeMutablePointer(to: &top) { t in
-            withUnsafeMutablePointer(to: &bottom) { b in value.scan("%5[^:]:%d:%d", m.baseAddress!, t, b) }
-        }
-    }
-
-    if count != 3 {
-        rsp.write("\(Config.current.display.mode.rawValue):\(Config.current.display.topPadding):\(Config.current.display.bottomPadding)\n")
-        return
-    }
-
-    let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
-    if let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) {
-        Config.current.display.mode = choice
-        Config.current.display.topPadding = Int(top)
-        Config.current.display.bottomPadding = Int(bottom)
-        SpaceManager.shared.markSpacesInvalid()
-        return
-    }
-
-    throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
-}
-
 private func spacing(for command: ConfigName) -> ViewSpacing?
 {
     if command == .topPadding    { return .topPadding }
@@ -332,7 +336,7 @@ private func spacing(for command: ConfigName) -> ViewSpacing?
 }
 
 //
-// NOTE: The C version converted with (int), which on arm64 saturates at the limits of int and turns NaN into 0.
+// NOTE: Tab bar offsets accept integral float tokens; conversion saturates at Int32 limits and maps NaN to zero.
 //
 
 private func cInt(_ value: Float) -> Int
@@ -343,28 +347,7 @@ private func cInt(_ value: Float) -> Int
     return Int(value)
 }
 
-@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError) -> Bool
-{
-    guard name == .tabBarFont else { return false }
-    var tabBar = Config.current.tabBar
-    let command = Token(name.rawValue)
-    let value = message.next()
-    var redraw = false
-    if !value.isValid {
-        rsp.write("\(Token(tabBar.fontName))\n")
-    } else if let fontName = String(validating: value.bytes, as: UTF8.self), TabBar.setFont(fontName) {
-        tabBar.fontName = fontName
-        redraw = true
-    } else {
-        throw CommandError.unknownValue(domain, command, value)
-    }
-
-    Config.current.tabBar = tabBar
-    if redraw { TabBar.redrawAll() }
-    return true
-}
-
-/// `handle_domain_config`
+/// Handles a config message.
 @WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout Message) throws(CommandError)
 {
     var selSid: SpaceID?
@@ -384,7 +367,6 @@ private func cInt(_ value: Float) -> Int
 @WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout Message, _ selSid: SpaceID?) throws(CommandError)
 {
     let command = Token(name.rawValue)
-    let wm = WindowManager.shared
     let sm = SpaceManager.shared
 
     if let option = configOptions.first(where: { $0.name == name }) {
@@ -396,31 +378,7 @@ private func cInt(_ value: Float) -> Int
         return
     }
 
-    if try configTabBar(&rsp, domain, name, &message) { return }
-
-    if name == .debugOutput {
-        var verbose = Log.verbose.load(ordering: .relaxed)
-        if try parseConfigBool(&rsp, domain, command, &message, &verbose) {
-            Log.verbose.store(verbose, ordering: .relaxed)
-        }
-    } else if name == .focusFollowsMouse {
-        let value = message.next()
-        if !value.isValid {
-            rsp.write("\(Config.current.window.focusFollowsMouseMode.rawValue)\n")
-        } else if value.equals(Argument.off) {
-            wm.setFocusFollowsMouse(.disabled)
-        } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
-            wm.setFocusFollowsMouse(mode)
-        } else {
-            throw CommandError.unknownValue(domain, command, value)
-        }
-    } else if name == .scratchpadGrid {
-        try configScratchpadGrid(&rsp, domain, name, &message)
-    } else if name == .spaceLayout {
-        try configSpaceLayout(&rsp, domain, command, &message, selSid)
-    } else if name == .windowAnimationDuration {
-        try configAnimationDuration(&rsp, domain, command, &message)
-    } else if let spacing = spacing(for: name) {
+    if let spacing = spacing(for: name) {
         let view = selSid.map { sm.view(for: $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceManager]
         let token = message.next()
@@ -448,8 +406,6 @@ private func cInt(_ value: Float) -> Int
             var enabled = Config.current.space.autoPadding
             if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
         }
-    } else if name == .externalBar {
-        try configExternalBar(&rsp, domain, command, &message)
     } else {
         throw CommandError.unknownCommand(domain, command)
     }

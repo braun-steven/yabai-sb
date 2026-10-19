@@ -94,9 +94,12 @@ struct MouseWindowChange: Sendable
 /// State owned by the main run-loop event tap, with synchronized settings shared with yabai.wm.
 final class MouseTapState
 {
-    // NOTE: The main run-loop tap owns click/drag/replay state; it and yabai.wm share modifier config and tap lifetime through locks, and focus tracking through an atomic.
+    // NOTE: Only the event tap on the main run loop touches the click, drag and replay fields. The modifier, the port
+    // (a +1 CFMachPort stored as its bit pattern) and `tracksFocus` are shared with yabai.wm, which sets the modifier
+    // and creates and tears down the tap (`MouseState.beginEventTap`/`endEventTap`).
     private let modifierLock = Mutex(MouseModifierKey.fn)
     private let portLock = Mutex<UInt>(0)
+    // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
     let tracksFocus = Atomic(false)
     var consumeMouseClick = false
     var consumeTabClick = false

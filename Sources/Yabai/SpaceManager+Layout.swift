@@ -210,6 +210,6 @@ extension SpaceManager
         let target = view(for: sid)
         if target.layout != .tree { return }
 
-        _ = WindowManager.shared.setWindowLayout(win, .toggleSplit)
+        try? WindowManager.shared.setWindowLayout(win, .toggleSplit)
     }
 }

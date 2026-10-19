@@ -12,18 +12,18 @@ extension SpaceManager
 {
     func toggleMissionControl(on sid: SpaceID)
     {
-        _ = focusSpace(sid)
+        try? focusSpace(sid)
         CoreDock.sendNotification("com.apple.expose.awake")
     }
 
     func toggleShowDesktop(on sid: SpaceID)
     {
-        _ = focusSpace(sid)
+        try? focusSpace(sid)
         CoreDock.sendNotification("com.apple.showdesktop.awake")
     }
 
     /// Swaps two spaces that are on different displays.
-    private func swapSpaceAcrossDisplays(_ aSid: SpaceID, with bSid: SpaceID) -> SpaceOperationResult
+    private func swapSpaceAcrossDisplays(_ aSid: SpaceID, with bSid: SpaceID)
     {
         let wm = WindowManager.shared
 
@@ -66,18 +66,20 @@ extension SpaceManager
         bView.flush()
 
         wm.windowAnimationDuration = windowAnimationDuration
-        return .success
     }
 
-    func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) -> SpaceOperationResult
+    func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
         let actingDid = actingSid.display
         let selectorDid = selectorSid.display
 
-        if actingSid == selectorSid { return .sameSpace }
-        if actingDid != selectorDid { return swapSpaceAcrossDisplays(actingSid, with: selectorSid) }
+        if actingSid == selectorSid { throw .sameSpace }
+        if actingDid != selectorDid {
+            swapSpaceAcrossDisplays(actingSid, with: selectorSid)
+            return
+        }
 
         let actingPrevSid = actingSid.previous
         let selectorPrevSid = selectorSid.previous
@@ -119,18 +121,18 @@ extension SpaceManager
             }
         }
 
-        return success ? .success : .scriptingAdditionFailed
+        if !success { throw .scriptingAdditionFailed }
     }
 
-    func moveSpace(_ actingSid: SpaceID, to selectorSid: SpaceID) -> SpaceOperationResult
+    func moveSpace(_ actingSid: SpaceID, to selectorSid: SpaceID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
         let actingDid = actingSid.display
         let selectorDid = selectorSid.display
 
-        if actingSid == selectorSid { return .sameSpace }
-        if actingDid != selectorDid { return .sameDisplay }
+        if actingSid == selectorSid { throw .sameSpace }
+        if actingDid != selectorDid { throw .sameDisplay }
 
         let actingPrevSid = actingSid.previous
         let selectorPrevSid = selectorSid.previous
@@ -156,20 +158,20 @@ extension SpaceManager
             }
         }
 
-        return success ? .success : .scriptingAdditionFailed
+        if !success { throw .scriptingAdditionFailed }
     }
 
-    func moveSpace(_ sid: SpaceID?, toDisplay did: DisplayID) -> SpaceOperationResult
+    func moveSpace(_ sid: SpaceID?, toDisplay did: DisplayID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
-        guard let sid else { return .missingSource }
+        if MissionControl.shared.isActive { throw .inMissionControl }
+        guard let sid else { throw .missingSource }
 
         let sDid = sid.display
-        if sDid == did { return .invalidDestination }
+        if sDid == did { throw .invalidDestination }
 
-        if sid.isLastUserSpace { return .invalidSource }
+        if sid.isLastUserSpace { throw .invalidSource }
 
-        guard let dSid = did.currentSpace else { return .missingDestination }
+        guard let dSid = did.currentSpace else { throw .missingDestination }
 
         let isActive = sid == SpaceID.active
 
@@ -179,7 +181,7 @@ extension SpaceManager
         // to that display's current space, and its menubar stays on screen above the real one.
         //
 
-        guard let spaceList = sDid.flatMap({ $0.spaces }) else { return .missingSource }
+        guard let spaceList = sDid.flatMap({ $0.spaces }) else { throw .missingSource }
 
         let user = spaceList.map { $0.isUser }
         let visibleSid = sDid.flatMap { $0.currentSpace }
@@ -191,12 +193,12 @@ extension SpaceManager
         if ScriptingAddition.shared.moveSpace(sid, toDisplayOf: dSid, previous: replacementSid, focus: isActive) {
             markViewInvalid(for: sid)
             if isActive {
-                _ = focusSpace(sid)
+                try? focusSpace(sid)
             }
-            return .success
+            return
         }
 
-        return .scriptingAdditionFailed
+        throw .scriptingAdditionFailed
     }
 
     /// Switches spaces with the gestures of the Dock, without its animation.
@@ -256,12 +258,12 @@ extension SpaceManager
         return true
     }
 
-    func focusSpace(_ sid: SpaceID) -> SpaceOperationResult
+    func focusSpace(_ sid: SpaceID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
         let curSid = SpaceID.active
-        if curSid == sid { return .sameSpace }
+        if curSid == sid { throw .sameSpace }
 
         let curDid = curSid.flatMap { $0.display }
         let newDid = sid.display
@@ -274,55 +276,51 @@ extension SpaceManager
         } else if let newDid {
             _ = focusSpaceUsingGesture(sid, on: newDid)
         }
-
-        return .success
     }
 
-    func switchSpace(to sid: SpaceID) -> SpaceOperationResult
+    func switchSpace(to sid: SpaceID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
-        guard let curSid = SpaceID.active else { return .missingSource }
-        if curSid == sid { return .sameSpace }
+        guard let curSid = SpaceID.active else { throw .missingSource }
+        if curSid == sid { throw .sameSpace }
 
         let curDid = curSid.display
         let did = sid.display
 
         if curDid != did {
-            _ = swapSpaceAcrossDisplays(curSid, with: sid)
+            swapSpaceAcrossDisplays(curSid, with: sid)
             if let curDid { curDid.focus(space: curSid) }
-            return .success
+            return
         }
 
-        return ScriptingAddition.shared.focusSpace(sid) ? .success : .scriptingAdditionFailed
+        if !ScriptingAddition.shared.focusSpace(sid) { throw .scriptingAdditionFailed }
     }
 
-    func destroySpace(_ sid: SpaceID?) -> SpaceOperationResult
+    func destroySpace(_ sid: SpaceID?) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
-        guard let sid else { return .missingSource }
-        if !sid.isUser { return .invalidType }
-        if sid.isLastUserSpace { return .invalidSource }
+        guard let sid else { throw .missingSource }
+        if !sid.isUser { throw .invalidType }
+        if sid.isLastUserSpace { throw .invalidSource }
 
         let did = sid.display
         let firstSid = did?.spaces?.first(where: { $0.isUser })
 
-        if !ScriptingAddition.shared.destroySpace(sid) { return .scriptingAdditionFailed }
+        if !ScriptingAddition.shared.destroySpace(sid) { throw .scriptingAdditionFailed }
 
         if let firstSid {
             WindowManager.shared.validateAndCheckForWindows(on: firstSid)
         }
-
-        return .success
     }
 
     /// Creates a space on the display of sid.
-    func addSpace(onDisplayOf sid: SpaceID?) -> SpaceOperationResult
+    func addSpace(onDisplayOf sid: SpaceID?) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
-        guard let sid else { return .missingSource }
+        if MissionControl.shared.isActive { throw .inMissionControl }
+        guard let sid else { throw .missingSource }
 
-        return ScriptingAddition.shared.createSpace(sid) ? .success : .scriptingAdditionFailed
+        if !ScriptingAddition.shared.createSpace(sid) { throw .scriptingAdditionFailed }
     }
 }

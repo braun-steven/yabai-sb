@@ -147,21 +147,21 @@ import YabaiCore
     var reportsMinimized: Bool { ref.boolAttribute(kAXMinimizedAttribute) }
     var reportsFullscreen: Bool { ref.boolAttribute(Self.fullscreenAttribute) }
 
-    func minimize() -> WindowOperationResult
+    func minimize() throws(WindowOperationError)
     {
-        if !canMinimize { return .cannotMinimize }
-        if isMinimized { return .alreadyMinimized }
+        if !canMinimize { throw .cannotMinimize }
+        if isMinimized { throw .alreadyMinimized }
 
         let result = ref.setAttribute(kAXMinimizedAttribute, to: true)
-        return result == .success ? .success : .minimizeFailed
+        if result != .success { throw .minimizeFailed }
     }
 
-    func deminimize() -> WindowOperationResult
+    func deminimize() throws(WindowOperationError)
     {
-        if !isMinimized { return .notMinimized }
+        if !isMinimized { throw .notMinimized }
 
         let result = ref.setAttribute(kAXMinimizedAttribute, to: false)
-        return result == .success ? .success : .deminimizeFailed
+        if result != .success { throw .deminimizeFailed }
     }
 
     /// Presses the close button when the window has one.

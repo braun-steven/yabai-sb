@@ -92,47 +92,43 @@ extension WindowManager
         _ = owner.sid.waitForWindows(moveList, timeoutMS: 200)
     }
 
-    func treeFocus(direction: Direction, for target: Window?) -> WindowOperationResult
+    func treeFocus(direction: Direction, for target: Window?) throws(WindowOperationError)
     {
-        guard let target, let owner = treeView(for: target) else { return .invalidSourceView }
-        guard let node = treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
+        guard let target, let owner = treeView(for: target) else { throw .invalidSourceView }
+        guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
 
         let did = treeDisplay(in: direction, from: owner)
 
         switch node.neighbor(direction, wrapping: focusWrapping, hasOutput: did != nil) {
         case .focus(let result):
-            guard result.isLeaf else { return .invalidDestinationNode }
-            if result.windowID == target.id && node.isLeaf { return .invalidDestinationNode }
+            guard result.isLeaf else { throw .invalidDestinationNode }
+            if result.windowID == target.id && node.isLeaf { throw .invalidDestinationNode }
             owner.tree?.select(nil)
             focusWindow(id: result.windowID)
         case .output:
             owner.tree?.select(nil)
-            guard let did else { return .invalidDestinationNode }
+            guard let did else { throw .invalidDestinationNode }
             treeFocusDisplay(did)
         case .none:
-            return .invalidDestinationNode
+            throw .invalidDestinationNode
         }
-
-        return .success
     }
 
-    func treeFocusParent(for target: Window?) -> WindowOperationResult
+    func treeFocusParent(for target: Window?) throws(WindowOperationError)
     {
-        guard let target, let owner = treeView(for: target) else { return .invalidSourceView }
-        guard let node = treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
-        guard let parent = node.parent else { return .invalidDestinationNode }
+        guard let target, let owner = treeView(for: target) else { throw .invalidSourceView }
+        guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
+        guard let parent = node.parent else { throw .invalidDestinationNode }
 
         owner.tree?.select(parent)
         if owner.sid.isVisible { parent.showSelection() }
-
-        return .success
     }
 
-    func treeFocusChild(for target: Window?) -> WindowOperationResult
+    func treeFocusChild(for target: Window?) throws(WindowOperationError)
     {
-        guard let owner = treeView(for: target) else { return .invalidSourceView }
+        guard let owner = treeView(for: target) else { throw .invalidSourceView }
 
-        guard let selected = owner.tree?.findSelected(), selected.children.count != 0 else { return .invalidDestinationNode }
+        guard let selected = owner.tree?.findSelected(), selected.children.count != 0 else { throw .invalidDestinationNode }
 
         let child = selected.focusOrder[0]
         if child.isLeaf {
@@ -142,8 +138,6 @@ extension WindowManager
             owner.tree?.select(child)
             if owner.sid.isVisible { child.showSelection() }
         }
-
-        return .success
     }
 
     //
@@ -202,10 +196,10 @@ extension WindowManager
         }
     }
 
-    func treeMove(direction: Direction, for target: Window) -> WindowOperationResult
+    func treeMove(direction: Direction, for target: Window) throws(WindowOperationError)
     {
-        guard let owner = treeView(for: target) else { return .invalidSourceView }
-        guard let node = treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
+        guard let owner = treeView(for: target) else { throw .invalidSourceView }
+        guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
 
         let did = treeDisplay(in: direction, from: owner)
 
@@ -213,13 +207,11 @@ extension WindowManager
         case .done:
             treeApply(owner)
         case .output:
-            guard let did else { return .invalidDestinationNode }
+            guard let did else { throw .invalidDestinationNode }
             treeMove(node, from: owner, to: did, direction: direction)
         case .none:
-            return .invalidDestinationNode
+            throw .invalidDestinationNode
         }
-
-        return .success
     }
 
     //
@@ -255,10 +247,10 @@ extension WindowManager
         focusWindow(id: windowID)
     }
 
-    func treeSplit(_ split: SplitOrientation, for target: Window?) -> WindowOperationResult
+    func treeSplit(_ split: SplitOrientation, for target: Window?) throws(WindowOperationError)
     {
-        guard let target, let owner = treeView(for: target) else { return .invalidSourceView }
-        guard let node = treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
+        guard let target, let owner = treeView(for: target) else { throw .invalidSourceView }
+        guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
 
         let orientation: ConOrientation
         switch split {
@@ -271,7 +263,5 @@ extension WindowManager
 
         node.split(orientation)
         treeApply(owner)
-
-        return .success
     }
 }

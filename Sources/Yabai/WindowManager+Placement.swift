@@ -34,13 +34,12 @@ extension WindowManager
         Border.refreshSpace(of: target)
     }
 
-    @discardableResult
-    func applyGrid(_ grid: Grid, to target: Window) -> WindowOperationResult
+    func applyGrid(_ grid: Grid, to target: Window) throws(WindowOperationError)
     {
         let rows = grid.rows, columns = grid.columns
-        if managedView(for: target) != nil { return .invalidSourceView }
+        if managedView(for: target) != nil { throw .invalidSourceView }
 
-        guard let displayID = target.id.displayID else { return .invalidSourceView }
+        guard let displayID = target.id.displayID else { throw .invalidSourceView }
 
         var x = grid.x, y = grid.y, width = grid.width, height = grid.height
         if x >= columns { x = columns &- 1 }
@@ -87,7 +86,6 @@ extension WindowManager
         let frameHeight = cellHeight * Float(height)
 
         animateWindow(WindowPlacement(window: target, x: frameX, y: frameY, w: frameWidth, h: frameHeight))
-        return .success
     }
 
     func makeWindowFloating(_ target: Window, shouldFloat: Bool, force: Bool)

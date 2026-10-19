@@ -10,11 +10,9 @@ import YabaiCore
 // SpaceManager+Operations.swift and the space layout in SpaceManager+SpaceLayout.swift.
 //
 
-/// The outcome of a space command: success, or why it failed (`checkSpaceOperation` in MessageSpace.swift words the failures every space
-/// command shares).
-enum SpaceOperationResult: Sendable
+/// Why a space operation failed (`checkSpaceOperation` in MessageSpace.swift words the failures every space command shares).
+enum SpaceOperationError: Error, Sendable
 {
-    case success
     case missingSource
     case missingDestination
     case invalidSource

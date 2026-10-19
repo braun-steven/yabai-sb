@@ -290,13 +290,13 @@ extension DisplayID
     }
 
     /// Focuses a space of the display through the scripting addition.
-    func focusSpace(_ sid: SpaceID) -> SpaceOperationResult
+    func focusSpace(_ sid: SpaceID) throws(SpaceOperationError)
     {
-        if MissionControl.shared.isActive { return .inMissionControl }
+        if MissionControl.shared.isActive { throw .inMissionControl }
 
         let spaceDid = sid.display
-        if spaceDid != self { return .sameDisplay }
+        if spaceDid != self { throw .sameDisplay }
 
-        return ScriptingAddition.shared.focusSpace(sid) ? .success : .scriptingAdditionFailed
+        if !ScriptingAddition.shared.focusSpace(sid) { throw .scriptingAdditionFailed }
     }
 }

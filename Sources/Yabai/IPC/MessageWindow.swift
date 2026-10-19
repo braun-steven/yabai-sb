@@ -43,24 +43,24 @@ private enum WindowCommand
     static let splitToggle       = "toggle"
 }
 
-/// Throws the failure of a window command whose acting or selected window is not managed; the other results are
-/// handled by the command or not reported.
-private func checkManaged(_ result: WindowOperationResult) throws(CommandError)
+/// Throws the failure of a window command whose acting or selected window is not managed; the command words the
+/// other errors or does not report them.
+private func checkManaged(_ error: WindowOperationError) throws(CommandError)
 {
-    switch result {
+    switch error {
     case .invalidSourceView, .invalidSourceNode:           throw CommandError("the acting window is not managed.\n")
     case .invalidDestinationView, .invalidDestinationNode: throw CommandError("the selected window is not managed.\n")
     default:                                               break
     }
 }
 
-@WM private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> WindowOperationResult
+@WM private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) throws(WindowOperationError)
 {
     let wm = WindowManager.shared
     switch focus {
-    case .parent:                   return wm.treeFocusParent(for: window)
-    case .child:                    return wm.treeFocusChild(for: window)
-    case .direction(let direction): return wm.treeFocus(direction: direction, for: window)
+    case .parent:                   try wm.treeFocusParent(for: window)
+    case .child:                    try wm.treeFocusChild(for: window)
+    case .direction(let direction): try wm.treeFocus(direction: direction, for: window)
     }
 }
 
@@ -112,7 +112,9 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         if let treeFocus {
             _ = message.next()
 
-            if windowTreeFocus(actingWindow, treeFocus) != .success {
+            do {
+                try windowTreeFocus(actingWindow, treeFocus)
+            } catch {
                 throw CommandError("could not locate a container to focus.\n", stopsMessage: true)
             }
 
@@ -154,14 +156,15 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 
         if let window = actingWindow {
             let id = Int32(bitPattern: window.id.rawValue)
-            let result = window.minimize()
-            if result == .cannotMinimize {
+            do {
+                try window.minimize()
+            } catch .cannotMinimize {
                 throw CommandError("window with id '\(id)' does not support the minimize operation.\n")
-            } else if result == .alreadyMinimized {
+            } catch .alreadyMinimized {
                 throw CommandError("window with id '\(id)' is already minimized.\n")
-            } else if result == .minimizeFailed {
+            } catch .minimizeFailed {
                 throw CommandError("could not minimize window with id '\(id)'.\n")
-            }
+            } catch {}
         } else {
             throw CommandError("could not locate the window to act on!\n")
         }
@@ -169,12 +172,13 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
             let id = Int32(bitPattern: window.id.rawValue)
-            let result = window.deminimize()
-            if result == .notMinimized {
+            do {
+                try window.deminimize()
+            } catch .notMinimized {
                 throw CommandError("window with id '\(id)' is not minimized.\n")
-            } else if result == .deminimizeFailed {
+            } catch .deminimizeFailed {
                 throw CommandError("could not deminimize window with id '\(id)'.\n")
-            }
+            } catch {}
         }
     } else {
         return .unknown
@@ -217,18 +221,21 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
     } else if command.equals(WindowCommand.swap) {
         let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
-            let result = wm.swapWindow(actingWindow, window)
-            if result == .sameWindow {
+            do {
+                try wm.swapWindow(actingWindow, window)
+            } catch .sameWindow {
                 throw CommandError("cannot swap a window with itself.\n")
-            } else {
-                try checkManaged(result)
+            } catch {
+                try checkManaged(error)
             }
         }
     } else if command.equals(WindowCommand.warp) {
         if wm.treeView(for: actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
             _ = message.next()
 
-            if wm.treeMove(direction: direction, for: actingWindow) != .success {
+            do {
+                try wm.treeMove(direction: direction, for: actingWindow)
+            } catch {
                 throw CommandError("could not move the container in that direction.\n", stopsMessage: true)
             }
 
@@ -237,21 +244,23 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 
         let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
-            let result = wm.warpWindow(actingWindow, window)
-            if result == .sameWindow {
+            do {
+                try wm.warpWindow(actingWindow, window)
+            } catch .sameWindow {
                 throw CommandError("cannot warp a window onto itself.\n")
-            } else {
-                try checkManaged(result)
+            } catch {
+                try checkManaged(error)
             }
         }
     } else if command.equals(WindowCommand.stack) {
         let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
-            let result = wm.stackWindow(actingWindow, window)
-            if result == .sameWindow {
+            do {
+                try wm.stackWindow(actingWindow, window)
+            } catch .sameWindow {
                 throw CommandError("cannot stack a window onto itself.\n")
-            } else {
-                try checkManaged(result)
+            } catch {
+                try checkManaged(error)
             }
         }
     } else {
@@ -275,16 +284,29 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             throw CommandError.unknownValue(domain, command, value).stoppingMessage
         }
 
-        try checkManaged(wm.setWindowLayout(actingWindow, layout))
+        do {
+            try wm.setWindowLayout(actingWindow, layout)
+        } catch {
+            try checkManaged(error)
+        }
     } else if command.equals(WindowCommand.split) {
         let value = message.next()
         guard let orientation = parseSplitOrientation(value) else {
             throw CommandError.unknownValue(domain, command, value).stoppingMessage
         }
 
-        try checkManaged(wm.treeSplit(orientation, for: actingWindow))
+        do {
+            try wm.treeSplit(orientation, for: actingWindow)
+        } catch {
+            try checkManaged(error)
+        }
     } else if command.equals(WindowCommand.insert) {
-        try checkManaged(wm.setWindowInsertion(actingWindow, try parseInsertSelector(message.next())))
+        let direction = try parseInsertSelector(message.next())
+        do {
+            try wm.setWindowInsertion(actingWindow, direction)
+        } catch {
+            try checkManaged(error)
+        }
     } else {
         return .unknown
     }
@@ -304,10 +326,11 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         var grid = Grid()
         let value = message.next()
         if grid.scan(value) == 6 {
-            let result = wm.applyGrid(grid, to: actingWindow)
-            if result == .invalidSourceView {
+            do {
+                try wm.applyGrid(grid, to: actingWindow)
+            } catch .invalidSourceView {
                 throw CommandError("cannot apply grid layout to a managed window.\n")
-            }
+            } catch {}
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
@@ -316,10 +339,11 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         var point: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.moveFormat, &type, &point) == 3 {
-            let result = wm.moveWindow(actingWindow, type: valueType(type), dx: point[0], dy: point[1])
-            if result == .invalidSourceView {
+            do {
+                try wm.moveWindow(actingWindow, type: valueType(type), dx: point[0], dy: point[1])
+            } catch .invalidSourceView {
                 throw CommandError("cannot move a managed window.\n")
-            }
+            } catch {}
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
@@ -328,14 +352,15 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         var size: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.resizeFormat, &handle, &size) == 3 {
-            let result = wm.resizeWindow(actingWindow, direction: parseResizeHandle(Token(cString: handle)), dx: size[0], dy: size[1], animate: true)
-            if result == .invalidSourceNode {
+            do {
+                try wm.resizeWindow(actingWindow, direction: parseResizeHandle(Token(cString: handle)), dx: size[0], dy: size[1], animate: true)
+            } catch .invalidSourceNode {
                 throw CommandError("cannot locate the container of the managed window.\n")
-            } else if result == .invalidDestinationNode {
+            } catch .invalidDestinationNode {
                 throw CommandError("cannot resize the container in that direction.\n")
-            } else if result == .invalidOperation {
+            } catch .invalidOperation {
                 throw CommandError("cannot use absolute resizing on a managed window.\n")
-            }
+            } catch {}
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
@@ -344,12 +369,13 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         var ratio: [Float] = [0]
         let value = message.next()
         if value.scan(WindowCommand.ratioFormat, &type, &ratio) == 2 {
-            let result = wm.adjustWindowRatio(for: actingWindow, type: valueType(type), ratio: ratio[0])
-            if result == .invalidSourceView {
+            do {
+                try wm.adjustWindowRatio(for: actingWindow, type: valueType(type), ratio: ratio[0])
+            } catch .invalidSourceView {
                 throw CommandError("cannot adjust ratio of a non-managed window.\n")
-            } else if result == .invalidSourceNode {
+            } catch .invalidSourceNode {
                 throw CommandError("cannot adjust ratio of a root node.\n")
-            }
+            } catch {}
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }

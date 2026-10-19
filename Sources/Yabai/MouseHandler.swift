@@ -365,9 +365,9 @@ extension MouseState
         if action == .none {
             srcView.flush()
         } else if action == .swap {
-            _ = wm.swapWindow(srcWindow, dstWindow)
+            try? wm.swapWindow(srcWindow, dstWindow)
         } else if direction == .stack {
-            _ = wm.stackWindow(dstWindow, srcWindow)
+            try? wm.stackWindow(dstWindow, srcWindow)
             if srcView != dstView { srcView.flush() }
         } else if srcView == dstView {
             // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
@@ -458,13 +458,21 @@ extension WindowManager
             var direction: ResizeHandle = []
             if change.changedX { direction.insert(.left) }
             if change.changedY { direction.insert(.top) }
-            if resizeWindow(target, direction: direction, dx: change.dx, dy: change.dy, animate: true) == .invalidDestinationNode { success = false }
+            do {
+                try resizeWindow(target, direction: direction, dx: change.dx, dy: change.dy, animate: true)
+            } catch .invalidDestinationNode {
+                success = false
+            } catch {}
         }
         if change.changedSize {
             var direction: ResizeHandle = []
             if change.changedWidth && !change.changedX { direction.insert(.right) }
             if change.changedHeight && !change.changedY { direction.insert(.bottom) }
-            if resizeWindow(target, direction: direction, dx: change.dw, dy: change.dh, animate: true) == .invalidDestinationNode { success = false }
+            do {
+                try resizeWindow(target, direction: direction, dx: change.dw, dy: change.dh, animate: true)
+            } catch .invalidDestinationNode {
+                success = false
+            } catch {}
         }
         if !success { targetView.flush() }
     }

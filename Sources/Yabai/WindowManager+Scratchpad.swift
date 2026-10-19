@@ -49,7 +49,7 @@ extension WindowManager
 
         let animationDuration = windowAnimationDuration
         windowAnimationDuration = 0.0
-        applyGrid(grid, to: target)
+        try? applyGrid(grid, to: target)
         windowAnimationDuration = animationDuration
     }
 

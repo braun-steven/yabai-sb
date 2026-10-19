@@ -66,7 +66,7 @@ extension WindowManager
                 if let sid = effects.sid ?? effects.did.flatMap({ $0.currentSpace }) {
                     sendWindow(target, to: sid, movedByRule: true)
                     if effects.flags.contains(.followSpace) || effects.fullscreen == true {
-                        _ = SpaceManager.shared.focusSpace(sid)
+                        try? SpaceManager.shared.focusSpace(sid)
                     }
                 }
             }
@@ -100,7 +100,7 @@ extension WindowManager
 
         let grid = effects.grid
         if grid.rows != 0 && grid.columns != 0 {
-            applyGrid(grid, to: target)
+            try? applyGrid(grid, to: target)
         }
     }
 

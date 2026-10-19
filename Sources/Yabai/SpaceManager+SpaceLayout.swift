@@ -77,8 +77,6 @@ extension SpaceManager
         let surplus = (0..<displayCount).first { actual[$0] > target[$0] }
         let deficit = (0..<displayCount).first { actual[$0] < target[$0] }
 
-        let result: SpaceOperationResult
-
         switch (surplus, deficit) {
         case (let surplus?, let deficit?):
             guard let spaces = didList[surplus].spaces else { return .failed }
@@ -87,10 +85,10 @@ extension SpaceManager
             let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: didList[surplus].currentSpace, fromEnd: deficit > surplus)
 
             debug("SpaceManager.reconcileSpaceLayout: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
-            result = moveSpace(sid, toDisplay: didList[deficit])
+            do { try moveSpace(sid, toDisplay: didList[deficit]) } catch { return .failed }
         case (nil, let deficit?):
             debug("SpaceManager.reconcileSpaceLayout: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
-            result = addSpace(onDisplayOf: didList[deficit].currentSpace)
+            do { try addSpace(onDisplayOf: didList[deficit].currentSpace) } catch { return .failed }
         case (let surplus?, nil):
             guard let sid = destroyCandidate(on: didList[surplus]) else {
                 debug("SpaceManager.reconcileSpaceLayout: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
@@ -98,12 +96,12 @@ extension SpaceManager
             }
 
             debug("SpaceManager.reconcileSpaceLayout: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
-            result = destroySpace(sid)
+            do { try destroySpace(sid) } catch { return .failed }
         case (nil, nil):
             return .done
         }
 
-        return result == .success ? .performed : .failed
+        return .performed
     }
 
     //

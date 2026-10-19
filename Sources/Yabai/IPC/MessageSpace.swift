@@ -96,9 +96,9 @@ func valueType(_ type: [CChar]) -> ValueType?
 // their operation.
 //
 
-private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: String) throws(CommandError)
+private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String) throws(CommandError)
 {
-    switch result {
+    switch error {
     case .inMissionControl:        throw CommandError("cannot \(action) because mission-control is active.\n")
     case .scriptingAdditionFailed: throw CommandError("cannot \(action) due to an error with the scripting-addition.\n")
     default:                       break
@@ -137,11 +137,12 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
     } else if command.equals(DisplayCommand.space) {
         let selector = try parseSpaceSelector(message.next(), acting: did.currentSpace, optional: false, context).checked()
         if selector.didParse, let target = selector.value {
-            let result = did.focusSpace(target)
-            if result == .sameDisplay {
+            do {
+                try did.focusSpace(target)
+            } catch .sameDisplay {
                 throw CommandError("acting display does not contain the given space.\n")
-            } else {
-                try checkSpaceOperation(result, "focus space")
+            } catch {
+                try checkSpaceOperation(error, "focus space")
             }
         }
     } else if command.equals(DisplayCommand.label) {
@@ -166,13 +167,16 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
     if command.equals(SpaceCommand.focus) || command.equals(SpaceCommand.switch) {
         let selector = try parseSpaceSelector(message.next(), acting: actingSid, optional: false, context).checked()
         if selector.didParse, let target = selector.value {
-            let result = command.equals(SpaceCommand.focus)
-                       ? SpaceManager.shared.focusSpace(target)
-                       : SpaceManager.shared.switchSpace(to: target)
-            if result == .sameSpace {
+            do {
+                if command.equals(SpaceCommand.focus) {
+                    try SpaceManager.shared.focusSpace(target)
+                } else {
+                    try SpaceManager.shared.switchSpace(to: target)
+                }
+            } catch .sameSpace {
                 throw CommandError("cannot focus an already focused space.\n")
-            } else {
-                try checkSpaceOperation(result, "focus space")
+            } catch {
+                try checkSpaceOperation(error, "focus space")
             }
         }
     } else if command.equals(SpaceCommand.move) {
@@ -182,13 +186,14 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
                 throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
             }
 
-            let result = SpaceManager.shared.moveSpace(actingSid, to: target)
-            if result == .sameSpace {
+            do {
+                try SpaceManager.shared.moveSpace(actingSid, to: target)
+            } catch .sameSpace {
                 throw CommandError("cannot move space to itself.\n")
-            } else if result == .sameDisplay {
+            } catch .sameDisplay {
                 throw CommandError("cannot move space across display boundaries. use --display instead.\n")
-            } else {
-                try checkSpaceOperation(result, "move space")
+            } catch {
+                try checkSpaceOperation(error, "move space")
             }
         }
     } else if command.equals(SpaceCommand.swap) {
@@ -198,27 +203,29 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
                 throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
             }
 
-            let result = SpaceManager.shared.swapSpace(actingSid, with: target)
-            if result == .sameSpace {
+            do {
+                try SpaceManager.shared.swapSpace(actingSid, with: target)
+            } catch .sameSpace {
                 throw CommandError("cannot swap space with itself.\n")
-            } else {
-                try checkSpaceOperation(result, "swap space")
+            } catch {
+                try checkSpaceOperation(error, "swap space")
             }
         }
     } else if command.equals(SpaceCommand.display) {
         let selector = try parseDisplaySelector(message.next(), acting: DisplayID.active, optional: false, context).checked()
         if selector.didParse, let target = selector.value {
-            let result = SpaceManager.shared.moveSpace(actingSid, toDisplay: target)
-            if result == .missingSource {
+            do {
+                try SpaceManager.shared.moveSpace(actingSid, toDisplay: target)
+            } catch .missingSource {
                 throw CommandError("could not locate the space to act on.\n")
-            } else if result == .missingDestination {
+            } catch .missingDestination {
                 throw CommandError("could not locate the active space of the given display.\n")
-            } else if result == .invalidSource {
+            } catch .invalidSource {
                 throw CommandError("acting space is the last user-space on the source display and cannot be moved.\n")
-            } else if result == .invalidDestination {
+            } catch .invalidDestination {
                 throw CommandError("acting space is already located on the given display.\n")
-            } else {
-                try checkSpaceOperation(result, "send space to display")
+            } catch {
+                try checkSpaceOperation(error, "send space to display")
             }
         }
     } else if command.equals(SpaceCommand.create) {
@@ -230,11 +237,12 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
             actingSid = target.currentSpace
         }
 
-        let result = SpaceManager.shared.addSpace(onDisplayOf: actingSid)
-        if result == .missingSource {
+        do {
+            try SpaceManager.shared.addSpace(onDisplayOf: actingSid)
+        } catch .missingSource {
             throw CommandError("could not locate the space to act on.\n")
-        } else {
-            try checkSpaceOperation(result, "create space")
+        } catch {
+            try checkSpaceOperation(error, "create space")
         }
     } else if command.equals(SpaceCommand.destroy) {
         do {
@@ -243,15 +251,16 @@ private func checkSpaceOperation(_ result: SpaceOperationResult, _ action: Strin
             throw error.stoppingMessage
         }
 
-        let result = SpaceManager.shared.destroySpace(actingSid)
-        if result == .missingSource {
+        do {
+            try SpaceManager.shared.destroySpace(actingSid)
+        } catch .missingSource {
             throw CommandError("could not locate the space to act on.\n")
-        } else if result == .invalidSource {
+        } catch .invalidSource {
             throw CommandError("acting space is the last user-space on the source display and cannot be destroyed.\n")
-        } else if result == .invalidType {
+        } catch .invalidType {
             throw CommandError("cannot destroy a macOS fullscreen space.\n")
-        } else {
-            try checkSpaceOperation(result, "destroy space")
+        } catch {
+            try checkSpaceOperation(error, "destroy space")
         }
     } else {
         return .unknown

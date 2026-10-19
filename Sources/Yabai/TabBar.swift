@@ -108,13 +108,6 @@ struct TabBarEntry
 }
 
 //
-// NOTE: Tab bars that currently own a window. Only touched from the event loop thread.
-// A bar is embedded in its owner (a stack leaf or a tabbed container), and the owner
-// redraws it when colors or fonts change.
-//
-nonisolated(unsafe) private var tabBarList: [TabBar] = []
-
-//
 // NOTE: Snapshot of the visible tab layout, read by the mouse event tap to resolve clicks on a
 // tab bar without touching the window tree from another thread.
 //
@@ -172,7 +165,7 @@ extension TabBar
     {
         tabBarHits.withLock { hits in
             hits.removeAll(keepingCapacity: true)
-            for bar in tabBarList where hits.count < 256 {
+            for bar in WindowManager.shared.tabBars where hits.count < 256 {
                 if bar.hidden || bar.entryCount == 0 { continue }
                 // NOTE: A bar that shows entries has been rendered above a window on a space, so both are set.
                 guard let sid = bar.sid, let aboveWid = bar.aboveWindowID else { continue }
@@ -386,7 +379,7 @@ extension TabBar
     private func create(_ frame: CGRect)
     {
         self.frame = frame
-        tabBarList.append(self)
+        WindowManager.shared.tabBars.append(self)
         if TabBar.usesGlass { return }
         //
         // NOTE: Created with SLSNewWindow instead of SLSNewWindowWithOpaqueShapeAndContext, because a window of the latter
@@ -464,7 +457,8 @@ extension TabBar
     func destroy()
     {
         if !exists { return }
-        if let i = tabBarList.firstIndex(of: self) { tabBarList.remove(at: i) }
+        let wm = WindowManager.shared
+        if let i = wm.tabBars.firstIndex(of: self) { wm.tabBars.remove(at: i) }
         if let id {
             SLS.order(SLS.connection, id, .out)
             context = nil
@@ -487,7 +481,7 @@ extension TabBar
 
     static func orderBars(above wid: WindowID)
     {
-        for bar in outerFirst(tabBarList.filter { !$0.hidden && $0.aboveWindowID == wid }) {
+        for bar in outerFirst(WindowManager.shared.tabBars.filter { !$0.hidden && $0.aboveWindowID == wid }) {
             if let id = bar.id {
                 SLS.order(SLS.connection, id, .above, relativeTo: wid)
                 bar.keepOnSpace()
@@ -504,7 +498,7 @@ extension TabBar
 
     static func redrawAll()
     {
-        for bar in outerFirst(tabBarList) { bar.owner?.renderBar() }
+        for bar in outerFirst(WindowManager.shared.tabBars) { bar.owner?.renderBar() }
     }
 
     static func refresh(for wid: WindowID?)

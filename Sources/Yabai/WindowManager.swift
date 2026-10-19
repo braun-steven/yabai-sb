@@ -96,6 +96,9 @@ final class WindowManager
     var application: [pid_t: Application] = [:]
     var window: [WindowID: Window] = [:]
     var managedWindows: [WindowID: View] = [:]
+    // NOTE: The tab bar registry is owned and accessed only by the event loop thread. The mouse event tap reads the
+    // separate `tabBarHits` snapshot in `TabBar.swift`; bars are embedded in their owner, which redraws them on changes.
+    var tabBars: [TabBar] = []
     var windowLostFocusedEvents = Set<WindowID>()
     var applicationLostFrontSwitchedEvents = Set<pid_t>()
     var rules: [Rule] = []

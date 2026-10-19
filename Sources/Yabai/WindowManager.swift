@@ -92,11 +92,11 @@ struct Scratchpad
 final class WindowManager
 {
     var system_element: AXUIElement?
-    var application = Table<pid_t, Application>(capacity: 150)
-    var window = Table<WindowID, Window>(capacity: 150)
-    var managed_window = Table<WindowID, View>(capacity: 150)
-    var window_lost_focused_event = Table<WindowID, Bool>(capacity: 150)
-    var application_lost_front_switched_event = Table<pid_t, Bool>(capacity: 150)
+    var application: [pid_t: Application] = [:]
+    var window: [WindowID: Window] = [:]
+    var managed_window: [WindowID: View] = [:]
+    var window_lost_focused_event = Set<WindowID>()
+    var application_lost_front_switched_event = Set<pid_t>()
     var rules: [Rule] = []
     var applications_to_refresh: [Application] = []
     var focused_window_id: WindowID?
@@ -317,13 +317,13 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
 func window_manager_find_managed_window(_ wm: WindowManager, _ target: Window) -> View?
 {
-    return wm.managed_window.find(target.id)
+    return wm.managed_window[target.id]
 }
 
 /// `window_manager_remove_managed_window`
 func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: WindowID)
 {
-    wm.managed_window.remove(wid)
+    wm.managed_window.removeValue(forKey: wid)
 }
 
 /// `window_manager_add_managed_window`
@@ -331,7 +331,7 @@ func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ 
 {
     if owner.layout == .float { return }
 
-    wm.managed_window.add(target.id, owner)
+    if wm.managed_window[target.id] == nil { wm.managed_window[target.id] = owner }
     window_manager_purify_window(wm, target)
 }
 
@@ -712,7 +712,7 @@ func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
 /// `window_manager_find_lost_front_switched_event`
 func window_manager_find_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t) -> Bool
 {
-    return wm.application_lost_front_switched_event.find(pid) != nil
+    return wm.application_lost_front_switched_event.contains(pid)
 }
 
 /// `window_manager_remove_lost_front_switched_event`
@@ -724,13 +724,13 @@ func window_manager_remove_lost_front_switched_event(_ wm: WindowManager, _ pid:
 /// `window_manager_add_lost_front_switched_event`
 func window_manager_add_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t)
 {
-    wm.application_lost_front_switched_event.add(pid, true)
+    wm.application_lost_front_switched_event.insert(pid)
 }
 
 /// `window_manager_find_lost_focused_event`
 func window_manager_find_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID) -> Bool
 {
-    return wm.window_lost_focused_event.find(windowID) != nil
+    return wm.window_lost_focused_event.contains(windowID)
 }
 
 /// `window_manager_remove_lost_focused_event`
@@ -742,13 +742,13 @@ func window_manager_remove_lost_focused_event(_ wm: WindowManager, _ windowID: W
 /// `window_manager_add_lost_focused_event`
 func window_manager_add_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID)
 {
-    wm.window_lost_focused_event.add(windowID, true)
+    wm.window_lost_focused_event.insert(windowID)
 }
 
 /// `window_manager_find_window`
 func window_manager_find_window(_ wm: WindowManager, _ windowID: WindowID) -> Window?
 {
-    return wm.window.find(windowID)
+    return wm.window[windowID]
 }
 
 /// `window_manager_remove_window`
@@ -756,31 +756,31 @@ func window_manager_remove_window(_ wm: WindowManager, _ windowID: WindowID)
 {
     border_remove(windowID)
 
-    wm.window.remove(windowID)
+    wm.window.removeValue(forKey: windowID)
 }
 
 /// `window_manager_add_window`
 func window_manager_add_window(_ wm: WindowManager, _ target: Window)
 {
-    wm.window.add(target.id, target)
+    if wm.window[target.id] == nil { wm.window[target.id] = target }
 }
 
 /// `window_manager_find_application`
 func window_manager_find_application(_ wm: WindowManager, _ pid: pid_t) -> Application?
 {
-    return wm.application.find(pid)
+    return wm.application[pid]
 }
 
 /// `window_manager_remove_application`
 func window_manager_remove_application(_ wm: WindowManager, _ pid: pid_t)
 {
-    wm.application.remove(pid)
+    wm.application.removeValue(forKey: pid)
 }
 
 /// `window_manager_add_application`
 func window_manager_add_application(_ wm: WindowManager, _ owner: Application)
 {
-    wm.application.add(owner.pid, owner)
+    if wm.application[owner.pid] == nil { wm.application[owner.pid] = owner }
 }
 
 /// `window_manager_find_application_windows`: the windows of the application in id order.
@@ -1457,15 +1457,11 @@ func window_manager_init(_ wm: WindowManager)
     wm.scratchpad_below = false
     wm.scratchpad_grid = Grid()
 
-    //
-    // NOTE: The tables of the window manager are keyed by window ids and pids (hash_wm and compare_wm).
-    //
-
-    wm.application = Table(capacity: 150)
-    wm.window = Table(capacity: 150)
-    wm.managed_window = Table(capacity: 150)
-    wm.window_lost_focused_event = Table(capacity: 150)
-    wm.application_lost_front_switched_event = Table(capacity: 150)
+    wm.application = [:]
+    wm.window = [:]
+    wm.managed_window = [:]
+    wm.window_lost_focused_event = []
+    wm.application_lost_front_switched_event = []
 }
 
 /// `window_manager_begin`

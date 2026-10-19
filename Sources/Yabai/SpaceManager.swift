@@ -29,7 +29,7 @@ enum SpaceOperationResult: Sendable
 /// `struct space_manager`
 final class SpaceManager
 {
-    var view = Table<SpaceID, View>(capacity: 23)
+    var view: [SpaceID: View] = [:]
     var current_space_id: SpaceID?
     var last_space_id: SpaceID?
     var did_begin = false
@@ -85,17 +85,17 @@ func space_manager_query_view(_ sm: SpaceManager, _ sid: SpaceID) -> View?
 {
     if sm.did_begin { return space_manager_find_view(sm, sid) }
 
-    return sm.view.find(sid)
+    return sm.view[sid]
 }
 
 /// `space_manager_find_view`: the view of a space; it is created when the space is new.
 @discardableResult
 func space_manager_find_view(_ sm: SpaceManager, _ sid: SpaceID) -> View
 {
-    if let found = sm.view.find(sid) { return found }
+    if let found = sm.view[sid] { return found }
 
     let created = view_create(sid)
-    sm.view.add(sid, created)
+    sm.view[sid] = created
     return created
 }
 
@@ -574,11 +574,11 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     let aWindows = spaceWindowIDs(aSid)
     let bWindows = spaceWindowIDs(bSid)
 
-    let aView = sm.view.find(aSid)!
-    let bView = sm.view.find(bSid)!
+    let aView = sm.view[aSid]!
+    let bView = sm.view[bSid]!
 
-    sm.view.remove(aSid)
-    sm.view.remove(bSid)
+    sm.view.removeValue(forKey: aSid)
+    sm.view.removeValue(forKey: bSid)
 
     aView.sid = bSid
     bView.sid = aSid
@@ -587,8 +587,8 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     aView.uuid = bView.uuid
     bView.uuid = uuid
 
-    sm.view.add(aSid, bView)
-    sm.view.add(bSid, aView)
+    sm.view[aSid] = bView
+    sm.view[bSid] = aView
 
     if !aWindows.isEmpty {
         space_manager_move_window_list_to_space(bSid, aWindows)
@@ -945,14 +945,14 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
             uuidList[j] = nil
             viewList[j] = nil
 
-            sm.view.remove(target.sid)
+            sm.view.removeValue(forKey: target.sid)
 
             sm.labels.replace(id: target.sid, with: sid)
 
             target.sid = sid
             target.uuid = uuid
 
-            sm.view.add(sid, target)
+            if sm.view[sid] == nil { sm.view[sid] = target }
             break
         }
     }
@@ -972,10 +972,10 @@ func space_manager_init(_ sm: SpaceManager)
     sm.labels = LabelList<SpaceID>()
     sm.skip_window_focus_animation = false
     //
-    // NOTE: The table of views is keyed by the space id.
+    // NOTE: The views are keyed by space id.
     //
 
-    sm.view = Table(capacity: 23)
+    sm.view = [:]
 }
 
 /// `space_manager_begin`: creates the views of every space of every display.
@@ -987,7 +987,8 @@ func space_manager_begin(_ sm: SpaceManager)
         guard let spaceList = displaySpaces(did) else { continue }
 
         for sid in spaceList {
-            sm.view.add(sid, view_create(sid))
+            let created = view_create(sid)
+            if sm.view[sid] == nil { sm.view[sid] = created }
         }
     }
 

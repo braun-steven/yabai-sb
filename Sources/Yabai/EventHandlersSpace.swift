@@ -40,10 +40,10 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
     let sm = space_manager_global()
 
-    if let view = sm.view.find(sid) {
+    if let view = sm.view[sid] {
         debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid.rawValue))\n")
         _ = sm.labels.remove(id: sid)
-        sm.view.remove(sid)
+        sm.view.removeValue(forKey: sid)
         view_destroy(view)
         eventSignalPush(.spaceDestroyed, signalContext(sid))
         space_layout_schedule(1.0, false)

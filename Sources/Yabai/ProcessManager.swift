@@ -41,13 +41,23 @@ func process_set_terminated(_ process: Process, _ terminated: Bool) { process.te
 func process_ns_application(_ process: Process) -> UnsafeMutableRawPointer? { process.ns_application.load(ordering: .relaxed) }
 func process_set_ns_application(_ process: Process, _ application: UnsafeMutableRawPointer?) { process.ns_application.store(application, ordering: .releasing) }
 
+/// A process serial number as a dictionary key: `ProcessSerialNumber` is not `Hashable`.
+struct ProcessKey: Hashable
+{
+    let high: UInt32
+    let low: UInt32
+
+    init(_ psn: ProcessSerialNumber)
+    {
+        high = psn.highLongOfPSN
+        low = psn.lowLongOfPSN
+    }
+}
+
 /// `struct process_manager`
 final class ProcessManager
 {
-    var process = Table<ProcessSerialNumber, Process>(capacity: 125, hash: { UInt($0.lowLongOfPSN) }, equals: { a, b in
-        var a = a, b = b
-        return psn_equals(&a, &b)
-    })
+    var process: [ProcessKey: Process] = [:]
     var target: EventTargetRef?
     var handler: EventHandlerUPP?
     var type = (EventTypeSpec(), EventTypeSpec(), EventTypeSpec())
@@ -164,7 +174,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
 
         guard let process = processCreate(psn, pid) else { return noErr }
 
-        pm.process.add(process.psn, process)
+        if pm.process[ProcessKey(process.psn)] == nil { pm.process[ProcessKey(process.psn)] = process }
         EventLoop.post(.applicationLaunched(Handoff(value: process)))
     case kEventAppTerminated:
         guard let process = process_manager_find_process(pm, &psn) else { return noErr }
@@ -175,7 +185,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
         //
 
         process_set_terminated(process, true)
-        pm.process.remove(psn)
+        pm.process.removeValue(forKey: ProcessKey(psn))
         workspace_application_unobserve(process)
 
         EventLoop.post(.applicationTerminated(Handoff(value: process)))
@@ -207,7 +217,7 @@ private func processManagerAddRunningProcesses(_ pm: ProcessManager)
             pm.finder_psn = psn
         }
 
-        pm.process.add(process.psn, process)
+        if pm.process[ProcessKey(process.psn)] == nil { pm.process[ProcessKey(process.psn)] = process }
     }
 }
 
@@ -245,7 +255,7 @@ func process_manager_begin(_ pm: ProcessManager) -> Bool
 /// `process_manager_find_process`
 func process_manager_find_process(_ pm: ProcessManager, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> Process?
 {
-    return pm.process.find(psn.pointee)
+    return pm.process[ProcessKey(psn.pointee)]
 }
 
 /// `process_destroy`

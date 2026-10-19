@@ -586,7 +586,7 @@ func treeCollectCardOrder(_ node: Con, _ windowID: WindowID, _ list: inout [sa_w
 /// `tree_card_did_order`
 func tree_card_did_order(_ windowID: WindowID)
 {
-    guard let owner = window_manager_global().managed_window.find(windowID) else { return }
+    guard let owner = window_manager_global().managed_window[windowID] else { return }
     if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
 
     var list: [sa_window_order] = []
@@ -635,7 +635,7 @@ func tree_window_did_receive_focus(_ owner: View, _ windowID: WindowID)
 /// `tree_refresh_for_window`
 func tree_refresh_for_window(_ windowID: WindowID?)
 {
-    guard let windowID, let owner = window_manager_global().managed_window.find(windowID) else { return }
+    guard let windowID, let owner = window_manager_global().managed_window[windowID] else { return }
     if owner.layout != .tree || owner.tree == nil { return }
 
     if space_is_visible(owner.sid) { tree_render_bars(owner.tree) }

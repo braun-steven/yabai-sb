@@ -80,19 +80,19 @@ final class ProcessManager
         let processType = ProcessGetTypeC(psn)
 
         guard let processNameRef = ProcessCopyNameC(psn) else {
-            debug("process_create: could not retrieve process name! ignoring..\n")
+            debug("ProcessManager.createProcess: could not retrieve process name! ignoring..\n")
             return nil
         }
 
         let processName = processNameRef as String
 
         if processType == processTypeXPC {
-            debug("process_create: xpc service '\(processName)' detected! ignoring..\n")
+            debug("ProcessManager.createProcess: xpc service '\(processName)' detected! ignoring..\n")
             return nil
         }
 
         for blacklisted in processNameBlacklist where processName.bytesEqual(blacklisted) {
-            debug("process_create: \(processName) is blacklisted! ignoring..\n")
+            debug("ProcessManager.createProcess: \(processName) is blacklisted! ignoring..\n")
             return nil
         }
 
@@ -120,14 +120,14 @@ final class ProcessManager
         while ProcessGetNextC(&psn) == noErr {
             let pid = ProcessGetPIDC(psn)
             if ProcessManager.isBeingDebugged(pid) {
-                debug("process_manager_add_running_processes: process with pid \(pid) is running under a debugger! ignoring..\n")
+                debug("ProcessManager.addRunningProcesses: process with pid \(pid) is running under a debugger! ignoring..\n")
                 continue
             }
 
             guard let process = createProcess(psn, pid) else { continue }
 
             if process.name.bytesEqual("Finder") {
-                debug("process_manager_add_running_processes: \(process.nameAndPID) was found! caching psn..\n")
+                debug("ProcessManager.addRunningProcesses: \(process.nameAndPID) was found! caching psn..\n")
                 finderPSN = psn
             }
 
@@ -171,7 +171,7 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
 
         let pid = ProcessGetPIDC(psn)
         if ProcessManager.isBeingDebugged(pid) {
-            debug("process_handler: process with pid \(pid) is running under a debugger! ignoring..\n")
+            debug("processHandler: process with pid \(pid) is running under a debugger! ignoring..\n")
             return noErr
         }
 

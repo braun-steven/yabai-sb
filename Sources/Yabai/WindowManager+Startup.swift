@@ -74,7 +74,7 @@ extension WindowManager
                         created.destroy()
                     }
                 } else {
-                    debug("window_manager_begin: \(candidate.nameAndPID) is not observable, subscribing to activationPolicy changes\n")
+                    debug("WindowManager.begin: \(candidate.nameAndPID) is not observable, subscribing to activationPolicy changes\n")
                     candidate.observeActivationPolicy()
                 }
             }

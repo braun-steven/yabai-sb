@@ -52,7 +52,7 @@ extension SpaceManager
         if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
         guard let layout = spaceLayouts.first(where: { $0.count == displayCount }) else {
-            debug("space_layout_reconcile: no space_layout for \(displayCount) display(s)\n")
+            debug("SpaceManager.reconcileSpaceLayout: no space_layout for \(displayCount) display(s)\n")
             return .done
         }
 
@@ -86,18 +86,18 @@ extension SpaceManager
             let user = spaces.map { $0.isUser }
             let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: didList[surplus].currentSpace, fromEnd: deficit > surplus)
 
-            debug("space_layout_reconcile: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
+            debug("SpaceManager.reconcileSpaceLayout: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
             result = moveSpace(sid, toDisplay: didList[deficit])
         case (nil, let deficit?):
-            debug("space_layout_reconcile: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
+            debug("SpaceManager.reconcileSpaceLayout: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
             result = addSpace(onDisplayOf: didList[deficit].currentSpace)
         case (let surplus?, nil):
             guard let sid = destroyCandidate(on: didList[surplus]) else {
-                debug("space_layout_reconcile: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
+                debug("SpaceManager.reconcileSpaceLayout: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
                 return .done
             }
 
-            debug("space_layout_reconcile: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
+            debug("SpaceManager.reconcileSpaceLayout: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
             result = destroySpace(sid)
         case (nil, nil):
             return .done

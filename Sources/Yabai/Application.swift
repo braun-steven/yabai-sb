@@ -44,7 +44,7 @@ final class Application
                 if result == .success || result == .notificationAlreadyRegistered {
                     notifications.insert(notification.notification)
                 } else {
-                    debug("application_observe: error '\(axErrorName(result))' for application '\(name)' and notification '\(notification.text)'\n")
+                    debug("Application.observe: error '\(axErrorName(result))' for application '\(name)' and notification '\(notification.text)'\n")
 
                     // NOTE: Once an application times out, each remaining AX notification would wait for the same timeout.
                     if result == .cannotComplete {

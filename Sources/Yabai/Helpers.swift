@@ -34,8 +34,8 @@ enum AnimationEasing: String, CaseIterable, Sendable
     case easeInOutCirc  = "ease_in_out_circ"
 
     //
-    // NOTE: The curves compute in Float like the C functions; the sine curves multiply by M_PI in Double first, as the
-    // C expressions promoted t to double before cosf and sinf took a float again.
+    // NOTE: The curves compute in Float; the sine curves multiply by M_PI in Double first and then call cosf/sinf on a
+    // Float, which keeps their rounding stable.
     //
 
     /// The eased progress at the linear progress t (0...1).

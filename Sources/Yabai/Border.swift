@@ -5,7 +5,7 @@ import CPrivate
 import AppKit
 import YabaiCore
 
-// NOTE: Four inline frames, like the C array; moves and resizes do not allocate or copy array storage.
+// NOTE: Four inline frames; moves and resizes do not allocate or copy array storage.
 struct BorderEdges
 {
     var top = CGRect.zero

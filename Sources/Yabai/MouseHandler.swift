@@ -61,8 +61,8 @@ enum MouseModifierKey: String, CaseIterable, Sendable
 }
 
 //
-// NOTE: The private event type, fields and values of the Dock swipe gesture that switches spaces (an anonymous C enum
-// in the C version, which Swift imported as Int).
+// NOTE: The private event type, fields and values of the Dock swipe gesture that switches spaces (SkyLight's values;
+// CGEventField and CGEventType have no cases for them).
 //
 
 enum DockSwipe

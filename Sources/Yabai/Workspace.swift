@@ -256,7 +256,7 @@ extension Process
         if let application = runningApplication {
             application.addObserver(Workspace.shared, forKeyPath: keyPath, options: [.initial, .new], context: observationContext)
         } else {
-            debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(self.nameAndPID)\n")
+            debug("Process.addObserver: could not subscribe to \(keyPath) changes for \(self.nameAndPID)\n")
         }
     }
 

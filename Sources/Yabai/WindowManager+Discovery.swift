@@ -22,10 +22,10 @@ extension WindowManager
         let windowTitle = target.cachedTitle
         let windowRole = target.roleString
         let windowSubrole = target.subroleString
-        debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))\n")
+        debug("WindowManager.createAndAddWindow:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))\n")
 
         if target.isUnknown {
-            debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
+            debug("WindowManager.createAndAddWindow: ignoring AXUnknown window \(owner.name) \(target.id)\n")
             removeLostFocusedEvent(for: target.id)
             target.destroy()
             return nil
@@ -33,7 +33,7 @@ extension WindowManager
 
         // NOTE: Attempt to track all windows.
         if !target.observe() {
-            debug("window_manager_create_and_add_window: could not observe \(owner.name) \(target.id)\n")
+            debug("WindowManager.createAndAddWindow: could not observe \(owner.name) \(target.id)\n")
             removeLostFocusedEvent(for: target.id)
             target.unobserve()
             target.destroy()
@@ -78,12 +78,12 @@ extension WindowManager
                     target.isFloating = true
                 }
             } else {
-                debug("window_manager_create_and_add_window ignoring incorrectly marked window \(owner.name) \(target.id)\n")
+                debug("WindowManager.createAndAddWindow ignoring incorrectly marked window \(owner.name) \(target.id)\n")
                 target.isFloating = true
                 debugWindowInfo(target)
             }
         } else {
-            debug("window_manager_create_and_add_window ignoring child window \(owner.name) \(target.id)\n")
+            debug("WindowManager.createAndAddWindow ignoring child window \(owner.name) \(target.id)\n")
             target.isFloating = true
             debugWindowInfo(target)
         }
@@ -199,14 +199,14 @@ extension WindowManager
             resolved = unresolved.isEmpty
 
             if !resolved && refreshIndex == nil {
-                debug("window_manager_add_existing_application_windows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
+                debug("WindowManager.addExistingApplicationWindows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
                 addWindowsByElementID(for: owner, unresolved: &unresolved)
 
                 if !unresolved.isEmpty {
-                    debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(owner.name)\n")
+                    debug("WindowManager.addExistingApplicationWindows: workaround failed to resolve all windows for \(owner.name)\n")
                     addApplicationToRefresh(owner)
                 } else {
-                    debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(owner.name)\n")
+                    debug("WindowManager.addExistingApplicationWindows: workaround resolved all windows for \(owner.name)\n")
                 }
 
                 return false
@@ -215,7 +215,7 @@ extension WindowManager
 
         guard resolved, let refreshIndex else { return false }
 
-        debug("window_manager_add_existing_application_windows: all windows for \(owner.name) are now resolved\n")
+        debug("WindowManager.addExistingApplicationWindows: all windows for \(owner.name) are now resolved\n")
         removeApplicationRefresh(at: refreshIndex)
         return true
     }

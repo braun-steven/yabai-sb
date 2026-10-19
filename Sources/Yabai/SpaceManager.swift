@@ -119,7 +119,7 @@ final class SpaceManager
         var i = 0
         while i < refreshCount {
             let application = wm.applicationRefresh(at: i)
-            debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
+            debug("SpaceManager.refreshApplicationWindows: \(application.name) has windows that are not yet resolved\n")
 
             if wm.addExistingApplicationWindows(application, refreshIndex: i) {
                 refreshCount -= 1

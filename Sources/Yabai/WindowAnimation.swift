@@ -489,7 +489,7 @@ extension WindowManager
             DispatchQueue.concurrentPerform(iterations: groups.count) { groups[$0].apply() }
         }
         for group in groups where group.error == .cannotComplete {
-            debug("window_manager_set_window_frames: \(group.name) did not respond, \(group.list.count) window(s) may not have been moved\n")
+            debug("WindowManager.setWindowFrames: \(group.name) did not respond, \(group.list.count) window(s) may not have been moved\n")
         }
     }
 }

@@ -18,7 +18,7 @@ point below was learned the hard way; read it before running anything live.
 - Keep manager-mutating tests in the serialized `DaemonState` suite. Golden replay leaves config
   on those globals; explicitly set any default a test depends on. Tests must not invoke window server side effects.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
-  `WindowManager.canUseKnownFocus`, `application_launch_retry_delay`, `treeCollectWindowOrder`),
+  `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with

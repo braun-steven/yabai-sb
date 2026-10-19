@@ -169,13 +169,13 @@ extension EventHandler
     {
         if !Process.canRetryLaunch(process.launchAttempts) {
             process.launchGivenUp = true
-            debug("application_launch_retry: giving up on \(process.nameAndPID) after \(process.launchAttempts) attempts\n")
+            debug("EventHandler.applicationLaunchRetry: giving up on \(process.nameAndPID) after \(process.launchAttempts) attempts\n")
             return
         }
 
         let delay = Process.launchRetryDelay(process.launchAttempts)
         process.launchAttempts += 1
-        debug("application_launch_retry: retrying \(process.nameAndPID) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launchAttempts))\n")
+        debug("EventHandler.applicationLaunchRetry: retrying \(process.nameAndPID) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launchAttempts))\n")
 
         let psn = process.psn
         DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(delay * Float(NSEC_PER_SEC)))) {

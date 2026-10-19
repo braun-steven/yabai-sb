@@ -101,7 +101,7 @@ enum SignalSubject
 
         for es in batch {
             let subscribers = table.subscribers(es.type)
-            debug("event_signal_flush: transmitting \(es.type.name) to \(subscribers.count) subscriber(s)\n")
+            debug("EventSignals.flush: transmitting \(es.type.name) to \(subscribers.count) subscriber(s)\n")
 
             for signal in subscribers where !es.filters(signal) {
                 spawn(signal.command ?? "", es.arguments)
@@ -112,8 +112,7 @@ enum SignalSubject
     //
     // NOTE: Swift cannot call fork: it is unavailable, and only async-signal-safe code may run between fork and exec in
     // a multithreaded process, which Swift code is not. So the filters run in the daemon, and posix_spawn starts each
-    // command directly, where the C version forked a copy of the daemon for each event and exec'd from that copy. env
-    // sets the variables of the event and runs the command, as before.
+    // command directly; env sets the variables of the event and runs the command.
     //
 
     private func spawn(_ command: String, _ arguments: [(name: String, value: String)])

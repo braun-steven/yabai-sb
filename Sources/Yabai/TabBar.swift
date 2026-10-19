@@ -135,7 +135,7 @@ extension TabBar
 // whitespace and ignores trailing text. The family "system" is the system UI font.
 //
 
-    /// The tab at the index among count tabs of the area, with the C rounding (float widths, int offsets).
+    /// The tab at the index among count tabs of the area, rounded with float widths and integer offsets.
     static func slot(in area: CGRect, index: Int, count: Int) -> CGRect
     {
         let width = Float(area.size.width / CGFloat(count))

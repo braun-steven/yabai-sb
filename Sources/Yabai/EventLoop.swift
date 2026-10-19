@@ -16,8 +16,7 @@ actor WM
     static let shared = WM()
 
     //
-    // NOTE: An autorelease pool around each event, like the pool the C loop drained when the queue was empty. The
-    // queue has the default QoS, like the pthread of the C loop.
+    // NOTE: An autorelease pool drains after each event (autoreleaseFrequency: .workItem). The queue has the default QoS.
     //
 
     nonisolated let queue = DispatchSerialQueue(label: "yabai.wm", qos: .default, autoreleaseFrequency: .workItem)
@@ -28,7 +27,7 @@ actor WM
     }
 
     //
-    // NOTE: Runs code isolated to @WM from a synchronous context that is already on the queue, e.g. a C function
+    // NOTE: Runs code isolated to @WM from a synchronous context that is already on the queue, e.g. a callback
     // that the event loop called. It traps when called from another thread, like MainActor.assumeIsolated, which a
     // custom global actor does not get from the standard library.
     //
@@ -44,11 +43,11 @@ actor WM
 
 //
 // NOTE: @unchecked Sendable: a producer gives up the object when it posts the event, and from then on only the event
-// loop uses it, as with the C queue. The handler owns the object: handle takes the retained CF object (the AX element
-// of a new window, a mouse event) with takeRetainedValue, and the C structs belong to their managers.
+// loop uses it. The handler owns the object: handle takes the retained CF object (the AX element
+// of a new window, a mouse event) with takeRetainedValue, and the models belong to their managers.
 //
 
-/// A C object (a process, a window) or a retained CF object that a producer hands to the handler of its event.
+/// A model object (a process, a window) or a retained CF object that a producer hands to the handler of its event.
 struct Handoff<Value>: @unchecked Sendable
 {
     let value: Value

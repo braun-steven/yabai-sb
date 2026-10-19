@@ -4,9 +4,8 @@ import YabaiCore
 @testable import Yabai
 
 //
-// NOTE: Ported from the tree tests of tests/src/auto_padding.c (auto_padding_tiled_count, auto_padding_gap and
-// auto_padding_split_in_tab). They build trees and lay them out, so they are part of DaemonState. The pure parts
-// (auto_padding_applies, auto_padding_root_area) are in tests/YabaiCoreTests/ViewAreaTests.swift.
+// NOTE: These tests build and lay out trees, so they run in DaemonState. Pure area calculations are tested in
+// tests/YabaiCoreTests/ViewAreaTests.swift.
 //
 
 extension DaemonState
@@ -14,7 +13,7 @@ extension DaemonState
     @Suite
     struct ViewTests
     {
-        /// `auto_padding_view_init`: a tree view with padding and a gap, and auto_padding on.
+        /// A tree view with padding, a gap and auto padding enabled.
         private func autoPaddingView() -> View
         {
             let target = View(sid: 1)

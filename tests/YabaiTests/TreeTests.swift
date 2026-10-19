@@ -4,24 +4,21 @@ import YabaiCore
 @testable import Yabai
 
 //
-// NOTE: Ported from tests/src/tree.c and tests/src/tree_view.c. tree_workspace_layout_tabbed changes the space
-// manager, and the tree reads it (con_apply_workspace_layout), so the tests are part of DaemonState.
+// NOTE: Tree layout tests share space-manager state, so they run in DaemonState.
 //
 
-/// `tree_test_window`
 private func treeTestWindow(_ node: Con?) -> WindowID?
 {
     guard let node, node.isLeaf else { return nil }
     return node.windowID
 }
 
-/// `tree_test_child`
 private func treeTestChild(_ node: Con, _ index: Int) -> WindowID?
 {
     return index < node.children.count ? treeTestWindow(node.children[Int(index)]) : nil
 }
 
-/// A share of space in percent, rounded like the C tests did.
+/// A share of space in percent, rounded to the nearest integer.
 private func percent(_ node: Con, _ scale: Float = 100) -> Int
 {
     return Int(node.percent * scale + 0.5)
@@ -34,7 +31,6 @@ private func treeTestCon(_ windowID: WindowID) -> Con
     return node
 }
 
-/// `tree_view_test_view`
 private func treeViewTestView(_ root: Con?) -> View
 {
     let target = View(sid: 1)
@@ -676,7 +672,6 @@ extension DaemonState
         @Test("tree_window_order_collect")
         func treeWindowOrderCollect()
         {
-            /// `tree_test_order_is`
             func orderIs(_ list: [sa_window_order], _ index: Int, _ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
             {
                 if index >= list.count { return false }
@@ -802,7 +797,7 @@ extension DaemonState
             for wid in (UInt32(11)...20).map(WindowID.init(rawValue:)) { treeTestLeaf(root, wid) }
             let target = treeViewTestView(root)
 
-            // NOTE: the C test checked that the list grows past its initial capacity; the list is an array now
+            // NOTE: The list grows past its initial capacity.
             #expect(target.windowIDs == (UInt32(1)...20).map(WindowID.init(rawValue:)))
 
             let empty = treeViewTestView(nil)

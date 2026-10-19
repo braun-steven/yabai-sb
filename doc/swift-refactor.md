@@ -142,11 +142,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
-| **4** | **Compiler-checked isolation** | [~] | 4bd853c4 | |
+| **4** | **Compiler-checked isolation** | [~] | f41900d1 | |
 | 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
 | 4.2 | Process table | [x] | d21e375e | Carbon posts `ProcessKey`s; table and startup enumeration on yabai.wm |
 | 4.3 | Remaining globals | [x] | 4f34f728 | `Log.verbose` Atomic, SA socket paths immutable, Mission Control Mutex, tab bars on `WindowManager` |
-| 4.4 | Managers and models `@WM` | [ ] | | |
+| 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [ ] | | |
 | 4.6 | Verification: tsan live run, live check, benchmark | [ ] | | |
 | **5** | **Commands, errors, config, Codable queries** | [ ] | | |
@@ -841,3 +841,27 @@ not here.
 - Next: 4.4. The `nonisolated(unsafe)` that remain are the `static let shared` of `WindowManager`, `SpaceManager`,
   `DisplayManager`, `ProcessManager`, `MouseState` and `ScriptingAddition`.
 - Notes for the next agent: none.
+
+### 2026-10-19 Subphase 4.4 [x]
+- Commits: f7bcea4d, f41900d1 (one Haiku piece each, plus one for the tests), plus this report.
+- Done: f7bcea4d prepares the off-queue code: `WM.sync` (queue.sync + assumeIsolated) for the main-thread startup
+  (`setDefaults`, `beginEventTap`, the startup block); `DisplayManager.begin`/`ProcessManager.begin` are `nonisolated`,
+  change state through `WM.sync` and register their callbacks on the main thread (the unused Carbon `target`,
+  `handler`, `eventTypes`, `handlerRef` fields are gone). `Process.psn/pid/name` and `Window.id` are `let`s,
+  `Process.policy` is an `Atomic<Int>` (relaxed) shared by `isObservable` and the main-thread KVO observer,
+  `nameAndPID`, identity `==`, `Window.isValid/invalidate()` and the tab bar hit tests are `nonisolated`,
+  `ScriptingAddition` is `Sendable`. f41900d1 marks WindowManager, SpaceManager, DisplayManager, ProcessManager,
+  MouseState, Window, Application, Process, View, Con, TabBar `@WM` and removes every `nonisolated(unsafe)`; the
+  IPC handlers/serializers, `CSelectorContext` (isolated conformance `@WM SelectorContext`), signal descriptions,
+  `Border.refresh*`, the `DisplayID`/`SpaceID` members that read managers, `ConRender`, the glass `Snapshot.init`,
+  `WindowAnimation`/`WindowFrameGroup` inits and the tests are `@WM`. `shared` of DisplayManager/ProcessManager is
+  `nonisolated` for their `begin()`.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden at f41900d1. No live check (4.6); the
+  startup `WM.sync` calls and the KVO policy path run first live there.
+- Decisions: policy as an Atomic instead of moving the KVO compare onto the event loop (keeps when the observer is
+  removed). The tab bar hit/pointer statics stay `nonisolated` (they read only `tabBarHits`/`tabBarPointer`).
+- Next: 4.5 (audit `Handoff` for now-Sendable `@WM` models, the `@unchecked Sendable`s, `WM.assumeIsolated` uses,
+  and whether the isolated conformances can stay).
+- Notes for the next agent: new `@WM` pitfalls are in AGENTS.md (Swift pitfalls, "`@WM` models").
+

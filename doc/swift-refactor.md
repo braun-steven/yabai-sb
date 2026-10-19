@@ -10,9 +10,9 @@ struct next to YabaiCore's Swift `Rule`. This plan turns it into idiomatic Swift
 Work runs in two roles. A **phase agent** is the agent the user starts with "continue with the next phase"; it runs
 one phase by spawning one **subphase agent** per subphase (2.1, 2.2, …), one after another. Each subphase agent works
 with a fresh context on a single subphase, so no agent carries a whole phase. If your prompt says you are a subphase
-agent, follow **Subphase agent**; otherwise you are the phase agent. A subphase agent may hand simple, mechanical edits
-to a **Haiku helper** of its own (**Subphase agent**, step 3), so the chain can run phase agent → subphase agent →
-Haiku helper.
+agent, follow **Subphase agent**; otherwise you are the phase agent. A subphase agent plans its subphase and implements
+the plan through **Haiku subagents** of its own (**Subphase agent**, step 3), so the chain is phase agent → subphase
+agent → Haiku subagents.
 
 ### Phase agent
 
@@ -27,7 +27,8 @@ Haiku helper.
    - Before a subphase with live work (deploys, harness, bench, perf; usually the verification subphase), tell the
      user in your reply that a live test is about to start, that yabai will restart and layouts reset, and that they
      must not touch keyboard or touchpad until the terminal window is focused again.
-   - When it returns, check `git status` (clean), `git log --oneline` (its commits), its board row and its report.
+   - When it returns, check `git status` (clean), `git log --oneline` (its commits), its board row and its report. If anything is
+     uncommitted, send the agent back with SendMessage to commit it before you go on.
      Do not trust the summary alone: if the report does not state that `make` and `make test` passed at its last
      commit, run both through `output-summarizer`.
    - Row `[x]`: go on with the next subphase. Row `[~]` (context ran out or the work was larger than expected):
@@ -63,25 +64,31 @@ End your final message with exactly one of:
    anything live.
 2. Do only your subphase. Work that belongs to a later subphase goes into your report's "Next"; a bug goes into
    **Open issues** (or its own fix commit, see **Rules**).
-3. **Hand simple work to a Haiku helper.** Tedious, low-complexity edits stay out of your own context: renaming a
-   symbol or variable across files, updating call sites the compiler lists, mechanical signature changes, moving a
-   block verbatim, deleting code the compiler reports as unused. Spawn a helper with the Agent tool:
-   `subagent_type: "general-purpose"`, `model: "haiku"` (Haiku 5.5), `effort: "medium"`. Its prompt gives the exact
-   files, the old and new text (or the rename), the **Rules** that apply, and says: edit with `Edit`, do not commit,
-   do not build, and stop and report if a case needs a decision. Decisions, design, API and model choices, comment
-   wording and anything that changes behavior stay with you. Spawn helpers one at a time too, since they share the
-   working tree. When one returns, check its `git diff` yourself: every hunk must be the mechanical change you asked
-   for (for a large diff, have `output-summarizer` run `git diff` and list any hunk that does more). If you cannot
-   spawn helpers, do the mechanical work yourself.
-4. Commit in small steps; every commit builds and passes the tests. Commit the helper's changes with your own, only
-   after the diff check and the build and tests. Run builds and tests through `output-summarizer` if you can spawn it;
-   otherwise run them yourself and filter the output (`2>&1 | grep -E 'error:|warning:'`, the test summary lines).
+3. **Plan, then implement through Haiku subagents.** Before you edit anything, read what the subphase touches and write
+   a plan in your own context: the files, symbols and call sites that change, and the order of the changes. Decide
+   every open question in the plan yourself (design, API and model choices, comment wording, anything that changes
+   behavior). Split the plan into pieces, one subagent per piece: when the subphase names several independent changes
+   (say foo, bar and baz), spawn one subagent for each; when it is a single change, spawn one. Spawn them with the
+   Agent tool: `subagent_type: "general-purpose"`, `model: "haiku"` (Haiku 5.5), `effort: "high"`. Spawn them one at a
+   time, never in parallel: they share the working tree. Each prompt stands alone: the exact files and symbols, the
+   exact change (old and new text, the rename, or the rule in precise words), the **Rules** and **Target conventions**
+   that apply, and these instructions: edit with `Edit`; do not commit; do not build or test; if the change needs a
+   decision the plan does not cover, stop and report it instead of guessing; finish with the files changed and
+   anything you were unsure about. When a subagent returns, check its `git diff` yourself: each hunk must be the
+   change its piece asked for. Send a wrong or incomplete hunk back to a new Haiku subagent with the fix (a one-line
+   fix you may make yourself). For a large diff, have `output-summarizer` run `git diff` and list every hunk that
+   goes beyond its piece. If you cannot spawn subagents, implement the plan yourself, piece by piece.
+4. Commit in small steps; every commit builds and passes the tests. After each piece's diff check, build and test it
+   through `output-summarizer` if you can spawn it; otherwise run them yourself and filter the output
+   (`2>&1 | grep -E 'error:|warning:'`, the test summary lines). Commit each piece once both pass; the subagents never
+   commit.
 5. You cannot ask the user. If a decision is genuinely theirs (an output change the plan does not cover, dropping a
    behavior, a trade-off the plan leaves open), commit what is done, record the question in **Open issues** and
    return `BLOCKED: …`. Decide everything else yourself and note the decision in your report.
 6. Before you return, even unfinished: set your subphase row to `[~]` or `[x]` (with the last commit), set the phase
-   row to `[~]`, append a report (template below) and commit this file with the code. A fresh agent with no other
-   context must be able to continue from it. When your context runs low, stop at a clean commit and return
+   row to `[~]`, append a report (template below) and commit everything you changed, this file included. You always
+   commit before you return, on `DONE`, `PARTIAL` and `BLOCKED` alike, so `git status` is clean. A fresh agent with no
+   other context must be able to continue from it. When your context runs low, stop at a clean commit and return
    `PARTIAL` rather than starting another step.
 
 ## Status board

@@ -670,6 +670,78 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(response == "value '' is not a valid option for SPACE_SEL\ninvalid key-value pair 'bogus'\n")
 }
 
+@Test func ruleCommandsParseOperationsAndPayloads() throws(CommandError)
+{
+    var add = Message("--add\0--one-shot\0app=^Safari$\0display=2\0")
+    guard case .add(let rule) = try RuleCommand.parse(&add, FixtureContext(activeDisplay: 1, displays: [1, 2])) else {
+        Issue.record("expected a parsed add command")
+        return
+    }
+    #expect(rule.oneShot)
+    #expect(rule.app?.text == "^Safari$")
+    #expect(rule.effects.did == 2)
+
+    var applyIndex = Message("--apply\0" + "7\0")
+    guard case .apply(.index(7)) = try RuleCommand.parse(&applyIndex, FixtureContext()) else {
+        Issue.record("expected an index apply selector")
+        return
+    }
+
+    var applyFallback = Message("--apply\0app=Finder\0")
+    guard case .apply(.labelOrInline(let label, .success(let inline))) = try RuleCommand.parse(&applyFallback, FixtureContext()) else {
+        Issue.record("expected an inline apply fallback")
+        return
+    }
+    #expect(label.equals("app=Finder"))
+    #expect(inline?.app?.text == "Finder")
+
+    var applyInvalid = Message("--apply\0missing-label\0")
+    guard case .apply(.labelOrInline(_, .failure(let error))) = try RuleCommand.parse(&applyInvalid, FixtureContext()) else {
+        Issue.record("expected the invalid inline fallback error to be retained")
+        return
+    }
+    #expect(error.description.contains("invalid key-value pair 'missing-label'"))
+
+    var applyAll = Message("--apply\0")
+    guard case .apply(.all) = try RuleCommand.parse(&applyAll, FixtureContext()) else {
+        Issue.record("expected an empty apply selector to reapply all rules")
+        return
+    }
+
+    var remove = Message("--remove\0label-name\0")
+    guard case .remove(.label(let removed)) = try RuleCommand.parse(&remove, FixtureContext()) else {
+        Issue.record("expected a label remove selector")
+        return
+    }
+    #expect(removed.equals("label-name"))
+}
+
+@Test func signalCommandsParseOperationsAndPayloads() throws(CommandError)
+{
+    var add = Message("--add\0event=window_focused\0app=Finder\0active=yes\0action=echo hi\0")
+    guard case .add(let signal, let event) = try SignalCommand<Int>.parse(&add, eventType: { $0.equals("window_focused") ? 7 : nil }) else {
+        Issue.record("expected a parsed add command")
+        return
+    }
+    #expect(event == 7)
+    #expect(signal.app?.text == "Finder")
+    #expect(signal.active == true)
+    #expect(signal.command == "echo hi")
+
+    var remove = Message("--remove\0signal-label\0")
+    guard case .remove(.label(let label)) = try SignalCommand<Int>.parse(&remove, eventType: { _ in nil }) else {
+        Issue.record("expected a label remove selector")
+        return
+    }
+    #expect(label.equals("signal-label"))
+
+    var list = Message("--list\0")
+    guard case .list = try SignalCommand<Int>.parse(&list, eventType: { _ in nil }) else {
+        Issue.record("expected a list command")
+        return
+    }
+}
+
 private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String)
 {
     var signal = EventSignal()

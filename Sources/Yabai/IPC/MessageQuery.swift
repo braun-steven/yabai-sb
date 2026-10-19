@@ -6,23 +6,6 @@ import YabaiCore
 // NOTE: The handlers of the query, rule and signal domains.
 //
 
-private enum RuleCommand
-{
-    static let add     = "--add"
-    static let remove  = "--remove"
-    static let apply   = "--apply"
-    static let list    = "--list"
-
-    static let oneShot = "--one-shot"
-}
-
-private enum SignalCommand
-{
-    static let add    = "--add"
-    static let remove = "--remove"
-    static let list   = "--list"
-}
-
 @WM func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     let context = CSelectorContext()
@@ -122,89 +105,52 @@ private enum ResolvedQueryTarget
 
 @WM func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    let command = message.next()
-
-    if command.equals(RuleCommand.add) {
-        var result = Rule()
-
-        var token = message.next()
-        if token.equals(RuleCommand.oneShot) {
-            result.oneShot = true
-            token = message.next()
-        }
-
-        if try parseRule(&message, &result, token, CSelectorContext()) {
-            WindowManager.shared.addRule(result)
-        }
-    } else if command.equals(RuleCommand.apply) {
-        let token = message.next()
-        switch token.value {
-        case .int(let index):
-            if !WindowManager.shared.reapplyRule(at: Int(index)) {
-                throw CommandError("rule with index '\(index)' not found.\n")
-            }
-        case .string:
-            if !WindowManager.shared.reapplyRule(label: token.bytes) {
-                var result = Rule()
-                if try parseRule(&message, &result, token, CSelectorContext()) {
-                    WindowManager.shared.applyRule(result)
+    let command = try YabaiCore.RuleCommand.parse(&message, CSelectorContext())
+    switch command {
+    case .add(let rule):
+        WindowManager.shared.addRule(rule)
+    case .apply(let target):
+        switch target {
+        case .all:
+            WindowManager.shared.reapplyAllRules()
+        case .index(let index):
+            if !WindowManager.shared.reapplyRule(at: index) { throw CommandError("rule with index '\(index)' not found.\n") }
+        case .labelOrInline(let label, let inline):
+            if !WindowManager.shared.reapplyRule(label: label.bytes) {
+                switch inline {
+                case .success(let rule):
+                    if let rule { WindowManager.shared.applyRule(rule) }
+                case .failure(let error): throw error
                 }
             }
-        case .invalid:
-            WindowManager.shared.reapplyAllRules()
-        default:
-            throw CommandError("value '\(token)' is not a valid option for RULE_SEL\n")
         }
-    } else if command.equals(RuleCommand.remove) {
-        let token = message.next()
-        switch token.value {
-        case .int(let index):
-            if !WindowManager.shared.removeRule(at: Int(index)) {
-                throw CommandError("rule with index '\(index)' not found.\n")
-            }
-        case .string:
-            if !WindowManager.shared.removeRule(label: token.bytes) {
-                throw CommandError("rule with label '\(token)' not found.\n")
-            }
-        default:
-            throw CommandError("value '\(token)' is not a valid option for RULE_SEL\n")
+    case .remove(let selector):
+        switch selector {
+        case .index(let index):
+            if !WindowManager.shared.removeRule(at: index) { throw CommandError("rule with index '\(index)' not found.\n") }
+        case .label(let label):
+            if !WindowManager.shared.removeRule(label: label.bytes) { throw CommandError("rule with label '\(label)' not found.\n") }
         }
-    } else if command.equals(RuleCommand.list) {
+    case .list:
         WindowManager.shared.queryWindowRules(into: &rsp)
-    } else {
-        throw CommandError.unknownCommand(domain, command)
+    case .ignore:
+        break
     }
 }
 
 @WM func handleDomainSignal(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    let command = message.next()
-
-    if command.equals(SignalCommand.add) {
-        var result = EventSignal()
-        var signalType: SignalType?
-
-        try parseSignal(&message, &result, &signalType, eventType: { SignalType(name: $0) })
-        if let signalType {
-            EventSignals.shared.table.add(result, signalType)
+    let command = try YabaiCore.SignalCommand<SignalType>.parse(&message) { SignalType(name: $0) }
+    switch command {
+    case .add(let signal, let type): EventSignals.shared.table.add(signal, type)
+    case .remove(let selector):
+        switch selector {
+        case .index(let index):
+            if !EventSignals.shared.table.remove(at: index) { throw CommandError("signal with index '\(index)' not found.\n") }
+        case .label(let label):
+            if !EventSignals.shared.table.remove(label: label.string) { throw CommandError("signal with label '\(label)' not found.\n") }
         }
-    } else if command.equals(SignalCommand.remove) {
-        let token = message.next()
-        switch token.value {
-        case .int(let index):
-            if !EventSignals.shared.table.remove(at: Int(index)) {
-                throw CommandError("signal with index '\(index)' not found.\n")
-            }
-        case .string:
-            if !EventSignals.shared.table.remove(label: token.string) {
-                throw CommandError("signal with label '\(token)' not found.\n")
-            }
-        default:
-            throw CommandError("value '\(token)' is not a valid option for SIGNAL_SEL\n")
-        }
-    } else if command.equals(SignalCommand.list) {
+    case .list:
         rsp.write("\(EventSignals.shared.table.list())")
-    } else {
-        throw CommandError.unknownCommand(domain, command)
     }
 }

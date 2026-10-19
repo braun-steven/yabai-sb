@@ -10,7 +10,7 @@ import YabaiCore
 //
 
 /// The names and optional space scope accepted by config commands.
-private typealias ConfigName = ConfigCommand.Name
+typealias ConfigName = ConfigCommand.Name
 
 /// The layout of the workspace root of new trees (`config tree_workspace_layout`).
 private enum WorkspaceLayout: String, CaseIterable
@@ -18,6 +18,75 @@ private enum WorkspaceLayout: String, CaseIterable
     case `default`
     case tabbed
 }
+
+private typealias ConfigMutation = @WM () throws(CommandError) -> Void
+
+@WM private struct ConfigOption
+{
+    let name: ConfigName
+    let print: @WM (inout Response, SpaceID?) -> Void
+    let parse: @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> ConfigMutation?
+    let apply: @WM (ConfigMutation) throws(CommandError) -> Void
+}
+
+@WM private func configOption(_ name: ConfigName, print: @escaping @WM (inout Response, SpaceID?) -> Void, parse: @escaping @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> ConfigMutation?) -> ConfigOption
+{
+    ConfigOption(name: name, print: print, parse: parse, apply: { (mutation: ConfigMutation) throws(CommandError) in try mutation() })
+}
+
+@WM private func boolOption(_ name: ConfigName, get: @escaping @WM () -> Bool, set: @escaping @WM (Bool) -> Void, applyChange: (@WM (Bool) -> Void)? = nil) -> ConfigOption
+{
+    configOption(name, print: { rsp, _ in rsp.write("\(boolString(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        let value: Bool
+        if token.equals(Argument.on) { value = true }
+        else if token.equals(Argument.off) { value = false }
+        else { throw CommandError.unknownValue(domain, command, token) }
+        return { set(value); applyChange?(value) }
+    })
+}
+
+@WM private func choiceOption<Choice: RawRepresentable>(_ name: ConfigName, choices: [Choice], get: @escaping @WM () -> Choice, set: @escaping @WM (Choice) -> Void, applyChange: (@WM (Choice) -> Void)? = nil) -> ConfigOption where Choice.RawValue == String
+{
+    configOption(name, print: { rsp, _ in rsp.write("\(get().rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        guard let value = choices.first(where: { token.equals($0.rawValue) }) else { throw CommandError.unknownValue(domain, command, token) }
+        return { set(value); applyChange?(value) }
+    })
+}
+
+@WM private let configOptions: [ConfigOption] = [
+    boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocusEnabled }, set: { Config.current.window.mouseFollowsFocusEnabled = $0 }),
+    choiceOption(.displayArrangementOrder, choices: DisplayArrangementOrder.allCases, get: { Config.current.display.order }, set: { Config.current.display.order = $0 }),
+    boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0 }, applyChange: { _ in SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
+    choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.windowOriginMode }, set: { Config.current.window.windowOriginMode = $0 }),
+    boolOption(.scratchpadExclusive, get: { Config.current.scratchpad.scratchpadExclusive }, set: { Config.current.scratchpad.scratchpadExclusive = $0 }),
+    boolOption(.scratchpadRaise, get: { Config.current.scratchpad.scratchpadRaise }, set: { Config.current.scratchpad.scratchpadRaise = $0 }),
+    boolOption(.scratchpadBelow, get: { Config.current.scratchpad.scratchpadBelow }, set: { Config.current.scratchpad.scratchpadBelow = $0 }, applyChange: { _ in WindowManager.shared.setScratchpadLayers() }),
+    boolOption(.skipWindowFocusAnimation, get: { Config.current.space.skipWindowFocusAnimation }, set: { Config.current.space.skipWindowFocusAnimation = $0 }),
+    boolOption(.windowOpacity, get: { Config.current.window.windowOpacityEnabled }, set: { _ in }, applyChange: { WindowManager.shared.setWindowOpacityEnabled($0) }),
+    choiceOption(.windowAnimationEasing, choices: AnimationEasing.allCases, get: { Config.current.animation.windowAnimationEasing }, set: { Config.current.animation.windowAnimationEasing = $0 }),
+    choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { _ in }, applyChange: { WindowManager.shared.setPurifyMode($0) }),
+    choiceOption(.treeDefaultOrientation, choices: TreeOrientation.allCases, get: { Config.current.space.treeDefaultOrientation }, set: { Config.current.space.treeDefaultOrientation = $0 }),
+    choiceOption(.treeWorkspaceLayout, choices: WorkspaceLayout.allCases, get: { Config.current.space.treeWorkspaceTabbed ? .tabbed : .default }, set: { Config.current.space.treeWorkspaceTabbed = $0 == .tabbed }),
+    boolOption(.treeAutotiling, get: { Config.current.space.treeAutotiling }, set: { Config.current.space.treeAutotiling = $0 }),
+    choiceOption(.focusWrapping, choices: FocusWrapping.allCases, get: { Config.current.window.focusWrapping }, set: { Config.current.window.focusWrapping = $0 }),
+    choiceOption(.mouseModifier, choices: MouseModifierKey.allCases, get: { Config.current.mouse.modifier }, set: { Config.current.mouse.modifier = $0 }, applyChange: { MouseState.shared.tap.modifier = $0 }),
+    choiceOption(.mouseAction1, choices: [.move, .resize], get: { Config.current.mouse.action1 }, set: { Config.current.mouse.action1 = $0 }),
+    choiceOption(.mouseAction2, choices: [.move, .resize], get: { Config.current.mouse.action2 }, set: { Config.current.mouse.action2 = $0 }),
+    choiceOption(.mouseDropAction, choices: [.swap, .stack], get: { Config.current.mouse.dropAction }, set: { Config.current.mouse.dropAction = $0 }),
+    boolOption(.windowBorder, get: { Config.current.border.enabled }, set: { Config.current.border.enabled = $0 }, applyChange: { _ in Border.refreshAll() }),
+    boolOption(.windowBorderHideSingle, get: { Config.current.border.hideSingle }, set: { Config.current.border.hideSingle = $0 }, applyChange: { _ in Border.refreshAll() }),
+    boolOption(.tabBar, get: { Config.current.tabBar.enabled }, set: { Config.current.tabBar.enabled = $0 }, applyChange: { _ in TabBar.refreshAll() }),
+    boolOption(.tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0 }, applyChange: { _ in TabBar.redrawAll() }),
+    choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0 }, applyChange: { _ in TabBar.refreshAll() }),
+    choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0 }, applyChange: { _ in TabBar.redrawAll() }),
+    choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0 }, applyChange: { _ in TabBar.refreshAll() }),
+]
+
+@WM let configOptionNames = configOptions.map(\.name)
 
 @WM private func tabBarColor(for command: ConfigName) -> WritableKeyPath<TabBarConfig, RGBAColor>?
 {
@@ -290,11 +359,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     let command = Token(name.rawValue)
     var refresh = false
 
-    if name == .windowBorder {
-        refresh = try parseConfigBool(&rsp, domain, command, &message, &border.enabled)
-    } else if name == .windowBorderHideSingle {
-        refresh = try parseConfigBool(&rsp, domain, command, &message, &border.hideSingle)
-    } else if name == .windowBorderWidth {
+    if name == .windowBorderWidth {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
@@ -329,9 +394,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     var refresh = false
     var redraw = false
 
-    if name == .tabBar {
-        refresh = try parseConfigBool(&rsp, domain, command, &message, &tabBar.enabled)
-    } else if name == .tabBarHeight {
+    if name == .tabBarHeight {
         let token = message.next()
         switch token.value {
         case .invalid:
@@ -355,23 +418,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             refresh = true
         default:
             throw CommandError.unknownValue(domain, command, token)
-        }
-    } else if name == .tabBarIcons {
-        redraw = try parseConfigBool(&rsp, domain, command, &message, &tabBar.icons)
-    } else if name == .tabBarStyle {
-        if let style = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.style) {
-            tabBar.style = style
-            refresh = true
-        }
-    } else if name == .tabBarAppearance {
-        if let appearance = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.appearance) {
-            tabBar.appearance = appearance
-            redraw = true
-        }
-    } else if name == .tabBarBackdrop {
-        if let backdrop = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.backdrop) {
-            tabBar.backdrop = backdrop
-            refresh = true
         }
     } else if name == .tabBarCardPadding {
         let token = message.next()
@@ -421,7 +467,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 }
 
 /// `handle_domain_config`
-@WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
+@WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout Message) throws(CommandError)
 {
     var selSid: SpaceID?
     let (spaceSelector, command) = try ConfigCommand.parseScope(message.next(), &message)
@@ -437,11 +483,20 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 }
 
 /// One command of the config domain.
-@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
+@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout Message, _ selSid: SpaceID?) throws(CommandError)
 {
     let command = Token(name.rawValue)
     let wm = WindowManager.shared
     let sm = SpaceManager.shared
+
+    if let option = configOptions.first(where: { $0.name == name }) {
+        if let mutation = try option.parse(domain, command, &message, selSid) {
+            try option.apply(mutation)
+        } else {
+            option.print(&rsp, selSid)
+        }
+        return
+    }
 
     if try configBorder(&rsp, domain, name, &message)  { return }
     if try configTabBar(&rsp, domain, name, &message) { return }
@@ -451,8 +506,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         if try parseConfigBool(&rsp, domain, command, &message, &verbose) {
             Log.verbose.store(verbose, ordering: .relaxed)
         }
-    } else if name == .mouseFollowsFocus {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.window.mouseFollowsFocusEnabled)
     } else if name == .focusFollowsMouse {
         let value = message.next()
         if !value.isValid {
@@ -464,31 +517,10 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
-    } else if name == .displayArrangementOrder {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.display.order) {
-            Config.current.display.order = choice
-        }
-    } else if name == .builtinDisplayLast {
-        if try parseConfigBool(&rsp, domain, command, &message, &Config.current.display.builtinDisplayLast) { SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }
-    } else if name == .windowOriginDisplay {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.windowOriginMode) {
-            Config.current.window.windowOriginMode = choice
-        }
-    } else if name == .scratchpadExclusive {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadExclusive)
-    } else if name == .scratchpadRaise {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadRaise)
-    } else if name == .scratchpadBelow {
-        if try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadBelow) { wm.setScratchpadLayers() }
     } else if name == .scratchpadGrid {
         try configScratchpadGrid(&rsp, domain, name, &message)
-    } else if name == .skipWindowFocusAnimation {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.space.skipWindowFocusAnimation)
     } else if name == .spaceLayout {
         try configSpaceLayout(&rsp, domain, command, &message, selSid)
-    } else if name == .windowOpacity {
-        var enabled = Config.current.window.windowOpacityEnabled
-        if try parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
     } else if name == .windowOpacityDuration {
         let token = message.next()
         let value = token.value
@@ -501,14 +533,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         }
     } else if name == .windowAnimationDuration {
         try configAnimationDuration(&rsp, domain, command, &message)
-    } else if name == .windowAnimationEasing {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.animation.windowAnimationEasing) {
-            Config.current.animation.windowAnimationEasing = choice
-        }
-    } else if name == .windowShadow {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.purifyMode) {
-            wm.setPurifyMode(choice)
-        }
     } else if name == .menubarOpacity {
         if let opacity = try configOpacity(&rsp, domain, command, &message, current: Config.current.window.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
     } else if name == .activeWindowOpacity {
@@ -537,20 +561,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         }
     } else if name == .layout {
         try configLayout(&rsp, domain, command, &message, selSid)
-    } else if name == .treeDefaultOrientation {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.space.treeDefaultOrientation) {
-            Config.current.space.treeDefaultOrientation = choice
-        }
-    } else if name == .treeWorkspaceLayout {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.space.treeWorkspaceTabbed ? WorkspaceLayout.tabbed : .default) {
-            Config.current.space.treeWorkspaceTabbed = choice == .tabbed
-        }
-    } else if name == .treeAutotiling {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.space.treeAutotiling)
-    } else if name == .focusWrapping {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.focusWrapping) {
-            Config.current.window.focusWrapping = choice
-        }
     } else if name == .autoPadding {
         if let selSid {
             var enabled = sm.view(for: selSid).autoPadding
@@ -558,23 +568,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         } else {
             var enabled = Config.current.space.autoPadding
             if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
-        }
-    } else if name == .mouseModifier {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.mouse.modifier) {
-            Config.current.mouse.modifier = choice
-            MouseState.shared.tap.modifier = choice
-        }
-    } else if name == .mouseAction1 {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: Config.current.mouse.action1) {
-            Config.current.mouse.action1 = choice
-        }
-    } else if name == .mouseAction2 {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: Config.current.mouse.action2) {
-            Config.current.mouse.action2 = choice
-        }
-    } else if name == .mouseDropAction {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: Config.current.mouse.dropAction) {
-            Config.current.mouse.dropAction = choice
         }
     } else if name == .externalBar {
         try configExternalBar(&rsp, domain, command, &message)

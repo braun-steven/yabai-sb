@@ -3,6 +3,7 @@ import ApplicationServices
 import CoreGraphics
 import CoreFoundation
 import CPrivate
+import YabaiCore
 
 extension WindowManager
 {
@@ -11,7 +12,7 @@ extension WindowManager
     func waitForNativeFullscreenTransition()
     {
         var iteration = 0
-        while iteration < Self.nativeFullscreenWaitIterations && !(space_manager_active_space().map(space_is_user) ?? false) {
+        while iteration < Self.nativeFullscreenWaitIterations && !(SpaceID.active.map { $0.isUser } ?? false) {
             // NOTE: A window has left native fullscreen, but its display may still be animating. Keep waiting before
             // interacting with the window. The display manager API does not work for this on macOS Monterey.
             // The wait is bounded because the destination space may never become active, such as after a cancelled
@@ -29,7 +30,7 @@ extension WindowManager
         // space animation to finish before setting the attribute.
         focusWithRaise(target)
         var iteration = 0
-        while iteration < Self.nativeFullscreenWaitIterations && spaceID != space_manager_active_space() {
+        while iteration < Self.nativeFullscreenWaitIterations && spaceID != SpaceID.active {
             usleep(100000)
             iteration += 1
         }

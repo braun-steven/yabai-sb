@@ -120,7 +120,7 @@ func update_window_notifications()
 @WM private func flushDirtyViews(_ viewList: [View])
 {
     for view in viewList {
-        if !space_is_visible(view.sid) { continue }
+        if !view.sid.isVisible { continue }
         if !view.isDirty                 { continue }
 
         view.flush()
@@ -397,9 +397,9 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     }
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
-        if let psnSid, !space_is_visible(psnSid) {
+        if let psnSid, !psnSid.isVisible {
             SLSSpaceSetFrontPSN(connection_global(), psnSid.rawValue, process.psn)
-            if let psnDid = space_display_id(psnSid) {
+            if let psnDid = psnSid.display {
                 space_manager_focus_space_using_gesture(psnDid, psnSid)
             }
         }

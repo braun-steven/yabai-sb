@@ -186,7 +186,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
         let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: false, context)
         if selector.didParse, let target = selector.value {
             if let sid = target.currentSpace {
-                if space_is_fullscreen(sid) {
+                if sid.isFullscreen {
                     rsp.fail("can not move window to a macOS fullscreen space!\n")
                 } else {
                     wm.sendWindow(actingWindow, to: sid, movedByRule: false)
@@ -196,9 +196,9 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
             }
         }
     } else if command.equals(WindowCommand.space) {
-        let selector = parseSpaceSelector(&rsp, message.next(), acting: space_manager_active_space(), optional: false, context)
+        let selector = parseSpaceSelector(&rsp, message.next(), acting: SpaceID.active, optional: false, context)
         if selector.didParse, let target = selector.value {
-            if space_is_fullscreen(target) {
+            if target.isFullscreen {
                 rsp.fail("can not move window to a macOS fullscreen space!\n")
             } else {
                 wm.sendWindow(actingWindow, to: target, movedByRule: false)

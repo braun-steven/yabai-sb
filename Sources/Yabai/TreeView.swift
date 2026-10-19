@@ -564,7 +564,7 @@ extension WindowManager
     func cardDidOrder(_ windowID: WindowID)
     {
         guard let owner = managedWindows[windowID] else { return }
-        if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
+        if owner.layout != .tree || owner.tree == nil || !owner.sid.isVisible { return }
 
         var list: [sa_window_order] = []
         owner.tree!.collectCardOrder(after: windowID, into: &list)
@@ -601,7 +601,7 @@ extension View
         tree?.select(nil)
         node.focus()
 
-        if !space_is_visible(sid) {
+        if !sid.isVisible {
             isDirty = true
             return
         }
@@ -618,7 +618,7 @@ extension View
         guard let windowID, let owner = WindowManager.shared.managedWindows[windowID] else { return }
         if owner.layout != .tree || owner.tree == nil { return }
 
-        if space_is_visible(owner.sid) { owner.tree!.renderBars() }
+        if owner.sid.isVisible { owner.tree!.renderBars() }
     }
 }
 

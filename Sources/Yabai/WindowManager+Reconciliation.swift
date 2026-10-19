@@ -2,10 +2,10 @@ import YabaiCore
 
 extension WindowManager
 {
-    /// The windows of `space_window_list` without minimized windows.
+    /// The windows of the space without minimized windows.
     private func windows(onSpace sid: SpaceID) -> [WindowID]?
     {
-        space_window_list(sid, false)
+        sid.windows(includingMinimized: false)
     }
 
     private func validateWindows(on owner: View, against windowList: [WindowID])
@@ -99,7 +99,7 @@ extension WindowManager
         // This is necessary to make sure that we do not call the AX API for each modification to the tree.
         //
 
-        if space_is_visible(owner.sid) && owner.isDirty {
+        if owner.sid.isVisible && owner.isDirty {
             owner.flush()
         }
     }
@@ -131,7 +131,7 @@ extension WindowManager
     {
         guard let spaceList = did.spaces else { return }
 
-        for space in spaceList where space_is_user(space) {
+        for space in spaceList where space.isUser {
             if let windowList = windows(onSpace: space) {
                 let owner = space_manager_find_view(SpaceManager.shared, space)
                 if owner.layout != .float {

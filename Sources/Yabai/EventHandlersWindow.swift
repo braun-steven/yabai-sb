@@ -122,9 +122,9 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
     if space_manager_global().skip_window_focus_animation {
-        if let sid = window.id.space, !space_is_visible(sid) {
+        if let sid = window.id.space, !sid.isVisible {
             SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
-            if let did = space_display_id(sid) {
+            if let did = sid.display {
                 space_manager_focus_space_using_gesture(did, sid)
             }
         }
@@ -288,8 +288,8 @@ import YabaiCore
 
     window.refreshAXProperties()
 
-    let sid = space_manager_active_space()
-    if let sid, space_manager_is_window_on_space(sid, window) {
+    let sid = SpaceID.active
+    if let sid, window.id.spaces.contains(sid) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window.shouldBeManaged && wm.managedView(for: window) == nil {
             let lastWindow = wm.lastWindowID.flatMap { wm.window(for: $0) }

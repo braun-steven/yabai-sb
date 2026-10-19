@@ -278,7 +278,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
     if selSid == nil {
         space_manager_set_layout_for_all_spaces(sm, layout)
-    } else if let selSid, !space_is_user(selSid) {
+    } else if let selSid, !selSid.isUser {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
     } else if let selSid {
         space_manager_find_view(sm, selSid).overrides.insert(.layout)

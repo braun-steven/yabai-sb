@@ -90,7 +90,7 @@ import CPrivate
     let wm = WindowManager.shared
     let sm = space_manager_global()
     if wm.menuBarOpacity != 1.0 {
-        let isFullscreen = sm.current_space_id.map { space_is_fullscreen($0) } ?? false
+        let isFullscreen = sm.current_space_id.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }

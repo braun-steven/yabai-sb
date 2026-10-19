@@ -365,13 +365,13 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
     } else if command.equals(SpaceCommand.layout) {
         let value = message.next()
         if value.equals(SpaceCommand.layoutFloat) {
-            if space_is_user(actingSid) {
+            if actingSid.isUser {
                 space_manager_set_layout_for_space(sm, actingSid, .float)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
             }
         } else if value.equals(SpaceCommand.layoutTree) {
-            if space_is_user(actingSid) {
+            if actingSid.isUser {
                 space_manager_set_layout_for_space(sm, actingSid, .tree)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
@@ -398,7 +398,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
 func handleDomainSpace(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     var command: Token
-    var actingSid = space_manager_active_space()
+    var actingSid = SpaceID.active
     var ignored = Response()
     let selector = parseSpaceSelector(&ignored, message.next(), acting: actingSid, optional: true, CSelectorContext())
 

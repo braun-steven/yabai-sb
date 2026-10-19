@@ -20,7 +20,7 @@ enum SpaceLayoutResult: Sendable
 /// `space_layout_user_space_count`
 private func spaceLayoutUserSpaceCount(_ spaces: [SpaceID]) -> Int
 {
-    return spaces.filter { space_is_user($0) }.count
+    return spaces.filter { $0.isUser }.count
 }
 
 /// `space_layout_destroy_candidate`: an empty user space of the display to destroy, preferring one that is not visible.
@@ -32,10 +32,10 @@ private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID?
     var fallbackSid: SpaceID? = nil
 
     for sid in spaces.reversed() {
-        if !space_is_user(sid) { continue }
-        if space_manager_is_space_last_user_space(sid) { continue }
+        if !sid.isUser { continue }
+        if sid.isLastUserSpace { continue }
 
-        guard let windows = space_window_list(sid, true), windows.isEmpty else { continue }
+        guard let windows = sid.windows(includingMinimized: true), windows.isEmpty else { continue }
 
         if sid != visibleSid { return sid }
         if fallbackSid == nil { fallbackSid = sid }
@@ -82,7 +82,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
     case (let surplus?, let deficit?):
         guard let spaces = didList[surplus].spaces else { return .failed }
 
-        let user = spaceUserList(spaces)
+        let user = spaces.map { $0.isUser }
         let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: didList[surplus].currentSpace, fromEnd: deficit > surplus)
 
         debug("space_layout_reconcile: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")

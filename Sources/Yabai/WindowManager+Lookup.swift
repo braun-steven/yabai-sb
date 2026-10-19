@@ -13,7 +13,7 @@ extension WindowManager
     /// The window with the rank (from 1, top first) among the known windows of a space, excluding `windowID`.
     func window(on sid: SpaceID, byRank rank: Int, excluding windowID: WindowID?) -> Window?
     {
-        guard let windowList = space_window_list(sid, false) else { return nil }
+        guard let windowList = sid.windows(includingMinimized: false) else { return nil }
 
         var index = 0
         for id in windowList {
@@ -74,7 +74,7 @@ extension WindowManager
 
     private func activeTreeView() -> View?
     {
-        guard let sid = space_manager_active_space() else { return nil }
+        guard let sid = SpaceID.active else { return nil }
         let owner = space_manager_find_view(SpaceManager.shared, sid)
         return owner.tree != nil ? owner : nil
     }

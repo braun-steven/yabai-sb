@@ -10,7 +10,7 @@ extension WindowManager
         let source = target.id.space
         if source == destination { return }
 
-        if let source, space_is_visible(source) && (movedByRule || focusedWindowID == target.id) {
+        if let source, source.isVisible && (movedByRule || focusedWindowID == target.id) {
             if let next = window(on: source, byRank: 1, excluding: target.id) {
                 focusWithRaise(next)
             } else {
@@ -22,8 +22,8 @@ extension WindowManager
             unmanageWindow(target, from: owner)
         }
 
-        space_manager_move_window_to_space(destination, target)
-        _ = space_manager_wait_for_window_on_space(target.id, destination, 200)
+        destination.moveWindow(target)
+        _ = destination.waitForWindow(target.id, timeoutMS: 200)
         SLSSpaceSetFrontPSN(connection_global(), destination.rawValue, target.application.psn)
 
         if target.shouldBeManaged {
@@ -107,7 +107,7 @@ extension WindowManager
             target.isFloating = false
 
             if !target.isSticky && target.shouldBeManaged && managedView(for: target) == nil {
-                if let spaceID = space_manager_active_space() { manageWindow(target, on: spaceID, inserting: nil) }
+                if let spaceID = SpaceID.active { manageWindow(target, on: spaceID, inserting: nil) }
             }
         }
     }
@@ -127,7 +127,7 @@ extension WindowManager
             target.isSticky = false
 
             if !target.isFloating && target.shouldBeManaged && managedView(for: target) == nil {
-                if let spaceID = space_manager_active_space() { manageWindow(target, on: spaceID, inserting: nil) }
+                if let spaceID = SpaceID.active { manageWindow(target, on: spaceID, inserting: nil) }
             }
         }
     }

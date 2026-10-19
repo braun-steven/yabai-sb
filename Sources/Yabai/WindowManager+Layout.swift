@@ -31,7 +31,7 @@ extension WindowManager
 
         node.insertDirection = direction
         owner.insertionPoint = target.id
-        if space_is_visible(owner.sid) { node.showFeedback(direction: direction) }
+        if owner.sid.isVisible { node.showFeedback(direction: direction) }
 
         return .success
     }
@@ -59,8 +59,8 @@ extension WindowManager
         guard let aCon = aView.tree?.find(a.id) else { return .invalidSourceNode }
 
         if b.id.space != aView.sid {
-            space_manager_move_window_to_space(aView.sid, b)
-            _ = space_manager_wait_for_window_on_space(b.id, aView.sid, 200)
+            aView.sid.moveWindow(b)
+            _ = aView.sid.waitForWindow(b.id, timeoutMS: 200)
         }
 
         let node = Con(windowID: b.id)
@@ -120,8 +120,8 @@ extension WindowManager
             space_manager_untile_window(aView, a)
             removeManagedWindow(a.id)
             addManagedWindow(a, to: bView)
-            space_manager_move_window_to_space(bView.sid, a)
-            _ = space_manager_wait_for_window_on_space(a.id, bView.sid, 200)
+            bView.sid.moveWindow(a)
+            _ = bView.sid.waitForWindow(a.id, timeoutMS: 200)
             _ = space_manager_tile_window_on_space_with_insertion_point(SpaceManager.shared, a, bView.sid, b.id)
         }
 

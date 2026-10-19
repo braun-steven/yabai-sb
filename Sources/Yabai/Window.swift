@@ -59,7 +59,7 @@ final class Window
         hasShadow = id.hasShadow
         isMinimized = reportsMinimized
         refreshAXProperties()
-        isFullscreen = reportsFullscreen || (id.space.map { space_is_fullscreen($0) } ?? false)
+        isFullscreen = reportsFullscreen || (id.space.map { $0.isFullscreen } ?? false)
         isSticky = id.isSticky
     }
 

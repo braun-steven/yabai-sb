@@ -61,7 +61,7 @@ final class ProcessManager
     /// The space of the first user window of the connection, or nil.
     func activeSpace(forConnection connection: Int32) -> SpaceID?
     {
-        let spaces = missionControlSpaces()
+        let spaces = SpaceID.all
         if spaces.isEmpty { return nil }
 
         guard let windows = SLS.windows(connection_global(), owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }

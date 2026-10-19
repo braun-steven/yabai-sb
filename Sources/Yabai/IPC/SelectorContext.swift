@@ -7,7 +7,7 @@ struct CSelectorContext: SelectorContext
     typealias Window = Yabai.Window
 
     var activeDisplay: DisplayID? { DisplayID.active }
-    var activeSpace: SpaceID? { space_manager_active_space() }
+    var activeSpace: SpaceID? { SpaceID.active }
     var actingWindow: Window? { WindowManager.shared.actingWindow }
 
     func display(_ query: DisplayQuery) -> DisplayID?
@@ -32,13 +32,13 @@ struct CSelectorContext: SelectorContext
     func space(_ query: SpaceQuery) -> SpaceID?
     {
         switch query {
-        case .missionControl(let index): space_manager_mission_control_space(index)
-        case .prev(let sid):             space_manager_prev_space(sid)
-        case .next(let sid):             space_manager_next_space(sid)
-        case .first:                     space_manager_first_space()
-        case .last:                      space_manager_last_space()
+        case .missionControl(let index): SpaceID(missionControlIndex: index)
+        case .prev(let sid):             sid.previous
+        case .next(let sid):             sid.next
+        case .first:                     SpaceID.all.first
+        case .last:                      SpaceID.all.last
         case .recent:                    space_manager_global().last_space_id
-        case .cursor:                    space_manager_cursor_space()
+        case .cursor:                    SpaceID.underCursor
         }
     }
 

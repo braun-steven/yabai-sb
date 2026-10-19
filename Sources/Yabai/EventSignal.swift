@@ -138,7 +138,7 @@ func describeSpace(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer
     switch es.type {
     case .spaceCreated:
         let sid = SpaceID(UInt64(UInt(bitPattern: context)))
-        let index = space_manager_mission_control_index(sid)
+        let index = sid.missionControlIndex
 
         es.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
         es.addArgument("YABAI_SPACE_INDEX", "\(index)")
@@ -151,8 +151,8 @@ func describeSpace(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer
         let sid = sm.current_space_id
         let recentSid = sm.last_space_id
 
-        let index = sid.map { space_manager_mission_control_index($0) } ?? 0
-        let recentIndex = recentSid.map { space_manager_mission_control_index($0) } ?? 0
+        let index = sid.map { $0.missionControlIndex } ?? 0
+        let recentIndex = recentSid.map { $0.missionControlIndex } ?? 0
 
         es.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid?.rawValue ?? 0))")
         es.addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid?.rawValue ?? 0))")

@@ -61,7 +61,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     let sm = space_manager_global()
 
     if wm.menuBarOpacity != 1.0 {
-        let isFullscreen = sm.current_space_id.map { space_is_fullscreen($0) } ?? false
+        let isFullscreen = sm.current_space_id.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
@@ -75,7 +75,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         }
     }
 
-    if !MissionControl.shared.isActive, let sid = sm.current_space_id, space_is_user(sid) {
+    if !MissionControl.shared.isActive, let sid = sm.current_space_id, sid.isUser {
         wm.validateAndCheckForWindows(on: sid)
 
         if let view, view.isInvalid {
@@ -94,7 +94,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     let sm = space_manager_global()
 
     sm.last_space_id = sm.current_space_id
-    sm.current_space_id = space_manager_active_space()
+    sm.current_space_id = SpaceID.active
 
     debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
     refreshCurrentSpace()
@@ -120,7 +120,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     sm.last_space_id = sm.current_space_id
     sm.current_space_id = dm.currentDisplayID.flatMap { $0.currentSpace }
 
-    let expectedDisplayID = sm.current_space_id.flatMap(space_display_id)
+    let expectedDisplayID = sm.current_space_id.flatMap { $0.display }
     if dm.currentDisplayID != expectedDisplayID {
         debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
         return

@@ -372,7 +372,6 @@ public protocol SelectorContext
     associatedtype Window
 
     var activeDisplay: DisplayID? { get }
-    /// `space_manager_active_space`
     var activeSpace: SpaceID? { get }
     /// The window that commands act on, including a pending focus request.
     var actingWindow: Window? { get }

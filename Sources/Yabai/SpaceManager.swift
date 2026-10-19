@@ -200,7 +200,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
 
     for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
         if !target.overrides.contains(.layout) {
-            if space_is_user(target.sid) {
+            if target.sid.isUser {
                 target.layout = layout
                 target.clear()
 
@@ -355,218 +355,6 @@ func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
     _ = WindowManager.shared.setWindowLayout(win, .toggleSplit)
 }
 
-//
-// NOTE: Every space in the order Mission Control numbers them, display by display. The list lives in
-// temporary storage.
-//
-
-/// Every space in the order Mission Control numbers them.
-func missionControlSpaces() -> [SpaceID]
-{
-    var result: [SpaceID] = []
-
-    for display in DisplayManager.shared.managedDisplaySpaces {
-        guard let spaces = display["Spaces"] as? [NSDictionary] else { continue }
-
-        for space in spaces {
-            guard let sid = (space["id64"] as? NSNumber).flatMap({ SpaceID(nonzero: $0.uint64Value) }) else { continue }
-            result.append(sid)
-        }
-    }
-
-    return result
-}
-
-/// `space_manager_mission_control_space_list`: nil without spaces.
-func space_manager_mission_control_space_list() -> [SpaceID]?
-{
-    let spaces = missionControlSpaces()
-    return spaces.isEmpty ? nil : spaces
-}
-
-/// `space_manager_mission_control_index`: the Mission Control number of a space, or 0.
-func space_manager_mission_control_index(_ sid: SpaceID) -> Int
-{
-    return (SpaceList.indexOf(spaces: missionControlSpaces(), sid: sid) ?? -1) + 1
-}
-
-/// `space_manager_mission_control_space`: the space with a Mission Control number, or nil.
-func space_manager_mission_control_space(_ desktopID: Int) -> SpaceID?
-{
-    let spaces = missionControlSpaces()
-    guard desktopID >= 1 && desktopID <= spaces.count else { return nil }
-
-    return spaces[desktopID - 1]
-}
-
-/// `space_manager_cursor_space`
-func space_manager_cursor_space() -> SpaceID?
-{
-    return DisplayID.underCursor.flatMap { $0.currentSpace }
-}
-
-/// `space_manager_prev_space`
-func space_manager_prev_space(_ sid: SpaceID) -> SpaceID?
-{
-    return SpaceList.neighbour(spaces: missionControlSpaces(), sid: sid, offset: -1)
-}
-
-/// `space_manager_next_space`
-func space_manager_next_space(_ sid: SpaceID) -> SpaceID?
-{
-    return SpaceList.neighbour(spaces: missionControlSpaces(), sid: sid, offset: 1)
-}
-
-/// `space_manager_first_space`
-func space_manager_first_space() -> SpaceID?
-{
-    return missionControlSpaces().first
-}
-
-/// `space_manager_last_space`
-func space_manager_last_space() -> SpaceID?
-{
-    return missionControlSpaces().last
-}
-
-//
-// NOTE: Asking the frontmost application for its focused window is an accessibility round trip, which
-// blocks for up to the accessibility timeout when the application does not respond. When the front
-// process still owns the window that last received focus, and no focus change has been reported since,
-// that window is still the focused one and the question can be skipped. The display and space of the
-// window are always looked up again.
-//
-
-/// `space_manager_can_use_known_focus`
-func space_manager_can_use_known_focus(_ front: UnsafeMutablePointer<ProcessSerialNumber>, _ wm: WindowManager, _ pendingFocus: Bool) -> Bool
-{
-    if pendingFocus { return false }
-    if wm.focusedWindowID == nil { return false }
-
-    return psn_equals(front, &wm.focusedWindowPSN)
-}
-
-/// `space_manager_focused_window`
-private func spaceManagerFocusedWindow() -> Window?
-{
-    var front = SLS.frontProcess()
-
-    let wm = WindowManager.shared
-    let pendingFocus = pending_window_focus()
-
-    if space_manager_can_use_known_focus(&front, wm, pendingFocus) {
-        if let focusedID = wm.focusedWindowID, let target = wm.window(for: focusedID) { return target }
-    }
-
-    return wm.focusedWindow
-}
-
-/// `space_manager_active_space`: the space of the focused window, or of the active display; nil when neither is known.
-func space_manager_active_space() -> SpaceID?
-{
-    var did: DisplayID? = nil
-    let focused = spaceManagerFocusedWindow()
-
-    if let focused { did = focused.id.displayID }
-    if did == nil { did = DisplayID.active }
-
-    return did.flatMap { $0.currentSpace }
-}
-
-/// The windows of a space, as `space_window_list` lists them.
-private func spaceWindowIDs(_ sid: SpaceID) -> [WindowID]
-{
-    return space_window_list(sid, true) ?? []
-}
-
-/// `space_manager_move_window_list_to_space`
-func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windows: [WindowID])
-{
-    if SLS.hasBridgedWindowOperation {
-        SLS.bridgedMoveWindows(windows, toSpace: sid)
-    } else if !scripting_addition_move_window_list_to_space(sid, windows) {
-        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
-        var rawWindows = windows.map(\.rawValue)
-        SLSSetWindowListWorkspace(connection_global(), &rawWindows, Int32(rawWindows.count), 0x79616265)
-        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
-    }
-}
-
-//
-// NOTE: The bridged operation moves windows asynchronously. Laying out or focusing a window before it has
-// arrived on its new space places it on the wrong display, or makes macOS switch to the space it came from.
-// The wait is bounded, because it blocks the event loop and a window may not be moved at all.
-//
-
-/// `space_manager_wait_for_window_on_space`
-func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ timeoutMS: Int) -> Bool
-{
-    var i = 0
-    while i < timeoutMS / 10 {
-        if wid.space == sid { return true }
-        usleep(10000)
-        i += 1
-    }
-
-    return wid.space == sid
-}
-
-/// `space_manager_wait_for_windows_on_space`
-func space_manager_wait_for_windows_on_space(_ windows: [WindowID], _ sid: SpaceID, _ timeoutMS: Int) -> Bool
-{
-    var arrived = 0
-
-    var i = 0
-    while i < timeoutMS / 10 {
-        while arrived < windows.count && windows[arrived].space == sid { arrived += 1 }
-        if arrived == windows.count { return true }
-
-        usleep(10000)
-        i += 1
-    }
-
-    while arrived < windows.count && windows[arrived].space == sid { arrived += 1 }
-    return arrived == windows.count
-}
-
-/// `space_manager_move_window_to_space`
-func space_manager_move_window_to_space(_ sid: SpaceID, _ win: Window)
-{
-    if SLS.hasBridgedWindowOperation {
-        SLS.bridgedMoveWindows([win.id], toSpace: sid)
-    } else if !scripting_addition_move_window_to_space(sid, win.id) {
-        var windows = [win.id.rawValue]
-        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
-        SLSSetWindowListWorkspace(connection_global(), &windows, 1, 0x79616265)
-        SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
-    }
-}
-
-/// `space_manager_find_first_user_space_for_display`
-private func spaceManagerFindFirstUserSpaceForDisplay(_ did: DisplayID) -> SpaceID?
-{
-    return did.spaces?.first(where: { space_is_user($0) })
-}
-
-/// `space_manager_is_space_last_user_space`: whether no other user space is on the display of sid.
-func space_manager_is_space_last_user_space(_ sid: SpaceID) -> Bool
-{
-    guard let did = space_display_id(sid), let spaces = did.spaces else { return true }
-
-    for other in spaces {
-        if sid == other { continue }
-        if space_is_user(other) { return false }
-    }
-
-    return true
-}
-
-/// `space_manager_user_list`: whether each space of a list is a user space.
-func spaceUserList(_ spaces: [SpaceID]) -> [Bool]
-{
-    return spaces.map { space_is_user($0) }
-}
-
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
 private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: SpaceID) -> SpaceOperationResult
 {
@@ -576,8 +364,8 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     let windowAnimationDuration = wm.windowAnimationDuration
     wm.windowAnimationDuration = 0.0
 
-    let aWindows = spaceWindowIDs(aSid)
-    let bWindows = spaceWindowIDs(bSid)
+    let aWindows = aSid.windows(includingMinimized: true) ?? []
+    let bWindows = bSid.windows(includingMinimized: true) ?? []
 
     let aView = sm.view[aSid]!
     let bView = sm.view[bSid]!
@@ -596,11 +384,11 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     sm.view[bSid] = aView
 
     if !aWindows.isEmpty {
-        space_manager_move_window_list_to_space(bSid, aWindows)
+        bSid.moveWindows(aWindows)
     }
 
     if !bWindows.isEmpty {
-        space_manager_move_window_list_to_space(aSid, bWindows)
+        aSid.moveWindows(bWindows)
     }
 
     sm.labels.swap(aSid, bSid)
@@ -620,47 +408,47 @@ func space_manager_swap_space_with_space(_ actingSid: SpaceID, _ selectorSid: Sp
 {
     if MissionControl.shared.isActive { return .inMissionControl }
 
-    let actingDid = space_display_id(actingSid)
-    let selectorDid = space_display_id(selectorSid)
+    let actingDid = actingSid.display
+    let selectorDid = selectorSid.display
 
     if actingSid == selectorSid { return .sameSpace }
     if actingDid != selectorDid { return spaceManagerSwapSpaceWithSpaceOnDisplay(actingSid, selectorSid) }
 
-    let actingPrevSid = space_manager_prev_space(actingSid)
-    let selectorPrevSid = space_manager_prev_space(selectorSid)
+    let actingPrevSid = actingSid.previous
+    let selectorPrevSid = selectorSid.previous
 
-    let actingPrevDid = actingPrevSid.flatMap(space_display_id)
-    let selectorPrevDid = selectorPrevSid.flatMap(space_display_id)
+    let actingPrevDid = actingPrevSid.flatMap { $0.display }
+    let selectorPrevDid = selectorPrevSid.flatMap { $0.display }
 
     let actingSidIsFirst = actingPrevSid == nil || actingPrevDid != actingDid
     let selectorSidIsFirst = selectorPrevSid == nil || selectorPrevDid != selectorDid
 
-    let actingMCI = space_manager_mission_control_index(actingSid)
-    let selectorMCI = space_manager_mission_control_index(selectorSid)
+    let actingMCI = actingSid.missionControlIndex
+    let selectorMCI = selectorSid.missionControlIndex
     var success = true
 
     //
     // NOTE: A prev space is nil only where the sid is first, so the branches that move past it bind it.
     //
     if actingSidIsFirst && !selectorSidIsFirst && selectorMCI - actingMCI == 1 {
-        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
     } else if !actingSidIsFirst && selectorSidIsFirst && actingMCI - selectorMCI == 1 {
-        success = scripting_addition_move_space_after_space(selectorSid, actingSid, selectorSid == space_manager_active_space())
+        success = scripting_addition_move_space_after_space(selectorSid, actingSid, selectorSid == SpaceID.active)
     } else if actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
         success = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
-        let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == space_manager_active_space())
+        let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
         success = success && second
     } else if !actingSidIsFirst && selectorSidIsFirst, let actingPrevSid {
-        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
         let second = scripting_addition_move_space_after_space(selectorSid, actingPrevSid, false)
         success = success && second
     } else if !actingSidIsFirst && !selectorSidIsFirst, let actingPrevSid, let selectorPrevSid {
         if actingMCI > selectorMCI {
             success = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
-            let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == space_manager_active_space())
+            let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
             success = success && second
         } else {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
             let second = scripting_addition_move_space_after_space(selectorSid, actingPrevSid, false)
             success = success && second
         }
@@ -674,33 +462,33 @@ func space_manager_move_space_to_space(_ actingSid: SpaceID, _ selectorSid: Spac
 {
     if MissionControl.shared.isActive { return .inMissionControl }
 
-    let actingDid = space_display_id(actingSid)
-    let selectorDid = space_display_id(selectorSid)
+    let actingDid = actingSid.display
+    let selectorDid = selectorSid.display
 
     if actingSid == selectorSid { return .sameSpace }
     if actingDid != selectorDid { return .sameDisplay }
 
-    let actingPrevSid = space_manager_prev_space(actingSid)
-    let selectorPrevSid = space_manager_prev_space(selectorSid)
+    let actingPrevSid = actingSid.previous
+    let selectorPrevSid = selectorSid.previous
 
-    let actingPrevDid = actingPrevSid.flatMap(space_display_id)
-    let selectorPrevDid = selectorPrevSid.flatMap(space_display_id)
+    let actingPrevDid = actingPrevSid.flatMap { $0.display }
+    let selectorPrevDid = selectorPrevSid.flatMap { $0.display }
 
     let actingSidIsFirst = actingPrevSid == nil || actingPrevDid != actingDid
     let selectorSidIsFirst = selectorPrevSid == nil || selectorPrevDid != selectorDid
     var success = true
 
     if actingSidIsFirst && !selectorSidIsFirst {
-        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
     } else if !actingSidIsFirst && selectorSidIsFirst {
-        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+        success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
         let second = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
         success = success && second
     } else if !actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
-        if space_manager_mission_control_index(actingSid) > space_manager_mission_control_index(selectorSid) {
-            success = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == space_manager_active_space())
+        if actingSid.missionControlIndex > selectorSid.missionControlIndex {
+            success = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
         } else {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == space_manager_active_space())
+            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
         }
     }
 
@@ -713,14 +501,14 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
     if MissionControl.shared.isActive { return .inMissionControl }
     guard let sid else { return .missingSource }
 
-    let sDid = space_display_id(sid)
+    let sDid = sid.display
     if sDid == did { return .invalidDestination }
 
-    if space_manager_is_space_last_user_space(sid) { return .invalidSource }
+    if sid.isLastUserSpace { return .invalidSource }
 
     guard let dSid = did.currentSpace else { return .missingDestination }
 
-    let focusSpace = sid == space_manager_active_space()
+    let focusSpace = sid == SpaceID.active
 
     //
     // NOTE: A visible space must be replaced on its display before the move, even when it is
@@ -730,7 +518,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
 
     guard let spaceList = sDid.flatMap({ $0.spaces }) else { return .missingSource }
 
-    let user = spaceUserList(spaceList)
+    let user = spaceList.map { $0.isUser }
     let visibleSid = sDid.flatMap { $0.currentSpace }
     let replacementSid = visibleSid.flatMap { SpaceList.moveReplacement(spaces: spaceList, user: user, sid: sid, visible: $0) }
 
@@ -752,8 +540,8 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
 @discardableResult
 func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: SpaceID) -> Bool
 {
-    let curIndex = newDid.currentSpace.map(space_manager_mission_control_index) ?? 0
-    let newIndex = space_manager_mission_control_index(newSid)
+    let curIndex = newDid.currentSpace.map { $0.missionControlIndex } ?? 0
+    let newIndex = newSid.missionControlIndex
 
     let count = abs(newIndex - curIndex)
     if count == 0 {
@@ -796,7 +584,7 @@ func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: Spac
 
     if focusDisplay {
         newDid.activate()
-        if space_manager_active_space() != newSid {
+        if SpaceID.active != newSid {
             CGPostMouseEventC(point, false, true)
             CGPostMouseEventC(point, false, false)
         }
@@ -810,11 +598,11 @@ func space_manager_focus_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if MissionControl.shared.isActive { return .inMissionControl }
 
-    let curSid = space_manager_active_space()
+    let curSid = SpaceID.active
     if curSid == sid { return .sameSpace }
 
-    let curDid = curSid.flatMap(space_display_id)
-    let newDid = space_display_id(sid)
+    let curDid = curSid.flatMap { $0.display }
+    let newDid = sid.display
     let focusDisplay = curDid != newDid
 
     if scripting_addition_focus_space(sid) {
@@ -833,11 +621,11 @@ func space_manager_switch_space(_ sid: SpaceID) -> SpaceOperationResult
 {
     if MissionControl.shared.isActive { return .inMissionControl }
 
-    guard let curSid = space_manager_active_space() else { return .missingSource }
+    guard let curSid = SpaceID.active else { return .missingSource }
     if curSid == sid { return .sameSpace }
 
-    let curDid = space_display_id(curSid)
-    let did = space_display_id(sid)
+    let curDid = curSid.display
+    let did = sid.display
 
     if curDid != did {
         _ = spaceManagerSwapSpaceWithSpaceOnDisplay(curSid, sid)
@@ -854,11 +642,11 @@ func space_manager_destroy_space(_ sid: SpaceID?) -> SpaceOperationResult
     if MissionControl.shared.isActive { return .inMissionControl }
 
     guard let sid else { return .missingSource }
-    if !space_is_user(sid) { return .invalidType }
-    if space_manager_is_space_last_user_space(sid) { return .invalidSource }
+    if !sid.isUser { return .invalidType }
+    if sid.isLastUserSpace { return .invalidSource }
 
-    let did = space_display_id(sid)
-    let firstSid = did.flatMap(spaceManagerFindFirstUserSpaceForDisplay)
+    let did = sid.display
+    let firstSid = did?.spaces?.first(where: { $0.isUser })
 
     if !scripting_addition_destroy_space(sid) { return .scriptingAdditionFailed }
 
@@ -876,12 +664,6 @@ func space_manager_add_space(_ sid: SpaceID?) -> SpaceOperationResult
     guard let sid else { return .missingSource }
 
     return scripting_addition_create_space(sid) ? .success : .scriptingAdditionFailed
-}
-
-/// `space_manager_is_window_on_space`
-func space_manager_is_window_on_space(_ sid: SpaceID, _ win: Window) -> Bool
-{
-    return win.id.spaces.contains(sid)
 }
 
 /// `space_manager_mark_spaces_invalid_for_display`
@@ -962,7 +744,7 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
         }
     }
 
-    sm.current_space_id = space_manager_active_space()
+    sm.current_space_id = SpaceID.active
     sm.last_space_id = sm.current_space_id
 }
 
@@ -997,7 +779,7 @@ func space_manager_begin(_ sm: SpaceManager)
         }
     }
 
-    sm.current_space_id = space_manager_active_space()
+    sm.current_space_id = SpaceID.active
     sm.last_space_id = sm.current_space_id
     sm.did_begin = true
 }

@@ -62,7 +62,7 @@ extension WindowManager
     func applyRuleEffects(_ effects: RuleEffects, to target: Window)
     {
         if effects.sid != nil || effects.did != nil {
-            if !target.reportsFullscreen && !(target.id.space.map(space_is_fullscreen) ?? false) {
+            if !target.reportsFullscreen && !(target.id.space.map { $0.isFullscreen } ?? false) {
                 if let sid = effects.sid ?? effects.did.flatMap({ $0.currentSpace }) {
                     sendWindow(target, to: sid, movedByRule: true)
                     if effects.flags.contains(.followSpace) || effects.fullscreen == true {

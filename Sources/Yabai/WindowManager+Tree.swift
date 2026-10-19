@@ -19,9 +19,9 @@ extension WindowManager
 
     private func treeDisplay(in direction: Direction, from owner: View) -> DisplayID?
     {
-        guard let sourceDid = space_display_id(owner.sid),
+        guard let sourceDid = owner.sid.display,
               let did = sourceDid.closestDisplay(in: direction) else { return nil }
-        if let sid = did.currentSpace, space_is_fullscreen(sid) { return nil }
+        if let sid = did.currentSpace, sid.isFullscreen { return nil }
         return did
     }
 
@@ -80,7 +80,7 @@ extension WindowManager
         }
 
         if !moveList.isEmpty {
-            space_manager_move_window_list_to_space(owner.sid, moveList)
+            owner.sid.moveWindows(moveList)
         }
         return moveList
     }
@@ -89,7 +89,7 @@ extension WindowManager
     {
         if moveList.isEmpty { return }
 
-        _ = space_manager_wait_for_windows_on_space(moveList, owner.sid, 200)
+        _ = owner.sid.waitForWindows(moveList, timeoutMS: 200)
     }
 
     func treeFocus(direction: Direction, for target: Window?) -> WindowOperationResult
@@ -123,7 +123,7 @@ extension WindowManager
         guard let parent = node.parent else { return .invalidDestinationNode }
 
         owner.tree?.select(parent)
-        if space_is_visible(owner.sid) { parent.showSelection() }
+        if owner.sid.isVisible { parent.showSelection() }
 
         return .success
     }
@@ -140,7 +140,7 @@ extension WindowManager
             focusWindow(id: child.windowID)
         } else {
             owner.tree?.select(child)
-            if space_is_visible(owner.sid) { child.showSelection() }
+            if owner.sid.isVisible { child.showSelection() }
         }
 
         return .success
@@ -251,7 +251,7 @@ extension WindowManager
 
     func treeFocusAfterClose(in owner: View, windowID: WindowID?)
     {
-        guard let windowID, space_is_visible(owner.sid) else { return }
+        guard let windowID, owner.sid.isVisible else { return }
         focusWindow(id: windowID)
     }
 

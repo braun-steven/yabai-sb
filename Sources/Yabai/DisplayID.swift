@@ -282,7 +282,7 @@ extension DisplayID
             CGWarpMouseCursorPosition(point)
             activate()
 
-            if space_manager_active_space() != currentSpace {
+            if SpaceID.active != currentSpace {
                 CGPostMouseEventC(point, false, true)
                 CGPostMouseEventC(point, false, false)
             }
@@ -294,7 +294,7 @@ extension DisplayID
     {
         if MissionControl.shared.isActive { return .inMissionControl }
 
-        let spaceDid = space_display_id(sid)
+        let spaceDid = sid.display
         if spaceDid != self { return .sameDisplay }
 
         return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed

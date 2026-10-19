@@ -263,7 +263,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let wm = WindowManager.shared
 
-    guard let sid = space_manager_global().current_space_id, let windowIDs = space_window_list(sid, false) else { return false }
+    guard let sid = space_manager_global().current_space_id, let windowIDs = sid.windows(includingMinimized: false) else { return false }
 
     let level = window.id.level
     let subLevel = window.id.subLevel

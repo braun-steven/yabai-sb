@@ -38,7 +38,7 @@ private func displaySpaceIndexList(_ did: DisplayID) -> String
 {
     guard let spaceList = did.spaces, spaceList.count > 0 else { return "[]" }
 
-    let first = space_manager_mission_control_index(spaceList[0])
+    let first = spaceList[0].missionControlIndex
     return jsonList((0..<spaceList.count).map { first + $0 })
 }
 
@@ -82,7 +82,7 @@ private func viewUUID(_ view: View) -> String
 
 private func viewWindowList(_ sid: SpaceID) -> String
 {
-    guard let windowList = space_window_list(sid, true) else { return "[]" }
+    guard let windowList = sid.windows(includingMinimized: true) else { return "[]" }
     return jsonList(windowList.map { Int32(bitPattern: $0.rawValue) })
 }
 
@@ -107,16 +107,16 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
 
     json.property(SpaceProperty.id,           "\"id\":\(Int64(bitPattern: sid.rawValue))")
     json.property(SpaceProperty.uuid,         "\"uuid\":\"\(viewUUID(view))\"")
-    json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
+    json.property(SpaceProperty.index,        "\"index\":\(sid.missionControlIndex)")
     json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
     json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
-    json.property(SpaceProperty.display,      "\"display\":\(space_display_id(sid).map { $0.arrangement } ?? 0)")
+    json.property(SpaceProperty.display,      "\"display\":\(sid.display.map { $0.arrangement } ?? 0)")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)?.rawValue ?? 0))")
     json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)?.rawValue ?? 0))")
     json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.current_space_id))")
-    json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(space_is_visible(sid)))")
-    json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(space_is_fullscreen(sid)))")
+    json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(sid.isVisible))")
+    json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(sid.isFullscreen))")
 
     return json.finish()
 }
@@ -164,7 +164,8 @@ func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, 
 /// `space_manager_query_spaces_for_displays`
 func spaceManagerQuerySpacesForDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
-    guard let spaceList = space_manager_mission_control_space_list() else { return false }
+    let spaceList = SpaceID.all
+    if spaceList.isEmpty { return false }
 
     spaceManagerQuerySpaceList(&rsp, spaceList, flags)
     return true
@@ -189,8 +190,8 @@ private func wanted(_ flags: UInt64, _ properties: UInt64) -> Bool
 // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
 private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
 {
-    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { space_display_id($0) }.map { $0.arrangement } ?? 0 }
-    if wanted(flags, WindowProperty.space)   { info.space   = sid.map { space_manager_mission_control_index($0) } ?? 0 }
+    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { $0.display }.map { $0.arrangement } ?? 0 }
+    if wanted(flags, WindowProperty.space)   { info.space   = sid.map { $0.missionControlIndex } ?? 0 }
 }
 
 private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ flags: UInt64)
@@ -267,7 +268,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.isVisible) {
-        info.isVisible = SLS.windowIsOrderedIn(connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { space_is_visible($0) } ?? false))
+        info.isVisible = SLS.windowIsOrderedIn(connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { $0.isVisible } ?? false))
     }
 
     return info
@@ -305,7 +306,7 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
     if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isFullscreen) {
         let sid = wid.space
         windowInfoSetSpace(&info, sid, flags)
-        if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = sid.map { space_is_fullscreen($0) } ?? false }
+        if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = sid.map { $0.isFullscreen } ?? false }
     }
 
     return info
@@ -330,7 +331,7 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [Spa
 {
     let wm = WindowManager.shared
 
-    let windowList = space_window_list_for_connection(spaceList, 0, true) ?? []
+    let windowList = SpaceID.windows(on: spaceList, connection: 0, includingMinimized: true) ?? []
 
     let windows = windowList.map { wid in
         if let window = wm.window(for: wid) { return windowSerialize(window, flags) }
@@ -349,7 +350,7 @@ func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID
 /// `window_manager_query_windows_for_displays`
 func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64)
 {
-    windowManagerQueryWindowsForSpaces(&rsp, space_manager_mission_control_space_list() ?? [], flags)
+    windowManagerQueryWindowsForSpaces(&rsp, SpaceID.all, flags)
 }
 
 // MARK: Tree

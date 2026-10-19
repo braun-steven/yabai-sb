@@ -96,7 +96,7 @@ extension WindowManager
     {
         switch windowOriginMode {
         case .focused: return SpaceManager.shared.current_space_id
-        case .cursor:  return space_manager_cursor_space()
+        case .cursor:  return SpaceID.underCursor
         case .default: return target.id.space
         }
     }
@@ -122,10 +122,11 @@ extension WindowManager
     /// The windows on Mission Control spaces, minimized ones included; nil when there are none or the window server fails.
     func existingApplicationWindowList(for owner: Application?) -> [WindowID]?
     {
-        guard let spaceList = space_manager_mission_control_space_list() else { return nil }
+        let spaceList = SpaceID.all
+        if spaceList.isEmpty { return nil }
 
-        guard let candidates = spaceWindowCandidates(spaceList, owner?.connection ?? 0, true), !candidates.isEmpty else { return nil }
-        return spaceUserWindows(candidates, true)
+        guard let candidates = SpaceID.windowCandidates(on: spaceList, connection: owner?.connection ?? 0, includingMinimized: true), !candidates.isEmpty else { return nil }
+        return SpaceID.userWindows(among: candidates, includingMinimized: true)
     }
 
     /// The windows in the list that the window manager does not know.

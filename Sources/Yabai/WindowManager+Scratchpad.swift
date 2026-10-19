@@ -72,8 +72,8 @@ extension WindowManager
     )
     {
         if movingToSpace {
-            space_manager_move_window_to_space(spaceID, target)
-            _ = space_manager_wait_for_window_on_space(target.id, spaceID, 200)
+            spaceID.moveWindow(target)
+            _ = spaceID.waitForWindow(target.id, timeoutMS: 200)
         }
 
         if applyingGrid { applyScratchpadGrid(to: target) }
@@ -83,7 +83,7 @@ extension WindowManager
 
     func toggleScratchpad(_ target: Window) -> Bool
     {
-        guard let spaceID = space_manager_active_space() else { return false }
+        guard let spaceID = SpaceID.active else { return false }
 
         // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
         let visibleSpace = target.id.space == spaceID || target.id.isSticky
@@ -138,7 +138,7 @@ extension WindowManager
 
     private func releaseScratchpad(_ target: Window)
     {
-        if let spaceID = space_manager_active_space() {
+        if let spaceID = SpaceID.active {
             showScratchpad(target, on: spaceID, movingToSpace: true, applyingGrid: false)
             border_refresh_window_space(target)
         }

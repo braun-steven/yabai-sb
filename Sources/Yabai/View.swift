@@ -99,7 +99,7 @@ final class View
 
     func flush()
     {
-        if space_is_visible(sid) {
+        if sid.isVisible {
             flushTree()
             isDirty = false
         } else {
@@ -160,7 +160,7 @@ final class View
     {
         isUnpadded = unpadded
 
-        guard let did = space_display_id(sid) else { return }
+        guard let did = sid.display else { return }
         let frame = did.constrainedBounds(ignoringExternalBar: false)
         area = rootArea(in: frame)
 
@@ -182,7 +182,7 @@ final class View
         target.isPaddingEnabled = true
         target.isGapEnabled = true
 
-        if space_is_user(target.sid) {
+        if target.sid.isUser {
             let sm = SpaceManager.shared
 
             target.layout         = sm.layout

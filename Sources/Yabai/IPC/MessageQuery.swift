@@ -52,7 +52,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
         case .all:              displayManagerQueryDisplays(&rsp, properties.flags)
         case .display(let did): rsp.write("\(displaySerialize(did, properties.flags))\n")
         case .space(let sid):
-            if let did = space_display_id(sid) {
+            if let did = sid.display {
                 rsp.write("\(displaySerialize(did, properties.flags))\n")
             } else {
                 rsp.fail("could not find display details.\n")
@@ -102,7 +102,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
             }
         }
     } else if command.equals(QueryCommand.tree) {
-        var actingSid = space_manager_active_space()
+        var actingSid = SpaceID.active
         let option = message.next()
 
         if option.equals(QueryCommand.space) {

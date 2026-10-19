@@ -109,7 +109,7 @@ enum SLS
         return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self).map { SpaceID($0) }
     }
 
-    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `space_window_list_for_connection` calls it. nil when
+    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `SpaceID.windows(on:connection:includingMinimized:)` calls it. nil when
     /// the call fails, which the caller must tell apart from an empty list.
     static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [WindowID]?
     {

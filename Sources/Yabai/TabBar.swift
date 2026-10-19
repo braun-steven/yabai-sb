@@ -180,7 +180,7 @@ func tab_bar_hit_test(_ point: CGPoint, _ wid: UnsafeMutablePointer<WindowID?>!)
 {
     let above: WindowID? = tabBarHits.withLock { hits in
         for hit in hits {
-            if !hit.frame.contains(point) || !space_is_visible(hit.sid) { continue }
+            if !hit.frame.contains(point) || !hit.sid.isVisible { continue }
             guard let index = tabBarHitIndex(point, frame: hit.frame, count: hit.entries.count, glass: hit.glass != nil) else { continue }
             wid.pointee = hit.entries[index]
             return hit.aboveWid
@@ -213,7 +213,7 @@ private let tabBarPointer = Mutex(TabBarPointer())
 func tab_bar_pointer_update(_ point: CGPoint, pressed: Bool)
 {
     let hit = tabBarHits.withLock { hits in
-        hits.first { $0.glass != nil && $0.frame.contains(point) && space_is_visible($0.sid) }
+        hits.first { $0.glass != nil && $0.frame.contains(point) && $0.sid.isVisible }
     }
     var glass: TabBarGlass?
     var windowID: WindowID?

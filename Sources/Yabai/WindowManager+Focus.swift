@@ -165,4 +165,21 @@ extension WindowManager
     }
 
     var actingWindow: Window? { pendingFocusWindow ?? focusedWindow }
+
+    //
+    // NOTE: Asking the frontmost application for its focused window is an accessibility round trip, which
+    // blocks for up to the accessibility timeout when the application does not respond. When the front
+    // process still owns the window that last received focus, and no focus change has been reported since,
+    // that window is still the focused one and the question can be skipped. The display and space of the
+    // window are always looked up again.
+    //
+
+    func canUseKnownFocus(front: ProcessSerialNumber, pendingFocus: Bool) -> Bool
+    {
+        if pendingFocus { return false }
+        if focusedWindowID == nil { return false }
+
+        var front = front
+        return psn_equals(&front, &focusedWindowPSN)
+    }
 }

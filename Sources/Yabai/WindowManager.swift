@@ -65,8 +65,7 @@ enum WindowOrigin: String, CaseIterable, Sendable
     case cursor
 }
 
-/// The window level of a sub-layer: LAYER_AUTO is 0, the others are CGWindowLevelKey values (which Swift does not import
-/// from the C macros that named them).
+/// The window level of a sub-layer: 0 for `auto`, otherwise the CGWindowLevelKey value of the layer.
 extension WindowLayer
 {
     var level: Int32
@@ -156,7 +155,7 @@ final class WindowManager
     var scratchpadGrid = Grid()
 }
 
-// MOUSE_EVENT_MASK (mouse_handler.h, which Swift does not import: the macro is built from other macros)
+/// The mouse events the event tap receives.
 let mouseEventMask: UInt32 =
     (1 << CGEventType.leftMouseDown.rawValue) |
     (1 << CGEventType.leftMouseUp.rawValue) |
@@ -166,13 +165,13 @@ let mouseEventMask: UInt32 =
     (1 << CGEventType.rightMouseDragged.rawValue) |
     (1 << DockSwipe.eventType)
 
-// MOUSE_EVENT_MASK_FFM
+/// The mouse events the event tap receives while focus follows the mouse.
 let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
 
-// kAXEnhancedUserInterface (helpers.h; a static global there, which Swift cannot reach)
+/// The AX attribute that some applications use to animate frame changes.
 private let axEnhancedUserInterface = "AXEnhancedUserInterface"
 
-/// `ax_enhanced_userinterface`
+/// Whether the element has AXEnhancedUserInterface enabled.
 private func axEnhancedUserInterfaceEnabled(_ ref: AXUIElement) -> Bool
 {
     var value: CFTypeRef?
@@ -180,8 +179,7 @@ private func axEnhancedUserInterfaceEnabled(_ ref: AXUIElement) -> Bool
     return CFBooleanGetValue(unsafeDowncast(value, to: CFBoolean.self))
 }
 
-/// `AX_ENHANCED_UI_WORKAROUND`: turns AXEnhancedUserInterface off around the body, which some applications need to
-/// apply a frame at once.
+/// Turns AXEnhancedUserInterface off around the body, which some applications need to apply a frame at once.
 func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
 {
     let eui = axEnhancedUserInterfaceEnabled(ref)

@@ -16,7 +16,7 @@ enum FrontProcessMode: UInt32
     case noWindows     = 0x400
 }
 
-// the size of the event records that SLPSPostEventRecordTo sends (g_event_bytes of yabai.c, 0x100 bytes)
+/// The size of the event records that SLPSPostEventRecordTo sends.
 private let eventRecordSize = 0x100
 
 extension WindowManager
@@ -144,7 +144,7 @@ extension WindowManager
     // acts on the window that was asked to be focused, instead of the one the application still reports.
     //
 
-    /// PENDING_FOCUS_TIMEOUT_MS
+    /// How long a pending focus stays valid, in milliseconds.
     private var pendingFocusTimeoutMs: Float { 500.0 }
 
     func setPendingFocus(_ windowID: WindowID)

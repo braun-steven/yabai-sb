@@ -347,7 +347,7 @@ func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid
 /// `space_manager_toggle_window_split`
 func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
 {
-    guard let sid = window_space(win.id) else { return }
+    guard let sid = win.id.space else { return }
 
     let target = space_manager_find_view(sm, sid)
     if target.layout != .tree { return }
@@ -467,7 +467,7 @@ func space_manager_active_space() -> SpaceID?
     var did: DisplayID? = nil
     let focused = spaceManagerFocusedWindow()
 
-    if let focused { did = window_display_id(focused.id) }
+    if let focused { did = focused.id.displayID }
     if did == nil { did = display_manager_active_display_id() }
 
     return did.flatMap(display_space_id)
@@ -503,12 +503,12 @@ func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ t
 {
     var i = 0
     while i < timeoutMS / 10 {
-        if window_space(wid) == sid { return true }
+        if wid.space == sid { return true }
         usleep(10000)
         i += 1
     }
 
-    return window_space(wid) == sid
+    return wid.space == sid
 }
 
 /// `space_manager_wait_for_windows_on_space`
@@ -518,14 +518,14 @@ func space_manager_wait_for_windows_on_space(_ windows: [WindowID], _ sid: Space
 
     var i = 0
     while i < timeoutMS / 10 {
-        while arrived < windows.count && window_space(windows[arrived]) == sid { arrived += 1 }
+        while arrived < windows.count && windows[arrived].space == sid { arrived += 1 }
         if arrived == windows.count { return true }
 
         usleep(10000)
         i += 1
     }
 
-    while arrived < windows.count && window_space(windows[arrived]) == sid { arrived += 1 }
+    while arrived < windows.count && windows[arrived].space == sid { arrived += 1 }
     return arrived == windows.count
 }
 
@@ -881,7 +881,7 @@ func space_manager_add_space(_ sid: SpaceID?) -> SpaceOperationResult
 /// `space_manager_is_window_on_space`
 func space_manager_is_window_on_space(_ sid: SpaceID, _ win: Window) -> Bool
 {
-    return window_space_list(win.id).contains(sid)
+    return win.id.spaces.contains(sid)
 }
 
 /// `space_manager_mark_spaces_invalid_for_display`

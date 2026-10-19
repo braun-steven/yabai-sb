@@ -61,10 +61,10 @@ private let axApplicationNotifications: [(notification: ApplicationNotifications
 //
 // NOTE: The callback of the observer of each application. It runs on the main run loop and only posts events. Its
 // context is the application (unretained) for the notifications of application_observe, and the window for those of
-// window_observe (Window.swift), which uses the same observer. Both belong to the window manager: the event loop removes
-// the notifications (application_unobserve, window_unobserve) before it releases them. A window can be destroyed while
-// its events are queued (they keep it alive), so WINDOW_DESTROYED is posted only by the caller whose window_invalidate
-// succeeds; the handlers check window_is_valid before they use a window.
+// Window.observe(), which uses the same observer. Both belong to the window manager: the event loop removes the
+// notifications (application.unobserve(), window.unobserve()) before it releases them. A window can be destroyed while
+// its events are queued (they keep it alive), so WINDOW_DESTROYED is posted only by the caller whose invalidate()
+// succeeds; the handlers check isValid before they use a window.
 //
 
 private func applicationNotificationHandler(_ observer: AXObserver, _ element: AXUIElement, _ notification: CFString, _ context: UnsafeMutableRawPointer?)
@@ -98,7 +98,7 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
         // is handled.
         //
 
-        if !window_invalidate(target) { return }
+        if !target.invalidate() { return }
 
         EventLoop.post(.windowDestroyed(Handoff(value: target)))
     default:

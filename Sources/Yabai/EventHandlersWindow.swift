@@ -70,8 +70,8 @@ import YabaiCore
 
     window_manager_remove_scratchpad_for_window(wm, window, false)
     window_manager_remove_window(wm, window.id)
-    window_unobserve(window)
-    window_destroy(window)
+    window.unobserve()
+    window.destroy()
 
     if wm.window_border_hide_single {
         border_refresh_space(space_manager_global().current_space_id)
@@ -105,7 +105,7 @@ import YabaiCore
         return
     }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_FOCUSED: \(windowID) has been marked invalid by the system, ignoring event..\n")
         return
     }
@@ -122,7 +122,7 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
     if space_manager_global().skip_window_focus_animation {
-        if let sid = window_space(window.id), !space_is_visible(sid) {
+        if let sid = window.id.space, !space_is_visible(sid) {
             SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
             if let did = space_display_id(sid) {
                 space_manager_focus_space_using_gesture(did, sid)
@@ -142,7 +142,7 @@ import YabaiCore
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) has been marked invalid by the system, ignoring event..\n")
         return
     }
@@ -152,7 +152,7 @@ import YabaiCore
         return
     }
 
-    let newOrigin = window_ax_origin(window)
+    let newOrigin = window.axOrigin
     if newOrigin.equalTo(window.frame.origin) {
         debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(window.application.name) \(window.id)\n")
         return
@@ -182,7 +182,7 @@ import YabaiCore
 
     guard let window = window_manager_find_window(wm, windowID) else { return }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) has been marked invalid by the system, ignoring event..\n")
         return
     }
@@ -192,7 +192,7 @@ import YabaiCore
         return
     }
 
-    let newFrame = window_ax_frame(window)
+    let newFrame = window.axFrame
     if newFrame.equalTo(window.frame) {
         debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(window.application.name) \(window.id)\n")
         return
@@ -203,11 +203,11 @@ import YabaiCore
 
     let wasFullscreen = window.isFullscreen
 
-    let isFullscreen = window_is_fullscreen(window)
+    let isFullscreen = window.reportsFullscreen
     window.isFullscreen = isFullscreen
 
     if wasFullscreen != isFullscreen {
-        window_refresh_ax_properties(window)
+        window.refreshAXProperties()
     }
 
     let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
@@ -223,7 +223,7 @@ import YabaiCore
         window_manager_wait_for_native_fullscreen_transition()
 
         if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            if let sid = window_space(window.id) { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
+            if let sid = window.id.space { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
         }
     } else {
         if ms.current_action == .move && ms.window == window {
@@ -247,7 +247,7 @@ import YabaiCore
 {
     let wm = window_manager_global()
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         return
     }
@@ -255,7 +255,7 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.application.name) \(window.id)\n")
     window.isMinimized = true
 
-    window_refresh_ax_properties(window)
+    window.refreshAXProperties()
 
     let view = window_manager_find_managed_window(wm, window)
     let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
@@ -278,7 +278,7 @@ import YabaiCore
 {
     let wm = window_manager_global()
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         window_manager_remove_lost_focused_event(wm, window.id)
         return
@@ -286,7 +286,7 @@ import YabaiCore
 
     window.isMinimized = false
 
-    window_refresh_ax_properties(window)
+    window.refreshAXProperties()
 
     let sid = space_manager_active_space()
     if let sid, space_manager_is_window_on_space(sid, window) {
@@ -314,14 +314,14 @@ import YabaiCore
 {
     guard let window = window_manager_find_window(window_manager_global(), windowID) else { return }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(windowID) has been marked invalid by the system, ignoring event..\n")
         return
     }
 
     debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(window.application.name) \(window.id)\n")
 
-    window.title = window_title(window)
+    window.title = window.currentTitle()
     tab_bar_refresh_for_window(window.id)
 
     eventSignalPush(.windowTitleChanged, signalObject(window))
@@ -347,7 +347,7 @@ import YabaiCore
     // WINDOW_DESTROYED event for memory that we are about to free.
     //
 
-    if !window_invalidate(window) {
+    if !window.invalidate() {
         debug("EVENT_HANDLER_SLS_WINDOW_DESTROYED: \(wid) has been marked invalid by the system, ignoring event..\n")
         return
     }

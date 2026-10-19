@@ -19,7 +19,7 @@ private func windowManagerFree(_ wm: WindowManager)
     wm.window.removeAll()
 }
 
-/// A valid window with an id and an application, as window_create sets them.
+/// A valid window with an id and an application.
 private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
 {
     let result = Window(id: id)
@@ -81,12 +81,12 @@ private func applicationCreate(_ name: String) -> Application
 {
     let target = windowCreate(5)
 
-    #expect(window_is_valid(target) == true)
-    #expect(window_invalidate(target) == true)
-    #expect(window_is_valid(target) == false)
+    #expect(target.isValid == true)
+    #expect(target.invalidate() == true)
+    #expect(target.isValid == false)
 
     // NOTE: only one caller may claim the destruction of a window
-    #expect(window_invalidate(target) == false)
+    #expect(target.invalidate() == false)
 }
 
 private func oneShotTestRule(matched: Bool, _ label: String) -> Rule

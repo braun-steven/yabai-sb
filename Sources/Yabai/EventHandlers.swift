@@ -143,7 +143,7 @@ func update_window_notifications()
         if !window_manager_should_manage_window(window)            { continue }
         if window_manager_find_managed_window(wm, window) != nil { continue }
 
-        guard let sid = newWindows ? window_manager_origin_space(wm, window) : window_space(window.id) else { continue }
+        guard let sid = newWindows ? window_manager_origin_space(wm, window) : window.id.space else { continue }
         let view = space_manager_find_view(space_manager_global(), sid)
         if view.layout == .float { continue }
 
@@ -159,7 +159,7 @@ func update_window_notifications()
 @WM func windowDidReceiveFocus(_ wm: WindowManager, _ ms: MouseState, _ window: Window)
 {
     let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
-    if let focusedWindow, focusedWindow != window, window_space(focusedWindow.id) == window_space(window.id) {
+    if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
         window_manager_set_window_opacity(wm, focusedWindow, window_manager_global().normal_window_opacity)
     }
 
@@ -351,7 +351,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     var viewList: [View] = []
 
     for window in windows {
-        if !window_invalidate(window) {
+        if !window.invalidate() {
             window.application = nil
             continue
         }
@@ -370,8 +370,8 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
         window_manager_remove_scratchpad_for_window(wm, window, false)
         window_manager_remove_window(wm, window.id)
-        window_unobserve(window)
-        window_destroy(window)
+        window.unobserve()
+        window.destroy()
     }
 
     application_unobserve(application)

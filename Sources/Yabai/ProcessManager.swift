@@ -137,7 +137,7 @@ func process_manager_active_space_for_psn(_ connection: Int32) -> SpaceID?
 
     for window in SLS.queryWindows(connection_global(), windows) {
         if SpaceWindow.isUserWindow(parentID: window.parent, level: window.level, tags: window.tags, attributes: window.attributes) {
-            return window_space(window.id)
+            return window.id.space
         }
     }
 

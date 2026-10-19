@@ -110,7 +110,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
         ms.current_action = .none
     }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_MOUSE_UP: \(window.id) has been marked invalid by the system, ignoring event..\n")
         return
     }
@@ -194,7 +194,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     if mission_control_is_active() { return }
     guard let window = ms.window else { return }
 
-    if !window_is_valid(window) {
+    if !window.isValid {
         debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         ms.window = nil
         ms.current_action = .none
@@ -240,12 +240,9 @@ private let mouseResizeThrottleMs: Float = 67.67
         CFNumberGetValue(number, .sInt32Type, &childRawWid)
         guard let childWid = WindowID(nonzero: childRawWid), let child = window_manager_find_window(wm, childWid) else { continue }
 
-        //
-        // NOTE: window_role returns the role that the window keeps (not a +1 reference); the C version
-        // released it here, one release too many.
-        //
+        // NOTE: `Window.role` owns its reference; reading it here does not transfer ownership.
 
-        guard let role = window_role(child) else { continue }
+        guard let role = child.role else { continue }
 
         if CFEqual(role, kAXSheetRole as CFString) || CFEqual(role, kAXDrawerRole as CFString) {
             return child
@@ -268,8 +265,8 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     guard let sid = space_manager_global().current_space_id, let windowIDs = space_window_list(sid, false) else { return false }
 
-    let level = window_level(window.id)
-    let subLevel = window_sub_level(window.id)
+    let level = window.id.level
+    let subLevel = window.id.subLevel
 
     for wid in windowIDs {
         if wid == window.id { break }
@@ -277,8 +274,8 @@ private let mouseResizeThrottleMs: Float = 67.67
         guard let subWindow = window_manager_find_window(wm, wid) else { continue }
 
         if !subWindow.isFloating                      { continue }
-        if level != window_level(subWindow.id)        { continue }
-        if subLevel != window_sub_level(subWindow.id) { continue }
+        if level != subWindow.id.level        { continue }
+        if subLevel != subWindow.id.subLevel { continue }
 
         if window.frame.contains(subWindow.frame) { return true }
     }

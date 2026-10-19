@@ -35,17 +35,17 @@ private func axElements(_ list: CFArray) -> [AXUIElement]
 @discardableResult
 func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ windowRef: AXUIElement, _ windowID: WindowID, _ oneShotRules: Bool) -> Window?
 {
-    let target = window_create(owner, windowRef, windowID)
+    let target = Window(application: owner, reference: windowRef, id: windowID)
 
-    let windowTitle = window_title_ts(target)
-    let windowRole = window_role_ts(target)
-    let windowSubrole = window_subrole_ts(target)
+    let windowTitle = target.cachedTitle
+    let windowRole = target.roleString
+    let windowSubrole = target.subroleString
     debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
 
-    if window_is_unknown(target) {
+    if target.isUnknown {
         debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
         window_manager_remove_lost_focused_event(wm, target.id)
-        window_destroy(target)
+        target.destroy()
         return nil
     }
 
@@ -53,11 +53,11 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
     // NOTE(asmvik): Attempt to track **all** windows.
     //
 
-    if !window_observe(target) {
+    if !target.observe() {
         debug("window_manager_create_and_add_window: could not observe \(owner.name) \(target.id)\n")
         window_manager_remove_lost_focused_event(wm, target.id)
-        window_unobserve(target)
-        window_destroy(target)
+        target.unobserve()
+        target.destroy()
         return nil
     }
 
@@ -100,11 +100,11 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
                 return target
             }
 
-            if window_is_sticky(target.id) ||
-               !window_can_move(target) ||
-               !window_is_standard(target) ||
-               !window_level_is_standard(target) ||
-               (!window_can_resize(target) && window_is_undersized(target)) {
+            if target.id.isSticky ||
+               !target.canMove ||
+               !target.isStandard ||
+               !target.isStandardLevel ||
+               (!target.canResize && target.isUndersized) {
                 target.isFloating = true
             }
         } else {
@@ -131,7 +131,7 @@ func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> Space
     switch wm.window_origin_mode {
     case .focused: return space_manager_global().current_space_id
     case .cursor:  return space_manager_cursor_space()
-    case .default: return window_space(target.id)
+    case .default: return target.id.space
     }
 }
 

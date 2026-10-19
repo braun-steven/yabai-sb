@@ -74,7 +74,7 @@ extension WindowManager
         for windowID in windowList {
             guard let target = window_manager_find_window(self, windowID) else { continue }
 
-            if window_space(target.id) != owner.sid { moveList.append(target.id) }
+            if target.id.space != owner.sid { moveList.append(target.id) }
             window_manager_remove_managed_window(self, target.id)
             window_manager_add_managed_window(self, target, owner)
         }

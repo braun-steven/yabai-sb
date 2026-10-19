@@ -88,7 +88,7 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
     guard let sid = space_manager_active_space() else { return false }
 
     // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
-    let visibleSpace = window_space(target.id) == sid || window_is_sticky(target.id)
+    let visibleSpace = target.id.space == sid || target.id.isSticky
 
     let orderedIn = SLS.windowIsOrderedIn(connection_global(), target.id)
 

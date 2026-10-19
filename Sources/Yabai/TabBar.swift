@@ -407,7 +407,7 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
 //
 private func tabBarKeepOnSpace(_ bar: TabBar)
 {
-    guard let id = bar.id, let sid = bar.sid, window_space(id) != sid else { return }
+    guard let id = bar.id, let sid = bar.sid, id.space != sid else { return }
     tab_bar_glass_move_to_space(id, sid)
 }
 
@@ -435,7 +435,7 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
         }
         bar.frame = frame
     }
-    if let sid = window_space(aboveWid), sid != bar.sid {
+    if let sid = aboveWid.space, sid != bar.sid {
         if let id = bar.id { tab_bar_glass_move_to_space(id, sid) }
         bar.sid = sid
     }
@@ -445,8 +445,8 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
     bar.entry_list = (0..<count).map { entries[$0].focus_wid }
     if let id = bar.id {
         tabBarDraw(bar, entries, count)
-        SLSSetWindowLevel(connection_global(), id.rawValue, window_level(aboveWid))
-        SLSSetWindowSubLevel(connection_global(), id.rawValue, window_sub_level(aboveWid))
+        SLSSetWindowLevel(connection_global(), id.rawValue, aboveWid.level)
+        SLSSetWindowSubLevel(connection_global(), id.rawValue, aboveWid.subLevel)
         SLSOrderWindow(connection_global(), id.rawValue, 1, aboveWid.rawValue)
         tabBarKeepOnSpace(bar)
     } else { tab_bar_glass_render(bar, aboveWid, entries, count) }

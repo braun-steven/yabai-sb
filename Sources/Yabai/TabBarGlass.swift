@@ -56,8 +56,8 @@ private struct Snapshot: @unchecked Sendable
         cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
         sid = bar.sid
         self.aboveWid = aboveWid
-        level = window_level(aboveWid)
-        subLevel = window_sub_level(aboveWid)
+        level = aboveWid.level
+        subLevel = aboveWid.subLevel
         font = wm.tab_bar_font
         let track = tab_bar_glass_tint(wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_color_custom, 0.4)
         trackTint = tabBarCGColor(track)

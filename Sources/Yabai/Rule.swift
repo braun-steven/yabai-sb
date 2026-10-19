@@ -67,9 +67,9 @@ func rule_reapply_all()
 
     // Windows in id order, so rules apply in the same order every time.
     for target in wm.window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
-        let windowTitle = window_title_ts(target)
-        let windowRole = window_role_ts(target)
-        let windowSubrole = window_subrole_ts(target)
+        let windowTitle = target.cachedTitle
+        let windowRole = target.roleString
+        let windowSubrole = target.subroleString
 
         window_manager_apply_manage_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, false)
 
@@ -120,7 +120,7 @@ func rule_apply(_ candidate: Rule)
 
     // Windows in id order, so rules apply in the same order every time.
     for target in wm.window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
-        if window_manager_rule_matches_window(candidate, target, window_title_ts(target), window_role_ts(target), window_subrole_ts(target)) {
+        if window_manager_rule_matches_window(candidate, target, target.cachedTitle, target.roleString, target.subroleString) {
             window_manager_apply_manage_rule_effects_to_window(sm, wm, target, candidate.effects)
 
             if window_manager_is_window_eligible(target) {

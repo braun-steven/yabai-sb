@@ -262,7 +262,7 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
 /// `window_manager_is_window_eligible`
 func window_manager_is_window_eligible(_ target: Window) -> Bool
 {
-    return target.is_root && (window_is_real(target) || target.isManagedByRule)
+    return target.is_root && (target.isReal || target.isManagedByRule)
 }
 
 /// `window_manager_set_focus_follows_mouse`
@@ -296,7 +296,7 @@ func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
     let cursor = SLS.cursorLocation(connection_global())
     if target.frame.contains(cursor) { return }
 
-    guard let did = window_display_id(target.id) else { return }
+    guard let did = target.id.displayID else { return }
 
     let center = CGPoint(x: target.frame.origin.x + target.frame.size.width / 2,
                          y: target.frame.origin.y + target.frame.size.height / 2)
@@ -312,11 +312,11 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
 {
     if !target.is_root                          { return false }
     if target.isFloating                        { return false }
-    if window_is_sticky(target.id)              { return false }
+    if target.id.isSticky                        { return false }
     if target.isMinimized                       { return false }
     if target.application.is_hidden     { return false }
 
-    return (window_is_standard(target) && window_level_is_standard(target) && window_can_move(target)) || target.isManagedByRule
+    return (target.isStandard && target.isStandardLevel && target.canMove) || target.isManagedByRule
 }
 
 /// `window_manager_find_managed_window`: the view that manages the window, or nil.
@@ -479,7 +479,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
                 axEnhancedUIWorkaround(target.application.ref) { window_manager_resize_window(target, dx, dy) }
             }
         } else {
-            window_manager_resize_window_relative_internal(target, window_ax_frame(target), direction, dx, dy, animate)
+            window_manager_resize_window_relative_internal(target, target.axFrame, direction, dx, dy, animate)
         }
     }
 
@@ -744,7 +744,7 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 {
     guard let target else { return .invalidSourceView }
 
-    guard let sid = window_space(target.id) else { return .invalidSourceView }
+    guard let sid = target.id.space else { return .invalidSourceView }
     let owner = space_manager_find_view(sm, sid)
     if owner.layout != .tree || owner.tree == nil { return .invalidSourceView }
 
@@ -794,7 +794,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 
     guard let aCon = aView.tree?.find(a.id) else { return .invalidSourceNode }
 
-    if window_space(b.id) != aView.sid {
+    if b.id.space != aView.sid {
         space_manager_move_window_to_space(aView.sid, b)
         _ = space_manager_wait_for_window_on_space(b.id, aView.sid, 200)
     }
@@ -898,7 +898,7 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
 /// `window_manager_minimize_window`
 func window_manager_minimize_window(_ target: Window) -> WindowOperationResult
 {
-    if !window_can_minimize(target) { return .cannotMinimize }
+    if !target.canMinimize { return .cannotMinimize }
     if target.isMinimized { return .alreadyMinimized }
 
     let result = AXUIElementSetAttributeValue(target.ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
@@ -928,7 +928,7 @@ func window_manager_close_window(_ target: Window) -> Bool
 /// `window_manager_send_window_to_space`
 func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ dstSid: SpaceID, _ movedByRule: Bool)
 {
-    let srcSid = window_space(target.id)
+    let srcSid = target.id.space
     if srcSid == dstSid { return }
 
     if let srcSid, space_is_visible(srcSid) && (movedByRule || wm.focused_window_id == target.id) {
@@ -962,7 +962,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     let r = grid.rows, c = grid.columns
     if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
 
-    guard let did = window_display_id(target.id) else { return .invalidSourceView }
+    guard let did = target.id.displayID else { return .invalidSourceView }
 
     var x = grid.x, y = grid.y, w = grid.width, h = grid.height
     if x >= c     { x = c &- 1 }
@@ -1022,7 +1022,7 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
     if !window_manager_is_window_eligible(target) { return }
 
     if !force {
-        if !window_is_standard(target) || !window_level_is_standard(target) || !window_can_move(target) {
+        if !target.isStandard || !target.isStandardLevel || !target.canMove {
             if !target.isManagedByRule {
                 return
             }
@@ -1107,7 +1107,7 @@ func window_manager_wait_for_native_fullscreen_transition()
 /// `window_manager_toggle_window_native_fullscreen`
 func window_manager_toggle_window_native_fullscreen(_ target: Window)
 {
-    let sid = window_space(target.id)
+    let sid = target.id.space
 
     //
     // NOTE(asmvik): The window must become the focused window
@@ -1119,10 +1119,10 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
     var i = 0
     while i < nativeFullscreenWaitIterations && sid != space_manager_active_space() { usleep(100000); i += 1 }
 
-    if !window_is_fullscreen(target) {
-        AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanTrue)
+    if !target.reportsFullscreen {
+        AXUIElementSetAttributeValue(target.ref, Window.fullscreenAttribute as CFString, kCFBooleanTrue)
     } else {
-        AXUIElementSetAttributeValue(target.ref, axFullscreenAttribute as CFString, kCFBooleanFalse)
+        AXUIElementSetAttributeValue(target.ref, Window.fullscreenAttribute as CFString, kCFBooleanFalse)
     }
 
     //
@@ -1162,7 +1162,7 @@ func window_manager_toggle_window_zoom_fullscreen(_ wm: WindowManager, _ target:
 /// `window_manager_toggle_window_windowed_fullscreen`
 func window_manager_toggle_window_windowed_fullscreen(_ target: Window)
 {
-    guard let did = window_display_id(target.id) else { return }
+    guard let did = target.id.displayID else { return }
 
     if target.isWindowed {
         target.isWindowed = false
@@ -1186,7 +1186,7 @@ func window_manager_toggle_window_expose(_ target: Window)
 /// `window_manager_toggle_window_pip`
 func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 {
-    guard let did = window_display_id(target.id) else { return }
+    guard let did = target.id.displayID else { return }
 
     //
     // NOTE: Without a space of the display, the bounds are not reduced by padding (the view of such a space has none).

@@ -331,8 +331,8 @@ private func borderUpdateFrameLocked(_ border: Border, _ settings: BorderSetting
 
 private func borderUpdateOrderLocked(_ border: Border)
 {
-    let level = window_level(border.wid)
-    let subLevel = window_sub_level(border.wid)
+    let level = border.wid.level
+    let subLevel = border.wid.subLevel
     for i in 0..<4 {
         if level != border.level { SLSSetWindowLevel(connection_global(), border.ids[i], level) }
         if subLevel != border.subLevel { SLSSetWindowSubLevel(connection_global(), border.ids[i], subLevel) }
@@ -348,9 +348,9 @@ private func borderUpdateOrderLocked(_ border: Border)
     // NOTE: The edges are put on the space of the window after they are ordered, because ordering them in can
     // move them to the active space.
     //
-    let sticky = window_is_sticky(border.wid)
-    let sid = window_space(border.wid)
-    if !sticky, let sid, window_space(WindowID(border.ids[0])) != sid { borderMoveToSpace(border, sid) }
+    let sticky = border.wid.isSticky
+    let sid = border.wid.space
+    if !sticky, let sid, WindowID(border.ids[0]).space != sid { borderMoveToSpace(border, sid) }
     if let sid { border.sid = sid }
     borderSetSticky(border, sticky)
 }
@@ -406,7 +406,7 @@ private func borderShouldShow(_ target: Window) -> Bool
     if target.isMinimized { return false }
     if target.isFullscreen { return false }
     if target.isManagedByRule { return true }
-    return window_is_standard(target) && window_level_is_standard(target)
+    return target.isStandard && target.isStandardLevel
 }
 
 //
@@ -423,7 +423,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
     for target in window_manager_global().window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
         if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }
-        if window_space(target.id) != sid { continue }
+        if target.id.space != sid { continue }
         if SLS.windowIsOrderedIn(connection_global(), target.id) { count += 1 }
     }
     return count
@@ -442,7 +442,7 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
     let containerRadius = border.radius
     var enabled = wm.enable_window_border && borderShouldShow(target) && border.visible
     if enabled && wm.window_border_hide_single && owner != nil && target.scratchpad == nil {
-        let count = windowCount ?? borderSpaceWindowCount(sid ?? window_space(target.id))
+        let count = windowCount ?? borderSpaceWindowCount(sid ?? target.id.space)
         enabled = count > 1
     }
     let focused = wm.focused_window_id == target.id
@@ -530,7 +530,7 @@ func border_refresh_space(_ sid: SpaceID?)
     defer { border_end_batch() }
     if window_manager_global().window_border_hide_single {
         let count = borderSpaceWindowCount(sid)
-        for target in window_manager_global().window.values where window_space(target.id) == sid { borderRefreshWithCount(target, sid, count) }
+        for target in window_manager_global().window.values where target.id.space == sid { borderRefreshWithCount(target, sid, count) }
         return
     }
     var windows: [WindowID] = []
@@ -548,7 +548,7 @@ func border_refresh_space(_ sid: SpaceID?)
 func border_refresh_window_space(_ target: Window!)
 {
     guard let target, !target.isDestroyed else { return }
-    let sid = window_space(target.id)
+    let sid = target.id.space
     if window_manager_global().window_border_hide_single, let sid { border_refresh_space(sid) }
     else { border_refresh(target) }
 }
@@ -557,7 +557,7 @@ func border_refresh_all()
 {
     var counts: [SpaceID: Int] = [:]
     for target in window_manager_global().window.values {
-        let sid = window_space(target.id)
+        let sid = target.id.space
         var count: Int?
         if window_manager_global().window_border_hide_single, let sid {
             count = counts[sid]

@@ -134,8 +134,8 @@ private func windowManagerBuildWindowProxy(_ animation: WindowAnimation)
 {
     var alpha: Float = 1
     SLSGetWindowAlpha(animation.cid, animation.wid.rawValue, &alpha)
-    animation.proxy.level = window_level(animation.wid)
-    animation.proxy.sub_level = window_sub_level(animation.wid)
+    animation.proxy.level = animation.wid.level
+    animation.proxy.sub_level = animation.wid.subLevel
     SLSGetWindowBounds(animation.cid, animation.wid.rawValue, &animation.proxy.frame)
     animation.proxy.tx = Float(animation.proxy.frame.origin.x)
     animation.proxy.ty = Float(animation.proxy.frame.origin.y)

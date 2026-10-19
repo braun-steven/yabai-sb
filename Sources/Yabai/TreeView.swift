@@ -702,8 +702,8 @@ extension Con
         context?.flush()
         SLSReenableUpdate(cid)
 
-        SLSSetWindowLevel(cid, feedbackWindowID.rawValue, window_level(windowID))
-        SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, window_sub_level(windowID))
+        SLSSetWindowLevel(cid, feedbackWindowID.rawValue, windowID.level)
+        SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, windowID.subLevel)
         SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
     }
 

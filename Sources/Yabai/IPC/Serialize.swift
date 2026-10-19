@@ -145,7 +145,7 @@ private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [Spa
 @discardableResult
 func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
 {
-    let spaceList = window_space_list(window.id)
+    let spaceList = window.id.spaces
     if spaceList.isEmpty { return false }
 
     spaceManagerQuerySpaceList(&rsp, spaceList, flags)
@@ -195,10 +195,10 @@ private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ fla
 
 private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ flags: UInt64)
 {
-    if wanted(flags, WindowProperty.level | WindowProperty.layer)         { info.level     = window_level(wid) }
-    if wanted(flags, WindowProperty.subLevel | WindowProperty.subLayer)   { info.subLevel  = window_sub_level(wid) }
-    if wanted(flags, WindowProperty.opacity)                              { info.opacity   = window_opacity(wid) }
-    if wanted(flags, WindowProperty.hasShadow)                            { info.hasShadow = window_shadow(wid) }
+    if wanted(flags, WindowProperty.level | WindowProperty.layer)         { info.level     = wid.level }
+    if wanted(flags, WindowProperty.subLevel | WindowProperty.subLayer)   { info.subLevel  = wid.subLevel }
+    if wanted(flags, WindowProperty.opacity)                              { info.opacity   = wid.opacity }
+    if wanted(flags, WindowProperty.hasShadow)                            { info.hasShadow = wid.hasShadow }
 }
 
 /// `window_info_set_tree`: the split, stack index and zoom of the container of a managed window.
@@ -244,16 +244,16 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.isFloating       = window.isFloating
     info.isGrabbed        = window == mouse_state_global().window
 
-    if wanted(flags, WindowProperty.title)     { info.title     = window_title_ts(window) }
-    if wanted(flags, WindowProperty.role)      { info.role      = window_role_ts(window) }
-    if wanted(flags, WindowProperty.subrole)   { info.subrole   = window_subrole_ts(window) }
-    if wanted(flags, WindowProperty.canMove)   { info.canMove   = window_can_move(window) }
-    if wanted(flags, WindowProperty.canResize) { info.canResize = window_can_resize(window) }
+    if wanted(flags, WindowProperty.title)     { info.title     = window.cachedTitle }
+    if wanted(flags, WindowProperty.role)      { info.role      = window.roleString }
+    if wanted(flags, WindowProperty.subrole)   { info.subrole   = window.subroleString }
+    if wanted(flags, WindowProperty.canMove)   { info.canMove   = window.canMove }
+    if wanted(flags, WindowProperty.canResize) { info.canResize = window.canResize }
     windowInfoSetLevels(&info, wid, flags)
 
     var sid: SpaceID?
     if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isVisible) {
-        sid = window_space(wid)
+        sid = wid.space
         windowInfoSetSpace(&info, sid, flags)
     }
 
@@ -263,7 +263,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.isVisible | WindowProperty.isSticky) {
-        info.isSticky = window.isSticky || window_is_sticky(wid)
+        info.isSticky = window.isSticky || wid.isSticky
     }
 
     if wanted(flags, WindowProperty.isVisible) {
@@ -298,12 +298,12 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 
     if wanted(flags, WindowProperty.title)      { info.title    = SLS.windowTitle(connection, wid) ?? "" }
     if wanted(flags, WindowProperty.frame)      { info.frame    = SLS.windowBounds(connection, wid) ?? .zero }
-    if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = window_parent(wid) == nil }
-    if wanted(flags, WindowProperty.isSticky)   { info.isSticky = window_is_sticky(wid) }
+    if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = wid.parent == nil }
+    if wanted(flags, WindowProperty.isSticky)   { info.isSticky = wid.isSticky }
     windowInfoSetLevels(&info, wid, flags)
 
     if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isFullscreen) {
-        let sid = window_space(wid)
+        let sid = wid.space
         windowInfoSetSpace(&info, sid, flags)
         if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = sid.map { space_is_fullscreen($0) } ?? false }
     }

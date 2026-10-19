@@ -658,7 +658,7 @@ extension Con
 
         // NOTE: Drawing calls have no effect without a context.
         let context = render.feedbackWindow.context
-        let color = WindowManager.shared.insertionFeedbackColor
+        let color = Config.current.window.insertionFeedbackColor
         context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
         context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
 

@@ -95,25 +95,8 @@ struct Scratchpad
     var pendingFocusWindowID: WindowID?
     var pendingFocusTime: UInt64 = 0
     var lastWindowID: WindowID?
-    var mouseFollowsFocusEnabled = false
-    var focusFollowsMouseMode = FocusFollowsMouse.disabled
-    var purifyMode = PurifyMode.disabled
-    var windowOriginMode = WindowOrigin.default
-    var windowOpacityEnabled = false
-    var menuBarOpacity: Float = 0
-    var activeWindowOpacity: Float = 0
-    var normalWindowOpacity: Float = 0
-    var windowOpacityDuration: Float = 0
-    var windowAnimationDuration: Float = 0
-    var windowAnimationEasing = AnimationEasing.easeInSine
-    var insertionFeedbackColor = RGBAColor()
-    var focusWrapping = FocusWrapping.off
     var tabBarFont: CTFont?
     var scratchpads: [Scratchpad] = []
-    var scratchpadExclusive = false
-    var scratchpadRaise = false
-    var scratchpadBelow = false
-    var scratchpadGrid = Grid()
 }
 
 /// The mouse events the event tap receives.

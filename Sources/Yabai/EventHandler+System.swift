@@ -85,9 +85,9 @@ extension EventHandler
 
         let wm = WindowManager.shared
         let sm = SpaceManager.shared
-        if wm.menuBarOpacity != 1.0 {
+        if Config.current.window.menuBarOpacity != 1.0 {
             let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
-            let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
+            let alpha: Float = isFullscreen ? 1.0 : Config.current.window.menuBarOpacity
             SLS.setMenuBarAlpha(SLS.connection, alpha)
         }
 
@@ -117,9 +117,8 @@ extension EventHandler
         openMenuCount += 1
 
         if openMenuCount == 1 {
-            let wm = WindowManager.shared
-            focusFollowsMouseBeforeMenu = wm.focusFollowsMouseMode
-            wm.focusFollowsMouseMode = .disabled
+            focusFollowsMouseBeforeMenu = Config.current.window.focusFollowsMouseMode
+            Config.current.window.focusFollowsMouseMode = .disabled
         }
     }
 
@@ -129,7 +128,7 @@ extension EventHandler
         openMenuCount -= 1
 
         if openMenuCount == 0 {
-            WindowManager.shared.focusFollowsMouseMode = focusFollowsMouseBeforeMenu
+            Config.current.window.focusFollowsMouseMode = focusFollowsMouseBeforeMenu
         } else if openMenuCount < 0 {
             openMenuCount = 0
         }
@@ -155,7 +154,7 @@ extension EventHandler
 
         let wm = WindowManager.shared
         if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
-            wm.setWindowOpacity(focusedWindow, to: wm.activeWindowOpacity)
+            wm.setWindowOpacity(focusedWindow, to: Config.current.window.activeWindowOpacity)
             wm.centerMouse(on: focusedWindow)
         }
 

@@ -46,9 +46,9 @@ extension EventHandler
         let wm = WindowManager.shared
         let sm = SpaceManager.shared
 
-        if wm.menuBarOpacity != 1.0 {
+        if Config.current.window.menuBarOpacity != 1.0 {
             let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
-            let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
+            let alpha: Float = isFullscreen ? 1.0 : Config.current.window.menuBarOpacity
             SLS.setMenuBarAlpha(SLS.connection, alpha)
         }
 

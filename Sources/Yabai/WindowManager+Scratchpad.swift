@@ -23,7 +23,7 @@ extension WindowManager
     func setScratchpadLayers()
     {
         for entry in scratchpads {
-            entry.window.adjustLayer(to: scratchpadBelow ? .below : .normal)
+            entry.window.adjustLayer(to: Config.current.scratchpad.scratchpadBelow ? .below : .normal)
         }
     }
 
@@ -39,7 +39,7 @@ extension WindowManager
 
     private func applyScratchpadGrid(to target: Window)
     {
-        let grid = scratchpadGrid
+        let grid = Config.current.scratchpad.scratchpadGrid
         if grid.rows == 0 || grid.columns == 0 { return }
 
         //
@@ -47,10 +47,10 @@ extension WindowManager
         // would capture a stale image; set the frame directly instead.
         //
 
-        let animationDuration = windowAnimationDuration
-        windowAnimationDuration = 0.0
+        let animationDuration = Config.current.animation.windowAnimationDuration
+        Config.current.animation.windowAnimationDuration = 0.0
         try? applyGrid(grid, to: target)
-        windowAnimationDuration = animationDuration
+        Config.current.animation.windowAnimationDuration = animationDuration
     }
 
     private func hideScratchpad(_ target: Window, on spaceID: SpaceID)
@@ -93,7 +93,7 @@ extension WindowManager
         var shown = true
 
         if visibleSpace && orderedIn {
-            if scratchpadRaise && focusedWindowID != target.id && !target.isMinimized && !target.application.isHidden {
+            if Config.current.scratchpad.scratchpadRaise && focusedWindowID != target.id && !target.isMinimized && !target.application.isHidden {
                 focusWithRaise(target)
             } else {
                 hideScratchpad(target, on: spaceID)
@@ -103,7 +103,7 @@ extension WindowManager
             showScratchpad(target, on: spaceID, movingToSpace: !visibleSpace, applyingGrid: !orderedIn)
         }
 
-        if shown && scratchpadExclusive {
+        if shown && Config.current.scratchpad.scratchpadExclusive {
             hideOtherScratchpadWindows(except: target)
         }
 
@@ -126,7 +126,7 @@ extension WindowManager
         // tiled windows; scratchpadBelow moves it to their sub-layer.
         //
 
-        if scratchpadBelow { target.adjustLayer(to: .below) }
+        if Config.current.scratchpad.scratchpadBelow { target.adjustLayer(to: .below) }
 
         return true
     }
@@ -143,7 +143,7 @@ extension WindowManager
             Border.refreshSpace(of: target)
         }
 
-        if scratchpadBelow { target.adjustLayer(to: .normal) }
+        if Config.current.scratchpad.scratchpadBelow { target.adjustLayer(to: .normal) }
         makeWindowFloating(target, shouldFloat: false, force: false)
     }
 

@@ -5,7 +5,7 @@ extension WindowManager
 {
     func setPurifyMode(_ mode: PurifyMode)
     {
-        purifyMode = mode
+        Config.current.window.purifyMode = mode
         for target in window.values where target.isEligibleForManagement {
             purifyWindow(target)
         }
@@ -17,19 +17,19 @@ extension WindowManager
     {
         var value = opacity
         if value == 0.0 {
-            if windowOpacityEnabled {
-                value = target.id == focusedWindowID ? activeWindowOpacity : normalWindowOpacity
+            if Config.current.window.windowOpacityEnabled {
+                value = target.id == focusedWindowID ? Config.current.window.activeWindowOpacity : Config.current.window.normalWindowOpacity
             } else {
                 value = 1.0
             }
         }
 
-        return ScriptingAddition.shared.setOpacity(value, of: target.id, duration: windowOpacityDuration)
+        return ScriptingAddition.shared.setOpacity(value, of: target.id, duration: Config.current.window.windowOpacityDuration)
     }
 
     func setWindowOpacity(_ target: Window, to opacity: Float)
     {
-        if !windowOpacityEnabled { return }
+        if !Config.current.window.windowOpacityEnabled { return }
         if !target.isEligibleForManagement { return }
         if target.opacity != 0.0 { return }
 
@@ -38,23 +38,23 @@ extension WindowManager
 
     func setMenuBarOpacity(_ opacity: Float)
     {
-        menuBarOpacity = opacity
+        Config.current.window.menuBarOpacity = opacity
         SLS.setMenuBarAlpha(SLS.connection, opacity)
     }
 
     func setActiveWindowOpacity(_ opacity: Float)
     {
-        activeWindowOpacity = opacity
-        if let target = focusedWindow { setWindowOpacity(target, to: activeWindowOpacity) }
+        Config.current.window.activeWindowOpacity = opacity
+        if let target = focusedWindow { setWindowOpacity(target, to: Config.current.window.activeWindowOpacity) }
     }
 
     func setNormalWindowOpacity(_ opacity: Float)
     {
-        normalWindowOpacity = opacity
+        Config.current.window.normalWindowOpacity = opacity
         for target in window.values {
             if target.id == focusedWindowID { continue }
             if target.isEligibleForManagement {
-                setWindowOpacity(target, to: normalWindowOpacity)
+                setWindowOpacity(target, to: Config.current.window.normalWindowOpacity)
             }
         }
     }
@@ -65,7 +65,7 @@ extension WindowManager
         var childLayer = layer
 
         if layer == .auto {
-            let below = managedView(for: target) != nil || (scratchpadBelow && target.scratchpad != nil)
+            let below = managedView(for: target) != nil || (Config.current.scratchpad.scratchpadBelow && target.scratchpad != nil)
             parentLayer = below ? .below : .normal
             childLayer = .normal
         }
@@ -115,7 +115,7 @@ extension WindowManager
     func purifyWindow(_ target: Window)
     {
         let shouldHaveShadow: Bool
-        switch purifyMode {
+        switch Config.current.window.purifyMode {
         case .disabled: shouldHaveShadow = true
         case .managed:  shouldHaveShadow = managedView(for: target) == nil
         case .always:   shouldHaveShadow = false

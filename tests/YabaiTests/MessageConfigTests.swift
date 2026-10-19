@@ -41,25 +41,24 @@ extension DaemonState
         @Test("message_config_options")
         func messageConfigOptions()
         {
-            let wm = WindowManager.shared
             let sm = SpaceManager.shared
             let mouse = MouseState.shared
 
-            let mff = wm.mouseFollowsFocusEnabled
+            let mff = Config.current.window.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
-            let wrapping = wm.focusWrapping
+            let wrapping = Config.current.window.focusWrapping
             let topPadding = sm.topPadding
             defer {
-                wm.mouseFollowsFocusEnabled = mff
+                Config.current.window.mouseFollowsFocusEnabled = mff
                 mouse.modifier = modifier
-                wm.focusWrapping = wrapping
+                Config.current.window.focusWrapping = wrapping
                 sm.topPadding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
-            #expect(wm.mouseFollowsFocusEnabled)
+            #expect(Config.current.window.mouseFollowsFocusEnabled)
             #expect(mouse.modifier == .ctrl)
-            #expect(wm.focusWrapping == .force)
+            #expect(Config.current.window.focusWrapping == .force)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
@@ -80,17 +79,16 @@ extension DaemonState
         @Test("message_config_values")
         func messageConfigValues()
         {
-            let wm = WindowManager.shared
             let sm = SpaceManager.shared
 
-            let grid = wm.scratchpadGrid
-            let duration = wm.windowAnimationDuration
-            let opacityDuration = wm.windowOpacityDuration
+            let grid = Config.current.scratchpad.scratchpadGrid
+            let duration = Config.current.animation.windowAnimationDuration
+            let opacityDuration = Config.current.window.windowOpacityDuration
             let workspaceTabbed = sm.treeWorkspaceTabbed
             defer {
-                wm.scratchpadGrid = grid
-                wm.windowAnimationDuration = duration
-                wm.windowOpacityDuration = opacityDuration
+                Config.current.scratchpad.scratchpadGrid = grid
+                Config.current.animation.windowAnimationDuration = duration
+                Config.current.window.windowOpacityDuration = opacityDuration
                 sm.treeWorkspaceTabbed = workspaceTabbed
             }
 

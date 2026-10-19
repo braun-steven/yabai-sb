@@ -5,8 +5,8 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: The handler of the config domain. Options print their value when none is given. The options are fields of the
-// managers.
+// NOTE: The handler of the config domain. Options print their value when none is given. Values live in Config or their
+// owning manager.
 //
 
 /// The names and optional space scope accepted by config commands.
@@ -46,11 +46,10 @@ private enum WorkspaceLayout: String, CaseIterable
 @WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError)
 {
     let command = Token(name.rawValue)
-    let wm = WindowManager.shared
     let value = message.next()
 
     if !value.isValid {
-        let grid = wm.scratchpadGrid
+        let grid = Config.current.scratchpad.scratchpadGrid
         if grid.rows == 0 || grid.columns == 0 {
             rsp.write("\(Argument.off)\n")
         } else {
@@ -58,12 +57,12 @@ private enum WorkspaceLayout: String, CaseIterable
             rsp.write("\(values.map { String($0) }.joined(separator: ":"))\n")
         }
     } else if value.equals(Argument.off) {
-        wm.scratchpadGrid = Grid()
+        Config.current.scratchpad.scratchpadGrid = Grid()
     } else {
         // NOTE: like the C version, "%d" writes into unsigned values, so a negative row or column count passes the check
         var grid = Grid()
         if grid.scan(value) == 6 && grid.rows > 0 && grid.columns > 0 {
-            wm.scratchpadGrid = grid
+            Config.current.scratchpad.scratchpadGrid = grid
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
@@ -168,19 +167,18 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
 
 @WM private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    let wm = WindowManager.shared
     let token = message.next()
     let value = token.value
 
     if case .invalid = value {
-        rsp.write("\(cFormat("%f", Double(wm.windowAnimationDuration)))\n")
+        rsp.write("\(cFormat("%f", Double(Config.current.animation.windowAnimationDuration)))\n")
     } else if let duration = value.floatValue {
         if duration == 0.0 {
-            wm.windowAnimationDuration = duration
+            Config.current.animation.windowAnimationDuration = duration
         } else if !ScriptingAddition.shared.isSIPFriendly {
             throw CommandError("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
         } else if CGPreflightScreenCaptureAccess() {
-            wm.windowAnimationDuration = duration
+            Config.current.animation.windowAnimationDuration = duration
         } else {
             CGRequestScreenCaptureAccess()
             throw CommandError("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
@@ -459,11 +457,11 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             Log.verbose.store(verbose, ordering: .relaxed)
         }
     } else if name == .mouseFollowsFocus {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.window.mouseFollowsFocusEnabled)
     } else if name == .focusFollowsMouse {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(wm.focusFollowsMouseMode.rawValue)\n")
+            rsp.write("\(Config.current.window.focusFollowsMouseMode.rawValue)\n")
         } else if value.equals(Argument.off) {
             wm.setFocusFollowsMouse(.disabled)
         } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
@@ -478,15 +476,15 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     } else if name == .builtinDisplayLast {
         if try parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }
     } else if name == .windowOriginDisplay {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
-            wm.windowOriginMode = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.windowOriginMode) {
+            Config.current.window.windowOriginMode = choice
         }
     } else if name == .scratchpadExclusive {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadExclusive)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadExclusive)
     } else if name == .scratchpadRaise {
-        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadRaise)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadRaise)
     } else if name == .scratchpadBelow {
-        if try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadBelow) { wm.setScratchpadLayers() }
+        if try parseConfigBool(&rsp, domain, command, &message, &Config.current.scratchpad.scratchpadBelow) { wm.setScratchpadLayers() }
     } else if name == .scratchpadGrid {
         try configScratchpadGrid(&rsp, domain, name, &message)
     } else if name == .skipWindowFocusAnimation {
@@ -494,36 +492,36 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     } else if name == .spaceLayout {
         try configSpaceLayout(&rsp, domain, command, &message, selSid)
     } else if name == .windowOpacity {
-        var enabled = wm.windowOpacityEnabled
+        var enabled = Config.current.window.windowOpacityEnabled
         if try parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
     } else if name == .windowOpacityDuration {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%f", Double(wm.windowOpacityDuration)))\n")
+            rsp.write("\(cFormat("%f", Double(Config.current.window.windowOpacityDuration)))\n")
         } else if let duration = value.floatValue {
-            wm.windowOpacityDuration = duration
+            Config.current.window.windowOpacityDuration = duration
         } else {
             throw CommandError.unknownValue(domain, command, token)
         }
     } else if name == .windowAnimationDuration {
         try configAnimationDuration(&rsp, domain, command, &message)
     } else if name == .windowAnimationEasing {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.windowAnimationEasing) {
-            wm.windowAnimationEasing = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.animation.windowAnimationEasing) {
+            Config.current.animation.windowAnimationEasing = choice
         }
     } else if name == .windowShadow {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.purifyMode) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.purifyMode) {
             wm.setPurifyMode(choice)
         }
     } else if name == .menubarOpacity {
-        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: Config.current.window.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
     } else if name == .activeWindowOpacity {
-        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.activeWindowOpacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: Config.current.window.activeWindowOpacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
     } else if name == .normalWindowOpacity {
-        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.normalWindowOpacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: Config.current.window.normalWindowOpacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
     } else if name == .insertFeedbackColor {
-        _ = try configColor(&rsp, domain, command, &message, &wm.insertionFeedbackColor, allowZero: false)
+        _ = try configColor(&rsp, domain, command, &message, &Config.current.window.insertionFeedbackColor, allowZero: false)
     } else if let spacing = spacing(for: name) {
         let view = selSid.map { sm.view(for: $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
@@ -555,8 +553,8 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     } else if name == .treeAutotiling {
         _ = try parseConfigBool(&rsp, domain, command, &message, &sm.treeAutotiling)
     } else if name == .focusWrapping {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.focusWrapping) {
-            wm.focusWrapping = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.window.focusWrapping) {
+            Config.current.window.focusWrapping = choice
         }
     } else if name == .autoPadding {
         if let selSid {

@@ -108,8 +108,8 @@ extension WindowManager
     {
         let displays = DisplayID.all
 
-        let animationDuration = windowAnimationDuration
-        windowAnimationDuration = 0.0
+        let animationDuration = Config.current.animation.windowAnimationDuration
+        Config.current.animation.windowAnimationDuration = 0.0
 
         for did in displays {
             guard let spaceList = did.spaces else { continue }
@@ -124,7 +124,7 @@ extension WindowManager
             }
         }
 
-        windowAnimationDuration = animationDuration
+        Config.current.animation.windowAnimationDuration = animationDuration
     }
 
     func handleDisplayAddAndRemove(_ did: DisplayID)

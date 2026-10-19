@@ -6,6 +6,38 @@ import YabaiCore
 
     var border = BorderConfig()
     var tabBar = TabBarConfig()
+    var window = WindowConfig()
+    var animation = AnimationConfig()
+    var scratchpad = ScratchpadConfig()
+}
+
+struct WindowConfig
+{
+    var mouseFollowsFocusEnabled = false
+    var focusFollowsMouseMode = FocusFollowsMouse.disabled
+    var purifyMode = PurifyMode.disabled
+    var windowOriginMode = WindowOrigin.default
+    var windowOpacityEnabled = false
+    var menuBarOpacity: Float = 1.0
+    var activeWindowOpacity: Float = 1.0
+    var normalWindowOpacity: Float = 1.0
+    var windowOpacityDuration: Float = 0.0
+    var insertionFeedbackColor = RGBAColor(hex: 0xffd75f5f)
+    var focusWrapping = FocusWrapping.on
+}
+
+struct AnimationConfig
+{
+    var windowAnimationDuration: Float = 0.0
+    var windowAnimationEasing = AnimationEasing.easeOutCirc
+}
+
+struct ScratchpadConfig
+{
+    var scratchpadExclusive = false
+    var scratchpadRaise = false
+    var scratchpadBelow = false
+    var scratchpadGrid = Grid()
 }
 
 struct BorderConfig

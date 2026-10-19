@@ -226,7 +226,7 @@ extension WindowManager
 
     private func debugWindowInfo(_ target: Window)
     {
-        guard Log.verbose else { return }
+        guard Log.verbose.load(ordering: .relaxed) else { return }
 
         fputs("window info: \n", stdout_global())
         fputs(windowSerialize(target, 0), stdout_global())

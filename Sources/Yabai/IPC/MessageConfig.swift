@@ -517,7 +517,10 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     if configTabBar(&rsp, domain, command, &message) { return true }
 
     if command.equals(Config.debugOutput) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &Log.verbose)
+        var verbose = Log.verbose.load(ordering: .relaxed)
+        if parseConfigBool(&rsp, domain, command, &message, &verbose) {
+            Log.verbose.store(verbose, ordering: .relaxed)
+        }
     } else if command.equals(Config.mff) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
     } else if command.equals(Config.ffm) {

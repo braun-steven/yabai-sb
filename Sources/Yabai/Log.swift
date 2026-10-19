@@ -1,5 +1,6 @@
 import CPrivate
 import Darwin
+import Synchronization
 
 //
 // NOTE: The logging and the exits of the daemon. Swift cannot call the variadic C logging functions, so the text is
@@ -10,20 +11,20 @@ import Darwin
 enum Log
 {
     /// Set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
-    nonisolated(unsafe) static var verbose = false
+    static let verbose = Atomic<Bool>(false)
 }
 
 /// Writes the text to stdout when the daemon runs with --verbose (or debug_output on).
 func debug(_ text: @autoclosure () -> String)
 {
-    guard Log.verbose else { return }
+    guard Log.verbose.load(ordering: .relaxed) else { return }
     fputs(text(), stdout_global())
 }
 
 /// The prefix and the null-separated tokens of a message, up to the empty token that ends it.
 func debugMessage(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
 {
-    guard Log.verbose, var message else { return }
+    guard Log.verbose.load(ordering: .relaxed), var message else { return }
 
     fputs("\(prefix):", stdout_global())
 

@@ -17,19 +17,19 @@ extension WindowManager
     {
         var value = opacity
         if value == 0.0 {
-            if enable_window_opacity {
-                value = target.id == focusedWindowID ? active_window_opacity : normal_window_opacity
+            if windowOpacityEnabled {
+                value = target.id == focusedWindowID ? activeWindowOpacity : normalWindowOpacity
             } else {
                 value = 1.0
             }
         }
 
-        return scripting_addition_set_opacity(target.id, value, window_opacity_duration)
+        return scripting_addition_set_opacity(target.id, value, windowOpacityDuration)
     }
 
     func setWindowOpacity(_ target: Window, to opacity: Float)
     {
-        if !enable_window_opacity { return }
+        if !windowOpacityEnabled { return }
         if !target.isEligibleForManagement { return }
         if target.opacity != 0.0 { return }
 
@@ -38,23 +38,23 @@ extension WindowManager
 
     func setMenuBarOpacity(_ opacity: Float)
     {
-        menubar_opacity = opacity
+        menuBarOpacity = opacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, opacity)
     }
 
     func setActiveWindowOpacity(_ opacity: Float)
     {
-        active_window_opacity = opacity
-        if let target = focusedWindow { setWindowOpacity(target, to: active_window_opacity) }
+        activeWindowOpacity = opacity
+        if let target = focusedWindow { setWindowOpacity(target, to: activeWindowOpacity) }
     }
 
     func setNormalWindowOpacity(_ opacity: Float)
     {
-        normal_window_opacity = opacity
+        normalWindowOpacity = opacity
         for target in window.values {
             if target.id == focusedWindowID { continue }
             if target.isEligibleForManagement {
-                setWindowOpacity(target, to: normal_window_opacity)
+                setWindowOpacity(target, to: normalWindowOpacity)
             }
         }
     }

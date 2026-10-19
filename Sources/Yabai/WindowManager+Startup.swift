@@ -15,20 +15,20 @@ extension WindowManager
         purifyMode = .disabled
         windowOriginMode = .default
         mouseFollowsFocusEnabled = false
-        enable_window_opacity = false
-        menubar_opacity = 1.0
-        active_window_opacity = 1.0
-        normal_window_opacity = 1.0
-        window_opacity_duration = 0.0
-        window_animation_duration = 0.0
-        window_animation_easing = .easeOutCirc
-        insert_feedback_color = rgba_color_from_hex(0xffd75f5f)
-        enable_window_border = false
-        window_border_hide_single = false
-        window_border_width = 4.0
-        active_window_border_color = rgba_color_from_hex(0xffe1e3e4)
-        normal_window_border_color = rgba_color_from_hex(0xff494d64)
-        focus_wrapping = .on
+        windowOpacityEnabled = false
+        menuBarOpacity = 1.0
+        activeWindowOpacity = 1.0
+        normalWindowOpacity = 1.0
+        windowOpacityDuration = 0.0
+        windowAnimationDuration = 0.0
+        windowAnimationEasing = .easeOutCirc
+        insertionFeedbackColor = rgba_color_from_hex(0xffd75f5f)
+        windowBorderEnabled = false
+        windowBorderHideSingle = false
+        windowBorderWidth = 4.0
+        activeWindowBorderColor = rgba_color_from_hex(0xffe1e3e4)
+        normalWindowBorderColor = rgba_color_from_hex(0xff494d64)
+        focusWrapping = .on
         enable_tab_bar = true
         tab_bar_height = 24
         tab_bar_offset = 0
@@ -84,7 +84,7 @@ extension WindowManager
             lastWindowID = target.id
             focusedWindowID = target.id
             focusedWindowPSN = target.application.psn
-            setWindowOpacity(target, to: active_window_opacity)
+            setWindowOpacity(target, to: activeWindowOpacity)
         }
     }
 }

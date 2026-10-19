@@ -160,10 +160,10 @@ func update_window_notifications()
 {
     let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
     if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
-        wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
+        wm.setWindowOpacity(focusedWindow, to: wm.normalWindowOpacity)
     }
 
-    wm.setWindowOpacity(window, to: wm.active_window_opacity)
+    wm.setWindowOpacity(window, to: wm.activeWindowOpacity)
 
     if wm.focusedWindowID != window.id {
         if ms.ffm_window_id != window.id {
@@ -413,7 +413,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
     if let focusedWindow {
-        wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
+        wm.setWindowOpacity(focusedWindow, to: wm.normalWindowOpacity)
     }
 
     return focusedWindow

@@ -573,8 +573,8 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     let wm = window_manager_global()
     let sm = space_manager_global()
 
-    let windowAnimationDuration = wm.window_animation_duration
-    wm.window_animation_duration = 0.0
+    let windowAnimationDuration = wm.windowAnimationDuration
+    wm.windowAnimationDuration = 0.0
 
     let aWindows = spaceWindowIDs(aSid)
     let bWindows = spaceWindowIDs(bSid)
@@ -611,7 +611,7 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     aView.flush()
     bView.flush()
 
-    wm.window_animation_duration = windowAnimationDuration
+    wm.windowAnimationDuration = windowAnimationDuration
     return .success
 }
 

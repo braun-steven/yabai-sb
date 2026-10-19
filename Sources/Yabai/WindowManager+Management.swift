@@ -58,7 +58,7 @@ extension WindowManager
 
     func setWindowOpacityEnabled(_ enabled: Bool)
     {
-        enable_window_opacity = enabled
+        windowOpacityEnabled = enabled
         for target in window.values where target.isEligibleForManagement {
             setOpacity(for: target, to: enabled ? target.opacity : 1.0)
         }

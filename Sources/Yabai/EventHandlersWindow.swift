@@ -73,7 +73,7 @@ import YabaiCore
     window.unobserve()
     window.destroy()
 
-    if wm.window_border_hide_single {
+    if wm.windowBorderHideSingle {
         border_refresh_space(space_manager_global().current_space_id)
     }
 

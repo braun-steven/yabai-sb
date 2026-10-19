@@ -99,7 +99,7 @@ extension WindowManager
 
         let did = treeDisplay(in: direction, from: owner)
 
-        switch node.neighbor(direction, wrapping: focus_wrapping, hasOutput: did != nil) {
+        switch node.neighbor(direction, wrapping: focusWrapping, hasOutput: did != nil) {
         case .focus(let result):
             guard result.isLeaf else { return .invalidDestinationNode }
             if result.windowID == target.id && node.isLeaf { return .invalidDestinationNode }

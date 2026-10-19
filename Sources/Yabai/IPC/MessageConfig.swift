@@ -243,14 +243,14 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
     let value = token.value
 
     if case .invalid = value {
-        rsp.write("\(cFormat("%f", Double(wm.window_animation_duration)))\n")
+        rsp.write("\(cFormat("%f", Double(wm.windowAnimationDuration)))\n")
     } else if let duration = value.floatValue {
         if duration == 0.0 {
-            wm.window_animation_duration = duration
+            wm.windowAnimationDuration = duration
         } else if !scripting_addition_is_sip_friendly() {
             rsp.fail("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
         } else if CGPreflightScreenCaptureAccess() {
-            wm.window_animation_duration = duration
+            wm.windowAnimationDuration = duration
         } else {
             rsp.fail("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
             CGRequestScreenCaptureAccess()
@@ -364,24 +364,24 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
     let wm = window_manager_global()
 
     if command.equals(Config.border) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.enable_window_border) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { border_refresh_all() }
     } else if command.equals(Config.borderHideSingle) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.window_border_hide_single) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { border_refresh_all() }
     } else if command.equals(Config.borderWidth) {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%.4f", Double(wm.window_border_width)))\n")
+            rsp.write("\(cFormat("%.4f", Double(wm.windowBorderWidth)))\n")
         } else if let width = value.floatValue, width > 0.0 {
-            wm.window_border_width = width
+            wm.windowBorderWidth = width
             border_refresh_all()
         } else {
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.activeBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.active_window_border_color) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { border_refresh_all() }
     } else if command.equals(Config.normalBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.normal_window_border_color) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { border_refresh_all() }
     } else {
         return false
     }
@@ -554,36 +554,36 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.spaceLayout) {
         if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
     } else if command.equals(Config.opacity) {
-        var enabled = wm.enable_window_opacity
+        var enabled = wm.windowOpacityEnabled
         if parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
     } else if command.equals(Config.opacityDuration) {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%f", Double(wm.window_opacity_duration)))\n")
+            rsp.write("\(cFormat("%f", Double(wm.windowOpacityDuration)))\n")
         } else if let duration = value.floatValue {
-            wm.window_opacity_duration = duration
+            wm.windowOpacityDuration = duration
         } else {
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.animationDuration) {
         configAnimationDuration(&rsp, domain, command, &message)
     } else if command.equals(Config.animationEasing) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.window_animation_easing) {
-            wm.window_animation_easing = choice
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowAnimationEasing) {
+            wm.windowAnimationEasing = choice
         }
     } else if command.equals(Config.shadow) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purifyMode) {
             wm.setPurifyMode(choice)
         }
     } else if command.equals(Config.menubarOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menubar_opacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
     } else if command.equals(Config.activeWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.active_window_opacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.activeWindowOpacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
     } else if command.equals(Config.normalWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normal_window_opacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normalWindowOpacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
     } else if command.equals(Config.insertFeedbackColor) {
-        _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
+        _ = configColor(&rsp, domain, command, &message, &wm.insertionFeedbackColor, allowZero: false)
     } else if let spacing = spacing(for: command) {
         let view = selSid.map { space_manager_find_view(sm, $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
@@ -615,8 +615,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.treeAutotiling) {
         _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
     } else if command.equals(Config.focusWrapping) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.focus_wrapping) {
-            wm.focus_wrapping = choice
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.focusWrapping) {
+            wm.focusWrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
         if let selSid {

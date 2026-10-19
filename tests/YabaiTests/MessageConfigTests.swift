@@ -44,19 +44,19 @@ extension DaemonState
 
             let mff = wm.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
-            let wrapping = wm.focus_wrapping
+            let wrapping = wm.focusWrapping
             let topPadding = sm.top_padding
             defer {
                 wm.mouseFollowsFocusEnabled = mff
                 mouse.modifier = modifier
-                wm.focus_wrapping = wrapping
+                wm.focusWrapping = wrapping
                 sm.top_padding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
             #expect(wm.mouseFollowsFocusEnabled)
             #expect(mouse.modifier == .ctrl)
-            #expect(wm.focus_wrapping == .force)
+            #expect(wm.focusWrapping == .force)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
@@ -76,13 +76,13 @@ extension DaemonState
             let sm = space_manager_global()
 
             let grid = wm.scratchpad_grid
-            let duration = wm.window_animation_duration
-            let opacityDuration = wm.window_opacity_duration
+            let duration = wm.windowAnimationDuration
+            let opacityDuration = wm.windowOpacityDuration
             let workspaceTabbed = sm.tree_workspace_tabbed
             defer {
                 wm.scratchpad_grid = grid
-                wm.window_animation_duration = duration
-                wm.window_opacity_duration = opacityDuration
+                wm.windowAnimationDuration = duration
+                wm.windowOpacityDuration = opacityDuration
                 sm.tree_workspace_tabbed = workspaceTabbed
             }
 

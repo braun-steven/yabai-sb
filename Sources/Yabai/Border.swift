@@ -410,7 +410,7 @@ private func borderShouldShow(_ target: Window) -> Bool
 }
 
 //
-// NOTE: The number of windows that count for window_border_hide_single on a space: the tiled windows, where a tabbed
+// NOTE: The number of windows that count for windowBorderHideSingle on a space: the tiled windows, where a tabbed
 // container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
 //
 private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
@@ -440,17 +440,17 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
     let windowArea = border.window
     let borderArea = border.border
     let containerRadius = border.radius
-    var enabled = wm.enable_window_border && borderShouldShow(target) && border.visible
-    if enabled && wm.window_border_hide_single && owner != nil && target.scratchpad == nil {
+    var enabled = wm.windowBorderEnabled && borderShouldShow(target) && border.visible
+    if enabled && wm.windowBorderHideSingle && owner != nil && target.scratchpad == nil {
         let count = windowCount ?? borderSpaceWindowCount(sid ?? target.id.space)
         enabled = count > 1
     }
     let focused = wm.focusedWindowID == target.id
     borderLock.withLock { state in
-        state.settings.enabled = wm.enable_window_border
-        state.settings.width = wm.window_border_width
-        state.settings.activeColor = wm.active_window_border_color
-        state.settings.normalColor = wm.normal_window_border_color
+        state.settings.enabled = wm.windowBorderEnabled
+        state.settings.width = wm.windowBorderWidth
+        state.settings.activeColor = wm.activeWindowBorderColor
+        state.settings.normalColor = wm.normalWindowBorderColor
         if state.borders[target.id] == nil && enabled {
             let border = Border(target.id)
             border.radius = borderWindowRadius(target.id)
@@ -519,7 +519,7 @@ func border_end_batch()
 func border_refresh(_ target: Window!) { borderRefreshWithCount(target, nil, nil) }
 
 //
-// NOTE: Without window_border_hide_single a change on a space only affects the borders of its tiled windows and of
+// NOTE: Without windowBorderHideSingle a change on a space only affects the borders of its tiled windows and of
 // the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
 // without asking the window server for the space of every window.
 //
@@ -528,7 +528,7 @@ func border_refresh_space(_ sid: SpaceID?)
     guard let sid else { return }
     border_begin_batch()
     defer { border_end_batch() }
-    if window_manager_global().window_border_hide_single {
+    if window_manager_global().windowBorderHideSingle {
         let count = borderSpaceWindowCount(sid)
         for target in window_manager_global().window.values where target.id.space == sid { borderRefreshWithCount(target, sid, count) }
         return
@@ -549,7 +549,7 @@ func border_refresh_window_space(_ target: Window!)
 {
     guard let target, !target.isDestroyed else { return }
     let sid = target.id.space
-    if window_manager_global().window_border_hide_single, let sid { border_refresh_space(sid) }
+    if window_manager_global().windowBorderHideSingle, let sid { border_refresh_space(sid) }
     else { border_refresh(target) }
 }
 
@@ -559,7 +559,7 @@ func border_refresh_all()
     for target in window_manager_global().window.values {
         let sid = target.id.space
         var count: Int?
-        if window_manager_global().window_border_hide_single, let sid {
+        if window_manager_global().windowBorderHideSingle, let sid {
             count = counts[sid]
             if count == nil {
                 let spaceCount = borderSpaceWindowCount(sid)

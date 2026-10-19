@@ -135,11 +135,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [~] | bd28acbe | 3.1–3.3 done |
+| **3** | **Models and managers as types with methods** | [~] | e12b2e71 | 3.1–3.4 done |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
 | 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
 | 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
-| 3.4 | Events, signals, rendering, input, SA, startup | [ ] | | |
+| 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [ ] | | |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [ ] | | |
 | **4** | **Compiler-checked isolation** | [ ] | | |
@@ -672,3 +672,33 @@ not here.
   (/tmp/displays/rewrite.py, /tmp/spaceids/rewrite.py, outside the repo); it skips string interpolations, so grep for
   leftovers. A stored property and a method with the same base name (`view` vs `view(for:)`) were avoided by renaming
   the dictionary to `views`.
+
+### 2026-10-19 Subphase 3.4 [x]
+- Commits: 3cf826e3..e12b2e71 (11 pieces, each through a Haiku agent, plus this report).
+- Done: `SLS.connection` replaces `connection_global()`/`g_connection`; Helpers/Log: `OSTimer`, `RGBAColor(hex:)` (`argb`),
+  `UnixSocket`, `String.bytesEqual`, `SLS.disableShadow`, `AXUIElement.windowID/pid`, `ProcessSerialNumber.isSame(as:)`,
+  CGRect/CGPoint/Float helpers, `Log.verbose`, `debugMessage`; `Daemon.run`/`Daemon.isRoot` and `Service.install()` etc.;
+  `ScriptingAddition.shared` (`focusSpace(_:)`, `moveSpace(_:after:focus:)`, `setLayer(_:of:)`, `orderWindows(_:)` with
+  `WindowOrder`, `socketPath`, …); `@WM final class EventSignals` with typed `SignalSubject` (no raw pointer contexts),
+  describe functions as `PendingSignal` methods; `Border` statics (`refresh(_:)`, `refreshSpace(of:)`, `windowMoved(_:)`, …)
+  with a `BorderUpdate` OptionSet; `TabBar` members (`render(frame:card:above:entries:count:)`, `TabBar.refreshAll()`, …),
+  `weak var owner: Con?` instead of the C callback, `TabBarGlass` statics; `WindowPlacement` (was `window_capture`),
+  `WindowManager.animateWindows/animateWindow/setWindowFrames`, `Window.setFrame`, `WindowFrameGroup.groups(for:)`;
+  `MouseState.shared` with camelCase fields, `resolveDrop(onto:at:)`, `drop(_:from:onto:in:at:)`, `beginEventTap(mask:)`;
+  `@WM final class EventHandler` with the handlers as methods in `EventHandler{,+Window,+Space,+Mouse,+System}.swift`,
+  `pending_*` accessors replaced by atomic ops at the call sites, `Process.nameAndPID`/`launchRetryDelay`,
+  `ResizeHandle(at:in:)`, `WindowManager.updateWindowNotifications()`; debug prefixes name Swift methods
+  (`WindowManager.addExistingApplicationWindows:`, …).
+- Output changes: none (golden untouched); only verbose debug texts changed their prefixes.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden, at every piece's commit.
+- Decisions: per-window `Border` class became internal so its statics form the API; `EventHandler`/`EventSignals` are
+  `@WM` classes with `static let shared` (compiles in Swift 6.4); atomics stay global `let`s; `MouseState.setDefaults()`
+  kept (tests and golden depend on `.none` defaults before startup); `ScriptingAddition` reaches its `@WM` cache through
+  `.shared` inside `WM.assumeIsolated` closures (capturing `self` is rejected as a data race).
+- Next: for 3.5: `macho_find_symbol` (Platform/MachO.swift) and the raw SkyLight/AX calls. Phase 5 / 6.4: IPC
+  `message_loop_begin`, `daemon_message_handle`, the `var connection` alias in `Serialize.swift`. Optional: some
+  `@Test` display names still carry C names.
+- Notes for the next agent: the event handler files were re-indented into extensions, so git shows them as new files;
+  compare with a whitespace-normalized diff. Methods named like Darwin functions (`UnixSocket.connect/close`) must
+  call `Darwin.` explicitly, and a method `notify(_:)` would shadow the global `notify(_:_:)` (hence
+  `ScriptingAddition.report(_:)`).

@@ -284,20 +284,30 @@ public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ r
             validPattern = rule.subrole?.regex != nil
         } else if key.equals("display") {
             value = parseRuleFollowPrefix(&rule.effects, value)
-            let selector = parseDisplaySelector(value, acting: context.activeDisplay, optional: false, context)
-            if let failure = selector.failure { failures.append(failure) }
-            if selector.didParse, let did = selector.value {
-                rule.effects.did = did
+            if let selector = DisplaySelector(value) {
+                do {
+                    if let did = try selector.resolve(acting: context.activeDisplay, context) { rule.effects.did = did }
+                    else { didParse = false }
+                } catch {
+                    failures.append(error)
+                    if case .label = selector { didParse = false }
+                }
             } else {
+                failures.append(DisplaySelector.invalid(value))
                 didParse = false
             }
         } else if key.equals("space") {
             value = parseRuleFollowPrefix(&rule.effects, value)
-            let selector = parseSpaceSelector(value, acting: context.activeSpace, optional: false, context)
-            if let failure = selector.failure { failures.append(failure) }
-            if selector.didParse, let sid = selector.value {
-                rule.effects.sid = sid
+            if let selector = SpaceSelector(value) {
+                do {
+                    if let sid = try selector.resolve(acting: context.activeSpace, context) { rule.effects.sid = sid }
+                    else { didParse = false }
+                } catch {
+                    failures.append(error)
+                    if case .label = selector { didParse = false }
+                }
             } else {
+                failures.append(SpaceSelector.invalid(value))
                 didParse = false
             }
         } else if key.equals("grid") {

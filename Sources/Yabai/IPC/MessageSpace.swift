@@ -25,13 +25,21 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
 
     let command: Token
     var actingDid = DisplayID.active
-    let selector = parseDisplaySelector(message.next(), acting: actingDid, optional: true, context)
-
-    if selector.didParse {
-        actingDid = selector.value
-        command = message.next()
+    let selectorToken = message.next()
+    if let selector = DisplaySelector(selectorToken) {
+        do {
+            actingDid = try selector.resolve(acting: actingDid, context)
+            command = message.next()
+        } catch {
+            if case .label = selector {
+                command = selectorToken
+            } else {
+                actingDid = nil
+                command = message.next()
+            }
+        }
     } else {
-        command = selector.token
+        command = selectorToken
     }
 
     guard let did = actingDid else {
@@ -178,13 +186,22 @@ private extension SpaceCommand
 {
     let command: Token
     var actingSid = SpaceID.active
-    let selector = parseSpaceSelector(message.next(), acting: actingSid, optional: true, CSelectorContext())
-
-    if selector.didParse {
-        actingSid = selector.value
-        command = message.next()
+    let selectorToken = message.next()
+    let context = CSelectorContext()
+    if let selector = SpaceSelector(selectorToken) {
+        do {
+            actingSid = try selector.resolve(acting: actingSid, context)
+            command = message.next()
+        } catch {
+            if case .label = selector {
+                command = selectorToken
+            } else {
+                actingSid = nil
+                command = message.next()
+            }
+        }
     } else {
-        command = selector.token
+        command = selectorToken
     }
 
     if actingSid == nil {

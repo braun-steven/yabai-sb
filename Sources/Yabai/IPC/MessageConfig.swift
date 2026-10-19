@@ -485,8 +485,8 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     var command = selector
 
     if selector.equals(Config.spaceSelector) {
-        let spaceSelector = try parseSpaceSelector(message.next(), acting: nil, optional: false, CSelectorContext()).checked()
-        guard spaceSelector.didParse, let target = spaceSelector.value else { return }
+        let spaceSelector = try SpaceSelector.required(message.next())
+        guard let target = try spaceSelector.resolve(acting: nil, CSelectorContext()) else { return }
 
         selSid = target
         command = message.next()

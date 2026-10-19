@@ -105,7 +105,7 @@ private enum ResolvedQueryTarget
 
 @WM func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    let command = try YabaiCore.RuleCommand.parse(&message, CSelectorContext())
+    let command = try RuleCommand.parse(&message, CSelectorContext())
     switch command {
     case .add(let rule):
         WindowManager.shared.addRule(rule)
@@ -140,7 +140,7 @@ private enum ResolvedQueryTarget
 
 @WM func handleDomainSignal(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    let command = try YabaiCore.SignalCommand<SignalType>.parse(&message) { SignalType(name: $0) }
+    let command = try SignalCommand.parse(&message)
     switch command {
     case .add(let signal, let type): EventSignals.shared.table.add(signal, type)
     case .remove(let selector):

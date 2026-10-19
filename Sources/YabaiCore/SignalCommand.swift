@@ -5,11 +5,10 @@ public enum SignalSelector
     case label(Token)
 }
 
-/// A parsed command of the signal domain. Event remains generic so YabaiCore does not depend on daemon-owned signal
-/// registration details.
-public enum SignalCommand<Event>
+/// A command of the signal domain, parsed into its operation and payload.
+public enum SignalCommand
 {
-    case add(EventSignal, Event)
+    case add(EventSignal, SignalType)
     case remove(SignalSelector)
     case list
 
@@ -26,8 +25,8 @@ public enum SignalCommand<Event>
         }
     }
 
-    /// Parses one signal command and resolves its event name with the supplied lookup.
-    public static func parse(_ message: inout some TokenSource, eventType: (Token) -> Event?) throws(CommandError) -> SignalCommand<Event>
+    /// Parses one signal command.
+    public static func parse(_ message: inout some TokenSource) throws(CommandError) -> SignalCommand
     {
         let command = message.next()
         guard let name = Name(command) else { throw CommandError.unknownCommand(Token(Domain.signal), command) }
@@ -35,8 +34,8 @@ public enum SignalCommand<Event>
         switch name {
         case .add:
             var signal = EventSignal()
-            var event: Event?
-            try parseSignal(&message, &signal, &event, eventType: eventType)
+            var event: SignalType?
+            try parseSignal(&message, &signal, &event) { SignalType(name: $0) }
             guard let event else { preconditionFailure("parseSignal requires an event") }
             return .add(signal, event)
 

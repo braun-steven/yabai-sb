@@ -659,24 +659,24 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
 @Test func signalCommandsParseOperationsAndPayloads() throws(CommandError)
 {
     var add = Message("--add\0event=window_focused\0app=Finder\0active=yes\0action=echo hi\0")
-    guard case .add(let signal, let event) = try SignalCommand<Int>.parse(&add, eventType: { $0.equals("window_focused") ? 7 : nil }) else {
+    guard case .add(let signal, let event) = try SignalCommand.parse(&add) else {
         Issue.record("expected a parsed add command")
         return
     }
-    #expect(event == 7)
+    #expect(event == .windowFocused)
     #expect(signal.app?.text == "Finder")
     #expect(signal.active == true)
     #expect(signal.command == "echo hi")
 
     var remove = Message("--remove\0signal-label\0")
-    guard case .remove(.label(let label)) = try SignalCommand<Int>.parse(&remove, eventType: { _ in nil }) else {
+    guard case .remove(.label(let label)) = try SignalCommand.parse(&remove) else {
         Issue.record("expected a label remove selector")
         return
     }
     #expect(label.equals("signal-label"))
 
     var list = Message("--list\0")
-    guard case .list = try SignalCommand<Int>.parse(&list, eventType: { _ in nil }) else {
+    guard case .list = try SignalCommand.parse(&list) else {
         Issue.record("expected a list command")
         return
     }

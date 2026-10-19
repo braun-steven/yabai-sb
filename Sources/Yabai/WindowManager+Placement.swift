@@ -14,7 +14,7 @@ extension WindowManager
             if let next = window(on: source, byRank: 1, excluding: target.id) {
                 focusWithRaise(next)
             } else {
-                _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
+                _SLPSSetFrontProcessWithOptions(&ProcessManager.shared.finderPSN, 0, FrontProcessMode.noWindows.rawValue)
             }
         }
 

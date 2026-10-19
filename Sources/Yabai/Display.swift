@@ -68,7 +68,7 @@ func display_bounds_constrained(_ did: DisplayID, _ ignoreExternalBar: Bool) -> 
     }
 
     if display_manager_menu_bar_hidden() {
-        let notchHeight = workspace_display_notch_height(did)
+        let notchHeight = did.notchHeight
         if notchHeight > effectiveExtTopPadding {
             frame.origin.y    += CGFloat(notchHeight - effectiveExtTopPadding)
             frame.size.height -= CGFloat(notchHeight - effectiveExtTopPadding)

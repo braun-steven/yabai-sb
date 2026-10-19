@@ -6,7 +6,7 @@ import YabaiCore
 // NOTE: The NSWorkspace, distributed and local notifications that yabai follows, and the key-value observations of the
 // NSRunningApplication of a process (finishedLaunching, activationPolicy). The notifications arrive on the main thread,
 // the key-value changes on the thread that changes the property (or inside addObserver, for the initial value); both only
-// post events. Ported from src/workspace.m; the context object is a Swift global instead of g_workspace_context.
+// post events.
 //
 
 private enum KeyPath
@@ -19,7 +19,7 @@ private enum KeyPath
 // NOTE: Sendable: the context has no stored state; it only receives notifications and key-value changes on any thread.
 //
 
-final class WorkspaceContext: NSObject, Sendable
+final class Workspace: NSObject, Sendable
 {
     override init()
     {
@@ -77,7 +77,7 @@ final class WorkspaceContext: NSObject, Sendable
     {
         if keyPath == KeyPath.activationPolicy {
             let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
-            if process_is_terminated_acquire(process) { return }
+            if process.terminated.load(ordering: .acquiring) { return }
 
             let result = (change?[.newKey] as? NSNumber)?.intValue ?? 0
             if result != process.policy {
@@ -100,7 +100,7 @@ final class WorkspaceContext: NSObject, Sendable
 
         if keyPath == KeyPath.finishedLaunching {
             let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
-            if process_is_terminated_acquire(process) { return }
+            if process.terminated.load(ordering: .acquiring) { return }
 
             let result = (change?[.newKey] as? NSNumber)?.intValue ?? 0
             if result == 1 {
@@ -162,171 +162,172 @@ final class WorkspaceContext: NSObject, Sendable
         let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier ?? 0
         EventLoop.post(.applicationVisible(pid: pid))
     }
-}
 
-// created by workspace_event_handler_begin, and alive as long as the daemon
-private let workspaceContext = WorkspaceContext()
+    /// Created by `begin()`, and alive as long as the daemon.
+    static let shared = Workspace()
 
-/// `workspace_event_handler_begin`: called by yabai_main on the main thread, before the event loop starts.
-func workspace_event_handler_begin() -> Bool
-{
-    _ = workspaceContext
-    return true
+    /// Called by yabai_main on the main thread, before the event loop starts.
+    static func begin() -> Bool
+    {
+        _ = shared
+        return true
+    }
+
+    /// The pid of the Dock, or nil.
+    static var dockPID: pid_t?
+    {
+        let list = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock")
+
+        if list.count == 1 {
+            return list[0].processIdentifier
+        }
+
+        return nil
+    }
 }
 
 //
-// NOTE: process->ns_application holds the NSRunningApplication at +1 (passRetained), from
-// workspace_application_create_running_ns_application until workspace_application_destroy_running_ns_application.
-// The context of the key-value observations is the process, unretained: its observations are removed when the process
-// terminates (workspace_application_unobserve), before the handler of APPLICATION_TERMINATED releases it.
+// NOTE: runningApplicationPointer holds the NSRunningApplication at +1 (passRetained), from attachRunningApplication()
+// until releaseRunningApplication(). The context of the key-value observations is the process, unretained: its
+// observations are removed when the process terminates (unobserve()), before the handler of APPLICATION_TERMINATED
+// releases it.
 //
 
-private func observationContext(_ process: Process) -> UnsafeMutableRawPointer
+extension Process
 {
-    return Unmanaged.passUnretained(process).toOpaque()
-}
-
-/// `workspace_application_create_running_ns_application`: the retained NSRunningApplication of the process, or nil.
-func workspace_application_create_running_ns_application(_ process: Process) -> UnsafeMutableRawPointer?
-{
-    return NSRunningApplication(processIdentifier: process.pid).map { Unmanaged.passRetained($0).toOpaque() }
-}
-
-private func runningApplication(_ process: Process) -> NSRunningApplication?
-{
-    return process_ns_application(process).map { Unmanaged<NSRunningApplication>.fromOpaque($0).takeUnretainedValue() }
-}
-
-//
-// NOTE: Removing an observation that is not registered throws, and there is no way to list the
-// registered observations, so failures are ignored.
-//
-
-private func workspaceApplicationRemoveObserver(_ application: NSRunningApplication, _ process: Process, _ keyPath: String)
-{
-    NSObjectRemoveObserverC(application, workspaceContext, keyPath, observationContext(process))
-}
-
-/// `workspace_application_destroy_running_ns_application`
-func workspace_application_destroy_running_ns_application(_ process: Process)
-{
-    guard let pointer = process_ns_application(process) else { return }
-    let application = Unmanaged<NSRunningApplication>.fromOpaque(pointer)
-
-    if application.takeUnretainedValue().observationInfo != nil {
-
-        //
-        // :WorstApiEverMade
-        //
-        // NOTE(asmvik): Because the developers of this API did such an amazing job
-        // there is no way for us to actually just friggin loop through the currently
-        // registered observations and then call removeObservation on them..
-        //
-        // Instead we just try to force remove the observations that **could** be present
-        // at this point in time, because it will complain if we try to actually release
-        // the object when it has observers present.
-        //
-        // We can't actually correctly track whether it did actually get unobserved previously,
-        // because even when our notification callback is triggered it will claim that we try
-        // to remove a non-existing observation when it just called us back.
-        //
-
-        workspaceApplicationRemoveObserver(application.takeUnretainedValue(), process, KeyPath.activationPolicy)
-        workspaceApplicationRemoveObserver(application.takeUnretainedValue(), process, KeyPath.finishedLaunching)
+    private var observationContext: UnsafeMutableRawPointer
+    {
+        return Unmanaged.passUnretained(self).toOpaque()
     }
 
-    application.release()
-}
-
-private func workspaceApplicationAddObserver(_ process: Process, _ keyPath: String)
-{
-    if let application = runningApplication(process) {
-        application.addObserver(workspaceContext, forKeyPath: keyPath, options: [.initial, .new], context: observationContext(process))
-    } else {
-        debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(describe(process))\n")
+    /// Stores the retained NSRunningApplication of the process, or nil.
+    func attachRunningApplication()
+    {
+        runningApplicationPointer.store(NSRunningApplication(processIdentifier: pid).map { Unmanaged.passRetained($0).toOpaque() }, ordering: .releasing)
     }
-}
 
-/// `workspace_application_observe_finished_launching`
-func workspace_application_observe_finished_launching(_ process: Process)
-{
-    workspaceApplicationAddObserver(process, KeyPath.finishedLaunching)
-}
-
-/// `workspace_application_observe_activation_policy`: window_manager_begin calls it for a process that is not observable.
-func workspace_application_observe_activation_policy(_ process: Process)
-{
-    workspaceApplicationAddObserver(process, KeyPath.activationPolicy)
-}
-
-private func workspaceApplicationRemoveObserverIfObserved(_ process: Process, _ keyPath: String)
-{
-    if let application = runningApplication(process), application.observationInfo != nil {
-        workspaceApplicationRemoveObserver(application, process, keyPath)
+    var runningApplication: NSRunningApplication?
+    {
+        return runningApplicationPointer.load(ordering: .relaxed).map { Unmanaged<NSRunningApplication>.fromOpaque($0).takeUnretainedValue() }
     }
-}
 
-/// `workspace_application_unobserve_finished_launching`
-func workspace_application_unobserve_finished_launching(_ process: Process)
-{
-    workspaceApplicationRemoveObserverIfObserved(process, KeyPath.finishedLaunching)
-}
+    //
+    // NOTE: Removing an observation that is not registered throws, and there is no way to list the
+    // registered observations, so failures are ignored.
+    //
 
-/// `workspace_application_unobserve_activation_policy`
-func workspace_application_unobserve_activation_policy(_ process: Process)
-{
-    workspaceApplicationRemoveObserverIfObserved(process, KeyPath.activationPolicy)
-}
-
-/// `workspace_application_unobserve`: called by the process handler when the process terminates.
-func workspace_application_unobserve(_ process: Process)
-{
-    if let application = runningApplication(process) {
-        workspaceApplicationRemoveObserver(application, process, KeyPath.activationPolicy)
-        workspaceApplicationRemoveObserver(application, process, KeyPath.finishedLaunching)
+    private func removeObserver(from application: NSRunningApplication, _ keyPath: String)
+    {
+        NSObjectRemoveObserverC(application, Workspace.shared, keyPath, observationContext)
     }
-}
 
-/// `workspace_application_is_observable`: whether the process is a regular application; stores its policy.
-func workspace_application_is_observable(_ process: Process) -> Bool
-{
-    if let application = runningApplication(process) {
-        process.policy = application.activationPolicy.rawValue
-        return process.policy == NSApplication.ActivationPolicy.regular.rawValue
-    } else {
-        process.policy = NSApplication.ActivationPolicy.prohibited.rawValue
-        return false
+    func releaseRunningApplication()
+    {
+        guard let pointer = runningApplicationPointer.load(ordering: .relaxed) else { return }
+        let application = Unmanaged<NSRunningApplication>.fromOpaque(pointer)
+
+        if application.takeUnretainedValue().observationInfo != nil {
+
+            //
+            // :WorstApiEverMade
+            //
+            // NOTE(asmvik): Because the developers of this API did such an amazing job
+            // there is no way for us to actually just friggin loop through the currently
+            // registered observations and then call removeObservation on them..
+            //
+            // Instead we just try to force remove the observations that **could** be present
+            // at this point in time, because it will complain if we try to actually release
+            // the object when it has observers present.
+            //
+            // We can't actually correctly track whether it did actually get unobserved previously,
+            // because even when our notification callback is triggered it will claim that we try
+            // to remove a non-existing observation when it just called us back.
+            //
+
+            removeObserver(from: application.takeUnretainedValue(), KeyPath.activationPolicy)
+            removeObserver(from: application.takeUnretainedValue(), KeyPath.finishedLaunching)
+        }
+
+        application.release()
     }
-}
 
-/// `workspace_application_is_finished_launching`
-func workspace_application_is_finished_launching(_ process: Process) -> Bool
-{
-    return runningApplication(process)?.isFinishedLaunching ?? false
-}
-
-/// `workspace_display_notch_height`: the top safe area inset of a builtin display, else 0.
-func workspace_display_notch_height(_ did: DisplayID) -> Int
-{
-    if CGDisplayIsBuiltin(did.rawValue) == 0 { return 0 }
-
-    for screen in NSScreen.screens {
-        if (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == did.rawValue {
-            return Int(screen.safeAreaInsets.top)
+    private func addObserver(_ keyPath: String)
+    {
+        if let application = runningApplication {
+            application.addObserver(Workspace.shared, forKeyPath: keyPath, options: [.initial, .new], context: observationContext)
+        } else {
+            debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(describe(self))\n")
         }
     }
 
-    return 0
-}
-
-/// `workspace_get_dock_pid`: the pid of the Dock, or nil.
-func workspace_get_dock_pid() -> pid_t?
-{
-    let list = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock")
-
-    if list.count == 1 {
-        return list[0].processIdentifier
+    func observeFinishedLaunching()
+    {
+        addObserver(KeyPath.finishedLaunching)
     }
 
-    return nil
+    /// Called by WindowManager.begin for a process that is not observable.
+    func observeActivationPolicy()
+    {
+        addObserver(KeyPath.activationPolicy)
+    }
+
+    private func removeObserverIfObserved(_ keyPath: String)
+    {
+        if let application = runningApplication, application.observationInfo != nil {
+            removeObserver(from: application, keyPath)
+        }
+    }
+
+    func unobserveFinishedLaunching()
+    {
+        removeObserverIfObserved(KeyPath.finishedLaunching)
+    }
+
+    func unobserveActivationPolicy()
+    {
+        removeObserverIfObserved(KeyPath.activationPolicy)
+    }
+
+    /// Called by the process handler when the process terminates.
+    func unobserve()
+    {
+        if let application = runningApplication {
+            removeObserver(from: application, KeyPath.activationPolicy)
+            removeObserver(from: application, KeyPath.finishedLaunching)
+        }
+    }
+
+    /// Whether the process is a regular application; stores its activation policy in `policy`.
+    func isObservable() -> Bool
+    {
+        if let application = runningApplication {
+            policy = application.activationPolicy.rawValue
+            return policy == NSApplication.ActivationPolicy.regular.rawValue
+        } else {
+            policy = NSApplication.ActivationPolicy.prohibited.rawValue
+            return false
+        }
+    }
+
+    var isFinishedLaunching: Bool
+    {
+        return runningApplication?.isFinishedLaunching ?? false
+    }
+}
+
+extension DisplayID
+{
+    /// The top safe area inset of a builtin display, else 0.
+    var notchHeight: Int
+    {
+        if CGDisplayIsBuiltin(rawValue) == 0 { return 0 }
+
+        for screen in NSScreen.screens {
+            if (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == rawValue {
+                return Int(screen.safeAreaInsets.top)
+            }
+        }
+
+        return 0
+    }
 }

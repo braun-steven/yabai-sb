@@ -62,8 +62,8 @@ extension WindowManager
     {
         autoreleasepool {
             // Applications in pid order, so their windows tile in the same order every start.
-            for candidate in process_manager_global().process.values.sorted(by: { $0.pid < $1.pid }) {
-                if workspace_application_is_observable(candidate) {
+            for candidate in ProcessManager.shared.processes.values.sorted(by: { $0.pid < $1.pid }) {
+                if candidate.isObservable() {
                     let created = Application(process: candidate)
 
                     if created.observe() {
@@ -75,7 +75,7 @@ extension WindowManager
                     }
                 } else {
                     debug("window_manager_begin: \(describe(candidate)) is not observable, subscribing to activationPolicy changes\n")
-                    workspace_application_observe_activation_policy(candidate)
+                    candidate.observeActivationPolicy()
                 }
             }
         }

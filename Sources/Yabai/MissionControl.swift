@@ -113,7 +113,7 @@ func mission_control_observe()
 {
     if missionControlObserver.isObserving { return }
 
-    guard let pid = workspace_get_dock_pid() else { return }
+    guard let pid = Workspace.dockPID else { return }
     missionControlObserver.ref = AXUIElementCreateApplication(pid)
 
     guard let ref = missionControlObserver.ref else { return }

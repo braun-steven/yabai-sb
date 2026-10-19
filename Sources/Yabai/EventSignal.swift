@@ -60,7 +60,7 @@ func signalObject(_ object: AnyObject) -> UnsafeMutableRawPointer
 
 private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
-    let pm = process_manager_global()
+    let pm = ProcessManager.shared
 
     switch es.type {
     case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:
@@ -84,22 +84,22 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
         // The dt threshold below is triple the average interval computed, to allow for some leeway.
         //
 
-        let dt = GetCurrentEventTime() - pm.switch_event_time
+        let dt = GetCurrentEventTime() - pm.switchEventTime
         if dt >= Double(Float(0.05)) {
-            es.active = pm.front_pid == app.pid
+            es.active = pm.frontPID == app.pid
         } else {
-            es.active = pm.last_front_pid == app.pid
+            es.active = pm.lastFrontPID == app.pid
         }
     case .applicationFrontSwitched:
-        es.addArgument("YABAI_PROCESS_ID", "\(pm.front_pid)")
-        es.addArgument("YABAI_RECENT_PROCESS_ID", "\(pm.last_front_pid)")
+        es.addArgument("YABAI_PROCESS_ID", "\(pm.frontPID)")
+        es.addArgument("YABAI_RECENT_PROCESS_ID", "\(pm.lastFrontPID)")
     case .applicationHidden:
         let app = Unmanaged<Application>.fromOpaque(context!).takeUnretainedValue()
 
         es.addArgument("YABAI_PROCESS_ID", "\(app.pid)")
 
         es.app = app.name
-        es.active = pm.front_pid == app.pid
+        es.active = pm.frontPID == app.pid
     default:
         break
     }

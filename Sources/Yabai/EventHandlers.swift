@@ -221,20 +221,19 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
 @WM private func applicationLaunchRetry(_ process: Process)
 {
-    if !applicationLaunchCanRetry(process.launch_attempts) {
-        process.launch_given_up = true
-        debug("application_launch_retry: giving up on \(describe(process)) after \(process.launch_attempts) attempts\n")
+    if !applicationLaunchCanRetry(process.launchAttempts) {
+        process.launchGivenUp = true
+        debug("application_launch_retry: giving up on \(describe(process)) after \(process.launchAttempts) attempts\n")
         return
     }
 
-    let delay = applicationLaunchRetryDelay(process.launch_attempts)
-    process.launch_attempts += 1
-    debug("application_launch_retry: retrying \(describe(process)) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launch_attempts))\n")
+    let delay = applicationLaunchRetryDelay(process.launchAttempts)
+    process.launchAttempts += 1
+    debug("application_launch_retry: retrying \(describe(process)) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launchAttempts))\n")
 
     let psn = process.psn
     DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(delay * Float(NSEC_PER_SEC)))) {
-        var psn = psn
-        if let process = process_manager_find_process(process_manager_global(), &psn) {
+        if let process = ProcessManager.shared.process(for: psn) {
             EventLoop.post(.applicationLaunched(Handoff(value: process)))
         }
     }
@@ -245,47 +244,47 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     let wm = WindowManager.shared
 
-    if process_is_terminated(process) {
+    if process.isTerminated {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) terminated during launch\n")
         wm.removeLostFrontSwitchedEvent(for: process.pid)
         return
     }
 
-    if process_ns_application(process) == nil {
+    if !process.hasRunningApplication {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) missing ns_application. fetching..\n")
-        process_set_ns_application(process, workspace_application_create_running_ns_application(process))
+        process.attachRunningApplication()
 
-        if process_ns_application(process) == nil {
+        if !process.hasRunningApplication {
             debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) unable to fetch ns_application..\n")
             applicationLaunchRetry(process)
             return
         }
     }
 
-    if !workspace_application_is_finished_launching(process) {
+    if !process.isFinishedLaunching {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) is not finished launching, subscribing to finishedLaunching changes\n")
-        workspace_application_observe_finished_launching(process)
+        process.observeFinishedLaunching()
 
         //
         // NOTE(asmvik): Do this again in case of race-conditions between the previous check and key-value observation subscription.
         // Not actually sure if this can happen in practice..
         //
 
-        if !workspace_application_is_finished_launching(process) { return }
-        workspace_application_unobserve_finished_launching(process)
+        if !process.isFinishedLaunching { return }
+        process.unobserveFinishedLaunching()
     }
 
-    if !workspace_application_is_observable(process) {
+    if !process.isObservable() {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) is not observable, subscribing to activationPolicy changes\n")
-        workspace_application_observe_activation_policy(process)
+        process.observeActivationPolicy()
 
         //
         // NOTE(asmvik): Do this again in case of race-conditions between the previous check and key-value observation subscription.
         // Not actually sure if this can happen in practice..
         //
 
-        if !workspace_application_is_observable(process) { return }
-        workspace_application_unobserve_activation_policy(process)
+        if !process.isObservable() { return }
+        process.unobserveActivationPolicy()
     }
 
     //
@@ -315,8 +314,8 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process))\n")
     wm.addApplication(application)
     eventSignalPush(.applicationLaunched, signalObject(application))
-    process.launch_attempts = 0
-    process.launch_given_up = false
+    process.launchAttempts = 0
+    process.launchGivenUp = false
 
     let windows = wm.addApplicationWindows(application)
     update_window_notifications()
@@ -330,7 +329,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 /// `EVENT_HANDLER(APPLICATION_TERMINATED)`
 @WM func applicationTerminated(_ process: Process)
 {
-    defer { process_destroy(process) }
+    defer { process.releaseRunningApplication() }
 
     let wm = WindowManager.shared
     let ms = mouse_state_global()
@@ -389,7 +388,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
 @WM private func applicationFrontSwitchedFocusSpace(_ application: Application, _ process: Process)
 {
-    let psnSid = process_manager_active_space_for_psn(application.connection)
+    let psnSid = ProcessManager.shared.activeSpace(forConnection: application.connection)
 
     let dt = os_timer_ms_between(lastCmdTabTime.load(ordering: .relaxed), read_os_timer())
     if dt > 1500.0 {
@@ -445,15 +444,15 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 @WM func applicationFrontSwitched(_ process: Process)
 {
     let wm = WindowManager.shared
-    let pm = process_manager_global()
+    let pm = ProcessManager.shared
 
     guard let application = wm.application(for: process.pid) else {
         wm.addLostFrontSwitchedEvent(for: process.pid)
 
-        if process.launch_given_up {
+        if process.launchGivenUp {
             debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process)) was activated, trying to observe it again\n")
-            process.launch_attempts = 0
-            process.launch_given_up = false
+            process.launchAttempts = 0
+            process.launchGivenUp = false
             EventLoop.post(.applicationLaunched(Handoff(value: process)))
         }
 
@@ -464,15 +463,15 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         applicationFrontSwitchedFocusSpace(application, process)
     }
 
-    if let deactivatedApplication = wm.application(for: pm.front_pid) {
+    if let deactivatedApplication = wm.application(for: pm.frontPID) {
         eventSignalPush(.applicationDeactivated, signalObject(deactivatedApplication))
     }
 
     debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process))\n")
     eventSignalPush(.applicationActivated, signalObject(application))
-    pm.switch_event_time = GetCurrentEventTime()
-    pm.last_front_pid = pm.front_pid
-    pm.front_pid = process.pid
+    pm.switchEventTime = GetCurrentEventTime()
+    pm.lastFrontPID = pm.frontPID
+    pm.frontPID = process.pid
     eventSignalPush(.applicationFrontSwitched, nil)
 
     let refreshIndex = wm.applicationRefreshIndex(of: application)

@@ -283,11 +283,11 @@ private func parseArguments(_ arguments: [String]) -> String?
         error("yabai: could not acquire lock-file! abort..\n")
     }
 
-    if !workspace_event_handler_begin() {
+    if !Workspace.begin() {
         error("yabai: could not start workspace context! abort..\n")
     }
 
-    if !process_manager_begin(process_manager_global()) {
+    if !ProcessManager.shared.begin() {
         error("yabai: could not start process manager! abort..\n")
     }
 

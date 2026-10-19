@@ -75,7 +75,7 @@ static inline CF_RETURNS_RETAINED CFArrayRef _Nullable CGWindowListCreateC(CGWin
 
 //
 // NOTE: The Process Manager functions are deprecated since macOS 10.9, which makes them unavailable to Swift. These
-// wrappers keep the calls of process_manager.c and application.c for ProcessManager.swift and Application.swift.
+// wrappers keep the calls of ProcessManager.swift and Application.swift.
 //
 
 static inline OSErr ProcessGetNextC(ProcessSerialNumber *psn)

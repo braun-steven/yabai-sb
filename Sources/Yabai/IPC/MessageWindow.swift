@@ -314,7 +314,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var point: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.moveFormat, &type, &point) == 3 {
-            let result = window_manager_move_window_relative(wm, actingWindow, valueType(type), point[0], point[1])
+            let result = wm.moveWindow(actingWindow, type: valueType(type), dx: point[0], dy: point[1])
             if result == .invalidSourceView {
                 rsp.fail("cannot move a managed window.\n")
             }
@@ -326,7 +326,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var size: [Float] = [0, 0]
         let value = message.next()
         if value.scan(WindowCommand.resizeFormat, &handle, &size) == 3 {
-            let result = window_manager_resize_window_relative(wm, actingWindow, parseResizeHandle(Token(cString: handle)), size[0], size[1], true)
+            let result = wm.resizeWindow(actingWindow, direction: parseResizeHandle(Token(cString: handle)), dx: size[0], dy: size[1], animate: true)
             if result == .invalidSourceNode {
                 rsp.fail("cannot locate the container of the managed window.\n")
             } else if result == .invalidDestinationNode {
@@ -342,7 +342,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
         var ratio: [Float] = [0]
         let value = message.next()
         if value.scan(WindowCommand.ratioFormat, &type, &ratio) == 2 {
-            let result = window_manager_adjust_window_ratio(wm, actingWindow, valueType(type), ratio[0])
+            let result = wm.adjustWindowRatio(for: actingWindow, type: valueType(type), ratio: ratio[0])
             if result == .invalidSourceView {
                 rsp.fail("cannot adjust ratio of a non-managed window.\n")
             } else if result == .invalidSourceNode {
@@ -390,7 +390,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     if command.equals(WindowCommand.subLayer) {
         let value = message.next()
         if let layer = parseLayer(value) {
-            if !window_manager_set_window_layer(actingWindow, layer) {
+            if !wm.setWindowLayer(actingWindow, to: layer) {
                 rsp.fail("could not change sub-layer of window with id '\(id)' due to an error with the scripting-addition.\n")
             }
         } else {
@@ -399,7 +399,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     } else if command.equals(WindowCommand.opacity) {
         let token = message.next()
         if let opacity = token.value.floatValue, opacity >= 0.0 && opacity <= 1.0 {
-            if window_manager_set_opacity(wm, actingWindow, opacity) {
+            if wm.setOpacity(for: actingWindow, to: opacity) {
                 actingWindow.opacity = opacity
             } else {
                 rsp.fail("could not change opacity of window with id '\(id)' due to an error with the scripting-addition.\n")

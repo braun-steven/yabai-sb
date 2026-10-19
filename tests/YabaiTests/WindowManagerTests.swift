@@ -118,17 +118,17 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 @Test("window_child_windows_collect") func windowChildWindowsCollect()
 {
     var parentList: [WindowID?] = [3, 1, 9, 1]
-    #expect(window_manager_collect_child_windows(1, &parentList, [4, 2, 8, 3]) == [2, 3, 4])
+    #expect(WindowManager.collectChildWindows(1, parents: &parentList, children: [4, 2, 8, 3]) == [2, 3, 4])
 
     var directParent: [WindowID?] = [1, 1, 1]
-    #expect(window_manager_collect_child_windows(1, &directParent, [2, 3, 4]).count == 3)
+    #expect(WindowManager.collectChildWindows(1, parents: &directParent, children: [2, 3, 4]).count == 3)
 
     // NOTE: a cycle does not repeat windows
     var cycleParent: [WindowID?] = [1, 2]
-    #expect(window_manager_collect_child_windows(1, &cycleParent, [2, 1]).count == 2)
+    #expect(WindowManager.collectChildWindows(1, parents: &cycleParent, children: [2, 1]).count == 2)
 
     var emptyParent: [WindowID?] = []
-    #expect(window_manager_collect_child_windows(1, &emptyParent, []).isEmpty)
+    #expect(WindowManager.collectChildWindows(1, parents: &emptyParent, children: []).isEmpty)
 }
 
 private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Bool = false) -> Rule

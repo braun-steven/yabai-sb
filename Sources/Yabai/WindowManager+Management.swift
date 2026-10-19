@@ -60,7 +60,7 @@ extension WindowManager
     {
         enable_window_opacity = enabled
         for target in window.values where target.isEligibleForManagement {
-            window_manager_set_opacity(self, target, enabled ? target.opacity : 1.0)
+            setOpacity(for: target, to: enabled ? target.opacity : 1.0)
         }
     }
 
@@ -97,7 +97,7 @@ extension WindowManager
         if owner.layout == .float { return }
 
         if managed_window[target.id] == nil { managed_window[target.id] = owner }
-        window_manager_purify_window(self, target)
+        purifyWindow(target)
     }
 
     //
@@ -113,7 +113,7 @@ extension WindowManager
     {
         space_manager_untile_window(owner, target)
         removeManagedWindow(target.id)
-        window_manager_purify_window(self, target)
+        purifyWindow(target)
     }
 
     func manageWindow(_ target: Window, on spaceID: SpaceID, inserting insertionPoint: WindowID?)

@@ -127,7 +127,7 @@ func space_manager_untile_window(_ target: View, _ win: Window)
 {
     if target.layout == .float { return }
 
-    window_manager_adjust_layer(win, .normal)
+    win.adjustLayer(to: .normal)
     if target.remove(win) { target.flush() }
 }
 
@@ -331,7 +331,7 @@ func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager,
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return target }
 
-    window_manager_adjust_layer(win, .below)
+    win.adjustLayer(to: .below)
     target.add(win, insertionPoint: insertionPoint)
     target.flush()
 

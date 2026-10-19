@@ -151,7 +151,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     }
 
     if !scripting_addition_move_window(ms.window.id, Int32(newPoint.x), Int32(newPoint.y)) {
-        window_manager_move_window(ms.window, Float(newPoint.x), Float(newPoint.y))
+        ms.window.move(to: newPoint)
     }
 }
 
@@ -172,7 +172,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     let dx = Int(point.x - ms.down_location.x)
     let dy = Int(point.y - ms.down_location.y)
 
-    window_manager_resize_window_relative_internal(ms.window, ms.window.frame, ms.direction, Float(dx), Float(dy), false)
+    ms.window.resizeRelative(frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy), animate: false)
 
     ms.last_moved_time = eventTime
     ms.down_location = point

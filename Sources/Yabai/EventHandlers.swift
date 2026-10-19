@@ -106,7 +106,7 @@ func update_window_notifications()
 
 @WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: WindowID?)
 {
-    window_manager_adjust_layer(window, .below)
+    window.adjustLayer(to: .below)
     view.add(window, insertionPoint: insertionPoint)
     WindowManager.shared.addManagedWindow(window, to: view)
 }
@@ -160,10 +160,10 @@ func update_window_notifications()
 {
     let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
     if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
-        window_manager_set_window_opacity(wm, focusedWindow, window_manager_global().normal_window_opacity)
+        wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
 
-    window_manager_set_window_opacity(wm, window, wm.active_window_opacity)
+    wm.setWindowOpacity(window, to: wm.active_window_opacity)
 
     if wm.focused_window_id != window.id {
         if ms.ffm_window_id != window.id {
@@ -413,7 +413,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
     if let focusedWindow {
-        window_manager_set_window_opacity(wm, focusedWindow, wm.normal_window_opacity)
+        wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
 
     return focusedWindow
@@ -530,9 +530,9 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     for window in windows {
         if let view = wm.managedView(for: window) {
-            window_manager_adjust_layer(window, .normal)
+            window.adjustLayer(to: .normal)
             untileWindowBatched(view, window)
-            window_manager_purify_window(wm, window)
+            wm.purifyWindow(window)
             viewList.append(view)
         }
     }

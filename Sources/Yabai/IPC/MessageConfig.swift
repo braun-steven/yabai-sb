@@ -574,14 +574,14 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         }
     } else if command.equals(Config.shadow) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purify_mode) {
-            window_manager_set_purify_mode(wm, choice)
+            wm.setPurifyMode(choice)
         }
     } else if command.equals(Config.menubarOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menubar_opacity, allowZero: true) { window_manager_set_menubar_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menubar_opacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
     } else if command.equals(Config.activeWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.active_window_opacity, allowZero: false) { window_manager_set_active_window_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.active_window_opacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
     } else if command.equals(Config.normalWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normal_window_opacity, allowZero: false) { window_manager_set_normal_window_opacity(wm, opacity) }
+        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normal_window_opacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
     } else if command.equals(Config.insertFeedbackColor) {
         _ = configColor(&rsp, domain, command, &message, &wm.insert_feedback_color, allowZero: false)
     } else if let spacing = spacing(for: command) {

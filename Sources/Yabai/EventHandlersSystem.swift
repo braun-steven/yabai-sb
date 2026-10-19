@@ -169,7 +169,7 @@ import CPrivate
 
     let wm = window_manager_global()
     if let focusedWindowID = wm.focused_window_id, let focusedWindow = window_manager_find_window(wm, focusedWindowID) {
-        window_manager_set_window_opacity(wm, focusedWindow, wm.active_window_opacity)
+        wm.setWindowOpacity(focusedWindow, to: wm.active_window_opacity)
         wm.centerMouse(on: focusedWindow)
     }
 

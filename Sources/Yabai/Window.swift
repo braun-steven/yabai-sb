@@ -107,6 +107,53 @@ final class Window
         return result
     }
 
+    func move(to point: CGPoint)
+    {
+        frame_request.origin = point
+
+        var position = point
+        guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
+
+        AXUIElementSetAttributeValue(ref, kAXPositionAttribute as CFString, positionRef)
+    }
+
+    func resize(width: Float, height: Float)
+    {
+        frame_request.size = CGSize(width: CGFloat(width), height: CGFloat(height))
+
+        var size = CGSize(width: CGFloat(width), height: CGFloat(height))
+        guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
+
+        AXUIElementSetAttributeValue(ref, kAXSizeAttribute as CFString, sizeRef)
+    }
+
+    func resizeRelative(frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool)
+    {
+        let xMod: CGFloat = direction.contains(.left) ? -1 : direction.contains(.right) ? 1 : 0
+        let yMod: CGFloat = direction.contains(.top) ? -1 : direction.contains(.bottom) ? 1 : 0
+
+        let width = Float(max(1, frame.size.width + CGFloat(dx) * xMod))
+        let height = Float(max(1, frame.size.height + CGFloat(dy) * yMod))
+        let x = direction.contains(.left) ? Float(frame.origin.x + frame.size.width - CGFloat(width)) : Float(frame.origin.x)
+        let y = direction.contains(.top) ? Float(frame.origin.y + frame.size.height - CGFloat(height)) : Float(frame.origin.y)
+
+        if animate {
+            window_manager_animate_window(window_capture(window: self, x: x, y: y, w: width, h: height))
+        } else {
+            axEnhancedUIWorkaround(application.ref) {
+                move(to: CGPoint(x: CGFloat(x), y: CGFloat(y)))
+                resize(width: width, height: height)
+            }
+        }
+    }
+
+    /// Applies a layer only when the window has no configured layer of its own.
+    func adjustLayer(to layer: WindowLayer)
+    {
+        if self.layer != .auto { return }
+        scripting_addition_set_layer(id, layer.level)
+    }
+
     private func attributeIsSettable(_ attribute: String) -> Bool
     {
         var result: DarwinBoolean = false

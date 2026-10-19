@@ -83,12 +83,12 @@ extension WindowManager
         }
 
         if effects.flags.contains(.layer) {
-            _ = window_manager_set_window_layer(target, effects.layer)
+            _ = setWindowLayer(target, to: effects.layer)
         }
 
         if effects.flags.contains(.opacity) && effects.opacity >= 0.0 && effects.opacity <= 1.0 {
             target.opacity = effects.opacity
-            window_manager_set_opacity(self, target, effects.opacity)
+            setOpacity(for: target, to: effects.opacity)
         }
 
         if effects.fullscreen == true {

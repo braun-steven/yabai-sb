@@ -200,284 +200,6 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
     if eui { AXUIElementSetAttributeValue(ref, axEnhancedUserInterface as CFString, kCFBooleanTrue) }
 }
 
-//
-// NOTE: The ratio of a window on a tree space is its share of its container. The space is taken from
-// or given to the next container, or the previous one for the last container.
-//
-
-/// `window_manager_adjust_window_ratio`
-func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ ratio: Float) -> WindowOperationResult
-{
-    guard let owner = wm.treeView(for: target) else { return .invalidSourceView }
-
-    //
-    // NOTE: Tabs share the area of their container, so the ratio of a tab is the one of its tabbed
-    // container, like i3 skips tabbed containers when it looks for the containers to resize.
-    //
-
-    var node = wm.treeActingCon(in: owner, for: target)
-    while let current = node, let parent = current.parent, parent.layout == .tabbed { node = parent }
-    guard let node, let parent = node.parent else { return .invalidSourceNode }
-
-    let horizontal = parent.layout == .splitH
-    let size = horizontal ? parent.area.w : parent.area.h
-    let percent = type == .rel ? node.percent + ratio : ratio
-    let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
-
-    if !node.resize(horizontal ? .east : .south, by: delta) &&
-       !node.resize(horizontal ? .west : .north, by: -delta) {
-        return .invalidSourceNode
-    }
-
-    owner.updateTree()
-    owner.flush()
-
-    return .success
-}
-
-/// `window_manager_move_window_relative`
-func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ dx: Float, _ dy: Float) -> WindowOperationResult
-{
-    if wm.managedView(for: target) != nil { return .invalidSourceView }
-
-    var dx = dx
-    var dy = dy
-
-    if type == .rel {
-        dx += Float(target.frame.origin.x)
-        dy += Float(target.frame.origin.y)
-    }
-
-    window_manager_animate_window(window_capture(window: target, x: dx, y: dy, w: Float(target.frame.size.width), h: Float(target.frame.size.height)))
-    return .success
-}
-
-/// `window_manager_resize_window_relative_internal`
-func window_manager_resize_window_relative_internal(_ target: Window, _ frame: CGRect, _ direction: ResizeHandle,_ dx: Float, _ dy: Float, _ animate: Bool)
-{
-    let xMod: CGFloat = direction.contains(.left) ? -1 : direction.contains(.right)  ? 1 : 0
-    let yMod: CGFloat = direction.contains(.top)  ? -1 : direction.contains(.bottom) ? 1 : 0
-
-    let fw = Float(max(1, frame.size.width  + CGFloat(dx) * xMod))
-    let fh = Float(max(1, frame.size.height + CGFloat(dy) * yMod))
-    let fx = direction.contains(.left) ? Float(frame.origin.x + frame.size.width  - CGFloat(fw)) : Float(frame.origin.x)
-    let fy = direction.contains(.top)  ? Float(frame.origin.y + frame.size.height - CGFloat(fh)) : Float(frame.origin.y)
-
-    if animate {
-        window_manager_animate_window(window_capture(window: target, x: fx, y: fy, w: fw, h: fh))
-    } else {
-        axEnhancedUIWorkaround(target.application.ref) {
-            window_manager_move_window(target, fx, fy)
-            window_manager_resize_window(target, fw, fh)
-        }
-    }
-}
-
-/// `window_manager_resize_window_relative`
-func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: ResizeHandle, _ dx: Float, _ dy: Float, _ animate: Bool) -> WindowOperationResult
-{
-    if let owner = wm.managedView(for: target) {
-        if direction == .abs || owner.tree == nil { return .invalidOperation }
-
-        guard let node = wm.treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
-
-        var didResize = false
-        if direction.contains(.top)    { didResize = node.resize(.north, by: dy) || didResize }
-        if direction.contains(.bottom) { didResize = node.resize(.south, by: dy) || didResize }
-        if direction.contains(.left)   { didResize = node.resize(.west, by: dx) || didResize }
-        if direction.contains(.right)  { didResize = node.resize(.east, by: dx) || didResize }
-        if !didResize { return .invalidDestinationNode }
-
-        owner.updateTree()
-        owner.flush()
-    } else {
-        if direction == .abs {
-            if animate {
-                window_manager_animate_window(window_capture(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
-            } else {
-                axEnhancedUIWorkaround(target.application.ref) { window_manager_resize_window(target, dx, dy) }
-            }
-        } else {
-            window_manager_resize_window_relative_internal(target, target.axFrame, direction, dx, dy, animate)
-        }
-    }
-
-    return .success
-}
-
-/// `window_manager_move_window`
-func window_manager_move_window(_ target: Window, _ x: Float, _ y: Float)
-{
-    target.frame_request.origin = CGPoint(x: CGFloat(x), y: CGFloat(y))
-
-    var position = CGPoint(x: CGFloat(x), y: CGFloat(y))
-    guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
-
-    AXUIElementSetAttributeValue(target.ref, kAXPositionAttribute as CFString, positionRef)
-}
-
-/// `window_manager_resize_window`
-func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Float)
-{
-    target.frame_request.size = CGSize(width: CGFloat(width), height: CGFloat(height))
-
-    var size = CGSize(width: CGFloat(width), height: CGFloat(height))
-    guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
-
-    AXUIElementSetAttributeValue(target.ref, kAXSizeAttribute as CFString, sizeRef)
-}
-
-/// `window_manager_set_purify_mode`
-func window_manager_set_purify_mode(_ wm: WindowManager, _ mode: PurifyMode)
-{
-    wm.purify_mode = mode
-    for target in wm.window.values where target.isEligibleForManagement {
-        window_manager_purify_window(wm, target)
-    }
-}
-
-/// `window_manager_set_opacity`: opacity 0 means the opacity of the focus state (or 1 without window_opacity).
-@discardableResult
-func window_manager_set_opacity(_ wm: WindowManager, _ target: Window, _ opacity: Float) -> Bool
-{
-    var opacity = opacity
-
-    if opacity == 0.0 {
-        if wm.enable_window_opacity {
-            opacity = target.id == wm.focused_window_id ? wm.active_window_opacity : wm.normal_window_opacity
-        } else {
-            opacity = 1.0
-        }
-    }
-
-    return scripting_addition_set_opacity(target.id, opacity, wm.window_opacity_duration)
-}
-
-/// `window_manager_set_window_opacity`
-func window_manager_set_window_opacity(_ wm: WindowManager, _ target: Window, _ opacity: Float)
-{
-    if !wm.enable_window_opacity              { return }
-    if !target.isEligibleForManagement { return }
-    if target.opacity != 0.0                  { return }
-
-    window_manager_set_opacity(wm, target, opacity)
-}
-
-/// `window_manager_set_menubar_opacity`
-func window_manager_set_menubar_opacity(_ wm: WindowManager, _ opacity: Float)
-{
-    wm.menubar_opacity = opacity
-    SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, opacity)
-}
-
-/// `window_manager_set_active_window_opacity`
-func window_manager_set_active_window_opacity(_ wm: WindowManager, _ opacity: Float)
-{
-    wm.active_window_opacity = opacity
-    if let target = window_manager_focused_window(wm) { window_manager_set_window_opacity(wm, target, wm.active_window_opacity) }
-}
-
-/// `window_manager_set_normal_window_opacity`
-func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Float)
-{
-    wm.normal_window_opacity = opacity
-    for target in wm.window.values {
-        if target.id == wm.focused_window_id { continue }
-        if target.isEligibleForManagement {
-            window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
-        }
-    }
-}
-
-/// `window_manager_adjust_layer`: only for windows without a layer of their own (`WindowLayer.auto`).
-func window_manager_adjust_layer(_ target: Window, _ layer: WindowLayer)
-{
-    if target.layer != .auto { return }
-
-    scripting_addition_set_layer(target.id, layer.level)
-}
-
-//
-// NOTE: The descendants of root in a list of (parent, child) relations, breadth first. Every relation is used once,
-// which consumes parentList, so a cycle cannot repeat windows.
-//
-
-/// `window_manager_collect_child_windows`
-func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout [WindowID?], _ childList: [WindowID]) -> [WindowID]
-{
-    var result: [WindowID] = []
-    var parent = root
-    var next = 0
-
-    while true {
-        for j in 0..<parentList.count where parentList[j] == parent {
-            parentList[j] = nil
-            result.append(childList[j])
-        }
-
-        if next == result.count { break }
-        parent = result[next]
-        next += 1
-    }
-
-    return result
-}
-
-//
-// NOTE: The child windows (e.g. sheets) follow the layer of their window. With WindowLayer.auto, managed windows (and
-// scratchpads with scratchpad_below) go to the below sub-layer and their child windows to the normal one.
-//
-
-/// `window_manager_set_window_layer`
-func window_manager_set_window_layer(_ target: Window, _ layer: WindowLayer) -> Bool
-{
-    var parentLayer = layer
-    var childLayer = layer
-
-    if layer == .auto {
-        let wm = window_manager_global()
-        let below = wm.managedView(for: target) != nil || (wm.scratchpad_below && target.scratchpad != nil)
-        parentLayer = below ? .below : .normal
-        childLayer = .normal
-    }
-
-    target.layer = layer
-    let result = scripting_addition_set_layer(target.id, parentLayer.level)
-    if !result { return false }
-
-    guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
-
-    var parentList: [WindowID?] = []
-    var childList: [WindowID] = []
-
-    for queried in SLS.queryWindows(connection_global(), associated.map { WindowID($0.uint32Value) }).prefix(associated.count) {
-        parentList.append(queried.parent)
-        childList.append(queried.id)
-    }
-
-    for descendant in window_manager_collect_child_windows(target.id, &parentList, childList) {
-        scripting_addition_set_layer(descendant, childLayer.level)
-    }
-
-    return result
-}
-
-/// `window_manager_purify_window`
-func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
-{
-    let value: Bool
-
-    switch wm.purify_mode {
-    case .disabled: value = true
-    case .managed:  value = wm.managedView(for: target) == nil
-    case .always:   value = false
-    }
-
-    if scripting_addition_set_shadow(target.id, value) {
-        target.hasShadow = value
-    }
-}
-
 /// `window_manager_find_lost_front_switched_event`
 func window_manager_find_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t) -> Bool
 {
@@ -622,7 +344,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
     aCon.insert(node, toward: .stack)
 
     wm.addManagedWindow(b, to: aView)
-    window_manager_adjust_layer(b, .below)
+    b.adjustLayer(to: .below)
     wm.treeApply(aView)
 
     return .success
@@ -1045,9 +767,9 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
         //
 
         owner.remove(target)
-        window_manager_adjust_layer(target, .normal)
+        target.adjustLayer(to: .normal)
         wm.removeManagedWindow(target.id)
-        window_manager_purify_window(wm, target)
+        wm.purifyWindow(target)
 
         owner.isDirty = true
     }
@@ -1073,9 +795,9 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             //
 
             existingView.remove(target)
-            window_manager_adjust_layer(target, .normal)
+            target.adjustLayer(to: .normal)
             wm.removeManagedWindow(target.id)
-            window_manager_purify_window(wm, target)
+            wm.purifyWindow(target)
             existingView.isDirty = true
         }
 
@@ -1092,7 +814,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             //
 
             owner.add(target, insertionPoint: nil)
-            window_manager_adjust_layer(target, .below)
+            target.adjustLayer(to: .below)
             wm.addManagedWindow(target, to: owner)
             owner.isDirty = true
         }
@@ -1259,6 +981,6 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
         wm.last_window_id = target.id
         wm.focused_window_id = target.id
         wm.focused_window_psn = target.application.psn
-        window_manager_set_window_opacity(wm, target, wm.active_window_opacity)
+        wm.setWindowOpacity(target, to: wm.active_window_opacity)
     }
 }

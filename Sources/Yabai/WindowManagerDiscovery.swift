@@ -87,8 +87,8 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
         if target.isEligibleForManagement {
             target.is_eligible = true
             wm.applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: oneShotRules)
-            window_manager_purify_window(wm, target)
-            window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
+            wm.purifyWindow(target)
+            wm.setWindowOpacity(target, to: wm.normal_window_opacity)
 
             if owner.isHidden        { return target }
             if target.isMinimized     { return target }

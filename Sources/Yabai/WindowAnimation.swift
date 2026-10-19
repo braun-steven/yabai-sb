@@ -259,6 +259,14 @@ extension WindowAnimation
     }
 }
 
+//
+// NOTE: The event loop waits for the proxy workers (synchronous SkyLight captures on dispatch workers), because the
+// frames must not be set before the proxies are swapped in, and the callers (tree layout, commands) are synchronous.
+// It does not await the end of the animation: the display link finishes it on the main queue (proxies out, borders
+// back), touching only windowAnimations, the border lock and SkyLight, while the next events run. Awaiting it would
+// hold every event for the duration, since the single consumer takes no other event during an await.
+//
+
 extension WindowManager
 {
     private func animateWindowsAsync(_ list: [WindowPlacement])

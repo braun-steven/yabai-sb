@@ -63,7 +63,7 @@ extension WindowAnimation
         var tags: UInt64 = 1 << 46
         SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion,
                                             13 | (1 << 18), &tags, 0, 0, 64, &proxy.id, nil)
-        SLS.disableShadow(proxy.id)
+        SLS.disableShadow(WindowID(proxy.id))
         SLSSetWindowOpacity(cid, proxy.id, false)
         SLSSetWindowResolution(cid, proxy.id, 2)
         SLSSetWindowAlpha(cid, proxy.id, alpha)

@@ -153,46 +153,34 @@ extension Border
     //
     private static func windowRadius(of wid: WindowID) -> Float
     {
-        var radius: Int32 = 0
-        let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
-        if let query = SLSWindowQueryWindows(SLS.connection, windows, 1),
-           let iterator = SLSWindowQueryResultCopyWindows(query), SLSWindowIteratorAdvance(iterator),
-           let radii = SLSWindowIteratorGetCornerRadii(iterator), CFArrayGetCount(radii) > 0 {
-            let number = unsafeBitCast(CFArrayGetValueAtIndex(radii, 0), to: CFNumber.self)
-            CFNumberGetValue(number, .intType, &radius)
-        }
-        return radius > 0 ? Float(radius) : borderDefaultRadius
+        if let radius = SLS.cornerRadius(SLS.connection, wid), radius > 0 { return Float(radius) }
+        return borderDefaultRadius
     }
 
     private func createEdge(_ index: Int)
     {
         let edge = edges[index]
-        var shape = CGRect(x: 0, y: 0, width: max(edge.width, 1), height: max(edge.height, 1))
+        let shape = CGRect(x: 0, y: 0, width: max(edge.width, 1), height: max(edge.height, 1))
         //
         // NOTE: Created with SLSNewWindow instead of SLSNewWindowWithOpaqueShapeAndContext like the tab bars, because a
         // window of the latter is moved to the active space each time it is ordered in again, so a border that was hidden
         // and shown again would land on whatever space is visible instead of the space of its window.
         //
-        var region: CFTypeRef?
-        CGSNewRegionWithRect(&shape, &region)
-        let shapeRegion = region!
-        SLSNewWindow(SLS.connection, 2, Float(edge.minX), Float(edge.minY), shapeRegion, &ids[index])
-        var tags: UInt64 = (1 << 1) | (1 << 9)
-        SLSSetWindowTags(SLS.connection, ids[index], &tags, 64)
-        SLS.disableShadow(ids[index])
-        SLSSetWindowResolution(SLS.connection, ids[index], 2)
-        SLSSetWindowOpacity(SLS.connection, ids[index], false)
-        contexts[index] = SLWindowContextCreate(SLS.connection, ids[index], nil)
+        let shapeRegion = SLS.region(shape)!
+        ids[index] = SLS.newWindow(SLS.connection, at: CGPoint(x: edge.minX, y: edge.minY), shape: shapeRegion)?.rawValue ?? 0
+        let id = WindowID(ids[index])
+        SLS.setTags(SLS.connection, id, (1 << 1) | (1 << 9))
+        SLS.disableShadow(id)
+        SLS.setResolution(SLS.connection, id, 2)
+        SLS.setOpaque(SLS.connection, id, false)
+        contexts[index] = SLS.context(SLS.connection, id)
     }
 
     private func reshapeEdge(_ index: Int)
     {
         let edge = edges[index]
-        var shape = CGRect(x: 0, y: 0, width: max(edge.width, 1), height: max(edge.height, 1))
-        var region: CFTypeRef?
-        CGSNewRegionWithRect(&shape, &region)
-        let shapeRegion = region!
-        SLSSetWindowShape(SLS.connection, ids[index], Float(edge.minX), Float(edge.minY), shapeRegion)
+        let shape = CGRect(x: 0, y: 0, width: max(edge.width, 1), height: max(edge.height, 1))
+        SLS.setShape(SLS.connection, WindowID(ids[index]), SLS.region(shape)!, offset: CGPoint(x: edge.minX, y: edge.minY))
     }
 
     //
@@ -231,7 +219,7 @@ extension Border
     private func hide()
     {
         if !shown { return }
-        for id in ids where id != 0 { SLSOrderWindow(SLS.connection, id, 0, 0) }
+        for id in ids where id != 0 { SLS.order(SLS.connection, WindowID(id), .out) }
         shown = false
     }
 
@@ -240,25 +228,23 @@ extension Border
         hide()
         for i in 0..<4 {
             contexts[i] = nil
-            if ids[i] != 0 { SLSReleaseWindow(SLS.connection, ids[i]) }
+            if ids[i] != 0 { SLS.releaseWindow(SLS.connection, WindowID(ids[i])) }
             ids[i] = 0
         }
     }
 
     private func move(to sid: SpaceID)
     {
-        let windows = ids.map { NSNumber(value: Int32(bitPattern: $0)) } as CFArray
-        SLSMoveWindowsToManagedSpace(SLS.connection, windows, sid.rawValue)
+        SLS.moveWindows(SLS.connection, ids.map { WindowID($0) }, toSpace: sid)
         self.sid = sid
     }
 
     private func setSticky(_ sticky: Bool)
     {
         if self.sticky == sticky { return }
-        var tags: UInt64 = 1 << 11
         for id in ids {
-            if sticky { SLSSetWindowTags(SLS.connection, id, &tags, 64) }
-            else { SLSClearWindowTags(SLS.connection, id, &tags, 64) }
+            if sticky { SLS.setTags(SLS.connection, WindowID(id), 1 << 11) }
+            else { SLS.clearTags(SLS.connection, WindowID(id), 1 << 11) }
         }
         self.sticky = sticky
     }
@@ -329,16 +315,16 @@ extension Border
                 anyReshaped = anyReshaped || list[i]
             }
         }
-        if anyReshaped { SLSDisableUpdate(SLS.connection) }
+        if anyReshaped { SLS.disableUpdate(SLS.connection) }
         withUnsafeBytes(of: reshaped) { raw in
             let list = raw.bindMemory(to: Bool.self)
             for i in 0..<4 {
                 if list[i] && !created { reshapeEdge(i) }
                 if list[i] || restyled { drawEdge(i, newColor) }
-                SLSMoveWindow(SLS.connection, ids[i], &edges[i].origin)
+                SLS.moveWindow(SLS.connection, WindowID(ids[i]), to: edges[i].origin)
             }
         }
-        if anyReshaped { SLSReenableUpdate(SLS.connection) }
+        if anyReshaped { SLS.reenableUpdate(SLS.connection) }
         return true
     }
 }
@@ -350,13 +336,13 @@ extension Border
         let windowLevel = wid.level
         let windowSubLevel = wid.subLevel
         for i in 0..<4 {
-            if windowLevel != level { SLSSetWindowLevel(SLS.connection, ids[i], windowLevel) }
-            if windowSubLevel != subLevel { SLSSetWindowSubLevel(SLS.connection, ids[i], windowSubLevel) }
+            if windowLevel != level { SLS.setLevel(SLS.connection, WindowID(ids[i]), windowLevel) }
+            if windowSubLevel != subLevel { SLS.setSubLevel(SLS.connection, WindowID(ids[i]), windowSubLevel) }
             //
             // NOTE: A side edge of a window shorter than two corners is empty, so it stays hidden.
             //
-            if edges[i].width > 0 && edges[i].height > 0 { SLSOrderWindow(SLS.connection, ids[i], -1, wid.rawValue) }
-            else { SLSOrderWindow(SLS.connection, ids[i], 0, 0) }
+            if edges[i].width > 0 && edges[i].height > 0 { SLS.order(SLS.connection, WindowID(ids[i]), .below, relativeTo: wid) }
+            else { SLS.order(SLS.connection, WindowID(ids[i]), .out) }
         }
         level = windowLevel
         subLevel = windowSubLevel
@@ -408,12 +394,12 @@ extension Border
         swap(&subLevel, &target.subLevel)
         target.shown = true
         shown = false
-        SLSDisableUpdate(SLS.connection)
+        SLS.disableUpdate(SLS.connection)
         target.updateLocked(.frame, settings)
         if target.shown {
-            for i in 0..<4 where target.edges[i].width > 0 && target.edges[i].height > 0 { SLSOrderWindow(SLS.connection, target.ids[i], -1, target.wid.rawValue) }
+            for i in 0..<4 where target.edges[i].width > 0 && target.edges[i].height > 0 { SLS.order(SLS.connection, WindowID(target.ids[i]), .below, relativeTo: target.wid) }
         }
-        SLSReenableUpdate(SLS.connection)
+        SLS.reenableUpdate(SLS.connection)
     }
 }
 
@@ -622,7 +608,7 @@ extension Border
             if newFrame.size != border.frame.size { border.updateLocked(.frame, state.settings); return }
             border.frame = newFrame
             border.edges = BorderEdges(around: newFrame, width: border.width, radius: border.drawnRadius)
-            for i in 0..<4 { SLSMoveWindow(SLS.connection, border.ids[i], &border.edges[i].origin) }
+            for i in 0..<4 { SLS.moveWindow(SLS.connection, WindowID(border.ids[i]), to: border.edges[i].origin) }
         }
     }
 

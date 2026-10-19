@@ -30,17 +30,17 @@ enum SLS
     // kCFNumberSInt64Type. NSNumber(value: Int32) and NSNumber(value: Int64) create the same CFNumber types.
     //
 
-    private static func cfArray(windows: [WindowID]) -> CFArray
+    static func cfArray(windows: [WindowID]) -> CFArray
     {
         return windows.map { NSNumber(value: Int32(bitPattern: $0.rawValue)) } as CFArray
     }
 
-    private static func cfArray(spaces: [SpaceID]) -> CFArray
+    static func cfArray(spaces: [SpaceID]) -> CFArray
     {
         return spaces.map { NSNumber(value: Int64(bitPattern: $0.rawValue)) } as CFArray
     }
 
-    private static func ids<T: FixedWidthInteger>(_ array: CFArray?, as type: T.Type) -> [T]
+    static func ids<T: FixedWidthInteger>(_ array: CFArray?, as type: T.Type) -> [T]
     {
         guard let numbers = array as? [NSNumber] else { return [] }
         return numbers.map { T(truncatingIfNeeded: $0.int64Value) }
@@ -259,10 +259,22 @@ enum SLS
     }
 
     /// Turns the shadow of the window off by setting its shadow density to zero.
-    static func disableShadow(_ wid: UInt32)
+    static func disableShadow(_ wid: WindowID)
     {
         let options = ["com.apple.WindowShadowDensity" as CFString: NSNumber(value: Int32(0))] as CFDictionary
-        SLSWindowSetShadowProperties(wid, options)
+        SLSWindowSetShadowProperties(wid.rawValue, options)
+    }
+
+    /// `SLSFindWindowAndOwner`: the window at the point and the connection that owns it, from the top (start nil,
+    /// order 1) or below `start` (order -1).
+    static func findWindow(_ cid: Int32, at point: CGPoint, startingAt start: WindowID?, order: Int32) -> (window: WindowID?, owner: Int32)
+    {
+        var point = point
+        var windowPoint = CGPoint.zero
+        var wid: UInt32 = 0
+        var owner: Int32 = 0
+        SLSFindWindowAndOwner(cid, Int32(bitPattern: start?.rawValue ?? 0), order, 0, &point, &windowPoint, &wid, &owner)
+        return (WindowID(nonzero: wid), owner)
     }
 
     //

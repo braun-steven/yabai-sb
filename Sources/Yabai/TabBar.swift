@@ -189,14 +189,10 @@ extension TabBar
     //
     private static func isCovered(_ point: CGPoint, above aboveWid: WindowID) -> Bool
     {
-        var point = point
-        var windowPoint = CGPoint.zero
-        var wid: UInt32 = 0
-        var cid: Int32 = 0
-        SLSFindWindowAndOwner(SLS.connection, 0, 1, 0, &point, &windowPoint, &wid, &cid)
-        if wid == 0 || cid == SLS.connection || wid == aboveWid.rawValue { return false }
+        let (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: nil, order: 1)
+        guard let wid = found, owner != SLS.connection, wid != aboveWid else { return false }
         guard let windows = CGWindowListCreateC(.optionOnScreenAboveWindow, aboveWid.rawValue) else { return false }
-        return CFArrayContainsValue(windows, CFRange(location: 0, length: CFArrayGetCount(windows)), UnsafeRawPointer(bitPattern: UInt(wid)))
+        return CFArrayContainsValue(windows, CFRange(location: 0, length: CFArrayGetCount(windows)), UnsafeRawPointer(bitPattern: UInt(wid.rawValue)))
     }
 
     static func hitTest(_ point: CGPoint, window: inout WindowID?) -> Bool
@@ -354,8 +350,8 @@ extension TabBar
 
     private func draw(_ entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
     {
-        SLSDisableUpdate(SLS.connection)
-        defer { SLSReenableUpdate(SLS.connection) }
+        SLS.disableUpdate(SLS.connection)
+        defer { SLS.reenableUpdate(SLS.connection) }
         guard let context else { return }
         let bounds = CGRect(origin: .zero, size: frame.size)
         context.clear(bounds)
@@ -397,20 +393,14 @@ extension TabBar
         // is moved to the active space each time it is ordered in again, so a bar that was hidden and shown again would
         // land on whatever space is visible instead of the space of its window.
         //
-        var frame = frame
-        var region: CFTypeRef?
-        CGSNewRegionWithRect(&frame, &region)
-        let shape = region!
-        var barID: UInt32 = 0
-        SLSNewWindow(SLS.connection, 2, 0, 0, shape, &barID)
-        id = WindowID(nonzero: barID)
+        let shape = SLS.region(frame)!
+        id = SLS.newWindow(SLS.connection, at: .zero, shape: shape)
         guard let id else { return }
-        var tags: UInt64 = (1 << 1) | (1 << 9)
-        SLSSetWindowTags(SLS.connection, id.rawValue, &tags, 64)
-        SLS.disableShadow(id.rawValue)
-        SLSSetWindowResolution(SLS.connection, id.rawValue, 2)
-        SLSSetWindowOpacity(SLS.connection, id.rawValue, false)
-        context = SLWindowContextCreate(SLS.connection, id.rawValue, nil)
+        SLS.setTags(SLS.connection, id, (1 << 1) | (1 << 9))
+        SLS.disableShadow(id)
+        SLS.setResolution(SLS.connection, id, 2)
+        SLS.setOpaque(SLS.connection, id, false)
+        context = SLS.context(SLS.connection, id)
     }
 
     //
@@ -437,13 +427,10 @@ extension TabBar
         if !exists { create(frame) }
         else if frame != self.frame {
             if let id {
-                var frame = frame
-                var region: CFTypeRef?
-                CGSNewRegionWithRect(&frame, &region)
-                let shape = region!
-                SLSDisableUpdate(SLS.connection)
-                SLSSetWindowShape(SLS.connection, id.rawValue, 0, 0, shape)
-                SLSReenableUpdate(SLS.connection)
+                let shape = SLS.region(frame)!
+                SLS.disableUpdate(SLS.connection)
+                SLS.setShape(SLS.connection, id, shape)
+                SLS.reenableUpdate(SLS.connection)
             }
             self.frame = frame
         }
@@ -457,9 +444,9 @@ extension TabBar
         entryWindowIDs = (0..<count).map { entries[$0].focusWindowID }
         if let id {
             draw(entries, count: count)
-            SLSSetWindowLevel(SLS.connection, id.rawValue, aboveWid.level)
-            SLSSetWindowSubLevel(SLS.connection, id.rawValue, aboveWid.subLevel)
-            SLSOrderWindow(SLS.connection, id.rawValue, 1, aboveWid.rawValue)
+            SLS.setLevel(SLS.connection, id, aboveWid.level)
+            SLS.setSubLevel(SLS.connection, id, aboveWid.subLevel)
+            SLS.order(SLS.connection, id, .above, relativeTo: aboveWid)
             keepOnSpace()
         } else { renderGlass(above: aboveWid, entries: entries, count: count) }
         TabBar.publishHits()
@@ -468,7 +455,7 @@ extension TabBar
     func hide()
     {
         if !exists || hidden { return }
-        if let id { SLSOrderWindow(SLS.connection, id.rawValue, 0, 0) }
+        if let id { SLS.order(SLS.connection, id, .out) }
         else { hideGlass() }
         hidden = true
         TabBar.publishHits()
@@ -479,9 +466,9 @@ extension TabBar
         if !exists { return }
         if let i = tabBarList.firstIndex(of: self) { tabBarList.remove(at: i) }
         if let id {
-            SLSOrderWindow(SLS.connection, id.rawValue, 0, 0)
+            SLS.order(SLS.connection, id, .out)
             context = nil
-            SLSReleaseWindow(SLS.connection, id.rawValue)
+            SLS.releaseWindow(SLS.connection, id)
         } else { destroyGlass() }
         reset()
         TabBar.publishHits()
@@ -502,7 +489,7 @@ extension TabBar
     {
         for bar in outerFirst(tabBarList.filter { !$0.hidden && $0.aboveWindowID == wid }) {
             if let id = bar.id {
-                SLSOrderWindow(SLS.connection, id.rawValue, 1, wid.rawValue)
+                SLS.order(SLS.connection, id, .above, relativeTo: wid)
                 bar.keepOnSpace()
             } else { bar.orderGlass(above: wid) }
         }

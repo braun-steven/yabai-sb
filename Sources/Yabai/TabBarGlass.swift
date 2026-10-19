@@ -612,14 +612,13 @@ final class TabBarGlass: @unchecked Sendable
 
     static func moveWindow(_ wid: WindowID, to sid: SpaceID?)
     {
-        let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
-        SLSMoveWindowsToManagedSpace(SLS.connection, windows, sid?.rawValue ?? 0)
+        SLS.moveWindows(SLS.connection, [wid], toSpace: sid)
     }
 
     static func setLevel(of wid: WindowID, _ level: Int32, subLevel: Int32)
     {
-        SLSSetWindowLevel(SLS.connection, wid.rawValue, level)
-        SLSSetWindowSubLevel(SLS.connection, wid.rawValue, subLevel)
+        SLS.setLevel(SLS.connection, wid, level)
+        SLS.setSubLevel(SLS.connection, wid, subLevel)
     }
 
     //
@@ -628,7 +627,7 @@ final class TabBarGlass: @unchecked Sendable
     //
     static func orderPanel(_ wid: WindowID, below: Bool, relativeTo relativeWid: WindowID)
     {
-        SLSOrderWindow(SLS.connection, wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
+        SLS.order(SLS.connection, wid, below ? .below : .above, relativeTo: relativeWid)
         if below { Border.windowOrdered(relativeWid) }
     }
 

@@ -51,9 +51,9 @@ extension Con
     {
         guard let feedbackWindowID = render.feedbackWindow.id else { return }
 
-        SLSOrderWindow(SLS.connection, feedbackWindowID.rawValue, 0, 0)
+        SLS.order(SLS.connection, feedbackWindowID, .out)
         render.feedbackWindow.context = nil
-        SLSReleaseWindow(SLS.connection, feedbackWindowID.rawValue)
+        SLS.releaseWindow(SLS.connection, feedbackWindowID)
         render.feedbackWindow = FeedbackWindow()
     }
 }
@@ -636,24 +636,20 @@ extension Con
         let cid = SLS.connection
         let area = self.area
         var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-        var region: CFTypeRef?
-        CGSNewRegionWithRect(&frame, &region)
-        let frameRegion = region!
+        let frameRegion = SLS.region(frame)!
         frame.origin.x = 0; frame.origin.y = 0
 
         if render.feedbackWindow.id == nil {
-            var tags: UInt64 = (1 << 1) | (1 << 9)
-            let emptyRegion = CGRegionCreateEmptyRegion()
-            var feedbackID: UInt32 = 0
-            SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
-            render.feedbackWindow.id = WindowID(nonzero: feedbackID)
+            render.feedbackWindow.id = SLS.newWindow(cid, shape: frameRegion, options: 13, tags: (1 << 1) | (1 << 9))
 
-            SLS.disableShadow(feedbackID)
-            SLSSetWindowResolution(cid, feedbackID, 1.0)
-            SLSSetWindowOpacity(cid, feedbackID, false)
-            let context = SLWindowContextCreate(cid, feedbackID, nil)
-            render.feedbackWindow.context = context
-            context?.setLineWidth(insertFeedbackWidth)
+            if let feedbackID = render.feedbackWindow.id {
+                SLS.disableShadow(feedbackID)
+                SLS.setResolution(cid, feedbackID, 1.0)
+                SLS.setOpaque(cid, feedbackID, false)
+                let context = SLS.context(cid, feedbackID)
+                render.feedbackWindow.context = context
+                context?.setLineWidth(insertFeedbackWidth)
+            }
         }
 
         // NOTE: A window server that did not create the outline leaves no window to draw into or order.
@@ -685,8 +681,8 @@ extension Con
         let clip = CGRect(x: rect.origin.x + clipX, y: rect.origin.y + clipY, width: rect.size.width + clipW, height: rect.size.height + clipH)
         let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(rect.clampedXRadius(insertFeedbackRadius)), cornerHeight: CGFloat(rect.clampedYRadius(insertFeedbackRadius)), transform: nil)
 
-        SLSDisableUpdate(cid)
-        SLSSetWindowShape(cid, feedbackWindowID.rawValue, 0.0, 0.0, frameRegion)
+        SLS.disableUpdate(cid)
+        SLS.setShape(cid, feedbackWindowID, frameRegion)
         context?.clear(frame)
         context?.clip(to: clip)
         context?.fill(fill)
@@ -694,11 +690,11 @@ extension Con
         context?.strokePath()
         context?.resetClip()
         context?.flush()
-        SLSReenableUpdate(cid)
+        SLS.reenableUpdate(cid)
 
-        SLSSetWindowLevel(cid, feedbackWindowID.rawValue, windowID.level)
-        SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, windowID.subLevel)
-        SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
+        SLS.setLevel(cid, feedbackWindowID, windowID.level)
+        SLS.setSubLevel(cid, feedbackWindowID, windowID.subLevel)
+        SLS.order(cid, feedbackWindowID, .above, relativeTo: windowID)
     }
 
     func hideFeedback() { destroyFeedback() }

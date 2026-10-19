@@ -299,24 +299,24 @@ private func parseArguments(_ arguments: [String]) -> String?
         error("yabai: could not start mouse handler! abort..\n")
     }
 
-    mission_control_observe()
+    MissionControl.shared.observe()
 
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 1327, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 1328, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1327, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1328, nil)
 
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 808, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,808, nil)
 
     //
     // NOTE: Moves, resizes and hides of windows that have a border.
     //
 
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 806, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 807, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 815, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 816, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 1202, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,806, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,807, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,815, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,816, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1202, nil)
 
-    SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 804, nil)
+    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,804, nil)
 
     WindowManager.shared.initialize()
     space_manager_begin(space_manager_global())

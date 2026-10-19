@@ -618,7 +618,7 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
 /// `space_manager_swap_space_with_space`
 func space_manager_swap_space_with_space(_ actingSid: SpaceID, _ selectorSid: SpaceID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     let actingDid = space_display_id(actingSid)
     let selectorDid = space_display_id(selectorSid)
@@ -672,7 +672,7 @@ func space_manager_swap_space_with_space(_ actingSid: SpaceID, _ selectorSid: Sp
 /// `space_manager_move_space_to_space`
 func space_manager_move_space_to_space(_ actingSid: SpaceID, _ selectorSid: SpaceID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     let actingDid = space_display_id(actingSid)
     let selectorDid = space_display_id(selectorSid)
@@ -710,7 +710,7 @@ func space_manager_move_space_to_space(_ actingSid: SpaceID, _ selectorSid: Spac
 /// `space_manager_move_space_to_display`
 func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ did: DisplayID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
     guard let sid else { return .missingSource }
 
     let sDid = space_display_id(sid)
@@ -808,7 +808,7 @@ func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: Spac
 /// `space_manager_focus_space`
 func space_manager_focus_space(_ sid: SpaceID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     let curSid = space_manager_active_space()
     if curSid == sid { return .sameSpace }
@@ -831,7 +831,7 @@ func space_manager_focus_space(_ sid: SpaceID) -> SpaceOperationResult
 /// `space_manager_switch_space`
 func space_manager_switch_space(_ sid: SpaceID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     guard let curSid = space_manager_active_space() else { return .missingSource }
     if curSid == sid { return .sameSpace }
@@ -851,7 +851,7 @@ func space_manager_switch_space(_ sid: SpaceID) -> SpaceOperationResult
 /// `space_manager_destroy_space`
 func space_manager_destroy_space(_ sid: SpaceID?) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     guard let sid else { return .missingSource }
     if !space_is_user(sid) { return .invalidType }
@@ -872,7 +872,7 @@ func space_manager_destroy_space(_ sid: SpaceID?) -> SpaceOperationResult
 /// `space_manager_add_space`
 func space_manager_add_space(_ sid: SpaceID?) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
     guard let sid else { return .missingSource }
 
     return scripting_addition_create_space(sid) ? .success : .scriptingAdditionFailed

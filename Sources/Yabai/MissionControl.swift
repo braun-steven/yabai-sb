@@ -5,8 +5,7 @@ import YabaiCore
 
 //
 // NOTE: The notifications of the window server connection and the Mission Control notifications of the Dock. Both
-// callbacks run on the main thread and only post events (and move the borders, which Border.swift locks). Ported from
-// src/mission_control.c and src/mission_control.h.
+// callbacks run on the main thread and only post events (and move the borders, which Border.swift locks).
 //
 
 /// What Mission Control shows. The raw value is the context of the Mission Control signals.
@@ -31,17 +30,8 @@ enum MissionControlMode: Int, Sendable
     }
 }
 
-/// `g_mission_control_mode`: the handlers on the event loop own it, like the C global (see the NOTE of g_display_manager).
-nonisolated(unsafe) var g_mission_control_mode = MissionControlMode.inactive
-
-/// `mission_control_is_active`
-func mission_control_is_active() -> Bool
-{
-    return g_mission_control_mode != .inactive
-}
-
-/// `connection_handler`: registered for each notification type by yabai_main.
-func connection_handler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)
+/// Registered for each notification type by yabai_main.
+func connectionNotificationHandler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)
 {
     switch type {
     case 1327:
@@ -81,20 +71,6 @@ private enum Expose
     static let all = [showAllWindows, showFrontWindows, showDesktop, exit]
 }
 
-private struct MissionControlObserver
-{
-    var ref: AXUIElement?
-    var observerRef: AXObserver?
-    var isObserving = false
-}
-
-//
-// NOTE: nonisolated(unsafe): mission_control_observe runs in yabai_main before the event loop starts, and after that
-// only the DOCK_DID_RESTART handler on the event loop changes the observer, as in the C version.
-//
-
-nonisolated(unsafe) private var missionControlObserver = MissionControlObserver()
-
 private func missionControlNotificationHandler(_ observer: AXObserver, _ element: AXUIElement, _ notification: CFString, _ context: UnsafeMutableRawPointer?)
 {
     if CFEqual(notification, Expose.showAllWindows as CFString) {
@@ -108,39 +84,52 @@ private func missionControlNotificationHandler(_ observer: AXObserver, _ element
     }
 }
 
-/// `mission_control_observe`
-func mission_control_observe()
+/// Mission Control: its mode, and the observer of the Mission Control notifications of the Dock.
+final class MissionControl
 {
-    if missionControlObserver.isObserving { return }
+    // NOTE: the handlers on the event loop own the mode. observe() runs in yabai_main before the event loop starts, and
+    // after that only the Dock-restart handler on the event loop changes the observer.
+    nonisolated(unsafe) static let shared = MissionControl()
 
-    guard let pid = Workspace.dockPID else { return }
-    missionControlObserver.ref = AXUIElementCreateApplication(pid)
+    var mode = MissionControlMode.inactive
+    var isActive: Bool { mode != .inactive }
 
-    guard let ref = missionControlObserver.ref else { return }
+    private var ref: AXUIElement?
+    private var observerRef: AXObserver?
+    private var isObserving = false
 
-    var observerRef: AXObserver?
-    guard AXObserverCreate(pid, missionControlNotificationHandler, &observerRef) == .success, let observerRef else { return }
+    func observe()
+    {
+        if isObserving { return }
 
-    for notification in Expose.all {
-        AXObserverAddNotification(observerRef, ref, notification as CFString, nil)
+        guard let pid = Workspace.dockPID else { return }
+        self.ref = AXUIElementCreateApplication(pid)
+
+        guard let ref else { return }
+
+        var observerRef: AXObserver?
+        guard AXObserverCreate(pid, missionControlNotificationHandler, &observerRef) == .success, let observerRef else { return }
+
+        for notification in Expose.all {
+            AXObserverAddNotification(observerRef, ref, notification as CFString, nil)
+        }
+
+        self.observerRef = observerRef
+        isObserving = true
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observerRef), .defaultMode)
     }
 
-    missionControlObserver.observerRef = observerRef
-    missionControlObserver.isObserving = true
-    CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observerRef), .defaultMode)
-}
+    func unobserve()
+    {
+        guard isObserving, let observerRef, let ref else { return }
 
-/// `mission_control_unobserve`
-func missionControlUnobserve()
-{
-    guard missionControlObserver.isObserving, let observerRef = missionControlObserver.observerRef, let ref = missionControlObserver.ref else { return }
+        for notification in Expose.all {
+            AXObserverRemoveNotification(observerRef, ref, notification as CFString)
+        }
 
-    for notification in Expose.all {
-        AXObserverRemoveNotification(observerRef, ref, notification as CFString)
+        isObserving = false
+        CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observerRef))
+        self.observerRef = nil
+        self.ref = nil
     }
-
-    missionControlObserver.isObserving = false
-    CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observerRef))
-    missionControlObserver.observerRef = nil
-    missionControlObserver.ref = nil
 }

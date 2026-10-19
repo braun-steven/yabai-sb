@@ -31,7 +31,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 {
     let ms = mouse_state_global()
 
-    if mission_control_is_active()                    { return }
+    if MissionControl.shared.isActive                 { return }
     if ms.current_action != .none { return }
 
     let point = event.location
@@ -98,7 +98,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let wm = WindowManager.shared
     let ms = mouse_state_global()
 
-    if mission_control_is_active() { return }
+    if MissionControl.shared.isActive { return }
 
     guard let window = ms.window else {
         ms.current_action = .none
@@ -191,7 +191,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if mouseEventIsStale(pendingMouseDragged) { return }
 
-    if mission_control_is_active() { return }
+    if MissionControl.shared.isActive { return }
     guard let window = ms.window else { return }
 
     if !window.isValid {
@@ -325,7 +325,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     if mouseEventIsStale(pendingMouseMoved) { return }
 
     if wm.focusFollowsMouseMode == .disabled                { return }
-    if mission_control_is_active()                        { return }
+    if MissionControl.shared.isActive                     { return }
     if mouse_state_global().ffm_window_id != nil { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }

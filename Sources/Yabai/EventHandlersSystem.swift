@@ -12,7 +12,7 @@ import CPrivate
 /// Sets the Mission Control mode and pushes the signal of entering it.
 @WM private func missionControlShow(_ mode: MissionControlMode)
 {
-    g_mission_control_mode = mode
+    MissionControl.shared.mode = mode
     eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: mode.rawValue))
 }
 
@@ -41,7 +41,7 @@ import CPrivate
 @WM func missionControlEnter()
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_ENTER:\n")
-    g_mission_control_mode = .show
+    MissionControl.shared.mode = .show
 
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
         EventLoop.post(.missionControlCheckForExit)
@@ -53,7 +53,7 @@ import CPrivate
 /// `EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)`
 @WM func missionControlCheckForExit()
 {
-    if !mission_control_is_active() { return }
+    if !MissionControl.shared.isActive { return }
 
     let windowList = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
     var found = false
@@ -95,12 +95,12 @@ import CPrivate
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    if g_mission_control_mode == .show || g_mission_control_mode == .showAllWindows {
+    if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {
         wm.correctForMissionControlChanges()
     }
 
-    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: g_mission_control_mode.rawValue))
-    g_mission_control_mode = .inactive
+    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: MissionControl.shared.mode.rawValue))
+    MissionControl.shared.mode = .inactive
 }
 
 /// `EVENT_HANDLER(DOCK_DID_RESTART)`
@@ -110,8 +110,8 @@ import CPrivate
 
     scripting_addition_payload_changed()
 
-    missionControlUnobserve()
-    mission_control_observe()
+    MissionControl.shared.unobserve()
+    MissionControl.shared.observe()
 
     eventSignalPush(.dockDidRestart, nil)
 }
@@ -185,7 +185,7 @@ import CPrivate
     if generation != sm.space_layout_gen { return }
     if sm.space_layouts.isEmpty { return }
 
-    if mission_control_is_active() {
+    if MissionControl.shared.isActive {
         space_layout_schedule(0.5, false)
         return
     }

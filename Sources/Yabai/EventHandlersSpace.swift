@@ -75,7 +75,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         }
     }
 
-    if !mission_control_is_active(), let sid = sm.current_space_id, space_is_user(sid) {
+    if !MissionControl.shared.isActive, let sid = sm.current_space_id, space_is_user(sid) {
         wm.validateAndCheckForWindows(on: sid)
 
         if let view, view.isInvalid {

@@ -398,7 +398,7 @@ func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
 /// `display_manager_focus_space`
 func display_manager_focus_space(_ did: DisplayID, _ sid: SpaceID) -> SpaceOperationResult
 {
-    if mission_control_is_active() { return .inMissionControl }
+    if MissionControl.shared.isActive { return .inMissionControl }
 
     let spaceDid = space_display_id(sid)
     if spaceDid != did { return .sameDisplay }

@@ -35,52 +35,34 @@ public func boolString(_ value: Bool) -> String
 }
 
 //
-// NOTE: config options print their current value to the response when no value is given. These return true when
-// the next token of the message is a valid new value, so the caller can apply it, and throw when it is an invalid one.
+// NOTE: config options print their current value when no value is given, so these parse a valid value token; any
+// other value throws an unknown-value failure.
 //
 
-/// `parse_config_bool`
-public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ flag: inout Bool) throws(CommandError) -> Bool
+/// `on` or `off`.
+public func parseConfigBool(_ domain: Token, _ command: Token, _ value: Token) throws(CommandError) -> Bool
 {
-    let value = message.next()
-    if !value.isValid {
-        rsp.write("\(boolString(flag))\n")
-    } else if value.equals(Argument.off) {
-        flag = false
-        return true
-    } else if value.equals(Argument.on) {
-        flag = true
-        return true
-    } else {
-        throw CommandError.unknownValue(domain, command, value)
-    }
-
-    return false
-}
-
-//
-// NOTE: A setting whose values are the String raw values of an enum. Without a value, the current one is printed;
-// only the given choices are accepted (e.g. mouse_action1 takes move and resize, not swap).
-//
-
-/// `parse_config_choice`: the selected value, or nil when the current one was printed. Throws for an unknown value.
-public func parseConfigChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) throws(CommandError) -> Choice?
-{
-    let value = message.next()
-    if !value.isValid {
-        rsp.write("\(current.rawValue)\n")
-        return nil
-    }
-
-    if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
-
+    if value.equals(Argument.on) { return true }
+    if value.equals(Argument.off) { return false }
     throw CommandError.unknownValue(domain, command, value)
 }
 
-/// `parse_config_choice` among every case of the enum.
-public func parseConfigChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) throws(CommandError) -> Choice?
+//
+// NOTE: A setting whose values are the String raw values of an enum; only the given choices are accepted (e.g.
+// mouse_action1 takes move and resize, not swap).
+//
+
+/// One of the choices, by its raw value.
+public func parseConfigChoice<Choice: RawRepresentable<String>>(_ domain: Token, _ command: Token, _ value: Token, _ choices: [Choice]) throws(CommandError) -> Choice
 {
-    try parseConfigChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
+    if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
+    throw CommandError.unknownValue(domain, command, value)
+}
+
+/// One of every case of the enum, by its raw value.
+public func parseConfigChoice<Choice: RawRepresentable<String> & CaseIterable>(_ domain: Token, _ command: Token, _ value: Token) throws(CommandError) -> Choice
+{
+    try parseConfigChoice(domain, command, value, Array(Choice.allCases))
 }
 
 /// An argument of a rule or signal: `key=value`, or `key!=value` for an exclusion.

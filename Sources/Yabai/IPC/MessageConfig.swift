@@ -9,7 +9,7 @@ import YabaiCore
 // owning manager.
 //
 
-/// The names and optional space scope accepted by config commands.
+/// The names of the config domain's options.
 typealias ConfigName = ConfigCommand.Name
 
 /// The layout of the workspace root of new trees (`config tree_workspace_layout`).
@@ -19,91 +19,84 @@ private enum WorkspaceLayout: String, CaseIterable
     case tabbed
 }
 
-private typealias ConfigMutation = @WM () throws(CommandError) -> Void
-
+/// One option of the config domain. `print` writes the current value (of the space with `--space`); `parse` reads the
+/// value and returns the change that applies it, or nil when no value was given. A value is checked completely before
+/// anything changes, so a rejected value leaves the config as it was.
 @WM private struct ConfigOption
 {
+    typealias Change = @WM () throws(CommandError) -> Void
+
     let name: ConfigName
     let print: @WM (inout Response, SpaceID?) -> Void
-    let parse: @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> ConfigMutation?
-    let apply: @WM (ConfigMutation) throws(CommandError) -> Void
+    let parse: @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> Change?
 }
 
-@WM private func configOption(_ name: ConfigName, print: @escaping @WM (inout Response, SpaceID?) -> Void, parse: @escaping @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> ConfigMutation?) -> ConfigOption
+@WM private func boolOption(_ name: ConfigName, get: @escaping @WM () -> Bool, set: @escaping @WM (Bool) -> Void) -> ConfigOption
 {
-    ConfigOption(name: name, print: print, parse: parse, apply: { (mutation: ConfigMutation) throws(CommandError) in try mutation() })
-}
-
-@WM private func boolOption(_ name: ConfigName, get: @escaping @WM () -> Bool, set: @escaping @WM (Bool) -> Void, applyChange: (@WM (Bool) -> Void)? = nil) -> ConfigOption
-{
-    configOption(name, print: { rsp, _ in rsp.write("\(boolString(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: name, print: { rsp, _ in rsp.write("\(boolString(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        let value: Bool
-        if token.equals(Argument.on) { value = true }
-        else if token.equals(Argument.off) { value = false }
-        else { throw CommandError.unknownValue(domain, command, token) }
-        return { set(value); applyChange?(value) }
+        let value = try parseConfigBool(domain, command, token)
+        return { set(value) }
     })
 }
 
-@WM private func choiceOption<Choice: RawRepresentable>(_ name: ConfigName, choices: [Choice], get: @escaping @WM () -> Choice, set: @escaping @WM (Choice) -> Void, applyChange: (@WM (Choice) -> Void)? = nil) -> ConfigOption where Choice.RawValue == String
+@WM private func choiceOption<Choice: RawRepresentable>(_ name: ConfigName, choices: [Choice], get: @escaping @WM () -> Choice, set: @escaping @WM (Choice) -> Void) -> ConfigOption where Choice.RawValue == String
 {
-    configOption(name, print: { rsp, _ in rsp.write("\(get().rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: name, print: { rsp, _ in rsp.write("\(get().rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let value = choices.first(where: { token.equals($0.rawValue) }) else { throw CommandError.unknownValue(domain, command, token) }
-        return { set(value); applyChange?(value) }
+        let value = try parseConfigChoice(domain, command, token, choices)
+        return { set(value) }
     })
 }
 
-@WM private func integerOption(_ name: ConfigName, get: @escaping @WM () -> Int, printValue: @escaping @WM (Int) -> String = { String($0) }, parseValue: @escaping @WM (Token) -> Int?, set: @escaping @WM (Int) -> Void, applyChange: (@WM () -> Void)? = nil) -> ConfigOption
+@WM private func integerOption(_ name: ConfigName, get: @escaping @WM () -> Int, parseValue: @escaping @WM (Token) -> Int?, set: @escaping @WM (Int) -> Void) -> ConfigOption
 {
-    configOption(name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: name, print: { rsp, _ in rsp.write("\(get())\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token) }
-        return { set(value); applyChange?() }
+        return { set(value) }
     })
 }
 
-@WM private func floatOption(_ name: ConfigName, get: @escaping @WM () -> Float, printValue: @escaping @WM (Float) -> String, parseValue: @escaping @WM (Token) -> Float?, apply: @escaping @WM (Float) -> Void) -> ConfigOption
+@WM private func floatOption(_ name: ConfigName, get: @escaping @WM () -> Float, printValue: @escaping @WM (Float) -> String, parseValue: @escaping @WM (Token) -> Float?, set: @escaping @WM (Float) -> Void) -> ConfigOption
 {
-    configOption(name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token) }
-        return { apply(value) }
+        return { set(value) }
     })
 }
 
-@WM private func colorOption(_ name: ConfigName, get: @escaping @WM () -> RGBAColor, set: @escaping @WM (RGBAColor) -> Void, allowZero: Bool = true, markCustom: (@WM () -> Void)? = nil, applyChange: (@WM () -> Void)? = nil) -> ConfigOption
+@WM private func colorOption(_ name: ConfigName, get: @escaping @WM () -> RGBAColor, set: @escaping @WM (RGBAColor) -> Void, allowZero: Bool = true) -> ConfigOption
 {
-    configOption(name, print: { rsp, _ in rsp.write("0x\(String(get().argb, radix: 16))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: name, print: { rsp, _ in rsp.write("0x\(String(get().argb, radix: 16))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard case .u32(let value) = token.value, allowZero || value != 0 else { throw CommandError.unknownValue(domain, command, token) }
         let color = RGBAColor(hex: value)
-        return { set(color); markCustom?(); applyChange?() }
+        return { set(color) }
     })
 }
 
 @WM private func focusFollowsMouseOption() -> ConfigOption
 {
-    configOption(.focusFollowsMouse, print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouse.rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: .focusFollowsMouse, print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouse.rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         let value: FocusFollowsMouse
         if token.equals(Argument.off) { value = .disabled }
-        else if let choice = [FocusFollowsMouse.autofocus, .autoraise].first(where: { token.equals($0.rawValue) }) { value = choice }
-        else { throw CommandError.unknownValue(domain, command, token) }
+        else { value = try parseConfigChoice(domain, command, token, [FocusFollowsMouse.autofocus, .autoraise]) }
         return { WindowManager.shared.setFocusFollowsMouse(value) }
     })
 }
 
 @WM private func scratchpadGridOption() -> ConfigOption
 {
-    configOption(.scratchpadGrid, print: { rsp, _ in
+    ConfigOption(name: .scratchpadGrid, print: { rsp, _ in
         let grid = Config.current.scratchpad.grid
         if grid.rows == 0 || grid.columns == 0 { rsp.write("\(Argument.off)\n") }
         else {
@@ -120,9 +113,15 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     })
 }
 
+//
+// NOTE: space_layout takes one layout per display count, e.g. '15 10:5 10:5:1b'. The layouts are the tokens that start
+// with a digit, so the next command can follow them. An invalid value stops the remaining commands of the message,
+// since its layouts cannot be told apart from the next command. The spec is limited to 255 bytes.
+//
+
 @WM private func spaceLayoutOption() -> ConfigOption
 {
-    configOption(.spaceLayout, print: { rsp, _ in
+    ConfigOption(name: .spaceLayout, print: { rsp, _ in
         if let spec = Config.current.space.spaceLayoutSpec { rsp.write("\(Token(spec))\n") }
         else { rsp.write("\(Argument.off)\n") }
     }, parse: { (domain, command, message, selSid) throws(CommandError) in
@@ -172,9 +171,13 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     })
 }
 
+//
+// NOTE: Animations need the scripting addition and Screen Recording permission; 0 turns them off.
+//
+
 @WM private func animationDurationOption() -> ConfigOption
 {
-    configOption(.windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: .windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard let duration = token.value.floatValue else { throw CommandError.unknownValue(domain, command, token) }
@@ -195,7 +198,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func tabBarFontOption() -> ConfigOption
 {
-    configOption(.tabBarFont, print: { rsp, _ in rsp.write("\(Token(Config.current.tabBar.fontName))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    ConfigOption(name: .tabBarFont, print: { rsp, _ in rsp.write("\(Token(Config.current.tabBar.fontName))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard let fontName = String(validating: token.bytes, as: UTF8.self) else { throw CommandError.unknownValue(domain, command, token) }
@@ -208,7 +211,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func externalBarOption() -> ConfigOption
 {
-    configOption(.externalBar, print: { rsp, _ in
+    ConfigOption(name: .externalBar, print: { rsp, _ in
         let externalBar = Config.current.display.externalBar
         rsp.write("\(externalBar.mode.rawValue):\(externalBar.topPadding):\(externalBar.bottomPadding)\n")
     }, parse: { (domain, command, message, _) throws(CommandError) in
@@ -239,7 +242,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func spacingOption(_ name: ConfigName, spacing: ViewSpacing) -> ConfigOption
 {
-    configOption(name, print: { rsp, selSid in
+    ConfigOption(name: name, print: { rsp, selSid in
         let manager = SpaceManager.shared
         let value = selSid.map { manager.view(for: $0)[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceDefault]
         rsp.write("\(value)\n")
@@ -263,7 +266,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func layoutOption() -> ConfigOption
 {
-    configOption(.layout, print: { rsp, selSid in
+    ConfigOption(name: .layout, print: { rsp, selSid in
         let manager = SpaceManager.shared
         let layout = selSid.map { manager.view(for: $0).layout } ?? Config.current.space.layout
         rsp.write("\(layout.rawValue)\n")
@@ -289,17 +292,14 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func autoPaddingOption() -> ConfigOption
 {
-    configOption(.autoPadding, print: { rsp, selSid in
+    ConfigOption(name: .autoPadding, print: { rsp, selSid in
         let manager = SpaceManager.shared
         let enabled = selSid.map { manager.view(for: $0).autoPadding } ?? Config.current.space.autoPadding
         rsp.write("\(boolString(enabled))\n")
     }, parse: { (domain, command, message, selSid) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        let enabled: Bool
-        if token.equals(Argument.on) { enabled = true }
-        else if token.equals(Argument.off) { enabled = false }
-        else { throw CommandError.unknownValue(domain, command, token) }
+        let enabled = try parseConfigBool(domain, command, token)
         return {
             let manager = SpaceManager.shared
             if let selSid { manager.setAutoPadding(enabled, for: selSid) }
@@ -313,54 +313,55 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocus }, set: { Config.current.window.mouseFollowsFocus = $0 }),
     focusFollowsMouseOption(),
     choiceOption(.displayArrangementOrder, choices: DisplayArrangementOrder.allCases, get: { Config.current.display.order }, set: { Config.current.display.order = $0 }),
-    boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0 }, applyChange: { _ in SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
+    boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0; SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
     choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.origin }, set: { Config.current.window.origin = $0 }),
     boolOption(.scratchpadExclusive, get: { Config.current.scratchpad.exclusive }, set: { Config.current.scratchpad.exclusive = $0 }),
     boolOption(.scratchpadRaise, get: { Config.current.scratchpad.raise }, set: { Config.current.scratchpad.raise = $0 }),
-    boolOption(.scratchpadBelow, get: { Config.current.scratchpad.below }, set: { Config.current.scratchpad.below = $0 }, applyChange: { _ in WindowManager.shared.setScratchpadLayers() }),
+    boolOption(.scratchpadBelow, get: { Config.current.scratchpad.below }, set: { Config.current.scratchpad.below = $0; WindowManager.shared.setScratchpadLayers() }),
     boolOption(.skipWindowFocusAnimation, get: { Config.current.space.skipWindowFocusAnimation }, set: { Config.current.space.skipWindowFocusAnimation = $0 }),
-    boolOption(.windowOpacity, get: { Config.current.window.opacityEnabled }, set: { _ in }, applyChange: { WindowManager.shared.setWindowOpacityEnabled($0) }),
+    boolOption(.windowOpacity, get: { Config.current.window.opacityEnabled }, set: { WindowManager.shared.setWindowOpacityEnabled($0) }),
     choiceOption(.windowAnimationEasing, choices: AnimationEasing.allCases, get: { Config.current.animation.easing }, set: { Config.current.animation.easing = $0 }),
-    choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { _ in }, applyChange: { WindowManager.shared.setPurifyMode($0) }),
+    choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { WindowManager.shared.setPurifyMode($0) }),
     choiceOption(.treeDefaultOrientation, choices: TreeOrientation.allCases, get: { Config.current.space.treeDefaultOrientation }, set: { Config.current.space.treeDefaultOrientation = $0 }),
     choiceOption(.treeWorkspaceLayout, choices: WorkspaceLayout.allCases, get: { Config.current.space.treeWorkspaceTabbed ? .tabbed : .default }, set: { Config.current.space.treeWorkspaceTabbed = $0 == .tabbed }),
     boolOption(.treeAutotiling, get: { Config.current.space.treeAutotiling }, set: { Config.current.space.treeAutotiling = $0 }),
     choiceOption(.focusWrapping, choices: FocusWrapping.allCases, get: { Config.current.window.focusWrapping }, set: { Config.current.window.focusWrapping = $0 }),
-    choiceOption(.mouseModifier, choices: MouseModifierKey.allCases, get: { Config.current.mouse.modifier }, set: { Config.current.mouse.modifier = $0 }, applyChange: { MouseState.shared.tap.modifier = $0 }),
+    choiceOption(.mouseModifier, choices: MouseModifierKey.allCases, get: { Config.current.mouse.modifier }, set: { Config.current.mouse.modifier = $0; MouseState.shared.tap.modifier = $0 }),
     choiceOption(.mouseAction1, choices: [.move, .resize], get: { Config.current.mouse.action1 }, set: { Config.current.mouse.action1 = $0 }),
     choiceOption(.mouseAction2, choices: [.move, .resize], get: { Config.current.mouse.action2 }, set: { Config.current.mouse.action2 = $0 }),
     choiceOption(.mouseDropAction, choices: [.swap, .stack], get: { Config.current.mouse.dropAction }, set: { Config.current.mouse.dropAction = $0 }),
-    boolOption(.windowBorder, get: { Config.current.border.enabled }, set: { Config.current.border.enabled = $0 }, applyChange: { _ in Border.refreshAll() }),
-    boolOption(.windowBorderHideSingle, get: { Config.current.border.hideSingle }, set: { Config.current.border.hideSingle = $0 }, applyChange: { _ in Border.refreshAll() }),
-    boolOption(.tabBar, get: { Config.current.tabBar.enabled }, set: { Config.current.tabBar.enabled = $0 }, applyChange: { _ in TabBar.refreshAll() }),
-    boolOption(.tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0 }, applyChange: { _ in TabBar.redrawAll() }),
-    choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0 }, applyChange: { _ in TabBar.refreshAll() }),
-    choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0 }, applyChange: { _ in TabBar.redrawAll() }),
-    choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0 }, applyChange: { _ in TabBar.refreshAll() }),
-    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, apply: { Config.current.border.width = $0; Border.refreshAll() }),
-    colorOption(.activeWindowBorderColor, get: { Config.current.border.activeColor }, set: { Config.current.border.activeColor = $0 }, applyChange: { Border.refreshAll() }),
-    colorOption(.normalWindowBorderColor, get: { Config.current.border.normalColor }, set: { Config.current.border.normalColor = $0 }, applyChange: { Border.refreshAll() }),
-    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, set: { Config.current.tabBar.height = $0 }, applyChange: { TabBar.refreshAll() }),
+    boolOption(.windowBorder, get: { Config.current.border.enabled }, set: { Config.current.border.enabled = $0; Border.refreshAll() }),
+    boolOption(.windowBorderHideSingle, get: { Config.current.border.hideSingle }, set: { Config.current.border.hideSingle = $0; Border.refreshAll() }),
+    boolOption(.tabBar, get: { Config.current.tabBar.enabled }, set: { Config.current.tabBar.enabled = $0; TabBar.refreshAll() }),
+    boolOption(.tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0; TabBar.redrawAll() }),
+    choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0; TabBar.refreshAll() }),
+    choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0; TabBar.redrawAll() }),
+    choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0; TabBar.refreshAll() }),
+    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, set: { Config.current.border.width = $0; Border.refreshAll() }),
+    colorOption(.activeWindowBorderColor, get: { Config.current.border.activeColor }, set: { Config.current.border.activeColor = $0; Border.refreshAll() }),
+    colorOption(.normalWindowBorderColor, get: { Config.current.border.normalColor }, set: { Config.current.border.normalColor = $0; Border.refreshAll() }),
+    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, set: { Config.current.tabBar.height = $0; TabBar.refreshAll() }),
     integerOption(.tabBarOffset, get: { Config.current.tabBar.offset }, parseValue: { token in
         switch token.value {
         case .int(let value): return value
         case .float(let value) where value == Float(cInt(value)): return cInt(value)
         default: return nil
         }
-    }, set: { Config.current.tabBar.offset = $0 }, applyChange: { TabBar.refreshAll() }),
-    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.cardPadding = $0 }, applyChange: { TabBar.refreshAll() }),
-    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.windowRadius = $0 }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarFocusedColor, get: { Config.current.tabBar.focusedColor }, set: { Config.current.tabBar.focusedColor = $0 }, markCustom: { Config.current.tabBar.focusedColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor }, set: { Config.current.tabBar.focusedTextColor = $0 }, markCustom: { Config.current.tabBar.focusedTextColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor }, set: { Config.current.tabBar.inactiveColor = $0 }, markCustom: { Config.current.tabBar.inactiveColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarInactiveTextColor, get: { Config.current.tabBar.inactiveTextColor }, set: { Config.current.tabBar.inactiveTextColor = $0 }, markCustom: { Config.current.tabBar.inactiveTextColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0 }, markCustom: { Config.current.tabBar.unfocusedColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0 }, markCustom: { Config.current.tabBar.unfocusedTextColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0 }, markCustom: { Config.current.tabBar.backdropColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, apply: { Config.current.window.opacityDuration = $0 }),
-    floatOption(.menubarOpacity, get: { Config.current.window.menuBarOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setMenuBarOpacity($0) }),
-    floatOption(.activeWindowOpacity, get: { Config.current.window.activeOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setActiveWindowOpacity($0) }),
-    floatOption(.normalWindowOpacity, get: { Config.current.window.normalOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setNormalWindowOpacity($0) }),
+    }, set: { Config.current.tabBar.offset = $0; TabBar.refreshAll() }),
+    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.cardPadding = $0; TabBar.refreshAll() }),
+    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.windowRadius = $0; TabBar.redrawAll() }),
+    colorOption(.tabBarFocusedColor, get: { Config.current.tabBar.focusedColor }, set: { Config.current.tabBar.focusedColor = $0; Config.current.tabBar.focusedColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor }, set: { Config.current.tabBar.focusedTextColor = $0; Config.current.tabBar.focusedTextColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor }, set: { Config.current.tabBar.inactiveColor = $0; Config.current.tabBar.inactiveColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarInactiveTextColor, get: { Config.current.tabBar.inactiveTextColor }, set: { Config.current.tabBar.inactiveTextColor = $0; Config.current.tabBar.inactiveTextColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0; Config.current.tabBar.unfocusedColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0; Config.current.tabBar.unfocusedTextColorIsCustom = true; TabBar.redrawAll() }),
+    colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0; Config.current.tabBar.backdropColorIsCustom = true; TabBar.redrawAll() }),
+    floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, set: { Config.current.window.opacityDuration = $0 }),
+    // NOTE: An opacity is printed with 4 decimals. Only the menubar accepts 0, windows need an opacity above 0.
+    floatOption(.menubarOpacity, get: { Config.current.window.menuBarOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setMenuBarOpacity($0) }),
+    floatOption(.activeWindowOpacity, get: { Config.current.window.activeOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setActiveWindowOpacity($0) }),
+    floatOption(.normalWindowOpacity, get: { Config.current.window.normalOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setNormalWindowOpacity($0) }),
     colorOption(.insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor }, set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
     scratchpadGridOption(),
     spaceLayoutOption(),
@@ -416,8 +417,8 @@ private func cInt(_ value: Float) -> Int
     guard let option = configOptions.first(where: { $0.name == name }) else {
         throw CommandError.unknownCommand(domain, command)
     }
-    if let mutation = try option.parse(domain, command, &message, selSid) {
-        try option.apply(mutation)
+    if let change = try option.parse(domain, command, &message, selSid) {
+        try change()
     } else {
         option.print(&rsp, selSid)
     }

@@ -160,77 +160,34 @@ func configCommandChainedNames() throws
     #expect(message.next().equals("0"))
 }
 
-private func parseBool(_ text: String, _ flag: inout Bool) -> (Bool, String)
-{
-    var rsp = Response()
-    var message = Message(text)
-    do {
-        let result = try parseConfigBool(&rsp, domain, command, &message, &flag)
-        return (result, rsp.text)
-    } catch {
-        return (false, error.description)
-    }
-}
-
-@Test("message_config_bool") func messageConfigBool()
-{
-    var flag = false
-
-    var (result, response) = parseBool("on\0", &flag)
-    #expect(result == true)
-    #expect(flag == true)
-    #expect(response == "")
-
-    (result, response) = parseBool("\0", &flag)
-    #expect(result == false)
-    #expect(response == "on\n")
-
-    (result, response) = parseBool("off\0", &flag)
-    #expect(result == true)
-    #expect(flag == false)
-
-    (result, response) = parseBool("yes\0", &flag)
-    #expect(result == false)
-    #expect(flag == false)
-    #expect(response.contains("unknown value 'yes' given to command 'test'"))
-}
-
 private enum TestAction: String, CaseIterable
 {
-    case none
     case move
     case resize
     case swap
 }
 
-private func parseChoice(_ text: String, _ choices: [TestAction], current: TestAction) -> (TestAction?, String)
+@Test("message_config_bool") func messageConfigBool() throws
 {
-    var rsp = Response()
-    var message = Message(text)
-    do {
-        let result = try parseConfigChoice(&rsp, domain, command, &message, choices, current: current)
-        return (result, rsp.text)
-    } catch {
-        return (nil, error.description)
-    }
+    #expect(try parseConfigBool(domain, command, Token("on")) == true)
+    #expect(try parseConfigBool(domain, command, Token("off")) == false)
+
+    let text = thrownText { () throws(CommandError) in _ = try parseConfigBool(domain, command, Token("yes")) }
+    #expect(text == "unknown value 'yes' given to command 'test' for domain 'config'\n")
 }
 
-@Test("A config choice is one of the accepted raw values, and prints the current one without a value")
+@Test("A config choice is one of the accepted raw values, and the CaseIterable overload accepts every case")
 func messageConfigChoice() throws
 {
-    #expect(parseChoice("move\0", [.move, .resize], current: .none).0 == .move)
-    #expect(parseChoice("resize\0", [.move, .resize], current: .none).0 == .resize)
+    let choices: [TestAction] = [.move, .resize]
+    #expect(try parseConfigChoice(domain, command, Token("move"), choices) == .move)
+    #expect(try parseConfigChoice(domain, command, Token("resize"), choices) == .resize)
 
     // NOTE: values of the enum outside of the accepted choices are rejected
-    let (result, response) = parseChoice("swap\0", [.move, .resize], current: .move)
-    #expect(result == nil)
-    #expect(response.contains("unknown value 'swap'"))
+    let text = thrownText { () throws(CommandError) in _ = try parseConfigChoice(domain, command, Token("swap"), choices) }
+    #expect(text == "unknown value 'swap' given to command 'test' for domain 'config'\n")
 
-    #expect(parseChoice("\0", [.move, .resize], current: .none) == (nil, "none\n"))
-
-    var rsp = Response()
-    var message = Message("swap\0")
-    let chosen = try parseConfigChoice(&rsp, domain, command, &message, current: TestAction.none)
+    let chosen: TestAction = try parseConfigChoice(domain, command, Token("swap"))
     #expect(chosen == .swap)
 }
 

@@ -149,8 +149,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
 | 4.6 | Verification: tsan live run, live check, benchmark | [x] | 25219f86 | no code changes; mouse checks skipped (posting denied) |
-| **5** | **Commands, errors, config, Codable queries** | [ ] | | |
-| 5.1 | `CommandError` and throwing handlers | [ ] | | |
+| **5** | **Commands, errors, config, Codable queries** | [~] | cfea5195 | |
+| 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
 | 5.2 | Typed commands: window | [ ] | | |
 | 5.3 | Typed commands: other domains | [ ] | | |
 | 5.4 | `Config` values and option table | [ ] | | |
@@ -909,3 +909,27 @@ not here.
   unloaded, cross-display checks (one display).
 - Notes for the next agent: absolute bench numbers drifted again (tab/split focus ~40 ms in this session for both
   builds); always bench the installed baseline in the same session.
+
+### 2026-10-19 Subphase 5.1 [x]
+- Commits: ccad947c (pieces 1+2, one Haiku agent each for YabaiCore, window/space IPC, config/query IPC), cfea5195
+  (piece 3), plus this report.
+- Done: `CommandError` (YabaiCore `Message.swift`: text, `stopsMessage`, `unknownCommand/Option/Value`,
+  `init(combining:)`); `Response.fail(_: CommandError)` is the only fail. YabaiCore parsers lost `inout Response`:
+  selectors record `Selection.failure` (`checked()` throws it), labels/properties/insert/optional selectors/query
+  target/config bool+choice/rule/signal throw. Handlers are `throws(CommandError)`; `handleMessage` writes the error
+  that ends a message, `runCommands` (MessageLoop.swift) the failure of each chained command. `WindowOperationResult`/
+  `SpaceOperationResult` became `WindowOperationError`/`SpaceOperationError` thrown by the operations; handlers catch
+  the cases they word, `checkManaged`/`checkSpaceOperation` the shared ones, others stay silent as before.
+- Output changes: golden `signal --add label=x`: the two missing-key lines now share one failure byte (rule, signal
+  and query-property failures list all problems after one byte). CHANGELOG entry added.
+- Verification: `make` (no warnings), `make test` 112 tests (70 + 42) incl. golden after each commit. No live check.
+- Decisions: chained commands keep today's semantics instead of stopping at the first failure (the plan's single
+  catch would skip the rest of a multi-option `yabai -m config …` line, as in examples/yabairc, when one option
+  fails): a failure continues with the next command, the former `return .stop` sites throw with `stopsMessage`
+  (invalid space_layout, --layout/--split value, failed tree focus/move, optional selector failures, missing acting
+  space/window). `CommandResult.stop` remains for silent stops ('recent' found nothing); `parseRule` returns false for
+  that silent case. Failure texts unchanged.
+- Next: 5.2 (typed window commands). The leading optional selector of the window/space/display domains still uses
+  `Selection.failure` to ignore its failure; 5.2's typed selectors can replace `Selection`.
+- Notes for the next agent: typed-throws inference pitfall added to AGENTS.md (closures need
+  `{ () throws(CommandError) in … }`; a bare `throw` in a `do` makes its catch `any Error`).

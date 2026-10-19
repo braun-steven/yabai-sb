@@ -237,6 +237,77 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     })
 }
 
+@WM private func spacingOption(_ name: ConfigName, spacing: ViewSpacing) -> ConfigOption
+{
+    configOption(name, print: { rsp, selSid in
+        let manager = SpaceManager.shared
+        let value = selSid.map { manager.view(for: $0)[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceManager]
+        rsp.write("\(value)\n")
+    }, parse: { (domain, command, message, selSid) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        guard case .int(let value) = token.value else { throw CommandError.unknownValue(domain, command, token) }
+        return {
+            let manager = SpaceManager.shared
+            if let selSid {
+                let view = manager.view(for: selSid)
+                view.overrides.insert(spacing.override)
+                view[keyPath: spacing.view] = value
+                view.updateAndFlush()
+            } else {
+                manager.setSpacingForAllSpaces(spacing, to: value)
+            }
+        }
+    })
+}
+
+@WM private func layoutOption() -> ConfigOption
+{
+    configOption(.layout, print: { rsp, selSid in
+        let manager = SpaceManager.shared
+        let layout = selSid.map { manager.view(for: $0).layout } ?? Config.current.space.layout
+        rsp.write("\(layout.rawValue)\n")
+    }, parse: { (domain, command, message, selSid) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        guard let layout = [ViewType.float, .tree].first(where: { token.equals($0.rawValue) }) else {
+            throw CommandError.unknownValue(domain, command, token)
+        }
+        return { () throws(CommandError) in
+            let manager = SpaceManager.shared
+            if selSid == nil {
+                manager.setLayoutForAllSpaces(layout)
+            } else if let selSid, !selSid.isUser {
+                throw CommandError("cannot set layout for a macOS fullscreen space!\n")
+            } else if let selSid {
+                manager.view(for: selSid).overrides.insert(.layout)
+                manager.setLayout(layout, for: selSid)
+            }
+        }
+    })
+}
+
+@WM private func autoPaddingOption() -> ConfigOption
+{
+    configOption(.autoPadding, print: { rsp, selSid in
+        let manager = SpaceManager.shared
+        let enabled = selSid.map { manager.view(for: $0).autoPadding } ?? Config.current.space.autoPadding
+        rsp.write("\(boolString(enabled))\n")
+    }, parse: { (domain, command, message, selSid) throws(CommandError) in
+        let token = message.next()
+        guard token.isValid else { return nil }
+        let enabled: Bool
+        if token.equals(Argument.on) { enabled = true }
+        else if token.equals(Argument.off) { enabled = false }
+        else { throw CommandError.unknownValue(domain, command, token) }
+        return {
+            let manager = SpaceManager.shared
+            if let selSid { manager.setAutoPadding(enabled, for: selSid) }
+            else { manager.setAutoPaddingForAllSpaces(enabled) }
+        }
+    })
+}
+
 @WM private let configOptions: [ConfigOption] = [
     boolOption(.debugOutput, get: { Log.verbose.load(ordering: .relaxed) }, set: { Log.verbose.store($0, ordering: .relaxed) }),
     boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocusEnabled }, set: { Config.current.window.mouseFollowsFocusEnabled = $0 }),
@@ -296,43 +367,18 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     animationDurationOption(),
     tabBarFontOption(),
     externalBarOption(),
+    spacingOption(.topPadding, spacing: .topPadding),
+    spacingOption(.bottomPadding, spacing: .bottomPadding),
+    spacingOption(.leftPadding, spacing: .leftPadding),
+    spacingOption(.rightPadding, spacing: .rightPadding),
+    spacingOption(.windowGap, spacing: .windowGap),
+    layoutOption(),
+    autoPaddingOption(),
 ]
 
 @WM let configOptionNames = configOptions.map(\.name)
-
-@WM private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
-{
-    let sm = SpaceManager.shared
-    let value = message.next()
-
-    if !value.isValid {
-        let layout = selSid.map { sm.view(for: $0).layout } ?? Config.current.space.layout
-        rsp.write("\(layout.rawValue)\n")
-        return
-    }
-
-    guard let layout = [ViewType.float, .tree].first(where: { value.equals($0.rawValue) }) else {
-        throw CommandError.unknownValue(domain, command, value)
-    }
-
-    if selSid == nil {
-        sm.setLayoutForAllSpaces(layout)
-    } else if let selSid, !selSid.isUser {
-        throw CommandError("cannot set layout for a macOS fullscreen space!\n")
-    } else if let selSid {
-        sm.view(for: selSid).overrides.insert(.layout)
-        sm.setLayout(layout, for: selSid)
-    }
-}
-
-private func spacing(for command: ConfigName) -> ViewSpacing?
-{
-    if command == .topPadding    { return .topPadding }
-    if command == .bottomPadding { return .bottomPadding }
-    if command == .leftPadding   { return .leftPadding }
-    if command == .rightPadding  { return .rightPadding }
-    if command == .windowGap     { return .windowGap }
-    return nil
+@WM let configOptionTableIsComplete = configOptionNames.count == ConfigName.allCases.count && ConfigName.allCases.allSatisfy { name in
+    configOptionNames.filter { $0 == name }.count == 1
 }
 
 //
@@ -367,46 +413,12 @@ private func cInt(_ value: Float) -> Int
 @WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout Message, _ selSid: SpaceID?) throws(CommandError)
 {
     let command = Token(name.rawValue)
-    let sm = SpaceManager.shared
-
-    if let option = configOptions.first(where: { $0.name == name }) {
-        if let mutation = try option.parse(domain, command, &message, selSid) {
-            try option.apply(mutation)
-        } else {
-            option.print(&rsp, selSid)
-        }
-        return
-    }
-
-    if let spacing = spacing(for: name) {
-        let view = selSid.map { sm.view(for: $0) }
-        let current = view.map { $0[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceManager]
-        let token = message.next()
-        switch token.value {
-        case .invalid:
-            rsp.write("\(current)\n")
-        case .int(let value):
-            if let view {
-                view.overrides.insert(spacing.override)
-                view[keyPath: spacing.view] = value
-                view.updateAndFlush()
-            } else {
-                sm.setSpacingForAllSpaces(spacing, to: value)
-            }
-        default:
-            throw CommandError.unknownValue(domain, command, token)
-        }
-    } else if name == .layout {
-        try configLayout(&rsp, domain, command, &message, selSid)
-    } else if name == .autoPadding {
-        if let selSid {
-            var enabled = sm.view(for: selSid).autoPadding
-            if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPadding(enabled, for: selSid) }
-        } else {
-            var enabled = Config.current.space.autoPadding
-            if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
-        }
-    } else {
+    guard let option = configOptions.first(where: { $0.name == name }) else {
         throw CommandError.unknownCommand(domain, command)
+    }
+    if let mutation = try option.parse(domain, command, &message, selSid) {
+        try option.apply(mutation)
+    } else {
+        option.print(&rsp, selSid)
     }
 }

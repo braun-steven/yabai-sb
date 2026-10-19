@@ -142,12 +142,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
-| **4** | **Compiler-checked isolation** | [~] | f41900d1 | |
+| **4** | **Compiler-checked isolation** | [~] | ae90086a | |
 | 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
 | 4.2 | Process table | [x] | d21e375e | Carbon posts `ProcessKey`s; table and startup enumeration on yabai.wm |
 | 4.3 | Remaining globals | [x] | 4f34f728 | `Log.verbose` Atomic, SA socket paths immutable, Mission Control Mutex, tab bars on `WindowManager` |
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
-| 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [ ] | | |
+| 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
 | 4.6 | Verification: tsan live run, live check, benchmark | [ ] | | |
 | **5** | **Commands, errors, config, Codable queries** | [ ] | | |
 | 5.1 | `CommandError` and throwing handlers | [ ] | | |
@@ -865,3 +865,21 @@ not here.
   and whether the isolated conformances can stay).
 - Notes for the next agent: new `@WM` pitfalls are in AGENTS.md (Swift pitfalls, "`@WM` models").
 
+
+### 2026-10-19 Subphase 4.5 [x]
+- Commits: 03df264a, 93414790, ae90086a (one Haiku piece each), plus this report.
+- Done: 03df264a: the Process/Window events carry the `@WM` (so Sendable) models directly; `Handoff` remains only for
+  the retained `Unmanaged<AXUIElement>`/`Unmanaged<CGEvent>` (not Sendable), with a NOTE. 93414790:
+  `ScriptingAddition.payloadChanged/orderWindows` and `MessageLoop.handle` are `@WM` and call `@WM` code directly;
+  `WM.assumeIsolated` remains only in the `EventLoop.post` block and `WM.sync`. ae90086a: `MissionControl` and
+  `TabBarGlass` are checked `Sendable` (`TabBarGlass`: `Mutex<WindowID?>` id, `@MainActor` panel). Kept with NOTEs:
+  `Handoff`, `MissionControlState` and `BorderState` (storing non-Sendable references into the Mutex fails region
+  checking, tried), the glass `Snapshot` (CTFont/CFString are not Sendable; CGColor/CGImage are), `WindowAnimation`
+  and `WindowFrameGroup` (CGContext/AX references and worker-owned mutable state).
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden after each commit. No live check (4.6).
+- Decisions: the isolated conformance `CSelectorContext: @WM SelectorContext` stays (YabaiCore stays nonisolated and
+  window-server free; all selector parsing runs on the event loop); a NOTE says so.
+- Next: 4.6.
+- Notes for the next agent: Mutex/`@MainActor var` pitfall added to AGENTS.md. The glass id is now read through a
+  Mutex, the panel only on the main queue: watch tab-bar glass under tsan in 4.6.

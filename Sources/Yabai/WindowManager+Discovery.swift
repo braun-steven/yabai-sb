@@ -109,7 +109,7 @@ extension WindowManager
         var result: [Window] = []
 
         for windowRef in accessibilityElements(in: windowList) {
-            guard let windowID = ax_window_id(windowRef), window(for: windowID) == nil else { continue }
+            guard let windowID = windowRef.windowID, window(for: windowID) == nil else { continue }
 
             if let target = createAndAddWindow(owner, reference: windowRef, id: windowID, includingOneShotRules: true) { result.append(target) }
         }
@@ -183,7 +183,7 @@ extension WindowManager
         for windowRef in windowList {
             // NOTE: The AX API appears to always include a Finder element with an empty window id (likely the desktop window).
             // Ignore elements without an id when comparing the discovered and expected window counts.
-            guard let windowID = ax_window_id(windowRef) else {
+            guard let windowID = windowRef.windowID else {
                 emptyCount += 1
                 continue
             }
@@ -227,7 +227,7 @@ extension WindowManager
 
     private func debugWindowInfo(_ target: Window)
     {
-        guard g_verbose else { return }
+        guard Log.verbose else { return }
 
         fputs("window info: \n", stdout_global())
         fputs(windowSerialize(target, 0), stdout_global())

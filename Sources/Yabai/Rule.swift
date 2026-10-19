@@ -25,8 +25,8 @@ extension Rule
     // makes the window managed, or in the effects round when the window is not managed by a rule.
     func skipsNonstandardWindow(role: String, subrole: String) -> Bool
     {
-        if !hasRole && !string_equals(role, "AXWindow") { return true }
-        if !hasSubrole && !string_equals(subrole, "AXStandardWindow") { return true }
+        if !hasRole && !role.bytesEqual("AXWindow") { return true }
+        if !hasSubrole && !subrole.bytesEqual("AXStandardWindow") { return true }
         return false
     }
 

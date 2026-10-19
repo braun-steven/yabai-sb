@@ -390,7 +390,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     let psnSid = ProcessManager.shared.activeSpace(forConnection: application.connection)
 
-    let dt = os_timer_ms_between(lastCmdTabTime.load(ordering: .relaxed), read_os_timer())
+    let dt = OSTimer.milliseconds(from: lastCmdTabTime.load(ordering: .relaxed), to: OSTimer.now)
     if dt > 1500.0 {
         var dummy: CFTypeRef?
         AXUIElementCopyAttributeValue(application.ref, "__fence" as CFString, &dummy)

@@ -2,24 +2,28 @@ import CPrivate
 import Darwin
 
 //
-// NOTE: The output of src/misc/log.h and src/misc/notify.h for Swift, which cannot call the variadic C functions.
-// debug writes to the stdout of C, so the lines keep their order with the C debug output.
+// NOTE: The logging and the exits of the daemon. Swift cannot call the variadic C logging functions, so the text is
+// written with fputs to the stdout_global and stderr_global streams. debug writes to the stdout of C (stdout_global)
+// so it stays ordered with C output.
 //
 
-/// `g_verbose`: set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
-nonisolated(unsafe) var g_verbose = false
+enum Log
+{
+    /// Set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
+    nonisolated(unsafe) static var verbose = false
+}
 
-/// `debug`: writes the text to stdout when the daemon runs with --verbose (or debug_output on).
+/// Writes the text to stdout when the daemon runs with --verbose (or debug_output on).
 func debug(_ text: @autoclosure () -> String)
 {
-    guard g_verbose else { return }
+    guard Log.verbose else { return }
     fputs(text(), stdout_global())
 }
 
-/// `debug_message`: the prefix and the null-separated tokens of a message, up to the empty token that ends it.
-func debug_message(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
+/// The prefix and the null-separated tokens of a message, up to the empty token that ends it.
+func debugMessage(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
 {
-    guard g_verbose, var message else { return }
+    guard Log.verbose, var message else { return }
 
     fputs("\(prefix):", stdout_global())
 
@@ -33,27 +37,26 @@ func debug_message(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
     fflush(stdout_global())
 }
 
-/// `warn`
 func warn(_ text: String)
 {
     fputs(text, stderr_global())
 }
 
-/// `error`: exits with EXIT_FAILURE.
+/// Exits with EXIT_FAILURE.
 func error(_ text: String) -> Never
 {
     fputs(text, stderr_global())
     exit(EXIT_FAILURE)
 }
 
-/// `require`: exits with EXIT_SUCCESS.
+/// Exits with EXIT_SUCCESS.
 func require(_ text: String) -> Never
 {
     fputs(text, stderr_global())
     exit(EXIT_SUCCESS)
 }
 
-/// `notify`: a user notification titled yabai (NotifyC in Sources/CPrivate/Notify.m).
+/// A user notification titled yabai (NotifyC in Sources/CPrivate/Notify.m).
 func notify(_ subtitle: String, _ text: String)
 {
     NotifyC(subtitle, text)

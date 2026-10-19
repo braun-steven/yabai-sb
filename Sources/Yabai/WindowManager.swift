@@ -116,12 +116,12 @@ final class WindowManager
     var windowOpacityDuration: Float = 0
     var windowAnimationDuration: Float = 0
     var windowAnimationEasing = AnimationEasing.easeInSine
-    var insertionFeedbackColor = rgba_color()
+    var insertionFeedbackColor = RGBAColor()
     var windowBorderEnabled = false
     var windowBorderHideSingle = false
     var windowBorderWidth: Float = 0
-    var activeWindowBorderColor = rgba_color()
-    var normalWindowBorderColor = rgba_color()
+    var activeWindowBorderColor = RGBAColor()
+    var normalWindowBorderColor = RGBAColor()
     var focusWrapping = FocusWrapping.off
     var tabBarEnabled = false
     var tabBarHeight: Int = 0
@@ -134,13 +134,13 @@ final class WindowManager
     var tabBarWindowRadius: Int = 0
     var tabBarFontName = ""
     var tabBarFont: CTFont?
-    var tabBarFocusedColor = rgba_color()
-    var tabBarFocusedTextColor = rgba_color()
-    var tabBarInactiveColor = rgba_color()
-    var tabBarInactiveTextColor = rgba_color()
-    var tabBarUnfocusedColor = rgba_color()
-    var tabBarBackdropColor = rgba_color()
-    var tabBarUnfocusedTextColor = rgba_color()
+    var tabBarFocusedColor = RGBAColor()
+    var tabBarFocusedTextColor = RGBAColor()
+    var tabBarInactiveColor = RGBAColor()
+    var tabBarInactiveTextColor = RGBAColor()
+    var tabBarUnfocusedColor = RGBAColor()
+    var tabBarBackdropColor = RGBAColor()
+    var tabBarUnfocusedTextColor = RGBAColor()
     var tabBarFocusedColorIsCustom = false
     var tabBarInactiveColorIsCustom = false
     var tabBarUnfocusedColorIsCustom = false

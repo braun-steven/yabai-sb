@@ -91,7 +91,7 @@ final class ProcessManager
             return nil
         }
 
-        for blacklisted in processNameBlacklist where string_equals(processName, blacklisted) {
+        for blacklisted in processNameBlacklist where processName.bytesEqual(blacklisted) {
             debug("process_create: \(processName) is blacklisted! ignoring..\n")
             return nil
         }
@@ -126,7 +126,7 @@ final class ProcessManager
 
             guard let process = createProcess(psn, pid) else { continue }
 
-            if string_equals(process.name, "Finder") {
+            if process.name.bytesEqual("Finder") {
                 debug("process_manager_add_running_processes: \(describe(process)) was found! caching psn..\n")
                 finderPSN = psn
             }

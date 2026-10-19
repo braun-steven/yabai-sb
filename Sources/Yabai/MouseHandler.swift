@@ -156,7 +156,7 @@ private func mouseHandleDockGesture(_ event: CGEvent)
         pending_gesture_set(true)
     } else if phase == DockSwipe.phaseEnded || phase == DockSwipe.phaseCancelled {
         pending_gesture_set(false)
-        last_gesture_time_set(read_os_timer())
+        last_gesture_time_set(OSTimer.now)
     }
 }
 
@@ -240,15 +240,15 @@ func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CG
     let wp = CGPoint(x: point.x - f.minX, y: point.y - f.minY)
     let center = CGRect(x: 0.25 * f.width, y: 0.25 * f.height, width: 0.5 * f.width, height: 0.5 * f.height)
     let mid = CGPoint(x: 0.5 * f.width, y: 0.5 * f.height)
-    var top = [CGPoint.zero, mid, CGPoint(x: f.width, y: 0)]
-    var right = [CGPoint(x: f.width, y: 0), mid, CGPoint(x: f.width, y: f.height)]
-    var bottom = [CGPoint(x: f.width, y: f.height), mid, CGPoint(x: 0, y: f.height)]
-    var left = [CGPoint(x: 0, y: f.height), mid, CGPoint.zero]
+    let top = [CGPoint.zero, mid, CGPoint(x: f.width, y: 0)]
+    let right = [CGPoint(x: f.width, y: 0), mid, CGPoint(x: f.width, y: f.height)]
+    let bottom = [CGPoint(x: f.width, y: f.height), mid, CGPoint(x: 0, y: f.height)]
+    let left = [CGPoint(x: 0, y: f.height), mid, CGPoint.zero]
     if center.contains(wp) { return ms.drop_action == .stack ? .stack : .swap }
-    if triangle_contains_point(&top, wp) { return .warpTop }
-    if triangle_contains_point(&right, wp) { return .warpRight }
-    if triangle_contains_point(&bottom, wp) { return .warpBottom }
-    if triangle_contains_point(&left, wp) { return .warpLeft }
+    if wp.isInTriangle(top) { return .warpTop }
+    if wp.isInTriangle(right) { return .warpRight }
+    if wp.isInTriangle(bottom) { return .warpBottom }
+    if wp.isInTriangle(left) { return .warpLeft }
     return .none
 }
 

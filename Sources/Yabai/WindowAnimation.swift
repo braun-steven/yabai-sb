@@ -62,7 +62,7 @@ private func windowManagerCreateWindowProxy(_ animation: WindowAnimation, alpha:
     var tags: UInt64 = 1 << 46
     SLSNewWindowWithOpaqueShapeAndContext(animation.cid, 2, frameRegion, emptyRegion,
                                         13 | (1 << 18), &tags, 0, 0, 64, &animation.proxy.id, nil)
-    sls_window_disable_shadow(animation.proxy.id)
+    SLS.disableShadow(animation.proxy.id)
     SLSSetWindowOpacity(animation.cid, animation.proxy.id, false)
     SLSSetWindowResolution(animation.cid, animation.proxy.id, 2)
     SLSSetWindowAlpha(animation.cid, animation.proxy.id, alpha)

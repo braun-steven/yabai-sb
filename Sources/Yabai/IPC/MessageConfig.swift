@@ -83,7 +83,7 @@ private enum WorkspaceLayout: String, CaseIterable
     case tabbed
 }
 
-private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, rgba_color>?
+private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, RGBAColor>?
 {
     if command.equals(Config.tabBarFocusedColor)       { return \.tabBarFocusedColor }
     if command.equals(Config.tabBarFocusedTextColor)   { return \.tabBarFocusedTextColor }
@@ -340,14 +340,14 @@ private func cInt(_ value: Float) -> Int
 }
 
 /// A color option: prints it as "0x%x", or sets it from a hexadecimal value. Returns true when it was set.
-private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ color: inout rgba_color, allowZero: Bool = true) -> Bool
+private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ color: inout RGBAColor, allowZero: Bool = true) -> Bool
 {
     let token = message.next()
     switch token.value {
     case .invalid:
-        rsp.write("0x\(String(color.p, radix: 16))\n")
+        rsp.write("0x\(String(color.argb, radix: 16))\n")
     case .u32(let hex) where allowZero || hex != 0:
-        color = rgba_color_from_hex(hex)
+        color = RGBAColor(hex: hex)
         return true
     default:
         rsp.failUnknownValue(domain, command, token)
@@ -517,7 +517,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     if configTabBar(&rsp, domain, command, &message) { return true }
 
     if command.equals(Config.debugOutput) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &g_verbose)
+        _ = parseConfigBool(&rsp, domain, command, &message, &Log.verbose)
     } else if command.equals(Config.mff) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
     } else if command.equals(Config.ffm) {

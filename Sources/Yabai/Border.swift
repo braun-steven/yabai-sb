@@ -81,8 +81,8 @@ private struct BorderSettings
 {
     var enabled = false
     var width: Float = 0
-    var activeColor = rgba_color()
-    var normalColor = rgba_color()
+    var activeColor = RGBAColor()
+    var normalColor = RGBAColor()
 }
 
 // NOTE: Every access to the reference objects in this state holds borderLock, including the main-thread callbacks.
@@ -177,7 +177,7 @@ private func borderCreateEdge(_ border: Border, _ index: Int)
     SLSNewWindow(SLS.connection, 2, Float(frame.minX), Float(frame.minY), shapeRegion, &border.ids[index])
     var tags: UInt64 = (1 << 1) | (1 << 9)
     SLSSetWindowTags(SLS.connection, border.ids[index], &tags, 64)
-    sls_window_disable_shadow(border.ids[index])
+    SLS.disableShadow(border.ids[index])
     SLSSetWindowResolution(SLS.connection, border.ids[index], 2)
     SLSSetWindowOpacity(SLS.connection, border.ids[index], false)
     border.contexts[index] = SLWindowContextCreate(SLS.connection, border.ids[index], nil)
@@ -198,7 +198,7 @@ private func borderReshapeEdge(_ border: Border, _ index: Int)
 // clips the rest. The ring is the area between the outer rounded rect and the window frame inset by one point,
 // filled with the even-odd rule.
 //
-private func borderDrawEdge(_ border: Border, _ index: Int, _ color: rgba_color)
+private func borderDrawEdge(_ border: Border, _ index: Int, _ color: RGBAColor)
 {
     guard let context = border.contexts[index] else { return }
     let edge = border.edges[index]
@@ -274,7 +274,7 @@ private let borderUpdateOrder = 2
 private let borderUpdateColor = 4
 private let borderUpdateAll = 3
 
-private func borderCurrentColor(_ border: Border, _ settings: BorderSettings) -> rgba_color
+private func borderCurrentColor(_ border: Border, _ settings: BorderSettings) -> RGBAColor
 {
     border.focused ? settings.activeColor : settings.normalColor
 }
@@ -288,12 +288,12 @@ private func borderUpdateFrameLocked(_ border: Border, _ settings: BorderSetting
     let frame = borderTargetFrame(border, bounds)
     let radius = borderTargetRadius(border)
     let color = borderCurrentColor(border, settings)
-    let restyled = border.width != settings.width || radius != border.drawnRadius || color.p != border.color
+    let restyled = border.width != settings.width || radius != border.drawnRadius || color.argb != border.color
     let previous = border.edges
     border.frame = frame
     border.width = settings.width
     border.drawnRadius = radius
-    border.color = color.p
+    border.color = color.argb
     border.edges = borderEdgeFrames(frame, border.width, radius)
     let created = border.ids[0] == 0
     if created {
@@ -362,7 +362,7 @@ private func borderUpdateLocked(_ border: Border, _ what: Int, _ settings: Borde
     if what == borderUpdateColor {
         let color = borderCurrentColor(border, settings)
         for i in 0..<4 { borderDrawEdge(border, i, color) }
-        border.color = color.p
+        border.color = color.argb
         return
     }
     if what & borderUpdateOrder != 0 && !SLS.windowIsOrderedIn(SLS.connection, border.wid) { borderHide(border); return }
@@ -468,7 +468,7 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
         // border through its own notifications. A border that only changes its color is just redrawn.
         //
         let color = focused ? state.settings.activeColor : state.settings.normalColor
-        let recolored = border.color != color.p
+        let recolored = border.color != color.argb
         let changed = border.enabled != enabled || border.insetTop != top || border.insetLeft != left || border.insetBottom != bottom || border.insetRight != right || border.containerRadius != radius || border.width != state.settings.width || border.shown != enabled
         border.enabled = enabled
         border.focused = focused

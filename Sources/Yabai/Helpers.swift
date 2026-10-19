@@ -4,8 +4,8 @@ import Darwin
 import YabaiCore
 
 //
-// NOTE: The helpers of src/misc/helpers.h that the daemon uses: the easing curves of the animations, the timer, colors,
-// sockets, C strings, AX elements and geometry.
+// NOTE: The helpers that the daemon uses: the easing curves of the animations, the timer, colors, sockets, strings,
+// windows and geometry.
 //
 
 /// The easing curve of the window animations (`config window_animation_easing`), named by its config value.
@@ -67,149 +67,140 @@ enum AnimationEasing: String, CaseIterable, Sendable
     }
 }
 
-/// `read_os_timer`: nanoseconds since boot.
-func read_os_timer() -> UInt64
+/// The clock of the event timers.
+enum OSTimer
 {
-    return ReadOSTimerC()
+    /// Nanoseconds since boot.
+    static var now: UInt64 { ReadOSTimerC() }
+
+    static let frequency: UInt64 = 1_000_000_000
+
+    //
+    // NOTE: Subtracts before converting to float: a timestamp in nanoseconds since boot does not fit into the
+    // 24 bits of precision of a float, which would round intervals to tens of milliseconds after a few days.
+    //
+
+    static func milliseconds(from: UInt64, to: UInt64) -> Float
+    {
+        return Float(Int64(bitPattern: to &- from)) * (1000.0 / Float(frequency))
+    }
 }
 
-/// `read_os_freq`
-func read_os_freq() -> UInt64
+/// A color: argb is the color as 0xAARRGGBB, and r, g, b and a are its components from 0 to 1.
+struct RGBAColor: Sendable
 {
-    return 1000000000
-}
-
-//
-// NOTE: Subtracts before converting to float: a timestamp in nanoseconds since boot does not fit into the
-// 24 bits of precision of a float, which would round intervals to tens of milliseconds after a few days.
-//
-
-/// `os_timer_ms_between`
-func os_timer_ms_between(_ from: UInt64, _ to: UInt64) -> Float
-{
-    return Float(Int64(bitPattern: to &- from)) * (1000.0 / Float(read_os_freq()))
-}
-
-/// `struct rgba_color`: p is the color as 0xAARRGGBB.
-struct rgba_color: Sendable
-{
-    var p: UInt32 = 0
+    var argb: UInt32 = 0
     var r: Float = 0
     var g: Float = 0
     var b: Float = 0
     var a: Float = 0
+
+    init() {}
+
+    init(hex color: UInt32)
+    {
+        argb = color
+        r = Float((color >> 0x10) & 0xff) / 255.0
+        g = Float((color >> 0x08) & 0xff) / 255.0
+        b = Float((color >> 0x00) & 0xff) / 255.0
+        a = Float((color >> 0x18) & 0xff) / 255.0
+    }
 }
 
-/// `rgba_color_from_hex`
-func rgba_color_from_hex(_ color: UInt32) -> rgba_color
+/// The Unix domain sockets of the IPC client, the daemon and the scripting addition.
+enum UnixSocket
 {
-    var result = rgba_color()
-    result.p = color
-    result.r = Float((color >> 0x10) & 0xff) / 255.0
-    result.g = Float((color >> 0x08) & 0xff) / 255.0
-    result.b = Float((color >> 0x00) & 0xff) / 255.0
-    result.a = Float((color >> 0x18) & 0xff) / 255.0
-    return result
-}
-
-/// `socket_open`
-func socket_open(_ sockfd: inout Int32) -> Bool
-{
-    sockfd = socket(AF_UNIX, SOCK_STREAM, 0)
-    return sockfd != -1
-}
-
-/// `socket_connect`
-func socket_connect(_ sockfd: Int32, _ socketPath: String) -> Bool
-{
-    var address = sockaddr_un()
-    address.sun_family = sa_family_t(AF_UNIX)
-    withUnsafeMutableBytes(of: &address.sun_path) { sunPath in
-        let bytes = Array(socketPath.utf8.prefix(sunPath.count - 1))
-        sunPath.copyBytes(from: bytes)
-        sunPath[bytes.count] = 0
+    static func open(_ sockfd: inout Int32) -> Bool
+    {
+        sockfd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        return sockfd != -1
     }
 
-    return withUnsafePointer(to: &address) {
-        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(sockfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
-    } != -1
+    static func connect(_ sockfd: Int32, to socketPath: String) -> Bool
+    {
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { sunPath in
+            let bytes = Array(socketPath.utf8.prefix(sunPath.count - 1))
+            sunPath.copyBytes(from: bytes)
+            sunPath[bytes.count] = 0
+        }
+
+        return withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(sockfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        } != -1
+    }
+
+    static func close(_ sockfd: Int32)
+    {
+        Darwin.shutdown(sockfd, SHUT_RDWR)
+        Darwin.close(sockfd)
+    }
 }
 
-/// `socket_close`
-func socket_close(_ sockfd: Int32)
+extension String
 {
-    shutdown(sockfd, SHUT_RDWR)
-    close(sockfd)
+    /// Compares byte by byte like strcmp, not by canonical equivalence.
+    func bytesEqual(_ other: String) -> Bool
+    {
+        return utf8.elementsEqual(other.utf8)
+    }
 }
 
-/// `string_equals`: the strings compared byte by byte like strcmp, not by canonical equivalence.
-func string_equals(_ a: String, _ b: String) -> Bool
+extension ProcessSerialNumber
 {
-    return a.utf8.elementsEqual(b.utf8)
+    /// Whether both serial numbers name the same process.
+    func isSame(as other: ProcessSerialNumber) -> Bool
+    {
+        var a = self, b = other
+        return ProcessSameC(&a, &b)
+    }
 }
 
-/// `sls_window_disable_shadow`
-func sls_window_disable_shadow(_ id: UInt32)
+extension CGRect
 {
-    let options = ["com.apple.WindowShadowDensity" as CFString: NSNumber(value: Int32(0))] as CFDictionary
-    SLSWindowSetShadowProperties(id, options)
+    /// The x radius, limited to half the width of the rect.
+    func clampedXRadius(_ radius: Float) -> Float
+    {
+        if radius * 2 > Float(width) { return Float(width) / 2 }
+        return radius
+    }
+
+    /// The y radius, limited to half the height of the rect.
+    func clampedYRadius(_ radius: Float) -> Float
+    {
+        if radius * 2 > Float(height) { return Float(height) / 2 }
+        return radius
+    }
+
+    /// The edges count as inside.
+    func containsIncludingEdges(_ point: CGPoint) -> Bool
+    {
+        return point.x >= origin.x && point.x <= origin.x + size.width &&
+               point.y >= origin.y && point.y <= origin.y + size.height
+    }
 }
 
-/// `ax_window_id`: nil when the element is not a window.
-func ax_window_id(_ ref: AXUIElement) -> WindowID?
+extension CGPoint
 {
-    var wid: UInt32 = 0
-    _AXUIElementGetWindow(ref, &wid)
-    return WindowID(nonzero: wid)
+    /// Whether the point lies strictly inside the triangle with the corners t[0], t[1] and t[2].
+    func isInTriangle(_ t: [CGPoint]) -> Bool
+    {
+        let l1 = Float((x - t[0].x) * (t[2].y - t[0].y) - (t[2].x - t[0].x) * (y - t[0].y))
+        let l2 = Float((x - t[1].x) * (t[0].y - t[1].y) - (t[0].x - t[1].x) * (y - t[1].y))
+        let l3 = Float((x - t[2].x) * (t[1].y - t[2].y) - (t[1].x - t[2].x) * (y - t[2].y))
+
+        return (l1 > 0.0 && l2 > 0.0 && l3 > 0.0) || (l1 < 0.0 && l2 < 0.0 && l3 < 0.0)
+    }
 }
 
-/// `ax_window_pid`: the pid that the AX element stores at offset 0x10.
-func ax_window_pid(_ ref: AXUIElement) -> pid_t
+extension Float
 {
-    return Unmanaged.passUnretained(ref).toOpaque().load(fromByteOffset: 0x10, as: pid_t.self)
-}
-
-/// `psn_equals`
-func psn_equals(_ a: UnsafeMutablePointer<ProcessSerialNumber>, _ b: UnsafeMutablePointer<ProcessSerialNumber>) -> Bool
-{
-    return ProcessSameC(a, b)
-}
-
-/// `cgrect_clamp_x_radius`
-func cgrect_clamp_x_radius(_ frame: CGRect, _ radius: Float) -> Float
-{
-    if radius * 2 > Float(frame.width) { return Float(frame.width) / 2 }
-    return radius
-}
-
-/// `cgrect_clamp_y_radius`
-func cgrect_clamp_y_radius(_ frame: CGRect, _ radius: Float) -> Float
-{
-    if radius * 2 > Float(frame.height) { return Float(frame.height) / 2 }
-    return radius
-}
-
-/// `cgrect_contains_point`: the edges count as inside.
-func cgrect_contains_point(_ r: CGRect, _ p: CGPoint) -> Bool
-{
-    return p.x >= r.origin.x && p.x <= r.origin.x + r.size.width &&
-           p.y >= r.origin.y && p.y <= r.origin.y + r.size.height
-}
-
-/// `triangle_contains_point`
-func triangle_contains_point(_ t: UnsafeMutablePointer<CGPoint>, _ p: CGPoint) -> Bool
-{
-    let l1 = Float((p.x - t[0].x) * (t[2].y - t[0].y) - (t[2].x - t[0].x) * (p.y - t[0].y))
-    let l2 = Float((p.x - t[1].x) * (t[0].y - t[1].y) - (t[0].x - t[1].x) * (p.y - t[1].y))
-    let l3 = Float((p.x - t[2].x) * (t[1].y - t[2].y) - (t[1].x - t[2].x) * (p.y - t[2].y))
-
-    return (l1 > 0.0 && l2 > 0.0 && l3 > 0.0) || (l1 < 0.0 && l2 < 0.0 && l3 < 0.0)
-}
-
-/// `clampf_range`
-func clampf_range(_ value: Float, _ min: Float, _ max: Float) -> Float
-{
-    if value < min { return min }
-    if value > max { return max }
-    return value
+    /// The value limited to the range min...max.
+    func clamped(min: Float, max: Float) -> Float
+    {
+        if self < min { return min }
+        if self > max { return max }
+        return self
+    }
 }

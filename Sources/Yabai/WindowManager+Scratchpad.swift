@@ -11,7 +11,7 @@ extension WindowManager
 {
     private func scratchpadWindow(withLabel label: String) -> Window?
     {
-        scratchpads.first { string_equals($0.label, label) }?.window
+        scratchpads.first { $0.label.bytesEqual(label) }?.window
     }
 
     func toggleScratchpad(withLabel label: String) -> Bool

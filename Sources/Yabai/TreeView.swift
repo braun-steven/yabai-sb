@@ -654,7 +654,7 @@ extension Con
             SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
             render.feedbackWindow.id = WindowID(nonzero: feedbackID)
 
-            sls_window_disable_shadow(feedbackID)
+            SLS.disableShadow(feedbackID)
             SLSSetWindowResolution(cid, feedbackID, 1.0)
             SLSSetWindowOpacity(cid, feedbackID, false)
             let context = SLWindowContextCreate(cid, feedbackID, nil)
@@ -689,7 +689,7 @@ extension Con
         let rect = CGRect(x: 0.5 * insertFeedbackWidth, y: 0.5 * insertFeedbackWidth, width: frame.size.width - insertFeedbackWidth, height: frame.size.height - insertFeedbackWidth)
         let fill = rect.insetBy(dx: 0.5 * insertFeedbackWidth, dy: 0.5 * insertFeedbackWidth)
         let clip = CGRect(x: rect.origin.x + clipX, y: rect.origin.y + clipY, width: rect.size.width + clipW, height: rect.size.height + clipH)
-        let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(cgrect_clamp_x_radius(rect, insertFeedbackRadius)), cornerHeight: CGFloat(cgrect_clamp_y_radius(rect, insertFeedbackRadius)), transform: nil)
+        let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(rect.clampedXRadius(insertFeedbackRadius)), cornerHeight: CGFloat(rect.clampedYRadius(insertFeedbackRadius)), transform: nil)
 
         SLSDisableUpdate(cid)
         SLSSetWindowShape(cid, feedbackWindowID.rawValue, 0.0, 0.0, frameRegion)

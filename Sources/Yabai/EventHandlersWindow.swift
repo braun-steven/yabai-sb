@@ -13,11 +13,11 @@ import YabaiCore
 {
     let wm = WindowManager.shared
 
-    guard let windowID = ax_window_id(element) else { return }
+    guard let windowID = element.windowID else { return }
 
     if wm.window(for: windowID) != nil { return }
 
-    let windowPid = ax_window_pid(element)
+    let windowPid = element.pid
     if windowPid == 0 { return }
 
     guard let application = wm.application(for: windowPid) else { return }

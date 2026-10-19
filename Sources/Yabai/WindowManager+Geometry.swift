@@ -15,7 +15,7 @@ extension WindowManager
         let horizontal = parent.layout == .splitH
         let size = horizontal ? parent.area.w : parent.area.h
         let percent = type == .rel ? node.percent + ratio : ratio
-        let delta = (clampf_range(percent, 0.05, 0.95) - node.percent) * size
+        let delta = (percent.clamped(min: 0.05, max: 0.95) - node.percent) * size
 
         if !node.resize(horizontal ? .east : .south, by: delta) &&
            !node.resize(horizontal ? .west : .north, by: -delta) {

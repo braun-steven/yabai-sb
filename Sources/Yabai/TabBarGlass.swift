@@ -611,7 +611,7 @@ final class TabBarGlass: @unchecked Sendable
 // NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
 // with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
 //
-func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> rgba_color
+func tab_bar_glass_tint(_ color: RGBAColor, _ custom: Bool, _ alpha: Float) -> RGBAColor
 {
     var color = color
     if !custom { color.a = alpha }

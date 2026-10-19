@@ -110,7 +110,7 @@ static inline bool ProcessIsVisibleC(ProcessSerialNumber psn)
     return IsProcessVisible(&psn) != 0;
 }
 
-// psn_equals (helpers.h)
+// ProcessSerialNumber.isSame(as:) (Helpers.swift)
 static inline bool ProcessSameC(ProcessSerialNumber *a, ProcessSerialNumber *b)
 {
     Boolean result;
@@ -118,7 +118,7 @@ static inline bool ProcessSameC(ProcessSerialNumber *a, ProcessSerialNumber *b)
     return result == 1;
 }
 
-// read_os_timer (helpers.h): the time since boot in nanoseconds; AbsoluteToNanoseconds is deprecated since macOS 10.8
+// OSTimer.now (Helpers.swift): the time since boot in nanoseconds; AbsoluteToNanoseconds is deprecated since macOS 10.8
 static inline uint64_t ReadOSTimerC(void)
 {
     uint64_t result = mach_absolute_time();

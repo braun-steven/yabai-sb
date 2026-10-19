@@ -45,7 +45,7 @@ import Testing
     list.replace(id: 3, with: 8)
     #expect(list.labels.map(\.id).sorted() == [1, 7])
 
-    // NOTE: names compare byte for byte, like string_equals
+    // NOTE: names compare byte for byte, like strcmp
     list.set(id: 9, name: "\u{e9}")
     list.set(id: 10, name: "e\u{301}")
     #expect(list.find(name: "\u{e9}")?.id == 9)

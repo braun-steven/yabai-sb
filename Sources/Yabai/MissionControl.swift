@@ -55,7 +55,7 @@ func connectionNotificationHandler(_ type: UInt32, _ data: UnsafeMutableRawPoint
     case 816:
         border_window_hidden(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 1202:
-        lastCmdTabTime.store(read_os_timer(), ordering: .releasing)
+        lastCmdTabTime.store(OSTimer.now, ordering: .releasing)
     default:
         break
     }

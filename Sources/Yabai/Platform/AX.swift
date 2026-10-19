@@ -74,11 +74,28 @@ struct AXElement
         return attribute(kAXSubroleAttribute) as? String
     }
 
-    /// `_AXUIElementGetWindow`; nil if the element is not a window, like `ax_window_id`.
+    /// `_AXUIElementGetWindow`; nil if the element is not a window.
     var windowID: WindowID?
     {
         var wid: UInt32 = 0
         _AXUIElementGetWindow(ref, &wid)
         return WindowID(nonzero: wid)
+    }
+}
+
+extension AXUIElement
+{
+    /// The window id of the element; nil if the element is not a window.
+    var windowID: WindowID?
+    {
+        var wid: UInt32 = 0
+        _AXUIElementGetWindow(self, &wid)
+        return WindowID(nonzero: wid)
+    }
+
+    /// The pid that the AX element stores at offset 0x10.
+    var pid: pid_t
+    {
+        return Unmanaged.passUnretained(self).toOpaque().load(fromByteOffset: 0x10, as: pid_t.self)
     }
 }

@@ -83,13 +83,13 @@ final class Application
         AXUIElementCopyAttributeValue(ref, kAXFocusedWindowAttribute as CFString, &windowRef)
         guard let windowRef else { return nil }
 
-        return ax_window_id(unsafeDowncast(windowRef, to: AXUIElement.self))
+        return unsafeDowncast(windowRef, to: AXUIElement.self).windowID
     }
 
     var isFrontmost: Bool
     {
-        var processSerialNumber = SLS.frontProcess()
-        return psn_equals(&processSerialNumber, &psn)
+        let processSerialNumber = SLS.frontProcess()
+        return processSerialNumber.isSame(as: psn)
     }
 
     /// The AX windows of this application, or nil.
@@ -155,15 +155,15 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
         EventLoop.post(.windowCreated(Handoff(value: Unmanaged.passRetained(element))))
     case kAXFocusedWindowChangedNotification:
         pending_window_focus_set(true)
-        EventLoop.post(.windowFocused(windowID: ax_window_id(element)))
+        EventLoop.post(.windowFocused(windowID: element.windowID))
     case kAXWindowMovedNotification:
-        if let windowID = ax_window_id(element) { EventLoop.post(.windowMoved(windowID: windowID)) }
+        if let windowID = element.windowID { EventLoop.post(.windowMoved(windowID: windowID)) }
     case kAXWindowResizedNotification:
-        if let windowID = ax_window_id(element) { EventLoop.post(.windowResized(windowID: windowID)) }
+        if let windowID = element.windowID { EventLoop.post(.windowResized(windowID: windowID)) }
     case kAXTitleChangedNotification:
-        if let windowID = ax_window_id(element) { EventLoop.post(.windowTitleChanged(windowID: windowID)) }
+        if let windowID = element.windowID { EventLoop.post(.windowTitleChanged(windowID: windowID)) }
     case kAXMenuOpenedNotification:
-        EventLoop.post(.menuOpened(windowID: ax_window_id(element)))
+        EventLoop.post(.menuOpened(windowID: element.windowID))
     case kAXMenuClosedNotification:
         EventLoop.post(.menuClosed)
     case kAXWindowMiniaturizedNotification:

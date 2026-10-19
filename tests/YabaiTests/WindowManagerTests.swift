@@ -53,7 +53,7 @@ private func applicationCreate(_ name: String) -> Application
     // NOTE: A pending focus expires, and is dropped for windows that no longer exist.
     //
 
-    wm.pendingFocusTime = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
+    wm.pendingFocusTime = OSTimer.now - UInt64(Double(OSTimer.frequency) * 0.6)
     #expect(wm.pendingFocusWindow == nil)
     #expect(wm.pendingFocusWindowID == nil)
 

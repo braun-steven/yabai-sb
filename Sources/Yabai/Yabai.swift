@@ -235,7 +235,7 @@ private func parseArguments(_ arguments: [String]) -> String?
         let opt = arguments[i]
 
         if opt == debugVerboseOptionLong || opt == debugVerboseOptionShort {
-            g_verbose = true
+            Log.verbose = true
         } else if opt == configOptionLong || opt == configOptionShort {
             guard i < arguments.count - 1 else { error("yabai: option '\(configOptionLong)|\(configOptionShort)' requires an argument!\n") }
             i += 1

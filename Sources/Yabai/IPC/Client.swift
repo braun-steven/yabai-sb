@@ -41,12 +41,12 @@ enum Client
 
         let message = ClientMessage.encode(arguments)
 
-        let sockfd = socket(AF_UNIX, SOCK_STREAM, 0)
-        if sockfd == -1 {
+        var sockfd: Int32 = -1
+        if !UnixSocket.open(&sockfd) {
             fail("yabai-msg: failed to open socket..\n")
         }
 
-        if !connect(sockfd, path: "/tmp/yabai_\(String(cString: user)).socket") {
+        if !UnixSocket.connect(sockfd, to: "/tmp/yabai_\(String(cString: user)).socket") {
             fail("yabai-msg: failed to connect to socket..\n")
         }
 
@@ -77,27 +77,7 @@ enum Client
             writeAll(output, chunk.prefix { $0 != 0 })
         }
 
-        shutdown(sockfd, SHUT_RDWR)
-        close(sockfd)
+        UnixSocket.close(sockfd)
         return result
-    }
-
-    /// `socket_connect` (src/misc/helpers.h): the path is truncated to the size of sun_path, as snprintf did.
-    private static func connect(_ sockfd: Int32, path: String) -> Bool
-    {
-        var address = sockaddr_un()
-        address.sun_family = sa_family_t(AF_UNIX)
-
-        withUnsafeMutableBytes(of: &address.sun_path) { sunPath in
-            let bytes = path.utf8.prefix(sunPath.count - 1)
-            sunPath.copyBytes(from: bytes)
-            sunPath[bytes.count] = 0
-        }
-
-        return withUnsafePointer(to: &address) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                Darwin.connect(sockfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) != -1
-            }
-        }
     }
 }

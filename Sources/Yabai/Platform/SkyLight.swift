@@ -258,6 +258,13 @@ enum SLS
         return psn
     }
 
+    /// Turns the shadow of the window off by setting its shadow density to zero.
+    static func disableShadow(_ wid: UInt32)
+    {
+        let options = ["com.apple.WindowShadowDensity" as CFString: NSNumber(value: Int32(0))] as CFDictionary
+        SLSWindowSetShadowProperties(wid, options)
+    }
+
     //
     // NOTE: The bridged operation moves windows asynchronously, and the window server has it on macOS 27. yabai.c
     // resolves its function pointer; Swift reads it through the accessors of CPrivate.h.

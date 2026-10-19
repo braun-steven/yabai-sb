@@ -180,7 +180,7 @@ final class DisplayManager
     {
         guard let elementRef = element(at: point) else { return nil }
 
-        guard let elementID = ax_window_id(elementRef) else { return nil }
+        guard let elementID = elementRef.windowID else { return nil }
 
         var elementPSN = SLS.connectionPSN(SLS.windowOwner(SLS.connection, elementID) ?? 0)
         WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)

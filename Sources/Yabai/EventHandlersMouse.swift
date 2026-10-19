@@ -166,8 +166,8 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let ms = mouse_state_global()
 
-    let eventTime = read_os_timer()
-    if os_timer_ms_between(ms.last_moved_time, eventTime) < mouseResizeThrottleMs { return false }
+    let eventTime = OSTimer.now
+    if OSTimer.milliseconds(from: ms.last_moved_time, to: eventTime) < mouseResizeThrottleMs { return false }
 
     let dx = Int(point.x - ms.down_location.x)
     let dy = Int(point.y - ms.down_location.y)
@@ -310,7 +310,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     guard let did = cursorDid else { return }
 
     let bounds = did.constrainedBounds(ignoringExternalBar: false)
-    if !cgrect_contains_point(bounds, point) { return }
+    if !bounds.containsIncludingEdges(point) { return }
 
     let wid = DisplayManager.shared.focusWindow(at: point)
     if wid == nil { did.activate() }
@@ -329,7 +329,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     if mouse_state_global().ffm_window_id != nil { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
-    let dt = os_timer_ms_between(lastGestureTime.load(ordering: .relaxed), read_os_timer())
+    let dt = OSTimer.milliseconds(from: lastGestureTime.load(ordering: .relaxed), to: OSTimer.now)
     if dt < 1250.0 { return }
 
     let point = event.location

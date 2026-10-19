@@ -83,7 +83,7 @@ func daemon_message_handle(_ sockfd: Int32)
 {
     var bytesToRead: Int32 = 0
     guard read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size, bytesToRead >= 0 else {
-        socket_close(sockfd)
+        UnixSocket.close(sockfd)
         return
     }
 
@@ -98,11 +98,11 @@ func daemon_message_handle(_ sockfd: Int32)
     } while bytesRead < bytesToRead
 
     guard bytesRead == bytesToRead else {
-        socket_close(sockfd)
+        UnixSocket.close(sockfd)
         return
     }
 
-    message.withUnsafeMutableBufferPointer { debug_message("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
+    message.withUnsafeMutableBufferPointer { debugMessage("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
 
     var response = Response()
     var tokens = Message(message.map { UInt8(bitPattern: $0) })

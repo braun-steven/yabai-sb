@@ -12,7 +12,7 @@ public struct Label<ID: Hashable & Sendable>: Equatable, Sendable
 }
 
 //
-// NOTE: A list holds each id and each name at most once. Names compare byte for byte, like string_equals,
+// NOTE: A list holds each id and each name at most once. Names compare byte for byte, like strcmp,
 // not by Swift's canonical equivalence: "é" precomposed and decomposed are two names.
 //
 

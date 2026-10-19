@@ -192,8 +192,8 @@ private func scriptingAdditionInstall() -> Int32
 private func scriptingAdditionRequestHandshake() -> (version: [UInt8], attributes: UInt32)?
 {
     var sockfd: Int32 = 0
-    guard socket_open(&sockfd) else { return nil }
-    defer { socket_close(sockfd) }
+    guard UnixSocket.open(&sockfd) else { return nil }
+    defer { UnixSocket.close(sockfd) }
     guard let connection = SAConnection(fd: sockfd), connection.connect(g_sa_socket_file) else { return nil }
     return connection.handshake()
 }
@@ -330,8 +330,8 @@ struct SAPayload
 private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 {
     var sockfd: Int32 = 0
-    guard socket_open(&sockfd) else { return false }
-    defer { socket_close(sockfd) }
+    guard UnixSocket.open(&sockfd) else { return false }
+    defer { UnixSocket.close(sockfd) }
     guard let connection = SAConnection(fd: sockfd), connection.connect(g_sa_socket_file) else { return false }
     return connection.command(bytes).isSuccess
 }

@@ -40,13 +40,13 @@ extension DaemonState
         @Test("tab_bar_glass_tint_default")
         func glassTintDefault()
         {
-            let color = rgba_color_from_hex(0xff285577)
+            let color = RGBAColor(hex: 0xff285577)
             let tint = Yabai.tab_bar_glass_tint(color, false, 0.4)
             #expect(Int(tint.a * 100 + 0.5) == 40)
             #expect(tint.r == color.r && tint.g == color.g && tint.b == color.b)
             let custom = Yabai.tab_bar_glass_tint(color, true, 0.4)
             #expect(custom.a == color.a)
-            #expect(custom.p == color.p)
+            #expect(custom.argb == color.argb)
         }
 
         @Test("tab_bar_title_fits")

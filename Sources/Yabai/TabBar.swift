@@ -129,7 +129,7 @@ func tab_bar_set_font(_ name: String) -> Bool
     let sizeText = Token(utf8[utf8.index(after: separator)...])
     guard withUnsafeMutablePointer(to: &size, { sizeText.scan("%f", $0) }) == 1, !(size <= 0) else { return false }
     let family = String(decoding: utf8[..<separator], as: UTF8.self)
-    let font: CTFont? = string_equals(family, "system")
+    let font: CTFont? = family.bytesEqual("system")
         ? CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)
         : CTFontCreateWithName(family as CFString, CGFloat(size), nil)
     guard let font else { return false }
@@ -233,7 +233,7 @@ func tab_bar_pointer_update(_ point: CGPoint, pressed: Bool)
     glass?.pointer(windowID: windowID, pressed: pressed)
 }
 
-func tabBarCGColor(_ color: rgba_color) -> CGColor
+func tabBarCGColor(_ color: RGBAColor) -> CGColor
 {
     CGColor(srgbRed: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
 }
@@ -323,7 +323,7 @@ func tab_bar_icon(_ wid: WindowID?) -> CGImage?
     return app.icon
 }
 
-func tabBarStateColors(_ state: TabBarState) -> (rgba_color, rgba_color)
+func tabBarStateColors(_ state: TabBarState) -> (RGBAColor, RGBAColor)
 {
     let wm = WindowManager.shared
     switch state {
@@ -333,7 +333,7 @@ func tabBarStateColors(_ state: TabBarState) -> (rgba_color, rgba_color)
     }
 }
 
-func tabBarSeparatorColor(_ text: rgba_color) -> rgba_color
+func tabBarSeparatorColor(_ text: RGBAColor) -> RGBAColor
 {
     var text = text
     text.a *= 0.25
@@ -395,7 +395,7 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
     guard let id = bar.id else { return }
     var tags: UInt64 = (1 << 1) | (1 << 9)
     SLSSetWindowTags(SLS.connection, id.rawValue, &tags, 64)
-    sls_window_disable_shadow(id.rawValue)
+    SLS.disableShadow(id.rawValue)
     SLSSetWindowResolution(SLS.connection, id.rawValue, 2)
     SLSSetWindowOpacity(SLS.connection, id.rawValue, false)
     bar.context = SLWindowContextCreate(SLS.connection, id.rawValue, nil)

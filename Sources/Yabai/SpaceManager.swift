@@ -451,7 +451,7 @@ private func spaceManagerFocusedWindow() -> Window?
 {
     var front = SLS.frontProcess()
 
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let pendingFocus = pending_window_focus()
 
     if space_manager_can_use_known_focus(&front, wm, pendingFocus) {
@@ -570,7 +570,7 @@ func spaceUserList(_ spaces: [SpaceID]) -> [Bool]
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
 private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: SpaceID) -> SpaceOperationResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let sm = space_manager_global()
 
     let windowAnimationDuration = wm.windowAnimationDuration
@@ -910,7 +910,7 @@ func space_manager_mark_spaces_invalid(_ sm: SpaceManager)
 /// `space_manager_refresh_application_windows`: adds the windows of the applications that have unresolved windows.
 func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     var refreshCount = wm.applicationRefreshCount
     if refreshCount == 0 { return false }

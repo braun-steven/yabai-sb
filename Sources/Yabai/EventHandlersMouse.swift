@@ -71,7 +71,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 @WM func tabCardOrdered(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_TAB_CARD_ORDERED: \(wid)\n")
-    window_manager_global().cardDidOrder(wid)
+    WindowManager.shared.cardDidOrder(wid)
 }
 
 //
@@ -81,7 +81,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 
 @WM private func mouseDropTarget(_ point: CGPoint) -> (view: View?, window: Window?)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     let cursorSid = display_manager_point_display_id(point).flatMap(display_space_id)
@@ -95,7 +95,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 /// `EVENT_HANDLER(MOUSE_UP)`
 @WM func mouseUp(_ event: CGEvent)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     if mission_control_is_active() { return }
@@ -232,7 +232,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.id.rawValue) else { return window }
 
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     for i in 0..<CFArrayGetCount(associatedWindows) {
         let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
@@ -261,7 +261,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmRaiseWouldOccludeFloatingWindow(_ window: Window) -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     guard let sid = space_manager_global().current_space_id, let windowIDs = space_window_list(sid, false) else { return false }
 
@@ -285,7 +285,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmFocusWindow(_ window: Window)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     if window.id == wm.focusedWindowID { return }
@@ -320,7 +320,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 /// `EVENT_HANDLER(MOUSE_MOVED)`
 @WM func mouseMoved(_ event: CGEvent)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if mouseEventIsStale(pendingMouseMoved) { return }
 

@@ -420,7 +420,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
         let owner = space_manager_find_view(space_manager_global(), sid)
         count = owner.layout == .tree ? owner.tree?.visibleWindowCount() ?? 0 : 0
     }
-    for target in window_manager_global().window.values {
+    for target in WindowManager.shared.window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
         if WindowManager.shared.managedView(for: target) != nil { continue }
         if target.id.space != sid { continue }
@@ -434,7 +434,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
 private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ windowCount: Int?)
 {
     guard let target, !target.isDestroyed else { return }
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let owner = wm.managedView(for: target)
     let border = owner?.borderArea(windowID: target.id) ?? (visible: true, window: Area.zero, border: Area.zero, radius: 0)
     let windowArea = border.window
@@ -528,15 +528,15 @@ func border_refresh_space(_ sid: SpaceID?)
     guard let sid else { return }
     border_begin_batch()
     defer { border_end_batch() }
-    if window_manager_global().windowBorderHideSingle {
+    if WindowManager.shared.windowBorderHideSingle {
         let count = borderSpaceWindowCount(sid)
-        for target in window_manager_global().window.values where target.id.space == sid { borderRefreshWithCount(target, sid, count) }
+        for target in WindowManager.shared.window.values where target.id.space == sid { borderRefreshWithCount(target, sid, count) }
         return
     }
     var windows: [WindowID] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
     if owner.layout == .tree { windows = owner.windowIDs }
-    let capacity = windows.count + window_manager_global().window.count
+    let capacity = windows.count + WindowManager.shared.window.count
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {
             if !windows.contains(border.wid) && windows.count < capacity { windows.append(border.wid) }
@@ -549,17 +549,17 @@ func border_refresh_window_space(_ target: Window!)
 {
     guard let target, !target.isDestroyed else { return }
     let sid = target.id.space
-    if window_manager_global().windowBorderHideSingle, let sid { border_refresh_space(sid) }
+    if WindowManager.shared.windowBorderHideSingle, let sid { border_refresh_space(sid) }
     else { border_refresh(target) }
 }
 
 func border_refresh_all()
 {
     var counts: [SpaceID: Int] = [:]
-    for target in window_manager_global().window.values {
+    for target in WindowManager.shared.window.values {
         let sid = target.id.space
         var count: Int?
-        if window_manager_global().windowBorderHideSingle, let sid {
+        if WindowManager.shared.windowBorderHideSingle, let sid {
             count = counts[sid]
             if count == nil {
                 let spaceCount = borderSpaceWindowCount(sid)

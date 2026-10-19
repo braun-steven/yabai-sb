@@ -55,7 +55,7 @@ extension DaemonState
         @Test("border_tabbed_container_area")
         func tabbedContainerArea()
         {
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             let enabled = wm.tabBarEnabled
             let height = wm.tabBarHeight
             let backdrop = wm.tabBarBackdrop

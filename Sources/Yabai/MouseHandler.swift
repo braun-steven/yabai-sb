@@ -291,7 +291,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 @WM func mouse_feedback_clear(_ ms: MouseState)
 {
     guard let feedbackWid = ms.feedback_wid else { return }
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let target = wm.window(for: feedbackWid)
     let targetView = target.flatMap { wm.managedView(for: $0) }
     if let container = mouseFindCon(targetView, target), container.insertDirection == nil { container.hideFeedback() }

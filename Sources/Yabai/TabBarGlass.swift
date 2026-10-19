@@ -48,7 +48,7 @@ private struct Snapshot: @unchecked Sendable
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
     init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
     {
-        let wm = window_manager_global()
+        let wm = WindowManager.shared
         frame = bar.frame
         card = bar.card
         backdrop = wm.tabBarBackdrop

@@ -109,7 +109,7 @@ private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<W
 
 private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let value = message.next()
 
     if !value.isValid {
@@ -238,7 +238,7 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
 
 private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let token = message.next()
     let value = token.value
 
@@ -361,7 +361,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 
 private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if command.equals(Config.border) {
         if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { border_refresh_all() }
@@ -395,7 +395,7 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
 private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if command.equals(Config.tabBar) {
         if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { tab_bar_refresh_all() }
@@ -508,7 +508,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 /// One command of the config domain. Returns false when the remaining commands must not be run.
 private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let sm = space_manager_global()
     let dm = display_manager_global()
     let mouse = mouse_state_global()

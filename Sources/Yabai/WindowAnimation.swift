@@ -256,7 +256,7 @@ private func windowAnimationTakeOver(_ animation: WindowAnimation, _ existing: W
 
 private func windowManagerAnimateWindowListAsync(_ list: [window_capture])
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     var connection: Int32 = 0
     SLSNewConnection(0, &connection)
     let duration = wm.windowAnimationDuration
@@ -324,7 +324,7 @@ func window_manager_animate_window_list(_ list: [window_capture])
 {
     let list = list.filter { windowManagerWindowFrameNeedsUpdate($0.window, $0.x, $0.y, $0.w, $0.h) }
     if list.isEmpty { return }
-    if window_manager_global().windowAnimationDuration != 0 {
+    if WindowManager.shared.windowAnimationDuration != 0 {
         windowManagerAnimateWindowListAsync(list)
     } else {
         window_manager_set_window_frames(list)
@@ -334,7 +334,7 @@ func window_manager_animate_window_list(_ list: [window_capture])
 func window_manager_animate_window(_ capture: window_capture)
 {
     if !windowManagerWindowFrameNeedsUpdate(capture.window, capture.x, capture.y, capture.w, capture.h) { return }
-    if window_manager_global().windowAnimationDuration != 0 {
+    if WindowManager.shared.windowAnimationDuration != 0 {
         windowManagerAnimateWindowListAsync([capture])
     } else {
         window_manager_set_window_frame(capture.window, capture.x, capture.y, capture.w, capture.h)

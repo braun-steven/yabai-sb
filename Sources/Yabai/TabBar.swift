@@ -133,7 +133,7 @@ func tab_bar_set_font(_ name: String) -> Bool
         ? CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)
         : CTFontCreateWithName(family as CFString, CGFloat(size), nil)
     guard let font else { return false }
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     wm.tabBarFont = font
     wm.tabBarFontName = name
     return true
@@ -141,7 +141,7 @@ func tab_bar_set_font(_ name: String) -> Bool
 
 func tab_bar_is_enabled() -> Bool
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     return wm.tabBarEnabled && wm.tabBarHeight > 0
 }
 
@@ -311,7 +311,7 @@ func tab_bar_copy_title(_ wid: WindowID?) -> CFString?
 //
 func tab_bar_icon(_ wid: WindowID?) -> CGImage?
 {
-    guard window_manager_global().tabBarIcons, let wid,
+    guard WindowManager.shared.tabBarIcons, let wid,
           let target = WindowManager.shared.window(for: wid), let app = target.application else { return nil }
     if let icon = app.icon { return icon }
     autoreleasepool {
@@ -325,7 +325,7 @@ func tab_bar_icon(_ wid: WindowID?) -> CGImage?
 
 func tabBarStateColors(_ state: TabBarState) -> (rgba_color, rgba_color)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     switch state {
     case .focused:   return (wm.tabBarFocusedColor, wm.tabBarFocusedTextColor)
     case .inactive:  return (wm.tabBarInactiveColor, wm.tabBarInactiveTextColor)
@@ -359,18 +359,18 @@ private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEnt
             context.fill(CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
         }
         if entry.title != nil || entry.icon != nil {
-            tab_bar_draw_title(context, window_manager_global().tabBarFont, false, entry.title, entry.icon, tab, tabBarCGColor(text))
+            tab_bar_draw_title(context, WindowManager.shared.tabBarFont, false, entry.title, entry.icon, tab, tabBarCGColor(text))
         }
     }
     context.flush()
 }
 
-private func tabBarUsesGlass() -> Bool { window_manager_global().tabBarStyle == .glass }
+private func tabBarUsesGlass() -> Bool { WindowManager.shared.tabBarStyle == .glass }
 
 func tab_bar_card_padding() -> Int
 {
-    if !tabBarUsesGlass() || window_manager_global().tabBarBackdrop == .off { return 0 }
-    return window_manager_global().tabBarCardPadding
+    if !tabBarUsesGlass() || WindowManager.shared.tabBarBackdrop == .off { return 0 }
+    return WindowManager.shared.tabBarCardPadding
 }
 
 private func tabBarExists(_ bar: TabBar) -> Bool { bar.id != nil || bar.glass != nil }
@@ -482,7 +482,7 @@ func tab_bar_release(_ bar: TabBar)
 func tab_bar_card_id(_ bar: TabBar) -> WindowID?
 {
     if bar.hidden || bar.glass == nil { return nil }
-    if !tabBarUsesGlass() || window_manager_global().tabBarBackdrop == .off { return nil }
+    if !tabBarUsesGlass() || WindowManager.shared.tabBarBackdrop == .off { return nil }
     return tab_bar_glass_panel_id(bar)
 }
 
@@ -510,7 +510,7 @@ func tab_bar_redraw_all()
 
 func tab_bar_refresh_for_window(_ wid: WindowID?)
 {
-    guard let wid, let owner = window_manager_global().managedWindows[wid] else { return }
+    guard let wid, let owner = WindowManager.shared.managedWindows[wid] else { return }
     if owner.layout != .tree { return }
     View.refreshBars(forWindowID: wid)
 }

@@ -21,7 +21,7 @@ extension DaemonState
         @Test("tab_bar_appearance_config")
         func tabBarAppearanceConfig()
         {
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             let appearance = wm.tabBarAppearance
             defer { wm.tabBarAppearance = appearance }
             wm.tabBarAppearance = .dark
@@ -38,7 +38,7 @@ extension DaemonState
         @Test("message_config_options")
         func messageConfigOptions()
         {
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             let sm = space_manager_global()
             let mouse = mouse_state_global()
 
@@ -72,7 +72,7 @@ extension DaemonState
         @Test("message_config_values")
         func messageConfigValues()
         {
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             let sm = space_manager_global()
 
             let grid = wm.scratchpadGrid

@@ -338,7 +338,7 @@ func displayManagerActiveDisplays() -> [DisplayID]
 private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
 {
     var elementRef: AXUIElement?
-    AXUIElementCopyElementAtPosition(window_manager_global().systemElement!, Float(point.x), Float(point.y), &elementRef)
+    AXUIElementCopyElementAtPosition(WindowManager.shared.systemElement!, Float(point.x), Float(point.y), &elementRef)
     guard let elementRef else { return nil }
 
     var role: CFTypeRef?
@@ -377,7 +377,7 @@ func display_manager_set_active_display_id(_ did: DisplayID)
 /// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
 func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if let sid, let window = wm.window(on: sid, byRank: 1, excluding: nil) {
         WindowManager.shared.focusWithRaise(window)

@@ -108,7 +108,7 @@ private func describeApplication(_ es: inout PendingSignal, _ context: UnsafeMut
 private func describeWindow(_ es: inout PendingSignal, _ context: UnsafeMutableRawPointer?)
 {
     let target = Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()
-    let focusedWindowID = window_manager_global().focusedWindowID
+    let focusedWindowID = WindowManager.shared.focusedWindowID
 
     switch es.type {
     case .windowCreated, .windowFocused, .windowDeminimized:

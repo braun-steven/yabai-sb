@@ -57,7 +57,7 @@ extension Response
 
 private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> WindowOperationResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     switch focus {
     case .parent:                   return wm.treeFocusParent(for: window)
     case .child:                    return wm.treeFocusChild(for: window)
@@ -84,7 +84,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 {
     let sm = space_manager_global()
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     switch toggle {
     case .float:              wm.makeWindowFloating(window, shouldFloat: !window.isFloating, force: false)
@@ -179,7 +179,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
 private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let context = CSelectorContext()
 
     if command.equals(WindowCommand.display) {
@@ -258,7 +258,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
 
 func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if command.equals(WindowCommand.layout) {
         let value = message.next()
@@ -294,7 +294,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
 
 private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if command.equals(WindowCommand.grid) {
         var grid = Grid()
@@ -362,7 +362,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
 
 private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if command.equals(WindowCommand.toggle) {
         //

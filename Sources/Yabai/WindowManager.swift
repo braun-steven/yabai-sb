@@ -80,16 +80,19 @@ extension WindowLayer
     }
 }
 
-/// `struct scratchpad`
+/// A window assigned to a scratchpad label.
 struct Scratchpad
 {
     var label: String
     var window: Window
 }
 
-/// `struct window_manager`
+/// The windows and applications yabai tracks, and the window settings.
 final class WindowManager
 {
+    // NOTE: The single window manager, used by the event loop and the IPC handlers it runs.
+    nonisolated(unsafe) static let shared = WindowManager()
+
     var systemElement: AXUIElement?
     var application: [pid_t: Application] = [:]
     var window: [WindowID: Window] = [:]
@@ -151,19 +154,6 @@ final class WindowManager
     var scratchpadRaise = false
     var scratchpadBelow = false
     var scratchpadGrid = Grid()
-}
-
-/// `g_window_manager` (see the NOTE of g_display_manager)
-nonisolated(unsafe) let g_window_manager = WindowManager()
-
-func window_manager_global() -> WindowManager
-{
-    g_window_manager
-}
-
-extension WindowManager
-{
-    static var shared: WindowManager { g_window_manager }
 }
 
 // MOUSE_EVENT_MASK (mouse_handler.h, which Swift does not import: the macro is built from other macros)

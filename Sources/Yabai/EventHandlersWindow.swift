@@ -11,7 +11,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_CREATED)`: the element is the retained reference that the AX observer posted.
 @WM func windowCreated(_ element: AXUIElement)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     guard let windowID = ax_window_id(element) else { return }
 
@@ -49,7 +49,7 @@ import YabaiCore
         return
     }
 
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
@@ -95,7 +95,7 @@ import YabaiCore
 @WM func windowFocused(_ windowID: WindowID?)
 {
     pendingWindowFocus.store(false, ordering: .releasing)
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     // NOTE: A focus event without a window id (the element is not a window) only clears the pending focus.
     guard let windowID else { return }
@@ -137,7 +137,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_MOVED)`
 @WM func windowMoved(_ windowID: WindowID)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     guard let window = wm.window(for: windowID) else { return }
@@ -177,7 +177,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_RESIZED)`
 @WM func windowResized(_ windowID: WindowID)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let ms = mouse_state_global()
 
     guard let window = wm.window(for: windowID) else { return }
@@ -245,7 +245,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_MINIMIZED)`
 @WM func windowMinimized(_ window: Window)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
@@ -276,7 +276,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_DEMINIMIZED)`
 @WM func windowDeminimized(_ window: Window)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")

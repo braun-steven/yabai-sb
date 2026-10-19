@@ -87,7 +87,7 @@ import CPrivate
 {
     debug("EVENT_HANDLER_MISSION_CONTROL_EXIT:\n")
 
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let sm = space_manager_global()
     if wm.menuBarOpacity != 1.0 {
         let isFullscreen = sm.current_space_id.map { space_is_fullscreen($0) } ?? false
@@ -127,7 +127,7 @@ import CPrivate
     isMenuOpen += 1
 
     if isMenuOpen == 1 {
-        let wm = window_manager_global()
+        let wm = WindowManager.shared
         ffmValue = wm.focusFollowsMouseMode
         wm.focusFollowsMouseMode = .disabled
     }
@@ -140,7 +140,7 @@ import CPrivate
     isMenuOpen -= 1
 
     if isMenuOpen == 0 {
-        window_manager_global().focusFollowsMouseMode = ffmValue
+        WindowManager.shared.focusFollowsMouseMode = ffmValue
     } else if isMenuOpen < 0 {
         isMenuOpen = 0
     }
@@ -167,7 +167,7 @@ import CPrivate
 {
     debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
 
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
         wm.setWindowOpacity(focusedWindow, to: wm.activeWindowOpacity)
         wm.centerMouse(on: focusedWindow)

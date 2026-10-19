@@ -226,7 +226,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 /// `window_info_for_window`
 func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let application = window.application!
     let wid = window.id
 
@@ -328,7 +328,7 @@ func windowNonAXSerialize(_ wid: WindowID, _ flags: UInt64) -> String
 /// `window_manager_query_windows_for_spaces`
 func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
 
     let windowList = space_window_list_for_connection(spaceList, 0, true) ?? []
 
@@ -364,7 +364,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
     let layout = leaf ? "null" : "\"\(node.layout.rawValue)\""
     let percent = parent != nil ? node.percent : 1.0
-    let focused = leaf && node.windowID == window_manager_global().focusedWindowID
+    let focused = leaf && node.windowID == WindowManager.shared.focusedWindowID
 
     output += String(repeating: " ", count: depth)
     output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.windowID?.rawValue ?? 0))"

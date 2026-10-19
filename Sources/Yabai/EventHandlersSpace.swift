@@ -57,7 +57,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 
 @WM private func refreshCurrentSpace()
 {
-    let wm = window_manager_global()
+    let wm = WindowManager.shared
     let sm = space_manager_global()
 
     if wm.menuBarOpacity != 1.0 {

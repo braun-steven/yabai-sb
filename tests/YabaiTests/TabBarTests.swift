@@ -25,7 +25,7 @@ extension DaemonState
             func set(_ name: String) -> Bool {
                 return Yabai.tab_bar_set_font(name)
             }
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             #expect(set("system:13"))
             #expect(wm.tabBarFontName == "system:13")
             #expect(CTFontGetSize(wm.tabBarFont!) == 13)

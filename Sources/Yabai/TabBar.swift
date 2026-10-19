@@ -504,6 +504,10 @@ extension TabBar
         for bar in outerFirst(WindowManager.shared.tabBars) { bar.owner?.renderBar() }
     }
 
+    //
+    // NOTE: Called explicitly after a focus change rather than through Observation: the bars are laid out with the
+    // tree (View.refreshBars), and the tab card must be ordered right after the tabs are raised (tabCardOrdered).
+    //
     static func refresh(for wid: WindowID?)
     {
         guard let wid, let owner = WindowManager.shared.managedWindows[wid] else { return }

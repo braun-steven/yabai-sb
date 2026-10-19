@@ -186,6 +186,11 @@ extension EventHandler
             view.focusWindow(window.id)
         }
 
+        //
+        // NOTE: The focus hand-over updates opacity, tab bars and borders explicitly in this event, with the focus
+        // change: the previous window loses the active style as the new one gets it. Focus is not observed.
+        //
+
         if prevFocusedWindowID != window.id {
             TabBar.refresh(for: prevFocusedWindowID)
         }

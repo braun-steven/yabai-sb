@@ -524,6 +524,10 @@ extension Border
     // e.g. its focus. Changes that can also affect the borders of the other windows on the space (a window appears or
     // disappears, a container changes) refresh the whole space instead.
     //
+    // Callers call it explicitly after the model change instead of observing the models: frames reach the borders
+    // through the SkyLight notifications (windowMoved), and focus and container changes must reach the borders in the
+    // same event as the window server calls they belong to (the border hand-over on focus, the tree flush).
+    //
     @WM static func refresh(_ target: Window?) { refresh(target, space: nil, windowCount: nil) }
 
     //

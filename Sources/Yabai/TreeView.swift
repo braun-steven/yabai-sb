@@ -586,6 +586,7 @@ extension View
             insert.showFeedback(direction: insertDir)
         }
 
+        // NOTE: Explicit, after the frames and tabs of the flush, so the borders match the new layout in this event.
         Border.refresh(space: sid)
     }
 

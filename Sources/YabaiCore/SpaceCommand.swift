@@ -32,6 +32,15 @@ public enum SpaceCommand: Equatable, Sendable
             guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
             self = name
         }
+
+        /// Layout and appearance commands fail before parsing a value when the acting space is missing.
+        public var needsActingSpace: Bool
+        {
+            switch self {
+            case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label: true
+            default: false
+            }
+        }
     }
 
     public static func unknownValue(_ name: Name, _ value: Token) -> CommandError

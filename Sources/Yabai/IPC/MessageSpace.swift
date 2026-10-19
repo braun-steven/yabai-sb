@@ -210,6 +210,9 @@ private extension SpaceCommand
 
     try runCommands(&rsp, &message, from: command) { (_, source, token) throws(CommandError) -> Bool in
         guard let name = SpaceCommand.Name(token) else { throw CommandError.unknownCommand(domain, token) }
+        if actingSid == nil && name.needsActingSpace {
+            throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
+        }
         return try execute(SpaceCommand.parse(name, &source), acting: &actingSid)
     }
 }

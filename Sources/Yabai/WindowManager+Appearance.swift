@@ -3,11 +3,32 @@ import YabaiCore
 
 extension WindowManager
 {
-    func setPurifyMode(_ mode: PurifyMode)
+    //
+    // NOTE: Applies a window config change (from ConfigObserver): window opacity, the menu bar alpha and shadows.
+    //
+
+    func applyWindowConfig(_ config: WindowConfig, from old: WindowConfig)
     {
-        Config.current.window.purifyMode = mode
-        for target in window.values where target.isEligibleForManagement {
-            purifyWindow(target)
+        if config.opacityEnabled != old.opacityEnabled {
+            for target in window.values where target.isEligibleForManagement {
+                setOpacity(for: target, to: config.opacityEnabled ? target.opacity : 1.0)
+            }
+        }
+        if config.activeOpacity != old.activeOpacity, let target = focusedWindow {
+            setWindowOpacity(target, to: config.activeOpacity)
+        }
+        if config.normalOpacity != old.normalOpacity {
+            for target in window.values where target.id != focusedWindowID && target.isEligibleForManagement {
+                setWindowOpacity(target, to: config.normalOpacity)
+            }
+        }
+        if config.menuBarOpacity != old.menuBarOpacity {
+            SLS.setMenuBarAlpha(SLS.connection, config.menuBarOpacity)
+        }
+        if config.purifyMode != old.purifyMode {
+            for target in window.values where target.isEligibleForManagement {
+                purifyWindow(target)
+            }
         }
     }
 
@@ -34,29 +55,6 @@ extension WindowManager
         if target.opacity != 0.0 { return }
 
         setOpacity(for: target, to: opacity)
-    }
-
-    func setMenuBarOpacity(_ opacity: Float)
-    {
-        Config.current.window.menuBarOpacity = opacity
-        SLS.setMenuBarAlpha(SLS.connection, opacity)
-    }
-
-    func setActiveWindowOpacity(_ opacity: Float)
-    {
-        Config.current.window.activeOpacity = opacity
-        if let target = focusedWindow { setWindowOpacity(target, to: Config.current.window.activeOpacity) }
-    }
-
-    func setNormalWindowOpacity(_ opacity: Float)
-    {
-        Config.current.window.normalOpacity = opacity
-        for target in window.values {
-            if target.id == focusedWindowID { continue }
-            if target.isEligibleForManagement {
-                setWindowOpacity(target, to: Config.current.window.normalOpacity)
-            }
-        }
     }
 
     func setWindowLayer(_ target: Window, to layer: WindowLayer) -> Bool

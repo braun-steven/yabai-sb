@@ -148,6 +148,12 @@ extension EventHandler
         EventSignals.shared.push(.systemWoke)
     }
 
+    func configChanged()
+    {
+        debug("EVENT_HANDLER_CONFIG_CHANGED\n")
+        ConfigObserver.shared.apply()
+    }
+
     func spaceLayoutReconcile(_ generation: UInt32)
     {
         let sm = SpaceManager.shared

@@ -204,7 +204,6 @@ private enum WorkspaceLayout: String, CaseIterable
         guard let fontName = String(validating: token.bytes, as: UTF8.self) else { throw CommandError.unknownValue(domain, command, token) }
         return { () throws(CommandError) in
             guard TabBar.setFont(fontName) else { throw CommandError.unknownValue(domain, command, token) }
-            TabBar.redrawAll()
         }
     })
 }
@@ -308,6 +307,13 @@ private enum WorkspaceLayout: String, CaseIterable
     })
 }
 
+//
+// NOTE: Borders, tab bars, opacity and shadows follow Config through ConfigObserver, after the message. The setters
+// that do more than store the value change no renderer: they restart the event tap (focus_follows_mouse), mirror the
+// modifier for the tap (mouse_modifier), move scratchpads between layers (scratchpad_below) or lay out spaces, which
+// the following commands of the message rely on.
+//
+
 @WM private let configOptions: [ConfigOption] = [
     boolOption(.debugOutput, get: { Log.verbose.load(ordering: .relaxed) }, set: { Log.verbose.store($0, ordering: .relaxed) }),
     boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocus }, set: { Config.current.window.mouseFollowsFocus = $0 }),
@@ -319,9 +325,9 @@ private enum WorkspaceLayout: String, CaseIterable
     boolOption(.scratchpadRaise, get: { Config.current.scratchpad.raise }, set: { Config.current.scratchpad.raise = $0 }),
     boolOption(.scratchpadBelow, get: { Config.current.scratchpad.below }, set: { Config.current.scratchpad.below = $0; WindowManager.shared.setScratchpadLayers() }),
     boolOption(.skipWindowFocusAnimation, get: { Config.current.space.skipWindowFocusAnimation }, set: { Config.current.space.skipWindowFocusAnimation = $0 }),
-    boolOption(.windowOpacity, get: { Config.current.window.opacityEnabled }, set: { WindowManager.shared.setWindowOpacityEnabled($0) }),
+    boolOption(.windowOpacity, get: { Config.current.window.opacityEnabled }, set: { Config.current.window.opacityEnabled = $0 }),
     choiceOption(.windowAnimationEasing, choices: AnimationEasing.allCases, get: { Config.current.animation.easing }, set: { Config.current.animation.easing = $0 }),
-    choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { WindowManager.shared.setPurifyMode($0) }),
+    choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { Config.current.window.purifyMode = $0 }),
     choiceOption(.treeDefaultOrientation, choices: TreeOrientation.allCases, get: { Config.current.space.treeDefaultOrientation }, set: { Config.current.space.treeDefaultOrientation = $0 }),
     choiceOption(.treeWorkspaceLayout, choices: WorkspaceLayout.allCases, get: { Config.current.space.treeWorkspaceTabbed ? .tabbed : .default }, set: { Config.current.space.treeWorkspaceTabbed = $0 == .tabbed }),
     boolOption(.treeAutotiling, get: { Config.current.space.treeAutotiling }, set: { Config.current.space.treeAutotiling = $0 }),
@@ -330,38 +336,38 @@ private enum WorkspaceLayout: String, CaseIterable
     choiceOption(.mouseAction1, choices: [.move, .resize], get: { Config.current.mouse.action1 }, set: { Config.current.mouse.action1 = $0 }),
     choiceOption(.mouseAction2, choices: [.move, .resize], get: { Config.current.mouse.action2 }, set: { Config.current.mouse.action2 = $0 }),
     choiceOption(.mouseDropAction, choices: [.swap, .stack], get: { Config.current.mouse.dropAction }, set: { Config.current.mouse.dropAction = $0 }),
-    boolOption(.windowBorder, get: { Config.current.border.enabled }, set: { Config.current.border.enabled = $0; Border.refreshAll() }),
-    boolOption(.windowBorderHideSingle, get: { Config.current.border.hideSingle }, set: { Config.current.border.hideSingle = $0; Border.refreshAll() }),
-    boolOption(.tabBar, get: { Config.current.tabBar.enabled }, set: { Config.current.tabBar.enabled = $0; TabBar.refreshAll() }),
-    boolOption(.tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0; TabBar.redrawAll() }),
-    choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0; TabBar.refreshAll() }),
-    choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0; TabBar.redrawAll() }),
-    choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0; TabBar.refreshAll() }),
-    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, set: { Config.current.border.width = $0; Border.refreshAll() }),
-    colorOption(.activeWindowBorderColor, get: { Config.current.border.activeColor }, set: { Config.current.border.activeColor = $0; Border.refreshAll() }),
-    colorOption(.normalWindowBorderColor, get: { Config.current.border.normalColor }, set: { Config.current.border.normalColor = $0; Border.refreshAll() }),
-    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, set: { Config.current.tabBar.height = $0; TabBar.refreshAll() }),
+    boolOption(.windowBorder, get: { Config.current.border.enabled }, set: { Config.current.border.enabled = $0 }),
+    boolOption(.windowBorderHideSingle, get: { Config.current.border.hideSingle }, set: { Config.current.border.hideSingle = $0 }),
+    boolOption(.tabBar, get: { Config.current.tabBar.enabled }, set: { Config.current.tabBar.enabled = $0 }),
+    boolOption(.tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0 }),
+    choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0 }),
+    choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0 }),
+    choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0 }),
+    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, set: { Config.current.border.width = $0 }),
+    colorOption(.activeWindowBorderColor, get: { Config.current.border.activeColor }, set: { Config.current.border.activeColor = $0 }),
+    colorOption(.normalWindowBorderColor, get: { Config.current.border.normalColor }, set: { Config.current.border.normalColor = $0 }),
+    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, set: { Config.current.tabBar.height = $0 }),
     integerOption(.tabBarOffset, get: { Config.current.tabBar.offset }, parseValue: { token in
         switch token.value {
         case .int(let value): return value
         case .float(let value) where value == Float(cInt(value)): return cInt(value)
         default: return nil
         }
-    }, set: { Config.current.tabBar.offset = $0; TabBar.refreshAll() }),
-    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.cardPadding = $0; TabBar.refreshAll() }),
-    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.windowRadius = $0; TabBar.redrawAll() }),
-    colorOption(.tabBarFocusedColor, get: { Config.current.tabBar.focusedColor }, set: { Config.current.tabBar.focusedColor = $0; Config.current.tabBar.focusedColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor }, set: { Config.current.tabBar.focusedTextColor = $0; Config.current.tabBar.focusedTextColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor }, set: { Config.current.tabBar.inactiveColor = $0; Config.current.tabBar.inactiveColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarInactiveTextColor, get: { Config.current.tabBar.inactiveTextColor }, set: { Config.current.tabBar.inactiveTextColor = $0; Config.current.tabBar.inactiveTextColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0; Config.current.tabBar.unfocusedColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0; Config.current.tabBar.unfocusedTextColorIsCustom = true; TabBar.redrawAll() }),
-    colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0; Config.current.tabBar.backdropColorIsCustom = true; TabBar.redrawAll() }),
+    }, set: { Config.current.tabBar.offset = $0 }),
+    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.cardPadding = $0 }),
+    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.windowRadius = $0 }),
+    colorOption(.tabBarFocusedColor, get: { Config.current.tabBar.focusedColor }, set: { Config.current.tabBar.focusedColor = $0; Config.current.tabBar.focusedColorIsCustom = true }),
+    colorOption(.tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor }, set: { Config.current.tabBar.focusedTextColor = $0; Config.current.tabBar.focusedTextColorIsCustom = true }),
+    colorOption(.tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor }, set: { Config.current.tabBar.inactiveColor = $0; Config.current.tabBar.inactiveColorIsCustom = true }),
+    colorOption(.tabBarInactiveTextColor, get: { Config.current.tabBar.inactiveTextColor }, set: { Config.current.tabBar.inactiveTextColor = $0; Config.current.tabBar.inactiveTextColorIsCustom = true }),
+    colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0; Config.current.tabBar.unfocusedColorIsCustom = true }),
+    colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0; Config.current.tabBar.unfocusedTextColorIsCustom = true }),
+    colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0; Config.current.tabBar.backdropColorIsCustom = true }),
     floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, set: { Config.current.window.opacityDuration = $0 }),
     // NOTE: An opacity is printed with 4 decimals. Only the menubar accepts 0, windows need an opacity above 0.
-    floatOption(.menubarOpacity, get: { Config.current.window.menuBarOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setMenuBarOpacity($0) }),
-    floatOption(.activeWindowOpacity, get: { Config.current.window.activeOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setActiveWindowOpacity($0) }),
-    floatOption(.normalWindowOpacity, get: { Config.current.window.normalOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { WindowManager.shared.setNormalWindowOpacity($0) }),
+    floatOption(.menubarOpacity, get: { Config.current.window.menuBarOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.window.menuBarOpacity = $0 }),
+    floatOption(.activeWindowOpacity, get: { Config.current.window.activeOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.window.activeOpacity = $0 }),
+    floatOption(.normalWindowOpacity, get: { Config.current.window.normalOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.window.normalOpacity = $0 }),
     colorOption(.insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor }, set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
     scratchpadGridOption(),
     spaceLayoutOption(),

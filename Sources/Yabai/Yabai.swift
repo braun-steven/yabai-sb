@@ -312,6 +312,7 @@ enum Daemon
             SpaceManager.shared.begin()
             WindowManager.shared.begin()
             WindowManager.shared.updateWindowNotifications()
+            ConfigObserver.shared.start()
         }
 
         guard let user = getenv("USER").map({ String(cString: $0) }) else {

@@ -512,8 +512,9 @@ extension TabBar
     }
 
     //
-    // NOTE: Called after a tab bar config change that affects the layout. Drops every bar so that the next layout pass
-    // recreates them with the new settings, then re-lays out all views to apply the new window area.
+    // NOTE: Called after a tab bar config change that affects the layout (TabBarConfig.needsRebuild). Drops every bar so
+    // that the next layout pass recreates them with the new settings, then re-lays out all views to apply the new window
+    // area.
     //
     static func refreshAll()
     {
@@ -522,5 +523,12 @@ extension TabBar
             owner.updateAndFlush()
         }
         publishHits()
+    }
+
+    /// Applies a tab bar config change.
+    static func applyConfig(_ config: TabBarConfig, from old: TabBarConfig)
+    {
+        if config.needsRebuild(from: old) { refreshAll() }
+        else { redrawAll() }
     }
 }

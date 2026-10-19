@@ -56,14 +56,6 @@ extension WindowManager
         Config.current.window.focusFollowsMouse = mode
     }
 
-    func setWindowOpacityEnabled(_ enabled: Bool)
-    {
-        Config.current.window.opacityEnabled = enabled
-        for target in window.values where target.isEligibleForManagement {
-            setOpacity(for: target, to: enabled ? target.opacity : 1.0)
-        }
-    }
-
     func centerMouse(on target: Window)
     {
         if !(target.mouseFollowsFocusByRule ?? Config.current.window.mouseFollowsFocus) { return }

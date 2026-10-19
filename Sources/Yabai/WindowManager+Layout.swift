@@ -53,7 +53,7 @@ extension WindowManager
         } else if b.isFloating {
             if !b.isEligibleForManagement { return .invalidDestinationNode }
             b.isFloating = false
-            if b.isSticky { window_manager_make_window_sticky(SpaceManager.shared, self, b, false) }
+            if b.isSticky { makeWindowSticky(b, shouldBeSticky: false) }
         }
 
         guard let aCon = aView.tree?.find(a.id) else { return .invalidSourceNode }

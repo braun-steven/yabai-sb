@@ -87,8 +87,8 @@ private func windowToggle(_ toggle: WindowToggle, _ window: Window)
     let wm = window_manager_global()
 
     switch toggle {
-    case .float:              window_manager_make_window_floating(sm, wm, window, !window.isFloating, false)
-    case .sticky:             window_manager_make_window_sticky(sm, wm, window, !window.isSticky)
+    case .float:              wm.makeWindowFloating(window, shouldFloat: !window.isFloating, force: false)
+    case .sticky:             wm.makeWindowSticky(window, shouldBeSticky: !window.isSticky)
     case .shadow:             window_manager_toggle_window_shadow(window)
     case .split:              space_manager_toggle_window_split(sm, window)
     case .zoomParent:         window_manager_toggle_window_zoom_parent(wm, window)
@@ -133,7 +133,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            if !window_manager_close_window(window) {
+            if !window.close() {
                 rsp.fail("could not close window with id '\(Int32(bitPattern: window.id.rawValue))'.\n")
             }
         } else {
@@ -144,7 +144,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
         if let window = actingWindow {
             let id = Int32(bitPattern: window.id.rawValue)
-            let result = window_manager_minimize_window(window)
+            let result = window.minimize()
             if result == .cannotMinimize {
                 rsp.fail("window with id '\(id)' does not support the minimize operation.\n")
             } else if result == .alreadyMinimized {
@@ -159,7 +159,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
             let id = Int32(bitPattern: window.id.rawValue)
-            let result = window_manager_deminimize_window(window)
+            let result = window.deminimize()
             if result == .notMinimized {
                 rsp.fail("window with id '\(id)' is not minimized.\n")
             } else if result == .deminimizeFailed {
@@ -179,7 +179,6 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 
 private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()
     let wm = window_manager_global()
     let context = CSelectorContext()
 
@@ -190,7 +189,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
                 if space_is_fullscreen(sid) {
                     rsp.fail("can not move window to a macOS fullscreen space!\n")
                 } else {
-                    window_manager_send_window_to_space(sm, wm, actingWindow, sid, false)
+                    wm.sendWindow(actingWindow, to: sid, movedByRule: false)
                 }
             } else {
                 rsp.fail("could not locate the space to act on.\n")
@@ -202,7 +201,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
             if space_is_fullscreen(target) {
                 rsp.fail("can not move window to a macOS fullscreen space!\n")
             } else {
-                window_manager_send_window_to_space(sm, wm, actingWindow, target, false)
+                wm.sendWindow(actingWindow, to: target, movedByRule: false)
             }
         }
     } else if command.equals(WindowCommand.swap) {
@@ -295,14 +294,13 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
 
 private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
-    let sm = space_manager_global()
     let wm = window_manager_global()
 
     if command.equals(WindowCommand.grid) {
         var grid = Grid()
         let value = message.next()
         if grid.scan(value) == 6 {
-            let result = window_manager_apply_grid(sm, wm, actingWindow, grid)
+            let result = wm.applyGrid(grid, to: actingWindow)
             if result == .invalidSourceView {
                 rsp.fail("cannot apply grid layout to a managed window.\n")
             }

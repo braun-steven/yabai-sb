@@ -55,18 +55,16 @@ extension WindowManager
     {
         if let manage = effects.manage {
             target.isManagedByRule = manage
-            window_manager_make_window_floating(SpaceManager.shared, self, target, !manage, true)
+            makeWindowFloating(target, shouldFloat: !manage, force: true)
         }
     }
 
     func applyRuleEffects(_ effects: RuleEffects, to target: Window)
     {
-        let spaceManager = SpaceManager.shared
-
         if effects.sid != nil || effects.did != nil {
             if !target.reportsFullscreen && !(target.id.space.map(space_is_fullscreen) ?? false) {
                 if let sid = effects.sid ?? effects.did.flatMap({ display_space_id($0) }) {
-                    window_manager_send_window_to_space(spaceManager, self, target, sid, true)
+                    sendWindow(target, to: sid, movedByRule: true)
                     if effects.flags.contains(.followSpace) || effects.fullscreen == true {
                         _ = space_manager_focus_space(sid)
                     }
@@ -75,7 +73,7 @@ extension WindowManager
         }
 
         if let sticky = effects.sticky {
-            window_manager_make_window_sticky(spaceManager, self, target, sticky)
+            makeWindowSticky(target, shouldBeSticky: sticky)
         }
 
         if let mouseFollowsFocus = effects.mouseFollowsFocus {
@@ -102,7 +100,7 @@ extension WindowManager
 
         let grid = effects.grid
         if grid.rows != 0 && grid.columns != 0 {
-            window_manager_apply_grid(spaceManager, self, target, grid)
+            applyGrid(grid, to: target)
         }
     }
 

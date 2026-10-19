@@ -180,6 +180,34 @@ final class Window
     var reportsMinimized: Bool { booleanAttribute(kAXMinimizedAttribute as CFString) }
     var reportsFullscreen: Bool { booleanAttribute(Self.fullscreenAttribute as CFString) }
 
+    func minimize() -> WindowOperationResult
+    {
+        if !canMinimize { return .cannotMinimize }
+        if isMinimized { return .alreadyMinimized }
+
+        let result = AXUIElementSetAttributeValue(ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        return result == .success ? .success : .minimizeFailed
+    }
+
+    func deminimize() -> WindowOperationResult
+    {
+        if !isMinimized { return .notMinimized }
+
+        let result = AXUIElementSetAttributeValue(ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        return result == .success ? .success : .deminimizeFailed
+    }
+
+    /// Presses the close button when the window has one.
+    func close() -> Bool
+    {
+        var button: CFTypeRef?
+        AXUIElementCopyAttributeValue(ref, kAXCloseButtonAttribute as CFString, &button)
+        guard let button else { return false }
+
+        AXUIElementPerformAction(unsafeDowncast(button, to: AXUIElement.self), kAXPressAction as CFString)
+        return true
+    }
+
     private var axRole: CFString?
     {
         var value: CFTypeRef?

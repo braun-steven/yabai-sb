@@ -193,7 +193,7 @@ extension WindowManager
 
         for windowID in windowList {
             if let windowID, let target = window(for: windowID) {
-                window_manager_send_window_to_space(SpaceManager.shared, self, target, sid, false)
+                sendWindow(target, to: sid, movedByRule: false)
             }
         }
 

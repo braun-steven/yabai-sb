@@ -53,7 +53,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 
     let animationDuration = wm.window_animation_duration
     wm.window_animation_duration = 0.0
-    window_manager_apply_grid(space_manager_global(), wm, target, grid)
+    wm.applyGrid(grid, to: target)
     wm.window_animation_duration = animationDuration
 }
 
@@ -122,7 +122,7 @@ func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Win
     _ = window_manager_remove_scratchpad_for_window(wm, target, false)
     wm.addScratchpad(label: label, window: target)
     target.scratchpad = label
-    window_manager_make_window_floating(space_manager_global(), wm, target, true, false)
+    wm.makeWindowFloating(target, shouldFloat: true, force: false)
 
     //
     // NOTE: Floating puts the window on the normal sub-layer, above
@@ -148,7 +148,7 @@ private func windowManagerReleaseScratchpadWindow(_ wm: WindowManager, _ target:
     }
 
     if wm.scratchpad_below { target.adjustLayer(to: .normal) }
-    window_manager_make_window_floating(space_manager_global(), wm, target, false, false)
+    wm.makeWindowFloating(target, shouldFloat: false, force: false)
 }
 
 /// `window_manager_remove_scratchpad_for_window`

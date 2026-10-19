@@ -8,7 +8,7 @@ struct CSelectorContext: SelectorContext
 
     var activeDisplay: DisplayID? { display_manager_active_display_id() }
     var activeSpace: SpaceID? { space_manager_active_space() }
-    var actingWindow: Window? { window_manager_acting_window(window_manager_global()) }
+    var actingWindow: Window? { WindowManager.shared.actingWindow }
 
     func display(_ query: DisplayQuery) -> DisplayID?
     {

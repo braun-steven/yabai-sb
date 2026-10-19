@@ -45,7 +45,7 @@ extension WindowManager
     func setActiveWindowOpacity(_ opacity: Float)
     {
         active_window_opacity = opacity
-        if let target = window_manager_focused_window(self) { setWindowOpacity(target, to: active_window_opacity) }
+        if let target = focusedWindow { setWindowOpacity(target, to: active_window_opacity) }
     }
 
     func setNormalWindowOpacity(_ opacity: Float)

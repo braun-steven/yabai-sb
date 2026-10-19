@@ -198,7 +198,7 @@ extension WindowManager
         }
 
         if let focus = (windowList.first ?? nil).flatMap({ window(for: $0) }) {
-            window_manager_focus_window_with_raise(&focus.application.psn, focus.id, focus.ref)
+            WindowManager.shared.focusWithRaise(focus)
         }
     }
 

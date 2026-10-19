@@ -132,8 +132,8 @@ extension WindowManager
     {
         guard let windowID else { return }
         if let target = window(for: windowID) {
-            window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
-            window_manager_set_pending_focus(self, target.id)
+            focusWithRaise(target)
+            setPendingFocus(target.id)
         }
     }
 }

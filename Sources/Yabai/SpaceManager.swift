@@ -458,7 +458,7 @@ private func spaceManagerFocusedWindow() -> Window?
         if let focusedID = wm.focused_window_id, let target = wm.window(for: focusedID) { return target }
     }
 
-    return window_manager_focused_window(wm)
+    return wm.focusedWindow
 }
 
 /// `space_manager_active_space`: the space of the focused window, or of the active display; nil when neither is known.

@@ -43,10 +43,10 @@ private func applicationCreate(_ name: String) -> Application
 
     wm.addWindow(target)
 
-    #expect(window_manager_pending_focus_window(wm) == nil)
+    #expect(wm.pendingFocusWindow == nil)
 
-    window_manager_set_pending_focus(wm, 42)
-    #expect(window_manager_pending_focus_window(wm) == target)
+    wm.setPendingFocus(42)
+    #expect(wm.pendingFocusWindow == target)
     #expect(wm.pending_focus_window_id == 42)
 
     //
@@ -54,11 +54,11 @@ private func applicationCreate(_ name: String) -> Application
     //
 
     wm.pending_focus_time = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
-    #expect(window_manager_pending_focus_window(wm) == nil)
+    #expect(wm.pendingFocusWindow == nil)
     #expect(wm.pending_focus_window_id == nil)
 
-    window_manager_set_pending_focus(wm, 7)
-    #expect(window_manager_pending_focus_window(wm) == nil)
+    wm.setPendingFocus(7)
+    #expect(wm.pendingFocusWindow == nil)
     #expect(wm.pending_focus_window_id == nil)
 }
 

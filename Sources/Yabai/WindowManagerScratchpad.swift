@@ -61,7 +61,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: SpaceID)
 {
     if let next = wm.window(on: sid, byRank: 1, excluding: target.id) {
-        window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
+        WindowManager.shared.focusWithRaise(next)
     } else {
         _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
     }
@@ -79,7 +79,7 @@ private func windowManagerShowScratchpadWindow(_ wm: WindowManager, _ target: Wi
 
     if applyGrid { windowManagerApplyScratchpadGrid(wm, target) }
     scripting_addition_order_window(target.id, 1, nil)
-    window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
+    WindowManager.shared.focusWithRaise(target)
 }
 
 /// `window_manager_toggle_scratchpad_window`
@@ -96,7 +96,7 @@ func window_manager_toggle_scratchpad_window(_ wm: WindowManager, _ target: Wind
 
     if visibleSpace && orderedIn {
         if wm.scratchpad_raise && wm.focused_window_id != target.id && !target.isMinimized && !target.application.isHidden {
-            window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
+            WindowManager.shared.focusWithRaise(target)
         } else {
             windowManagerHideScratchpadWindow(wm, target, sid)
             shown = false

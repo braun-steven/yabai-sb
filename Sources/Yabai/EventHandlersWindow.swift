@@ -88,7 +88,7 @@ import YabaiCore
         return
     }
 
-    window_manager_focus_window_without_raise_deferred(window)
+    WindowManager.shared.focusWithoutRaiseDeferred(window)
 }
 
 /// `EVENT_HANDLER(WINDOW_FOCUSED)`

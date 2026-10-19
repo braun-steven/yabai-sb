@@ -362,7 +362,7 @@ func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> Win
     guard let elementID = ax_window_id(elementRef) else { return nil }
 
     var elementPSN = SLS.connectionPSN(SLS.windowOwner(connection_global(), elementID) ?? 0)
-    window_manager_focus_window_with_raise(&elementPSN, elementID, elementRef)
+    WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)
 
     return elementID
 }
@@ -380,7 +380,7 @@ func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
     let wm = window_manager_global()
 
     if let sid, let window = wm.window(on: sid, byRank: 1, excluding: nil) {
-        window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
+        WindowManager.shared.focusWithRaise(window)
         wm.centerMouse(on: window)
         display_manager_set_active_display_id(did)
     } else {

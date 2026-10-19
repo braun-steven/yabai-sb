@@ -64,7 +64,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 
     guard let window = WindowManager.shared.window(for: wid) else { return }
 
-    window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
+    WindowManager.shared.focusWithRaise(window)
 }
 
 /// `EVENT_HANDLER(TAB_CARD_ORDERED)`
@@ -293,12 +293,12 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if wm.ffm_mode == .autofocus {
         let target = ffmWindowToFocus(window)
-        window_manager_focus_window_without_raise(&target.application.psn, target.id)
+        WindowManager.shared.focusWithoutRaise(target)
         ms.ffm_window_id = target.id
     } else if wm.ffm_mode == .autoraise {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
-        window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
+        WindowManager.shared.focusWithRaise(window)
         ms.ffm_window_id = window.id
     }
 }

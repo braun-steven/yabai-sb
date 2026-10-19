@@ -12,7 +12,7 @@ extension WindowManager
 
         if let source, space_is_visible(source) && (movedByRule || focused_window_id == target.id) {
             if let next = window(on: source, byRank: 1, excluding: target.id) {
-                window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
+                focusWithRaise(next)
             } else {
                 _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)
             }

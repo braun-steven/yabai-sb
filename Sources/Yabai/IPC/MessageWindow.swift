@@ -124,8 +124,8 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
         if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
 
         if let window = actingWindow {
-            window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
-            window_manager_set_pending_focus(window_manager_global(), window.id)
+            WindowManager.shared.focusWithRaise(window)
+            WindowManager.shared.setPendingFocus(window.id)
         } else {
             rsp.fail("could not locate the window to act on!\n")
         }
@@ -444,7 +444,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
 func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     var command: Token
-    var actingWindow: Window? = window_manager_acting_window(window_manager_global())
+    var actingWindow: Window? = WindowManager.shared.actingWindow
     var ignored = Response()
     let selector = parseWindowSelector(&ignored, message.next(), acting: actingWindow, optional: true, CSelectorContext())
 

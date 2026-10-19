@@ -80,7 +80,7 @@ extension WindowManager
             }
         }
 
-        if let target = window_manager_focused_window(self) {
+        if let target = focusedWindow {
             last_window_id = target.id
             focused_window_id = target.id
             focused_window_psn = target.application.psn

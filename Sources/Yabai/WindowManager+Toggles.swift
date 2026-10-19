@@ -27,7 +27,7 @@ extension WindowManager
 
         // NOTE: The window must be focused before its fullscreen attribute changes. Focus it and wait for a possible
         // space animation to finish before setting the attribute.
-        window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
+        focusWithRaise(target)
         var iteration = 0
         while iteration < Self.nativeFullscreenWaitIterations && spaceID != space_manager_active_space() {
             usleep(100000)
@@ -96,7 +96,7 @@ extension WindowManager
 
     func toggleExpose(_ target: Window)
     {
-        window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
+        focusWithRaise(target)
         CoreDock.sendNotification("com.apple.expose.front.awake")
     }
 

@@ -637,7 +637,7 @@ func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
 func tab_bar_glass_order_panel(_ wid: WindowID, _ below: Bool, _ relativeWid: WindowID)
 {
     SLSOrderWindow(SLS.connection, wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
-    if below { border_window_ordered(relativeWid) }
+    if below { Border.windowOrdered(relativeWid) }
 }
 
 func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int)

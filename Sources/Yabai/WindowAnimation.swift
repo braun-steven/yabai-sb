@@ -276,7 +276,7 @@ private func windowManagerAnimateWindowListAsync(_ list: [window_capture])
     }
     workers.wait()
     ScriptingAddition.shared.swapProxiesIn(animations)
-    for animation in animations { border_suspend(animation.wid, true) }
+    for animation in animations { Border.setSuspended(true, for: animation.wid) }
     window_manager_set_window_frames(list)
     SLSReenableUpdate(connection)
     let animationConnection = connection

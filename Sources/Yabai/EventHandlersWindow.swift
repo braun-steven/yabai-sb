@@ -38,7 +38,7 @@ import YabaiCore
         EventSignals.shared.push(.windowCreated, .window(window))
     }
 
-    border_refresh_window_space(window)
+    Border.refreshSpace(of: window)
 }
 
 /// `EVENT_HANDLER(WINDOW_DESTROYED)`
@@ -74,7 +74,7 @@ import YabaiCore
     window.destroy()
 
     if wm.windowBorderHideSingle {
-        border_refresh_space(SpaceManager.shared.currentSpaceID)
+        Border.refresh(space: SpaceManager.shared.currentSpaceID)
     }
 
     update_window_notifications()
@@ -213,7 +213,7 @@ import YabaiCore
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame = newFrame
 
-    if wasFullscreen != isFullscreen { border_refresh_window_space(window) }
+    if wasFullscreen != isFullscreen { Border.refreshSpace(of: window) }
 
     if !wasFullscreen && isFullscreen {
         if let view = wm.managedView(for: window) {
@@ -269,7 +269,7 @@ import YabaiCore
         wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
 
-    border_refresh_window_space(window)
+    Border.refreshSpace(of: window)
     EventSignals.shared.push(.windowMinimized, .window(window))
 }
 
@@ -305,7 +305,7 @@ import YabaiCore
         wm.removeLostFocusedEvent(for: window.id)
     }
 
-    border_refresh_window_space(window)
+    Border.refreshSpace(of: window)
     EventSignals.shared.push(.windowDeminimized, .window(window))
 }
 

@@ -364,9 +364,9 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
     let wm = WindowManager.shared
 
     if command.equals(Config.border) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { Border.refreshAll() }
     } else if command.equals(Config.borderHideSingle) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { border_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { Border.refreshAll() }
     } else if command.equals(Config.borderWidth) {
         let token = message.next()
         let value = token.value
@@ -374,14 +374,14 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
             rsp.write("\(cFormat("%.4f", Double(wm.windowBorderWidth)))\n")
         } else if let width = value.floatValue, width > 0.0 {
             wm.windowBorderWidth = width
-            border_refresh_all()
+            Border.refreshAll()
         } else {
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.activeBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { Border.refreshAll() }
     } else if command.equals(Config.normalBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { border_refresh_all() }
+        if configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { Border.refreshAll() }
     } else {
         return false
     }

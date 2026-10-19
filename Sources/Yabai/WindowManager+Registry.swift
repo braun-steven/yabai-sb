@@ -41,7 +41,7 @@ extension WindowManager
 
     func removeWindow(_ id: WindowID)
     {
-        border_remove(id)
+        Border.remove(id)
         window.removeValue(forKey: id)
     }
 

@@ -40,20 +40,20 @@ func connectionNotificationHandler(_ type: UInt32, _ data: UnsafeMutableRawPoint
         EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
     case 808:
         let wid = data!.loadUnaligned(as: UInt32.self)
-        border_window_ordered(WindowID(wid))
+        Border.windowOrdered(WindowID(wid))
         EventLoop.post(.slsWindowOrdered(windowID: WindowID(wid)))
     case 804:
         let wid = data!.loadUnaligned(as: UInt32.self)
-        border_window_hidden(WindowID(wid))
+        Border.windowHidden(WindowID(wid))
         EventLoop.post(.slsWindowDestroyed(windowID: WindowID(wid)))
     case 806:
-        border_window_moved(WindowID(data!.loadUnaligned(as: UInt32.self)))
+        Border.windowMoved(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 807:
-        border_window_resized(WindowID(data!.loadUnaligned(as: UInt32.self)))
+        Border.windowResized(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 815:
-        border_window_changed(WindowID(data!.loadUnaligned(as: UInt32.self)))
+        Border.windowChanged(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 816:
-        border_window_hidden(WindowID(data!.loadUnaligned(as: UInt32.self)))
+        Border.windowHidden(WindowID(data!.loadUnaligned(as: UInt32.self)))
     case 1202:
         lastCmdTabTime.store(OSTimer.now, ordering: .releasing)
     default:

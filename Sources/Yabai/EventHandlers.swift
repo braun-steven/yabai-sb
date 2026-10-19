@@ -193,12 +193,12 @@ func update_window_notifications()
         tab_bar_refresh_for_window(prevFocusedWindowID)
     }
 
-    border_begin_batch()
+    Border.beginBatch()
     if prevFocusedWindowID != window.id {
-        border_refresh(prevFocusedWindowID.flatMap { wm.window(for: $0) })
+        Border.refresh(prevFocusedWindowID.flatMap { wm.window(for: $0) })
     }
-    border_refresh_window_space(window)
-    border_end_batch()
+    Border.refreshSpace(of: window)
+    Border.endBatch()
 }
 
 //
@@ -436,7 +436,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     if let prevFocusedWindowID {
         tab_bar_refresh_for_window(prevFocusedWindowID)
-        border_refresh(focusedWindow)
+        Border.refresh(focusedWindow)
     }
 }
 
@@ -509,7 +509,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     tileWindowsBatched(windows, wm.lastWindowID, false)
 
     for window in windows {
-        border_refresh_window_space(window)
+        Border.refreshSpace(of: window)
     }
 
     EventSignals.shared.push(.applicationVisible, .application(application))
@@ -539,7 +539,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     flushDirtyViews(viewList)
 
     for window in windows {
-        border_refresh_window_space(window)
+        Border.refreshSpace(of: window)
     }
 
     EventSignals.shared.push(.applicationHidden, .application(application))

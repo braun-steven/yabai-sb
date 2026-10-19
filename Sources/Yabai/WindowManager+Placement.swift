@@ -30,8 +30,8 @@ extension WindowManager
             manageWindow(target, on: destination, inserting: nil)
         }
 
-        border_refresh_space(source)
-        border_refresh_window_space(target)
+        Border.refresh(space: source)
+        Border.refreshSpace(of: target)
     }
 
     @discardableResult

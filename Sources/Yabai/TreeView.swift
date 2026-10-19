@@ -591,7 +591,7 @@ extension View
             insert.showFeedback(direction: insertDir)
         }
 
-        border_refresh_space(sid)
+        Border.refresh(space: sid)
     }
 
     func focusWindow(_ windowID: WindowID)

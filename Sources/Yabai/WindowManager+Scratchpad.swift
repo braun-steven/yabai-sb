@@ -107,7 +107,7 @@ extension WindowManager
             hideOtherScratchpadWindows(except: target)
         }
 
-        border_refresh_window_space(target)
+        Border.refreshSpace(of: target)
 
         return true
     }
@@ -140,7 +140,7 @@ extension WindowManager
     {
         if let spaceID = SpaceID.active {
             showScratchpad(target, on: spaceID, movingToSpace: true, applyingGrid: false)
-            border_refresh_window_space(target)
+            Border.refreshSpace(of: target)
         }
 
         if scratchpadBelow { target.adjustLayer(to: .normal) }

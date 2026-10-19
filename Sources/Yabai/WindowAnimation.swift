@@ -211,12 +211,18 @@ private final class WindowAnimationDisplayLink: NSObject
 
     private func finish()
     {
+        //
+        // NOTE: The border comes back while the animation lock is held, so that a new animation of the window, which
+        // marks this one as skipped under the lock, cannot have its suspension undone here. Lock order: windowAnimations,
+        // then the border lock (Border never takes windowAnimations).
+        //
         windowAnimations.withLock { table in
             SLS.disableUpdate(connection)
             ScriptingAddition.shared.swapProxiesOut(animations)
             for animation in animations where !animation.skip {
                 table.removeValue(forKey: animation.wid)
                 animation.destroyProxy()
+                Border.setSuspended(false, for: animation.wid)
             }
             SLS.reenableUpdate(connection)
         }

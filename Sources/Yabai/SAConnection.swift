@@ -1,8 +1,14 @@
 import Darwin
 import OSAX
 
-// A request has one absolute deadline, including connect and all partial reads/writes. Never retry
-// a command after a timeout: the payload may already have applied it.
+//
+// NOTE: A request has one absolute deadline, including connect and all partial reads/writes. Never retry
+// a command after a timeout: the payload may already have applied it. Requests stay synchronous on yabai.wm: the
+// payload replies at once and the deadline bounds a stall, and their callers (mouse drag, tree layout, focus,
+// scratchpads) order SA operations between the SkyLight and AX calls of one change, which an await would let other
+// @WM code interleave with.
+//
+
 struct SAConnection
 {
     let fd: Int32

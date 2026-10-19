@@ -174,7 +174,9 @@ extension SpaceID
     //
     // NOTE: The bridged operation moves windows asynchronously. Laying out or focusing a window before it has
     // arrived on its new space places it on the wrong display, or makes macOS switch to the space it came from.
-    // The wait is bounded, because it blocks the event loop and a window may not be moved at all.
+    // The wait is bounded, because it blocks the event loop and a window may not be moved at all. It stays synchronous:
+    // its callers (rule effects of a window being created, a swap or stack on mouse drop, tree moves across displays,
+    // window and scratchpad commands) wait in the middle of a model change that other @WM code must not see half done.
     //
 
     func waitForWindow(_ wid: WindowID, timeoutMS: Int) -> Bool

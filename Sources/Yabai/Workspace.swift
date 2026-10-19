@@ -166,7 +166,7 @@ final class Workspace: NSObject, Sendable
     /// Created by `begin()`, and alive as long as the daemon.
     static let shared = Workspace()
 
-    /// Called by yabai_main on the main thread, before the event loop starts.
+    /// Called by Daemon.run on the main thread, before the event loop starts.
     static func begin() -> Bool
     {
         _ = shared

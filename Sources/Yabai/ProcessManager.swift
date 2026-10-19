@@ -24,7 +24,7 @@ final class ProcessManager
     /// The Carbon handler changes the process table on the main thread, as the display manager does.
     nonisolated(unsafe) static let shared = ProcessManager()
 
-    /// Called by yabai_main on the main thread, before the event loop starts.
+    /// Called by Daemon.run on the main thread, before the event loop starts.
     func begin() -> Bool
     {
         target = GetApplicationEventTarget()

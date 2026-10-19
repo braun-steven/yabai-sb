@@ -14,7 +14,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 
 ## Project Structure
 - `Package.swift`: complete SwiftPM build, with `OSAXEmbed` generating embedded C sources. The makefile wraps SwiftPM and publishes to `bin/yabai`.
-- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `yabai_main` in `Yabai.swift`. `Service.swift` handles launchd; `Helpers.swift` contains shared helpers.
+- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `Daemon.run` in `Yabai.swift`. `Service.swift` handles launchd; `Helpers.swift` contains shared helpers.
 - `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus ordered query JSON in `Serialize.swift`.
 - `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, ordered JSON, message tokens, values, selectors and rule/signal parsing.

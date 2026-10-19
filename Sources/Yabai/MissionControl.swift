@@ -30,7 +30,7 @@ enum MissionControlMode: Int, Sendable
     }
 }
 
-/// Registered for each notification type by yabai_main.
+/// Registered for each notification type by Daemon.run.
 func connectionNotificationHandler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)
 {
     switch type {
@@ -87,7 +87,7 @@ private func missionControlNotificationHandler(_ observer: AXObserver, _ element
 /// Mission Control: its mode, and the observer of the Mission Control notifications of the Dock.
 final class MissionControl
 {
-    // NOTE: the handlers on the event loop own the mode. observe() runs in yabai_main before the event loop starts, and
+    // NOTE: the handlers on the event loop own the mode. observe() runs in Daemon.run before the event loop starts, and
     // after that only the Dock-restart handler on the event loop changes the observer.
     nonisolated(unsafe) static let shared = MissionControl()
 

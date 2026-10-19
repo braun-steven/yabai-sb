@@ -10,7 +10,7 @@ private let saVersion = String(cString: sa_payload_version())
 // an optional status byte, and legacy payload EOF remains an explicitly unconfirmed success.
 
 //
-// NOTE: The socket of the payload. The daemon sets it at startup (configure_settings_and_acquire_lock), before any
+// NOTE: The socket of the payload. The daemon sets it at startup (Daemon.configureSettingsAndAcquireLock), before any
 // other thread runs, and --load-sa or --uninstall-sa sets it for the user of sudo before it connects.
 //
 
@@ -250,7 +250,7 @@ func scripting_addition_uninstall() -> Int32
         sa_notify("System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!")
         return 1
     }
-    if !is_root() {
+    if !Daemon.isRoot {
         Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be uninstalled as root!\n".utf8)
         sa_notify("must be uninstalled as root!")
         return 1
@@ -262,7 +262,7 @@ func scripting_addition_uninstall() -> Int32
 func scripting_addition_load() -> Int32
 {
     autoreleasepool {
-        if !is_root() {
+        if !Daemon.isRoot {
             Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be loaded as root!\n".utf8)
             sa_notify("must be loaded as root!")
             return 1

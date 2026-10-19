@@ -82,7 +82,7 @@ func describe(_ process: Process) -> String
     "\(process.name) (\(process.pid))"
 }
 
-/// `update_window_notifications`. yabai_main calls it before the event loop runs, so it is not @WM.
+/// Requests the SkyLight notifications of all known windows. Daemon.run calls it before the event loop runs, so it is not @WM.
 func update_window_notifications()
 {
     let wm = WindowManager.shared

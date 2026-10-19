@@ -35,7 +35,7 @@ typedef void connection_callback(uint32_t type, void *_Nullable data, size_t dat
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_ASSUME_NONNULL_BEGIN
 
-// not exported by SkyLight: yabai_main resolves them with macho_find_symbol, and they stay NULL if that fails (CPrivate.c)
+// not exported by SkyLight: Daemon.run resolves them with macho_find_symbol, and they stay NULL if that fails (CPrivate.c)
 extern mach_port_t (*_Nullable CGSGetConnectionPortById)(int cid);
 extern int64_t (*_Nullable SLSPerformAsynchronousBridgedWindowManagementOperation)(void *operation);
 
@@ -149,7 +149,7 @@ static inline char *_Nullable *_Nonnull environ_global(void) { return *_NSGetEnv
 // a user notification titled yabai (Notify.m)
 void NotifyC(const char *subtitle, const char *text);
 
-// stores the functions that yabai_main (Sources/Yabai/Yabai.swift) resolved with macho_find_symbol (CPrivate.c)
+// stores the functions that Daemon.run (Sources/Yabai/Yabai.swift) resolved with macho_find_symbol (CPrivate.c)
 void CPrivateSetResolvedFunctions(void *_Nullable get_connection_port_by_id, void *_Nullable bridged_operation);
 
 //

@@ -156,8 +156,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [ ] | | |
-| 6.1 | `AsyncStream` event loop | [ ] | | |
+| **6** | **Async event loop and Observation** | [~] | 7b05bba5 | |
+| 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [ ] | | |
 | 6.3 | Timers | [ ] | | |
 | 6.4 | IPC | [ ] | | |
@@ -1069,3 +1069,17 @@ not here.
 - Notes for the next agent: the harness spaces can be occupied by the user's windows (check `query --spaces` before
   `setup`); `perf.py` looks for `bounds` next to itself, so a temporary copy needs the helpers linked beside it. The
   `--tree` query compares only with the same tree shape: a restart with `tree_autotiling on` nests the fixture.
+
+### 2026-10-20 Subphase 6.1 [x]
+- Commits: 7b05bba5..(this record)
+- Done: `EventLoop.post` yields into a static unbounded `AsyncStream<Event>`; `EventLoop.start()` (first in
+  `Daemon.run`, before `Workspace.begin` arms producers) runs one `Task(priority: .medium) { @WM in for await … }`
+  that handles each event in its own `autoreleasepool` and flushes signals. `WM.assumeIsolated` is now used only by
+  `WM.sync`. NOTEs and AGENTS.md architecture text updated.
+- Output changes: none.
+- Verification: make, make test (69 + 61 tests) pass; no live run (6.7).
+- Decisions: explicit `start()` instead of a lazily started consumer, so tests never run posted events (they buffer);
+  `.medium` priority to keep the queue's default QoS; the queue keeps `.workItem` pools for `WM.sync` blocks.
+- Next: 6.2 (async handlers where they wait). 6.7 should confirm event ordering and latency live (mouse drag).
+- Notes for the next agent: one task work item can handle several buffered events (`next()` returns without
+  suspending), hence the explicit per-event pool; handlers are still synchronous, so no `await` between events yet.

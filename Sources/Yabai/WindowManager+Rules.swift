@@ -12,12 +12,7 @@ extension WindowManager
 {
     func queryWindowRules(into response: inout Response)
     {
-        response.write("[")
-        for (index, candidate) in rules.enumerated() {
-            candidate.serialize(into: &response, index: index)
-            if index < rules.count - 1 { response.write(",") }
-        }
-        response.write("]\n")
+        response.write(json: rules.enumerated().map { $1.info(index: $0) })
     }
 
     // NOTE: Matching rule effects combine in WindowManager.rules order; matching one-shot rules are marked for removal.

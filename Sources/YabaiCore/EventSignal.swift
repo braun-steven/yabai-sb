@@ -161,6 +161,36 @@ public struct PendingSignal
     }
 }
 
+/// A signal in `signal --list`. Text that is nil is written as "", active as null when it does not matter.
+public struct SignalInfo: Encodable, Equatable, Sendable
+{
+    private enum CodingKeys: String, CodingKey
+    {
+        case index, label, app, title, active, event, action
+    }
+
+    public var index: Int
+    public var label: String
+    public var app: String
+    public var title: String
+    public var active: Bool?
+    public var event: String
+    public var action: String
+
+    public func encode(to encoder: any Encoder) throws
+    {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(index, forKey: .index)
+        try container.encode(label, forKey: .label)
+        try container.encode(app, forKey: .app)
+        try container.encode(title, forKey: .title)
+        // NOTE: nil is written as null.
+        try container.encode(active, forKey: .active)
+        try container.encode(event, forKey: .event)
+        try container.encode(action, forKey: .action)
+    }
+}
+
 /// `g_signal_event`: the signals of each event type, in the order they were added. A signal's index counts across the
 /// event types, in the order of SignalType.
 public struct SignalTable
@@ -213,32 +243,16 @@ public struct SignalTable
         return false
     }
 
-    /// `event_signal_serialize`
-    private static func serialize(_ signal: EventSignal, _ type: SignalType, _ index: Int) -> String
+    /// `event_signal_list`: the signals of `signal --list`, in the order of the event types.
+    public func list() -> [SignalInfo]
     {
-        let active = signal.active.map { $0 ? "true" : "false" } ?? "null"
-
-        return "{\n"
-             + "\t\"index\":\(index),\n"
-             + "\t\"label\":\"\(JSON.string(signal.label))\",\n"
-             + "\t\"app\":\"\(JSON.string(signal.app?.text))\",\n"
-             + "\t\"title\":\"\(JSON.string(signal.title?.text))\",\n"
-             + "\t\"active\":\(active),\n"
-             + "\t\"event\":\"\(type.name)\",\n"
-             + "\t\"action\":\"\(JSON.string(signal.command))\"\n"
-             + "}"
-    }
-
-    /// `event_signal_list`: the json of `signal --list`.
-    public func list() -> String
-    {
-        var entries: [String] = []
+        var entries: [SignalInfo] = []
         for type in SignalType.allCases {
             for signal in signals[type.rawValue] {
-                entries.append(SignalTable.serialize(signal, type, entries.count))
+                entries.append(SignalInfo(index: entries.count, label: signal.label ?? "", app: signal.app?.text ?? "", title: signal.title?.text ?? "", active: signal.active, event: type.name, action: signal.command ?? ""))
             }
         }
 
-        return "[" + entries.joined(separator: ",") + "]\n"
+        return entries
     }
 }

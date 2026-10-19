@@ -80,7 +80,7 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
 @Test func signalTableAddsRemovesAndLists()
 {
     var table = SignalTable()
-    #expect(table.list() == "[]\n")
+    #expect(table.list().isEmpty)
 
     table.add(signal("a", "echo a"), .windowFocused)
     table.add(signal(nil, "echo b"), .applicationLaunched)
@@ -92,10 +92,12 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
     titled.title = RulePattern(Token("^T$"), exclude: true)
     titled.active = false
     table.add(titled, .applicationLaunched)
-    #expect(table.list() == "[{\n\t\"index\":0,\n\t\"label\":\"\",\n\t\"app\":\"\",\n\t\"title\":\"\",\n\t\"active\":null,\n\t\"event\":\"application_launched\",\n\t\"action\":\"echo b\"\n},"
-                          + "{\n\t\"index\":1,\n\t\"label\":\"\",\n\t\"app\":\"\",\n\t\"title\":\"^T$\",\n\t\"active\":false,\n\t\"event\":\"application_launched\",\n\t\"action\":\"x\"\n},"
-                          + "{\n\t\"index\":2,\n\t\"label\":\"a\",\n\t\"app\":\"\",\n\t\"title\":\"\",\n\t\"active\":null,\n\t\"event\":\"window_focused\",\n\t\"action\":\"echo a\"\n},"
-                          + "{\n\t\"index\":3,\n\t\"label\":\"c\",\n\t\"app\":\"\",\n\t\"title\":\"\",\n\t\"active\":null,\n\t\"event\":\"window_focused\",\n\t\"action\":\"echo \\\"c\\\"\"\n}]\n")
+    // NOTE: SignalInfo's memberwise init is internal, so the entries are compared as their json.
+    #expect(String(decoding: JSON.encode(table.list()), as: UTF8.self) == "[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"},"
+                          + "{\"action\":\"x\",\"active\":false,\"app\":\"\",\"event\":\"application_launched\",\"index\":1,\"label\":\"\",\"title\":\"^T$\"},"
+                          + "{\"action\":\"echo a\",\"active\":null,\"app\":\"\",\"event\":\"window_focused\",\"index\":2,\"label\":\"a\",\"title\":\"\"},"
+                          + "{\"action\":\"echo \\\"c\\\"\",\"active\":null,\"app\":\"\",\"event\":\"window_focused\",\"index\":3,\"label\":\"c\",\"title\":\"\"}]")
+    #expect(String(decoding: JSON.encode(table.list()), as: UTF8.self).hasPrefix("[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"}"))
 
     // NOTE: a signal replaces the signal with its label, also of another event type
     table.add(signal("a", "echo moved"), .spaceChanged)

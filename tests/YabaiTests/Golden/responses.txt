@@ -314,88 +314,8 @@ Menlo:14
 
 ### 0 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
 
-### 1384 rule --list
-[{
-	"index":0,
-	"label":"",
-	"app":"^Calculator$",
-	"title":"",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":false,
-	"sticky":null,
-	"mouse_follows_focus":null,
-	"sub-layer":"",
-	"native-fullscreen":null,
-	"grid":"0:0:0:0:0:0",
-	"scratchpad":"",
-	"one-shot":false,
-	"flags":"0x00000001"
-},{
-	"index":1,
-	"label":"term",
-	"app":"Terminal",
-	"title":"",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.9000,
-	"manage":null,
-	"sticky":true,
-	"mouse_follows_focus":null,
-	"sub-layer":"",
-	"native-fullscreen":null,
-	"grid":"0:0:0:0:0:0",
-	"scratchpad":"",
-	"one-shot":false,
-	"flags":"0x00020001"
-},{
-	"index":2,
-	"label":"",
-	"app":"",
-	"title":"x",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":true,
-	"sticky":null,
-	"mouse_follows_focus":null,
-	"sub-layer":"",
-	"native-fullscreen":null,
-	"grid":"0:0:0:0:0:0",
-	"scratchpad":"",
-	"one-shot":true,
-	"flags":"0x00000102"
-},{
-	"index":3,
-	"label":"",
-	"app":"Notes",
-	"title":"",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":false,
-	"sticky":null,
-	"mouse_follows_focus":false,
-	"sub-layer":"below",
-	"native-fullscreen":true,
-	"grid":"4:4:1:1:2:2",
-	"scratchpad":"notes",
-	"one-shot":false,
-	"flags":"0x00040001"
-}]
+### 1210 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x00020001","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0.9,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 21 rule --add app=Foo bogus=1
 unknown key 'bogus'
@@ -411,68 +331,8 @@ Menlo:14
 ### 38 rule --remove nolabel
 rule with label 'nolabel' not found.
 
-### 1037 rule --list
-[{
-	"index":0,
-	"label":"",
-	"app":"^Calculator$",
-	"title":"",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":false,
-	"sticky":null,
-	"mouse_follows_focus":null,
-	"sub-layer":"",
-	"native-fullscreen":null,
-	"grid":"0:0:0:0:0:0",
-	"scratchpad":"",
-	"one-shot":false,
-	"flags":"0x00000001"
-},{
-	"index":1,
-	"label":"",
-	"app":"Notes",
-	"title":"",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":false,
-	"sticky":null,
-	"mouse_follows_focus":false,
-	"sub-layer":"below",
-	"native-fullscreen":true,
-	"grid":"4:4:1:1:2:2",
-	"scratchpad":"notes",
-	"one-shot":false,
-	"flags":"0x00040001"
-},{
-	"index":2,
-	"label":"",
-	"app":"",
-	"title":"x",
-	"role":"",
-	"subrole":"",
-	"display":0,
-	"space":0,
-	"follow_space":false,
-	"opacity":0.0000,
-	"manage":true,
-	"sticky":null,
-	"mouse_follows_focus":null,
-	"sub-layer":"",
-	"native-fullscreen":null,
-	"grid":"0:0:0:0:0:0",
-	"scratchpad":"",
-	"one-shot":true,
-	"flags":"0x00000102"
-}]
+### 905 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
 
 ### 32 rule --apply 7
 rule with index '7' not found.
@@ -493,32 +353,8 @@ missing required key-value pair 'action=..'
 
 ### 0 signal --add event=window_created action=true title!=^Untitled$ active=no
 
-### 381 signal --list
-[{
-	"index":0,
-	"label":"",
-	"app":"",
-	"title":"^Untitled$",
-	"active":false,
-	"event":"window_created",
-	"action":"true"
-},{
-	"index":1,
-	"label":"wf",
-	"app":"",
-	"title":"",
-	"active":null,
-	"event":"window_focused",
-	"action":"echo $YABAI_WINDOW_ID"
-},{
-	"index":2,
-	"label":"",
-	"app":"^Finder$",
-	"title":"",
-	"active":null,
-	"event":"space_changed",
-	"action":"echo hi"
-}]
+### 336 signal --list
+[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":2,"label":"","title":""}]
 
 ### 0 signal --remove wf
 
@@ -528,24 +364,8 @@ missing required key-value pair 'action=..'
 ### 40 signal --remove nolabel
 signal with label 'nolabel' not found.
 
-### 249 signal --list
-[{
-	"index":0,
-	"label":"",
-	"app":"",
-	"title":"^Untitled$",
-	"active":false,
-	"event":"window_created",
-	"action":"true"
-},{
-	"index":1,
-	"label":"",
-	"app":"^Finder$",
-	"title":"",
-	"active":null,
-	"event":"space_changed",
-	"action":"echo hi"
-}]
+### 219 signal --list
+[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":1,"label":"","title":""}]
 
 ### 45 signal --foo
 unknown command '--foo' for domain 'signal'

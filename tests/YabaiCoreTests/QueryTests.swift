@@ -99,6 +99,15 @@ private func json(_ value: some Encodable) -> String
     #expect(json(root) == "{\"focused\":false,\"frame\":{\"h\":0,\"w\":0,\"x\":0,\"y\":0},\"layout\":\"splith\",\"nodes\":[{\"focused\":true,\"frame\":{\"h\":20,\"w\":10,\"x\":0,\"y\":0},\"layout\":null,\"nodes\":[],\"percent\":0.5,\"selected\":false,\"type\":\"window\",\"visible\":true,\"window\":7}],\"percent\":1,\"selected\":false,\"type\":\"workspace\",\"visible\":true,\"window\":0}")
 }
 
+@Test func ruleInfoEncodesSortedKeysWithNullForUnsetProperties()
+{
+    var rule = Rule()
+    rule.label = "a/b"
+    rule.effects.manage = false
+    rule.effects.grid = Grid(4, 4, 0, 0, 2, 2)
+    #expect(json(rule.info(index: 0, display: 0, space: 2)) == "{\"app\":\"\",\"display\":0,\"flags\":\"0x00000000\",\"follow_space\":false,\"grid\":\"4:4:0:0:2:2\",\"index\":0,\"label\":\"a/b\",\"manage\":false,\"mouse_follows_focus\":null,\"native-fullscreen\":null,\"one-shot\":false,\"opacity\":0,\"role\":\"\",\"scratchpad\":\"\",\"space\":2,\"sticky\":null,\"sub-layer\":\"\",\"subrole\":\"\",\"title\":\"\"}")
+}
+
 private func queryThrownText(_ body: () throws(CommandError) -> Void) -> String?
 {
     do { try body() } catch { return error.description }

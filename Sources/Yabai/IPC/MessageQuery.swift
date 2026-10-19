@@ -159,6 +159,6 @@ private enum ResolvedQueryTarget
             if !EventSignals.shared.table.remove(label: label.string) { throw CommandError("signal with label '\(label)' not found.\n") }
         }
     case .list:
-        rsp.write("\(EventSignals.shared.table.list())")
+        rsp.write(json: EventSignals.shared.table.list())
     }
 }

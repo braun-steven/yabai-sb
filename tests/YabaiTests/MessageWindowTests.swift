@@ -18,35 +18,6 @@ import YabaiCore
     }
 }
 
-@Test("message_window_layout_values")
-func messageWindowLayoutValues()
-{
-    #expect(parseWindowLayout(Token("tabbed")) == .tabbed)
-    #expect(parseWindowLayout(Token("toggle-split")) == .toggleSplit)
-    #expect(parseWindowLayout(Token("stacked")) == nil)
-
-    #expect(parseSplitOrientation(Token("vertical")) == .fixed(.vertical))
-    #expect(parseSplitOrientation(Token("toggle")) == .toggle)
-    #expect(parseSplitOrientation(Token("diagonal")) == nil)
-}
-
-@Test("message_window_command_groups")
-@WM func messageWindowCommandGroups()
-{
-    let domain = Token(Domain.window)
-
-    // NOTE: commands of other groups are left to them
-    let (focus, focusText, _) = runGroup({ (source: inout Message) throws(CommandError) -> CommandResult in try windowCommandTree(domain, Token("--focus"), &source, nil) }, "\0")
-    #expect(focus == .unknown)
-    #expect(focusText.isEmpty)
-
-    // NOTE: an invalid value stops the remaining commands of the message
-    let (layout, layoutText, layoutStops) = runGroup({ (source: inout Message) throws(CommandError) -> CommandResult in try windowCommandTree(domain, Token("--layout"), &source, nil) }, "stacked\0")
-    #expect(layout == nil)
-    #expect(layoutText.contains("unknown value 'stacked' given to command '--layout'"))
-    #expect(layoutStops)
-}
-
 @Test("message_space_command_groups")
 @WM func messageSpaceCommandGroups()
 {

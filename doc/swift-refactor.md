@@ -142,8 +142,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
-| **4** | **Compiler-checked isolation** | [ ] | | |
-| 4.1 | Mouse event tap state | [ ] | | |
+| **4** | **Compiler-checked isolation** | [~] | 4bd853c4 | |
+| 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
 | 4.2 | Process table | [ ] | | |
 | 4.3 | Remaining globals | [ ] | | |
 | 4.4 | Managers and models `@WM` | [ ] | | |
@@ -777,3 +777,23 @@ not here.
 - Next: phase 4. Its rows 4.1–4.3 are not recorded here; their commits exist (88c374ac..dc446a3b).
 - Notes for the next agent: compare bench against a same-session run of the baseline build; the historical numbers
   alone drift around the 10% limit.
+
+### 2026-10-19 Subphase 4.1 [x]
+- Commits: 88c374ac (Codex, outside the workflow; reviewed here), 4bd853c4 (one Haiku piece), plus this report.
+- Done: 88c374ac splits the tap's state into `MouseTapState` (`MouseHandler.swift`): the modifier and the +1
+  `CFMachPort` sit behind `Mutex`es, `tracksFocus` is an `Atomic`, and the click/drag/replay fields are touched only by
+  the tap on the main run loop. The callback gets `MouseTapState` as its unretained context and no longer reads
+  `MouseState`. `MouseState.modifier` forwards to it, and window and drag decisions stay on yabai.wm. The review found
+  no `nonisolated(unsafe)` added and the same behavior. On lifetime, the re-enable on timeout retains the port under
+  the lock, and teardown clears it under the lock, then disables, invalidates, removes the source and releases (old
+  order). An enable racing teardown hits an invalidated port, which is harmless. The one gap was comments:
+  4bd853c4 restores the dropped NOTE (moves reach the tap for glass hover with focus-follows-mouse off) and rewraps
+  the overlong NOTE so it names the threads and the +1 port.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden at 4bd853c4. No live check (4.6).
+- Decisions: the bit-pattern `UInt` storage of the port stays; a non-Sendable `CFMachPort` cannot go in a `Mutex`
+  directly. The failed-`tapIsEnabled` path now also calls `tapEnable(false)` before invalidating, which has no
+  effect on a disabled tap.
+- Next: 4.2 (its commit 13237fa9 also exists outside the workflow). `MouseState.shared` keeps
+  `nonisolated(unsafe)` until 4.4.
+- Notes for the next agent: none.

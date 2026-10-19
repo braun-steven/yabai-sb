@@ -499,6 +499,43 @@ private func parseWindowCommand(_ text: String) -> (WindowCommand?, String, Bool
     #expect(SplitOrientation(Token("diagonal")) == nil)
 }
 
+private func parseSpaceCommand(_ text: String) -> (SpaceCommand?, String, Bool)
+{
+    var message = Message(text)
+    guard let name = SpaceCommand.Name(message.next()) else { return (nil, "no name", false) }
+    do { return (try SpaceCommand.parse(name, &message), "", false) }
+    catch { return (nil, error.description, error.stopsMessage) }
+}
+
+@Test func typedSpaceAndDisplayCommands() throws
+{
+    #expect(parseSpaceCommand("--focus\0next\0").0 == .focus(.next))
+    #expect(parseSpaceCommand("--create\0west\0").0 == .create(.direction(.west)))
+    #expect(parseSpaceCommand("--destroy\0").0 == .destroy(nil))
+    #expect(parseSpaceCommand("--mirror\0x-axis\0").0 == .mirror(.xAxis))
+    #expect(parseSpaceCommand("--rotate\0180\0").0 == .rotate(180))
+    #expect(parseSpaceCommand("--padding\0abs:1:2:3:4\0").0 == .padding(.abs, top: 1, bottom: 2, left: 3, right: 4))
+    #expect(parseSpaceCommand("--gap\0rel:5\0").0 == .gap(.rel, 5))
+    #expect(parseSpaceCommand("--toggle\0mission-control\0").0 == .toggle(.missionControl))
+    #expect(parseSpaceCommand("--layout\0tree\0").0 == .layout(.tree))
+
+    var message = Message("main\0")
+    #expect(try DisplayCommand.parse(.focus, &message) == .focus(.label(Token("main"))))
+    message = Message("3\0")
+    #expect(try DisplayCommand.parse(.space, &message) == .space(.missionControl(3)))
+}
+
+@Test func typedSpaceCommandFailures()
+{
+    let malformed = parseSpaceCommand("--rotate\0" + "45" + "\0")
+    #expect(malformed.1 == "unknown value '45' given to command '--rotate' for domain 'space'\n")
+    #expect(!malformed.2)
+
+    let invalidOptional = parseSpaceCommand("--destroy\01.2\0")
+    #expect(invalidOptional.1 == "value '1.2' is not a valid option for SPACE_SEL\n")
+    #expect(invalidOptional.2)
+}
+
 private func parseQuery(_ option: String, _ context: FixtureContext = FixtureContext()) -> (QueryTarget<WindowID>?, String)
 {
     var message = Message("\0")

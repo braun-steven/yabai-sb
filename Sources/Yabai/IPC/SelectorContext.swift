@@ -37,14 +37,14 @@ struct CSelectorContext: SelectorContext
         case .next(let sid):             sid.next
         case .first:                     SpaceID.all.first
         case .last:                      SpaceID.all.last
-        case .recent:                    space_manager_global().last_space_id
+        case .recent:                    SpaceManager.shared.lastSpaceID
         case .cursor:                    SpaceID.underCursor
         }
     }
 
     func spaceLabel(_ label: Token) -> SpaceID?
     {
-        space_manager_global().labels.find(name: label.string)?.id
+        SpaceManager.shared.labels.find(name: label.string)?.id
     }
 
     func window(_ query: WindowQuery<Window>) -> Window?

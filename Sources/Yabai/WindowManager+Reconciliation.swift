@@ -83,7 +83,7 @@ extension WindowManager
 
     func validateAndCheckForWindows(on sid: SpaceID)
     {
-        let owner = space_manager_find_view(SpaceManager.shared, sid)
+        let owner = SpaceManager.shared.view(for: sid)
         if owner.layout == .float { return }
 
         let windowList = windows(onSpace: sid) ?? []
@@ -119,7 +119,7 @@ extension WindowManager
                 if let sid, space == sid {
                     validateAndCheckForWindows(on: sid)
                 } else {
-                    space_manager_mark_view_invalid(SpaceManager.shared, space)
+                    SpaceManager.shared.markViewInvalid(for: space)
                 }
             }
         }
@@ -133,7 +133,7 @@ extension WindowManager
 
         for space in spaceList where space.isUser {
             if let windowList = windows(onSpace: space) {
-                let owner = space_manager_find_view(SpaceManager.shared, space)
+                let owner = SpaceManager.shared.view(for: space)
                 if owner.layout != .float {
                     checkForWindows(on: owner, in: windowList)
                 }
@@ -144,9 +144,9 @@ extension WindowManager
         let sid = did.currentSpace
         for space in spaceList {
             if let sid, space == sid {
-                space_manager_refresh_view(SpaceManager.shared, sid)
+                SpaceManager.shared.refreshView(for: sid)
             } else {
-                space_manager_mark_view_invalid(SpaceManager.shared, space)
+                SpaceManager.shared.markViewInvalid(for: space)
             }
         }
     }

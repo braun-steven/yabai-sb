@@ -75,7 +75,7 @@ extension WindowManager
     private func activeTreeView() -> View?
     {
         guard let sid = SpaceID.active else { return nil }
-        let owner = space_manager_find_view(SpaceManager.shared, sid)
+        let owner = SpaceManager.shared.view(for: sid)
         return owner.tree != nil ? owner : nil
     }
 

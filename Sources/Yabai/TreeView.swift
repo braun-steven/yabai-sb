@@ -72,7 +72,7 @@ extension View
 {
     private var defaultLayout: ConLayout
     {
-        switch SpaceManager.shared.tree_default_orientation {
+        switch SpaceManager.shared.treeDefaultOrientation {
         case .horizontal: .splitH
         case .vertical:   .splitV
         case .auto:       area.w >= area.h ? .splitH : .splitV
@@ -179,7 +179,7 @@ extension View
             if anchor == nil { anchor = root.find(WindowManager.shared.focusedWindowID) }
             if anchor == nil { anchor = root.focusedDescendant }
 
-            root.open(node, after: anchor, autotile: SpaceManager.shared.tree_autotiling)
+            root.open(node, after: anchor, autotile: SpaceManager.shared.treeAutotiling)
             focusNewWindow(node, windowID: target.id)
         }
 

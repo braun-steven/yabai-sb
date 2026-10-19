@@ -83,14 +83,14 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 /// `window_toggle_list`: what a value of `window --toggle` that is a window property does.
 private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
     let wm = WindowManager.shared
 
     switch toggle {
     case .float:              wm.makeWindowFloating(window, shouldFloat: !window.isFloating, force: false)
     case .sticky:             wm.makeWindowSticky(window, shouldBeSticky: !window.isSticky)
     case .shadow:             window.toggleShadow()
-    case .split:              space_manager_toggle_window_split(sm, window)
+    case .split:              sm.toggleSplit(of: window)
     case .zoomParent:         wm.toggleParentZoom(window)
     case .zoomFullscreen:     wm.toggleFullscreenZoom(window)
     case .windowedFullscreen: wm.toggleWindowedFullscreen(window)

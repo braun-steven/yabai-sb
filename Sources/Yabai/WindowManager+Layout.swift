@@ -10,7 +10,7 @@ extension WindowManager
         guard let target else { return .invalidSourceView }
 
         guard let sid = target.id.space else { return .invalidSourceView }
-        let owner = space_manager_find_view(SpaceManager.shared, sid)
+        let owner = SpaceManager.shared.view(for: sid)
         if owner.layout != .tree || owner.tree == nil { return .invalidSourceView }
 
         guard let node = owner.tree?.find(target.id) else { return .invalidSourceNode }
@@ -117,12 +117,12 @@ extension WindowManager
             aView.tree!.flatten()
             treeApply(aView)
         } else {
-            space_manager_untile_window(aView, a)
+            SpaceManager.shared.untile(a, from: aView)
             removeManagedWindow(a.id)
             addManagedWindow(a, to: bView)
             bView.sid.moveWindow(a)
             _ = bView.sid.waitForWindow(a.id, timeoutMS: 200)
-            _ = space_manager_tile_window_on_space_with_insertion_point(SpaceManager.shared, a, bView.sid, b.id)
+            _ = SpaceManager.shared.tile(a, on: bView.sid, insertionPoint: b.id)
         }
 
         return .success

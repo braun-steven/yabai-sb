@@ -521,7 +521,7 @@ func tab_bar_refresh_for_window(_ wid: WindowID?)
 //
 func tab_bar_refresh_all()
 {
-    for owner in space_manager_global().view.values.sorted(by: { $0.sid < $1.sid }) where owner.layout == .tree {
+    for owner in SpaceManager.shared.views.values.sorted(by: { $0.sid < $1.sid }) where owner.layout == .tree {
         owner.tree?.releaseBars()
         owner.updateAndFlush()
     }

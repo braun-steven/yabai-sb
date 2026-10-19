@@ -117,7 +117,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
             return
         }
 
-        let view = space_manager_find_view(space_manager_global(), sid)
+        let view = SpaceManager.shared.view(for: sid)
         if !treeSerialize(&rsp, view) {
             rsp.fail("the selected space does not use the tree layout.\n")
         }

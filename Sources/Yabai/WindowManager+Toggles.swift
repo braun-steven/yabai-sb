@@ -106,7 +106,7 @@ extension WindowManager
         guard let displayID = target.id.displayID else { return }
 
         // NOTE: Without a space on the display, its bounds are not reduced by padding because the space's view has none.
-        let view = displayID.currentSpace.map { space_manager_find_view(SpaceManager.shared, $0) }
+        let view = displayID.currentSpace.map { SpaceManager.shared.view(for: $0) }
 
         var bounds = displayID.constrainedBounds(ignoringExternalBar: false)
         if let view, view.isPaddingEnabled {

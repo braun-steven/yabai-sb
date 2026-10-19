@@ -85,7 +85,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let ms = mouse_state_global()
 
     let cursorSid = DisplayID(containing: point).flatMap { $0.currentSpace }
-    let dstView = cursorSid.map { space_manager_find_view(space_manager_global(), $0) }
+    let dstView = cursorSid.map { SpaceManager.shared.view(for: $0) }
 
     var window = wm.window(at: point, excluding: ms.window.id)
     if window == nil { window = wm.window(at: point) }
@@ -131,7 +131,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     if info.changed_position && !info.changed_size {
         let target = mouseDropTarget(point)
 
-        mouse_drop(space_manager_global(), wm, ms, srcView, target.view, window, target.window, point)
+        mouse_drop(SpaceManager.shared, wm, ms, srcView, target.view, window, target.window, point)
     } else if info.changed_position || info.changed_size {
         mouse_drop_try_adjust_tree(wm, srcView, window, &info)
     }
@@ -263,7 +263,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let wm = WindowManager.shared
 
-    guard let sid = space_manager_global().current_space_id, let windowIDs = sid.windows(includingMinimized: false) else { return false }
+    guard let sid = SpaceManager.shared.currentSpaceID, let windowIDs = sid.windows(includingMinimized: false) else { return false }
 
     let level = window.id.level
     let subLevel = window.id.subLevel

@@ -77,8 +77,7 @@ public struct LabelList<ID: Hashable & Sendable>: Sendable
         labels.append(Label(id: id, name: name))
     }
 
-    /// The label of id moves to newID: space_manager_handle_display_add (src/space_manager.c) keeps the label of
-    /// a space whose id changed.
+    /// The label of id moves to newID: `SpaceManager.handleDisplayAdd(_:)` keeps the label of a space whose id changed.
     public mutating func replace(id: ID, with newID: ID)
     {
         guard let index = index(id: id) else { return }

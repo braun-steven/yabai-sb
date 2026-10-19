@@ -39,18 +39,18 @@ extension DaemonState
         func messageConfigOptions()
         {
             let wm = WindowManager.shared
-            let sm = space_manager_global()
+            let sm = SpaceManager.shared
             let mouse = mouse_state_global()
 
             let mff = wm.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
             let wrapping = wm.focusWrapping
-            let topPadding = sm.top_padding
+            let topPadding = sm.topPadding
             defer {
                 wm.mouseFollowsFocusEnabled = mff
                 mouse.modifier = modifier
                 wm.focusWrapping = wrapping
-                sm.top_padding = topPadding
+                sm.topPadding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
@@ -61,10 +61,10 @@ extension DaemonState
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
 
-            sm.top_padding = 7
+            sm.topPadding = 7
             #expect(runConfig("top_padding\0") == "7\n")
             #expect(runConfig("top_padding\0-1\0").contains("unknown value '-1'"))
-            #expect(sm.top_padding == 7)
+            #expect(sm.topPadding == 7)
 
             #expect(runConfig("not_an_option\0").contains("unknown command 'not_an_option'"))
         }
@@ -73,17 +73,17 @@ extension DaemonState
         func messageConfigValues()
         {
             let wm = WindowManager.shared
-            let sm = space_manager_global()
+            let sm = SpaceManager.shared
 
             let grid = wm.scratchpadGrid
             let duration = wm.windowAnimationDuration
             let opacityDuration = wm.windowOpacityDuration
-            let workspaceTabbed = sm.tree_workspace_tabbed
+            let workspaceTabbed = sm.treeWorkspaceTabbed
             defer {
                 wm.scratchpadGrid = grid
                 wm.windowAnimationDuration = duration
                 wm.windowOpacityDuration = opacityDuration
-                sm.tree_workspace_tabbed = workspaceTabbed
+                sm.treeWorkspaceTabbed = workspaceTabbed
             }
 
             #expect(runConfig("scratchpad_grid\0off\0scratchpad_grid\0") == "off\n")

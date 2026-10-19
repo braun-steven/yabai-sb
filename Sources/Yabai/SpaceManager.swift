@@ -5,9 +5,9 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: The spaces of yabai: the views of every space (a table from the space id to its view), the layout and padding
-// commands for spaces, the focus and moves of spaces through the scripting addition, and the moves of windows between
-// spaces. Ported from src/space_manager.c.
+// NOTE: The spaces of yabai: the views of every space (a table from the space id to its view), their invalidation and
+// refresh, and the commands that focus, switch, swap, move, create and destroy spaces through the scripting addition.
+// The layout and padding commands of spaces are in SpaceManager+Layout.swift.
 //
 
 /// The outcome of a space command: success, or why it failed (`Response.failSpaceOp` words the failures every space
@@ -26,42 +26,181 @@ enum SpaceOperationResult: Sendable
     case scriptingAdditionFailed
 }
 
-/// `struct space_manager`
 final class SpaceManager
 {
-    var view: [SpaceID: View] = [:]
-    var current_space_id: SpaceID?
-    var last_space_id: SpaceID?
-    var did_begin = false
+    /// See the NOTE of `DisplayManager.shared`.
+    nonisolated(unsafe) static let shared = SpaceManager()
+
+    var views: [SpaceID: View] = [:]
+    var currentSpaceID: SpaceID?
+    var lastSpaceID: SpaceID?
+    var didBegin = false
     var layout = ViewType.default
-    var top_padding: Int = 0
-    var bottom_padding: Int = 0
-    var left_padding: Int = 0
-    var right_padding: Int = 0
-    var window_gap: Int = 0
-    var auto_padding = false
-    var tree_default_orientation = TreeOrientation.auto
-    var tree_workspace_tabbed = false
-    var tree_autotiling = false
+    var topPadding: Int = 0
+    var bottomPadding: Int = 0
+    var leftPadding: Int = 0
+    var rightPadding: Int = 0
+    var windowGap: Int = 0
+    var autoPadding = false
+    var treeDefaultOrientation = TreeOrientation.auto
+    var treeWorkspaceTabbed = false
+    var treeAutotiling = false
     var labels = LabelList<SpaceID>()
-    var skip_window_focus_animation = false
-    var space_layouts: [SpaceLayout] = []
-    var space_layout_spec: String?
-    var space_layout_gen: UInt32 = 0
-    var space_layout_passes = 0
-}
+    var skipWindowFocusAnimation = false
+    var spaceLayouts: [SpaceLayout] = []
+    var spaceLayoutSpec: String?
+    var spaceLayoutGeneration: UInt32 = 0
+    var spaceLayoutPasses = 0
 
-/// `g_space_manager` (see the NOTE of `DisplayManager.shared`)
-nonisolated(unsafe) let g_space_manager = SpaceManager()
+    /// The view of a space; before `begin()` only a known one, after it the view is created when the space is new.
+    func queryView(for sid: SpaceID) -> View?
+    {
+        if didBegin { return view(for: sid) }
 
-func space_manager_global() -> SpaceManager
-{
-    g_space_manager
-}
+        return views[sid]
+    }
 
-extension SpaceManager
-{
-    static var shared: SpaceManager { g_space_manager }
+    /// The view of a space; it is created when the space is new.
+    @discardableResult
+    func view(for sid: SpaceID) -> View
+    {
+        if let found = views[sid] { return found }
+
+        let created = View.create(sid: sid)
+        views[sid] = created
+        return created
+    }
+
+    func refreshView(for sid: SpaceID)
+    {
+        let target = view(for: sid)
+        if target.layout == .float { return }
+
+        target.updateAndFlush()
+    }
+
+    func markViewInvalid(for sid: SpaceID)
+    {
+        let target = view(for: sid)
+        if target.layout == .float { return }
+
+        target.isValid = false
+    }
+
+    func markSpacesInvalid(on did: DisplayID)
+    {
+        guard let spaceList = did.spaces else { return }
+
+        let sid = did.currentSpace
+        for space in spaceList {
+            if space == sid, let sid {
+                refreshView(for: sid)
+            } else {
+                markViewInvalid(for: space)
+            }
+        }
+    }
+
+    func markSpacesInvalid()
+    {
+        for did in DisplayID.all {
+            markSpacesInvalid(on: did)
+        }
+    }
+
+    func refreshApplicationWindows() -> Bool
+    {
+        let wm = WindowManager.shared
+
+        var refreshCount = wm.applicationRefreshCount
+        if refreshCount == 0 { return false }
+
+        let windowCount = wm.window.count
+        var i = 0
+        while i < refreshCount {
+            let application = wm.applicationRefresh(at: i)
+            debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
+
+            if wm.addExistingApplicationWindows(application, refreshIndex: i) {
+                refreshCount -= 1
+                i -= 1
+            }
+
+            i += 1
+        }
+
+        return windowCount != wm.window.count
+    }
+
+    /// The views of the spaces of a new display keep their names, and take the new ids.
+    func handleDisplayAdd(_ did: DisplayID)
+    {
+        guard let spaceList = did.spaces else { return }
+
+        var viewList: [View?] = views.values.sorted(by: { $0.sid < $1.sid }).map { Optional($0) }
+        var uuidList: [CFString?] = viewList.map { $0?.uuid }
+
+        for sid in spaceList {
+            guard let uuid = SLS.spaceNameObject(connection_global(), sid) else { continue }
+
+            for j in 0..<viewList.count {
+                guard let viewUUID = uuidList[j], let target = viewList[j] else { continue }
+                if !CFEqual(viewUUID, uuid) { continue }
+
+                uuidList[j] = nil
+                viewList[j] = nil
+
+                views.removeValue(forKey: target.sid)
+
+                labels.replace(id: target.sid, with: sid)
+
+                target.sid = sid
+                target.uuid = uuid
+
+                if views[sid] == nil { views[sid] = target }
+                break
+            }
+        }
+
+        currentSpaceID = SpaceID.active
+        lastSpaceID = currentSpaceID
+    }
+
+    /// The defaults of the space manager and an empty table of views.
+    func resetToDefaults()
+    {
+        layout = .tree
+        autoPadding = false
+        treeDefaultOrientation = .auto
+        treeWorkspaceTabbed = false
+        treeAutotiling = false
+        labels = LabelList<SpaceID>()
+        skipWindowFocusAnimation = false
+        //
+        // NOTE: The views are keyed by space id.
+        //
+
+        views = [:]
+    }
+
+    /// Creates the views of every space of every display.
+    func begin()
+    {
+        resetToDefaults()
+
+        for did in DisplayID.all {
+            guard let spaceList = did.spaces else { continue }
+
+            for sid in spaceList {
+                let created = View.create(sid: sid)
+                if views[sid] == nil { views[sid] = created }
+            }
+        }
+
+        currentSpaceID = SpaceID.active
+        lastSpaceID = currentSpaceID
+        didBegin = true
+    }
 }
 
 extension ViewSpacing
@@ -70,113 +209,13 @@ extension ViewSpacing
     var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int>
     {
         switch self {
-        case .topPadding:    \.top_padding
-        case .bottomPadding: \.bottom_padding
-        case .leftPadding:   \.left_padding
-        case .rightPadding:  \.right_padding
-        case .windowGap:     \.window_gap
+        case .topPadding:    \.topPadding
+        case .bottomPadding: \.bottomPadding
+        case .leftPadding:   \.leftPadding
+        case .rightPadding:  \.rightPadding
+        case .windowGap:     \.windowGap
         }
     }
-}
-
-/// `add_and_clamp_to_zero`
-private func addAndClampToZero(_ a: Int, _ b: Int) -> Int
-{
-    return a + b <= 0 ? 0 : a + b
-}
-
-/// `space_manager_query_view`
-func space_manager_query_view(_ sm: SpaceManager, _ sid: SpaceID) -> View?
-{
-    if sm.did_begin { return space_manager_find_view(sm, sid) }
-
-    return sm.view[sid]
-}
-
-/// `space_manager_find_view`: the view of a space; it is created when the space is new.
-@discardableResult
-func space_manager_find_view(_ sm: SpaceManager, _ sid: SpaceID) -> View
-{
-    if let found = sm.view[sid] { return found }
-
-    let created = View.create(sid: sid)
-    sm.view[sid] = created
-    return created
-}
-
-/// `space_manager_refresh_view`
-func space_manager_refresh_view(_ sm: SpaceManager, _ sid: SpaceID)
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return }
-
-    target.updateAndFlush()
-}
-
-/// `space_manager_mark_view_invalid`
-func space_manager_mark_view_invalid(_ sm: SpaceManager, _ sid: SpaceID)
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return }
-
-    target.isValid = false
-}
-
-/// `space_manager_untile_window`
-func space_manager_untile_window(_ target: View, _ win: Window)
-{
-    if target.layout == .float { return }
-
-    win.adjustLayer(to: .normal)
-    if target.remove(win) { target.flush() }
-}
-
-/// `space_manager_set_layout_for_space`
-func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ layout: ViewType)
-{
-    let target = space_manager_find_view(sm, sid)
-    target.layout = layout
-    target.clear()
-
-    if target.layout != .float {
-        WindowManager.shared.validateAndCheckForWindows(on: sid)
-    }
-}
-
-/// `space_manager_set_gap_for_space`
-func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?, _ gap: Int) -> Bool
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return false }
-
-    if type == .abs {
-        target.windowGap = gap
-    } else if type == .rel {
-        target.windowGap = addAndClampToZero(target.windowGap, gap)
-    }
-
-    target.updateAndFlush()
-
-    return true
-}
-
-/// Toggles the padding or gap switch of a view.
-private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: SpaceID, _ setting: ReferenceWritableKeyPath<View, Bool>) -> Bool
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return false }
-
-    target[keyPath: setting].toggle()
-
-    target.updateAndFlush()
-
-    return true
-}
-
-/// `space_manager_toggle_gap_for_space`
-func space_manager_toggle_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
-{
-    return spaceManagerToggleView(sm, sid, \.isGapEnabled)
 }
 
 /// `space_manager_toggle_mission_control`
@@ -193,173 +232,11 @@ func space_manager_toggle_show_desktop(_ sid: SpaceID)
     CoreDock.sendNotification("com.apple.showdesktop.awake")
 }
 
-/// `space_manager_set_layout_for_all_spaces`: the views without their own layout take the layout.
-func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewType)
-{
-    sm.layout = layout
-
-    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
-        if !target.overrides.contains(.layout) {
-            if target.sid.isUser {
-                target.layout = layout
-                target.clear()
-
-                if target.layout != .float {
-                    WindowManager.shared.validateAndCheckForWindows(on: target.sid)
-                }
-            }
-        }
-    }
-}
-
-/// `space_manager_set_spacing_for_all_spaces`
-func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: ViewSpacing, _ value: Int)
-{
-    sm[keyPath: spacing.spaceManager] = value
-
-    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
-        if !target.overrides.contains(spacing.override) {
-            target[keyPath: spacing.view] = value
-            target.updateAndFlush()
-        }
-    }
-}
-
-/// `space_manager_apply_auto_padding`
-private func spaceManagerApplyAutoPadding(_ target: View, _ autoPadding: Bool)
-{
-    if target.autoPadding == autoPadding { return }
-
-    target.autoPadding = autoPadding
-    if target.layout == .float { return }
-
-    target.updateAndFlush()
-}
-
-/// `space_manager_set_auto_padding_for_all_spaces`
-func space_manager_set_auto_padding_for_all_spaces(_ sm: SpaceManager, _ autoPadding: Bool)
-{
-    sm.auto_padding = autoPadding
-
-    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
-        if !target.overrides.contains(.autoPadding) {
-            spaceManagerApplyAutoPadding(target, autoPadding)
-        }
-    }
-}
-
-/// `space_manager_set_auto_padding_for_space`
-func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ autoPadding: Bool)
-{
-    let target = space_manager_find_view(sm, sid)
-    target.overrides.insert(.autoPadding)
-    spaceManagerApplyAutoPadding(target, autoPadding)
-}
-
-/// `space_manager_set_padding_for_space`
-func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?, _ top: Int, _ bottom: Int, _ left: Int, _ right: Int) -> Bool
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return false }
-
-    if type == .abs {
-        target.topPadding     = top
-        target.bottomPadding  = bottom
-        target.leftPadding    = left
-        target.rightPadding   = right
-    } else if type == .rel {
-        target.topPadding     = addAndClampToZero(target.topPadding, top)
-        target.bottomPadding  = addAndClampToZero(target.bottomPadding, bottom)
-        target.leftPadding    = addAndClampToZero(target.leftPadding, left)
-        target.rightPadding   = addAndClampToZero(target.rightPadding, right)
-    }
-
-    target.updateAndFlush()
-
-    return true
-}
-
-/// `space_manager_toggle_padding_for_space`
-func space_manager_toggle_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
-{
-    return spaceManagerToggleView(sm, sid, \.isPaddingEnabled)
-}
-
-/// `space_manager_find_tree_view`: the view of a space when it is a tree with a root.
-private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: SpaceID) -> View?
-{
-    let target = space_manager_find_view(sm, sid)
-    return target.layout == .tree && target.tree != nil ? target : nil
-}
-
-/// `space_manager_rotate_space`
-func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: Int) -> Bool
-{
-    guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
-
-    target.tree!.rotate(by: degrees)
-    target.updateAndFlush()
-
-    return true
-}
-
-/// `space_manager_mirror_space`
-func space_manager_mirror_space(_ sm: SpaceManager, _ sid: SpaceID, _ axis: WindowSplit) -> Bool
-{
-    guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
-
-    target.tree!.mirror(axis == .x ? .vertical : .horizontal)
-    target.updateAndFlush()
-
-    return true
-}
-
-/// `space_manager_balance_space`
-func space_manager_balance_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
-{
-    guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
-
-    target.tree!.balance()
-    target.updateAndFlush()
-
-    return true
-}
-
-/// `space_manager_tile_window_on_space_with_insertion_point`
-func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID, _ insertionPoint: WindowID?) -> View
-{
-    let target = space_manager_find_view(sm, sid)
-    if target.layout == .float { return target }
-
-    win.adjustLayer(to: .below)
-    target.add(win, insertionPoint: insertionPoint)
-    target.flush()
-
-    return target
-}
-
-/// `space_manager_tile_window_on_space`
-func space_manager_tile_window_on_space(_ sm: SpaceManager, _ win: Window, _ sid: SpaceID) -> View
-{
-    return space_manager_tile_window_on_space_with_insertion_point(sm, win, sid, nil)
-}
-
-/// `space_manager_toggle_window_split`
-func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
-{
-    guard let sid = win.id.space else { return }
-
-    let target = space_manager_find_view(sm, sid)
-    if target.layout != .tree { return }
-
-    _ = WindowManager.shared.setWindowLayout(win, .toggleSplit)
-}
-
 /// `space_manager_swap_space_with_space_on_display`: swaps two spaces that are on different displays.
 private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: SpaceID) -> SpaceOperationResult
 {
     let wm = WindowManager.shared
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
     let windowAnimationDuration = wm.windowAnimationDuration
     wm.windowAnimationDuration = 0.0
@@ -367,11 +244,11 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     let aWindows = aSid.windows(includingMinimized: true) ?? []
     let bWindows = bSid.windows(includingMinimized: true) ?? []
 
-    let aView = sm.view[aSid]!
-    let bView = sm.view[bSid]!
+    let aView = sm.views[aSid]!
+    let bView = sm.views[bSid]!
 
-    sm.view.removeValue(forKey: aSid)
-    sm.view.removeValue(forKey: bSid)
+    sm.views.removeValue(forKey: aSid)
+    sm.views.removeValue(forKey: bSid)
 
     aView.sid = bSid
     bView.sid = aSid
@@ -380,8 +257,8 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     aView.uuid = bView.uuid
     bView.uuid = uuid
 
-    sm.view[aSid] = bView
-    sm.view[bSid] = aView
+    sm.views[aSid] = bView
+    sm.views[bSid] = aView
 
     if !aWindows.isEmpty {
         bSid.moveWindows(aWindows)
@@ -526,7 +403,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
     // NOTE: The scripting addition takes a plain space id, and it packs nil as 0, "no replacement space".
     //
     if scripting_addition_move_space_to_display(sid, dSid, replacementSid, focusSpace) {
-        space_manager_mark_view_invalid(sm, sid)
+        sm.markViewInvalid(for: sid)
         if focusSpace {
             _ = space_manager_focus_space(sid)
         }
@@ -664,122 +541,4 @@ func space_manager_add_space(_ sid: SpaceID?) -> SpaceOperationResult
     guard let sid else { return .missingSource }
 
     return scripting_addition_create_space(sid) ? .success : .scriptingAdditionFailed
-}
-
-/// `space_manager_mark_spaces_invalid_for_display`
-func space_manager_mark_spaces_invalid_for_display(_ sm: SpaceManager, _ did: DisplayID)
-{
-    guard let spaceList = did.spaces else { return }
-
-    let sid = did.currentSpace
-    for space in spaceList {
-        if space == sid, let sid {
-            space_manager_refresh_view(sm, sid)
-        } else {
-            space_manager_mark_view_invalid(sm, space)
-        }
-    }
-}
-
-/// `space_manager_mark_spaces_invalid`
-func space_manager_mark_spaces_invalid(_ sm: SpaceManager)
-{
-    for did in DisplayID.all {
-        space_manager_mark_spaces_invalid_for_display(sm, did)
-    }
-}
-
-/// `space_manager_refresh_application_windows`: adds the windows of the applications that have unresolved windows.
-func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
-{
-    let wm = WindowManager.shared
-
-    var refreshCount = wm.applicationRefreshCount
-    if refreshCount == 0 { return false }
-
-    let windowCount = wm.window.count
-    var i = 0
-    while i < refreshCount {
-        let application = wm.applicationRefresh(at: i)
-        debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
-
-        if wm.addExistingApplicationWindows(application, refreshIndex: i) {
-            refreshCount -= 1
-            i -= 1
-        }
-
-        i += 1
-    }
-
-    return windowCount != wm.window.count
-}
-
-/// `space_manager_handle_display_add`: the views of the spaces of a new display keep their names, and take the new ids.
-func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
-{
-    guard let spaceList = did.spaces else { return }
-
-    var viewList: [View?] = sm.view.values.sorted(by: { $0.sid < $1.sid }).map { Optional($0) }
-    var uuidList: [CFString?] = viewList.map { $0?.uuid }
-
-    for sid in spaceList {
-        guard let uuid = SLS.spaceNameObject(connection_global(), sid) else { continue }
-
-        for j in 0..<viewList.count {
-            guard let viewUUID = uuidList[j], let target = viewList[j] else { continue }
-            if !CFEqual(viewUUID, uuid) { continue }
-
-            uuidList[j] = nil
-            viewList[j] = nil
-
-            sm.view.removeValue(forKey: target.sid)
-
-            sm.labels.replace(id: target.sid, with: sid)
-
-            target.sid = sid
-            target.uuid = uuid
-
-            if sm.view[sid] == nil { sm.view[sid] = target }
-            break
-        }
-    }
-
-    sm.current_space_id = SpaceID.active
-    sm.last_space_id = sm.current_space_id
-}
-
-/// `space_manager_init`: the defaults of the space manager and an empty table of views.
-func space_manager_init(_ sm: SpaceManager)
-{
-    sm.layout = .tree
-    sm.auto_padding = false
-    sm.tree_default_orientation = .auto
-    sm.tree_workspace_tabbed = false
-    sm.tree_autotiling = false
-    sm.labels = LabelList<SpaceID>()
-    sm.skip_window_focus_animation = false
-    //
-    // NOTE: The views are keyed by space id.
-    //
-
-    sm.view = [:]
-}
-
-/// `space_manager_begin`: creates the views of every space of every display.
-func space_manager_begin(_ sm: SpaceManager)
-{
-    space_manager_init(sm)
-
-    for did in DisplayID.all {
-        guard let spaceList = did.spaces else { continue }
-
-        for sid in spaceList {
-            let created = View.create(sid: sid)
-            if sm.view[sid] == nil { sm.view[sid] = created }
-        }
-    }
-
-    sm.current_space_id = SpaceID.active
-    sm.last_space_id = sm.current_space_id
-    sm.did_begin = true
 }

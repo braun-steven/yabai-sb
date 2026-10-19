@@ -101,7 +101,7 @@ private func viewLastWindow(_ view: View) -> WindowID?
 /// `view_serialize`
 func viewSerialize(_ view: View, _ flags: UInt64) -> String
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
     let sid = view.sid
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
@@ -114,7 +114,7 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)?.rawValue ?? 0))")
     json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)?.rawValue ?? 0))")
-    json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.current_space_id))")
+    json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.currentSpaceID))")
     json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(sid.isVisible))")
     json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(sid.isFullscreen))")
 
@@ -124,7 +124,7 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
 /// `space_manager_query_space`
 func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt64) -> Bool
 {
-    guard let view = space_manager_query_view(space_manager_global(), sid) else { return false }
+    guard let view = SpaceManager.shared.queryView(for: sid) else { return false }
 
     rsp.write("\(viewSerialize(view, flags))\n")
     return true
@@ -136,8 +136,8 @@ func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt
 
 private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
 {
-    let sm = space_manager_global()
-    let spaces = spaceList.compactMap { sid in space_manager_query_view(sm, sid).map { viewSerialize($0, flags) } }
+    let sm = SpaceManager.shared
+    let spaces = spaceList.compactMap { sid in sm.queryView(for: sid).map { viewSerialize($0, flags) } }
     rsp.write("[\(spaces.joined(separator: ","))]\n")
 }
 

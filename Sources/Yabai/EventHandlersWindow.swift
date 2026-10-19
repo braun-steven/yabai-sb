@@ -56,7 +56,7 @@ import YabaiCore
 
     if let view = wm.managedView(for: window) {
         let nextFocus = wm.treeFocusCandidate(in: view, for: window)
-        space_manager_untile_window(view, window)
+        SpaceManager.shared.untile(window, from: view)
         wm.removeManagedWindow(window.id)
         wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
@@ -74,7 +74,7 @@ import YabaiCore
     window.destroy()
 
     if wm.windowBorderHideSingle {
-        border_refresh_space(space_manager_global().current_space_id)
+        border_refresh_space(SpaceManager.shared.currentSpaceID)
     }
 
     update_window_notifications()
@@ -121,7 +121,7 @@ import YabaiCore
 
     debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
-    if space_manager_global().skip_window_focus_animation {
+    if SpaceManager.shared.skipWindowFocusAnimation {
         if let sid = window.id.space, !sid.isVisible {
             SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
             if let did = sid.display {

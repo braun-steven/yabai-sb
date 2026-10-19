@@ -111,14 +111,14 @@ extension WindowManager
 
     func unmanageWindow(_ target: Window, from owner: View)
     {
-        space_manager_untile_window(owner, target)
+        SpaceManager.shared.untile(target, from: owner)
         removeManagedWindow(target.id)
         purifyWindow(target)
     }
 
     func manageWindow(_ target: Window, on spaceID: SpaceID, inserting insertionPoint: WindowID?)
     {
-        let owner = space_manager_tile_window_on_space_with_insertion_point(SpaceManager.shared, target, spaceID, insertionPoint)
+        let owner = SpaceManager.shared.tile(target, on: spaceID, insertionPoint: insertionPoint)
         addManagedWindow(target, to: owner)
     }
 

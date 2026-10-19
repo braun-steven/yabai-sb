@@ -141,7 +141,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
 
 private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
     if selSid != nil {
         rsp.fail("command '\(command)' for domain '\(domain)' does not support the '\(Config.spaceSelector)' selector\n")
@@ -151,7 +151,7 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
     var value = message.next()
 
     if !value.isValid {
-        if let spec = sm.space_layout_spec {
+        if let spec = sm.spaceLayoutSpec {
             rsp.write("\(Token(spec))\n")
         } else {
             rsp.write("\(Argument.off)\n")
@@ -160,8 +160,8 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if value.equals(Argument.off) {
-        sm.space_layout_spec = nil
-        sm.space_layouts = []
+        sm.spaceLayoutSpec = nil
+        sm.spaceLayouts = []
         return true
     }
 
@@ -204,8 +204,8 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
         return false
     }
 
-    sm.space_layouts = layoutList
-    sm.space_layout_spec = String(decoding: spec, as: UTF8.self)
+    sm.spaceLayouts = layoutList
+    sm.spaceLayoutSpec = String(decoding: spec, as: UTF8.self)
     space_layout_schedule(0.0, true)
     return true
 }
@@ -262,11 +262,11 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
 
 private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?)
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
     let value = message.next()
 
     if !value.isValid {
-        let layout = selSid.map { space_manager_find_view(sm, $0).layout } ?? sm.layout
+        let layout = selSid.map { sm.view(for: $0).layout } ?? sm.layout
         rsp.write("\(layout.rawValue)\n")
         return
     }
@@ -277,12 +277,12 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     }
 
     if selSid == nil {
-        space_manager_set_layout_for_all_spaces(sm, layout)
+        sm.setLayoutForAllSpaces(layout)
     } else if let selSid, !selSid.isUser {
         rsp.fail("cannot set layout for a macOS fullscreen space!\n")
     } else if let selSid {
-        space_manager_find_view(sm, selSid).overrides.insert(.layout)
-        space_manager_set_layout_for_space(sm, selSid, layout)
+        sm.view(for: selSid).overrides.insert(.layout)
+        sm.setLayout(layout, for: selSid)
     }
 }
 
@@ -310,7 +310,7 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
         dm.mode = choice
         dm.topPadding = Int(top)
         dm.bottomPadding = Int(bottom)
-        space_manager_mark_spaces_invalid(space_manager_global())
+        SpaceManager.shared.markSpacesInvalid()
         return
     }
 
@@ -509,7 +509,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
     let wm = WindowManager.shared
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
     let dm = DisplayManager.shared
     let mouse = mouse_state_global()
 
@@ -550,7 +550,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.scratchpadGrid) {
         configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.skip_window_focus_animation)
+        _ = parseConfigBool(&rsp, domain, command, &message, &sm.skipWindowFocusAnimation)
     } else if command.equals(Config.spaceLayout) {
         if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
     } else if command.equals(Config.opacity) {
@@ -585,7 +585,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.insertFeedbackColor) {
         _ = configColor(&rsp, domain, command, &message, &wm.insertionFeedbackColor, allowZero: false)
     } else if let spacing = spacing(for: command) {
-        let view = selSid.map { space_manager_find_view(sm, $0) }
+        let view = selSid.map { sm.view(for: $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
         let token = message.next()
         switch token.value {
@@ -597,7 +597,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
                 view[keyPath: spacing.view] = value
                 view.updateAndFlush()
             } else {
-                space_manager_set_spacing_for_all_spaces(sm, spacing, value)
+                sm.setSpacingForAllSpaces(spacing, to: value)
             }
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -605,26 +605,26 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.layout) {
         configLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.treeOrientation) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.tree_default_orientation) {
-            sm.tree_default_orientation = choice
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.treeDefaultOrientation) {
+            sm.treeDefaultOrientation = choice
         }
     } else if command.equals(Config.treeWorkspaceLayout) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.tree_workspace_tabbed ? WorkspaceLayout.tabbed : .default) {
-            sm.tree_workspace_tabbed = choice == .tabbed
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.treeWorkspaceTabbed ? WorkspaceLayout.tabbed : .default) {
+            sm.treeWorkspaceTabbed = choice == .tabbed
         }
     } else if command.equals(Config.treeAutotiling) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.tree_autotiling)
+        _ = parseConfigBool(&rsp, domain, command, &message, &sm.treeAutotiling)
     } else if command.equals(Config.focusWrapping) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.focusWrapping) {
             wm.focusWrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
         if let selSid {
-            var enabled = space_manager_find_view(sm, selSid).autoPadding
-            if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_space(sm, selSid, enabled) }
+            var enabled = sm.view(for: selSid).autoPadding
+            if parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPadding(enabled, for: selSid) }
         } else {
-            var enabled = sm.auto_padding
-            if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_all_spaces(sm, enabled) }
+            var enabled = sm.autoPadding
+            if parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
         }
     } else if command.equals(Config.mouseModifier) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: mouse.modifier) {

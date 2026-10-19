@@ -231,7 +231,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
     } else if command.equals(SpaceCommand.display) {
         let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: false, context)
         if selector.didParse, let target = selector.value {
-            let result = space_manager_move_space_to_display(space_manager_global(), actingSid, target)
+            let result = space_manager_move_space_to_display(SpaceManager.shared, actingSid, target)
             if result == .missingSource {
                 rsp.fail("could not locate the space to act on.\n")
             } else if result == .missingDestination {
@@ -287,7 +287,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
 
 func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: SpaceID) -> CommandResult
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
     if command.equals(SpaceCommand.equalize) || command.equals(SpaceCommand.balance) {
         //
@@ -297,7 +297,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         let value = message.next()
         if value.isValid && !value.equals(Axis.x) && !value.equals(Axis.y) {
             rsp.failUnknownValue(domain, command, value)
-        } else if !space_manager_balance_space(sm, actingSid) {
+        } else if !sm.balanceSpace(actingSid) {
             rsp.fail("cannot \(command.equals(SpaceCommand.equalize) ? "equalize" : "balance") a non-managed space.\n")
         }
     } else if command.equals(SpaceCommand.mirror) {
@@ -306,7 +306,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
                                : value.equals(Axis.y) ? .y
                                : nil
         if let axis {
-            if !space_manager_mirror_space(sm, actingSid, axis) {
+            if !sm.mirrorSpace(actingSid, axis: axis) {
                 rsp.fail("cannot mirror a non-managed space.\n")
             }
         } else {
@@ -320,7 +320,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
                            : 0
         if degrees == 0 {
             rsp.failUnknownValue(domain, command, value)
-        } else if !space_manager_rotate_space(sm, actingSid, degrees) {
+        } else if !sm.rotateSpace(actingSid, by: degrees) {
             rsp.fail("cannot rotate a non-managed space.\n")
         }
     } else if command.equals(SpaceCommand.padding) {
@@ -328,7 +328,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var spacing: [Int32] = [0, 0, 0, 0]
         let value = message.next()
         if value.scan(SpaceCommand.paddingFormat, &type, &spacing) == 5 {
-            if !space_manager_set_padding_for_space(sm, actingSid, valueType(type), Int(spacing[0]), Int(spacing[1]), Int(spacing[2]), Int(spacing[3])) {
+            if !sm.setPadding(top: Int(spacing[0]), bottom: Int(spacing[1]), left: Int(spacing[2]), right: Int(spacing[3]), type: valueType(type), for: actingSid) {
                 rsp.fail("cannot set padding for a non-managed space.\n")
             }
         } else {
@@ -339,7 +339,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var gap: [Int32] = [0]
         let value = message.next()
         if value.scan(SpaceCommand.gapFormat, &type, &gap) == 2 {
-            if !space_manager_set_gap_for_space(sm, actingSid, valueType(type), Int(gap[0])) {
+            if !sm.setGap(Int(gap[0]), type: valueType(type), for: actingSid) {
                 rsp.fail("cannot set gap for a non-managed space.\n")
             }
         } else {
@@ -348,11 +348,11 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
     } else if command.equals(SpaceCommand.toggle) {
         let value = message.next()
         if value.equals(SpaceCommand.togglePadding) {
-            if !space_manager_toggle_padding_for_space(sm, actingSid) {
+            if !sm.togglePadding(for: actingSid) {
                 rsp.fail("cannot toggle padding for a non-managed space.\n")
             }
         } else if value.equals(SpaceCommand.toggleGap) {
-            if !space_manager_toggle_gap_for_space(sm, actingSid) {
+            if !sm.toggleGap(for: actingSid) {
                 rsp.fail("cannot toggle gap for a non-managed space.\n")
             }
         } else if value.equals(SpaceCommand.toggleMC) {
@@ -366,13 +366,13 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         let value = message.next()
         if value.equals(SpaceCommand.layoutFloat) {
             if actingSid.isUser {
-                space_manager_set_layout_for_space(sm, actingSid, .float)
+                sm.setLayout(.float, for: actingSid)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
             }
         } else if value.equals(SpaceCommand.layoutTree) {
             if actingSid.isUser {
-                space_manager_set_layout_for_space(sm, actingSid, .tree)
+                sm.setLayout(.tree, for: actingSid)
             } else {
                 rsp.fail("cannot set layout for a macOS fullscreen space!\n")
             }

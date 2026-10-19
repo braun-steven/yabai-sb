@@ -50,7 +50,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
     let displayCount = DisplayID.count
     if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
-    guard let layout = sm.space_layouts.first(where: { $0.count == displayCount }) else {
+    guard let layout = sm.spaceLayouts.first(where: { $0.count == displayCount }) else {
         debug("space_layout_reconcile: no space_layout for \(displayCount) display(s)\n")
         return .done
     }
@@ -113,13 +113,13 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
 /// `space_layout_schedule`: posts SPACE_LAYOUT_RECONCILE for the current generation after delay seconds.
 func space_layout_schedule(_ delay: Double, _ resetPasses: Bool)
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
-    if sm.space_layouts.isEmpty { return }
-    if resetPasses { sm.space_layout_passes = 0 }
+    if sm.spaceLayouts.isEmpty { return }
+    if resetPasses { sm.spaceLayoutPasses = 0 }
 
-    sm.space_layout_gen &+= 1
-    let generation = sm.space_layout_gen
+    sm.spaceLayoutGeneration &+= 1
+    let generation = sm.spaceLayoutGeneration
 
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
         EventLoop.post(.spaceLayoutReconcile(generation: generation))

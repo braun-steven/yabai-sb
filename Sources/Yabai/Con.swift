@@ -389,7 +389,7 @@ extension Con
 
     private func applyWorkspaceLayout()
     {
-        if !SpaceManager.shared.tree_workspace_tabbed { return }
+        if !SpaceManager.shared.treeWorkspaceTabbed { return }
 
         guard let root = self.parent, root.parent == nil else { return }
         if !isLeaf && layout == .tabbed { return }

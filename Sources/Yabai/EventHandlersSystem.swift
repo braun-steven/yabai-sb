@@ -88,9 +88,9 @@ import CPrivate
     debug("EVENT_HANDLER_MISSION_CONTROL_EXIT:\n")
 
     let wm = WindowManager.shared
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
     if wm.menuBarOpacity != 1.0 {
-        let isFullscreen = sm.current_space_id.map { $0.isFullscreen } ?? false
+        let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
@@ -150,7 +150,7 @@ import CPrivate
 @WM func menuBarHiddenChanged()
 {
     debug("EVENT_HANDLER_MENU_BAR_HIDDEN_CHANGED:\n")
-    space_manager_mark_spaces_invalid(space_manager_global())
+    SpaceManager.shared.markSpacesInvalid()
     eventSignalPush(.menuBarHiddenChanged, nil)
 }
 
@@ -158,7 +158,7 @@ import CPrivate
 @WM func dockDidChangePref()
 {
     debug("EVENT_HANDLER_DOCK_DID_CHANGE_PREF:\n")
-    space_manager_mark_spaces_invalid(space_manager_global())
+    SpaceManager.shared.markSpacesInvalid()
     eventSignalPush(.dockDidChangePref, nil)
 }
 
@@ -180,18 +180,18 @@ import CPrivate
 /// `EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)`
 @WM func spaceLayoutReconcile(_ generation: UInt32)
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
-    if generation != sm.space_layout_gen { return }
-    if sm.space_layouts.isEmpty { return }
+    if generation != sm.spaceLayoutGeneration { return }
+    if sm.spaceLayouts.isEmpty { return }
 
     if MissionControl.shared.isActive {
         space_layout_schedule(0.5, false)
         return
     }
 
-    sm.space_layout_passes += 1
-    if sm.space_layout_passes > 40 {
+    sm.spaceLayoutPasses += 1
+    if sm.spaceLayoutPasses > 40 {
         debug("EVENT_HANDLER_SPACE_LAYOUT_RECONCILE: giving up, layout did not converge\n")
         return
     }
@@ -200,6 +200,6 @@ import CPrivate
     switch result {
     case .performed: space_layout_schedule(0.5, false)
     case .failed:    space_layout_schedule(1.0, false)
-    case .done:      sm.space_layout_passes = 0
+    case .done:      sm.spaceLayoutPasses = 0
     }
 }

@@ -186,12 +186,12 @@ final class View
             let sm = SpaceManager.shared
 
             target.layout         = sm.layout
-            target.topPadding     = sm.top_padding
-            target.bottomPadding  = sm.bottom_padding
-            target.leftPadding    = sm.left_padding
-            target.rightPadding   = sm.right_padding
-            target.windowGap      = sm.window_gap
-            target.autoPadding    = sm.auto_padding
+            target.topPadding     = sm.topPadding
+            target.bottomPadding  = sm.bottomPadding
+            target.leftPadding    = sm.leftPadding
+            target.rightPadding   = sm.rightPadding
+            target.windowGap      = sm.windowGap
+            target.autoPadding    = sm.autoPadding
             target.update()
         } else {
             target.layout = .float

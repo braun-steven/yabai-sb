@@ -417,7 +417,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
 {
     var count = 0
     if let sid {
-        let owner = space_manager_find_view(space_manager_global(), sid)
+        let owner = SpaceManager.shared.view(for: sid)
         count = owner.layout == .tree ? owner.tree?.visibleWindowCount() ?? 0 : 0
     }
     for target in WindowManager.shared.window.values {
@@ -534,7 +534,7 @@ func border_refresh_space(_ sid: SpaceID?)
         return
     }
     var windows: [WindowID] = []
-    let owner = space_manager_find_view(space_manager_global(), sid)
+    let owner = SpaceManager.shared.view(for: sid)
     if owner.layout == .tree { windows = owner.windowIDs }
     let capacity = windows.count + WindowManager.shared.window.count
     borderLock.withLock { state in

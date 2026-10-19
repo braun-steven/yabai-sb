@@ -168,7 +168,7 @@ extension WindowManager
         guard let windowList = existingApplicationWindowList(for: nil) else { return }
 
         if scripting_addition_order_window_in(windowList) {
-            _ = space_manager_refresh_application_windows(space_manager_global())
+            _ = SpaceManager.shared.refreshApplicationWindows()
         }
     }
 }

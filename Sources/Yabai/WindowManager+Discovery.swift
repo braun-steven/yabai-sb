@@ -95,7 +95,7 @@ extension WindowManager
     func originSpace(for target: Window) -> SpaceID?
     {
         switch windowOriginMode {
-        case .focused: return SpaceManager.shared.current_space_id
+        case .focused: return SpaceManager.shared.currentSpaceID
         case .cursor:  return SpaceID.underCursor
         case .default: return target.id.space
         }

@@ -29,7 +29,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 
     if type == 0 || type == 4 {
         debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
-        space_manager_find_view(space_manager_global(), sid)
+        SpaceManager.shared.view(for: sid)
         eventSignalPush(.spaceCreated, signalContext(sid))
         space_layout_schedule(1.0, false)
     }
@@ -38,12 +38,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(SLS_SPACE_DESTROYED)`
 @WM func slsSpaceDestroyed(_ sid: SpaceID)
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
-    if let view = sm.view[sid] {
+    if let view = sm.views[sid] {
         debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid.rawValue))\n")
         _ = sm.labels.remove(id: sid)
-        sm.view.removeValue(forKey: sid)
+        sm.views.removeValue(forKey: sid)
         view.destroy()
         eventSignalPush(.spaceDestroyed, signalContext(sid))
         space_layout_schedule(1.0, false)
@@ -58,24 +58,24 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM private func refreshCurrentSpace()
 {
     let wm = WindowManager.shared
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
     if wm.menuBarOpacity != 1.0 {
-        let isFullscreen = sm.current_space_id.map { $0.isFullscreen } ?? false
+        let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
         SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
     }
 
-    let view = sm.current_space_id.map { space_manager_find_view(sm, $0) }
+    let view = sm.currentSpaceID.map { sm.view(for: $0) }
 
-    if space_manager_refresh_application_windows(sm) {
+    if sm.refreshApplicationWindows() {
         if let focusedWindow = wm.focusedWindow, wm.hasLostFocusedEvent(for: focusedWindow.id) {
             windowDidReceiveFocus(wm, mouse_state_global(), focusedWindow)
             wm.removeLostFocusedEvent(for: focusedWindow.id)
         }
     }
 
-    if !MissionControl.shared.isActive, let sid = sm.current_space_id, sid.isUser {
+    if !MissionControl.shared.isActive, let sid = sm.currentSpaceID, sid.isUser {
         wm.validateAndCheckForWindows(on: sid)
 
         if let view, view.isInvalid {
@@ -91,12 +91,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(SPACE_CHANGED)`
 @WM func spaceChanged()
 {
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
-    sm.last_space_id = sm.current_space_id
-    sm.current_space_id = SpaceID.active
+    sm.lastSpaceID = sm.currentSpaceID
+    sm.currentSpaceID = SpaceID.active
 
-    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
+    debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.spaceChanged, nil)
@@ -106,7 +106,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM func displayChanged()
 {
     let dm = DisplayManager.shared
-    let sm = space_manager_global()
+    let sm = SpaceManager.shared
 
     let newDid = DisplayID.active
     if dm.currentDisplayID == newDid {
@@ -117,16 +117,16 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     dm.lastDisplayID = dm.currentDisplayID
     dm.currentDisplayID = newDid
 
-    sm.last_space_id = sm.current_space_id
-    sm.current_space_id = dm.currentDisplayID.flatMap { $0.currentSpace }
+    sm.lastSpaceID = sm.currentSpaceID
+    sm.currentSpaceID = dm.currentDisplayID.flatMap { $0.currentSpace }
 
-    let expectedDisplayID = sm.current_space_id.flatMap { $0.display }
+    let expectedDisplayID = sm.currentSpaceID.flatMap { $0.display }
     if dm.currentDisplayID != expectedDisplayID {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
+    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.displayChanged, nil)
@@ -136,7 +136,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM func displayAdded(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
-    space_manager_handle_display_add(space_manager_global(), did)
+    SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayAdded, signalContext(did))
@@ -156,7 +156,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM func displayMoved(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
-    space_manager_mark_spaces_invalid(space_manager_global())
+    SpaceManager.shared.markSpacesInvalid()
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayMoved, signalContext(did))
 }
@@ -165,6 +165,6 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM func displayResized(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_RESIZED: \(did)\n")
-    space_manager_mark_spaces_invalid_for_display(space_manager_global(), did)
+    SpaceManager.shared.markSpacesInvalid(on: did)
     eventSignalPush(.displayResized, signalContext(did))
 }

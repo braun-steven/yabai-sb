@@ -190,7 +190,7 @@ func update_window_notifications()
     }
 
     if prevFocusedWindowID != window.id {
-        tab_bar_refresh_for_window(prevFocusedWindowID)
+        TabBar.refresh(for: prevFocusedWindowID)
     }
 
     Border.beginBatch()
@@ -435,7 +435,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     mouse_state_global().ffm_window_id = nil
 
     if let prevFocusedWindowID {
-        tab_bar_refresh_for_window(prevFocusedWindowID)
+        TabBar.refresh(for: prevFocusedWindowID)
         Border.refresh(focusedWindow)
     }
 }

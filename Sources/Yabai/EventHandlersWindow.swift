@@ -322,7 +322,7 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(window.application.name) \(window.id)\n")
 
     window.title = window.currentTitle()
-    tab_bar_refresh_for_window(window.id)
+    TabBar.refresh(for: window.id)
 
     EventSignals.shared.push(.windowTitleChanged, .window(window))
 }
@@ -331,7 +331,7 @@ import YabaiCore
 @WM func slsWindowOrdered(_ wid: WindowID)
 {
     debug("EVENT_HANDLER_SLS_WINDOW_ORDERED: \(wid)\n")
-    tab_bar_order(wid)
+    TabBar.orderBars(above: wid)
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_DESTROYED)`

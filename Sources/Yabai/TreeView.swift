@@ -40,7 +40,7 @@ extension Con
 {
     var title: CFString?
     {
-        if isLeaf { return tab_bar_copy_title(windowID) }
+        if isLeaf { return TabBar.title(for: windowID) }
 
         let string = CFStringCreateMutable(nil, 0)!
         appendTitle(to: string)
@@ -60,12 +60,12 @@ extension Con
 
 private func treeBarHeight() -> Int
 {
-    return tab_bar_is_enabled() ? WindowManager.shared.tabBarHeight : 0
+    return TabBar.isEnabled ? WindowManager.shared.tabBarHeight : 0
 }
 
 private func treeBarInset() -> Int
 {
-    return tab_bar_is_enabled() ? tab_bar_card_padding() : 0
+    return TabBar.isEnabled ? TabBar.cardPadding : 0
 }
 
 extension View
@@ -343,7 +343,7 @@ extension Con
 {
     fileprivate var isBarShown: Bool
     {
-        tab_bar_is_enabled() &&
+        TabBar.isEnabled &&
         layout == .tabbed &&
         children.count > 0 &&
         area.h > Float(2 * WindowManager.shared.tabBarHeight) &&
@@ -353,22 +353,17 @@ extension Con
     }
 }
 
-private func redrawTabBar(_ owner: UnsafeMutableRawPointer?)
-{
-    Unmanaged<Con>.fromOpaque(owner!).takeUnretainedValue().renderBar()
-}
-
 extension Con
 {
-    fileprivate func renderBar()
+    func renderBar()
     {
         if !isBarShown {
-            tab_bar_hide(render.tabBar)
+            render.tabBar.hide()
             return
         }
 
         let wm = WindowManager.shared
-        let entryCount = min(children.count, tabBarMaxEntryCount)
+        let entryCount = min(children.count, TabBar.maxEntryCount)
         let hasFocus = contains(wm.focusedWindowID)
         let active = focusOrder[0]
 
@@ -379,14 +374,13 @@ extension Con
             let leaf = next.focusedDescendant
 
             entryList.append(TabBarEntry(
-                focus_wid: leaf.windowID,
+                focusWindowID: leaf.windowID,
                 title: next.title,
-                icon: next.isLeaf ? tab_bar_icon(next.windowID) : nil,
+                icon: next.isLeaf ? TabBar.icon(for: next.windowID) : nil,
                 state: next != active ? .unfocused : hasFocus ? .focused : .inactive))
         }
 
-        render.tabBar.owner = Unmanaged.passUnretained(self).toOpaque()
-        render.tabBar.redraw = redrawTabBar
+        render.tabBar.owner = self
 
         let above = focusedDescendant
         let area = self.area
@@ -394,7 +388,7 @@ extension Con
         let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
         let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tabBarHeight))
         entryList.withUnsafeMutableBufferPointer { entries in
-            tab_bar_render(render.tabBar, frame, card, above.windowID, entries.baseAddress!, entryCount)
+            render.tabBar.render(frame: frame, card: card, above: above.windowID, entries: entries.baseAddress!, count: entryCount)
         }
     }
 }
@@ -447,7 +441,7 @@ extension Con
         if layout == .tabbed {
             renderBar()
         } else {
-            tab_bar_release(render.tabBar)
+            render.tabBar.destroy()
         }
 
         for child in children { child.renderBars() }
@@ -455,7 +449,7 @@ extension Con
 
     func releaseBars()
     {
-        tab_bar_release(render.tabBar)
+        render.tabBar.destroy()
 
         for child in children { child.releaseBars() }
     }
@@ -499,7 +493,7 @@ extension Con
 
             let anchor = active.focusedDescendant
             let anchorWid = anchor.windowID
-            let cardWid = tab_bar_card_id(render.tabBar)
+            let cardWid = render.tabBar.cardID
 
             if force || render.raised != active || render.raisedAnchor != anchorWid || render.raisedCard != cardWid {
                 render.raised = active

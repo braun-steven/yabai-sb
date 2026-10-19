@@ -169,8 +169,8 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
     case .leftMouseDown, .rightMouseDown:
         let mod = mouseModFromCGFlags(event.flags)
         var tabWid: WindowID?
-        if type == .leftMouseDown && mod != ms.modifier.modifiers && tab_bar_hit_test(event.location, &tabWid) {
-            tab_bar_pointer_update(event.location, pressed: true)
+        if type == .leftMouseDown && mod != ms.modifier.modifiers && TabBar.hitTest(event.location, window: &tabWid) {
+            TabBar.updatePointer(event.location, pressed: true)
             ms.consume_tab_click = true
             if let tabWid { EventLoop.post(.tabBarClicked(windowID: tabWid)) }
             return nil
@@ -183,7 +183,7 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         }
     case .leftMouseUp, .rightMouseUp:
         if type == .leftMouseUp && ms.consume_tab_click {
-            tab_bar_pointer_update(event.location, pressed: false)
+            TabBar.updatePointer(event.location, pressed: false)
             ms.consume_tab_click = false
             return nil
         }
@@ -200,14 +200,14 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
         }
     case .leftMouseDragged, .rightMouseDragged:
         if type == .leftMouseDragged && ms.consume_tab_click {
-            tab_bar_pointer_update(event.location, pressed: true)
+            TabBar.updatePointer(event.location, pressed: true)
             return nil
         }
         ms.drag_detected = true
         pending_mouse_dragged_add()
         EventLoop.post(.mouseDragged(Handoff(value: .passRetained(event))))
     case .mouseMoved:
-        tab_bar_pointer_update(event.location, pressed: false)
+        TabBar.updatePointer(event.location, pressed: false)
         if !ms.tracks_focus.load(ordering: .relaxed) { return .passUnretained(event) }
         let mod = mouseModFromCGFlags(event.flags)
         if mod == ms.modifier.modifiers { return .passUnretained(event) }

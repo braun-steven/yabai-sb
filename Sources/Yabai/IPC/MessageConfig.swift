@@ -398,7 +398,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     let wm = WindowManager.shared
 
     if command.equals(Config.tabBar) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { tab_bar_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { TabBar.refreshAll() }
     } else if command.equals(Config.tabBarHeight) {
         let token = message.next()
         switch token.value {
@@ -406,7 +406,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
             rsp.write("\(wm.tabBarHeight)\n")
         case .int(let height) where height > 0:
             wm.tabBarHeight = height
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
@@ -417,29 +417,29 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
             rsp.write("\(wm.tabBarOffset)\n")
         case .int(let offset):
             wm.tabBarOffset = offset
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         case .float(let offset) where offset == Float(cInt(offset)):
             wm.tabBarOffset = cInt(offset)
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarIcons) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { tab_bar_redraw_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { TabBar.redrawAll() }
     } else if command.equals(Config.tabBarStyle) {
         if let style = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarStyle) {
             wm.tabBarStyle = style
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         }
     } else if command.equals(Config.tabBarAppearance) {
         if let appearance = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarAppearance) {
             wm.tabBarAppearance = appearance
-            tab_bar_redraw_all()
+            TabBar.redrawAll()
         }
     } else if command.equals(Config.tabBarBackdrop) {
         if let backdrop = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarBackdrop) {
             wm.tabBarBackdrop = backdrop
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         }
     } else if command.equals(Config.tabBarCardPadding) {
         let token = message.next()
@@ -448,7 +448,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
             rsp.write("\(wm.tabBarCardPadding)\n")
         case .int(let padding) where padding >= 0:
             wm.tabBarCardPadding = padding
-            tab_bar_refresh_all()
+            TabBar.refreshAll()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
@@ -459,7 +459,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
             rsp.write("\(wm.tabBarWindowRadius)\n")
         case .int(let radius) where radius >= 0:
             wm.tabBarWindowRadius = radius
-            tab_bar_redraw_all()
+            TabBar.redrawAll()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
@@ -467,15 +467,15 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let value = message.next()
         if !value.isValid {
             rsp.write("\(Token(wm.tabBarFontName))\n")
-        } else if let name = String(validating: value.bytes, as: UTF8.self), tab_bar_set_font(name) {
-            tab_bar_redraw_all()
+        } else if let name = String(validating: value.bytes, as: UTF8.self), TabBar.setFont(name) {
+            TabBar.redrawAll()
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
     } else if let color = tabBarColor(for: command) {
         if configColor(&rsp, domain, command, &message, &wm[keyPath: color]) {
             if let custom = tabBarColorCustom(for: command) { wm[keyPath: custom] = true }
-            tab_bar_redraw_all()
+            TabBar.redrawAll()
         }
     } else {
         return false

@@ -23,7 +23,7 @@ extension DaemonState
         func fontParse()
         {
             func set(_ name: String) -> Bool {
-                return Yabai.tab_bar_set_font(name)
+                return TabBar.setFont(name)
             }
             let wm = WindowManager.shared
             #expect(set("system:13"))
@@ -41,10 +41,10 @@ extension DaemonState
         func glassTintDefault()
         {
             let color = RGBAColor(hex: 0xff285577)
-            let tint = Yabai.tab_bar_glass_tint(color, false, 0.4)
+            let tint = TabBarGlass.tint(color, custom: false, alpha: 0.4)
             #expect(Int(tint.a * 100 + 0.5) == 40)
             #expect(tint.r == color.r && tint.g == color.g && tint.b == color.b)
-            let custom = Yabai.tab_bar_glass_tint(color, true, 0.4)
+            let custom = TabBarGlass.tint(color, custom: true, alpha: 0.4)
             #expect(custom.a == color.a)
             #expect(custom.argb == color.argb)
         }
@@ -55,7 +55,7 @@ extension DaemonState
             let font = CTFontCreateUIFontForLanguage(.system, 13, nil)!
             let attributes = [kCTFontAttributeName: font] as CFDictionary
             func width(_ limit: Double) -> Double {
-                let line = tabBarCreateFittedLine("Untitled Document" as CFString, attributes, limit)
+                let line = TabBar.fittedLine("Untitled Document" as CFString, attributes: attributes, maxWidth: limit)
                 return CTLineGetTypographicBounds(line, nil, nil, nil)
             }
             let full = width(1000)
@@ -68,32 +68,32 @@ extension DaemonState
         func slotsCoverBar()
         {
             let bounds = CGRect(x: 10, y: 0, width: 100, height: 20)
-            let first = tab_bar_slot(bounds, 0, 3)
-            let second = tab_bar_slot(bounds, 1, 3)
-            let last = tab_bar_slot(bounds, 2, 3)
+            let first = TabBar.slot(in: bounds, index: 0, count: 3)
+            let second = TabBar.slot(in: bounds, index: 1, count: 3)
+            let last = TabBar.slot(in: bounds, index: 2, count: 3)
             // NOTE: slots are whole pixels without gaps, and the last one takes the rest
             #expect(first.minX == 10)
             #expect(first.width == 33)
             #expect(second.minX == 43)
             #expect(second.maxX == last.minX)
             #expect(last.maxX == 110)
-            #expect(tab_bar_slot(bounds, 0, 1).width == 100)
+            #expect(TabBar.slot(in: bounds, index: 0, count: 1).width == 100)
         }
 
         @Test("tab_bar_glass_hit_slots")
         func glassHitSlots()
         {
             let frame = CGRect(x: 10, y: 20, width: 103, height: 24)
-            let inner = tabBarGlassInnerRect(frame)
-            let boundary = tab_bar_slot(inner, 0, 3).maxX
-            #expect(tabBarHitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, count: 3, glass: true) == 0)
-            #expect(tabBarHitIndex(CGPoint(x: boundary, y: 21), frame: frame, count: 3, glass: true) == 1)
-            #expect(tabBarHitIndex(CGPoint(x: 10, y: 21), frame: frame, count: 3, glass: true) == 0)
-            #expect(tabBarHitIndex(CGPoint(x: 112.9, y: 21), frame: frame, count: 3, glass: true) == 2)
-            #expect(tabBarHitIndex(CGPoint(x: 9, y: 21), frame: frame, count: 3, glass: true) == nil)
-            #expect(tabBarHitIndex(CGPoint(x: 12, y: 21), frame: frame, count: 0, glass: true) == nil)
-            #expect(tabBarGlassInnerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
-            #expect(tabBarHitIndex(CGPoint(x: 44, y: 21), frame: frame, count: 3, glass: false) == 1)
+            let inner = TabBarGlass.innerRect(frame)
+            let boundary = TabBar.slot(in: inner, index: 0, count: 3).maxX
+            #expect(TabBar.hitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, count: 3, glass: true) == 0)
+            #expect(TabBar.hitIndex(CGPoint(x: boundary, y: 21), frame: frame, count: 3, glass: true) == 1)
+            #expect(TabBar.hitIndex(CGPoint(x: 10, y: 21), frame: frame, count: 3, glass: true) == 0)
+            #expect(TabBar.hitIndex(CGPoint(x: 112.9, y: 21), frame: frame, count: 3, glass: true) == 2)
+            #expect(TabBar.hitIndex(CGPoint(x: 9, y: 21), frame: frame, count: 3, glass: true) == nil)
+            #expect(TabBar.hitIndex(CGPoint(x: 12, y: 21), frame: frame, count: 0, glass: true) == nil)
+            #expect(TabBarGlass.innerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
+            #expect(TabBar.hitIndex(CGPoint(x: 44, y: 21), frame: frame, count: 3, glass: false) == 1)
         }
 
         @Test("tab_bar_nested_card_order")
@@ -105,8 +105,8 @@ extension DaemonState
             inner.card = CGRect(x: 6, y: 32, width: 988, height: 762)
             let deepest = TabBar()
             deepest.card = CGRect(x: 12, y: 64, width: 976, height: 724)
-            #expect(tabBarOuterFirst([inner, deepest, outer]) == [outer, inner, deepest])
-            #expect(tabBarOuterFirst([outer, inner, deepest]) == [outer, inner, deepest])
+            #expect(TabBar.outerFirst([inner, deepest, outer]) == [outer, inner, deepest])
+            #expect(TabBar.outerFirst([outer, inner, deepest]) == [outer, inner, deepest])
         }
     }
 }

@@ -171,7 +171,7 @@ extension Con
         }
 
         destroyFeedback()
-        tab_bar_release(render.tabBar)
+        render.tabBar.destroy()
         children = []
         focusOrder = []
     }

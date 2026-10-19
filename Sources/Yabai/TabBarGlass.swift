@@ -59,31 +59,31 @@ private struct Snapshot: @unchecked Sendable
         level = aboveWid.level
         subLevel = aboveWid.subLevel
         font = wm.tabBarFont
-        let track = tab_bar_glass_tint(wm.tabBarUnfocusedColor, wm.tabBarUnfocusedColorIsCustom, 0.4)
-        trackTint = tabBarCGColor(track)
-        backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tabBarBackdropColor, wm.tabBarBackdropColorIsCustom, 0.4))
+        let track = TabBarGlass.tint(wm.tabBarUnfocusedColor, custom: wm.tabBarUnfocusedColorIsCustom, alpha: 0.4)
+        trackTint = track.cgColor
+        backdropTint = TabBarGlass.tint(wm.tabBarBackdropColor, custom: wm.tabBarBackdropColorIsCustom, alpha: 0.4).cgColor
         var pill = track
         var customPill = false
         var focused = false
         var entries: [Entry] = []
         for i in 0..<count {
             let source = list[i]
-            let (background, text) = tabBarStateColors(source.state)
+            let (background, text) = source.state.colors
             let customText = source.state == .focused ? wm.tabBarFocusedTextColorIsCustom
                            : source.state == .inactive ? wm.tabBarInactiveTextColorIsCustom
                            : wm.tabBarUnfocusedTextColorIsCustom
-            entries.append(Entry(windowID: source.focus_wid, title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != .unfocused, customText: customText))
+            entries.append(Entry(windowID: source.focusWindowID, title: source.title, icon: source.icon, text: text.cgColor, active: source.state != .unfocused, customText: customText))
             if source.state == .focused {
-                pill = tab_bar_glass_tint(background, wm.tabBarFocusedColorIsCustom, 0.8)
+                pill = TabBarGlass.tint(background, custom: wm.tabBarFocusedColorIsCustom, alpha: 0.8)
                 customPill = wm.tabBarFocusedColorIsCustom
                 focused = true
             } else if source.state == .inactive {
-                pill = tab_bar_glass_tint(background, wm.tabBarInactiveColorIsCustom, 0.8)
+                pill = TabBarGlass.tint(background, custom: wm.tabBarInactiveColorIsCustom, alpha: 0.8)
                 customPill = wm.tabBarInactiveColorIsCustom
             }
         }
         self.entries = entries
-        pillTint = tabBarCGColor(pill)
+        pillTint = pill.cgColor
         customTrack = wm.tabBarUnfocusedColorIsCustom
         customBackdrop = wm.tabBarBackdropColorIsCustom
         self.customPill = customPill
@@ -104,12 +104,6 @@ private func trackRect(_ bounds: CGRect) -> CGRect
     track.origin.y += glassTrackMargin
     track.size.height -= glassTrackMargin
     return track.height <= 2 * glassPillInset ? bounds : track
-}
-
-func tabBarGlassInnerRect(_ bounds: CGRect) -> CGRect
-{
-    let inset = min(glassPillInset, max(0, min(bounds.width, bounds.height) * 0.5))
-    return trackRect(bounds).insetBy(dx: inset, dy: inset)
 }
 
 @MainActor
@@ -330,7 +324,7 @@ private final class Panel
         let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
         for (index, entry) in snapshot.entries.enumerated() {
             let button = buttons[index]
-            let slot = tab_bar_slot(inner, index, buttons.count)
+            let slot = TabBar.slot(in: inner, index: index, count: buttons.count)
             let title = entry.title.map { $0 as String } ?? ""
             let color = entry.customText ? NSColor(cgColor: entry.text) ?? .labelColor
                       : entry.active || contrast ? NSColor.labelColor : NSColor.secondaryLabelColor
@@ -471,7 +465,7 @@ private final class Panel
         track.cornerRadius = trackFrame.height * 0.5
         setTint(trackTint, radius: trackFrame.height * 0.5, color: resolvedTint(snapshot.trackTint, custom: snapshot.customTrack, fallback: NSColor.controlBackgroundColor.withAlphaComponent(0.4)))
         content.frame = track.bounds
-        let inner = tabBarGlassInnerRect(strip).offsetBy(dx: -trackFrame.minX, dy: -trackFrame.minY)
+        let inner = TabBarGlass.innerRect(strip).offsetBy(dx: -trackFrame.minX, dy: -trackFrame.minY)
         layoutContent(snapshot, inner: inner, animate: animate)
         let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
         trackTint.layer?.borderWidth = contrast ? 1 : 0
@@ -481,7 +475,7 @@ private final class Panel
         pillTint.isHidden = active == nil
         guard let active else { return }
 
-        let pillFrame = tab_bar_slot(inner, active, snapshot.entries.count)
+        let pillFrame = TabBar.slot(in: inner, index: active, count: snapshot.entries.count)
         pill.cornerRadius = pillFrame.height * 0.5
         let pillColor = snapshot.focused ? NSColor.controlAccentColor.withAlphaComponent(0.65) : NSColor.selectedContentBackgroundColor.withAlphaComponent(0.35)
         setTint(pillTint, radius: pillFrame.height * 0.5, color: resolvedTint(snapshot.pillTint, custom: snapshot.customPill, fallback: pillColor))
@@ -527,14 +521,14 @@ private final class Panel
         }
         NSAnimationContext.endGrouping()
 
-        tab_bar_glass_move_to_space(id, snapshot.sid)
+        TabBarGlass.moveWindow(id, to: snapshot.sid)
         // NOTE: Keep AppKit's order in sync with SkyLight even for visible panels. Otherwise a newly created
         // outer card can be put back above an existing inner card when AppKit next displays its windows.
         panel.order(below ? .below : .above, relativeTo: Int(snapshot.aboveWid.rawValue))
-        tab_bar_glass_move_to_space(id, snapshot.sid)
+        TabBarGlass.moveWindow(id, to: snapshot.sid)
 
-        tab_bar_glass_set_level(id, snapshot.level, snapshot.subLevel)
-        tab_bar_glass_order_panel(id, below, snapshot.aboveWid)
+        TabBarGlass.setLevel(of: id, snapshot.level, subLevel: snapshot.subLevel)
+        TabBarGlass.orderPanel(id, below: below, relativeTo: snapshot.aboveWid)
         if below { EventLoop.post(.tabCardOrdered(windowID: snapshot.aboveWid)) }
     }
 
@@ -542,8 +536,8 @@ private final class Panel
     {
         guard panel.isVisible else { return }
         panel.order(below ? .below : .above, relativeTo: Int(wid.rawValue))
-        if let snapshot { tab_bar_glass_move_to_space(id, snapshot.sid) }
-        tab_bar_glass_order_panel(id, below, wid)
+        if let snapshot { TabBarGlass.moveWindow(id, to: snapshot.sid) }
+        TabBarGlass.orderPanel(id, below: below, relativeTo: wid)
         if below { EventLoop.post(.tabCardOrdered(windowID: wid)) }
     }
 }
@@ -599,6 +593,45 @@ final class TabBarGlass: @unchecked Sendable
         onMain { $0.panel?.pointer(windowID: windowID, pressed: pressed) }
     }
 
+    static func innerRect(_ bounds: CGRect) -> CGRect
+    {
+        let inset = min(glassPillInset, max(0, min(bounds.width, bounds.height) * 0.5))
+        return trackRect(bounds).insetBy(dx: inset, dy: inset)
+    }
+
+    //
+    // NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
+    // with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
+    //
+    static func tint(_ color: RGBAColor, custom: Bool, alpha: Float) -> RGBAColor
+    {
+        var color = color
+        if !custom { color.a = alpha }
+        return color
+    }
+
+    static func moveWindow(_ wid: WindowID, to sid: SpaceID?)
+    {
+        let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
+        SLSMoveWindowsToManagedSpace(SLS.connection, windows, sid?.rawValue ?? 0)
+    }
+
+    static func setLevel(of wid: WindowID, _ level: Int32, subLevel: Int32)
+    {
+        SLSSetWindowLevel(SLS.connection, wid.rawValue, level)
+        SLSSetWindowSubLevel(SLS.connection, wid.rawValue, subLevel)
+    }
+
+    //
+    // NOTE: A card ordered below the window lands between the window and its border, so the border is ordered
+    // right below the window again to stay on top of the card.
+    //
+    static func orderPanel(_ wid: WindowID, below: Bool, relativeTo relativeWid: WindowID)
+    {
+        SLSOrderWindow(SLS.connection, wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
+        if below { Border.windowOrdered(relativeWid) }
+    }
+
     fileprivate func onMain(_ body: @escaping @MainActor @Sendable (TabBarGlass) -> Void)
     {
         DispatchQueue.main.async {
@@ -607,64 +640,31 @@ final class TabBarGlass: @unchecked Sendable
     }
 }
 
-//
-// NOTE: Glass is translucent, so a background color that was never configured is applied as a tint of the i3 color
-// with the given alpha instead of the opaque i3 color itself. A configured color is used exactly as given.
-//
-func tab_bar_glass_tint(_ color: RGBAColor, _ custom: Bool, _ alpha: Float) -> RGBAColor
+extension TabBar
 {
-    var color = color
-    if !custom { color.a = alpha }
-    return color
-}
+    func renderGlass(above aboveWid: WindowID, entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
+    {
+        let snapshot = Snapshot(self, aboveWid, entries, count)
+        if glass == nil { glass = TabBarGlass() }
+        glass!.onMain { $0.apply(snapshot) }
+    }
 
-func tab_bar_glass_move_to_space(_ wid: WindowID, _ sid: SpaceID?)
-{
-    let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
-    SLSMoveWindowsToManagedSpace(SLS.connection, windows, sid?.rawValue ?? 0)
-}
+    func hideGlass()
+    {
+        glass?.onMain { $0.hide() }
+    }
 
-func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
-{
-    SLSSetWindowLevel(SLS.connection, wid.rawValue, level)
-    SLSSetWindowSubLevel(SLS.connection, wid.rawValue, subLevel)
-}
+    func orderGlass(above wid: WindowID)
+    {
+        glass?.onMain { $0.order(wid) }
+    }
 
-//
-// NOTE: A card ordered below the window lands between the window and its border, so the border is ordered
-// right below the window again to stay on top of the card.
-//
-func tab_bar_glass_order_panel(_ wid: WindowID, _ below: Bool, _ relativeWid: WindowID)
-{
-    SLSOrderWindow(SLS.connection, wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
-    if below { Border.windowOrdered(relativeWid) }
-}
+    func destroyGlass()
+    {
+        // NOTE: FIFO main-queue delivery closes the panel after pending updates; each block retains its owner.
+        glass?.onMain { $0.close() }
+        glass = nil
+    }
 
-func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
-{
-    let snapshot = Snapshot(bar, aboveWid, entries, count)
-    if bar.glass == nil { bar.glass = TabBarGlass() }
-    bar.glass!.onMain { $0.apply(snapshot) }
-}
-
-func tab_bar_glass_hide(_ bar: TabBar)
-{
-    bar.glass?.onMain { $0.hide() }
-}
-
-func tab_bar_glass_order(_ bar: TabBar, _ wid: WindowID)
-{
-    bar.glass?.onMain { $0.order(wid) }
-}
-
-func tab_bar_glass_release(_ bar: TabBar)
-{
-    // NOTE: FIFO main-queue delivery closes the panel after pending updates; each block retains its owner.
-    bar.glass?.onMain { $0.close() }
-    bar.glass = nil
-}
-
-func tab_bar_glass_panel_id(_ bar: TabBar) -> WindowID?
-{
-    bar.glass?.id
+    var glassPanelID: WindowID? { glass?.id }
 }

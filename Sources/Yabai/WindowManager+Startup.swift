@@ -45,7 +45,7 @@ extension WindowManager
         tabBarUnfocusedColor = RGBAColor(hex: 0xff222222)
         tabBarUnfocusedTextColor = RGBAColor(hex: 0xff888888)
         tabBarBackdropColor = RGBAColor(hex: 0xff48484a)
-        _ = tab_bar_set_font(tabBarDefaultFont)
+        _ = TabBar.setFont(TabBar.defaultFont)
         scratchpadExclusive = false
         scratchpadRaise = false
         scratchpadBelow = false

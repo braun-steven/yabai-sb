@@ -171,7 +171,7 @@ func window_manager_remove_scratchpad_for_window(_ wm: WindowManager, _ target: 
 /// `window_manager_scratchpad_recover_windows`
 func window_manager_scratchpad_recover_windows()
 {
-    guard let windowList = windowManagerExistingApplicationWindowList(nil) else { return }
+    guard let windowList = WindowManager.shared.existingApplicationWindowList(for: nil) else { return }
 
     if scripting_addition_order_window_in(windowList) {
         _ = space_manager_refresh_application_windows(space_manager_global())

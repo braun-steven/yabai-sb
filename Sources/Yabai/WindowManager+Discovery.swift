@@ -1,0 +1,235 @@
+import ApplicationServices
+import Foundation
+import CPrivate
+import AppKit
+import YabaiCore
+
+// NOTE: Discovering the windows of an application: creating a window applies the rules and decides whether
+// it floats. Windows on other spaces are missing from the accessibility list of an application; they are
+// resolved later, or found by element id.
+
+// NOTE(asmvik): Print window information when debug_output is enabled.
+// Useful for identifying and creating rules if this window should in fact be managed.
+
+extension WindowManager
+{
+    /// nil when the window is ignored (AXUnknown, or it cannot be observed).
+    @discardableResult
+    func createAndAddWindow(_ owner: Application, reference: AXUIElement, id: WindowID, includingOneShotRules: Bool) -> Window?
+    {
+        let target = Window(application: owner, reference: reference, id: id)
+
+        let windowTitle = target.cachedTitle
+        let windowRole = target.roleString
+        let windowSubrole = target.subroleString
+        debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
+
+        if target.isUnknown {
+            debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
+            removeLostFocusedEvent(for: target.id)
+            target.destroy()
+            return nil
+        }
+
+        // NOTE: Attempt to track all windows.
+        if !target.observe() {
+            debug("window_manager_create_and_add_window: could not observe \(owner.name) \(target.id)\n")
+            removeLostFocusedEvent(for: target.id)
+            target.unobserve()
+            target.destroy()
+            return nil
+        }
+
+        if hasLostFocusedEvent(for: target.id) {
+            EventLoop.post(.windowFocused(windowID: target.id))
+            removeLostFocusedEvent(for: target.id)
+        }
+
+        addWindow(target)
+
+        // NOTE: Only root windows are eligible for management.
+        if target.is_root {
+            // NOTE: Many windows misreport their accessibility role, so rules let users mark these windows
+            // for management. Apply this rule before other rule properties. Without a matching rule, ignore
+            // windows whose role is not kAXWindowRole.
+            applyManageRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
+
+            if target.isEligibleForManagement {
+                target.is_eligible = true
+                applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
+                purifyWindow(target)
+                setWindowOpacity(target, to: normal_window_opacity)
+
+                if owner.isHidden        { return target }
+                if target.isMinimized     { return target }
+                if target.isFullscreen    { return target }
+                if target.isManagedByRule { return target }
+
+                if target.isFullscreenByRule {
+                    target.isFullscreenByRule = false
+                    return target
+                }
+
+                if target.id.isSticky ||
+                   !target.canMove ||
+                   !target.isStandard ||
+                   !target.isStandardLevel ||
+                   (!target.canResize && target.isUndersized) {
+                    target.isFloating = true
+                }
+            } else {
+                debug("window_manager_create_and_add_window ignoring incorrectly marked window \(owner.name) \(target.id)\n")
+                target.isFloating = true
+                debugWindowInfo(target)
+            }
+        } else {
+            debug("window_manager_create_and_add_window ignoring child window \(owner.name) \(target.id)\n")
+            target.isFloating = true
+            debugWindowInfo(target)
+        }
+
+        return target
+    }
+
+    // NOTE: The space a new window is managed on, as selected by window_origin_display.
+    func originSpace(for target: Window) -> SpaceID?
+    {
+        switch window_origin_mode {
+        case .focused: return SpaceManager.shared.current_space_id
+        case .cursor:  return space_manager_cursor_space()
+        case .default: return target.id.space
+        }
+    }
+
+    /// The windows of the AX list of the application that were not known yet.
+    func addApplicationWindows(_ owner: Application) -> [Window]
+    {
+        guard let windowList = owner.windowList else { return [] }
+
+        var result: [Window] = []
+
+        for windowRef in accessibilityElements(in: windowList) {
+            guard let windowID = ax_window_id(windowRef), window(for: windowID) == nil else { continue }
+
+            if let target = createAndAddWindow(owner, reference: windowRef, id: windowID, includingOneShotRules: true) { result.append(target) }
+        }
+
+        removeOneShotRules()
+
+        return result
+    }
+
+    /// The windows on Mission Control spaces, minimized ones included; nil when there are none or the window server fails.
+    func existingApplicationWindowList(for owner: Application?) -> [WindowID]?
+    {
+        guard let spaceList = space_manager_mission_control_space_list() else { return nil }
+
+        guard let candidates = spaceWindowCandidates(spaceList, owner?.connection ?? 0, true), !candidates.isEmpty else { return nil }
+        return spaceUserWindows(candidates, true)
+    }
+
+    /// The windows in the list that the window manager does not know.
+    func unresolvedWindows(in windowList: [WindowID]) -> [WindowID]
+    {
+        return windowList.filter { window(for: $0) == nil }
+    }
+
+    // NOTE: macOS does not return AXUIElementRefs for windows on inactive spaces. Brute-force the element ids
+    // to create the AXUIElementRefs ourselves. Every found window is removed from the unresolved list.
+    // Attribution: https://github.com/decodism
+    // https://github.com/lwouis/alt-tab-macos/issues/1324#issuecomment-2631035482
+    private func addWindowsByElementID(for owner: Application, unresolved: inout [WindowID])
+    {
+        var data = Data(count: 0x14)
+        data.withUnsafeMutableBytes { bytes in
+            bytes.storeBytes(of: UInt32(bitPattern: owner.pid), toByteOffset: 0x0, as: UInt32.self)
+            bytes.storeBytes(of: UInt32(0x636f636f), toByteOffset: 0x8, as: UInt32.self)
+        }
+
+        for elementID in UInt64(0)..<0x7fff {
+            if unresolved.isEmpty { break }
+
+            data.withUnsafeMutableBytes { $0.storeBytes(of: elementID, toByteOffset: 0xc, as: UInt64.self) }
+            guard let element = AXElement(remoteToken: data) else { continue }
+
+            var role: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(element.ref, kAXRoleAttribute as CFString, &role)
+
+            // NOTE: An unresponsive application makes each attempt wait for the messaging timeout, so give up on it.
+            if error == .cannotComplete { break }
+
+            if let role {
+                let elementWid = CFEqual(role, kAXWindowRole as CFString) ? element.windowID : nil
+
+                if let elementWid, let i = unresolved.firstIndex(of: elementWid) {
+                    unresolved[i] = unresolved[unresolved.count - 1]
+                    unresolved.removeLast()
+                    createAndAddWindow(owner, reference: element.ref, id: elementWid, includingOneShotRules: false)
+                }
+            }
+        }
+    }
+
+    /// True when an application's windows in applications_to_refresh (at refreshIndex) are all resolved; it is then
+    /// removed from the list. With refreshIndex nil (a new application), the application is added when windows are missing.
+    func addExistingApplicationWindows(_ owner: Application, refreshIndex: Int?) -> Bool
+    {
+        guard let globalWindowList = existingApplicationWindowList(for: owner) else { return false }
+
+        let windowList = owner.windowList.map { accessibilityElements(in: $0) } ?? []
+
+        var emptyCount = 0
+        for windowRef in windowList {
+            // NOTE: The AX API appears to always include a Finder element with an empty window id (likely the desktop window).
+            // Ignore elements without an id when comparing the discovered and expected window counts.
+            guard let windowID = ax_window_id(windowRef) else {
+                emptyCount += 1
+                continue
+            }
+
+            if window(for: windowID) == nil {
+                createAndAddWindow(owner, reference: windowRef, id: windowID, includingOneShotRules: false)
+            }
+        }
+
+        var resolved = globalWindowList.count == windowList.count - emptyCount
+        if !resolved {
+            var unresolved = unresolvedWindows(in: globalWindowList)
+            resolved = unresolved.isEmpty
+
+            if !resolved && refreshIndex == nil {
+                debug("window_manager_add_existing_application_windows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
+                addWindowsByElementID(for: owner, unresolved: &unresolved)
+
+                if !unresolved.isEmpty {
+                    debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(owner.name)\n")
+                    addApplicationToRefresh(owner)
+                } else {
+                    debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(owner.name)\n")
+                }
+
+                return false
+            }
+        }
+
+        guard resolved, let refreshIndex else { return false }
+
+        debug("window_manager_add_existing_application_windows: all windows for \(owner.name) are now resolved\n")
+        removeApplicationRefresh(at: refreshIndex)
+        return true
+    }
+
+    private func accessibilityElements(in list: CFArray) -> [AXUIElement]
+    {
+        return (0..<CFArrayGetCount(list)).map { unsafeBitCast(CFArrayGetValueAtIndex(list, $0), to: AXUIElement.self) }
+    }
+
+    private func debugWindowInfo(_ target: Window)
+    {
+        guard g_verbose else { return }
+
+        fputs("window info: \n", stdout_global())
+        fputs(windowSerialize(target, 0), stdout_global())
+        fputs("\n", stdout_global())
+    }
+}

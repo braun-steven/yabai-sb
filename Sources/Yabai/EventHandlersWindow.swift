@@ -22,7 +22,7 @@ import YabaiCore
 
     guard let application = wm.application(for: windowPid) else { return }
 
-    guard let window = window_manager_create_and_add_window(space_manager_global(), wm, application, element, windowID, true) else { return }
+    guard let window = wm.createAndAddWindow(application, reference: element, id: windowID, includingOneShotRules: true) else { return }
 
     // NOTE: Subscribe before tiling. AX can return before the window server publishes the final frame;
     // the border then needs the ensuing move/resize notification to leave the window's creation frame.
@@ -31,7 +31,7 @@ import YabaiCore
     wm.removeOneShotRules()
 
     if window.shouldBeManaged && wm.managedView(for: window) == nil {
-        if let sid = window_manager_origin_space(wm, window) { wm.manageWindow(window, on: sid, inserting: nil) }
+        if let sid = wm.originSpace(for: window) { wm.manageWindow(window, on: sid, inserting: nil) }
     }
 
     if window.isEligibleForManagement {

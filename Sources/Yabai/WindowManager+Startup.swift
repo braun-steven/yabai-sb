@@ -68,7 +68,7 @@ extension WindowManager
 
                     if created.observe() {
                         addApplication(created)
-                        _ = window_manager_add_existing_application_windows(SpaceManager.shared, self, created, nil)
+                        _ = addExistingApplicationWindows(created, refreshIndex: nil)
                     } else {
                         created.unobserve()
                         created.destroy()

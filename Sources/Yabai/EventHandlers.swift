@@ -143,7 +143,7 @@ func update_window_notifications()
         if !window.shouldBeManaged { continue }
         if wm.managedView(for: window) != nil { continue }
 
-        guard let sid = newWindows ? window_manager_origin_space(wm, window) : window.id.space else { continue }
+        guard let sid = newWindows ? wm.originSpace(for: window) : window.id.space else { continue }
         let view = space_manager_find_view(space_manager_global(), sid)
         if view.layout == .float { continue }
 
@@ -318,7 +318,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     process.launch_attempts = 0
     process.launch_given_up = false
 
-    let windows = window_manager_add_application_windows(space_manager_global(), wm, application)
+    let windows = wm.addApplicationWindows(application)
     update_window_notifications()
     tileWindowsBatched(windows, wm.focused_window_id, true)
 
@@ -478,7 +478,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     let refreshIndex = wm.applicationRefreshIndex(of: application)
     if let refreshIndex {
         debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(application.name) has windows that are not yet resolved\n")
-        _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
+        _ = wm.addExistingApplicationWindows(application, refreshIndex: refreshIndex)
     }
 
     guard let applicationFocusedWindowID = application.focusedWindowID else {

@@ -70,11 +70,11 @@ private func applicationCreate(_ name: String) -> Application
 
     wm.addWindow(windows[0])
     wm.addWindow(windows[1])
-    #expect(window_manager_unresolved_windows(wm, [11, 12, 13, 14]) == [11, 13])
+    #expect(wm.unresolvedWindows(in: [11, 12, 13, 14]) == [11, 13])
 
     wm.addWindow(windows[2])
     wm.addWindow(windows[3])
-    #expect(window_manager_unresolved_windows(wm, [11, 12, 13, 14]).isEmpty)
+    #expect(wm.unresolvedWindows(in: [11, 12, 13, 14]).isEmpty)
 }
 
 @Test("window_validity") func windowValidity()

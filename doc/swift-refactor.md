@@ -152,7 +152,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | **5** | **Commands, errors, config, Codable queries** | [~] | bb24ea9b | |
 | 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
 | 5.2 | Typed commands: window | [x] | bb24ea9b | `WindowCommand` + typed selectors in YabaiCore; `Selection` adaptors left for 5.3 |
-| 5.3 | Typed commands: other domains | [ ] | | |
+| 5.3 | Typed commands: other domains | [x] | 22ab2700 | `Space/Display/Query/Rule/SignalCommand`; `Selection`, `CommandResult` gone |
 | 5.4 | `Config` values and option table | [ ] | | |
 | 5.5 | Queries with `JSONEncoder` | [ ] | | |
 | 5.6 | Verification: docs, live check, benchmark, perf | [ ] | | |
@@ -955,3 +955,25 @@ not here.
   `parseOptional*Selector` and `CommandResult.stop` once unused; `valueType([CChar])` (MessageSpace) can go with it.
 - Notes for the next agent: `WindowCommand.parse` takes the next token as the value even when missing; tests are in
   `tests/YabaiCoreTests/MessageTests.swift` (`windowCommand*`).
+
+### 2026-10-19 Subphase 5.3 [x]
+- Commits: 1de2b5ec, f0077278, ffa64e4a, e88ac13a, 7a1cc12c, 97915fa1 (outside the workflow; reviewed here),
+  5ff6bdd4, d3e9630a, 22ab2700 (one Haiku piece each), plus this report.
+- Done: the reviewed commits add YabaiCore `SpaceCommand`, `DisplayCommand`, `QueryCommand` (unresolved `Target`),
+  `RuleCommand` and `SignalCommand` with tests in YabaiCoreTests. They delete `Selection`, `parse*Selector`,
+  `parseOptional*Selector`, `QueryTarget`/`parseQueryTarget`, `valueType([CChar])` and `CommandResult` (`runCommands`
+  closures return false to stop silently). Leading selectors and rule display/space effects use the typed selectors.
+  The review found the same texts, check order and stop flags, with three gaps. (1) A missing acting space must still
+  come before an unknown command (5ff6bdd4, mirroring `needsWindow`). 5ff6bdd4 also makes the free `execute` a
+  `SpaceCommand.run(acting:)`/`DisplayCommand.run(acting:)` extension like 5.2, in the file's brace style. (2)
+  d3e9630a makes `SignalCommand` non-generic, since `SignalType` lives in YabaiCore, and drops the `YabaiCore.`
+  qualifiers. (3) 22ab2700 ports the selector-lookup coverage lost with the adaptor tests to typed `resolve` tests,
+  adds a `needsActingSpace` test, and updates AGENTS.md (IPC paragraph, Errors convention).
+- Output changes: none. Golden unchanged.
+- Verification: `make` (no warnings), `make test` 128 tests (69 + 59) incl. golden at 22ab2700. No live check (5.6).
+- Decisions: `rule --apply LABEL` now parses the inline rule before the label lookup and keeps its error in
+  `RuleApply.labelOrInline` until it is needed. Only pure lookups run earlier; the output is unchanged. Kept the
+  `preconditionFailure` in `SignalCommand.parse`, since `parseSignal` throws whenever the event is missing. Kept
+  `SpaceCommandLayout` separate from the daemon's `ViewType`, which has `default`.
+- Next: 5.4. Its commits ec9e3699..d82222d7 do not touch the 5.3 files.
+- Notes for the next agent: none.

@@ -166,7 +166,7 @@ extension EventHandler
         case .dockDidChangePref:                         dockDidChangePref()
         case .systemWoke:                                systemWoke()
         case .spaceLayoutReconcile(let generation):      spaceLayoutReconcile(generation)
-        case .daemonMessage(let sockfd):                 daemon_message_handle(sockfd)
+        case .daemonMessage(let sockfd):                 MessageLoop.handle(sockfd)
         }
     }
 }

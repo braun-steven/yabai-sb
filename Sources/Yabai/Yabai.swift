@@ -312,7 +312,7 @@ enum Daemon
         WindowManager.shared.updateWindowNotifications()
 
         let socketFile = "/tmp/yabai_\(String(cString: getenv("USER")!)).socket"
-        if !message_loop_begin(socketFile) {
+        if !MessageLoop.begin(socketPath: socketFile) {
             error("yabai: could not start message loop! abort..\n")
         }
 

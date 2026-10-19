@@ -149,7 +149,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
 | 4.6 | Verification: tsan live run, live check, benchmark | [x] | 25219f86 | no code changes; mouse checks skipped (posting denied) |
-| **5** | **Commands, errors, config, Codable queries** | [~] | 3ae65fef | |
+| **5** | **Commands, errors, config, Codable queries** | [x] | 7d41de67 | live check without mouse checks; bench and `perf.py` within 10% |
 | 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
 | 5.2 | Typed commands: window | [x] | bb24ea9b | `WindowCommand` + typed selectors in YabaiCore; `Selection` adaptors left for 5.3 |
 | 5.3 | Typed commands: other domains | [x] | 22ab2700 | `Space/Display/Query/Rule/SignalCommand`; `Selection`, `CommandResult` gone |
@@ -448,6 +448,8 @@ Carried between phases; add, resolve or strike items here.
   observers do not see these as config changes.
 - 3.6's live check did not cover a session with the scripting addition unloaded (space moves without SA); a later
   live check should.
+- 5.6: `query --tree` over the socket took 0.41 → 0.48 ms (+0.07 ms) on a flat 5-window space; the `perf.py` metrics
+  the rule names stayed within 10%. Accepted by the phase agent as sub-millisecond; 6.7 measures it again.
 
 ## Reports
 

@@ -368,23 +368,15 @@ private extension AXUIElement
     @discardableResult
     func setFrame(position: CGPoint, size: CGSize) -> AXError
     {
-        var position = position, size = size
-        let positionRef = AXValueCreate(.cgPoint, &position)
-        let sizeRef = AXValueCreate(.cgSize, &size)
-        var result = AXError.success
         //
         // NOTE: An application that does not respond makes every call wait for the messaging timeout,
         // so the remaining calls are skipped once one of them could not complete.
         //
         // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *before* moving it.
-        if let sizeRef { result = AXUIElementSetAttributeValue(self, kAXSizeAttribute as CFString, sizeRef) }
-        if let positionRef, result != .cannotComplete {
-            result = AXUIElementSetAttributeValue(self, kAXPositionAttribute as CFString, positionRef)
-        }
+        var result = setAttribute(kAXSizeAttribute, to: size)
+        if result != .cannotComplete { result = setAttribute(kAXPositionAttribute, to: position) }
         // NOTE(asmvik): Due to macOS constraints (visible screen-area), we might need to resize the window *after* moving it.
-        if let sizeRef, result != .cannotComplete {
-            result = AXUIElementSetAttributeValue(self, kAXSizeAttribute as CFString, sizeRef)
-        }
+        if result != .cannotComplete { result = setAttribute(kAXSizeAttribute, to: size) }
         return result
     }
 }
@@ -394,7 +386,7 @@ extension Window
     func setFrame(x: Float, y: Float, width: Float, height: Float)
     {
         frameRequest = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
-        axEnhancedUIWorkaround(application.ref) {
+        application.ref.withEnhancedUserInterfaceDisabled {
             ref.setFrame(position: CGPoint(x: CGFloat(x), y: CGFloat(y)), size: CGSize(width: CGFloat(width), height: CGFloat(height)))
         }
     }
@@ -453,23 +445,22 @@ final class WindowFrameGroup: @unchecked Sendable
 
     func apply()
     {
-        let attribute = "AXEnhancedUserInterface" as CFString
-        var value: CFTypeRef?
-        var result = AXUIElementCopyAttributeValue(ref, attribute, &value)
+        let attribute = AXUIElement.enhancedUserInterfaceAttribute
+        let (value, result) = ref.attributeValue(attribute)
         if result == .cannotComplete {
             error = result
             return
         }
         let eui = value.map { CFBooleanGetValue(unsafeDowncast($0, to: CFBoolean.self)) } ?? false
-        if eui { AXUIElementSetAttributeValue(ref, attribute, kCFBooleanFalse) }
+        if eui { ref.setAttribute(attribute, to: false) }
         for request in list {
-            result = request.ref.setFrame(position: request.position, size: request.size)
-            if result == .cannotComplete {
-                error = result
+            let frameResult = request.ref.setFrame(position: request.position, size: request.size)
+            if frameResult == .cannotComplete {
+                error = frameResult
                 break
             }
         }
-        if eui { AXUIElementSetAttributeValue(ref, attribute, kCFBooleanTrue) }
+        if eui { ref.setAttribute(attribute, to: true) }
     }
 }
 

@@ -167,23 +167,3 @@ let mouseEventMask: UInt32 =
 
 /// The mouse events the event tap receives while focus follows the mouse.
 let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
-
-/// The AX attribute that some applications use to animate frame changes.
-private let axEnhancedUserInterface = "AXEnhancedUserInterface"
-
-/// Whether the element has AXEnhancedUserInterface enabled.
-private func axEnhancedUserInterfaceEnabled(_ ref: AXUIElement) -> Bool
-{
-    var value: CFTypeRef?
-    guard AXUIElementCopyAttributeValue(ref, axEnhancedUserInterface as CFString, &value) == .success, let value else { return false }
-    return CFBooleanGetValue(unsafeDowncast(value, to: CFBoolean.self))
-}
-
-/// Turns AXEnhancedUserInterface off around the body, which some applications need to apply a frame at once.
-func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
-{
-    let eui = axEnhancedUserInterfaceEnabled(ref)
-    if eui { AXUIElementSetAttributeValue(ref, axEnhancedUserInterface as CFString, kCFBooleanFalse) }
-    body()
-    if eui { AXUIElementSetAttributeValue(ref, axEnhancedUserInterface as CFString, kCFBooleanTrue) }
-}

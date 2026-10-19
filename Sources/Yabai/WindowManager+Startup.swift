@@ -7,8 +7,8 @@ extension WindowManager
 {
     func initialize()
     {
-        let systemElement = AXUIElementCreateSystemWide()
-        AXUIElementSetMessagingTimeout(systemElement, 1.0)
+        let systemElement = AXUIElement.systemWide()
+        systemElement.setMessagingTimeout(1.0)
         self.systemElement = systemElement
 
         focusFollowsMouseMode = .disabled

@@ -336,8 +336,7 @@ extension EventHandler
 
         let dt = OSTimer.milliseconds(from: lastCmdTabTime.load(ordering: .relaxed), to: OSTimer.now)
         if dt > 1500.0 {
-            var dummy: CFTypeRef?
-            AXUIElementCopyAttributeValue(application.ref, "__fence" as CFString, &dummy)
+            _ = application.ref.attribute("__fence")
         }
 
         if pendingWindowFocus.load(ordering: .relaxed) == false {

@@ -35,11 +35,7 @@ extension WindowManager
             iteration += 1
         }
 
-        AXUIElementSetAttributeValue(
-            target.ref,
-            Window.fullscreenAttribute as CFString,
-            target.reportsFullscreen ? kCFBooleanFalse : kCFBooleanTrue
-        )
+        target.ref.setAttribute(Window.fullscreenAttribute, to: !target.reportsFullscreen)
 
         // NOTE: After changing fullscreen, wait for the display animation to finish.
         waitForNativeFullscreenTransition()

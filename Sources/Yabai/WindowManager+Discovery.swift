@@ -153,8 +153,7 @@ extension WindowManager
             data.withUnsafeMutableBytes { $0.storeBytes(of: elementID, toByteOffset: 0xc, as: UInt64.self) }
             guard let element = AXUIElement.element(remoteToken: data) else { continue }
 
-            var role: CFTypeRef?
-            let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
+            let (role, error) = element.attributeValue(kAXRoleAttribute)
 
             // NOTE: An unresponsive application makes each attempt wait for the messaging timeout, so give up on it.
             if error == .cannotComplete { break }

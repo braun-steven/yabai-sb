@@ -62,7 +62,7 @@ extension WindowManager
             if animate {
                 animateWindow(WindowPlacement(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
             } else {
-                axEnhancedUIWorkaround(target.application.ref) { target.resize(width: dx, height: dy) }
+                target.application.ref.withEnhancedUserInterfaceDisabled { target.resize(width: dx, height: dy) }
             }
         } else {
             target.resizeRelative(frame: target.axFrame, direction: direction, dx: dx, dy: dy, animate: animate)

@@ -191,21 +191,12 @@ final class DisplayManager
     /// The window under a point, found through the accessibility element at it.
     private func element(at point: CGPoint) -> AXUIElement?
     {
-        var elementRef: AXUIElement?
-        AXUIElementCopyElementAtPosition(WindowManager.shared.systemElement!, Float(point.x), Float(point.y), &elementRef)
-        guard let elementRef else { return nil }
-
-        var role: CFTypeRef?
-        AXUIElementCopyAttributeValue(elementRef, kAXRoleAttribute as CFString, &role)
-        guard let role else { return nil }
+        guard let elementRef = WindowManager.shared.systemElement!.element(at: point) else { return nil }
+        guard let role = elementRef.attribute(kAXRoleAttribute) else { return nil }
 
         if CFEqual(role, kAXWindowRole as CFString) { return elementRef }
 
-        var windowRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(elementRef, kAXWindowAttribute as CFString, &windowRef)
-        guard let windowRef else { return nil }
-
-        return (windowRef as! AXUIElement)
+        return elementRef.elementAttribute(kAXWindowAttribute)
     }
 }
 

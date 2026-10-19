@@ -90,7 +90,7 @@ extension WindowManager
         }
 
         if effects.fullscreen == true {
-            AXUIElementSetAttributeValue(target.ref, Window.fullscreenAttribute as CFString, kCFBooleanTrue)
+            target.ref.setAttribute(Window.fullscreenAttribute, to: true)
             target.isFullscreenByRule = true
         }
 

@@ -122,7 +122,7 @@ extension WindowManager
     {
         _SLPSSetFrontProcessWithOptions(process, windowID.rawValue, FrontProcessMode.userGenerated.rawValue)
         Self.makeKeyWindow(process, windowID)
-        AXUIElementPerformAction(reference, kAXRaiseAction as CFString)
+        reference.perform(kAXRaiseAction)
     }
 
     var focusedApplication: Application?

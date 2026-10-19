@@ -107,7 +107,7 @@ private enum WorkspaceLayout: String, CaseIterable
     return nil
 }
 
-@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     let wm = WindowManager.shared
     let value = message.next()
@@ -128,24 +128,23 @@ private enum WorkspaceLayout: String, CaseIterable
         if grid.scan(value) == 6 && grid.rows > 0 && grid.columns > 0 {
             wm.scratchpadGrid = grid
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     }
 }
 
 //
 // NOTE: space_layout takes one layout per display count, e.g. '15 10:5 10:5:1b'. The layouts are the
-// tokens that start with a digit, so the next command can follow them. Returns false when the message
-// is invalid and the remaining commands must not be run.
+// tokens that start with a digit, so the next command can follow them. An invalid value stops the
+// remaining commands of the message, since its layouts cannot be told apart from the next command.
 //
 
-@WM private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
+@WM private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
 {
     let sm = SpaceManager.shared
 
     if selSid != nil {
-        rsp.fail("command '\(command)' for domain '\(domain)' does not support the '\(Config.spaceSelector)' selector\n")
-        return false
+        throw CommandError("command '\(command)' for domain '\(domain)' does not support the '\(Config.spaceSelector)' selector\n", stopsMessage: true)
     }
 
     var value = message.next()
@@ -156,13 +155,13 @@ private enum WorkspaceLayout: String, CaseIterable
         } else {
             rsp.write("\(Argument.off)\n")
         }
-        return true
+        return
     }
 
     if value.equals(Argument.off) {
         sm.spaceLayoutSpec = nil
         sm.spaceLayouts = []
-        return true
+        return
     }
 
     func isLayout(_ token: Token) -> Bool
@@ -176,21 +175,18 @@ private enum WorkspaceLayout: String, CaseIterable
 
     while isLayout(value) {
         guard layoutList.count < SpaceLayout.max, let layout = SpaceLayout(parsing: value.bytes) else {
-            rsp.fail("invalid value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
-            return false
+            throw CommandError("invalid value '\(value)' given to command '\(command)' for domain '\(domain)'\n", stopsMessage: true)
         }
 
         if let repeated = layoutList.first(where: { $0.count == layout.count }) {
-            rsp.fail("value '\(value)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n")
-            return false
+            throw CommandError("value '\(value)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n", stopsMessage: true)
         }
 
         // NOTE: the C version built the spec in a buffer of 256 bytes, including the null terminator
         if !layoutList.isEmpty { spec.append(UInt8(ascii: " ")) }
         spec += value.bytes
         if spec.count >= 256 {
-            rsp.fail("value given to command '\(command)' for domain '\(domain)' is too long\n")
-            return false
+            throw CommandError("value given to command '\(command)' for domain '\(domain)' is too long\n", stopsMessage: true)
         }
 
         layoutList.append(layout)
@@ -200,14 +196,12 @@ private enum WorkspaceLayout: String, CaseIterable
     }
 
     if layoutList.isEmpty {
-        rsp.failUnknownValue(domain, command, value)
-        return false
+        throw CommandError.unknownValue(domain, command, value).stoppingMessage
     }
 
     sm.spaceLayouts = layoutList
     sm.spaceLayoutSpec = String(decoding: spec, as: UTF8.self)
     SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true)
-    return true
 }
 
 //
@@ -219,7 +213,7 @@ private enum WorkspaceLayout: String, CaseIterable
 // opacity above 0.
 //
 
-private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Float, allowZero: Bool) -> Float?
+private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Float, allowZero: Bool) throws(CommandError) -> Float?
 {
     let token = message.next()
     let value = token.value
@@ -232,11 +226,10 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
         return opacity
     }
 
-    rsp.failUnknownValue(domain, command, token)
-    return nil
+    throw CommandError.unknownValue(domain, command, token)
 }
 
-@WM private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     let wm = WindowManager.shared
     let token = message.next()
@@ -248,19 +241,19 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
         if duration == 0.0 {
             wm.windowAnimationDuration = duration
         } else if !ScriptingAddition.shared.isSIPFriendly {
-            rsp.fail("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
+            throw CommandError("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
         } else if CGPreflightScreenCaptureAccess() {
             wm.windowAnimationDuration = duration
         } else {
-            rsp.fail("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
             CGRequestScreenCaptureAccess()
+            throw CommandError("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
         }
     } else {
-        rsp.failUnknownValue(domain, command, token)
+        throw CommandError.unknownValue(domain, command, token)
     }
 }
 
-@WM private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?)
+@WM private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
 {
     let sm = SpaceManager.shared
     let value = message.next()
@@ -272,21 +265,20 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
     }
 
     guard let layout = [ViewType.float, .tree].first(where: { value.equals($0.rawValue) }) else {
-        rsp.failUnknownValue(domain, command, value)
-        return
+        throw CommandError.unknownValue(domain, command, value)
     }
 
     if selSid == nil {
         sm.setLayoutForAllSpaces(layout)
     } else if let selSid, !selSid.isUser {
-        rsp.fail("cannot set layout for a macOS fullscreen space!\n")
+        throw CommandError("cannot set layout for a macOS fullscreen space!\n")
     } else if let selSid {
         sm.view(for: selSid).overrides.insert(.layout)
         sm.setLayout(layout, for: selSid)
     }
 }
 
-@WM private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     let dm = DisplayManager.shared
     let value = message.next()
@@ -314,7 +306,7 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
         return
     }
 
-    rsp.fail("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+    throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
 }
 
 private func spacing(for command: Token) -> ViewSpacing?
@@ -339,8 +331,9 @@ private func cInt(_ value: Float) -> Int
     return Int(value)
 }
 
-/// A color option: prints it as "0x%x", or sets it from a hexadecimal value. Returns true when it was set.
-private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ color: inout RGBAColor, allowZero: Bool = true) -> Bool
+/// A color option: prints it as "0x%x", or sets it from a hexadecimal value. Returns true when it was set, and throws an
+/// invalid value.
+private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ color: inout RGBAColor, allowZero: Bool = true) throws(CommandError) -> Bool
 {
     let token = message.next()
     switch token.value {
@@ -350,7 +343,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         color = RGBAColor(hex: hex)
         return true
     default:
-        rsp.failUnknownValue(domain, command, token)
+        throw CommandError.unknownValue(domain, command, token)
     }
     return false
 }
@@ -359,14 +352,14 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 // NOTE: The window_border options. Returns false when command is not one of them.
 //
 
-@WM private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
+@WM private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> Bool
 {
     let wm = WindowManager.shared
 
     if command.equals(Config.border) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { Border.refreshAll() }
+        if try parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { Border.refreshAll() }
     } else if command.equals(Config.borderHideSingle) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { Border.refreshAll() }
+        if try parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { Border.refreshAll() }
     } else if command.equals(Config.borderWidth) {
         let token = message.next()
         let value = token.value
@@ -376,12 +369,12 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             wm.windowBorderWidth = width
             Border.refreshAll()
         } else {
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.activeBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { Border.refreshAll() }
+        if try configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { Border.refreshAll() }
     } else if command.equals(Config.normalBorderColor) {
-        if configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { Border.refreshAll() }
+        if try configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { Border.refreshAll() }
     } else {
         return false
     }
@@ -393,12 +386,12 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 // NOTE: The tab_bar options. Returns false when command is not one of them.
 //
 
-@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
+@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> Bool
 {
     let wm = WindowManager.shared
 
     if command.equals(Config.tabBar) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { TabBar.refreshAll() }
+        if try parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { TabBar.refreshAll() }
     } else if command.equals(Config.tabBarHeight) {
         let token = message.next()
         switch token.value {
@@ -408,7 +401,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             wm.tabBarHeight = height
             TabBar.refreshAll()
         default:
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarOffset) {
         let token = message.next()
@@ -422,22 +415,22 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             wm.tabBarOffset = cInt(offset)
             TabBar.refreshAll()
         default:
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarIcons) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { TabBar.redrawAll() }
+        if try parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { TabBar.redrawAll() }
     } else if command.equals(Config.tabBarStyle) {
-        if let style = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarStyle) {
+        if let style = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarStyle) {
             wm.tabBarStyle = style
             TabBar.refreshAll()
         }
     } else if command.equals(Config.tabBarAppearance) {
-        if let appearance = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarAppearance) {
+        if let appearance = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarAppearance) {
             wm.tabBarAppearance = appearance
             TabBar.redrawAll()
         }
     } else if command.equals(Config.tabBarBackdrop) {
-        if let backdrop = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarBackdrop) {
+        if let backdrop = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarBackdrop) {
             wm.tabBarBackdrop = backdrop
             TabBar.refreshAll()
         }
@@ -450,7 +443,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             wm.tabBarCardPadding = padding
             TabBar.refreshAll()
         default:
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarWindowRadius) {
         let token = message.next()
@@ -461,7 +454,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             wm.tabBarWindowRadius = radius
             TabBar.redrawAll()
         default:
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarFont) {
         let value = message.next()
@@ -470,10 +463,10 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         } else if let name = String(validating: value.bytes, as: UTF8.self), TabBar.setFont(name) {
             TabBar.redrawAll()
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if let color = tabBarColor(for: command) {
-        if configColor(&rsp, domain, command, &message, &wm[keyPath: color]) {
+        if try configColor(&rsp, domain, command, &message, &wm[keyPath: color]) {
             if let custom = tabBarColorCustom(for: command) { wm[keyPath: custom] = true }
             TabBar.redrawAll()
         }
@@ -485,44 +478,44 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 }
 
 /// `handle_domain_config`
-@WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     var selSid: SpaceID?
     let selector = message.next()
     var command = selector
 
     if selector.equals(Config.spaceSelector) {
-        let spaceSelector = parseSpaceSelector(&rsp, message.next(), acting: nil, optional: false, CSelectorContext())
+        let spaceSelector = try parseSpaceSelector(message.next(), acting: nil, optional: false, CSelectorContext()).checked()
         guard spaceSelector.didParse, let target = spaceSelector.value else { return }
 
         selSid = target
         command = message.next()
     }
 
-    while command.isValid {
-        guard handleConfigCommand(&rsp, domain, command, &message, selSid) else { return }
-        command = message.next()
+    try runCommands(&rsp, &message, from: command) { (rsp, source, command) throws(CommandError) -> CommandResult in
+        try handleConfigCommand(&rsp, domain, command, &source, selSid)
+        return .done
     }
 }
 
-/// One command of the config domain. Returns false when the remaining commands must not be run.
-@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
+/// One command of the config domain.
+@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
 {
     let wm = WindowManager.shared
     let sm = SpaceManager.shared
     let dm = DisplayManager.shared
     let mouse = MouseState.shared
 
-    if configBorder(&rsp, domain, command, &message)  { return true }
-    if configTabBar(&rsp, domain, command, &message) { return true }
+    if try configBorder(&rsp, domain, command, &message)  { return }
+    if try configTabBar(&rsp, domain, command, &message) { return }
 
     if command.equals(Config.debugOutput) {
         var verbose = Log.verbose.load(ordering: .relaxed)
-        if parseConfigBool(&rsp, domain, command, &message, &verbose) {
+        if try parseConfigBool(&rsp, domain, command, &message, &verbose) {
             Log.verbose.store(verbose, ordering: .relaxed)
         }
     } else if command.equals(Config.mff) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
     } else if command.equals(Config.ffm) {
         let value = message.next()
         if !value.isValid {
@@ -532,33 +525,33 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
             wm.setFocusFollowsMouse(mode)
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if command.equals(Config.displayOrder) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: dm.order) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: dm.order) {
             dm.order = choice
         }
     } else if command.equals(Config.builtinLast) {
-        if parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }
+        if try parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }
     } else if command.equals(Config.windowOrigin) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
             wm.windowOriginMode = choice
         }
     } else if command.equals(Config.scratchpadExclusive) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadExclusive)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadExclusive)
     } else if command.equals(Config.scratchpadRaise) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadRaise)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadRaise)
     } else if command.equals(Config.scratchpadBelow) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadBelow) { wm.setScratchpadLayers() }
+        if try parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadBelow) { wm.setScratchpadLayers() }
     } else if command.equals(Config.scratchpadGrid) {
-        configScratchpadGrid(&rsp, domain, command, &message)
+        try configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.skipWindowFocusAnimation)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &sm.skipWindowFocusAnimation)
     } else if command.equals(Config.spaceLayout) {
-        if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
+        try configSpaceLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.opacity) {
         var enabled = wm.windowOpacityEnabled
-        if parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
+        if try parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
     } else if command.equals(Config.opacityDuration) {
         let token = message.next()
         let value = token.value
@@ -567,26 +560,26 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         } else if let duration = value.floatValue {
             wm.windowOpacityDuration = duration
         } else {
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.animationDuration) {
-        configAnimationDuration(&rsp, domain, command, &message)
+        try configAnimationDuration(&rsp, domain, command, &message)
     } else if command.equals(Config.animationEasing) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowAnimationEasing) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.windowAnimationEasing) {
             wm.windowAnimationEasing = choice
         }
     } else if command.equals(Config.shadow) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purifyMode) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.purifyMode) {
             wm.setPurifyMode(choice)
         }
     } else if command.equals(Config.menubarOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.menuBarOpacity, allowZero: true) { wm.setMenuBarOpacity(opacity) }
     } else if command.equals(Config.activeWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.activeWindowOpacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.activeWindowOpacity, allowZero: false) { wm.setActiveWindowOpacity(opacity) }
     } else if command.equals(Config.normalWindowOpacity) {
-        if let opacity = configOpacity(&rsp, domain, command, &message, current: wm.normalWindowOpacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
+        if let opacity = try configOpacity(&rsp, domain, command, &message, current: wm.normalWindowOpacity, allowZero: false) { wm.setNormalWindowOpacity(opacity) }
     } else if command.equals(Config.insertFeedbackColor) {
-        _ = configColor(&rsp, domain, command, &message, &wm.insertionFeedbackColor, allowZero: false)
+        _ = try configColor(&rsp, domain, command, &message, &wm.insertionFeedbackColor, allowZero: false)
     } else if let spacing = spacing(for: command) {
         let view = selSid.map { sm.view(for: $0) }
         let current = view.map { $0[keyPath: spacing.view] } ?? sm[keyPath: spacing.spaceManager]
@@ -603,53 +596,51 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
                 sm.setSpacingForAllSpaces(spacing, to: value)
             }
         default:
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(Config.layout) {
-        configLayout(&rsp, domain, command, &message, selSid)
+        try configLayout(&rsp, domain, command, &message, selSid)
     } else if command.equals(Config.treeOrientation) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.treeDefaultOrientation) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: sm.treeDefaultOrientation) {
             sm.treeDefaultOrientation = choice
         }
     } else if command.equals(Config.treeWorkspaceLayout) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: sm.treeWorkspaceTabbed ? WorkspaceLayout.tabbed : .default) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: sm.treeWorkspaceTabbed ? WorkspaceLayout.tabbed : .default) {
             sm.treeWorkspaceTabbed = choice == .tabbed
         }
     } else if command.equals(Config.treeAutotiling) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &sm.treeAutotiling)
+        _ = try parseConfigBool(&rsp, domain, command, &message, &sm.treeAutotiling)
     } else if command.equals(Config.focusWrapping) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.focusWrapping) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: wm.focusWrapping) {
             wm.focusWrapping = choice
         }
     } else if command.equals(Config.autoPadding) {
         if let selSid {
             var enabled = sm.view(for: selSid).autoPadding
-            if parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPadding(enabled, for: selSid) }
+            if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPadding(enabled, for: selSid) }
         } else {
             var enabled = sm.autoPadding
-            if parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
+            if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
         }
     } else if command.equals(Config.mouseModifier) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: mouse.modifier) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: mouse.modifier) {
             mouse.modifier = choice
         }
     } else if command.equals(Config.mouseAction1) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
             mouse.action1 = choice
         }
     } else if command.equals(Config.mouseAction2) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
             mouse.action2 = choice
         }
     } else if command.equals(Config.mouseDropAction) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.dropAction) {
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.dropAction) {
             mouse.dropAction = choice
         }
     } else if command.equals(Config.externalBar) {
-        configExternalBar(&rsp, domain, command, &message)
+        try configExternalBar(&rsp, domain, command, &message)
     } else {
-        rsp.failUnknownCommand(domain, command)
+        throw CommandError.unknownCommand(domain, command)
     }
-
-    return true
 }

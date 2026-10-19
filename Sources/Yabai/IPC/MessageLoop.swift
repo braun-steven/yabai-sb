@@ -131,26 +131,70 @@ struct ResponseWriter
     }
 }
 
-/// Runs the commands of a message.
+//
+// NOTE: A command of a domain is unknown to a group of commands, done, or stops the remaining commands of the message
+// without a failure, e.g. when a 'recent' selector found nothing. Failures are thrown (CommandError).
+//
+
+enum CommandResult
+{
+    case unknown
+    case done
+    case stop
+}
+
+//
+// NOTE: Runs the commands of a message from first on. A failing command writes its failure and the next command still
+// runs, unless the failure stops the message (CommandError.stopsMessage): handleMessage writes that one.
+//
+
+@WM func runCommands<Source: TokenSource>(_ rsp: inout Response, _ message: inout Source, from first: Token, _ run: (inout Response, inout Source, Token) throws(CommandError) -> CommandResult) throws(CommandError)
+{
+    var command = first
+    while command.isValid {
+        do {
+            if try run(&rsp, &message, command) == .stop { return }
+        } catch where !error.stopsMessage {
+            rsp.fail(error)
+        }
+        command = message.next()
+    }
+}
+
+/// Runs the commands of a message and writes the failure that ends it.
 @WM func handleMessage(_ response: inout Response, _ message: inout Message)
+{
+    do {
+        try handleDomain(&response, &message)
+    } catch {
+        response.fail(error)
+    }
+}
+
+//
+// NOTE: The throw of an unknown domain is kept out of handleMessage's do block: a do block that throws directly infers
+// any Error for its catch, not CommandError.
+//
+
+@WM private func handleDomain(_ response: inout Response, _ message: inout Message) throws(CommandError)
 {
     let domain = message.next()
 
     if domain.equals(Domain.config) {
-        handleDomainConfig(&response, domain, &message)
+        try handleDomainConfig(&response, domain, &message)
     } else if domain.equals(Domain.display) {
-        handleDomainDisplay(&response, domain, &message)
+        try handleDomainDisplay(&response, domain, &message)
     } else if domain.equals(Domain.space) {
-        handleDomainSpace(&response, domain, &message)
+        try handleDomainSpace(&response, domain, &message)
     } else if domain.equals(Domain.window) {
-        handleDomainWindow(&response, domain, &message)
+        try handleDomainWindow(&response, domain, &message)
     } else if domain.equals(Domain.query) {
-        handleDomainQuery(&response, domain, &message)
+        try handleDomainQuery(&response, domain, &message)
     } else if domain.equals(Domain.rule) {
-        handleDomainRule(&response, domain, &message)
+        try handleDomainRule(&response, domain, &message)
     } else if domain.equals(Domain.signal) {
-        handleDomainSignal(&response, domain, &message)
+        try handleDomainSignal(&response, domain, &message)
     } else {
-        response.fail("unknown domain '\(domain)'\n")
+        throw CommandError("unknown domain '\(domain)'\n")
     }
 }

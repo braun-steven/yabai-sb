@@ -9,7 +9,11 @@ import YabaiCore
 {
     var response = Response()
     var source = Message(message)
-    handleDomainConfig(&response, Token(Domain.config), &source)
+    do {
+        try handleDomainConfig(&response, Token(Domain.config), &source)
+    } catch {
+        response.fail(error)
+    }
     return response.text
 }
 
@@ -67,6 +71,11 @@ extension DaemonState
             #expect(sm.topPadding == 7)
 
             #expect(runConfig("not_an_option\0").contains("unknown command 'not_an_option'"))
+
+            // NOTE: a failing option writes its failure and the next option still runs; an invalid space_layout stops
+            // the message, since its layouts cannot be told apart from the next option
+            #expect(runConfig("top_padding\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'top_padding' for domain 'config'\n7\n")
+            #expect(runConfig("space_layout\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'space_layout' for domain 'config'\n")
         }
 
         @Test("message_config_values")

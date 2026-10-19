@@ -10,7 +10,7 @@ import YabaiCore
 // after Mission Control and display changes.
 //
 
-/// The outcome of a window command: success, or why it failed (`Response.failUnmanagedWindow` words the failures of
+/// The outcome of a window command: success, or why it failed (`checkManaged` in MessageWindow.swift words the failures of
 /// unmanaged windows).
 enum WindowOperationResult: Sendable
 {

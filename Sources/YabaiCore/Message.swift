@@ -258,6 +258,58 @@ public struct ResponseText: ExpressibleByStringInterpolation, Sendable
     }
 }
 
+/// Why a command failed: the text of its failure response, without the failure byte. Command code throws it, and the
+/// message handler writes it with `Response.fail(_:)`.
+public struct CommandError: Error, Sendable, CustomStringConvertible
+{
+    public var text: ResponseText
+    /// Whether the failure also skips the remaining commands of the message, e.g. after an invalid value whose
+    /// arguments cannot be told apart from the next command. Otherwise the next command still runs.
+    public var stopsMessage: Bool
+
+    public init(_ text: ResponseText, stopsMessage: Bool = false)
+    {
+        self.text = text
+        self.stopsMessage = stopsMessage
+    }
+
+    /// One failure that lists several problems, e.g. every invalid key of a rule, in order.
+    public init(combining errors: [CommandError])
+    {
+        var text: ResponseText = ""
+        for error in errors { text.bytes += error.text.bytes }
+        self.init(text, stopsMessage: errors.contains { $0.stopsMessage })
+    }
+
+    /// The same failure, which also skips the remaining commands of the message.
+    public var stoppingMessage: CommandError
+    {
+        var copy = self
+        copy.stopsMessage = true
+        return copy
+    }
+
+    public var description: String { String(decoding: text.bytes, as: UTF8.self) }
+
+    /// The failure of a command the domain does not know.
+    public static func unknownCommand(_ domain: Token, _ command: Token) -> CommandError
+    {
+        CommandError("unknown command '\(command)' for domain '\(domain)'\n")
+    }
+
+    /// The failure of a command given an option it does not have.
+    public static func unknownOption(_ domain: Token, _ command: Token, _ option: Token) -> CommandError
+    {
+        CommandError("unknown option '\(option)' given to command '\(command)' for domain '\(domain)'\n")
+    }
+
+    /// The failure of a command given a value it does not accept.
+    public static func unknownValue(_ domain: Token, _ command: Token, _ value: Token) -> CommandError
+    {
+        CommandError("unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+    }
+}
+
 /// The response to a message (`FILE *rsp`).
 public struct Response: Sendable
 {
@@ -276,28 +328,10 @@ public struct Response: Sendable
         bytes += text.bytes
     }
 
-    /// `daemon_fail`
-    public mutating func fail(_ text: ResponseText)
+    /// Writes a failure: the failure byte, then its text.
+    public mutating func fail(_ error: CommandError)
     {
         bytes.append(Response.failureByte)
-        bytes += text.bytes
-    }
-
-    /// `daemon_fail_unknown_command`
-    public mutating func failUnknownCommand(_ domain: Token, _ command: Token)
-    {
-        fail("unknown command '\(command)' for domain '\(domain)'\n")
-    }
-
-    /// `daemon_fail_unknown_option`
-    public mutating func failUnknownOption(_ domain: Token, _ command: Token, _ option: Token)
-    {
-        fail("unknown option '\(option)' given to command '\(command)' for domain '\(domain)'\n")
-    }
-
-    /// `daemon_fail_unknown_value`
-    public mutating func failUnknownValue(_ domain: Token, _ command: Token, _ value: Token)
-    {
-        fail("unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+        bytes += error.text.bytes
     }
 }

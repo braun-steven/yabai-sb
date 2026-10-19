@@ -232,19 +232,22 @@ private func parseRuleFollowPrefix(_ effects: inout RuleEffects, _ value: Token)
 // NOTE: When a key is given more than once, the last value wins, a pattern with its exclusion.
 //
 
-/// `parse_rule`: the key-value pairs of a rule, from token to the end of the message.
-public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ rule: inout Rule, _ first: Token, _ context: C) -> Bool
+/// `parse_rule`: the key-value pairs of a rule, from token to the end of the message. Throws the problems of all the
+/// pairs together in one failure when the rule is invalid. Returns false, without a failure, when a display or space
+/// selector found nothing ('recent'): the rule is then not used either.
+public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ rule: inout Rule, _ first: Token, _ context: C) throws(CommandError) -> Bool
 {
     var unsupportedExclusion: Token?
     var didParse = true
     var hasFilter = false
+    var failures: [CommandError] = []
 
     var token = first
     while token.isValid {
         defer { token = message.next() }
 
         guard let pair = parseKeyValuePair(token) else {
-            rsp.fail("invalid key-value pair '\(token)'\n")
+            failures.append(CommandError("invalid key-value pair '\(token)'\n"))
             didParse = false
             continue
         }
@@ -281,7 +284,8 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
             validPattern = rule.subrole?.regex != nil
         } else if key.equals("display") {
             value = parseRuleFollowPrefix(&rule.effects, value)
-            let selector = parseDisplaySelector(&rsp, value, acting: context.activeDisplay, optional: false, context)
+            let selector = parseDisplaySelector(value, acting: context.activeDisplay, optional: false, context)
+            if let failure = selector.failure { failures.append(failure) }
             if selector.didParse, let did = selector.value {
                 rule.effects.did = did
             } else {
@@ -289,7 +293,8 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
             }
         } else if key.equals("space") {
             value = parseRuleFollowPrefix(&rule.effects, value)
-            let selector = parseSpaceSelector(&rsp, value, acting: context.activeSpace, optional: false, context)
+            let selector = parseSpaceSelector(value, acting: context.activeSpace, optional: false, context)
+            if let failure = selector.failure { failures.append(failure) }
             if selector.didParse, let sid = selector.value {
                 rule.effects.sid = sid
             } else {
@@ -316,7 +321,7 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
                 rule.effects.flags.insert(.layer)
             }
         } else {
-            rsp.fail("unknown key '\(key)'\n")
+            failures.append(CommandError("unknown key '\(key)'\n"))
             didParse = false
             continue
         }
@@ -325,26 +330,27 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
         if pair.exclusion && !isFilter { unsupportedExclusion = key }
 
         if !validValue {
-            rsp.fail("invalid value '\(value)' for key '\(key)'\n")
+            failures.append(CommandError("invalid value '\(value)' for key '\(key)'\n"))
             didParse = false
         }
 
         if !validPattern {
-            rsp.fail("invalid regex pattern '\(value)' for key '\(key)'\n")
+            failures.append(CommandError("invalid regex pattern '\(value)' for key '\(key)'\n"))
             didParse = false
         }
     }
 
     if !hasFilter {
-        rsp.fail("missing required key-value pair 'app[!]=..' or 'title[!]=..'\n")
+        failures.append(CommandError("missing required key-value pair 'app[!]=..' or 'title[!]=..'\n"))
         didParse = false
     }
 
     if let unsupportedExclusion {
-        rsp.fail("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n")
+        failures.append(CommandError("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n"))
         didParse = false
     }
 
+    if !failures.isEmpty { throw CommandError(combining: failures) }
     return didParse
 }
 
@@ -362,12 +368,13 @@ public struct EventSignal
 }
 
 /// `parse_signal`: the key-value pairs of a signal, to the end of the message. eventType looks up the name of an event
-/// (`signal_type_from_string`).
-public func parseSignal<Event>(_ rsp: inout Response, _ message: inout some TokenSource, _ signal: inout EventSignal, _ event: inout Event?, eventType: (Token) -> Event?) -> Bool
+/// (`signal_type_from_string`). Throws the problems of all the pairs together in one failure when the signal is invalid.
+public func parseSignal<Event>(_ message: inout some TokenSource, _ signal: inout EventSignal, _ event: inout Event?, eventType: (Token) -> Event?) throws(CommandError)
 {
     var unsupportedExclusion: Token?
     var didParse = true
     var hasSignalType = false
+    var failures: [CommandError] = []
     event = nil
 
     var token = message.next()
@@ -375,7 +382,7 @@ public func parseSignal<Event>(_ rsp: inout Response, _ message: inout some Toke
         defer { token = message.next() }
 
         guard let pair = parseKeyValuePair(token) else {
-            rsp.fail("invalid key-value pair '\(token)'\n")
+            failures.append(CommandError("invalid key-value pair '\(token)'\n"))
             didParse = false
             continue
         }
@@ -411,7 +418,7 @@ public func parseSignal<Event>(_ rsp: inout Response, _ message: inout some Toke
             event = eventType(value)
             validValue = event != nil
         } else {
-            rsp.fail("unknown key '\(key)'\n")
+            failures.append(CommandError("unknown key '\(key)'\n"))
             didParse = false
             continue
         }
@@ -419,30 +426,30 @@ public func parseSignal<Event>(_ rsp: inout Response, _ message: inout some Toke
         if pair.exclusion && !isFilter { unsupportedExclusion = key }
 
         if !validValue {
-            rsp.fail("invalid value '\(value)' for key '\(key)'\n")
+            failures.append(CommandError("invalid value '\(value)' for key '\(key)'\n"))
             didParse = false
         }
 
         if !validPattern {
-            rsp.fail("invalid regex pattern '\(value)' for key '\(key)'\n")
+            failures.append(CommandError("invalid regex pattern '\(value)' for key '\(key)'\n"))
             didParse = false
         }
     }
 
     if !hasSignalType {
-        rsp.fail("missing required key-value pair 'event=..'\n")
+        failures.append(CommandError("missing required key-value pair 'event=..'\n"))
         didParse = false
     }
 
     if signal.command == nil {
-        rsp.fail("missing required key-value pair 'action=..'\n")
+        failures.append(CommandError("missing required key-value pair 'action=..'\n"))
         didParse = false
     }
 
     if let unsupportedExclusion {
-        rsp.fail("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n")
+        failures.append(CommandError("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n"))
         didParse = false
     }
 
-    return didParse
+    if !didParse { throw CommandError(combining: failures) }
 }

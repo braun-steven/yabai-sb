@@ -5,7 +5,7 @@ import YabaiCore
 
 //
 // NOTE: The handler of the window domain. Its commands are grouped by what they change: the lifecycle
-// of a window, its placement, its tree container, its frame and its properties. Ported from src/message_window.c.
+// of a window, its placement, its tree container, its frame and its properties.
 //
 
 /// The commands and arguments of the window domain (`COMMAND_WINDOW_*` and `ARGUMENT_WINDOW_*`, src/message_parse.c).
@@ -43,15 +43,14 @@ private enum WindowCommand
     static let splitToggle       = "toggle"
 }
 
-extension Response
+/// Throws the failure of a window command whose acting or selected window is not managed; the other results are
+/// handled by the command or not reported.
+private func checkManaged(_ result: WindowOperationResult) throws(CommandError)
 {
-    mutating func failUnmanagedWindow(_ result: WindowOperationResult)
-    {
-        switch result {
-        case .invalidSourceView, .invalidSourceNode:           fail("the acting window is not managed.\n")
-        case .invalidDestinationView, .invalidDestinationNode: fail("the selected window is not managed.\n")
-        default:                                               break
-        }
+    switch result {
+    case .invalidSourceView, .invalidSourceNode:           throw CommandError("the acting window is not managed.\n")
+    case .invalidDestinationView, .invalidDestinationNode: throw CommandError("the selected window is not managed.\n")
+    default:                                               break
     }
 }
 
@@ -104,7 +103,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 // NOTE: Focusing, closing, minimizing and deminimizing windows.
 //
 
-@WM private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: inout Window?) -> CommandResult
+@WM private func windowCommandLifecycle(_ command: Token, _ message: inout some TokenSource, _ actingWindow: inout Window?) throws(CommandError) -> CommandResult
 {
     let context = CSelectorContext()
 
@@ -114,56 +113,67 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             _ = message.next()
 
             if windowTreeFocus(actingWindow, treeFocus) != .success {
-                rsp.fail("could not locate a container to focus.\n")
-                return .stop
+                throw CommandError("could not locate a container to focus.\n", stopsMessage: true)
             }
 
             return .done
         }
 
-        if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
+        do {
+            if !(try parseOptionalWindowSelector(&message, &actingWindow, context)) { return .stop }
+        } catch {
+            throw error.stoppingMessage
+        }
 
         if let window = actingWindow {
             WindowManager.shared.focusWithRaise(window)
             WindowManager.shared.setPendingFocus(window.id)
         } else {
-            rsp.fail("could not locate the window to act on!\n")
+            throw CommandError("could not locate the window to act on!\n")
         }
     } else if command.equals(WindowCommand.close) {
-        if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
+        do {
+            if !(try parseOptionalWindowSelector(&message, &actingWindow, context)) { return .stop }
+        } catch {
+            throw error.stoppingMessage
+        }
 
         if let window = actingWindow {
             if !window.close() {
-                rsp.fail("could not close window with id '\(Int32(bitPattern: window.id.rawValue))'.\n")
+                throw CommandError("could not close window with id '\(Int32(bitPattern: window.id.rawValue))'.\n")
             }
         } else {
-            rsp.fail("could not locate the window to act on!\n")
+            throw CommandError("could not locate the window to act on!\n")
         }
     } else if command.equals(WindowCommand.minimize) {
-        if !parseOptionalWindowSelector(&rsp, &message, &actingWindow, context) { return .stop }
+        do {
+            if !(try parseOptionalWindowSelector(&message, &actingWindow, context)) { return .stop }
+        } catch {
+            throw error.stoppingMessage
+        }
 
         if let window = actingWindow {
             let id = Int32(bitPattern: window.id.rawValue)
             let result = window.minimize()
             if result == .cannotMinimize {
-                rsp.fail("window with id '\(id)' does not support the minimize operation.\n")
+                throw CommandError("window with id '\(id)' does not support the minimize operation.\n")
             } else if result == .alreadyMinimized {
-                rsp.fail("window with id '\(id)' is already minimized.\n")
+                throw CommandError("window with id '\(id)' is already minimized.\n")
             } else if result == .minimizeFailed {
-                rsp.fail("could not minimize window with id '\(id)'.\n")
+                throw CommandError("could not minimize window with id '\(id)'.\n")
             }
         } else {
-            rsp.fail("could not locate the window to act on!\n")
+            throw CommandError("could not locate the window to act on!\n")
         }
     } else if command.equals(WindowCommand.deminimize) {
-        let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
+        let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
             let id = Int32(bitPattern: window.id.rawValue)
             let result = window.deminimize()
             if result == .notMinimized {
-                rsp.fail("window with id '\(id)' is not minimized.\n")
+                throw CommandError("window with id '\(id)' is not minimized.\n")
             } else if result == .deminimizeFailed {
-                rsp.fail("could not deminimize window with id '\(id)'.\n")
+                throw CommandError("could not deminimize window with id '\(id)'.\n")
             }
         }
     } else {
@@ -177,41 +187,41 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 // NOTE: Moving a window to another display, space or position in the tree.
 //
 
-@WM private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
+@WM private func windowCommandPlacement(_ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) throws(CommandError) -> CommandResult
 {
     let wm = WindowManager.shared
     let context = CSelectorContext()
 
     if command.equals(WindowCommand.display) {
-        let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: false, context)
+        let selector = try parseDisplaySelector(message.next(), acting: DisplayID.active, optional: false, context).checked()
         if selector.didParse, let target = selector.value {
             if let sid = target.currentSpace {
                 if sid.isFullscreen {
-                    rsp.fail("can not move window to a macOS fullscreen space!\n")
+                    throw CommandError("can not move window to a macOS fullscreen space!\n")
                 } else {
                     wm.sendWindow(actingWindow, to: sid, movedByRule: false)
                 }
             } else {
-                rsp.fail("could not locate the space to act on.\n")
+                throw CommandError("could not locate the space to act on.\n")
             }
         }
     } else if command.equals(WindowCommand.space) {
-        let selector = parseSpaceSelector(&rsp, message.next(), acting: SpaceID.active, optional: false, context)
+        let selector = try parseSpaceSelector(message.next(), acting: SpaceID.active, optional: false, context).checked()
         if selector.didParse, let target = selector.value {
             if target.isFullscreen {
-                rsp.fail("can not move window to a macOS fullscreen space!\n")
+                throw CommandError("can not move window to a macOS fullscreen space!\n")
             } else {
                 wm.sendWindow(actingWindow, to: target, movedByRule: false)
             }
         }
     } else if command.equals(WindowCommand.swap) {
-        let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
+        let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
             let result = wm.swapWindow(actingWindow, window)
             if result == .sameWindow {
-                rsp.fail("cannot swap a window with itself.\n")
+                throw CommandError("cannot swap a window with itself.\n")
             } else {
-                rsp.failUnmanagedWindow(result)
+                try checkManaged(result)
             }
         }
     } else if command.equals(WindowCommand.warp) {
@@ -219,30 +229,29 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             _ = message.next()
 
             if wm.treeMove(direction: direction, for: actingWindow) != .success {
-                rsp.fail("could not move the container in that direction.\n")
-                return .stop
+                throw CommandError("could not move the container in that direction.\n", stopsMessage: true)
             }
 
             return .done
         }
 
-        let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
+        let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
             let result = wm.warpWindow(actingWindow, window)
             if result == .sameWindow {
-                rsp.fail("cannot warp a window onto itself.\n")
+                throw CommandError("cannot warp a window onto itself.\n")
             } else {
-                rsp.failUnmanagedWindow(result)
+                try checkManaged(result)
             }
         }
     } else if command.equals(WindowCommand.stack) {
-        let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
+        let selector = try parseWindowSelector(message.next(), acting: actingWindow, optional: false, context).checked()
         if selector.didParse, let window = selector.value {
             let result = wm.stackWindow(actingWindow, window)
             if result == .sameWindow {
-                rsp.fail("cannot stack a window onto itself.\n")
+                throw CommandError("cannot stack a window onto itself.\n")
             } else {
-                rsp.failUnmanagedWindow(result)
+                try checkManaged(result)
             }
         }
     } else {
@@ -256,31 +265,26 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 // NOTE: The container of a window in the tree.
 //
 
-@WM func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
+@WM func windowCommandTree(_ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) throws(CommandError) -> CommandResult
 {
     let wm = WindowManager.shared
 
     if command.equals(WindowCommand.layout) {
         let value = message.next()
         guard let layout = parseWindowLayout(value) else {
-            rsp.failUnknownValue(domain, command, value)
-            return .stop
+            throw CommandError.unknownValue(domain, command, value).stoppingMessage
         }
 
-        rsp.failUnmanagedWindow(wm.setWindowLayout(actingWindow, layout))
+        try checkManaged(wm.setWindowLayout(actingWindow, layout))
     } else if command.equals(WindowCommand.split) {
         let value = message.next()
         guard let orientation = parseSplitOrientation(value) else {
-            rsp.failUnknownValue(domain, command, value)
-            return .stop
+            throw CommandError.unknownValue(domain, command, value).stoppingMessage
         }
 
-        rsp.failUnmanagedWindow(wm.treeSplit(orientation, for: actingWindow))
+        try checkManaged(wm.treeSplit(orientation, for: actingWindow))
     } else if command.equals(WindowCommand.insert) {
-        let selector = parseInsertSelector(&rsp, message.next())
-        if selector.didParse, let direction = selector.value {
-            rsp.failUnmanagedWindow(wm.setWindowInsertion(actingWindow, direction))
-        }
+        try checkManaged(wm.setWindowInsertion(actingWindow, try parseInsertSelector(message.next())))
     } else {
         return .unknown
     }
@@ -292,7 +296,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 // NOTE: The frame of a floating window and the share of a tiled one.
 //
 
-@WM private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
+@WM private func windowCommandFrame(_ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) throws(CommandError) -> CommandResult
 {
     let wm = WindowManager.shared
 
@@ -302,10 +306,10 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         if grid.scan(value) == 6 {
             let result = wm.applyGrid(grid, to: actingWindow)
             if result == .invalidSourceView {
-                rsp.fail("cannot apply grid layout to a managed window.\n")
+                throw CommandError("cannot apply grid layout to a managed window.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if command.equals(WindowCommand.move) {
         var type: [CChar] = []
@@ -314,10 +318,10 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         if value.scan(WindowCommand.moveFormat, &type, &point) == 3 {
             let result = wm.moveWindow(actingWindow, type: valueType(type), dx: point[0], dy: point[1])
             if result == .invalidSourceView {
-                rsp.fail("cannot move a managed window.\n")
+                throw CommandError("cannot move a managed window.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if command.equals(WindowCommand.resize) {
         var handle: [CChar] = []
@@ -326,14 +330,14 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         if value.scan(WindowCommand.resizeFormat, &handle, &size) == 3 {
             let result = wm.resizeWindow(actingWindow, direction: parseResizeHandle(Token(cString: handle)), dx: size[0], dy: size[1], animate: true)
             if result == .invalidSourceNode {
-                rsp.fail("cannot locate the container of the managed window.\n")
+                throw CommandError("cannot locate the container of the managed window.\n")
             } else if result == .invalidDestinationNode {
-                rsp.fail("cannot resize the container in that direction.\n")
+                throw CommandError("cannot resize the container in that direction.\n")
             } else if result == .invalidOperation {
-                rsp.fail("cannot use absolute resizing on a managed window.\n")
+                throw CommandError("cannot use absolute resizing on a managed window.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if command.equals(WindowCommand.ratio) {
         var type: [CChar] = []
@@ -342,12 +346,12 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         if value.scan(WindowCommand.ratioFormat, &type, &ratio) == 2 {
             let result = wm.adjustWindowRatio(for: actingWindow, type: valueType(type), ratio: ratio[0])
             if result == .invalidSourceView {
-                rsp.fail("cannot adjust ratio of a non-managed window.\n")
+                throw CommandError("cannot adjust ratio of a non-managed window.\n")
             } else if result == .invalidSourceNode {
-                rsp.fail("cannot adjust ratio of a root node.\n")
+                throw CommandError("cannot adjust ratio of a root node.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else {
         return .unknown
@@ -360,7 +364,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 // NOTE: Window properties: toggles, layer, opacity, order and scratchpads.
 //
 
-@WM private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
+@WM private func windowCommandProperty(_ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) throws(CommandError) -> CommandResult
 {
     let wm = WindowManager.shared
 
@@ -374,10 +378,10 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             if let window = actingWindow {
                 windowToggle(toggle, window)
             } else {
-                rsp.fail("could not locate the window to act on!\n")
+                throw CommandError("could not locate the window to act on!\n")
             }
         } else if !wm.toggleScratchpad(withLabel: value.string) {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
         return .done
     }
@@ -389,10 +393,10 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         let value = message.next()
         if let layer = parseLayer(value) {
             if !wm.setWindowLayer(actingWindow, to: layer) {
-                rsp.fail("could not change sub-layer of window with id '\(id)' due to an error with the scripting-addition.\n")
+                throw CommandError("could not change sub-layer of window with id '\(id)' due to an error with the scripting-addition.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, value)
+            throw CommandError.unknownValue(domain, command, value)
         }
     } else if command.equals(WindowCommand.opacity) {
         let token = message.next()
@@ -400,39 +404,35 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             if wm.setOpacity(for: actingWindow, to: opacity) {
                 actingWindow.opacity = opacity
             } else {
-                rsp.fail("could not change opacity of window with id '\(id)' due to an error with the scripting-addition.\n")
+                throw CommandError("could not change opacity of window with id '\(id)' due to an error with the scripting-addition.\n")
             }
         } else {
-            rsp.failUnknownValue(domain, command, token)
+            throw CommandError.unknownValue(domain, command, token)
         }
     } else if command.equals(WindowCommand.raise) || command.equals(WindowCommand.lower) {
         let raise = command.equals(WindowCommand.raise)
-        let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: true, CSelectorContext())
+        let selector = parseWindowSelector(message.next(), acting: actingWindow, optional: true, CSelectorContext())
         var relativeWid: WindowID?
 
         if selector.token.isValid {
+            if let failure = selector.failure { throw failure.stoppingMessage }
             guard selector.didParse, let window = selector.value else { return .stop }
             relativeWid = window.id
         }
 
         if !ScriptingAddition.shared.orderWindow(actingWindow.id, raise ? 1 : -1, relativeTo: relativeWid) {
-            rsp.fail("could not \(raise ? "raise" : "lower") window with id '\(id)' due to an error with the scripting-addition.\n")
+            throw CommandError("could not \(raise ? "raise" : "lower") window with id '\(id)' due to an error with the scripting-addition.\n")
         }
     } else if command.equals(WindowCommand.scratchpad) {
         let token = message.next()
         if token.isValid && token.equals(Argument.recover) {
             wm.recoverScratchpadWindows()
-        } else {
-            let parsed = parseLabel(&rsp, token, .window)
-            if parsed.valid {
-                if let label = parsed.label {
-                    if !wm.setScratchpad(for: actingWindow, label: label.string) {
-                        rsp.fail("the given scratchpad is already assigned to a different window!\n")
-                    }
-                } else if !wm.removeScratchpad(from: actingWindow, unfloat: true) {
-                    rsp.fail("the selected window was not assigned to a scratchpad!\n")
-                }
+        } else if let label = try parseLabel(token, .window) {
+            if !wm.setScratchpad(for: actingWindow, label: label.string) {
+                throw CommandError("the given scratchpad is already assigned to a different window!\n")
             }
+        } else if !wm.removeScratchpad(from: actingWindow, unfloat: true) {
+            throw CommandError("the selected window was not assigned to a scratchpad!\n")
         }
     } else {
         return .unknown
@@ -441,12 +441,11 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
     return .done
 }
 
-@WM func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    var command: Token
+    let command: Token
     var actingWindow: Window? = WindowManager.shared.actingWindow
-    var ignored = Response()
-    let selector = parseWindowSelector(&ignored, message.next(), acting: actingWindow, optional: true, CSelectorContext())
+    let selector = parseWindowSelector(message.next(), acting: actingWindow, optional: true, CSelectorContext())
 
     if selector.didParse {
         actingWindow = selector.value
@@ -455,26 +454,23 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
         command = selector.token
     }
 
-    while command.isValid {
+    try runCommands(&rsp, &message, from: command) { (_, source, command) throws(CommandError) -> CommandResult in
         if actingWindow == nil &&
            !command.equals(WindowCommand.focus) &&
            !command.equals(WindowCommand.close) &&
            !command.equals(WindowCommand.minimize) &&
            !command.equals(WindowCommand.deminimize) &&
            !command.equals(WindowCommand.toggle) {
-            rsp.fail("could not locate the window to act on!\n")
-            return
+            throw CommandError("could not locate the window to act on!\n", stopsMessage: true)
         }
 
-        var result = windowCommandLifecycle(&rsp, command, &message, &actingWindow)
-        if result == .unknown, let window = actingWindow { result = windowCommandPlacement(&rsp, command, &message, window) }
-        if result == .unknown { result = windowCommandTree(&rsp, domain, command, &message, actingWindow) }
-        if result == .unknown, let window = actingWindow { result = windowCommandFrame(&rsp, domain, command, &message, window) }
-        if result == .unknown { result = windowCommandProperty(&rsp, domain, command, &message, actingWindow) }
+        var result = try windowCommandLifecycle(command, &source, &actingWindow)
+        if result == .unknown, let window = actingWindow { result = try windowCommandPlacement(command, &source, window) }
+        if result == .unknown { result = try windowCommandTree(domain, command, &source, actingWindow) }
+        if result == .unknown, let window = actingWindow { result = try windowCommandFrame(domain, command, &source, window) }
+        if result == .unknown { result = try windowCommandProperty(domain, command, &source, actingWindow) }
+        if result == .unknown { throw CommandError.unknownCommand(domain, command) }
 
-        if result == .stop { return }
-        if result == .unknown { rsp.failUnknownCommand(domain, command) }
-
-        command = message.next()
+        return result
     }
 }

@@ -35,12 +35,12 @@ public func boolString(_ value: Bool) -> String
 }
 
 //
-// NOTE: config options print their current value when no value is given. These return true when
-// the next token of the message is a valid new value, so the caller can apply it.
+// NOTE: config options print their current value to the response when no value is given. These return true when
+// the next token of the message is a valid new value, so the caller can apply it, and throw when it is an invalid one.
 //
 
 /// `parse_config_bool`
-public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ flag: inout Bool) -> Bool
+public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ flag: inout Bool) throws(CommandError) -> Bool
 {
     let value = message.next()
     if !value.isValid {
@@ -52,7 +52,7 @@ public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: T
         flag = true
         return true
     } else {
-        rsp.failUnknownValue(domain, command, value)
+        throw CommandError.unknownValue(domain, command, value)
     }
 
     return false
@@ -63,8 +63,8 @@ public func parseConfigBool(_ rsp: inout Response, _ domain: Token, _ command: T
 // only the given choices are accepted (e.g. mouse_action1 takes move and resize, not swap).
 //
 
-/// `parse_config_choice`: the selected value, or nil when the current one was printed or the value is unknown.
-public func parseConfigChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) -> Choice?
+/// `parse_config_choice`: the selected value, or nil when the current one was printed. Throws for an unknown value.
+public func parseConfigChoice<Choice: RawRepresentable<String>>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ choices: [Choice], current: Choice) throws(CommandError) -> Choice?
 {
     let value = message.next()
     if !value.isValid {
@@ -74,14 +74,13 @@ public func parseConfigChoice<Choice: RawRepresentable<String>>(_ rsp: inout Res
 
     if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
 
-    rsp.failUnknownValue(domain, command, value)
-    return nil
+    throw CommandError.unknownValue(domain, command, value)
 }
 
 /// `parse_config_choice` among every case of the enum.
-public func parseConfigChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) -> Choice?
+public func parseConfigChoice<Choice: RawRepresentable<String> & CaseIterable>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, current: Choice) throws(CommandError) -> Choice?
 {
-    parseConfigChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
+    try parseConfigChoice(&rsp, domain, command, &message, Array(Choice.allCases), current: current)
 }
 
 /// An argument of a rule or signal: `key=value`, or `key!=value` for an exclusion.
@@ -228,21 +227,20 @@ public enum LabelKind: Sendable
     }
 }
 
-/// `parse_label`: valid with a nil label when the token is missing (to remove a label).
-public func parseLabel(_ rsp: inout Response, _ token: Token, _ kind: LabelKind) -> (valid: Bool, label: Token?)
+/// `parse_label`: nil when the token is missing (to remove a label), the token when it is a valid label, and throws
+/// the failure of an invalid one.
+public func parseLabel(_ token: Token, _ kind: LabelKind) throws(CommandError) -> Token?
 {
     switch token.value {
     case .invalid:
-        return (true, nil)
+        return nil
     case .string:
         if kind.isReserved(token) {
-            rsp.fail("'\(token)' is a reserved keyword and cannot be used as a \(kind.noun).\n")
-            return (false, nil)
+            throw CommandError("'\(token)' is a reserved keyword and cannot be used as a \(kind.noun).\n")
         }
-        return (true, token)
+        return token
     default:
-        rsp.fail("'\(token)' cannot be used as a label.\n")
-        return (false, nil)
+        throw CommandError("'\(token)' cannot be used as a label.\n")
     }
 }
 
@@ -251,7 +249,6 @@ public struct Properties: Sendable
 {
     public var token: Token
     public var didParse: Bool
-    public var didError = false
     public var flags: UInt64 = 0
 
     public init(token: Token, didParse: Bool)
@@ -267,11 +264,13 @@ public struct Properties: Sendable
 //
 
 /// `parse_properties`: names[i] selects values[i]. A token that starts with "--" is the next option, not properties.
-public func parseProperties(_ rsp: inout Response, _ token: Token, names: [String], values: [UInt64]) -> Properties
+/// Every invalid property is reported in one failure.
+public func parseProperties(_ token: Token, names: [String], values: [UInt64]) throws(CommandError) -> Properties
 {
     var result = Properties(token: token, didParse: token.isValid && !token.hasPrefix("--"))
     guard result.didParse else { return result }
 
+    var failures: [CommandError] = []
     let bytes = token.bytes
     var cursor = bytes.startIndex
 
@@ -289,13 +288,13 @@ public func parseProperties(_ rsp: inout Response, _ token: Token, names: [Strin
         if let index = names.firstIndex(where: { property.equals($0) }) {
             result.flags |= values[index]
         } else {
-            rsp.fail("'\(property)' is not a valid property.\n")
-            result.didError = true
+            failures.append(CommandError("'\(property)' is not a valid property.\n"))
         }
 
         cursor = end + 1
     }
 
+    if !failures.isEmpty { throw CommandError(combining: failures) }
     return result
 }
 
@@ -386,63 +385,72 @@ public protocol SelectorContext
 }
 
 /// `struct selector`: didParse is false when the token is no valid selector. A valid selector may still find nothing
-/// (nil), and then the parser has reported why.
+/// (nil); then `failure` says why, except for 'recent'.
 public struct Selection<Value>
 {
     public var token: Token
     public var didParse: Bool
     public var value: Value
+    /// Why the selector failed: an invalid token, or a valid one that found nothing. nil for a selector that found its value, an omitted optional one, or one that may find nothing (recent).
+    public var failure: CommandError? = nil
+
+    /// The selection, or its failure thrown.
+    public func checked() throws(CommandError) -> Selection
+    {
+        if let failure { throw failure }
+        return self
+    }
 }
 
 //
-// NOTE: Reports that a selector found nothing, described by what, and passes the result through.
+// NOTE: Records that a selector found nothing, described by what, as its failure, and passes the result through.
 //
 
-private func require<Value>(_ rsp: inout Response, _ value: Value?, _ what: String) -> Value?
+private func require<Value>(_ value: Value?, _ what: String, _ failure: inout CommandError?) -> Value?
 {
-    if value == nil { rsp.fail("could not locate \(what).\n") }
+    if value == nil { failure = CommandError("could not locate \(what).\n") }
     return value
 }
 
 /// `parse_display_selector`
-public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: DisplayID?, optional: Bool, _ context: C) -> Selection<DisplayID?>
+public func parseDisplaySelector<C: SelectorContext>(_ token: Token, acting: DisplayID?, optional: Bool, _ context: C) -> Selection<DisplayID?>
 {
     var result = Selection<DisplayID?>(token: token, didParse: true, value: nil)
 
     switch token.value {
     case .int(let index):
         result.value = context.display(.arrangement(index))
-        if result.value == nil { rsp.fail("could not locate display with arrangement index '\(index)'.\n") }
+        if result.value == nil { result.failure = CommandError("could not locate display with arrangement index '\(index)'.\n") }
     case .string:
         let direction = parseDirection(token)
         let relative = direction != nil || token.equals(Argument.prev) || token.equals(Argument.next)
 
         if relative && acting == nil {
-            rsp.fail("could not locate the selected display.\n")
+            result.failure = CommandError("could not locate the selected display.\n")
         } else if let direction, let acting {
-            result.value = require(&rsp, context.display(.inDirection(direction, from: acting)), "\(directionDescription(direction)) display")
+            result.value = require(context.display(.inDirection(direction, from: acting)), "\(directionDescription(direction)) display", &result.failure)
         } else if token.equals(Argument.prev), let acting {
-            result.value = require(&rsp, context.display(.prev(acting)), "the previous display")
+            result.value = require(context.display(.prev(acting)), "the previous display", &result.failure)
         } else if token.equals(Argument.next), let acting {
-            result.value = require(&rsp, context.display(.next(acting)), "the next display")
+            result.value = require(context.display(.next(acting)), "the next display", &result.failure)
         } else if token.equals(Argument.first) {
-            result.value = require(&rsp, context.display(.first), "the first display")
+            result.value = require(context.display(.first), "the first display", &result.failure)
         } else if token.equals(Argument.last) {
-            result.value = require(&rsp, context.display(.last), "the last display")
+            result.value = require(context.display(.last), "the last display", &result.failure)
         } else if token.equals(Argument.recent) {
             result.value = context.display(.recent)
         } else if token.equals(Argument.mouse) {
-            result.value = require(&rsp, context.display(.cursor), "display containing cursor")
+            result.value = require(context.display(.cursor), "display containing cursor", &result.failure)
         } else if let id = context.displayLabel(token) {
             result.value = id
         } else {
             result.didParse = false
-            rsp.fail("value '\(token)' is not a valid option for DISPLAY_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for DISPLAY_SEL\n")
         }
     default:
         result.didParse = false
         if token.isValid || !optional {
-            rsp.fail("value '\(token)' is not a valid option for DISPLAY_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for DISPLAY_SEL\n")
         }
     }
 
@@ -450,41 +458,41 @@ public func parseDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ to
 }
 
 /// `parse_space_selector`
-public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: SpaceID?, optional: Bool, _ context: C) -> Selection<SpaceID?>
+public func parseSpaceSelector<C: SelectorContext>(_ token: Token, acting: SpaceID?, optional: Bool, _ context: C) -> Selection<SpaceID?>
 {
     var result = Selection<SpaceID?>(token: token, didParse: true, value: nil)
 
     switch token.value {
     case .int(let index):
         result.value = context.space(.missionControl(index))
-        if result.value == nil { rsp.fail("could not locate space with mission-control index '\(index)'.\n") }
+        if result.value == nil { result.failure = CommandError("could not locate space with mission-control index '\(index)'.\n") }
     case .string:
         let relative = token.equals(Argument.prev) || token.equals(Argument.next)
 
         if relative && acting == nil {
-            rsp.fail("could not locate the selected space.\n")
+            result.failure = CommandError("could not locate the selected space.\n")
         } else if token.equals(Argument.prev), let acting {
-            result.value = require(&rsp, context.space(.prev(acting)), "the previous space")
+            result.value = require(context.space(.prev(acting)), "the previous space", &result.failure)
         } else if token.equals(Argument.next), let acting {
-            result.value = require(&rsp, context.space(.next(acting)), "the next space")
+            result.value = require(context.space(.next(acting)), "the next space", &result.failure)
         } else if token.equals(Argument.first) {
-            result.value = require(&rsp, context.space(.first), "the first space")
+            result.value = require(context.space(.first), "the first space", &result.failure)
         } else if token.equals(Argument.last) {
-            result.value = require(&rsp, context.space(.last), "the last space")
+            result.value = require(context.space(.last), "the last space", &result.failure)
         } else if token.equals(Argument.recent) {
             result.value = context.space(.recent)
         } else if token.equals(Argument.mouse) {
-            result.value = require(&rsp, context.space(.cursor), "space containing cursor")
+            result.value = require(context.space(.cursor), "space containing cursor", &result.failure)
         } else if let id = context.spaceLabel(token) {
             result.value = id
         } else {
             result.didParse = false
-            rsp.fail("value '\(token)' is not a valid option for SPACE_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for SPACE_SEL\n")
         }
     default:
         result.didParse = false
         if token.isValid || !optional {
-            rsp.fail("value '\(token)' is not a valid option for SPACE_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for SPACE_SEL\n")
         }
     }
 
@@ -492,22 +500,22 @@ public func parseSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ toke
 }
 
 /// `parse_stack_window_selector`: token is the part after "stack.".
-private func parseStackWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, _ acting: C.Window, _ didParse: inout Bool, _ context: C) -> C.Window?
+private func parseStackWindowSelector<C: SelectorContext>(_ token: Token, _ acting: C.Window, _ didParse: inout Bool, _ failure: inout CommandError?, _ context: C) -> C.Window?
 {
-    if token.equals(Argument.prev)   { return require(&rsp, context.window(.stackPrev(acting)), "the prev stacked window") }
-    if token.equals(Argument.next)   { return require(&rsp, context.window(.stackNext(acting)), "the next stacked window") }
-    if token.equals(Argument.first)  { return require(&rsp, context.window(.stackFirst(acting)), "the first stacked window") }
-    if token.equals(Argument.last)   { return require(&rsp, context.window(.stackLast(acting)), "the last stacked window") }
-    if token.equals(Argument.recent) { return require(&rsp, context.window(.stackRecent(acting)), "the recent stacked window") }
+    if token.equals(Argument.prev)   { return require(context.window(.stackPrev(acting)), "the prev stacked window", &failure) }
+    if token.equals(Argument.next)   { return require(context.window(.stackNext(acting)), "the next stacked window", &failure) }
+    if token.equals(Argument.first)  { return require(context.window(.stackFirst(acting)), "the first stacked window", &failure) }
+    if token.equals(Argument.last)   { return require(context.window(.stackLast(acting)), "the last stacked window", &failure) }
+    if token.equals(Argument.recent) { return require(context.window(.stackRecent(acting)), "the recent stacked window", &failure) }
 
     if token.isValid, let index = token.positiveInteger, index > 0 {
         let window = context.window(.stackPosition(acting, index))
-        if window == nil { rsp.fail("could not locate the stacked window in position \(index).\n") }
+        if window == nil { failure = CommandError("could not locate the stacked window in position \(index).\n") }
         return window
     }
 
     didParse = false
-    rsp.fail("value '\(Argument.stackPrefix)\(token)' is not a valid option for WINDOW_SEL\n")
+    failure = CommandError("value '\(Argument.stackPrefix)\(token)' is not a valid option for WINDOW_SEL\n")
     return nil
 }
 
@@ -517,49 +525,49 @@ private func parseStackWindowSelector<C: SelectorContext>(_ rsp: inout Response,
 //
 
 /// `parse_window_selector`
-public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ token: Token, acting: C.Window?, optional: Bool, _ context: C) -> Selection<C.Window?>
+public func parseWindowSelector<C: SelectorContext>(_ token: Token, acting: C.Window?, optional: Bool, _ context: C) -> Selection<C.Window?>
 {
     var result = Selection<C.Window?>(token: token, didParse: true, value: nil)
 
     switch token.value {
     case .int(let id):
         result.value = context.window(.id(WindowID(UInt32(truncatingIfNeeded: id))))
-        if result.value == nil { rsp.fail("could not locate window with the specified id '\(id)'.\n") }
+        if result.value == nil { result.failure = CommandError("could not locate window with the specified id '\(id)'.\n") }
     case .string:
         let direction = parseDirection(token)
         let stack = token.hasPrefix(Argument.stackPrefix)
         let relative = direction != nil || stack || token.equals(Argument.prev) || token.equals(Argument.next)
 
         if relative && acting == nil {
-            rsp.fail("could not locate the selected window.\n")
+            result.failure = CommandError("could not locate the selected window.\n")
         } else if let direction, let acting {
-            result.value = require(&rsp, context.window(.inDirection(direction, from: acting)), "\(directionDescription(direction)) managed window")
+            result.value = require(context.window(.inDirection(direction, from: acting)), "\(directionDescription(direction)) managed window", &result.failure)
         } else if token.equals(Argument.mouse) {
-            result.value = require(&rsp, context.window(.belowCursor), "a window below the cursor")
+            result.value = require(context.window(.belowCursor), "a window below the cursor", &result.failure)
         } else if token.equals(Argument.largest) {
-            result.value = require(&rsp, context.window(.largest), "window with the largest area")
+            result.value = require(context.window(.largest), "window with the largest area", &result.failure)
         } else if token.equals(Argument.smallest) {
-            result.value = require(&rsp, context.window(.smallest), "window with the smallest area")
+            result.value = require(context.window(.smallest), "window with the smallest area", &result.failure)
         } else if token.equals(Argument.prev), let acting {
-            result.value = require(&rsp, context.window(.prev(acting)), "the prev managed window")
+            result.value = require(context.window(.prev(acting)), "the prev managed window", &result.failure)
         } else if token.equals(Argument.next), let acting {
-            result.value = require(&rsp, context.window(.next(acting)), "the next managed window")
+            result.value = require(context.window(.next(acting)), "the next managed window", &result.failure)
         } else if token.equals(Argument.first) {
-            result.value = require(&rsp, context.window(.first), "the first managed window")
+            result.value = require(context.window(.first), "the first managed window", &result.failure)
         } else if token.equals(Argument.last) {
-            result.value = require(&rsp, context.window(.last), "the last managed window")
+            result.value = require(context.window(.last), "the last managed window", &result.failure)
         } else if token.equals(Argument.recent) {
-            result.value = require(&rsp, context.window(.recent), "the most recently focused window")
+            result.value = require(context.window(.recent), "the most recently focused window", &result.failure)
         } else if stack, let acting {
-            result.value = parseStackWindowSelector(&rsp, token.dropFirst(Argument.stackPrefix.utf8.count), acting, &result.didParse, context)
+            result.value = parseStackWindowSelector(token.dropFirst(Argument.stackPrefix.utf8.count), acting, &result.didParse, &result.failure, context)
         } else {
             result.didParse = false
-            rsp.fail("value '\(token)' is not a valid option for WINDOW_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for WINDOW_SEL\n")
         }
     default:
         result.didParse = false
         if token.isValid || !optional {
-            rsp.fail("value '\(token)' is not a valid option for WINDOW_SEL\n")
+            result.failure = CommandError("value '\(token)' is not a valid option for WINDOW_SEL\n")
         }
     }
 
@@ -567,14 +575,15 @@ public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ tok
 }
 
 //
-// NOTE: An optional selector replaces the acting display, space or window when one is given. These
-// return false when the given selector does not select anything (the parser has reported why).
+// NOTE: An optional selector replaces the acting display, space or window when one is given. These throw the failure
+// of the given selector when it is invalid. They return false, without a failure, when a valid selector found nothing
+// ('recent'); the rest of the message is then skipped silently.
 //
 
 /// `parse_optional_display_selector`
-public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ did: inout DisplayID?, _ context: C) -> Bool
+public func parseOptionalDisplaySelector<C: SelectorContext>(_ message: inout some TokenSource, _ did: inout DisplayID?, _ context: C) throws(CommandError) -> Bool
 {
-    let selector = parseDisplaySelector(&rsp, message.next(), acting: did, optional: true, context)
+    let selector = try parseDisplaySelector(message.next(), acting: did, optional: true, context).checked()
     if !selector.token.isValid { return true }
     guard selector.didParse, let selected = selector.value else { return false }
 
@@ -583,9 +592,9 @@ public func parseOptionalDisplaySelector<C: SelectorContext>(_ rsp: inout Respon
 }
 
 /// `parse_optional_space_selector`
-public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ sid: inout SpaceID?, _ context: C) -> Bool
+public func parseOptionalSpaceSelector<C: SelectorContext>(_ message: inout some TokenSource, _ sid: inout SpaceID?, _ context: C) throws(CommandError) -> Bool
 {
-    let selector = parseSpaceSelector(&rsp, message.next(), acting: sid, optional: true, context)
+    let selector = try parseSpaceSelector(message.next(), acting: sid, optional: true, context).checked()
     if !selector.token.isValid { return true }
     guard selector.didParse, let selected = selector.value else { return false }
 
@@ -594,9 +603,9 @@ public func parseOptionalSpaceSelector<C: SelectorContext>(_ rsp: inout Response
 }
 
 /// `parse_optional_window_selector`
-public func parseOptionalWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ message: inout some TokenSource, _ window: inout C.Window?, _ context: C) -> Bool
+public func parseOptionalWindowSelector<C: SelectorContext>(_ message: inout some TokenSource, _ window: inout C.Window?, _ context: C) throws(CommandError) -> Bool
 {
-    let selector = parseWindowSelector(&rsp, message.next(), acting: window, optional: true, context)
+    let selector = try parseWindowSelector(message.next(), acting: window, optional: true, context).checked()
     if !selector.token.isValid { return true }
     guard selector.didParse, let selected = selector.value else { return false }
 
@@ -622,21 +631,13 @@ public enum InsertDirection: Int, Sendable
     public var direction: Direction? { Direction(rawValue: rawValue) }
 }
 
-/// `parse_insert_selector`
-public func parseInsertSelector(_ rsp: inout Response, _ token: Token) -> Selection<InsertDirection?>
+/// `parse_insert_selector`: throws when the token is neither a direction nor stack.
+public func parseInsertSelector(_ token: Token) throws(CommandError) -> InsertDirection
 {
-    var result = Selection<InsertDirection?>(token: token, didParse: true, value: nil)
+    if let direction = parseDirection(token) { return InsertDirection(direction) }
+    if token.equals(Argument.stack) { return .stack }
 
-    if let direction = parseDirection(token) {
-        result.value = InsertDirection(direction)
-    } else if token.equals(Argument.stack) {
-        result.value = .stack
-    } else {
-        result.didParse = false
-        rsp.fail("value '\(token)' is not a valid option for DIR_SEL\n")
-    }
-
-    return result
+    throw CommandError("value '\(token)' is not a valid option for DIR_SEL\n")
 }
 
 /// What `window --focus` focuses in a tree: a container in a direction, the parent or a child.
@@ -667,42 +668,36 @@ public enum QueryTarget<Window>
 
 //
 // NOTE: The optional '--display|--space|--window [SEL]' of a query, which defaults to the active one.
-// Without the option a query covers everything. Returns nil when the option or its selector is invalid.
+// Without the option a query covers everything. Throws when the option or its selector is invalid, and returns nil
+// without a failure when the selector found nothing ('recent'), so the query is skipped silently.
 //
 
 /// `parse_query_target` (src/message.c)
-public func parseQueryTarget<C: SelectorContext>(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ properties: Properties, _ context: C) -> QueryTarget<C.Window>?
+public func parseQueryTarget<C: SelectorContext>(_ domain: Token, _ command: Token, _ message: inout some TokenSource, _ properties: Properties, _ context: C) throws(CommandError) -> QueryTarget<C.Window>?
 {
     let option = properties.didParse ? message.next() : properties.token
 
     if option.equals("--display") {
         var did = context.activeDisplay
-        guard parseOptionalDisplaySelector(&rsp, &message, &did, context) else { return nil }
-        guard let did else {
-            rsp.fail("could not locate the selected display.\n")
-            return nil
-        }
+        guard try parseOptionalDisplaySelector(&message, &did, context) else { return nil }
+        guard let did else { throw CommandError("could not locate the selected display.\n") }
         return .display(did)
     }
 
     if option.equals("--space") {
         var sid = context.activeSpace
-        guard parseOptionalSpaceSelector(&rsp, &message, &sid, context) else { return nil }
-        guard let sid else {
-            rsp.fail("could not locate the selected space.\n")
-            return nil
-        }
+        guard try parseOptionalSpaceSelector(&message, &sid, context) else { return nil }
+        guard let sid else { throw CommandError("could not locate the selected space.\n") }
         return .space(sid)
     }
 
     if option.equals("--window") {
         var window = context.actingWindow
-        return parseOptionalWindowSelector(&rsp, &message, &window, context) ? .window(window) : nil
+        return try parseOptionalWindowSelector(&message, &window, context) ? .window(window) : nil
     }
 
     if option.isValid {
-        rsp.failUnknownOption(domain, command, option)
-        return nil
+        throw CommandError.unknownOption(domain, command, option)
     }
 
     return .all

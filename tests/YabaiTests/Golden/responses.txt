@@ -487,9 +487,9 @@ Menlo:14
 ### 39 signal --add event=bogus action=x
 invalid value 'bogus' for key 'event'
 
-### 89 signal --add label=x
+### 88 signal --add label=x
 missing required key-value pair 'event=..'
-missing required key-value pair 'action=..'
+missing required key-value pair 'action=..'
 
 ### 0 signal --add event=window_created action=true title!=^Untitled$ active=no
 

@@ -54,6 +54,19 @@ private struct FixtureContext: SelectorContext
 private let domain = Token("config")
 private let command = Token("test")
 
+/// The text of the failure that body throws, nil when it does not throw.
+private func thrownText(_ body: () throws(CommandError) -> Void) -> String?
+{
+    do { try body() } catch { return error.description }
+    return nil
+}
+
+/// The text of a selector's failure, empty when it has none.
+private func failureText(_ failure: CommandError?) -> String
+{
+    failure?.description ?? ""
+}
+
 @Test func messageTokens()
 {
     var message = Message("window\0--focus\0\0east\0\0")
@@ -93,7 +106,7 @@ private let command = Token("test")
 @Test func responseEchoesTokenBytes()
 {
     var rsp = Response()
-    rsp.failUnknownValue(domain, command, Token([0x66, 0xff]))
+    rsp.fail(.unknownValue(domain, command, Token([0x66, 0xff])))
     #expect(rsp.bytes == [0x07] + Array("unknown value 'f".utf8) + [0xff] + Array("' given to command 'test' for domain 'config'\n".utf8))
 }
 
@@ -101,8 +114,12 @@ private func parseBool(_ text: String, _ flag: inout Bool) -> (Bool, String)
 {
     var rsp = Response()
     var message = Message(text)
-    let result = parseConfigBool(&rsp, domain, command, &message, &flag)
-    return (result, rsp.text)
+    do {
+        let result = try parseConfigBool(&rsp, domain, command, &message, &flag)
+        return (result, rsp.text)
+    } catch {
+        return (false, error.description)
+    }
 }
 
 @Test("message_config_bool") func messageConfigBool()
@@ -140,12 +157,16 @@ private func parseChoice(_ text: String, _ choices: [TestAction], current: TestA
 {
     var rsp = Response()
     var message = Message(text)
-    let result = parseConfigChoice(&rsp, domain, command, &message, choices, current: current)
-    return (result, rsp.text)
+    do {
+        let result = try parseConfigChoice(&rsp, domain, command, &message, choices, current: current)
+        return (result, rsp.text)
+    } catch {
+        return (nil, error.description)
+    }
 }
 
 @Test("A config choice is one of the accepted raw values, and prints the current one without a value")
-func messageConfigChoice()
+func messageConfigChoice() throws
 {
     #expect(parseChoice("move\0", [.move, .resize], current: .none).0 == .move)
     #expect(parseChoice("resize\0", [.move, .resize], current: .none).0 == .resize)
@@ -159,7 +180,8 @@ func messageConfigChoice()
 
     var rsp = Response()
     var message = Message("swap\0")
-    #expect(parseConfigChoice(&rsp, domain, command, &message, current: TestAction.none) == .swap)
+    let chosen = try parseConfigChoice(&rsp, domain, command, &message, current: TestAction.none)
+    #expect(chosen == .swap)
 }
 
 @Test("message_window_toggle_lookup") func messageWindowToggleLookup()
@@ -178,9 +200,12 @@ func messageConfigChoice()
 
 private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: String, label: String?)
 {
-    var rsp = Response()
-    let result = parseLabel(&rsp, Token(text), kind)
-    return (rsp.text, result.valid ? result.label?.string : nil)
+    do {
+        let label = try parseLabel(Token(text), kind)
+        return ("", label?.string)
+    } catch {
+        return (error.description, nil)
+    }
 }
 
 @Test("message_label_reserved") func messageLabelReserved()
@@ -197,30 +222,27 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(parseLabelText("recent", .space).response.contains("reserved keyword"))
     #expect(parseLabelText("recover", .window).response.contains("reserved keyword"))
 
-    #expect(parseLabelText("12", .space).response == "\u{07}'12' cannot be used as a label.\n")
+    #expect(parseLabelText("12", .space).response == "'12' cannot be used as a label.\n")
 
-    var rsp = Response()
-    let missing = parseLabel(&rsp, Token(""), .space)
-    #expect(missing.valid == true && missing.label == nil && rsp.bytes.isEmpty)
+    // NOTE: a missing label is valid and removes the label
+    let missing = parseLabelText("", .space)
+    #expect(missing.response == "" && missing.label == nil)
 }
 
-@Test func messageProperties()
+@Test func messageProperties() throws
 {
     let names = ["id", "frame", "app"]
     let values: [UInt64] = [0x1, 0x2, 0x4]
 
-    var rsp = Response()
-    var properties = parseProperties(&rsp, Token("id,app"), names: names, values: values)
-    #expect(properties.didParse && !properties.didError && properties.flags == 0x5)
+    let properties = try parseProperties(Token("id,app"), names: names, values: values)
+    #expect(properties.didParse && properties.flags == 0x5)
 
-    properties = parseProperties(&rsp, Token("--window"), names: names, values: values)
-    #expect(!properties.didParse && properties.flags == 0)
-    #expect(rsp.bytes.isEmpty)
+    let option = try parseProperties(Token("--window"), names: names, values: values)
+    #expect(!option.didParse && option.flags == 0)
 
-    // NOTE: the last byte always belongs to the last property, even a comma
-    properties = parseProperties(&rsp, Token("id,,frame,"), names: names, values: values)
-    #expect(properties.didError && properties.flags == 0x1)
-    #expect(rsp.text == "\u{07}'' is not a valid property.\n\u{07}'frame,' is not a valid property.\n")
+    // NOTE: the last byte always belongs to the last property, even a comma; every invalid property is reported in one failure
+    let text = thrownText { () throws(CommandError) in _ = try parseProperties(Token("id,,frame,"), names: names, values: values) }
+    #expect(text == "'' is not a valid property.\n'frame,' is not a valid property.\n")
 }
 
 @Test func messageKeyValuePairs()
@@ -238,7 +260,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(parseKeyValuePair(Token("a!b=c"))?.key.string == "a!b")
 }
 
-@Test func messageValueParsers()
+@Test func messageValueParsers() throws
 {
     #expect(parseLayer(Token("above")) == .above)
     #expect(parseLayer(Token("top")) == nil)
@@ -247,11 +269,12 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(parseResizeHandle(Token("top_left")) == [.top, .left])
     #expect(parseResizeHandle(Token("middle")) == [])
 
-    var rsp = Response()
-    #expect(parseInsertSelector(&rsp, Token("stack")).value == .stack)
-    #expect(parseInsertSelector(&rsp, Token("south")).value == .south)
-    let invalid = parseInsertSelector(&rsp, Token("up"))
-    #expect(!invalid.didParse && rsp.text == "\u{07}value 'up' is not a valid option for DIR_SEL\n")
+    let stack = try parseInsertSelector(Token("stack"))
+    #expect(stack == .stack)
+    let south = try parseInsertSelector(Token("south"))
+    #expect(south == .south)
+    let text = thrownText { () throws(CommandError) in _ = try parseInsertSelector(Token("up")) }
+    #expect(text == "value 'up' is not a valid option for DIR_SEL\n")
 
     #expect(parseTreeFocus(Token("parent")) == .parent)
     #expect(parseTreeFocus(Token("east")) == .direction(.east))
@@ -261,105 +284,100 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
 @Test("message_selectors") func messageSelectors()
 {
     var context = FixtureContext()
-    var rsp = Response()
 
-    var window = parseWindowSelector(&rsp, Token("east"), acting: nil, optional: false, context)
+    var window = parseWindowSelector(Token("east"), acting: nil, optional: false, context)
     #expect(window.didParse == true)
     #expect(window.value == nil)
-    #expect(rsp.text.contains("could not locate the selected window."))
+    #expect(failureText(window.failure).contains("could not locate the selected window."))
 
-    rsp = Response()
-    window = parseWindowSelector(&rsp, Token("stack.bogus"), acting: nil, optional: false, context)
-    #expect(rsp.text.contains("could not locate the selected window."))
+    window = parseWindowSelector(Token("stack.bogus"), acting: nil, optional: false, context)
+    #expect(failureText(window.failure).contains("could not locate the selected window."))
 
-    rsp = Response()
-    window = parseWindowSelector(&rsp, Token("bogus"), acting: nil, optional: false, context)
+    window = parseWindowSelector(Token("bogus"), acting: nil, optional: false, context)
     #expect(window.didParse == false)
-    #expect(rsp.text.contains("value 'bogus' is not a valid option for WINDOW_SEL"))
+    #expect(failureText(window.failure).contains("value 'bogus' is not a valid option for WINDOW_SEL"))
 
-    rsp = Response()
-    var display = parseDisplaySelector(&rsp, Token("next"), acting: nil, optional: false, context)
-    #expect(rsp.text.contains("could not locate the selected display."))
+    var display = parseDisplaySelector(Token("next"), acting: nil, optional: false, context)
+    #expect(failureText(display.failure).contains("could not locate the selected display."))
 
-    rsp = Response()
-    display = parseDisplaySelector(&rsp, Token("unlabeled"), acting: nil, optional: false, context)
+    display = parseDisplaySelector(Token("unlabeled"), acting: nil, optional: false, context)
     #expect(display.didParse == false)
-    #expect(rsp.text.contains("is not a valid option for DISPLAY_SEL"))
+    #expect(failureText(display.failure).contains("is not a valid option for DISPLAY_SEL"))
 
     // NOTE: an optional selector that is missing does not report an error
-    rsp = Response()
-    var space = parseSpaceSelector(&rsp, Token(""), acting: nil, optional: true, context)
+    var space = parseSpaceSelector(Token(""), acting: nil, optional: true, context)
     #expect(space.didParse == false)
-    #expect(rsp.bytes.isEmpty)
+    #expect(space.failure == nil)
 
     context.recentSpace = 77
-    space = parseSpaceSelector(&rsp, Token("recent"), acting: nil, optional: true, context)
+    space = parseSpaceSelector(Token("recent"), acting: nil, optional: true, context)
     #expect(space.value == 77)
+    #expect(space.failure == nil)
 
     #expect(parseDirection(Token("west")) == .west)
     #expect(parseDirection(Token("up")) == nil)
 }
 
-@Test func messageSelectorLookups()
+@Test func messageSelectorLookups() throws
 {
     let context = FixtureContext(activeDisplay: 1, actingWindow: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2], spaceLabels: ["code": 11], windows: [7, 8], stack: [7, 9])
-    var rsp = Response()
 
-    #expect(parseDisplaySelector(&rsp, Token("2"), acting: 1, optional: false, context).value == 2)
-    #expect(parseDisplaySelector(&rsp, Token("main"), acting: 1, optional: false, context).value == 2)
-    #expect(parseDisplaySelector(&rsp, Token("last"), acting: 1, optional: false, context).value == 2)
-    #expect(rsp.bytes.isEmpty)
+    #expect(parseDisplaySelector(Token("2"), acting: 1, optional: false, context).value == 2)
+    #expect(parseDisplaySelector(Token("main"), acting: 1, optional: false, context).value == 2)
+    #expect(parseDisplaySelector(Token("last"), acting: 1, optional: false, context).value == 2)
 
-    #expect(parseDisplaySelector(&rsp, Token("3"), acting: 1, optional: false, context).value == nil)
-    #expect(rsp.text == "\u{07}could not locate display with arrangement index '3'.\n")
+    let third = parseDisplaySelector(Token("3"), acting: 1, optional: false, context)
+    #expect(third.value == nil)
+    #expect(failureText(third.failure) == "could not locate display with arrangement index '3'.\n")
 
-    rsp = Response()
-    #expect(parseDisplaySelector(&rsp, Token("west"), acting: 1, optional: false, context).didParse)
-    #expect(rsp.text == "\u{07}could not locate a westward display.\n")
+    let west = parseDisplaySelector(Token("west"), acting: 1, optional: false, context)
+    #expect(west.didParse)
+    #expect(failureText(west.failure) == "could not locate a westward display.\n")
 
-    rsp = Response()
-    #expect(parseSpaceSelector(&rsp, Token("code"), acting: 10, optional: false, context).value == 11)
-    #expect(parseSpaceSelector(&rsp, Token("0x10"), acting: 10, optional: true, context).didParse == false)
-    #expect(rsp.text == "\u{07}value '0x10' is not a valid option for SPACE_SEL\n")
+    #expect(parseSpaceSelector(Token("code"), acting: 10, optional: false, context).value == 11)
+    let hex = parseSpaceSelector(Token("0x10"), acting: 10, optional: true, context)
+    #expect(hex.didParse == false)
+    #expect(failureText(hex.failure) == "value '0x10' is not a valid option for SPACE_SEL\n")
 
-    rsp = Response()
-    #expect(parseWindowSelector(&rsp, Token("8"), acting: 7, optional: false, context).value == 8)
-    #expect(parseWindowSelector(&rsp, Token("first"), acting: nil, optional: false, context).value == 7)
-    #expect(parseWindowSelector(&rsp, Token("stack.2"), acting: 7, optional: false, context).value == 9)
-    #expect(rsp.bytes.isEmpty)
+    #expect(parseWindowSelector(Token("8"), acting: 7, optional: false, context).value == 8)
+    #expect(parseWindowSelector(Token("first"), acting: nil, optional: false, context).value == 7)
+    #expect(parseWindowSelector(Token("stack.2"), acting: 7, optional: false, context).value == 9)
 
-    #expect(parseWindowSelector(&rsp, Token("stack.3"), acting: 7, optional: false, context).value == nil)
-    #expect(rsp.text == "\u{07}could not locate the stacked window in position 3.\n")
+    let stackThree = parseWindowSelector(Token("stack.3"), acting: 7, optional: false, context)
+    #expect(stackThree.value == nil)
+    #expect(failureText(stackThree.failure) == "could not locate the stacked window in position 3.\n")
 
-    rsp = Response()
-    let stack = parseWindowSelector(&rsp, Token("stack.0"), acting: 7, optional: false, context)
-    #expect(stack.didParse == false)
-    #expect(rsp.text == "\u{07}value 'stack.0' is not a valid option for WINDOW_SEL\n")
+    let stackZero = parseWindowSelector(Token("stack.0"), acting: 7, optional: false, context)
+    #expect(stackZero.didParse == false)
+    #expect(failureText(stackZero.failure) == "value 'stack.0' is not a valid option for WINDOW_SEL\n")
 
-    rsp = Response()
-    #expect(parseWindowSelector(&rsp, Token("north"), acting: 7, optional: false, context).value == nil)
-    #expect(rsp.text == "\u{07}could not locate a northward managed window.\n")
+    let north = parseWindowSelector(Token("north"), acting: 7, optional: false, context)
+    #expect(north.value == nil)
+    #expect(failureText(north.failure) == "could not locate a northward managed window.\n")
 
-    rsp = Response()
     var message = Message("9\0")
     var acting: WindowID? = 7
-    #expect(parseOptionalWindowSelector(&rsp, &message, &acting, context) == false)
+    let unknownId = thrownText { () throws(CommandError) in _ = try parseOptionalWindowSelector(&message, &acting, context) }
+    #expect(unknownId == "could not locate window with the specified id '9'.\n")
     #expect(acting == 7)
-    #expect(rsp.text == "\u{07}could not locate window with the specified id '9'.\n")
 
     var sid: SpaceID? = 10
     message = Message("\0")
-    #expect(parseOptionalSpaceSelector(&rsp, &message, &sid, context) == true)
+    let found = try parseOptionalSpaceSelector(&message, &sid, context)
+    #expect(found == true)
     #expect(sid == 10)
 }
 
 private func parseQuery(_ option: String, _ context: FixtureContext = FixtureContext()) -> (QueryTarget<WindowID>?, String)
 {
-    var rsp = Response()
     var message = Message("\0")
     let properties = Properties(token: Token(option), didParse: false)
-    let target = parseQueryTarget(&rsp, Token("query"), Token("--windows"), &message, properties, context)
-    return (target, rsp.text)
+    do {
+        let target = try parseQueryTarget(Token("query"), Token("--windows"), &message, properties, context)
+        return (target, "")
+    } catch {
+        return (nil, error.description)
+    }
 }
 
 @Test("message_query_target") func messageQueryTarget()
@@ -375,21 +393,24 @@ private func parseQuery(_ option: String, _ context: FixtureContext = FixtureCon
     // NOTE: without an active display or space there is nothing to query, which is reported as a failure
     let (noDisplay, noDisplayResponse) = parseQuery("--display")
     #expect(noDisplay == nil)
-    #expect(noDisplayResponse == "\u{07}could not locate the selected display.\n")
+    #expect(noDisplayResponse == "could not locate the selected display.\n")
 
     let (noSpace, noSpaceResponse) = parseQuery("--space")
     #expect(noSpace == nil)
-    #expect(noSpaceResponse == "\u{07}could not locate the selected space.\n")
+    #expect(noSpaceResponse == "could not locate the selected space.\n")
 }
 
 private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureContext()) -> (Bool, Rule, String)
 {
-    var rsp = Response()
     var rule = Rule()
     var message = Message(text)
     let first = message.next()
-    let result = parseRule(&rsp, &message, &rule, first, context)
-    return (result, rule, rsp.text)
+    do {
+        let result = try parseRule(&message, &rule, first, context)
+        return (result, rule, "")
+    } catch {
+        return (false, rule, error.description)
+    }
 }
 
 @Test("message_rule_parse") func messageRuleParse()
@@ -474,21 +495,24 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
 
     (result, rule, response) = parseRuleText("app=x\0space=3\0opacity=1.5\0grid=2:2\0", context)
     #expect(result == false)
-    #expect(response == "\u{07}could not locate space with mission-control index '3'.\n\u{07}invalid value '1.5' for key 'opacity'\n\u{07}invalid value '2:2' for key 'grid'\n")
+    #expect(response == "could not locate space with mission-control index '3'.\ninvalid value '1.5' for key 'opacity'\ninvalid value '2:2' for key 'grid'\n")
 
     (result, _, response) = parseRuleText("app=x\0space=^\0bogus\0", context)
     #expect(result == false)
-    #expect(response == "\u{07}value '' is not a valid option for SPACE_SEL\n\u{07}invalid key-value pair 'bogus'\n")
+    #expect(response == "value '' is not a valid option for SPACE_SEL\ninvalid key-value pair 'bogus'\n")
 }
 
 private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String)
 {
-    var rsp = Response()
     var signal = EventSignal()
     var event: Int?
     var message = Message(text)
-    let result = parseSignal(&rsp, &message, &signal, &event) { ["window_focused": 7][$0.string] }
-    return (result, signal, event, rsp.text)
+    do {
+        try parseSignal(&message, &signal, &event) { ["window_focused": 7][$0.string] }
+        return (true, signal, event, "")
+    } catch {
+        return (false, signal, event, error.description)
+    }
 }
 
 @Test("message_signal_parse") func messageSignalParse()

@@ -156,13 +156,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | d293ffeb | |
+| **6** | **Async event loop and Observation** | [~] | e6466adc | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
 | 6.4 | IPC | [x] | 537f9265 | socket thread reads, serial queue writes; commands stay synchronous |
 | 6.5 | Observation | [x] | d293ffeb | `ConfigObserver` re-applies each set per `ConfigGroup`; model refreshes stay explicit |
-| 6.6 | Animation completion | [ ] | | |
+| 6.6 | Animation completion | [x] | e6466adc | completion stays on the display link, not awaited; fix: borders come back after an animation |
 | 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [ ] | | |
 
 Phases run in order: 2 builds on 1's types, 4 is cheap once functions are methods on `@WM` classes (3), 5 rewrites
@@ -451,6 +451,11 @@ Carried between phases; add, resolve or strike items here.
   live check should.
 - 5.6: `query --tree` over the socket took 0.41 → 0.48 ms (+0.07 ms) on a flat 5-window space; the `perf.py` metrics
   the rule names stayed within 10%. Accepted by the phase agent as sub-millisecond; 6.7 measures it again.
+- ~~An animated window lost its border for good: `Border.setSuspended(true)` in `animateWindowsAsync` had no
+  counterpart (also in the fork's C code, 669c888d); unseen because the user's yabairc sets
+  `window_animation_duration 0`.~~ Fixed in 6.6 (5563888e, `WindowAnimationDisplayLink.finish` un-suspends under
+  the animation lock). The user briefly decided to leave it, then decided to keep the fix (2026-10-20). 6.7 checks it
+  live with animations on.
 
 ## Reports
 
@@ -1165,3 +1170,22 @@ not here.
   window_shadow) still apply, and that focus-follows-mouse stays off while a menu is open.
 - Notes for the next agent: renderers apply after the response is written; a script that queries yabai next still
   sees the update (the event precedes its message), but one reading the window server at once may not.
+
+### 2026-10-20 Subphase 6.6 [x]
+- Commits: 5563888e..(this record)
+- Done: animation completion stays where it was. The event loop waits synchronously for the proxy workers, which
+  are dispatch workers running SkyLight captures: frames must not be set before the proxies are in, and the callers
+  (tree layout, commands) are synchronous. `WindowAnimationDisplayLink.finish` ends the animation on the main queue,
+  and nothing on `@WM` awaits it. The decision NOTE is above `animateWindowsAsync` (148bd4dc), and the AGENTS.md
+  rendering text is updated. Fix commit 5563888e: `finish` un-suspends the border of each window it did not skip,
+  under the `windowAnimations` lock (lock order windowAnimations → border lock; Border never takes the former).
+- Output changes: none in IPC. Visible: an animated window's border comes back when the animation ends. Before, it
+  stayed hidden until the window was destroyed: every show path goes through `updateLocked`, which hides a
+  suspended border. Animations are a fork-era unreleased path, so there is no CHANGELOG entry.
+- Verification: make, make test (75 + 61) pass at each commit; no live run (6.7).
+- Decisions: the event loop does not await the end of an animation, since the single consumer would hold every
+  event for the duration; setWindowFrames' `concurrentPerform` stays as well. User decision on the fix: briefly
+  revert and document a limitation (d4f0cf19), then keep the fix (e6466adc reapplies it).
+- Next: 6.7 should check live with `window_animation_duration` > 0 and borders on: the border returns after the
+  animation, and a re-animation mid-flight (takeover) keeps it hidden until the last animation ends.
+- Notes for the next agent: the history has a revert/reapply pair (d4f0cf19, e6466adc) from the user decision.

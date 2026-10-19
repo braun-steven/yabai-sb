@@ -85,7 +85,9 @@ private struct BorderSettings
     var normalColor = RGBAColor()
 }
 
-// NOTE: Every access to the reference objects in this state holds borderLock, including the main-thread callbacks.
+// NOTE: @unchecked Sendable: Border is a non-Sendable reference type. Every access to the borders in this state
+// holds borderLock, including the main-thread callbacks; without it, moving borders in and out of the lock fails
+// region checking.
 private struct BorderState: @unchecked Sendable
 {
     var borders: [WindowID: Border] = [:]

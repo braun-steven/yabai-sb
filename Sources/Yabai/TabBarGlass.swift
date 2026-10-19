@@ -1,5 +1,6 @@
 import AppKit
 import CPrivate
+import Synchronization
 import YabaiCore
 
 //
@@ -19,7 +20,8 @@ private struct Entry
 }
 
 //
-// NOTE: Immutable after init, so it can be handed to the main queue.
+// NOTE: @unchecked Sendable: CTFont and CFString (the font and the entry titles) are not Sendable, but the snapshot
+// only holds immutable CF objects and is immutable after init, so it can be handed to the main queue.
 //
 
 private struct Snapshot: @unchecked Sendable
@@ -545,16 +547,18 @@ private final class Panel
 //
 // NOTE: The object is created on the event loop thread, but AppKit only allows windows and views on the main thread.
 // The panel is therefore created by the first update that reaches the main queue. Until then hide and order are no-ops,
-// and the id of the panel is nil.
+// and the id of the panel is nil. The panel is @MainActor; the id is behind a Mutex, since the event loop reads it
+// (TabBar.cardID) while the main queue sets it.
 //
 
-final class TabBarGlass: @unchecked Sendable
+final class TabBarGlass: Sendable
 {
-    private let lock = NSLock()
-    private var panelId: WindowID?
-    private var panel: Panel? // main queue only
+    private let panelId = Mutex<WindowID?>(nil)
+    @MainActor private var panel: Panel?
 
-    var id: WindowID? { lock.withLock { panelId } }
+    init() {}
+
+    var id: WindowID? { panelId.withLock { $0 } }
 
     @MainActor
     fileprivate func apply(_ snapshot: Snapshot)
@@ -562,7 +566,7 @@ final class TabBarGlass: @unchecked Sendable
         let panel = self.panel ?? Panel()
         if self.panel == nil {
             self.panel = panel
-            lock.withLock { panelId = WindowID(nonzero: panel.id.rawValue) }
+            panelId.withLock { $0 = WindowID(nonzero: panel.id.rawValue) }
         }
         panel.apply(snapshot)
     }
@@ -585,7 +589,7 @@ final class TabBarGlass: @unchecked Sendable
     {
         panel?.close()
         panel = nil
-        lock.withLock { panelId = nil }
+        panelId.withLock { $0 = nil }
     }
 
     func pointer(windowID: WindowID?, pressed: Bool)

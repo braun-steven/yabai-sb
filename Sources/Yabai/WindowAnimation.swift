@@ -394,8 +394,9 @@ struct WindowFrameRequest
     let size: CGSize
 }
 
-// NOTE: @unchecked Sendable: one worker owns each group's error. The event loop reads it after
-// concurrentPerform joins. AX references are retained for the batch; workers never touch a model object.
+// NOTE: @unchecked Sendable: the group holds non-Sendable AX references and a mutable error. One worker owns each
+// group's error, and the event loop reads it after concurrentPerform joins. AX references are retained for the batch;
+// workers never touch a model object.
 final class WindowFrameGroup: @unchecked Sendable
 {
     let application: Application

@@ -86,7 +86,8 @@ private func missionControlNotificationHandler(_ observer: AXObserver, _ element
 }
 
 // NOTE: @unchecked because the AX references are not Sendable. They are only read and written under
-// MissionControl.stateLock, and unobserve() takes them out of it before it uses them.
+// MissionControl.stateLock, and unobserve() takes them out of it before it uses them. Without it, storing the
+// references in observe() fails region checking.
 private struct MissionControlState: @unchecked Sendable
 {
     var mode = MissionControlMode.inactive
@@ -96,7 +97,7 @@ private struct MissionControlState: @unchecked Sendable
 }
 
 /// Mission Control: its mode, and the observer of the Mission Control notifications of the Dock.
-final class MissionControl: @unchecked Sendable
+final class MissionControl: Sendable
 {
     // NOTE: Daemon.run calls observe() on the main thread during startup, while yabai.wm may already handle events.
     // After that, the yabai.wm handlers read and change mode, and dockDidRestart() calls unobserve() and observe().

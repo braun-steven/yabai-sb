@@ -156,11 +156,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | 6b78b534 | |
+| **6** | **Async event loop and Observation** | [~] | 537f9265 | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
-| 6.4 | IPC | [ ] | | |
+| 6.4 | IPC | [x] | 537f9265 | socket thread reads, serial queue writes; commands stay synchronous |
 | 6.5 | Observation | [ ] | | |
 | 6.6 | Animation completion | [ ] | | |
 | 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [ ] | | |
@@ -1120,3 +1120,19 @@ not here.
   application) and space layout reconcile live.
 - Notes for the next agent: `usleep` waits left (`SpaceID.waitForWindow(s)`, `toggleNativeFullscreen`) are 6.2/6.4
   decisions, not timers; `Service.swift`'s `usleep` is the launchd CLI.
+
+### 2026-10-20 Subphase 6.4 [x]
+- Commits: 33518665..(this record)
+- Done: the socket thread reads each message (`MessageLoop.readMessage`) and posts `.daemonMessage(DaemonMessage)`
+  (socket + bytes); `MessageLoop.handle` only logs, parses, runs and hands the response to a serial `yabai.ipc`
+  queue (`MessageLoop.send`, `ResponseWriter` folded in), so a stalled client blocks neither read nor write on the
+  event loop. Decision NOTEs in `MessageLoop.swift` and `WindowManager+Toggles.swift`; AGENTS.md IPC text updated.
+- Output changes: none (responses identical; a response may now reach its client after the message's signals spawn).
+- Verification: make, make test (69 + 61) pass at each commit; no live run (6.7).
+- Decisions: commands stay synchronous (no `await` in IPC handlers): the loop takes no other event during an await
+  anyway, chained commands rely on the state and waits of earlier ones, the per-event autorelease pool cannot span
+  an await, and yabai.wm runs no other code after startup. `toggleNativeFullscreen` and `SpaceID.waitForWindow(s)`
+  keep their blocking waits. Responses keep the order of the messages (one serial queue).
+- Next: 6.5 Observation. 6.7 should check IPC live (a `nc -U` client that sends nothing no longer stalls events).
+- Notes for the next agent: the socket fd is closed by the response queue with `Darwin.close` (as before), not
+  `UnixSocket.close` (which also shuts it down).

@@ -151,4 +151,69 @@ extension SLS
         CFNumberGetValue(number, .intType, &radius)
         return radius
     }
+
+    /// `SLSNewConnection`: a new connection to the window server; 0 if the call fails.
+    static func newConnection() -> Int32
+    {
+        var cid: Int32 = 0
+        SLSNewConnection(0, &cid)
+        return cid
+    }
+
+    /// `SLSReleaseConnection`
+    static func releaseConnection(_ cid: Int32)
+    {
+        SLSReleaseConnection(cid)
+    }
+
+    /// `SLSHWCaptureWindowList` of one window with the options (1 << 11) | (1 << 8): its image, nil if none.
+    static func captureImage(_ cid: Int32, of wid: WindowID) -> CGImage?
+    {
+        var capturedID = wid.rawValue
+        guard let images = SLSHWCaptureWindowList(cid, &capturedID, 1, (1 << 11) | (1 << 8)), CFArrayGetCount(images) > 0 else { return nil }
+        return unsafeBitCast(CFArrayGetValueAtIndex(images, 0), to: CGImage.self)
+    }
+
+    /// A SkyLight transaction: the changes it collects take effect together on `commit()`.
+    struct Transaction
+    {
+        private let ref: CFTypeRef
+
+        /// `SLSTransactionCreate`; nil if the call fails.
+        init?(_ cid: Int32)
+        {
+            guard let ref = SLSTransactionCreate(cid) else { return nil }
+            self.ref = ref
+        }
+
+        /// `SLSTransactionSetWindowTransform`
+        func setTransform(_ wid: WindowID, _ transform: CGAffineTransform)
+        {
+            SLSTransactionSetWindowTransform(ref, wid.rawValue, 0, 0, transform)
+        }
+
+        /// `SLSTransactionSetWindowAlpha`
+        func setAlpha(_ wid: WindowID, _ alpha: Float)
+        {
+            SLSTransactionSetWindowAlpha(ref, wid.rawValue, alpha)
+        }
+
+        /// `SLSTransactionSetWindowSystemAlpha`
+        func setSystemAlpha(_ wid: WindowID, _ alpha: Float)
+        {
+            SLSTransactionSetWindowSystemAlpha(ref, wid.rawValue, alpha)
+        }
+
+        /// `SLSTransactionOrderWindowGroup`
+        func orderGroup(_ wid: WindowID, _ order: Order, relativeTo relative: WindowID)
+        {
+            SLSTransactionOrderWindowGroup(ref, wid.rawValue, order.rawValue, relative.rawValue)
+        }
+
+        /// `SLSTransactionCommit`, asynchronously.
+        func commit()
+        {
+            SLSTransactionCommit(ref, 0)
+        }
+    }
 }

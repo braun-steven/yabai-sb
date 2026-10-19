@@ -56,20 +56,16 @@ extension WindowAnimation
 {
     fileprivate func createProxy(alpha: Float)
     {
-        guard let image = proxy.image else { return }
-        var region: CFTypeRef?
-        CGSNewRegionWithRect(&proxy.frame, &region)
-        guard let frameRegion = region, let emptyRegion = CGRegionCreateEmptyRegion() else { return }
-        var tags: UInt64 = 1 << 46
-        SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion,
-                                            13 | (1 << 18), &tags, 0, 0, 64, &proxy.id, nil)
-        SLS.disableShadow(WindowID(proxy.id))
-        SLSSetWindowOpacity(cid, proxy.id, false)
-        SLSSetWindowResolution(cid, proxy.id, 2)
-        SLSSetWindowAlpha(cid, proxy.id, alpha)
-        SLSSetWindowLevel(cid, proxy.id, proxy.level)
-        SLSSetWindowSubLevel(cid, proxy.id, proxy.subLevel)
-        proxy.context = SLWindowContextCreate(cid, proxy.id, nil)
+        guard let image = proxy.image, let frameRegion = SLS.region(proxy.frame),
+              let id = SLS.newWindow(cid, shape: frameRegion, options: 13 | (1 << 18), tags: 1 << 46) else { return }
+        proxy.id = id.rawValue
+        SLS.disableShadow(id)
+        SLS.setOpaque(cid, id, false)
+        SLS.setResolution(cid, id, 2)
+        SLS.setAlpha(cid, id, alpha)
+        SLS.setLevel(cid, id, proxy.level)
+        SLS.setSubLevel(cid, id, proxy.subLevel)
+        proxy.context = SLS.context(cid, id)
         let frame = CGRect(origin: .zero, size: proxy.frame.size)
         proxy.context?.clear(frame)
         proxy.context?.draw(image, in: frame)
@@ -81,7 +77,7 @@ extension WindowAnimation
         proxy.image = nil
         proxy.context = nil
         if proxy.id != 0 {
-            SLSReleaseWindow(cid, proxy.id)
+            SLS.releaseWindow(cid, WindowID(proxy.id))
             proxy.id = 0
         }
     }
@@ -136,18 +132,15 @@ extension WindowAnimation
 
     fileprivate func buildProxy()
     {
-        var alpha: Float = 1
-        SLSGetWindowAlpha(cid, wid.rawValue, &alpha)
+        let alpha = SLS.windowAlpha(cid, wid) ?? 1
         proxy.level = wid.level
         proxy.subLevel = wid.subLevel
-        SLSGetWindowBounds(cid, wid.rawValue, &proxy.frame)
+        proxy.frame = SLS.windowBounds(cid, wid) ?? proxy.frame
         proxy.tx = Float(proxy.frame.origin.x)
         proxy.ty = Float(proxy.frame.origin.y)
         proxy.tw = Float(proxy.frame.width)
         proxy.th = Float(proxy.frame.height)
-        var capturedID = wid.rawValue
-        if let images = SLSHWCaptureWindowList(cid, &capturedID, 1, (1 << 11) | (1 << 8)), CFArrayGetCount(images) > 0 {
-            let image = unsafeBitCast(CFArrayGetValueAtIndex(images, 0), to: CGImage.self)
+        if let image = SLS.captureImage(cid, of: wid) {
             proxy.image = alpha == 1 ? image : WindowAnimation.restoreAlpha(image)
         }
         createProxy(alpha: alpha)
@@ -194,7 +187,7 @@ private final class WindowAnimationDisplayLink: NSObject
         //
 
         windowAnimations.withLock { _ in
-            if let transaction = SLSTransactionCreate(connection) {
+            if let transaction = SLS.Transaction(connection) {
                 for animation in animations where !animation.skip {
                     animation.proxy.tx = Float((1 - Double(mt)) * animation.proxy.frame.origin.x + Double(mt * animation.x))
                     animation.proxy.ty = Float((1 - Double(mt)) * animation.proxy.frame.origin.y + Double(mt * animation.y))
@@ -203,12 +196,11 @@ private final class WindowAnimationDisplayLink: NSObject
                     let transform = CGAffineTransform(translationX: -CGFloat(animation.proxy.tx), y: -CGFloat(animation.proxy.ty))
                     let scale = CGAffineTransform(scaleX: animation.proxy.frame.width / CGFloat(animation.proxy.tw),
                                                   y: animation.proxy.frame.height / CGFloat(animation.proxy.th))
-                    SLSTransactionSetWindowTransform(transaction, animation.proxy.id, 0, 0, transform.concatenating(scale))
-                    var alpha: Float = 0
-                    SLSGetWindowAlpha(connection, animation.wid.rawValue, &alpha)
-                    if alpha != 0 { SLSTransactionSetWindowAlpha(transaction, animation.proxy.id, alpha) }
+                    transaction.setTransform(WindowID(animation.proxy.id), transform.concatenating(scale))
+                    let alpha = SLS.windowAlpha(connection, animation.wid) ?? 0
+                    if alpha != 0 { transaction.setAlpha(WindowID(animation.proxy.id), alpha) }
                 }
-                SLSTransactionCommit(transaction, 0)
+                transaction.commit()
             }
         }
         if t == 1 {
@@ -220,15 +212,15 @@ private final class WindowAnimationDisplayLink: NSObject
     private func finish()
     {
         windowAnimations.withLock { table in
-            SLSDisableUpdate(connection)
+            SLS.disableUpdate(connection)
             ScriptingAddition.shared.swapProxiesOut(animations)
             for animation in animations where !animation.skip {
                 table.removeValue(forKey: animation.wid)
                 animation.destroyProxy()
             }
-            SLSReenableUpdate(connection)
+            SLS.reenableUpdate(connection)
         }
-        SLSReleaseConnection(connection)
+        SLS.releaseConnection(connection)
     }
 }
 
@@ -250,13 +242,12 @@ extension WindowAnimation
         proxy.level = existing.proxy.level
         proxy.subLevel = existing.proxy.subLevel
         proxy.image = existing.proxy.image
-        var alpha: Float = 1
-        SLSGetWindowAlpha(cid, wid.rawValue, &alpha)
+        let alpha = SLS.windowAlpha(cid, wid) ?? 1
         createProxy(alpha: alpha)
-        if let transaction = SLSTransactionCreate(cid) {
-            SLSTransactionOrderWindowGroup(transaction, proxy.id, 1, wid.rawValue)
-            SLSTransactionSetWindowSystemAlpha(transaction, existing.proxy.id, 0)
-            SLSTransactionCommit(transaction, 0)
+        if let transaction = SLS.Transaction(cid) {
+            transaction.orderGroup(WindowID(proxy.id), .above, relativeTo: wid)
+            transaction.setSystemAlpha(WindowID(existing.proxy.id), 0)
+            transaction.commit()
         }
         existing.destroyProxy()
     }
@@ -266,13 +257,12 @@ extension WindowManager
 {
     private func animateWindowsAsync(_ list: [WindowPlacement])
     {
-        var connection: Int32 = 0
-        SLSNewConnection(0, &connection)
+        let connection = SLS.newConnection()
         let duration = windowAnimationDuration
         let easing = windowAnimationEasing
         let animations = list.map { WindowAnimation($0, connection: connection) }
         let workers = DispatchGroup()
-        SLSDisableUpdate(connection)
+        SLS.disableUpdate(connection)
         windowAnimations.withLock { table in
             for animation in animations {
                 if let existing = table[animation.wid] {
@@ -287,10 +277,9 @@ extension WindowManager
         ScriptingAddition.shared.swapProxiesIn(animations)
         for animation in animations { Border.setSuspended(true, for: animation.wid) }
         setWindowFrames(list)
-        SLSReenableUpdate(connection)
-        let animationConnection = connection
+        SLS.reenableUpdate(connection)
         DispatchQueue.main.async {
-            WindowAnimationDisplayLink(connection: animationConnection, animations: animations, duration: duration, easing: easing).start()
+            WindowAnimationDisplayLink(connection: connection, animations: animations, duration: duration, easing: easing).start()
         }
     }
 }
@@ -333,9 +322,7 @@ private extension Window
     func frameNeedsUpdate(x: Float, y: Float, w: Float, h: Float) -> Bool
     {
         if !frameRequest.isClose(x: x, y: y, w: w, h: h) { return true }
-        var bounds = CGRect.zero
-        let hasBounds = SLSGetWindowBounds(SLS.connection, id.rawValue, &bounds) == .success
-        return WindowManager.frameNeedsUpdate(request: frameRequest, bounds: hasBounds ? bounds : nil, x: x, y: y, w: w, h: h)
+        return WindowManager.frameNeedsUpdate(request: frameRequest, bounds: SLS.windowBounds(SLS.connection, id), x: x, y: y, w: w, h: h)
     }
 }
 

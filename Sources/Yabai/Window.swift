@@ -326,7 +326,7 @@ extension WindowID
     var spaces: [SpaceID] { SLS.spaces(SLS.connection, forWindows: [self]) }
     var isSticky: Bool { spaces.count > 1 }
     var hasShadow: Bool { (tags & 0x8) == 0 }
-    var opacity: Float { SLS.windowAlpha(SLS.connection, self) }
+    var opacity: Float { SLS.windowAlpha(SLS.connection, self) ?? 0 }
 
     private var queriedWindow: SLS.QueriedWindow?
     {

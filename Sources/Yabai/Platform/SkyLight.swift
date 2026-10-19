@@ -54,11 +54,11 @@ enum SLS
         return frame
     }
 
-    /// `SLSGetWindowAlpha`; 0 if the call fails, like `window_opacity`.
-    static func windowAlpha(_ cid: Int32, _ wid: WindowID) -> Float
+    /// `SLSGetWindowAlpha`; nil if the call fails.
+    static func windowAlpha(_ cid: Int32, _ wid: WindowID) -> Float?
     {
         var alpha: Float = 0
-        SLSGetWindowAlpha(cid, wid.rawValue, &alpha)
+        guard SLSGetWindowAlpha(cid, wid.rawValue, &alpha) == .success else { return nil }
         return alpha
     }
 

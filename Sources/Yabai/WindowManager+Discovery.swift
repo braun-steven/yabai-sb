@@ -151,10 +151,10 @@ extension WindowManager
             if unresolved.isEmpty { break }
 
             data.withUnsafeMutableBytes { $0.storeBytes(of: elementID, toByteOffset: 0xc, as: UInt64.self) }
-            guard let element = AXElement(remoteToken: data) else { continue }
+            guard let element = AXUIElement.element(remoteToken: data) else { continue }
 
             var role: CFTypeRef?
-            let error = AXUIElementCopyAttributeValue(element.ref, kAXRoleAttribute as CFString, &role)
+            let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
 
             // NOTE: An unresponsive application makes each attempt wait for the messaging timeout, so give up on it.
             if error == .cannotComplete { break }
@@ -165,7 +165,7 @@ extension WindowManager
                 if let elementWid, let i = unresolved.firstIndex(of: elementWid) {
                     unresolved[i] = unresolved[unresolved.count - 1]
                     unresolved.removeLast()
-                    createAndAddWindow(owner, reference: element.ref, id: elementWid, includingOneShotRules: false)
+                    createAndAddWindow(owner, reference: element, id: elementWid, includingOneShotRules: false)
                 }
             }
         }

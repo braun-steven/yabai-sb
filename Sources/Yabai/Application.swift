@@ -22,7 +22,7 @@ final class Application
 
     init(process: Process)
     {
-        ref = AXUIElementCreateApplication(process.pid)
+        ref = AXUIElement.application(process.pid)
         psn = process.psn
         pid = process.pid
         name = process.name
@@ -35,16 +35,15 @@ final class Application
     /// The AX notifications that `observe()` registered for this application.
     func observe() -> Bool
     {
-        var observer: AXObserver?
-        if AXObserverCreate(pid, applicationNotificationHandler, &observer) == .success, let observer {
+        if let observer = AXObserver.create(pid: pid, callback: applicationNotificationHandler) {
             observerRef = observer
 
             for notification in axApplicationNotifications {
-                let result = AXObserverAddNotification(observer, ref, notification.name as CFString, Unmanaged.passUnretained(self).toOpaque())
+                let result = observer.add(notification.name, for: ref, context: Unmanaged.passUnretained(self).toOpaque())
                 if result == .success || result == .notificationAlreadyRegistered {
                     notifications.insert(notification.notification)
                 } else {
-                    debug("Application.observe: error '\(axErrorName(result))' for application '\(name)' and notification '\(notification.text)'\n")
+                    debug("Application.observe: error '\(result.name)' for application '\(name)' and notification '\(notification.text)'\n")
 
                     // NOTE: Once an application times out, each remaining AX notification would wait for the same timeout.
                     if result == .cannotComplete {
@@ -55,7 +54,7 @@ final class Application
             }
 
             isObserving = true
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+            CFRunLoopAddSource(CFRunLoopGetMain(), observer.runLoopSource, .defaultMode)
         }
 
         return notifications.isSuperset(of: .required)
@@ -67,23 +66,19 @@ final class Application
 
         let observer = observerRef!
         for notification in axApplicationNotifications where notifications.contains(notification.notification) {
-            AXObserverRemoveNotification(observer, ref, notification.name as CFString)
+            observer.remove(notification.name, for: ref)
             notifications.remove(notification.notification)
         }
 
         isObserving = false
-        CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observer))
+        CFRunLoopSourceInvalidate(observer.runLoopSource)
         observerRef = nil
     }
 
     /// The id of this application's focused window, or nil.
     var focusedWindowID: WindowID?
     {
-        var windowRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXFocusedWindowAttribute as CFString, &windowRef)
-        guard let windowRef else { return nil }
-
-        return unsafeDowncast(windowRef, to: AXUIElement.self).windowID
+        return ref.elementAttribute(kAXFocusedWindowAttribute)?.windowID
     }
 
     var isFrontmost: Bool
@@ -95,11 +90,7 @@ final class Application
     /// The AX windows of this application, or nil.
     var windowList: CFArray?
     {
-        var value: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXWindowsAttribute as CFString, &value)
-        guard let value else { return nil }
-
-        return unsafeDowncast(value, to: CFArray.self)
+        return ref.arrayAttribute(kAXWindowsAttribute)
     }
 
     // NOTE: Keep the AX element and icon (which tab bars set) until `destroy()`.

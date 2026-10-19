@@ -103,20 +103,19 @@ final class MissionControl
         if isObserving { return }
 
         guard let pid = Workspace.dockPID else { return }
-        self.ref = AXUIElementCreateApplication(pid)
+        self.ref = AXUIElement.application(pid)
 
         guard let ref else { return }
 
-        var observerRef: AXObserver?
-        guard AXObserverCreate(pid, missionControlNotificationHandler, &observerRef) == .success, let observerRef else { return }
+        guard let observerRef = AXObserver.create(pid: pid, callback: missionControlNotificationHandler) else { return }
 
         for notification in Expose.all {
-            AXObserverAddNotification(observerRef, ref, notification as CFString, nil)
+            observerRef.add(notification, for: ref, context: nil)
         }
 
         self.observerRef = observerRef
         isObserving = true
-        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observerRef), .defaultMode)
+        CFRunLoopAddSource(CFRunLoopGetMain(), observerRef.runLoopSource, .defaultMode)
     }
 
     func unobserve()
@@ -124,11 +123,11 @@ final class MissionControl
         guard isObserving, let observerRef, let ref else { return }
 
         for notification in Expose.all {
-            AXObserverRemoveNotification(observerRef, ref, notification as CFString)
+            observerRef.remove(notification, for: ref)
         }
 
         isObserving = false
-        CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observerRef))
+        CFRunLoopSourceInvalidate(observerRef.runLoopSource)
         self.observerRef = nil
         self.ref = nil
     }

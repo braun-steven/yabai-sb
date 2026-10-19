@@ -75,56 +75,31 @@ final class Window
 
     func currentTitle() -> CFString?
     {
-        var value: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXTitleAttribute as CFString, &value)
-        return value.map { unsafeDowncast($0, to: CFString.self) }
+        return ref.stringAttribute(kAXTitleAttribute)
     }
 
     var axOrigin: CGPoint
     {
-        var origin = CGPoint.zero
-        var positionRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXPositionAttribute as CFString, &positionRef)
-        if let positionRef {
-            AXValueGetValue(unsafeDowncast(positionRef, to: AXValue.self), .cgPoint, &origin)
-        }
-        return origin
+        return ref.pointAttribute(kAXPositionAttribute) ?? .zero
     }
 
     var axFrame: CGRect
     {
-        var result = CGRect.zero
-        var positionRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXPositionAttribute as CFString, &positionRef)
-        AXUIElementCopyAttributeValue(ref, kAXSizeAttribute as CFString, &sizeRef)
-        if let positionRef {
-            AXValueGetValue(unsafeDowncast(positionRef, to: AXValue.self), .cgPoint, &result.origin)
-        }
-        if let sizeRef {
-            AXValueGetValue(unsafeDowncast(sizeRef, to: AXValue.self), .cgSize, &result.size)
-        }
-        return result
+        let origin = ref.pointAttribute(kAXPositionAttribute) ?? .zero
+        let size = ref.sizeAttribute(kAXSizeAttribute) ?? .zero
+        return CGRect(origin: origin, size: size)
     }
 
     func move(to point: CGPoint)
     {
         frameRequest.origin = point
-
-        var position = point
-        guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
-
-        AXUIElementSetAttributeValue(ref, kAXPositionAttribute as CFString, positionRef)
+        ref.setAttribute(kAXPositionAttribute, to: point)
     }
 
     func resize(width: Float, height: Float)
     {
         frameRequest.size = CGSize(width: CGFloat(width), height: CGFloat(height))
-
-        var size = CGSize(width: CGFloat(width), height: CGFloat(height))
-        guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
-
-        AXUIElementSetAttributeValue(ref, kAXSizeAttribute as CFString, sizeRef)
+        ref.setAttribute(kAXSizeAttribute, to: CGSize(width: CGFloat(width), height: CGFloat(height)))
     }
 
     func resizeRelative(frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool)
@@ -140,7 +115,7 @@ final class Window
         if animate {
             WindowManager.shared.animateWindow(WindowPlacement(window: self, x: x, y: y, w: width, h: height))
         } else {
-            axEnhancedUIWorkaround(application.ref) {
+            application.ref.withEnhancedUserInterfaceDisabled {
                 move(to: CGPoint(x: CGFloat(x), y: CGFloat(y)))
                 resize(width: width, height: height)
             }
@@ -162,38 +137,22 @@ final class Window
         }
     }
 
-    private func attributeIsSettable(_ attribute: String) -> Bool
-    {
-        var result: DarwinBoolean = false
-        if AXUIElementIsAttributeSettable(ref, attribute as CFString, &result) != .success {
-            result = false
-        }
-        return result.boolValue
-    }
-
-    var canMoveViaAccessibility: Bool { attributeIsSettable(kAXPositionAttribute) }
+    var canMoveViaAccessibility: Bool { ref.isAttributeSettable(kAXPositionAttribute) }
     var canMove: Bool { isMovable }
-    var canResizeViaAccessibility: Bool { attributeIsSettable(kAXSizeAttribute) }
+    var canResizeViaAccessibility: Bool { ref.isAttributeSettable(kAXSizeAttribute) }
     var canResize: Bool { isResizable }
-    var canMinimize: Bool { attributeIsSettable(kAXMinimizedAttribute) }
+    var canMinimize: Bool { ref.isAttributeSettable(kAXMinimizedAttribute) }
     var isUndersized: Bool { frame.width <= 500.0 || frame.height <= 500.0 }
 
-    private func booleanAttribute(_ attribute: CFString) -> Bool
-    {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(ref, attribute, &value) == .success, let value else { return false }
-        return CFBooleanGetValue(unsafeDowncast(value, to: CFBoolean.self))
-    }
-
-    var reportsMinimized: Bool { booleanAttribute(kAXMinimizedAttribute as CFString) }
-    var reportsFullscreen: Bool { booleanAttribute(Self.fullscreenAttribute as CFString) }
+    var reportsMinimized: Bool { ref.boolAttribute(kAXMinimizedAttribute) }
+    var reportsFullscreen: Bool { ref.boolAttribute(Self.fullscreenAttribute) }
 
     func minimize() -> WindowOperationResult
     {
         if !canMinimize { return .cannotMinimize }
         if isMinimized { return .alreadyMinimized }
 
-        let result = AXUIElementSetAttributeValue(ref, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
+        let result = ref.setAttribute(kAXMinimizedAttribute, to: true)
         return result == .success ? .success : .minimizeFailed
     }
 
@@ -201,42 +160,30 @@ final class Window
     {
         if !isMinimized { return .notMinimized }
 
-        let result = AXUIElementSetAttributeValue(ref, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        let result = ref.setAttribute(kAXMinimizedAttribute, to: false)
         return result == .success ? .success : .deminimizeFailed
     }
 
     /// Presses the close button when the window has one.
     func close() -> Bool
     {
-        var button: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXCloseButtonAttribute as CFString, &button)
-        guard let button else { return false }
+        guard let button = ref.elementAttribute(kAXCloseButtonAttribute) else { return false }
 
-        AXUIElementPerformAction(unsafeDowncast(button, to: AXUIElement.self), kAXPressAction as CFString)
+        button.perform(kAXPressAction)
         return true
     }
 
-    private var axRole: CFString?
-    {
-        var value: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXRoleAttribute as CFString, &value)
-        return value.map { unsafeDowncast($0, to: CFString.self) }
-    }
+    private var axRole: CFString? { ref.stringAttribute(kAXRoleAttribute) }
 
-    private var axSubrole: CFString?
-    {
-        var value: CFTypeRef?
-        AXUIElementCopyAttributeValue(ref, kAXSubroleAttribute as CFString, &value)
-        return value.map { unsafeDowncast($0, to: CFString.self) }
-    }
+    private var axSubrole: CFString? { ref.stringAttribute(kAXSubroleAttribute) }
 
     var roleString: String { role.map { $0 as String } ?? "" }
     var subroleString: String { subrole.map { $0 as String } ?? "" }
 
     private var hasApplicationAsParent: Bool
     {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(ref, kAXParentAttribute as CFString, &value) == .success else { return false }
+        let (value, error) = ref.attributeValue(kAXParentAttribute)
+        guard error == .success else { return false }
         return !(value != nil && !CFEqual(value, application.ref))
     }
 
@@ -292,11 +239,11 @@ final class Window
     {
         let observerRef = application.observerRef!
         for notification in axWindowNotifications {
-            let result = AXObserverAddNotification(observerRef, ref, notification.name as CFString, Unmanaged.passUnretained(self).toOpaque())
+            let result = observerRef.add(notification.name, for: ref, context: Unmanaged.passUnretained(self).toOpaque())
             if result == .success || result == .notificationAlreadyRegistered {
                 notifications.insert(notification.notification)
             } else {
-                debug("Window.observe: \(notification.text) failed with error \(axErrorName(result))\n")
+                debug("Window.observe: \(notification.text) failed with error \(result.name)\n")
             }
         }
         return notifications.isSuperset(of: .all)
@@ -306,7 +253,7 @@ final class Window
     {
         let observerRef = application.observerRef!
         for notification in axWindowNotifications where notifications.contains(notification.notification) {
-            AXObserverRemoveNotification(observerRef, ref, notification.name as CFString)
+            observerRef.remove(notification.name, for: ref)
             notifications.remove(notification.notification)
         }
     }

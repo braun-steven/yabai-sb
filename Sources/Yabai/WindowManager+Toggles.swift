@@ -33,8 +33,9 @@ extension WindowManager
     }
 
     //
-    // NOTE: The synchronous wait of toggleNativeFullscreen blocks the event loop. Window commands still run
-    // synchronously; phase 6.4 of doc/swift-refactor.md decides whether they may await.
+    // NOTE: toggleNativeFullscreen, a window command, waits synchronously. Commands do not await: the event loop
+    // takes no other event before the response anyway, the commands after it in the message rely on its wait, and
+    // the autorelease pool of the message cannot span an await (MessageLoop.handle).
     //
 
     private func blockUntilNativeFullscreenTransitionIsDone()

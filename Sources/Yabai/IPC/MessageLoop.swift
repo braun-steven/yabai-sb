@@ -113,6 +113,14 @@ enum MessageLoop
         return message
     }
 
+    //
+    // NOTE: The commands run synchronously, without an await. Other events could not run at an await either (the
+    // event loop awaits the handler before it takes the next one), the commands of a message rely on the state the
+    // earlier ones left (acting window, selectors), and the autorelease pool of the event cannot span an await.
+    // Waits inside commands (toggleNativeFullscreen, SpaceID.waitForWindow) block yabai.wm, which runs no other
+    // code after startup.
+    //
+
     /// Runs the commands of a message and hands its response to the queue of the responses.
     @WM static func handle(_ message: DaemonMessage)
     {

@@ -68,7 +68,7 @@ import YabaiCore
         eventSignalPush(.windowDestroyed, signalObject(window))
     }
 
-    window_manager_remove_scratchpad_for_window(wm, window, false)
+    wm.removeScratchpad(from: window, unfloat: false)
     wm.removeWindow(window.id)
     window.unobserve()
     window.destroy()

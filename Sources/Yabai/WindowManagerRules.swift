@@ -95,7 +95,7 @@ extension WindowManager
         }
 
         if let scratchpad = effects.scratchpad {
-            _ = window_manager_set_scratchpad_for_window(self, target, scratchpad)
+            _ = setScratchpad(for: target, label: scratchpad)
         }
 
         let grid = effects.grid

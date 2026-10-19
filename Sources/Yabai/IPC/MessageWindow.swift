@@ -376,7 +376,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
             } else {
                 rsp.fail("could not locate the window to act on!\n")
             }
-        } else if !window_manager_toggle_scratchpad_window_by_label(wm, value.string) {
+        } else if !wm.toggleScratchpad(withLabel: value.string) {
             rsp.failUnknownValue(domain, command, value)
         }
         return .done
@@ -421,15 +421,15 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     } else if command.equals(WindowCommand.scratchpad) {
         let token = message.next()
         if token.isValid && token.equals(Argument.recover) {
-            window_manager_scratchpad_recover_windows()
+            wm.recoverScratchpadWindows()
         } else {
             let parsed = parseLabel(&rsp, token, .window)
             if parsed.valid {
                 if let label = parsed.label {
-                    if !window_manager_set_scratchpad_for_window(wm, actingWindow, label.string) {
+                    if !wm.setScratchpad(for: actingWindow, label: label.string) {
                         rsp.fail("the given scratchpad is already assigned to a different window!\n")
                     }
-                } else if !window_manager_remove_scratchpad_for_window(wm, actingWindow, true) {
+                } else if !wm.removeScratchpad(from: actingWindow, unfloat: true) {
                     rsp.fail("the selected window was not assigned to a scratchpad!\n")
                 }
             }

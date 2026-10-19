@@ -546,7 +546,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.scratchpadRaise) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_raise)
     } else if command.equals(Config.scratchpadBelow) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_below) { window_manager_set_scratchpad_layers(wm) }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_below) { wm.setScratchpadLayers() }
     } else if command.equals(Config.scratchpadGrid) {
         configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {

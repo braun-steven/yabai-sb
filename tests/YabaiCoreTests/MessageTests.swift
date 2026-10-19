@@ -110,6 +110,56 @@ private func failureText(_ failure: CommandError?) -> String
     #expect(rsp.bytes == [0x07] + Array("unknown value 'f".utf8) + [0xff] + Array("' given to command 'test' for domain 'config'\n".utf8))
 }
 
+@Test("Config command names cover the daemon options and preserve their CLI spellings")
+func configCommandNames()
+{
+    #expect(ConfigCommand.Name.allCases.count == 59)
+    #expect(ConfigCommand.Name(Token("window_border")) == .windowBorder)
+    #expect(ConfigCommand.Name(Token("tree_default_orientation")) == .treeDefaultOrientation)
+    #expect(ConfigCommand.Name(Token("unknown_option")) == nil)
+}
+
+@Test("Config command parsing keeps a typed space scope and the following command token")
+func configCommandScope() throws
+{
+    var message = Message("3\0window_gap\0")
+    let (selector, command) = try ConfigCommand.parseScope(Token("--space"), &message)
+    #expect(selector == .missionControl(3))
+    #expect(command.equals("window_gap"))
+    #expect(try ConfigCommand.parseName(command) == .windowGap)
+
+    var unscoped = Message("unused\0")
+    let (noSelector, first) = try ConfigCommand.parseScope(Token("layout"), &unscoped)
+    #expect(noSelector == nil)
+    #expect(first.equals("layout"))
+    #expect(unscoped.next().equals("unused"))
+}
+
+@Test("Unknown config command errors retain the original token bytes")
+func configCommandUnknownName()
+{
+    let token = Token([0x78, 0xff])
+    var rsp = Response()
+    do {
+        _ = try ConfigCommand.parseName(token)
+    } catch {
+        rsp.fail(error)
+    }
+    #expect(rsp.bytes == [0x07] + Array("unknown command 'x".utf8) + [0xff] + Array("' for domain 'config'\n".utf8))
+}
+
+@Test("Config names parse one at a time without consuming the next command")
+func configCommandChainedNames() throws
+{
+    var message = Message("debug_output\0on\0window_gap\0" + "0\0")
+    let first = try ConfigCommand.parseName(message.next())
+    #expect(first == .debugOutput)
+    #expect(message.next().equals("on"))
+    let second = try ConfigCommand.parseName(message.next())
+    #expect(second == .windowGap)
+    #expect(message.next().equals("0"))
+}
+
 private func parseBool(_ text: String, _ flag: inout Bool) -> (Bool, String)
 {
     var rsp = Response()

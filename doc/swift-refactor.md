@@ -129,7 +129,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.2 | Bit fields → OptionSets and Bools | [x] | 78fcf65e | `Definitions.swift` deleted |
 | 2.3 | Typed IDs | [x] | c97529ef | own border/proxy windows stay raw |
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
-| 2.5 | Explicit orders, `Table` → `Dictionary` | [ ] | | |
+| 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [ ] | | |
 | **3** | **Models and managers as types with methods** | [ ] | | |
 | 3.1 | Tree and views | [ ] | | |
@@ -549,3 +549,21 @@ not here.
 - Notes for the next agent: `swift build` stops after the first failing batch; to see every type error of the Yabai
   target at once, run `swiftc -typecheck -wmo -continue-building-after-errors` over `Sources/Yabai` with
   `-I .build/out/Products/Debug` and the CPrivate/OSAX module maps (see AGENTS.md pitfall).
+
+### 2026-10-19 Subphase 2.5 [x]
+- Commits: 176f52db..e3b71ba1 (plus this report)
+- Done: 176f52db sorts the table loops whose order can show: `rule_apply`/`rule_reapply_all` and
+  `window_manager_find_application_windows` (app hide/show/terminate tiling) by window id, `window_manager_begin` by
+  pid, the `*_for_all_spaces` config loops, `space_manager_handle_display_add` and `tab_bar_refresh_all` by space id.
+  e3b71ba1: manager tables are `[pid_t: Application]`, `[WindowID: Window]`, `[WindowID: View]`, `[SpaceID: View]`,
+  `[ProcessKey: Process]` (new `ProcessKey`, both PSN longs) and `Set`s for the lost-focus/front-switch events;
+  `Table.swift` deleted; AGENTS.md updated.
+- Output changes: none (golden unchanged). Queries never read the tables: windows, spaces and displays come from
+  window server lists (space window order, Mission Control order, arrangement), so the old Table NOTE was stale.
+- Verification: `make`, `make test` (112 tests: 70 Yabai + 42 YabaiCore, golden included), `swift build -c release`.
+- Decisions: `add` keeps the existing value like `table_add` (`if dict[k] == nil`), except after an explicit remove
+  (space swap). Unsorted loops left as they are where order has no visible effect: opacity/purify updates, border
+  refreshes (each border orders against its own window), the SkyLight notification id list.
+- Next: 2.6 (verification; the live check could include `rule --apply` and app hide/show with several windows).
+- Notes for the next agent: Dictionary iteration order differs between runs; any new loop over `wm.window`,
+  `sm.view` or `pm.process` whose order can show must sort.

@@ -135,9 +135,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [ ] | | |
-| 3.1 | Tree and views | [ ] | | |
-| 3.2 | Windows, applications, rules | [ ] | | |
+| **3** | **Models and managers as types with methods** | [~] | f073c381 | paused by user during 3.2; see latest handover |
+| 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
+| 3.2 | Windows, applications, rules | [~] | f073c381 | operations converted; naming/accessor cleanup remains |
 | 3.3 | Spaces, displays, processes | [ ] | | |
 | 3.4 | Events, signals, rendering, input, SA, startup | [ ] | | |
 | 3.5 | Platform boundary | [ ] | | |

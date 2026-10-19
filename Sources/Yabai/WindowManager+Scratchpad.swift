@@ -58,7 +58,7 @@ extension WindowManager
         if let next = window(on: spaceID, byRank: 1, excluding: target.id) {
             focusWithRaise(next)
         } else {
-            _SLPSSetFrontProcessWithOptions(&ProcessManager.shared.finderPSN, 0, FrontProcessMode.noWindows.rawValue)
+            SLS.setFrontProcess(ProcessManager.shared.finderPSN, window: nil, mode: .noWindows)
         }
 
         ScriptingAddition.shared.orderWindow(target.id, 0, relativeTo: nil)

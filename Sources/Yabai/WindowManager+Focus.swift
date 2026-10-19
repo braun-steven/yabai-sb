@@ -8,14 +8,6 @@ import YabaiCore
 // NOTE: Focusing windows through synthesized event records, and the window that commands act on.
 //
 
-/// The options of `_SLPSSetFrontProcessWithOptions`: activate a process for a user action, or without raising any of
-/// its windows.
-enum FrontProcessMode: UInt32
-{
-    case userGenerated = 0x200
-    case noWindows     = 0x400
-}
-
 /// The size of the event records that SLPSPostEventRecordTo sends.
 private let eventRecordSize = 0x100
 
@@ -38,7 +30,7 @@ extension WindowManager
     }
 
     /// Posts the synthesized events that make an application window key.
-    private static func makeKeyWindow(_ process: UnsafeMutablePointer<ProcessSerialNumber>, _ windowID: WindowID)
+    private static func makeKeyWindow(_ process: ProcessSerialNumber, _ windowID: WindowID)
     {
         //
         // :SynthesizedEvent
@@ -54,10 +46,10 @@ extension WindowManager
             (bytes + 0x20).update(repeating: 0xff, count: 0x10)
 
             bytes[0x08] = 0x01
-            SLPSPostEventRecordTo(process, bytes)
+            SLS.postEventRecord(bytes, to: process)
 
             bytes[0x08] = 0x02
-            SLPSPostEventRecordTo(process, bytes)
+            SLS.postEventRecord(bytes, to: process)
         }
     }
 
@@ -65,7 +57,7 @@ extension WindowManager
     // NOTE: An event record of type 0x0d tells the application of windowID that the window lost (0x02) or gained
     // (0x01) focus, so focus can move between windows of one application without raising them.
     //
-    private static func postFocusRecord(to process: UnsafeMutablePointer<ProcessSerialNumber>, windowID: WindowID?, state: UInt8)
+    private static func postFocusRecord(to process: ProcessSerialNumber, windowID: WindowID?, state: UInt8)
     {
         withEventRecord { bytes in
             bytes[0x04] = 0xf8
@@ -73,14 +65,14 @@ extension WindowManager
 
             bytes[0x8a] = state
             storeWindowID(bytes, at: 0x3c, windowID)
-            SLPSPostEventRecordTo(process, bytes)
+            SLS.postEventRecord(bytes, to: process)
         }
     }
 
     func focusWithoutRaise(_ target: Window)
     {
         if target.application.psn.isSame(as: focusedWindowPSN) {
-            Self.postFocusRecord(to: &focusedWindowPSN, windowID: focusedWindowID, state: 0x02)
+            Self.postFocusRecord(to: focusedWindowPSN, windowID: focusedWindowID, state: 0x02)
 
             //
             // @hack
@@ -100,27 +92,27 @@ extension WindowManager
             return
         }
 
-        _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id.rawValue, FrontProcessMode.userGenerated.rawValue)
-        Self.makeKeyWindow(&target.application.psn, target.id)
+        SLS.setFrontProcess(target.application.psn, window: target.id, mode: .userGenerated)
+        Self.makeKeyWindow(target.application.psn, target.id)
     }
 
     func focusWithoutRaiseDeferred(_ target: Window)
     {
-        Self.postFocusRecord(to: &target.application.psn, windowID: target.id, state: 0x01)
+        Self.postFocusRecord(to: target.application.psn, windowID: target.id, state: 0x01)
 
-        _SLPSSetFrontProcessWithOptions(&target.application.psn, target.id.rawValue, FrontProcessMode.userGenerated.rawValue)
-        Self.makeKeyWindow(&target.application.psn, target.id)
+        SLS.setFrontProcess(target.application.psn, window: target.id, mode: .userGenerated)
+        Self.makeKeyWindow(target.application.psn, target.id)
     }
 
     func focusWithRaise(_ target: Window)
     {
-        focusWithRaise(process: &target.application.psn, windowID: target.id, reference: target.ref)
+        focusWithRaise(process: target.application.psn, windowID: target.id, reference: target.ref)
     }
 
     /// Focuses a window that is not represented by a managed `Window` model.
-    func focusWithRaise(process: UnsafeMutablePointer<ProcessSerialNumber>, windowID: WindowID, reference: AXUIElement)
+    func focusWithRaise(process: ProcessSerialNumber, windowID: WindowID, reference: AXUIElement)
     {
-        _SLPSSetFrontProcessWithOptions(process, windowID.rawValue, FrontProcessMode.userGenerated.rawValue)
+        SLS.setFrontProcess(process, window: windowID, mode: .userGenerated)
         Self.makeKeyWindow(process, windowID)
         reference.perform(kAXRaiseAction)
     }

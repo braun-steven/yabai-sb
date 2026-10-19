@@ -441,11 +441,9 @@ final class ScriptingAddition
 
     @discardableResult func orderIn(_ windows: [WindowID]) -> Bool
     {
-        var orderedIn: UInt8 = 0
         var payload = SAPayload(); payload.pack(Int32(windows.count))
         for wid in windows {
-            SLSWindowIsOrderedIn(SLS.connection, wid.rawValue, &orderedIn)
-            payload.pack(orderedIn != 0 ? 0 : wid.rawValue)
+            payload.pack(SLS.windowIsOrderedIn(SLS.connection, wid) ? 0 : wid.rawValue)
         }
         return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
     }

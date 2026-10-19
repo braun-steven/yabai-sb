@@ -32,18 +32,13 @@ extension WindowManager
     // own connection (borders, tab bars) are skipped.
     private func window(at point: CGPoint, startingBelow startID: WindowID?, order: Int32) -> Window?
     {
-        var point = point
-        var windowPoint = CGPoint.zero
-        var windowID: UInt32 = 0
-        var windowCid: Int32 = 0
-
-        SLSFindWindowAndOwner(SLS.connection, Int32(bitPattern: startID?.rawValue ?? 0), order, 0, &point, &windowPoint, &windowID, &windowCid)
-        while windowID != 0 && SLS.connection == windowCid {
-            SLSFindWindowAndOwner(SLS.connection, Int32(bitPattern: windowID), -1, 0, &point, &windowPoint, &windowID, &windowCid)
+        var (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: startID, order: order)
+        while let current = found, owner == SLS.connection {
+            (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: current, order: -1)
         }
 
-        guard let foundID = WindowID(nonzero: windowID) else { return nil }
-        return window(for: foundID)
+        guard let found else { return nil }
+        return window(for: found)
     }
 
     func window(at point: CGPoint, excluding windowID: WindowID) -> Window?

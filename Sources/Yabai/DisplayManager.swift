@@ -182,8 +182,8 @@ final class DisplayManager
 
         guard let elementID = elementRef.windowID else { return nil }
 
-        var elementPSN = SLS.connectionPSN(SLS.windowOwner(SLS.connection, elementID) ?? 0)
-        WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)
+        let elementPSN = SLS.connectionPSN(SLS.windowOwner(SLS.connection, elementID) ?? 0)
+        WindowManager.shared.focusWithRaise(process: elementPSN, windowID: elementID, reference: elementRef)
 
         return elementID
     }

@@ -12,7 +12,7 @@ extension EventHandler
 {
     func slsSpaceCreated(_ sid: SpaceID)
     {
-        let type = SLSSpaceGetType(SLS.connection, sid.rawValue)
+        let type = SLS.spaceType(SLS.connection, sid)
 
         if type == 0 || type == 4 {
             debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
@@ -49,7 +49,7 @@ extension EventHandler
         if wm.menuBarOpacity != 1.0 {
             let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
             let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
-            SLSSetMenuBarInsetAndAlpha(SLS.connection, 0, 1, alpha)
+            SLS.setMenuBarAlpha(SLS.connection, alpha)
         }
 
         let view = sm.currentSpaceID.map { sm.view(for: $0) }

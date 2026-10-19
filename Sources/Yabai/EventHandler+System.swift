@@ -88,7 +88,7 @@ extension EventHandler
         if wm.menuBarOpacity != 1.0 {
             let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
             let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
-            SLSSetMenuBarInsetAndAlpha(SLS.connection, 0, 1, alpha)
+            SLS.setMenuBarAlpha(SLS.connection, alpha)
         }
 
         if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {

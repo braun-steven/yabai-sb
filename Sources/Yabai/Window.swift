@@ -340,9 +340,7 @@ extension WindowID
     // Use the bounded sublevel request first when available.
     var subLevel: Int32
     {
-        var result: Int32 = 0
-        if SLSGetWindowSubLevelBounded(SLS.connection, rawValue, &result) { return result }
-        return SLS.windowSubLevel(SLS.connection, self)
+        return SLS.windowSubLevelBounded(SLS.connection, self) ?? SLS.windowSubLevel(SLS.connection, self)
     }
 
     var tags: UInt64 { queriedWindow?.tags ?? 0 }

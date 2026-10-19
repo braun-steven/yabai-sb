@@ -341,7 +341,7 @@ extension EventHandler
 
         if pendingWindowFocus.load(ordering: .relaxed) == false {
             if let psnSid, !psnSid.isVisible {
-                SLSSpaceSetFrontPSN(SLS.connection, psnSid.rawValue, process.psn)
+                SLS.setFrontProcess(SLS.connection, process.psn, forSpace: psnSid)
                 if let psnDid = psnSid.display {
                     SpaceManager.shared.focusSpaceUsingGesture(psnSid, on: psnDid)
                 }

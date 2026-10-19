@@ -122,7 +122,7 @@ extension EventHandler
 
         if SpaceManager.shared.skipWindowFocusAnimation {
             if let sid = window.id.space, !sid.isVisible {
-                SLSSpaceSetFrontPSN(SLS.connection, sid.rawValue, window.application.psn)
+                SLS.setFrontProcess(SLS.connection, window.application.psn, forSpace: sid)
                 if let did = sid.display {
                     SpaceManager.shared.focusSpaceUsingGesture(sid, on: did)
                 }

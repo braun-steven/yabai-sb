@@ -14,7 +14,7 @@ extension WindowManager
             if let next = window(on: source, byRank: 1, excluding: target.id) {
                 focusWithRaise(next)
             } else {
-                _SLPSSetFrontProcessWithOptions(&ProcessManager.shared.finderPSN, 0, FrontProcessMode.noWindows.rawValue)
+                SLS.setFrontProcess(ProcessManager.shared.finderPSN, window: nil, mode: .noWindows)
             }
         }
 
@@ -24,7 +24,7 @@ extension WindowManager
 
         destination.moveWindow(target)
         _ = destination.waitForWindow(target.id, timeoutMS: 200)
-        SLSSpaceSetFrontPSN(SLS.connection, destination.rawValue, target.application.psn)
+        SLS.setFrontProcess(SLS.connection, target.application.psn, forSpace: destination)
 
         if target.shouldBeManaged {
             manageWindow(target, on: destination, inserting: nil)

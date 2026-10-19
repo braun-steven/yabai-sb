@@ -264,7 +264,7 @@ enum Daemon
             require("yabai: could not access accessibility features! abort..\n")
         }
 
-        if !(SLSGetSpaceManagementMode(SLSMainConnectionID()) == 1) {
+        if SLS.spaceManagementMode(SLS.connection) != 1 {
             require("yabai: 'display has separate spaces' is disabled! abort..\n")
         }
 
@@ -290,22 +290,22 @@ enum Daemon
 
         MissionControl.shared.observe()
 
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1327, nil)
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1328, nil)
+        SLS.registerNotification(SLS.connection, 1327, handler: connectionNotificationHandler)
+        SLS.registerNotification(SLS.connection, 1328, handler: connectionNotificationHandler)
 
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,808, nil)
+        SLS.registerNotification(SLS.connection, 808, handler: connectionNotificationHandler)
 
         //
         // NOTE: Moves, resizes and hides of windows that have a border.
         //
 
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,806, nil)
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,807, nil)
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,815, nil)
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,816, nil)
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1202, nil)
+        SLS.registerNotification(SLS.connection, 806, handler: connectionNotificationHandler)
+        SLS.registerNotification(SLS.connection, 807, handler: connectionNotificationHandler)
+        SLS.registerNotification(SLS.connection, 815, handler: connectionNotificationHandler)
+        SLS.registerNotification(SLS.connection, 816, handler: connectionNotificationHandler)
+        SLS.registerNotification(SLS.connection, 1202, handler: connectionNotificationHandler)
 
-        SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,804, nil)
+        SLS.registerNotification(SLS.connection, 804, handler: connectionNotificationHandler)
 
         WindowManager.shared.initialize()
         SpaceManager.shared.begin()

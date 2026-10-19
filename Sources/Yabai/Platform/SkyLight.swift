@@ -22,6 +22,14 @@ enum SLS
         let level: Int32
     }
 
+    /// The options of `_SLPSSetFrontProcessWithOptions`: activate a process for a user action, or without raising any of
+    /// its windows.
+    enum FrontProcessMode: UInt32
+    {
+        case userGenerated = 0x200
+        case noWindows     = 0x400
+    }
+
     /// The main connection of the daemon to the window server.
     static let connection: Int32 = SLSMainConnectionID()
 
@@ -256,6 +264,89 @@ enum SLS
         var psn = ProcessSerialNumber()
         _SLPSGetFrontProcess(&psn)
         return psn
+    }
+
+    /// `_SLPSSetFrontProcessWithOptions`: makes the process frontmost, with the window (nil: none) as its key window.
+    static func setFrontProcess(_ psn: ProcessSerialNumber, window: WindowID?, mode: FrontProcessMode)
+    {
+        var psn = psn
+        _SLPSSetFrontProcessWithOptions(&psn, window?.rawValue ?? 0, mode.rawValue)
+    }
+
+    /// `SLPSPostEventRecordTo`: posts a synthesized event record to the process.
+    static func postEventRecord(_ bytes: UnsafeMutablePointer<UInt8>, to psn: ProcessSerialNumber)
+    {
+        var psn = psn
+        SLPSPostEventRecordTo(&psn, bytes)
+    }
+
+    /// `SLSSpaceSetFrontPSN`: the process that is frontmost once the space becomes active.
+    static func setFrontProcess(_ cid: Int32, _ psn: ProcessSerialNumber, forSpace sid: SpaceID)
+    {
+        SLSSpaceSetFrontPSN(cid, sid.rawValue, psn)
+    }
+
+    /// `SLSGetConnectionIDForPSN`; nil if the call fails.
+    static func connectionID(_ cid: Int32, forProcess psn: ProcessSerialNumber) -> Int32?
+    {
+        var psn = psn
+        var connection: Int32 = 0
+        guard SLSGetConnectionIDForPSN(cid, &psn, &connection) == .success else { return nil }
+        return connection
+    }
+
+    /// `SLSSetMenuBarInsetAndAlpha` with the insets the window server uses (0, 1).
+    static func setMenuBarAlpha(_ cid: Int32, _ alpha: Float)
+    {
+        SLSSetMenuBarInsetAndAlpha(cid, 0, 1, alpha)
+    }
+
+    /// `SLSGetSpaceManagementMode`: 1 when displays have separate spaces.
+    static func spaceManagementMode(_ cid: Int32) -> Int32
+    {
+        return SLSGetSpaceManagementMode(cid)
+    }
+
+    /// `SLSRegisterConnectionNotifyProc` without a context.
+    static func registerNotification(_ cid: Int32, _ event: UInt32,
+                                     handler: @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?, Int32) -> Void)
+    {
+        SLSRegisterConnectionNotifyProc(cid, handler, event, nil)
+    }
+
+    //
+    // NOTE: Without the bridged operation and the scripting addition, windows move to a space through the compat id
+    // 'yabe' (0x79616265), which the space wears while SLSSetWindowListWorkspace moves the windows to it.
+    //
+    static func moveWindows(_ cid: Int32, _ windows: [WindowID], toSpaceByCompatID sid: SpaceID)
+    {
+        let compatID: Int32 = 0x79616265
+        SLSSpaceSetCompatID(cid, sid.rawValue, compatID)
+        var rawWindows = windows.map(\.rawValue)
+        SLSSetWindowListWorkspace(cid, &rawWindows, Int32(rawWindows.count), compatID)
+        SLSSpaceSetCompatID(cid, sid.rawValue, 0)
+    }
+
+    /// `SLSCopyAssociatedWindows`: the windows associated with the window (sheets, drawers, children); nil if the call
+    /// fails.
+    static func associatedWindows(_ cid: Int32, _ wid: WindowID) -> [WindowID]?
+    {
+        guard let windows = SLSCopyAssociatedWindows(cid, wid.rawValue) else { return nil }
+        return ids(windows, as: UInt32.self).map { WindowID($0) }
+    }
+
+    /// `SLSRequestNotificationsForWindows`
+    static func requestNotifications(_ cid: Int32, forWindows windows: [WindowID])
+    {
+        var rawWindows = windows.map(\.rawValue)
+        SLSRequestNotificationsForWindows(cid, &rawWindows, Int32(rawWindows.count))
+    }
+
+    /// `SLSGetWindowSubLevelBounded` (CPrivate.c): the sub-level with a bounded wait; nil if it failed.
+    static func windowSubLevelBounded(_ cid: Int32, _ wid: WindowID) -> Int32?
+    {
+        var subLevel: Int32 = 0
+        return SLSGetWindowSubLevelBounded(cid, wid.rawValue, &subLevel) ? subLevel : nil
     }
 
     /// Turns the shadow of the window off by setting its shadow density to zero.

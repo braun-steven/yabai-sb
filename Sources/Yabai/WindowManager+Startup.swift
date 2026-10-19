@@ -92,8 +92,6 @@ extension WindowManager
     func updateWindowNotifications()
     {
         // NOTE(asmvik): Subscribe to all windows because of the window destroyed (and ordered) notifications
-        var windowIDs = window.values.map { $0.id.rawValue }
-
-        SLSRequestNotificationsForWindows(SLS.connection, &windowIDs, Int32(windowIDs.count))
+        SLS.requestNotifications(SLS.connection, forWindows: window.values.map(\.id))
     }
 }

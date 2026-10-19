@@ -227,15 +227,12 @@ extension EventHandler
 
     private func ffmWindowToFocus(_ window: Window) -> Window
     {
-        guard let associatedWindows = SLSCopyAssociatedWindows(SLS.connection, window.id.rawValue) else { return window }
+        guard let associatedWindows = SLS.associatedWindows(SLS.connection, window.id) else { return window }
 
         let wm = WindowManager.shared
 
-        for i in 0..<CFArrayGetCount(associatedWindows) {
-            let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
-            var childRawWid: UInt32 = 0
-            CFNumberGetValue(number, .sInt32Type, &childRawWid)
-            guard let childWid = WindowID(nonzero: childRawWid), let child = wm.window(for: childWid) else { continue }
+        for childWid in associatedWindows {
+            guard let child = wm.window(for: childWid) else { continue }
 
             // NOTE: `Window.role` owns its reference; reading it here does not transfer ownership.
 

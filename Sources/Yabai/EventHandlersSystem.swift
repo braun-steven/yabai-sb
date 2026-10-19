@@ -13,7 +13,7 @@ import CPrivate
 @WM private func missionControlShow(_ mode: MissionControlMode)
 {
     MissionControl.shared.mode = mode
-    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: mode.rawValue))
+    EventSignals.shared.push(.missionControlEnter, .missionControl(mode))
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_SHOW_ALL_WINDOWS)`
@@ -47,7 +47,7 @@ import CPrivate
         EventLoop.post(.missionControlCheckForExit)
     }
 
-    eventSignalPush(.missionControlEnter, UnsafeMutableRawPointer(bitPattern: MissionControlMode.show.rawValue))
+    EventSignals.shared.push(.missionControlEnter, .missionControl(.show))
 }
 
 /// `EVENT_HANDLER(MISSION_CONTROL_CHECK_FOR_EXIT)`
@@ -99,7 +99,7 @@ import CPrivate
         wm.correctForMissionControlChanges()
     }
 
-    eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: MissionControl.shared.mode.rawValue))
+    EventSignals.shared.push(.missionControlExit, .missionControl(MissionControl.shared.mode))
     MissionControl.shared.mode = .inactive
 }
 
@@ -113,7 +113,7 @@ import CPrivate
     MissionControl.shared.unobserve()
     MissionControl.shared.observe()
 
-    eventSignalPush(.dockDidRestart, nil)
+    EventSignals.shared.push(.dockDidRestart)
 }
 
 /// The focus follows mouse mode while a menu is open, and the number of open menus.
@@ -151,7 +151,7 @@ import CPrivate
 {
     debug("EVENT_HANDLER_MENU_BAR_HIDDEN_CHANGED:\n")
     SpaceManager.shared.markSpacesInvalid()
-    eventSignalPush(.menuBarHiddenChanged, nil)
+    EventSignals.shared.push(.menuBarHiddenChanged)
 }
 
 /// `EVENT_HANDLER(DOCK_DID_CHANGE_PREF)`
@@ -159,7 +159,7 @@ import CPrivate
 {
     debug("EVENT_HANDLER_DOCK_DID_CHANGE_PREF:\n")
     SpaceManager.shared.markSpacesInvalid()
-    eventSignalPush(.dockDidChangePref, nil)
+    EventSignals.shared.push(.dockDidChangePref)
 }
 
 /// `EVENT_HANDLER(SYSTEM_WOKE)`
@@ -174,7 +174,7 @@ import CPrivate
     }
 
     SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
-    eventSignalPush(.systemWoke, nil)
+    EventSignals.shared.push(.systemWoke)
 }
 
 /// `EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)`

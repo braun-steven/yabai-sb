@@ -191,24 +191,24 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
         var signalType: SignalType?
 
         if parseSignal(&rsp, &message, &result, &signalType, eventType: { SignalType(name: $0) }), let signalType {
-            eventSignals.add(result, signalType)
+            EventSignals.shared.table.add(result, signalType)
         }
     } else if command.equals(SignalCommand.remove) {
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !eventSignals.remove(at: Int(index)) {
+            if !EventSignals.shared.table.remove(at: Int(index)) {
                 rsp.fail("signal with index '\(index)' not found.\n")
             }
         case .string:
-            if !eventSignals.remove(label: token.string) {
+            if !EventSignals.shared.table.remove(label: token.string) {
                 rsp.fail("signal with label '\(token)' not found.\n")
             }
         default:
             rsp.fail("value '\(token)' is not a valid option for SIGNAL_SEL\n")
         }
     } else if command.equals(SignalCommand.list) {
-        rsp.write("\(eventSignals.list())")
+        rsp.write("\(EventSignals.shared.table.list())")
     } else {
         rsp.failUnknownCommand(domain, command)
     }

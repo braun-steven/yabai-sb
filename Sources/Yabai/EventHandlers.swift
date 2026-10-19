@@ -313,7 +313,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process))\n")
     wm.addApplication(application)
-    eventSignalPush(.applicationLaunched, signalObject(application))
+    EventSignals.shared.push(.applicationLaunched, .application(application))
     process.launchAttempts = 0
     process.launchGivenUp = false
 
@@ -322,7 +322,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     tileWindowsBatched(windows, wm.focusedWindowID, true)
 
     for window in windows where window.isEligibleForManagement {
-        eventSignalPush(.windowCreated, signalObject(window))
+        EventSignals.shared.push(.windowCreated, .window(window))
     }
 }
 
@@ -340,7 +340,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     }
 
     debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process))\n")
-    eventSignalPush(.applicationTerminated, signalObject(application))
+    EventSignals.shared.push(.applicationTerminated, .application(application))
     wm.removeApplication(pid: application.pid)
 
     let refreshIndex = wm.applicationRefreshIndex(of: application)
@@ -364,7 +364,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
         if window.isEligible {
-            eventSignalPush(.windowDestroyed, signalObject(window))
+            EventSignals.shared.push(.windowDestroyed, .window(window))
         }
 
         wm.removeScratchpad(from: window, unfloat: false)
@@ -464,15 +464,15 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     }
 
     if let deactivatedApplication = wm.application(for: pm.frontPID) {
-        eventSignalPush(.applicationDeactivated, signalObject(deactivatedApplication))
+        EventSignals.shared.push(.applicationDeactivated, .application(deactivatedApplication))
     }
 
     debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process))\n")
-    eventSignalPush(.applicationActivated, signalObject(application))
+    EventSignals.shared.push(.applicationActivated, .application(application))
     pm.switchEventTime = GetCurrentEventTime()
     pm.lastFrontPID = pm.frontPID
     pm.frontPID = process.pid
-    eventSignalPush(.applicationFrontSwitched, nil)
+    EventSignals.shared.push(.applicationFrontSwitched)
 
     let refreshIndex = wm.applicationRefreshIndex(of: application)
     if let refreshIndex {
@@ -492,7 +492,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     }
 
     windowDidReceiveFocus(wm, mouse_state_global(), window)
-    eventSignalPush(.windowFocused, signalObject(window))
+    EventSignals.shared.push(.windowFocused, .window(window))
     pendingWindowFocus.store(false, ordering: .releasing)
 }
 
@@ -512,7 +512,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         border_refresh_window_space(window)
     }
 
-    eventSignalPush(.applicationVisible, signalObject(application))
+    EventSignals.shared.push(.applicationVisible, .application(application))
 }
 
 /// `EVENT_HANDLER(APPLICATION_HIDDEN)`
@@ -542,5 +542,5 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         border_refresh_window_space(window)
     }
 
-    eventSignalPush(.applicationHidden, signalObject(application))
+    EventSignals.shared.push(.applicationHidden, .application(application))
 }

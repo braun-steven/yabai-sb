@@ -112,7 +112,7 @@ enum EventLoop
         WM.shared.queue.async {
             WM.assumeIsolated {
                 handle(event)
-                eventSignalFlush()
+                EventSignals.shared.flush()
             }
         }
     }

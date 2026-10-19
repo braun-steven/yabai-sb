@@ -102,7 +102,7 @@ enum Golden
     {
         WindowManager.shared.initialize()
         SpaceManager.shared.resetToDefaults()
-        eventSignals = SignalTable()
+        EventSignals.shared.table = SignalTable()
     }
 
     static func escaped(_ bytes: [UInt8]) -> String

@@ -5,22 +5,8 @@ import YabaiCore
 
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays
-// added, removed, moved and resized. Ported from src/event_handlers_space.c.
+// added, removed, moved and resized.
 //
-
-//
-// NOTE: The signals of these events get the id as their context pointer, as the C producers posted it.
-//
-
-private func signalContext(_ id: SpaceID) -> UnsafeMutableRawPointer?
-{
-    UnsafeMutableRawPointer(bitPattern: UInt(id.rawValue))
-}
-
-private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
-{
-    UnsafeMutableRawPointer(bitPattern: Int(id.rawValue))
-}
 
 /// `EVENT_HANDLER(SLS_SPACE_CREATED)`
 @WM func slsSpaceCreated(_ sid: SpaceID)
@@ -30,7 +16,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     if type == 0 || type == 4 {
         debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
         SpaceManager.shared.view(for: sid)
-        eventSignalPush(.spaceCreated, signalContext(sid))
+        EventSignals.shared.push(.spaceCreated, .space(sid))
         SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: false)
     }
 }
@@ -45,7 +31,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         _ = sm.labels.remove(id: sid)
         sm.views.removeValue(forKey: sid)
         view.destroy()
-        eventSignalPush(.spaceDestroyed, signalContext(sid))
+        EventSignals.shared.push(.spaceDestroyed, .space(sid))
         sm.scheduleSpaceLayout(after: 1.0, resetPasses: false)
     }
 }
@@ -99,7 +85,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
-    eventSignalPush(.spaceChanged, nil)
+    EventSignals.shared.push(.spaceChanged)
 }
 
 /// `EVENT_HANDLER(DISPLAY_CHANGED)`
@@ -129,7 +115,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
-    eventSignalPush(.displayChanged, nil)
+    EventSignals.shared.push(.displayChanged)
 }
 
 /// `EVENT_HANDLER(DISPLAY_ADDED)`
@@ -139,7 +125,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
     SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
-    eventSignalPush(.displayAdded, signalContext(did))
+    EventSignals.shared.push(.displayAdded, .display(did))
 }
 
 /// `EVENT_HANDLER(DISPLAY_REMOVED)`
@@ -149,7 +135,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
-    eventSignalPush(.displayRemoved, signalContext(did))
+    EventSignals.shared.push(.displayRemoved, .display(did))
 }
 
 /// `EVENT_HANDLER(DISPLAY_MOVED)`
@@ -158,7 +144,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
     SpaceManager.shared.markSpacesInvalid()
     SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
-    eventSignalPush(.displayMoved, signalContext(did))
+    EventSignals.shared.push(.displayMoved, .display(did))
 }
 
 /// `EVENT_HANDLER(DISPLAY_RESIZED)`
@@ -166,5 +152,5 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
     debug("EVENT_HANDLER_DISPLAY_RESIZED: \(did)\n")
     SpaceManager.shared.markSpacesInvalid(on: did)
-    eventSignalPush(.displayResized, signalContext(did))
+    EventSignals.shared.push(.displayResized, .display(did))
 }

@@ -35,7 +35,7 @@ import YabaiCore
     }
 
     if window.isEligibleForManagement {
-        eventSignalPush(.windowCreated, signalObject(window))
+        EventSignals.shared.push(.windowCreated, .window(window))
     }
 
     border_refresh_window_space(window)
@@ -65,7 +65,7 @@ import YabaiCore
     if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
     if window.isEligible {
-        eventSignalPush(.windowDestroyed, signalObject(window))
+        EventSignals.shared.push(.windowDestroyed, .window(window))
     }
 
     wm.removeScratchpad(from: window, unfloat: false)
@@ -131,7 +131,7 @@ import YabaiCore
     }
 
     windowDidReceiveFocus(wm, mouse_state_global(), window)
-    eventSignalPush(.windowFocused, signalObject(window))
+    EventSignals.shared.push(.windowFocused, .window(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_MOVED)`
@@ -159,7 +159,7 @@ import YabaiCore
     }
 
     debug("EVENT_HANDLER_WINDOW_MOVED: \(window.application.name) \(window.id)\n")
-    eventSignalPush(.windowMoved, signalObject(window))
+    EventSignals.shared.push(.windowMoved, .window(window))
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame.origin = newOrigin
 
@@ -199,7 +199,7 @@ import YabaiCore
     }
 
     debug("EVENT_HANDLER_WINDOW_RESIZED: \(window.application.name) \(window.id)\n")
-    eventSignalPush(.windowResized, signalObject(window))
+    EventSignals.shared.push(.windowResized, .window(window))
 
     let wasFullscreen = window.isFullscreen
 
@@ -270,7 +270,7 @@ import YabaiCore
     }
 
     border_refresh_window_space(window)
-    eventSignalPush(.windowMinimized, signalObject(window))
+    EventSignals.shared.push(.windowMinimized, .window(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_DEMINIMIZED)`
@@ -306,7 +306,7 @@ import YabaiCore
     }
 
     border_refresh_window_space(window)
-    eventSignalPush(.windowDeminimized, signalObject(window))
+    EventSignals.shared.push(.windowDeminimized, .window(window))
 }
 
 /// `EVENT_HANDLER(WINDOW_TITLE_CHANGED)`
@@ -324,7 +324,7 @@ import YabaiCore
     window.title = window.currentTitle()
     tab_bar_refresh_for_window(window.id)
 
-    eventSignalPush(.windowTitleChanged, signalObject(window))
+    EventSignals.shared.push(.windowTitleChanged, .window(window))
 }
 
 /// `EVENT_HANDLER(SLS_WINDOW_ORDERED)`

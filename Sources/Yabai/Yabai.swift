@@ -91,7 +91,7 @@ enum Daemon
     }
 
     //
-    // NOTE: The C version forked, and the child exec'd the shell. Swift cannot fork (see eventSignalSpawn), so posix_spawn
+    // NOTE: The C version forked, and the child exec'd the shell. Swift cannot fork (see EventSignals.spawn), so posix_spawn
     // starts the shell directly; nobody waits for it, because SIGCHLD is ignored. A shell that cannot be started is now
     // reported like a failed fork.
     //

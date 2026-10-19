@@ -85,25 +85,25 @@ private enum WorkspaceLayout: String, CaseIterable
 
 private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, rgba_color>?
 {
-    if command.equals(Config.tabBarFocusedColor)       { return \.tab_bar_focused_color }
-    if command.equals(Config.tabBarFocusedTextColor)   { return \.tab_bar_focused_text_color }
-    if command.equals(Config.tabBarInactiveColor)      { return \.tab_bar_inactive_color }
-    if command.equals(Config.tabBarInactiveTextColor)  { return \.tab_bar_inactive_text_color }
-    if command.equals(Config.tabBarUnfocusedColor)     { return \.tab_bar_unfocused_color }
-    if command.equals(Config.tabBarUnfocusedTextColor) { return \.tab_bar_unfocused_text_color }
-    if command.equals(Config.tabBarBackdropColor)      { return \.tab_bar_backdrop_color }
+    if command.equals(Config.tabBarFocusedColor)       { return \.tabBarFocusedColor }
+    if command.equals(Config.tabBarFocusedTextColor)   { return \.tabBarFocusedTextColor }
+    if command.equals(Config.tabBarInactiveColor)      { return \.tabBarInactiveColor }
+    if command.equals(Config.tabBarInactiveTextColor)  { return \.tabBarInactiveTextColor }
+    if command.equals(Config.tabBarUnfocusedColor)     { return \.tabBarUnfocusedColor }
+    if command.equals(Config.tabBarUnfocusedTextColor) { return \.tabBarUnfocusedTextColor }
+    if command.equals(Config.tabBarBackdropColor)      { return \.tabBarBackdropColor }
     return nil
 }
 
 private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<WindowManager, Bool>?
 {
-    if command.equals(Config.tabBarFocusedColor)   { return \.tab_bar_focused_color_custom }
-    if command.equals(Config.tabBarInactiveColor)  { return \.tab_bar_inactive_color_custom }
-    if command.equals(Config.tabBarUnfocusedColor) { return \.tab_bar_unfocused_color_custom }
-    if command.equals(Config.tabBarBackdropColor)  { return \.tab_bar_backdrop_color_custom }
-    if command.equals(Config.tabBarFocusedTextColor)   { return \.tab_bar_focused_text_color_custom }
-    if command.equals(Config.tabBarInactiveTextColor)  { return \.tab_bar_inactive_text_color_custom }
-    if command.equals(Config.tabBarUnfocusedTextColor) { return \.tab_bar_unfocused_text_color_custom }
+    if command.equals(Config.tabBarFocusedColor)   { return \.tabBarFocusedColorIsCustom }
+    if command.equals(Config.tabBarInactiveColor)  { return \.tabBarInactiveColorIsCustom }
+    if command.equals(Config.tabBarUnfocusedColor) { return \.tabBarUnfocusedColorIsCustom }
+    if command.equals(Config.tabBarBackdropColor)  { return \.tabBarBackdropColorIsCustom }
+    if command.equals(Config.tabBarFocusedTextColor)   { return \.tabBarFocusedTextColorIsCustom }
+    if command.equals(Config.tabBarInactiveTextColor)  { return \.tabBarInactiveTextColorIsCustom }
+    if command.equals(Config.tabBarUnfocusedTextColor) { return \.tabBarUnfocusedTextColorIsCustom }
     return nil
 }
 
@@ -113,7 +113,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
     let value = message.next()
 
     if !value.isValid {
-        let grid = wm.scratchpad_grid
+        let grid = wm.scratchpadGrid
         if grid.rows == 0 || grid.columns == 0 {
             rsp.write("\(Argument.off)\n")
         } else {
@@ -121,12 +121,12 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
             rsp.write("\(values.map { String($0) }.joined(separator: ":"))\n")
         }
     } else if value.equals(Argument.off) {
-        wm.scratchpad_grid = Grid()
+        wm.scratchpadGrid = Grid()
     } else {
         // NOTE: like the C version, "%d" writes into unsigned values, so a negative row or column count passes the check
         var grid = Grid()
         if grid.scan(value) == 6 && grid.rows > 0 && grid.columns > 0 {
-            wm.scratchpad_grid = grid
+            wm.scratchpadGrid = grid
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
@@ -398,14 +398,14 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     let wm = window_manager_global()
 
     if command.equals(Config.tabBar) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.enable_tab_bar) { tab_bar_refresh_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { tab_bar_refresh_all() }
     } else if command.equals(Config.tabBarHeight) {
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tab_bar_height)\n")
+            rsp.write("\(wm.tabBarHeight)\n")
         case .int(let height) where height > 0:
-            wm.tab_bar_height = height
+            wm.tabBarHeight = height
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -414,40 +414,40 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tab_bar_offset)\n")
+            rsp.write("\(wm.tabBarOffset)\n")
         case .int(let offset):
-            wm.tab_bar_offset = offset
+            wm.tabBarOffset = offset
             tab_bar_refresh_all()
         case .float(let offset) where offset == Float(cInt(offset)):
-            wm.tab_bar_offset = cInt(offset)
+            wm.tabBarOffset = cInt(offset)
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
         }
     } else if command.equals(Config.tabBarIcons) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.tab_bar_icons) { tab_bar_redraw_all() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { tab_bar_redraw_all() }
     } else if command.equals(Config.tabBarStyle) {
-        if let style = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_style) {
-            wm.tab_bar_style = style
+        if let style = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarStyle) {
+            wm.tabBarStyle = style
             tab_bar_refresh_all()
         }
     } else if command.equals(Config.tabBarAppearance) {
-        if let appearance = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_appearance) {
-            wm.tab_bar_appearance = appearance
+        if let appearance = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarAppearance) {
+            wm.tabBarAppearance = appearance
             tab_bar_redraw_all()
         }
     } else if command.equals(Config.tabBarBackdrop) {
-        if let backdrop = parseConfigChoice(&rsp, domain, command, &message, current: wm.tab_bar_backdrop) {
-            wm.tab_bar_backdrop = backdrop
+        if let backdrop = parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarBackdrop) {
+            wm.tabBarBackdrop = backdrop
             tab_bar_refresh_all()
         }
     } else if command.equals(Config.tabBarCardPadding) {
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tab_bar_card_padding)\n")
+            rsp.write("\(wm.tabBarCardPadding)\n")
         case .int(let padding) where padding >= 0:
-            wm.tab_bar_card_padding = padding
+            wm.tabBarCardPadding = padding
             tab_bar_refresh_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -456,9 +456,9 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tab_bar_window_radius)\n")
+            rsp.write("\(wm.tabBarWindowRadius)\n")
         case .int(let radius) where radius >= 0:
-            wm.tab_bar_window_radius = radius
+            wm.tabBarWindowRadius = radius
             tab_bar_redraw_all()
         default:
             rsp.failUnknownValue(domain, command, token)
@@ -466,7 +466,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
     } else if command.equals(Config.tabBarFont) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(Token(wm.tab_bar_font_name))\n")
+            rsp.write("\(Token(wm.tabBarFontName))\n")
         } else if let name = String(validating: value.bytes, as: UTF8.self), tab_bar_set_font(name) {
             tab_bar_redraw_all()
         } else {
@@ -542,11 +542,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             wm.windowOriginMode = choice
         }
     } else if command.equals(Config.scratchpadExclusive) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_exclusive)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadExclusive)
     } else if command.equals(Config.scratchpadRaise) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_raise)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadRaise)
     } else if command.equals(Config.scratchpadBelow) {
-        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_below) { wm.setScratchpadLayers() }
+        if parseConfigBool(&rsp, domain, command, &message, &wm.scratchpadBelow) { wm.setScratchpadLayers() }
     } else if command.equals(Config.scratchpadGrid) {
         configScratchpadGrid(&rsp, domain, command, &message)
     } else if command.equals(Config.skipSpaceAnimation) {

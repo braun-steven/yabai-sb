@@ -56,19 +56,19 @@ extension DaemonState
         func tabbedContainerArea()
         {
             let wm = window_manager_global()
-            let enabled = wm.enable_tab_bar
-            let height = wm.tab_bar_height
-            let backdrop = wm.tab_bar_backdrop
+            let enabled = wm.tabBarEnabled
+            let height = wm.tabBarHeight
+            let backdrop = wm.tabBarBackdrop
             let workspaceTabbed = space_manager_global().tree_workspace_tabbed
             defer {
-                wm.enable_tab_bar = enabled
-                wm.tab_bar_height = height
-                wm.tab_bar_backdrop = backdrop
+                wm.tabBarEnabled = enabled
+                wm.tabBarHeight = height
+                wm.tabBarBackdrop = backdrop
                 space_manager_global().tree_workspace_tabbed = workspaceTabbed
             }
-            wm.enable_tab_bar = true
-            wm.tab_bar_height = 24
-            wm.tab_bar_backdrop = .off
+            wm.tabBarEnabled = true
+            wm.tabBarHeight = 24
+            wm.tabBarBackdrop = .off
             space_manager_global().tree_workspace_tabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
             let root = Con(layout: .splitH)

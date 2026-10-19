@@ -121,36 +121,36 @@ final class WindowManager
     var activeWindowBorderColor = rgba_color()
     var normalWindowBorderColor = rgba_color()
     var focusWrapping = FocusWrapping.off
-    var enable_tab_bar = false
-    var tab_bar_height: Int = 0
-    var tab_bar_offset: Int = 0
-    var tab_bar_icons = false
-    var tab_bar_style = TabBarStyle.glass
-    var tab_bar_appearance = TabBarAppearance.dark
-    var tab_bar_backdrop = TabBarBackdrop.off
-    var tab_bar_card_padding: Int = 0
-    var tab_bar_window_radius: Int = 0
-    var tab_bar_font_name = ""
-    var tab_bar_font: CTFont?
-    var tab_bar_focused_color = rgba_color()
-    var tab_bar_focused_text_color = rgba_color()
-    var tab_bar_inactive_color = rgba_color()
-    var tab_bar_inactive_text_color = rgba_color()
-    var tab_bar_unfocused_color = rgba_color()
-    var tab_bar_backdrop_color = rgba_color()
-    var tab_bar_unfocused_text_color = rgba_color()
-    var tab_bar_focused_color_custom = false
-    var tab_bar_inactive_color_custom = false
-    var tab_bar_unfocused_color_custom = false
-    var tab_bar_backdrop_color_custom = false
-    var tab_bar_focused_text_color_custom = false
-    var tab_bar_inactive_text_color_custom = false
-    var tab_bar_unfocused_text_color_custom = false
-    var scratchpad_window: [Scratchpad] = []
-    var scratchpad_exclusive = false
-    var scratchpad_raise = false
-    var scratchpad_below = false
-    var scratchpad_grid = Grid()
+    var tabBarEnabled = false
+    var tabBarHeight: Int = 0
+    var tabBarOffset: Int = 0
+    var tabBarIcons = false
+    var tabBarStyle = TabBarStyle.glass
+    var tabBarAppearance = TabBarAppearance.dark
+    var tabBarBackdrop = TabBarBackdrop.off
+    var tabBarCardPadding: Int = 0
+    var tabBarWindowRadius: Int = 0
+    var tabBarFontName = ""
+    var tabBarFont: CTFont?
+    var tabBarFocusedColor = rgba_color()
+    var tabBarFocusedTextColor = rgba_color()
+    var tabBarInactiveColor = rgba_color()
+    var tabBarInactiveTextColor = rgba_color()
+    var tabBarUnfocusedColor = rgba_color()
+    var tabBarBackdropColor = rgba_color()
+    var tabBarUnfocusedTextColor = rgba_color()
+    var tabBarFocusedColorIsCustom = false
+    var tabBarInactiveColorIsCustom = false
+    var tabBarUnfocusedColorIsCustom = false
+    var tabBarBackdropColorIsCustom = false
+    var tabBarFocusedTextColorIsCustom = false
+    var tabBarInactiveTextColorIsCustom = false
+    var tabBarUnfocusedTextColorIsCustom = false
+    var scratchpads: [Scratchpad] = []
+    var scratchpadExclusive = false
+    var scratchpadRaise = false
+    var scratchpadBelow = false
+    var scratchpadGrid = Grid()
 }
 
 /// `g_window_manager` (see the NOTE of g_display_manager)

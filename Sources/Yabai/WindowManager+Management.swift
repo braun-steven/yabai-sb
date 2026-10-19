@@ -30,17 +30,17 @@ extension WindowManager
         applicationsToRefresh.append(application)
     }
 
-    var scratchpadCount: Int { scratchpad_window.count }
+    var scratchpadCount: Int { scratchpads.count }
 
     func addScratchpad(label: String, window: Window)
     {
-        scratchpad_window.append(Scratchpad(label: label, window: window))
+        scratchpads.append(Scratchpad(label: label, window: window))
     }
 
     func removeScratchpad(at index: Int)
     {
-        scratchpad_window.swapAt(index, scratchpad_window.count - 1)
-        scratchpad_window.removeLast()
+        scratchpads.swapAt(index, scratchpads.count - 1)
+        scratchpads.removeLast()
     }
 
     func setFocusFollowsMouse(_ mode: FocusFollowsMouse)

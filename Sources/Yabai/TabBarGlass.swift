@@ -51,17 +51,17 @@ private struct Snapshot: @unchecked Sendable
         let wm = window_manager_global()
         frame = bar.frame
         card = bar.card
-        backdrop = wm.tab_bar_backdrop
-        appearance = wm.tab_bar_appearance
-        cardRadius = CGFloat(wm.tab_bar_window_radius) + (frame.minX - card.minX)
+        backdrop = wm.tabBarBackdrop
+        appearance = wm.tabBarAppearance
+        cardRadius = CGFloat(wm.tabBarWindowRadius) + (frame.minX - card.minX)
         sid = bar.sid
         self.aboveWid = aboveWid
         level = aboveWid.level
         subLevel = aboveWid.subLevel
-        font = wm.tab_bar_font
-        let track = tab_bar_glass_tint(wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_color_custom, 0.4)
+        font = wm.tabBarFont
+        let track = tab_bar_glass_tint(wm.tabBarUnfocusedColor, wm.tabBarUnfocusedColorIsCustom, 0.4)
         trackTint = tabBarCGColor(track)
-        backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tab_bar_backdrop_color, wm.tab_bar_backdrop_color_custom, 0.4))
+        backdropTint = tabBarCGColor(tab_bar_glass_tint(wm.tabBarBackdropColor, wm.tabBarBackdropColorIsCustom, 0.4))
         var pill = track
         var customPill = false
         var focused = false
@@ -69,23 +69,23 @@ private struct Snapshot: @unchecked Sendable
         for i in 0..<count {
             let source = list[i]
             let (background, text) = tabBarStateColors(source.state)
-            let customText = source.state == .focused ? wm.tab_bar_focused_text_color_custom
-                           : source.state == .inactive ? wm.tab_bar_inactive_text_color_custom
-                           : wm.tab_bar_unfocused_text_color_custom
+            let customText = source.state == .focused ? wm.tabBarFocusedTextColorIsCustom
+                           : source.state == .inactive ? wm.tabBarInactiveTextColorIsCustom
+                           : wm.tabBarUnfocusedTextColorIsCustom
             entries.append(Entry(windowID: source.focus_wid, title: source.title, icon: source.icon, text: tabBarCGColor(text), active: source.state != .unfocused, customText: customText))
             if source.state == .focused {
-                pill = tab_bar_glass_tint(background, wm.tab_bar_focused_color_custom, 0.8)
-                customPill = wm.tab_bar_focused_color_custom
+                pill = tab_bar_glass_tint(background, wm.tabBarFocusedColorIsCustom, 0.8)
+                customPill = wm.tabBarFocusedColorIsCustom
                 focused = true
             } else if source.state == .inactive {
-                pill = tab_bar_glass_tint(background, wm.tab_bar_inactive_color_custom, 0.8)
-                customPill = wm.tab_bar_inactive_color_custom
+                pill = tab_bar_glass_tint(background, wm.tabBarInactiveColorIsCustom, 0.8)
+                customPill = wm.tabBarInactiveColorIsCustom
             }
         }
         self.entries = entries
         pillTint = tabBarCGColor(pill)
-        customTrack = wm.tab_bar_unfocused_color_custom
-        customBackdrop = wm.tab_bar_backdrop_color_custom
+        customTrack = wm.tabBarUnfocusedColorIsCustom
+        customBackdrop = wm.tabBarBackdropColorIsCustom
         self.customPill = customPill
         self.focused = focused
     }

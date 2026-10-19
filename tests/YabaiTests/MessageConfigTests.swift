@@ -22,17 +22,17 @@ extension DaemonState
         func tabBarAppearanceConfig()
         {
             let wm = window_manager_global()
-            let appearance = wm.tab_bar_appearance
-            defer { wm.tab_bar_appearance = appearance }
-            wm.tab_bar_appearance = .dark
+            let appearance = wm.tabBarAppearance
+            defer { wm.tabBarAppearance = appearance }
+            wm.tabBarAppearance = .dark
             #expect(runConfig("tab_bar_appearance\0") == "dark\n")
             #expect(runConfig("tab_bar_appearance\0system\0").isEmpty)
-            #expect(wm.tab_bar_appearance == .system)
+            #expect(wm.tabBarAppearance == .system)
             #expect(runConfig("tab_bar_appearance\0") == "system\n")
             #expect(runConfig("tab_bar_appearance\0light\0").contains("unknown value 'light'"))
-            #expect(wm.tab_bar_appearance == .system)
+            #expect(wm.tabBarAppearance == .system)
             #expect(runConfig("tab_bar_appearance\0dark\0").isEmpty)
-            #expect(wm.tab_bar_appearance == .dark)
+            #expect(wm.tabBarAppearance == .dark)
         }
 
         @Test("message_config_options")
@@ -75,12 +75,12 @@ extension DaemonState
             let wm = window_manager_global()
             let sm = space_manager_global()
 
-            let grid = wm.scratchpad_grid
+            let grid = wm.scratchpadGrid
             let duration = wm.windowAnimationDuration
             let opacityDuration = wm.windowOpacityDuration
             let workspaceTabbed = sm.tree_workspace_tabbed
             defer {
-                wm.scratchpad_grid = grid
+                wm.scratchpadGrid = grid
                 wm.windowAnimationDuration = duration
                 wm.windowOpacityDuration = opacityDuration
                 sm.tree_workspace_tabbed = workspaceTabbed

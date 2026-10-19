@@ -134,15 +134,15 @@ func tab_bar_set_font(_ name: String) -> Bool
         : CTFontCreateWithName(family as CFString, CGFloat(size), nil)
     guard let font else { return false }
     let wm = window_manager_global()
-    wm.tab_bar_font = font
-    wm.tab_bar_font_name = name
+    wm.tabBarFont = font
+    wm.tabBarFontName = name
     return true
 }
 
 func tab_bar_is_enabled() -> Bool
 {
     let wm = window_manager_global()
-    return wm.enable_tab_bar && wm.tab_bar_height > 0
+    return wm.tabBarEnabled && wm.tabBarHeight > 0
 }
 
 private func tabBarPublishHits()
@@ -311,7 +311,7 @@ func tab_bar_copy_title(_ wid: WindowID?) -> CFString?
 //
 func tab_bar_icon(_ wid: WindowID?) -> CGImage?
 {
-    guard window_manager_global().tab_bar_icons, let wid,
+    guard window_manager_global().tabBarIcons, let wid,
           let target = WindowManager.shared.window(for: wid), let app = target.application else { return nil }
     if let icon = app.icon { return icon }
     autoreleasepool {
@@ -327,9 +327,9 @@ func tabBarStateColors(_ state: TabBarState) -> (rgba_color, rgba_color)
 {
     let wm = window_manager_global()
     switch state {
-    case .focused:   return (wm.tab_bar_focused_color, wm.tab_bar_focused_text_color)
-    case .inactive:  return (wm.tab_bar_inactive_color, wm.tab_bar_inactive_text_color)
-    case .unfocused: return (wm.tab_bar_unfocused_color, wm.tab_bar_unfocused_text_color)
+    case .focused:   return (wm.tabBarFocusedColor, wm.tabBarFocusedTextColor)
+    case .inactive:  return (wm.tabBarInactiveColor, wm.tabBarInactiveTextColor)
+    case .unfocused: return (wm.tabBarUnfocusedColor, wm.tabBarUnfocusedTextColor)
     }
 }
 
@@ -359,18 +359,18 @@ private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEnt
             context.fill(CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
         }
         if entry.title != nil || entry.icon != nil {
-            tab_bar_draw_title(context, window_manager_global().tab_bar_font, false, entry.title, entry.icon, tab, tabBarCGColor(text))
+            tab_bar_draw_title(context, window_manager_global().tabBarFont, false, entry.title, entry.icon, tab, tabBarCGColor(text))
         }
     }
     context.flush()
 }
 
-private func tabBarUsesGlass() -> Bool { window_manager_global().tab_bar_style == .glass }
+private func tabBarUsesGlass() -> Bool { window_manager_global().tabBarStyle == .glass }
 
 func tab_bar_card_padding() -> Int
 {
-    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return 0 }
-    return window_manager_global().tab_bar_card_padding
+    if !tabBarUsesGlass() || window_manager_global().tabBarBackdrop == .off { return 0 }
+    return window_manager_global().tabBarCardPadding
 }
 
 private func tabBarExists(_ bar: TabBar) -> Bool { bar.id != nil || bar.glass != nil }
@@ -482,7 +482,7 @@ func tab_bar_release(_ bar: TabBar)
 func tab_bar_card_id(_ bar: TabBar) -> WindowID?
 {
     if bar.hidden || bar.glass == nil { return nil }
-    if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return nil }
+    if !tabBarUsesGlass() || window_manager_global().tabBarBackdrop == .off { return nil }
     return tab_bar_glass_panel_id(bar)
 }
 

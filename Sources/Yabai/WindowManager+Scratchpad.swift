@@ -11,7 +11,7 @@ extension WindowManager
 {
     private func scratchpadWindow(withLabel label: String) -> Window?
     {
-        scratchpad_window.first { string_equals($0.label, label) }?.window
+        scratchpads.first { string_equals($0.label, label) }?.window
     }
 
     func toggleScratchpad(withLabel label: String) -> Bool
@@ -22,14 +22,14 @@ extension WindowManager
 
     func setScratchpadLayers()
     {
-        for entry in scratchpad_window {
-            entry.window.adjustLayer(to: scratchpad_below ? .below : .normal)
+        for entry in scratchpads {
+            entry.window.adjustLayer(to: scratchpadBelow ? .below : .normal)
         }
     }
 
     private func hideOtherScratchpadWindows(except target: Window)
     {
-        for entry in scratchpad_window {
+        for entry in scratchpads {
             let other = entry.window
             if other == target { continue }
 
@@ -39,7 +39,7 @@ extension WindowManager
 
     private func applyScratchpadGrid(to target: Window)
     {
-        let grid = scratchpad_grid
+        let grid = scratchpadGrid
         if grid.rows == 0 || grid.columns == 0 { return }
 
         //
@@ -93,7 +93,7 @@ extension WindowManager
         var shown = true
 
         if visibleSpace && orderedIn {
-            if scratchpad_raise && focusedWindowID != target.id && !target.isMinimized && !target.application.isHidden {
+            if scratchpadRaise && focusedWindowID != target.id && !target.isMinimized && !target.application.isHidden {
                 focusWithRaise(target)
             } else {
                 hideScratchpad(target, on: spaceID)
@@ -103,7 +103,7 @@ extension WindowManager
             showScratchpad(target, on: spaceID, movingToSpace: !visibleSpace, applyingGrid: !orderedIn)
         }
 
-        if shown && scratchpad_exclusive {
+        if shown && scratchpadExclusive {
             hideOtherScratchpadWindows(except: target)
         }
 
@@ -123,10 +123,10 @@ extension WindowManager
 
         //
         // NOTE: Floating puts the window on the normal sub-layer, above
-        // tiled windows; scratchpad_below moves it to their sub-layer.
+        // tiled windows; scratchpadBelow moves it to their sub-layer.
         //
 
-        if scratchpad_below { target.adjustLayer(to: .below) }
+        if scratchpadBelow { target.adjustLayer(to: .below) }
 
         return true
     }
@@ -143,14 +143,14 @@ extension WindowManager
             border_refresh_window_space(target)
         }
 
-        if scratchpad_below { target.adjustLayer(to: .normal) }
+        if scratchpadBelow { target.adjustLayer(to: .normal) }
         makeWindowFloating(target, shouldFloat: false, force: false)
     }
 
     @discardableResult
     func removeScratchpad(from target: Window, unfloat: Bool) -> Bool
     {
-        for index in 0..<scratchpadCount where scratchpad_window[index].window == target {
+        for index in 0..<scratchpadCount where scratchpads[index].window == target {
             target.scratchpad = nil
 
             removeScratchpad(at: index)

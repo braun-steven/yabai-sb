@@ -65,7 +65,7 @@ extension WindowManager
         var childLayer = layer
 
         if layer == .auto {
-            let below = managedView(for: target) != nil || (scratchpad_below && target.scratchpad != nil)
+            let below = managedView(for: target) != nil || (scratchpadBelow && target.scratchpad != nil)
             parentLayer = below ? .below : .normal
             childLayer = .normal
         }

@@ -8,9 +8,6 @@ import YabaiCore
 // NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the managers.
 //
 
-/// The SkyLight connection of the daemon.
-var connection: Int32 { SLS.connection }
-
 /// The name of a label of a display or space, escaped for json; "" when it has none.
 private func labelJSON<ID>(_ list: LabelList<ID>, _ id: ID) -> String
 {
@@ -268,7 +265,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.isVisible) {
-        info.isVisible = SLS.windowIsOrderedIn(connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { $0.isVisible } ?? false))
+        info.isVisible = SLS.windowIsOrderedIn(SLS.connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { $0.isVisible } ?? false))
     }
 
     return info
@@ -288,7 +285,7 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
     info.subrole    = ""
 
     if wanted(flags, WindowProperty.pid | WindowProperty.app) {
-        if let owner = SLS.windowOwner(connection, wid), let pid = SLS.connectionPID(owner) { info.pid = pid }
+        if let owner = SLS.windowOwner(SLS.connection, wid), let pid = SLS.connectionPID(owner) { info.pid = pid }
 
         if wanted(flags, WindowProperty.app) {
             // NOTE: PROC_PIDPATHINFO_MAXSIZE, which Swift does not import
@@ -297,8 +294,8 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
         }
     }
 
-    if wanted(flags, WindowProperty.title)      { info.title    = SLS.windowTitle(connection, wid) ?? "" }
-    if wanted(flags, WindowProperty.frame)      { info.frame    = SLS.windowBounds(connection, wid) ?? .zero }
+    if wanted(flags, WindowProperty.title)      { info.title    = SLS.windowTitle(SLS.connection, wid) ?? "" }
+    if wanted(flags, WindowProperty.frame)      { info.frame    = SLS.windowBounds(SLS.connection, wid) ?? .zero }
     if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = wid.parent == nil }
     if wanted(flags, WindowProperty.isSticky)   { info.isSticky = wid.isSticky }
     windowInfoSetLevels(&info, wid, flags)

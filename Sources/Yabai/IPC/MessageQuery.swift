@@ -6,18 +6,6 @@ import YabaiCore
 // NOTE: The handlers of the query, rule and signal domains.
 //
 
-/// The commands of the query, rule and signal domains (`COMMAND_QUERY_*`, `COMMAND_RULE_*`, `COMMAND_SIGNAL_*`,
-/// `ARGUMENT_QUERY_SPACE` and `ARGUMENT_RULE_ONE_SHOT`, src/message_parse.c).
-private enum QueryCommand
-{
-    static let displays = "--displays"
-    static let spaces   = "--spaces"
-    static let windows  = "--windows"
-    static let tree     = "--tree"
-
-    static let space    = "--space"
-}
-
 private enum RuleCommand
 {
     static let add     = "--add"
@@ -38,84 +26,97 @@ private enum SignalCommand
 @WM func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
     let context = CSelectorContext()
-    let command = message.next()
+    let command = try QueryCommand.parse(&message)
 
-    if command.equals(QueryCommand.displays) {
-        let properties = try parseProperties(message.next(), names: DisplayProperty.list.map(\.name), values: DisplayProperty.list.map(\.value))
-
-        guard let target = try parseQueryTarget(domain, command, &message, properties, context) else { return }
-
+    switch command {
+    case .displays(let properties, let target):
+        guard let target = try resolve(target, context) else { return }
         switch target {
-        case .all:              displayManagerQueryDisplays(&rsp, properties.flags)
-        case .display(let did): rsp.write("\(displaySerialize(did, properties.flags))\n")
+        case .all:              displayManagerQueryDisplays(&rsp, properties)
+        case .display(let did): rsp.write("\(displaySerialize(did, properties))\n")
         case .space(let sid):
-            if let did = sid.display {
-                rsp.write("\(displaySerialize(did, properties.flags))\n")
-            } else {
-                throw CommandError("could not find display details.\n")
-            }
+            if let did = sid.display { rsp.write("\(displaySerialize(did, properties))\n") }
+            else { throw CommandError("could not find display details.\n") }
         case .window(let window):
-            if let window, let did = window.id.displayID {
-                rsp.write("\(displaySerialize(did, properties.flags))\n")
-            } else {
-                throw CommandError("could not find window to retrieve display details.\n")
-            }
+            if let window, let did = window.id.displayID { rsp.write("\(displaySerialize(did, properties))\n") }
+            else { throw CommandError("could not find window to retrieve display details.\n") }
         }
-    } else if command.equals(QueryCommand.spaces) {
-        let properties = try parseProperties(message.next(), names: SpaceProperty.list.map(\.name), values: SpaceProperty.list.map(\.value))
-
-        guard let target = try parseQueryTarget(domain, command, &message, properties, context) else { return }
-
+    case .spaces(let properties, let target):
+        guard let target = try resolve(target, context) else { return }
         switch target {
         case .all:
-            if !spaceManagerQuerySpacesForDisplays(&rsp, properties.flags) { throw CommandError("could not retrieve spaces for displays.\n") }
+            if !spaceManagerQuerySpacesForDisplays(&rsp, properties) { throw CommandError("could not retrieve spaces for displays.\n") }
         case .display(let did):
-            if !spaceManagerQuerySpacesForDisplay(&rsp, did, properties.flags) { throw CommandError("could not retrieve spaces for display.\n") }
+            if !spaceManagerQuerySpacesForDisplay(&rsp, did, properties) { throw CommandError("could not retrieve spaces for display.\n") }
         case .space(let sid):
-            if !spaceManagerQuerySpace(&rsp, sid, properties.flags) { throw CommandError("could not retrieve space details.\n") }
+            if !spaceManagerQuerySpace(&rsp, sid, properties) { throw CommandError("could not retrieve space details.\n") }
         case .window(let window):
-            if let window {
-                spaceManagerQuerySpacesForWindow(&rsp, window, properties.flags)
-            } else {
-                throw CommandError("could not find window to retrieve space details.\n")
-            }
+            if let window { spaceManagerQuerySpacesForWindow(&rsp, window, properties) }
+            else { throw CommandError("could not find window to retrieve space details.\n") }
         }
-    } else if command.equals(QueryCommand.windows) {
-        let properties = try parseProperties(message.next(), names: WindowProperty.list.map(\.name), values: WindowProperty.list.map(\.value))
-
-        guard let target = try parseQueryTarget(domain, command, &message, properties, context) else { return }
-
+    case .windows(let properties, let target):
+        guard let target = try resolve(target, context) else { return }
         switch target {
-        case .all:              windowManagerQueryWindowsForDisplays(&rsp, properties.flags)
-        case .display(let did): windowManagerQueryWindowsForDisplay(&rsp, did, properties.flags)
-        case .space(let sid):   windowManagerQueryWindowsForSpaces(&rsp, [sid], properties.flags)
+        case .all:              windowManagerQueryWindowsForDisplays(&rsp, properties)
+        case .display(let did): windowManagerQueryWindowsForDisplay(&rsp, did, properties)
+        case .space(let sid):   windowManagerQueryWindowsForSpaces(&rsp, [sid], properties)
         case .window(let window):
-            if let window {
-                rsp.write("\(windowSerialize(window, properties.flags))\n")
-            } else {
-                throw CommandError("could not retrieve window details.\n")
-            }
+            if let window { rsp.write("\(windowSerialize(window, properties))\n") }
+            else { throw CommandError("could not retrieve window details.\n") }
         }
-    } else if command.equals(QueryCommand.tree) {
-        var actingSid = SpaceID.active
-        let option = message.next()
-
-        if option.equals(QueryCommand.space) {
-            if !(try parseOptionalSpaceSelector(&message, &actingSid, context)) { return }
-        } else if option.isValid {
-            throw CommandError.unknownOption(domain, command, option)
+    case .tree(let selector):
+        let sid: SpaceID?
+        if let selector {
+            sid = try selector.resolve(acting: context.activeSpace, context)
+            if sid == nil, case .recent = selector { return }
+        } else {
+            sid = context.activeSpace
         }
-
-        guard let sid = actingSid else {
+        guard let sid else { throw CommandError("the selected space does not use the tree layout.\n") }
+        if !treeSerialize(&rsp, SpaceManager.shared.view(for: sid)) {
             throw CommandError("the selected space does not use the tree layout.\n")
         }
+    }
+}
 
-        let view = SpaceManager.shared.view(for: sid)
-        if !treeSerialize(&rsp, view) {
-            throw CommandError("the selected space does not use the tree layout.\n")
+private enum ResolvedQueryTarget
+{
+    case all
+    case display(DisplayID)
+    case space(SpaceID)
+    case window(Window?)
+}
+
+@WM private func resolve(_ target: QueryCommand.Target, _ context: CSelectorContext) throws(CommandError) -> ResolvedQueryTarget?
+{
+    switch target {
+    case .all:
+        return .all
+    case .display(let selector):
+        let did: DisplayID?
+        if let selector {
+            did = try selector.resolve(acting: context.activeDisplay, context)
+            if did == nil, case .recent = selector { return nil }
+        } else {
+            did = context.activeDisplay
         }
-    } else {
-        throw CommandError.unknownCommand(domain, command)
+        guard let did else { throw CommandError("could not locate the selected display.\n") }
+        return .display(did)
+    case .space(let selector):
+        let sid: SpaceID?
+        if let selector {
+            sid = try selector.resolve(acting: context.activeSpace, context)
+            if sid == nil, case .recent = selector { return nil }
+        } else {
+            sid = context.activeSpace
+        }
+        guard let sid else { throw CommandError("could not locate the selected space.\n") }
+        return .space(sid)
+    case .window(let selector):
+        if let selector {
+            return .window(try selector.resolve(acting: context.actingWindow, context))
+        }
+        return .window(context.actingWindow)
     }
 }
 

@@ -157,16 +157,16 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     case kAXMenuClosedNotification:
         EventLoop.post(.menuClosed)
     case kAXWindowMiniaturizedNotification:
-        EventLoop.post(.windowMinimized(Handoff(value: Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue())))
+        EventLoop.post(.windowMinimized(Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()))
     case kAXWindowDeminiaturizedNotification:
-        EventLoop.post(.windowDeminimized(Handoff(value: Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue())))
+        EventLoop.post(.windowDeminimized(Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()))
     case kAXUIElementDestroyedNotification:
         let target = Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()
 
         // NOTE: Ignore queued events after invalidation; only the caller that invalidates the window posts destruction.
         if !target.invalidate() { return }
 
-        EventLoop.post(.windowDestroyed(Handoff(value: target)))
+        EventLoop.post(.windowDestroyed(target))
     default:
         break
     }

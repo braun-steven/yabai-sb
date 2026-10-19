@@ -52,12 +52,13 @@ actor WM
 }
 
 //
-// NOTE: @unchecked Sendable: a producer gives up the object when it posts the event, and from then on only the event
-// loop uses it. The handler owns the object: handle takes the retained CF object (the AX element
-// of a new window, a mouse event) with takeRetainedValue, and the models belong to their managers.
+// NOTE: @unchecked Sendable: the retained CF objects that events carry (the AX element of a new window, a mouse event)
+// are not Sendable. A producer gives up its +1 reference when it posts the event, and from then on only the event
+// loop uses it: handle takes it with takeRetainedValue, so it is released when the handler returns. The models
+// (Process, Window) are @WM and therefore Sendable, so events carry them directly.
 //
 
-/// A model object (a process, a window) or a retained CF object that a producer hands to the handler of its event.
+/// A retained CF object that a producer hands to the handler of its event.
 struct Handoff<Value>: @unchecked Sendable
 {
     let value: Value
@@ -70,19 +71,19 @@ enum Event: Sendable
     case carbonProcessTerminated(ProcessKey)
     case carbonProcessFrontSwitched(ProcessKey)
     case applicationLaunchRetry(ProcessKey)
-    case applicationLaunched(Handoff<Process>)
-    case applicationTerminated(Handoff<Process>)
-    case applicationFrontSwitched(Handoff<Process>)
+    case applicationLaunched(Process)
+    case applicationTerminated(Process)
+    case applicationFrontSwitched(Process)
     case applicationVisible(pid: pid_t)
     case applicationHidden(pid: pid_t)
     case windowCreated(Handoff<Unmanaged<AXUIElement>>)
-    case windowDestroyed(Handoff<Window>)
+    case windowDestroyed(Window)
     case windowFocused(windowID: WindowID?)
     case windowFocusDeferred(windowID: WindowID)
     case windowMoved(windowID: WindowID)
     case windowResized(windowID: WindowID)
-    case windowMinimized(Handoff<Window>)
-    case windowDeminimized(Handoff<Window>)
+    case windowMinimized(Window)
+    case windowDeminimized(Window)
     case windowTitleChanged(windowID: WindowID)
     case slsWindowOrdered(windowID: WindowID)
     case slsWindowDestroyed(windowID: WindowID)
@@ -141,19 +142,19 @@ extension EventHandler
         case .carbonProcessTerminated(let key):         carbonProcessTerminated(key)
         case .carbonProcessFrontSwitched(let key):      carbonProcessFrontSwitched(key)
         case .applicationLaunchRetry(let key):          applicationLaunchRetry(key)
-        case .applicationLaunched(let process):          applicationLaunched(process.value)
-        case .applicationTerminated(let process):        applicationTerminated(process.value)
-        case .applicationFrontSwitched(let process):     applicationFrontSwitched(process.value)
+        case .applicationLaunched(let process):          applicationLaunched(process)
+        case .applicationTerminated(let process):        applicationTerminated(process)
+        case .applicationFrontSwitched(let process):     applicationFrontSwitched(process)
         case .applicationVisible(let pid):               applicationVisible(pid)
         case .applicationHidden(let pid):                applicationHidden(pid)
         case .windowCreated(let element):                windowCreated(element.value.takeRetainedValue())
-        case .windowDestroyed(let window):               windowDestroyed(window.value)
+        case .windowDestroyed(let window):               windowDestroyed(window)
         case .windowFocused(let wid):                    windowFocused(wid)
         case .windowFocusDeferred(let wid):              windowFocusDeferred(wid)
         case .windowMoved(let wid):                      windowMoved(wid)
         case .windowResized(let wid):                    windowResized(wid)
-        case .windowMinimized(let window):               windowMinimized(window.value)
-        case .windowDeminimized(let window):             windowDeminimized(window.value)
+        case .windowMinimized(let window):               windowMinimized(window)
+        case .windowDeminimized(let window):             windowDeminimized(window)
         case .windowTitleChanged(let wid):               windowTitleChanged(wid)
         case .slsWindowOrdered(let wid):                 slsWindowOrdered(wid)
         case .slsWindowDestroyed(let wid):               slsWindowDestroyed(wid)

@@ -281,7 +281,7 @@ extension EventHandler
         }
 
         if wm.hasLostFrontSwitchedEvent(for: process.pid) {
-            EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
+            EventLoop.post(.applicationFrontSwitched(process))
             wm.removeLostFrontSwitchedEvent(for: process.pid)
         }
 
@@ -424,7 +424,7 @@ extension EventHandler
                 debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(process.nameAndPID) was activated, trying to observe it again\n")
                 process.launchAttempts = 0
                 process.launchGivenUp = false
-                EventLoop.post(.applicationLaunched(Handoff(value: process)))
+                EventLoop.post(.applicationLaunched(process))
             }
 
             return

@@ -94,7 +94,7 @@ final class Workspace: NSObject, Sendable
 
                 process.policy.store(result, ordering: .relaxed)
                 debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(process.nameAndPID)\n")
-                EventLoop.post(.applicationLaunched(Handoff(value: process)))
+                EventLoop.post(.applicationLaunched(process))
             }
         }
 
@@ -116,7 +116,7 @@ final class Workspace: NSObject, Sendable
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.finishedLaunching, context)
 
                 debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: \(process.nameAndPID) finished launching\n")
-                EventLoop.post(.applicationLaunched(Handoff(value: process)))
+                EventLoop.post(.applicationLaunched(process))
             }
         }
     }

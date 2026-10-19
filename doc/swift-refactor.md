@@ -135,13 +135,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [~] | 2a055797 | 3.1–3.5 done |
+| **3** | **Models and managers as types with methods** | [x] | 45c4e297 | live check and bench deferred to 4.6 |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
 | 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
 | 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
-| 3.6 | Verification: done-when sweep, live check, benchmark | [~] | 8816cfb1 | stopped by user in piece 1; see 3.6 handover |
+| 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 45c4e297 | sweep clean; live check/bench deferred to 4.6 |
 | **4** | **Compiler-checked isolation** | [ ] | | |
 | 4.1 | Mouse event tap state | [ ] | | |
 | 4.2 | Process table | [ ] | | |
@@ -439,6 +439,10 @@ Carried between phases; add, resolve or strike items here.
   permission.
 - `Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
   unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.
+- Phase 3's live check and benchmark were deferred by the user (2026-10-19) and folded into 4.6: its live check and
+  bench also cover the phase 3 paths that 3.5 changed (focus with/without raise, scratchpad hide, space moves without
+  SA, borders, tab bars, insertion feedback, animations; `live.py run` without T6/T7 as in 2.6). Phase 3 is `[x]`
+  without them.
 
 ## Reports
 
@@ -743,3 +747,20 @@ not here.
   scratchpad hide, space moves without SA, borders, tab bars, insertion feedback, animations), bench against the
   baseline as in 2.6, restore the installed binary, return focus to the terminal. Then the phase agent marks phase 3
   `[x]` and starts phase 4.
+
+### 2026-10-19 Subphase 3.6 [x]
+- Commits: 4db7c651..45c4e297 (made outside the workflow; reviewed here), plus this report.
+- Done: reviewed 4db7c651 against handover piece 1 (`enum MessageLoop` with `begin(socketPath:)`, `handle(_:)`,
+  private `run`/`read`; call sites in `Yabai.swift` and `EventLoop.swift`; C-origin comments reworded; `Darwin.read`
+  where the method shadows it) and 45c4e297 against piece 2 (global `connection` alias gone, uses are
+  `SLS.connection`): both complete, no gaps, no Haiku pieces needed. Done-when sweep at HEAD (dc446a3b): no top-level
+  `snake_case` functions in `Sources/Yabai`, no raw `SLS*(`/`AXUIElement*`/`AXObserver*`/`_AX*` calls outside
+  `Platform/`; the only `*_global()` left are CPrivate libc accessors (`stdout_global`, `stderr_global`,
+  `environ_global`).
+- Output changes: none.
+- Verification: at HEAD dc446a3b (includes phase 4 commits 21da3d9e..dc446a3b made outside the workflow): `make`
+  without warnings, `make test` 112 tests pass incl. golden. No live check, no bench.
+- Decisions: the user deferred the live check and bench to 4.6 (Open issues); phase 3 is `[x]` without them.
+- Next: 4.6 runs phase 3's live checks (list in the handover above) along with its own, and benches against the
+  phase 1 baseline.
+- Notes for the next agent: phase 4 rows 4.1–4.3 are not recorded here; their commits exist (21da3d9e..dc446a3b).

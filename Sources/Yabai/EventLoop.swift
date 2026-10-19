@@ -4,9 +4,10 @@ import YabaiCore
 
 //
 // NOTE: The event loop. Producers on other threads (AX observers, SkyLight notify procs, the NSWorkspace notifications,
-// the mouse event tap, the socket thread) only post events; the handlers run one at a time on the serial queue of the
-// @WM actor, in the order the events were posted. After each handler the signals it pushed run. Events never go
-// through Task {}: a task could run them out of order. The handlers are EventHandler methods, in EventHandler*.swift.
+// the mouse event tap, the socket thread) only yield events into one AsyncStream; a single long-lived @WM task
+// consumes it and runs the handlers one at a time, in the order the events were posted. After each handler the
+// signals it pushed run. Events never get a Task {} of their own: separate tasks could run them out of order. The
+// handlers are EventHandler methods, in EventHandler*.swift.
 //
 
 /// The actor of the window manager state. Its executor is the serial queue of the event loop.
@@ -16,7 +17,8 @@ actor WM
     static let shared = WM()
 
     //
-    // NOTE: An autorelease pool drains after each event (autoreleaseFrequency: .workItem). The queue has the default QoS.
+    // NOTE: The queue has the default QoS and drains an autorelease pool after each work item (WM.sync blocks, C
+    // callbacks); the event loop drains its own pool per event, since one work item of its task can handle several.
     //
 
     nonisolated let queue = DispatchSerialQueue(label: "yabai.wm", qos: .default, autoreleaseFrequency: .workItem)
@@ -28,9 +30,9 @@ actor WM
 
     //
     // NOTE: Runs code isolated to @WM from a synchronous context that is already on the queue but has no static
-    // isolation: the block of EventLoop.post and WM.sync. Code that is @WM itself calls @WM code directly. It traps
-    // when called from another thread, like MainActor.assumeIsolated, which a custom global actor does not get from
-    // the standard library.
+    // isolation: the block of WM.sync. Code that is @WM itself calls @WM code directly. It traps when called from
+    // another thread, like MainActor.assumeIsolated, which a custom global actor does not get from the standard
+    // library.
     //
 
     static func assumeIsolated<T>(_ operation: @WM () throws -> T) rethrows -> T
@@ -120,13 +122,31 @@ enum Event: Sendable
 
 enum EventLoop
 {
+    //
+    // NOTE: Unbounded, so a producer never blocks or drops an event. Events posted before start() wait in the buffer.
+    //
+
+    private static let events = AsyncStream.makeStream(of: Event.self, bufferingPolicy: .unbounded)
+
     /// Posts an event. Callable from any thread.
     static func post(_ event: Event)
     {
-        WM.shared.queue.async {
-            WM.assumeIsolated {
-                EventHandler.shared.handle(event)
-                EventSignals.shared.flush()
+        events.continuation.yield(event)
+    }
+
+    //
+    // NOTE: Starts the one consumer of the events; call it once, at startup. Priority .medium keeps the default QoS
+    // of the yabai.wm queue.
+    //
+
+    static func start()
+    {
+        Task(priority: .medium) { @WM in
+            for await event in events.stream {
+                autoreleasepool {
+                    EventHandler.shared.handle(event)
+                    EventSignals.shared.flush()
+                }
             }
         }
     }

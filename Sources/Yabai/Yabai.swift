@@ -267,6 +267,8 @@ enum Daemon
             error("yabai: could not acquire lock-file! abort..\n")
         }
 
+        EventLoop.start()
+
         if !Workspace.begin() {
             error("yabai: could not start workspace context! abort..\n")
         }

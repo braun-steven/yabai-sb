@@ -220,7 +220,7 @@ import YabaiCore
             wm.unmanageWindow(window, from: view)
         }
     } else if wasFullscreen && !isFullscreen {
-        window_manager_wait_for_native_fullscreen_transition()
+        wm.waitForNativeFullscreenTransition()
 
         if window.shouldBeManaged && wm.managedView(for: window) == nil {
             if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }

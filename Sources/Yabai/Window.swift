@@ -154,6 +154,14 @@ final class Window
         scripting_addition_set_layer(id, layer.level)
     }
 
+    func toggleShadow()
+    {
+        let shadow = !hasShadow
+        if scripting_addition_set_shadow(id, shadow) {
+            hasShadow = shadow
+        }
+    }
+
     private func attributeIsSettable(_ attribute: String) -> Bool
     {
         var result: DarwinBoolean = false

@@ -89,14 +89,14 @@ private func windowToggle(_ toggle: WindowToggle, _ window: Window)
     switch toggle {
     case .float:              wm.makeWindowFloating(window, shouldFloat: !window.isFloating, force: false)
     case .sticky:             wm.makeWindowSticky(window, shouldBeSticky: !window.isSticky)
-    case .shadow:             window_manager_toggle_window_shadow(window)
+    case .shadow:             window.toggleShadow()
     case .split:              space_manager_toggle_window_split(sm, window)
-    case .zoomParent:         window_manager_toggle_window_zoom_parent(wm, window)
-    case .zoomFullscreen:     window_manager_toggle_window_zoom_fullscreen(wm, window)
-    case .windowedFullscreen: window_manager_toggle_window_windowed_fullscreen(window)
-    case .nativeFullscreen:   window_manager_toggle_window_native_fullscreen(window)
-    case .expose:             window_manager_toggle_window_expose(window)
-    case .pip:                window_manager_toggle_window_pip(sm, window)
+    case .zoomParent:         wm.toggleParentZoom(window)
+    case .zoomFullscreen:     wm.toggleFullscreenZoom(window)
+    case .windowedFullscreen: wm.toggleWindowedFullscreen(window)
+    case .nativeFullscreen:   wm.toggleNativeFullscreen(window)
+    case .expose:             wm.toggleExpose(window)
+    case .pip:                wm.togglePictureInPicture(window)
     }
 }
 

@@ -62,7 +62,9 @@ public struct RuleEffectsFlags: OptionSet, Sendable
     public static let layer       = RuleEffectsFlags(rawValue: 0x04)
 }
 
-/// A grid placement "rows:columns:x:y:width:height" (`unsigned grid[6]`). All 0 is no placement.
+/// A grid placement "rows:columns:x:y:width:height" (`unsigned grid[6]`). All 0 is no placement. The `%d` parser
+/// accepts negative values and preserves their 32-bit bit pattern (so `-1` becomes `UInt32.max`), matching the grid
+/// math's existing unsigned wrap behavior.
 public struct Grid: Equatable, Sendable
 {
     public var rows: UInt32 = 0
@@ -80,11 +82,12 @@ public struct Grid: Equatable, Sendable
     }
 
     //
-    // NOTE: "%d" writes each value as an int into the unsigned field, as the C version's sscanf did, and the fields
-    // before a mismatch keep what was read.
+    // NOTE: Keep `%d` and the UInt32 fields: negative input is accepted and its 32-bit bit pattern is used by the
+    // grid math. Like sscanf, values assigned before a mismatch remain updated.
     //
 
-    /// sscanf with "%d:%d:%d:%d:%d:%d"; returns the number of values read.
+    /// Scans six colon-separated `%d` values, preserving negative inputs as their UInt32 bit patterns; returns the
+    /// number of values read. Values assigned before a mismatch remain updated.
     public mutating func scan(_ value: Token) -> Int
     {
         var values = [rows, columns, x, y, width, height]

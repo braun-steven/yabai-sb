@@ -600,6 +600,16 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(response == "value '' is not a valid option for SPACE_SEL\ninvalid key-value pair 'bogus'\n")
 }
 
+@Test func gridScanPreservesNegativeBitsAndPartialValues()
+{
+    var grid = Grid(1, 2, 3, 4, 5, 6)
+
+    #expect(grid.scan(Token("-1:2:bad:4:5:6")) == 2)
+    #expect(grid.rows == UInt32.max)
+    #expect(grid.columns == 2)
+    #expect(grid.x == 3 && grid.y == 4 && grid.width == 5 && grid.height == 6)
+}
+
 @Test func ruleCommandsParseOperationsAndPayloads() throws(CommandError)
 {
     var add = Message("--add\0--one-shot\0app=^Safari$\0display=2\0")

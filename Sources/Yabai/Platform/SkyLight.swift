@@ -4,9 +4,9 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: Swift wrappers of the SkyLight functions in CPrivate.h, for the code that the port moves to Swift. They take the
-// connection like the SkyLight calls do (usually SLS.connection). A failed call gives what the C helper it replaces
-// gives: nil, an empty list or the zero value.
+// NOTE: Swift wrappers of the SkyLight functions in CPrivate.h, taking and returning Swift types. They take the
+// connection like the SkyLight calls do (usually SLS.connection). A failed call gives nil, an empty list or the zero
+// value, as each wrapper documents.
 //
 
 enum SLS
@@ -34,8 +34,8 @@ enum SLS
     static let connection: Int32 = SLSMainConnectionID()
 
     //
-    // NOTE: The C code builds these lists with cfarray_of_cfnumbers: window ids as kCFNumberSInt32Type and space ids as
-    // kCFNumberSInt64Type. NSNumber(value: Int32) and NSNumber(value: Int64) create the same CFNumber types.
+    // NOTE: SkyLight expects window ids as kCFNumberSInt32Type and space ids as kCFNumberSInt64Type numbers, which
+    // NSNumber(value: Int32) and NSNumber(value: Int64) create.
     //
 
     static func cfArray(windows: [WindowID]) -> CFArray
@@ -76,7 +76,7 @@ enum SLS
         return SLSGetWindowSubLevel(cid, wid.rawValue)
     }
 
-    /// `SLSCopyWindowProperty` with `kCGSWindowTitle`, as `window_property_title_ts` reads it.
+    /// `SLSCopyWindowProperty` with `kCGSWindowTitle`: the title that the window server knows.
     static func windowTitle(_ cid: Int32, _ wid: WindowID) -> String?
     {
         var value: Unmanaged<CFTypeRef>?
@@ -108,14 +108,14 @@ enum SLS
         return pid
     }
 
-    /// `SLSCopySpacesForWindows`; `window_space` and `window_space_list` pass the selector 0x7.
+    /// `SLSCopySpacesForWindows`; `WindowID.space` and its callers pass the selector 0x7.
     static func spaces(_ cid: Int32, forWindows windows: [WindowID], selector: Int32 = 0x7) -> [SpaceID]
     {
         return ids(SLSCopySpacesForWindows(cid, selector, cfArray(windows: windows)), as: UInt64.self).map { SpaceID($0) }
     }
 
-    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `SpaceID.windows(on:connection:includingMinimized:)` calls it. nil when
-    /// the call fails, which the caller must tell apart from an empty list.
+    /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `SpaceID.windows(on:connection:includingMinimized:)`
+    /// calls it. nil when the call fails, which the caller must tell apart from an empty list.
     static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [WindowID]?
     {
         var setTags: UInt64 = 0
@@ -369,7 +369,7 @@ enum SLS
     }
 
     //
-    // NOTE: The bridged operation moves windows asynchronously, and the window server has it on macOS 27. yabai.c
+    // NOTE: The bridged operation moves windows asynchronously, and the window server has it on macOS 27. Daemon.run
     // resolves its function pointer; Swift reads it through the accessors of CPrivate.h.
     //
 
@@ -381,7 +381,7 @@ enum SLS
 
     /// `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]`, run through
     /// `SLSPerformAsynchronousBridgedWindowManagementOperation` and released after the window server took it.
-    /// The Objective-C messages go through objc_msgSend, cast to the signature of each call as space_manager.c did.
+    /// The Objective-C messages go through objc_msgSend, cast to the signature of each call.
     static func bridgedMoveWindows(_ windows: [WindowID], toSpace sid: SpaceID)
     {
         guard let cls = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation"),

@@ -2,7 +2,7 @@ import CoreFoundation
 import CPrivate
 
 //
-// NOTE: Swift wrappers of the CoreDock functions in CPrivate.h, for the code that the port moves to Swift.
+// NOTE: Swift wrappers of the CoreDock functions in CPrivate.h.
 //
 
 enum CoreDock

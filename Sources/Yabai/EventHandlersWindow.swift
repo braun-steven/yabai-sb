@@ -55,10 +55,10 @@ import YabaiCore
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
 
     if let view = window_manager_find_managed_window(wm, window) {
-        let nextFocus = window_manager_tree_focus_candidate(wm, view, window)
+        let nextFocus = wm.treeFocusCandidate(in: view, for: window)
         space_manager_untile_window(view, window)
         window_manager_remove_managed_window(wm, window.id)
-        window_manager_tree_focus_after_close(wm, view, nextFocus)
+        wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
 
     if ms.window == window { ms.window = nil }
@@ -258,7 +258,7 @@ import YabaiCore
     window_refresh_ax_properties(window)
 
     let view = window_manager_find_managed_window(wm, window)
-    let nextFocus = view.flatMap { window_manager_tree_focus_candidate(wm, $0, window) }
+    let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
 
     if window.id == wm.last_window_id {
         wm.last_window_id = wm.focused_window_id
@@ -266,7 +266,7 @@ import YabaiCore
 
     if let view {
         window_manager_unmanage_window(wm, view, window)
-        window_manager_tree_focus_after_close(wm, view, nextFocus)
+        wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
 
     border_refresh_window_space(window)

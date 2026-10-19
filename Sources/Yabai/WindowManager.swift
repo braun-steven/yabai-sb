@@ -371,26 +371,6 @@ func window_manager_find_tree_view(_ wm: WindowManager, _ target: Window?) -> Vi
     return owner.tree != nil ? owner : nil
 }
 
-/// `window_manager_tree_acting_con`
-func windowManagerTreeActingCon(_ owner: View, _ target: Window) -> Con?
-{
-    if let selected = owner.tree?.findSelected(), target.id == window_manager_global().focused_window_id { return selected }
-    return owner.tree?.find(target.id)
-}
-
-/// `window_manager_tree_apply`
-func windowManagerTreeApply(_ owner: View)
-{
-    //
-    // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
-    //
-
-    if let focused = owner.tree?.find(window_manager_global().focused_window_id) { focused.focus() }
-
-    if !owner.updateAutoPadding() { owner.updateTree() }
-    owner.flush()
-}
-
 /// `window_manager_focus_window_id`
 func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
 {
@@ -399,40 +379,6 @@ func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
         window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
         window_manager_set_pending_focus(wm, target.id)
     }
-}
-
-//
-// NOTE: The windows of the container that are on another space are moved with one operation, which
-// is asynchronous. The returned list of moved windows is passed to window_manager_tree_wait_for_view
-// before the layout of the view is applied, so that the frames are not set before the windows arrive.
-//
-
-/// `window_manager_tree_set_view`
-func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -> [WindowID]
-{
-    let windowList = node.windowIDs
-
-    var moveList: [WindowID] = []
-    for windowID in windowList {
-        guard let target = window_manager_find_window(wm, windowID) else { continue }
-
-        if window_space(target.id) != owner.sid { moveList.append(target.id) }
-        window_manager_remove_managed_window(wm, target.id)
-        window_manager_add_managed_window(wm, target, owner)
-    }
-
-    if !moveList.isEmpty {
-        space_manager_move_window_list_to_space(owner.sid, moveList)
-    }
-    return moveList
-}
-
-/// `window_manager_tree_wait_for_view`
-func windowManagerTreeWaitForView(_ moveList: [WindowID], _ owner: View)
-{
-    if moveList.isEmpty { return }
-
-    _ = space_manager_wait_for_windows_on_space(moveList, owner.sid, 200)
 }
 
 //
@@ -450,7 +396,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     // container, like i3 skips tabbed containers when it looks for the containers to resize.
     //
 
-    var node = windowManagerTreeActingCon(owner, target)
+    var node = wm.treeActingCon(in: owner, for: target)
     while let current = node, let parent = current.parent, parent.layout == .tabbed { node = parent }
     guard let node, let parent = node.parent else { return .invalidSourceNode }
 
@@ -514,7 +460,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
     if let owner = window_manager_find_managed_window(wm, target) {
         if direction == .abs || owner.tree == nil { return .invalidOperation }
 
-        guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
+        guard let node = wm.treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
 
         var didResize = false
         if direction.contains(.top)    { didResize = node.resize(.north, by: dy) || didResize }
@@ -858,7 +804,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 
     window_manager_add_managed_window(wm, b, aView)
     window_manager_adjust_layer(b, .below)
-    windowManagerTreeApply(aView)
+    wm.treeApply(aView)
 
     return .success
 }
@@ -867,7 +813,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ layout: WindowLayout) -> WindowOperationResult
 {
     guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
-    guard let node = windowManagerTreeActingCon(owner, target) else { return .invalidSourceNode }
+    guard let node = wm.treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
 
     let parent = node.parent ?? node
 
@@ -881,7 +827,7 @@ func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ 
     }
 
     owner.tree!.flatten()
-    windowManagerTreeApply(owner)
+    wm.treeApply(owner)
     return .success
 }
 
@@ -907,7 +853,7 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
     if aView == bView {
         aCon.place(.after, of: bCon)
         aView.tree!.flatten()
-        windowManagerTreeApply(aView)
+        wm.treeApply(aView)
     } else {
         space_manager_untile_window(aView, a)
         window_manager_remove_managed_window(wm, a.id)
@@ -938,14 +884,14 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
     aCon.swap(with: bCon)
 
     if aView != bView {
-        let aMoved = windowManagerTreeSetView(wm, aCon, bView)
-        let bMoved = windowManagerTreeSetView(wm, bCon, aView)
-        windowManagerTreeWaitForView(aMoved, bView)
-        windowManagerTreeWaitForView(bMoved, aView)
-        windowManagerTreeApply(bView)
+        let aMoved = wm.treeSetView(aCon, to: bView)
+        let bMoved = wm.treeSetView(bCon, to: aView)
+        wm.treeWaitForView(aMoved, bView)
+        wm.treeWaitForView(bMoved, aView)
+        wm.treeApply(bView)
     }
 
-    windowManagerTreeApply(aView)
+    wm.treeApply(aView)
     return .success
 }
 
@@ -1198,7 +1144,7 @@ private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window
     if zoom == .parent && node.parent == owner.tree { zoom = .fullscreen }
 
     node.zoom = node.zoom == zoom ? .none : zoom
-    windowManagerTreeApply(owner)
+    wm.treeApply(owner)
 }
 
 /// `window_manager_toggle_window_zoom_parent`

@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Foundation
+import Synchronization
 import YabaiCore
 
 //
@@ -84,51 +85,70 @@ private func missionControlNotificationHandler(_ observer: AXObserver, _ element
     }
 }
 
-/// Mission Control: its mode, and the observer of the Mission Control notifications of the Dock.
-final class MissionControl
+private struct MissionControlState: @unchecked Sendable
 {
-    // NOTE: the handlers on the event loop own the mode. observe() runs in Daemon.run before the event loop starts, and
-    // after that only the Dock-restart handler on the event loop changes the observer.
-    nonisolated(unsafe) static let shared = MissionControl()
-
     var mode = MissionControlMode.inactive
-    var isActive: Bool { mode != .inactive }
+    var ref: AXUIElement?
+    var observerRef: AXObserver?
+    var isObserving = false
+}
 
-    private var ref: AXUIElement?
-    private var observerRef: AXObserver?
-    private var isObserving = false
+/// Mission Control: its mode, and the observer of the Mission Control notifications of the Dock.
+final class MissionControl: @unchecked Sendable
+{
+    // NOTE: Daemon.run calls observe() during startup; yabai.wm reads and changes mode and reattaches the Dock observer
+    // after restarts. Those observer lifecycle calls are sequential. stateLock protects state and retained references
+    // across those threads, but AX, Workspace, and CFRunLoop calls stay outside it to avoid callback reentrancy.
+    // The AX callback only posts events.
+    static let shared = MissionControl()
+
+    private let stateLock = Mutex(MissionControlState())
+
+    var mode: MissionControlMode
+    {
+        get { stateLock.withLock { $0.mode } }
+        set { stateLock.withLock { $0.mode = newValue } }
+    }
+
+    var isActive: Bool { mode != .inactive }
 
     func observe()
     {
-        if isObserving { return }
+        let alreadyObserving = stateLock.withLock { $0.isObserving }
+        guard !alreadyObserving, let pid = Workspace.dockPID else { return }
 
-        guard let pid = Workspace.dockPID else { return }
-        self.ref = AXUIElement.application(pid)
-
-        guard let ref else { return }
-
+        let ref = AXUIElement.application(pid)
         guard let observerRef = AXObserver.create(pid: pid, callback: missionControlNotificationHandler) else { return }
 
         for notification in Expose.all {
             observerRef.add(notification, for: ref, context: nil)
         }
 
-        self.observerRef = observerRef
-        isObserving = true
         CFRunLoopAddSource(CFRunLoopGetMain(), observerRef.runLoopSource, .defaultMode)
+
+        stateLock.withLock { state in
+            state.ref = ref
+            state.observerRef = observerRef
+            state.isObserving = true
+        }
     }
 
     func unobserve()
     {
-        guard isObserving, let observerRef, let ref else { return }
+        let observer = stateLock.withLock { state -> (AXObserver, AXUIElement)? in
+            guard state.isObserving, let observerRef = state.observerRef, let ref = state.ref else { return nil }
+
+            state.isObserving = false
+            state.observerRef = nil
+            state.ref = nil
+            return (observerRef, ref)
+        }
+        guard let (observerRef, ref) = observer else { return }
 
         for notification in Expose.all {
             observerRef.remove(notification, for: ref)
         }
 
-        isObserving = false
         CFRunLoopSourceInvalidate(observerRef.runLoopSource)
-        self.observerRef = nil
-        self.ref = nil
     }
 }

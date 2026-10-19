@@ -355,6 +355,13 @@ public struct Response: Sendable
         bytes += text.bytes
     }
 
+    /// Writes the json of a query response and a newline.
+    public mutating func write(json value: some Encodable)
+    {
+        bytes += JSON.encode(value)
+        bytes.append(UInt8(ascii: "\n"))
+    }
+
     /// Writes a failure: the failure byte, then its text.
     public mutating func fail(_ error: CommandError)
     {

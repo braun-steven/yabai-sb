@@ -28,6 +28,19 @@ import Testing
     #expect(JSON.number(1e30) == "1000000000000000019884624838656.0000")
 }
 
+@Test func jsonEncodeEscapesStringsAndNonFiniteNumbers()
+{
+    #expect(String(decoding: JSON.encode(["a/b\"\\\n\u{1}"]), as: UTF8.self) == "[\"a/b\\\"\\\\\\n\\u0001\"]")
+    #expect(String(decoding: JSON.encode([Double.nan, .infinity, -.infinity, 0, -1728, 1.5]), as: UTF8.self) == "[\"nan\",\"inf\",\"-inf\",0,-1728,1.5]")
+}
+
+@Test func responseWritesJSONWithNewline()
+{
+    var response = Response()
+    response.write(json: [1, 2])
+    #expect(response.text == "[1,2]\n")
+}
+
 private func unselected() -> String
 {
     Issue.record("the value of an unselected property is evaluated")

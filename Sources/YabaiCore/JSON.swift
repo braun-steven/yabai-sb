@@ -1,5 +1,6 @@
 import CoreGraphics
 import Darwin
+import Foundation
 
 //
 // NOTE: The query responses keep the format of the original C serializers: key order, "%.4f" numbers, this escaping
@@ -9,6 +10,26 @@ import Darwin
 public enum JSON
 {
     private static let hex = Array("0123456789abcdef".utf8)
+
+    //
+    // NOTE: JSONEncoder does not keep the order in which encode(to:) writes keys: without .sortedKeys the order follows
+    // hashing and changes between encodings of the same value. Query responses therefore sort their keys. Non-finite
+    // numbers are written as the strings "nan", "inf" and "-inf", so encoding the query types cannot fail.
+    //
+
+    /// The compact json of a query response, with sorted keys and unescaped slashes.
+    public static func encode(_ value: some Encodable) -> [UInt8]
+    {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
+
+        do {
+            return Array(try encoder.encode(value))
+        } catch {
+            preconditionFailure("could not encode query json: \(error)")
+        }
+    }
 
     /// `ts_string_escape`: the escaped bytes, or nil when nothing needs escaping. Bytes from 0x80 up pass through,
     /// like the signed chars of the C version.

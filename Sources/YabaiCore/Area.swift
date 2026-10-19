@@ -10,7 +10,7 @@ public enum Direction: Int, Sendable
 }
 
 /// A rectangle in float precision: the areas of containers and views.
-public struct Area: Equatable, Sendable
+public struct Area: Equatable, Sendable, Encodable
 {
     public static let zero = Area(x: 0, y: 0, w: 0, h: 0)
 

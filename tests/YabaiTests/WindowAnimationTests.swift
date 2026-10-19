@@ -4,20 +4,20 @@ import Testing
 import CPrivate
 @testable import Yabai
 
-@Test("window_frame_close")
+@Test("frame closeness")
 func windowFrameClose()
 {
     let frame = CGRect(x: 100, y: 200, width: 300, height: 400)
-    #expect(window_frame_is_close(frame, 100, 200, 300, 400))
-    #expect(window_frame_is_close(frame, 100.5, 199.5, 300.9, 399.1))
-    #expect(!window_frame_is_close(frame, 101, 200, 300, 400))
-    #expect(!window_frame_is_close(frame, 100, 199, 300, 400))
-    #expect(!window_frame_is_close(frame, 100, 200, 301, 400))
-    #expect(!window_frame_is_close(frame, 100, 200, 300, 398.5))
-    #expect(!window_frame_is_close(.zero, 100, 200, 300, 400))
+    #expect(frame.isClose(x: 100, y: 200, w: 300, h: 400))
+    #expect(frame.isClose(x: 100.5, y: 199.5, w: 300.9, h: 399.1))
+    #expect(!frame.isClose(x: 101, y: 200, w: 300, h: 400))
+    #expect(!frame.isClose(x: 100, y: 199, w: 300, h: 400))
+    #expect(!frame.isClose(x: 100, y: 200, w: 301, h: 400))
+    #expect(!frame.isClose(x: 100, y: 200, w: 300, h: 398.5))
+    #expect(!CGRect.zero.isClose(x: 100, y: 200, w: 300, h: 400))
 }
 
-@Test("window_frame_group_by_application")
+@Test("frames grouped by application")
 func windowFrameGroupByApplication()
 {
     let owners = [Application(), Application()]
@@ -25,12 +25,12 @@ func windowFrameGroupByApplication()
     let ownerRefs = [AXUIElementCreateApplication(1), AXUIElementCreateApplication(2)]
     let windowRefs = (3...7).map { AXUIElementCreateApplication(pid_t($0)) }
     for i in 0..<2 { owners[i].ref = ownerRefs[i] }
-    let captures = (0..<5).map { i in
+    let placements = (0..<5).map { i in
         windows[i].application = owners[i % 2]
         windows[i].ref = windowRefs[i]
-        return window_capture(window: windows[i], x: Float(i), y: Float(10 * i), w: 100, h: 200)
+        return WindowPlacement(window: windows[i], x: Float(i), y: Float(10 * i), w: 100, h: 200)
     }
-    let groups = window_manager_group_window_frames(captures)
+    let groups = WindowFrameGroup.groups(for: placements)
     #expect(groups.count == 2)
     #expect(groups[0].application == owners[0])
     #expect(groups[0].list.count == 3)
@@ -46,7 +46,7 @@ func windowFrameGroupByApplication()
     #expect(groups[1].list[1].size.height == 200)
 }
 
-@Test("window_frame_needs_update_decision")
+@Test("frame update decision")
 func windowFrameNeedsUpdateDecision()
 {
     let target = CGRect(x: 10, y: 20, width: 300, height: 400)
@@ -54,16 +54,16 @@ func windowFrameNeedsUpdateDecision()
     //
     // NOTE: A window is only skipped when both the last request and the window server bounds match.
     //
-    #expect(!window_frame_needs_update(target, true, target, 10, 20, 300, 400))
-    #expect(window_frame_needs_update(target, true, other, 10, 20, 300, 400))
-    #expect(window_frame_needs_update(other, true, target, 10, 20, 300, 400))
-    #expect(window_frame_needs_update(target, false, target, 10, 20, 300, 400))
-    #expect(window_frame_needs_update(.zero, true, target, 10, 20, 300, 400))
+    #expect(!WindowManager.frameNeedsUpdate(request: target, bounds: target, x: 10, y: 20, w: 300, h: 400))
+    #expect(WindowManager.frameNeedsUpdate(request: target, bounds: other, x: 10, y: 20, w: 300, h: 400))
+    #expect(WindowManager.frameNeedsUpdate(request: other, bounds: target, x: 10, y: 20, w: 300, h: 400))
+    #expect(WindowManager.frameNeedsUpdate(request: target, bounds: nil, x: 10, y: 20, w: 300, h: 400))
+    #expect(WindowManager.frameNeedsUpdate(request: .zero, bounds: target, x: 10, y: 20, w: 300, h: 400))
     //
     // NOTE: An application that has not applied the previous request yet still reports the frame it had
     // before. Going back to that frame must not be skipped, because the pending request would win.
     //
-    #expect(window_frame_needs_update(other, true, target, 10, 20, 300, 400))
+    #expect(WindowManager.frameNeedsUpdate(request: other, bounds: target, x: 10, y: 20, w: 300, h: 400))
 }
 
 @Test("animation alpha restoration handles a partial pixel block")
@@ -77,7 +77,7 @@ func animationAlphaTail() throws
                                     space: CGColorSpaceCreateDeviceRGB(),
                                     bitmapInfo: CGBitmapInfo(rawValue: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue),
                                     provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
-    let restored = try #require(animationRestoreAlpha(image))
+    let restored = try #require(WindowAnimation.restoreAlpha(image))
     let bytes = try #require(restored.dataProvider?.data)
     let data = try #require(CFDataGetBytePtr(bytes))
     let expectedPixel: [UInt8] = [128, 64, 32, 255]

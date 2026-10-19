@@ -38,7 +38,7 @@ extension WindowManager
             y += Float(target.frame.origin.y)
         }
 
-        window_manager_animate_window(window_capture(window: target, x: x, y: y, w: Float(target.frame.size.width), h: Float(target.frame.size.height)))
+        animateWindow(WindowPlacement(window: target, x: x, y: y, w: Float(target.frame.size.width), h: Float(target.frame.size.height)))
         return .success
     }
 
@@ -60,7 +60,7 @@ extension WindowManager
             owner.flush()
         } else if direction == .abs {
             if animate {
-                window_manager_animate_window(window_capture(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
+                animateWindow(WindowPlacement(window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx, h: dy))
             } else {
                 axEnhancedUIWorkaround(target.application.ref) { target.resize(width: dx, height: dy) }
             }

@@ -86,7 +86,7 @@ extension WindowManager
         let frameWidth = cellWidth * Float(width)
         let frameHeight = cellHeight * Float(height)
 
-        window_manager_animate_window(window_capture(window: target, x: frameX, y: frameY, w: frameWidth, h: frameHeight))
+        animateWindow(WindowPlacement(window: target, x: frameX, y: frameY, w: frameWidth, h: frameHeight))
         return .success
     }
 

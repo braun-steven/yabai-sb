@@ -138,7 +138,7 @@ final class Window
         let y = direction.contains(.top) ? Float(frame.origin.y + frame.size.height - CGFloat(height)) : Float(frame.origin.y)
 
         if animate {
-            window_manager_animate_window(window_capture(window: self, x: x, y: y, w: width, h: height))
+            WindowManager.shared.animateWindow(WindowPlacement(window: self, x: x, y: y, w: width, h: height))
         } else {
             axEnhancedUIWorkaround(application.ref) {
                 move(to: CGPoint(x: CGFloat(x), y: CGFloat(y)))

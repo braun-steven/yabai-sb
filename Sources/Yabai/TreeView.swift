@@ -294,12 +294,12 @@ extension View
                axDiff(area.h, frame.size.height)
     }
 
-    private func captureWindows(in node: Con, into windowList: inout [window_capture])
+    private func captureWindows(in node: Con, into windowList: inout [WindowPlacement])
     {
         if node.isLeaf {
             if let windowID = node.windowID, let target = WindowManager.shared.window(for: windowID) {
                 let area = frame(for: node)
-                windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
+                windowList.append(WindowPlacement(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
             }
             return
         }
@@ -572,9 +572,9 @@ extension View
     {
         guard let root = tree else { return }
 
-        var windowList: [window_capture] = []
+        var windowList: [WindowPlacement] = []
         captureWindows(in: root, into: &windowList)
-        if !windowList.isEmpty { window_manager_animate_window_list(windowList) }
+        if !windowList.isEmpty { WindowManager.shared.animateWindows(windowList) }
 
         root.renderBars()
         root.raiseTabs(force: false)

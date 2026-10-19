@@ -350,6 +350,7 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(SpaceSelector(Token("3")) == .missionControl(3))
     #expect(SpaceSelector(Token("recent")) == .recent)
     #expect(SpaceSelector(Token("1.5")) == nil)
+    #expect(SpaceSelector(Token("0x10")) == nil)
 }
 
 @Test func typedSelectorsResolveThroughTheContext() throws
@@ -365,6 +366,33 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(relative == "could not locate the selected window.\n")
     let unknownLabel = thrownText { () throws(CommandError) in _ = try SpaceSelector.label(Token("mail")).resolve(acting: 10, context) }
     #expect(unknownLabel == "value 'mail' is not a valid option for SPACE_SEL\n")
+
+    // NOTE: the lookups that the removed adaptors made, through the typed selectors
+    let displayTwo = try #require(DisplaySelector(Token("2")))
+    #expect(try displayTwo.resolve(acting: 1, context) == 2)
+    let displayLast = try #require(DisplaySelector(Token("last")))
+    #expect(try displayLast.resolve(acting: 1, context) == 2)
+    let displayThree = try #require(DisplaySelector(Token("3")))
+    let arrangement = thrownText { () throws(CommandError) in _ = try displayThree.resolve(acting: 1, context) }
+    #expect(arrangement == "could not locate display with arrangement index '3'.\n")
+    let displayWest = try #require(DisplaySelector(Token("west")))
+    let westText = thrownText { () throws(CommandError) in _ = try displayWest.resolve(acting: 1, context) }
+    #expect(westText == "could not locate a westward display.\n")
+
+    let spaceCode = try #require(SpaceSelector(Token("code")))
+    #expect(try spaceCode.resolve(acting: 10, context) == 11)
+
+    let windowEight = try #require(WindowSelector(Token("8")))
+    #expect(try windowEight.resolve(acting: 7, context) == 8)
+    let stackThree = try #require(WindowSelector(Token("stack.3")))
+    let stackText = thrownText { () throws(CommandError) in _ = try stackThree.resolve(acting: 7, context) }
+    #expect(stackText == "could not locate the stacked window in position 3.\n")
+    let windowNorth = try #require(WindowSelector(Token("north")))
+    let northText = thrownText { () throws(CommandError) in _ = try windowNorth.resolve(acting: 7, context) }
+    #expect(northText == "could not locate a northward managed window.\n")
+    let windowNine = try #require(WindowSelector(Token("9")))
+    let idText = thrownText { () throws(CommandError) in _ = try windowNine.resolve(acting: 7, context) }
+    #expect(idText == "could not locate window with the specified id '9'.\n")
 }
 
 /// Parses one window command from text that starts with its name: the command, or the failure text and whether it
@@ -496,6 +524,17 @@ private func parseSpaceCommand(_ text: String) -> (SpaceCommand?, String, Bool)
     let invalidOptional = parseSpaceCommand("--destroy\01.2\0")
     #expect(invalidOptional.1 == "value '1.2' is not a valid option for SPACE_SEL\n")
     #expect(invalidOptional.2)
+}
+
+@Test func spaceCommandsThatNeedAnActingSpace()
+{
+    for name in SpaceCommand.Name.allCases {
+        switch name {
+        case .focus, .switch, .create, .destroy, .move, .swap, .display: #expect(!name.needsActingSpace)
+        default: #expect(name.needsActingSpace)
+        }
+    }
+    #expect(SpaceCommand.Name(Token("--bogus")) == nil)
 }
 
 private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureContext()) -> (Bool, Rule, String)

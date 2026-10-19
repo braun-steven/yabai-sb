@@ -193,7 +193,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
 {
     sm.layout = layout
 
-    for target in sm.view.values {
+    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
         if !target.overrides.contains(.layout) {
             if space_is_user(target.sid) {
                 target.layout = layout
@@ -212,7 +212,7 @@ func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: Vie
 {
     sm[keyPath: spacing.spaceManager] = value
 
-    for target in sm.view.values {
+    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
         if !target.overrides.contains(spacing.override) {
             target[keyPath: spacing.view] = value
             view_update_and_flush(target)
@@ -236,7 +236,7 @@ func space_manager_set_auto_padding_for_all_spaces(_ sm: SpaceManager, _ autoPad
 {
     sm.auto_padding = autoPadding
 
-    for target in sm.view.values {
+    for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
         if !target.overrides.contains(.autoPadding) {
             spaceManagerApplyAutoPadding(target, autoPadding)
         }
@@ -932,7 +932,7 @@ func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
 {
     guard let spaceList = displaySpaces(did) else { return }
 
-    var viewList: [View?] = sm.view.values.map { Optional($0) }
+    var viewList: [View?] = sm.view.values.sorted(by: { $0.sid < $1.sid }).map { Optional($0) }
     var uuidList: [CFString?] = viewList.map { $0?.uuid }
 
     for sid in spaceList {

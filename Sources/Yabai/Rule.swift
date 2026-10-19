@@ -65,7 +65,8 @@ func rule_reapply_all()
     let sm = space_manager_global()
     let wm = window_manager_global()
 
-    for target in wm.window.values where target.is_root {
+    // Windows in id order, so rules apply in the same order every time.
+    for target in wm.window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
         let windowTitle = window_title_ts(target)
         let windowRole = window_role_ts(target)
         let windowSubrole = window_subrole_ts(target)
@@ -117,7 +118,8 @@ func rule_apply(_ candidate: Rule)
     let sm = space_manager_global()
     let wm = window_manager_global()
 
-    for target in wm.window.values where target.is_root {
+    // Windows in id order, so rules apply in the same order every time.
+    for target in wm.window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
         if window_manager_rule_matches_window(candidate, target, window_title_ts(target), window_role_ts(target), window_subrole_ts(target)) {
             window_manager_apply_manage_rule_effects_to_window(sm, wm, target, candidate.effects)
 

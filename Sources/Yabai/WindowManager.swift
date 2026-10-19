@@ -783,10 +783,10 @@ func window_manager_add_application(_ wm: WindowManager, _ owner: Application)
     wm.application.add(owner.pid, owner)
 }
 
-/// `window_manager_find_application_windows`
+/// `window_manager_find_application_windows`: the windows of the application in id order.
 func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Application) -> [Window]
 {
-    return wm.window.values.filter { $0.application == owner }
+    return wm.window.values.filter { $0.application == owner }.sorted { $0.id < $1.id }
 }
 
 /// `window_manager_set_window_insertion`
@@ -1472,7 +1472,8 @@ func window_manager_init(_ wm: WindowManager)
 func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
 {
     autoreleasepool {
-        for candidate in process_manager_global().process.values {
+        // Applications in pid order, so their windows tile in the same order every start.
+        for candidate in process_manager_global().process.values.sorted(by: { $0.pid < $1.pid }) {
             if workspace_application_is_observable(candidate) {
                 let created = application_create(candidate)
 

@@ -149,9 +149,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
 | 4.6 | Verification: tsan live run, live check, benchmark | [x] | 25219f86 | no code changes; mouse checks skipped (posting denied) |
-| **5** | **Commands, errors, config, Codable queries** | [~] | cfea5195 | |
+| **5** | **Commands, errors, config, Codable queries** | [~] | bb24ea9b | |
 | 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
-| 5.2 | Typed commands: window | [ ] | | |
+| 5.2 | Typed commands: window | [x] | bb24ea9b | `WindowCommand` + typed selectors in YabaiCore; `Selection` adaptors left for 5.3 |
 | 5.3 | Typed commands: other domains | [ ] | | |
 | 5.4 | `Config` values and option table | [ ] | | |
 | 5.5 | Queries with `JSONEncoder` | [ ] | | |
@@ -933,3 +933,25 @@ not here.
   `Selection.failure` to ignore its failure; 5.2's typed selectors can replace `Selection`.
 - Notes for the next agent: typed-throws inference pitfall added to AGENTS.md (closures need
   `{ () throws(CommandError) in … }`; a bare `throw` in a `do` makes its catch `any Error`).
+
+### 2026-10-19 Subphase 5.2 [x]
+- Commits: ab623e84 (YabaiCore types + tests), bb24ea9b (daemon runs them), plus this report.
+- Done: YabaiCore `Selector.swift`: `DisplaySelector`/`SpaceSelector`/`WindowSelector` (+ `StackSelector`) parse a token
+  without lookups (`init?`, `required`, `optional`, `invalid`) and `resolve(acting:_:)` through a `SelectorContext`.
+  `parseDisplay/Space/WindowSelector` are now `Selection` adaptors over them (still used by space, display, query,
+  config, rule). `WindowCommand.swift`: `WindowCommand` (one case per command with typed values), `WindowCommand.Name`
+  (`needsWindow`), `WindowFocusTarget`, `ScratchpadAction`; `WindowLayout`, `SplitOrientation`, `ConOrientation` moved
+  to YabaiCore; `TreeFocus(token)` replaces `parseTreeFocus`; `Token` is `Equatable`; `Token.scan(_:_:_:)` and
+  `Token(cString:)` moved to YabaiCore. `MessageWindow.swift` is `WindowCommand.run(acting:)` grouped by lifecycle,
+  placement, tree, frame, property; `handleDomainWindow` checks the acting window by name, then parses and runs one
+  command at a time, so continue/stop semantics are unchanged (optional selectors and --layout/--split stop).
+- Output changes: an invalid `stack.X` selector is invalid even without an acting window (was "could not locate the
+  selected window."); not in golden; CHANGELOG entry added. Golden unchanged.
+- Verification: `make` (no warnings), `make test` 117 tests (68 + 49) incl. golden after each commit. No live check.
+- Decisions: selectors resolve when the command runs (relative to the acting window then); `--focus parent|child`
+  and directions parse as `.container`, and without a tree the daemon falls back to the window selector (directions)
+  or the WINDOW_SEL failure (parent/child), as before. Failure texts are rebuilt from `Domain.window` and the name.
+- Next: 5.3 converts the other domains to typed commands, using the typed selectors, and deletes `Selection`,
+  `parseOptional*Selector` and `CommandResult.stop` once unused; `valueType([CChar])` (MessageSpace) can go with it.
+- Notes for the next agent: `WindowCommand.parse` takes the next token as the value even when missing; tests are in
+  `tests/YabaiCoreTests/MessageTests.swift` (`windowCommand*`).

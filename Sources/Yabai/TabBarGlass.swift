@@ -224,7 +224,7 @@ private final class Panel
     var backdrop: NSView?
     var backdropTint: NSView?
     var backdropKind = TabBarBackdrop.off
-    var backdropRadius: CGFloat = 0
+    var backdropRadius: CGFloat?
     var below = false
 
     var id: WindowID { WindowID(UInt32(panel.windowNumber)) }
@@ -392,7 +392,7 @@ private final class Panel
         backdrop = nil
         backdropTint = nil
         backdropKind = kind
-        backdropRadius = -1
+        backdropRadius = nil
 
         guard kind != .off else { return }
 
@@ -444,9 +444,9 @@ private final class Panel
         backdropRadius = snapshot.cardRadius
 
         if let glass = backdrop as? NSGlassEffectView {
-            glass.cornerRadius = backdropRadius
+            glass.cornerRadius = snapshot.cardRadius
         } else if let effect = backdrop as? NSVisualEffectView {
-            effect.maskImage = makeMask(radius: backdropRadius)
+            effect.maskImage = makeMask(radius: snapshot.cardRadius)
         }
     }
 

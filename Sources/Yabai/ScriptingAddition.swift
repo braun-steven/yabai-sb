@@ -439,20 +439,20 @@ private func scriptingAdditionSendBytes(_ bytes: [UInt8]) -> Bool
 // handshake and remembered until Dock restarts. An outdated payload gets one message per window.
 //
 
-@WM private var saPayloadCurrent = -1
+@WM private var saPayloadCurrent: Bool?
 
 /// `scripting_addition_payload_changed`
 func scripting_addition_payload_changed()
 {
-    WM.assumeIsolated { saPayloadCurrent = -1 }
+    WM.assumeIsolated { saPayloadCurrent = nil }
 }
 
 @WM private func scriptingAdditionPayloadIsCurrent() -> Bool
 {
-    if saPayloadCurrent == -1, let handshake = scriptingAdditionRequestHandshake() {
-        saPayloadCurrent = handshake.version.elementsEqual(saVersion.utf8) ? 1 : 0
+    if saPayloadCurrent == nil, let handshake = scriptingAdditionRequestHandshake() {
+        saPayloadCurrent = handshake.version.elementsEqual(saVersion.utf8)
     }
-    return saPayloadCurrent == 1
+    return saPayloadCurrent == true
 }
 
 @discardableResult func scripting_addition_order_window_list(_ list: [sa_window_order]) -> Bool

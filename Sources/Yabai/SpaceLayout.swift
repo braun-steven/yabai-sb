@@ -73,18 +73,13 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
         actual.append(spaceLayoutUserSpaceCount(spaces))
     }
 
-    var surplus = -1
-    var deficit = -1
-    for i in 0..<displayCount {
-        if surplus == -1 && actual[i] > target[i] { surplus = i }
-        if deficit == -1 && actual[i] < target[i] { deficit = i }
-    }
-
-    if surplus == -1 && deficit == -1 { return .done }
+    let surplus = (0..<displayCount).first { actual[$0] > target[$0] }
+    let deficit = (0..<displayCount).first { actual[$0] < target[$0] }
 
     let result: SpaceOperationResult
 
-    if surplus != -1 && deficit != -1 {
+    switch (surplus, deficit) {
+    case (let surplus?, let deficit?):
         guard let spaces = displaySpaces(didList[surplus]) else { return .failed }
 
         let user = spaceUserList(spaces)
@@ -92,10 +87,10 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
 
         debug("space_layout_reconcile: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
         result = space_manager_move_space_to_display(sm, sid, didList[deficit])
-    } else if deficit != -1 {
+    case (nil, let deficit?):
         debug("space_layout_reconcile: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
         result = space_manager_add_space(display_space_id(didList[deficit]))
-    } else {
+    case (let surplus?, nil):
         guard let sid = spaceLayoutDestroyCandidate(didList[surplus]) else {
             debug("space_layout_reconcile: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
             return .done
@@ -103,6 +98,8 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
 
         debug("space_layout_reconcile: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
         result = space_manager_destroy_space(sid)
+    case (nil, nil):
+        return .done
     }
 
     return result == .success ? .performed : .failed

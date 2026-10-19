@@ -319,8 +319,8 @@ func workspace_display_notch_height(_ did: DisplayID) -> Int
     return 0
 }
 
-/// `workspace_get_dock_pid`: the pid of the Dock, or 0.
-func workspace_get_dock_pid() -> pid_t
+/// `workspace_get_dock_pid`: the pid of the Dock, or nil.
+func workspace_get_dock_pid() -> pid_t?
 {
     let list = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock")
 
@@ -328,5 +328,5 @@ func workspace_get_dock_pid() -> pid_t
         return list[0].processIdentifier
     }
 
-    return 0
+    return nil
 }

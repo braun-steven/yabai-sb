@@ -637,19 +637,18 @@ func window_manager_adjust_layer(_ target: Window, _ layer: WindowLayer)
 func window_manager_collect_child_windows(_ root: WindowID, _ parentList: inout [WindowID?], _ childList: [WindowID]) -> [WindowID]
 {
     var result: [WindowID] = []
+    var parent = root
+    var next = 0
 
-    var i = -1
-    while i < result.count {
-        let parent = i < 0 ? root : result[i]
-
-        for j in 0..<parentList.count {
-            if parentList[j] != parent { continue }
-
+    while true {
+        for j in 0..<parentList.count where parentList[j] == parent {
             parentList[j] = nil
             result.append(childList[j])
         }
 
-        i += 1
+        if next == result.count { break }
+        parent = result[next]
+        next += 1
     }
 
     return result

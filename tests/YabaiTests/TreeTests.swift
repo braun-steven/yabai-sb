@@ -16,15 +16,15 @@ private func treeTestWindow(_ node: Con?) -> WindowID?
 }
 
 /// `tree_test_child`
-private func treeTestChild(_ node: Con, _ index: Int32) -> WindowID?
+private func treeTestChild(_ node: Con, _ index: Int) -> WindowID?
 {
     return index < node.child_count ? treeTestWindow(node.children[Int(index)]) : nil
 }
 
 /// A share of space in percent, rounded like the C tests did.
-private func percent(_ node: Con, _ scale: Float = 100) -> Int32
+private func percent(_ node: Con, _ scale: Float = 100) -> Int
 {
-    return Int32(node.percent * scale + 0.5)
+    return Int(node.percent * scale + 0.5)
 }
 
 /// A leaf that is not part of a tree.
@@ -109,7 +109,7 @@ extension DaemonState
 
             var total: Float = 0.0
             for i in 0..<Int(root.child_count) { total += root.children[i].percent }
-            #expect(Int32(total * 100 + 0.5) == 100)
+            #expect(Int(total * 100 + 0.5) == 100)
 
             // a single split around a window is kept, so that the next window opens inside of it
             let w = treeTestSplit(root, .splitV)
@@ -365,39 +365,39 @@ extension DaemonState
             let full = Area(x: 0, y: 0, w: 1010, h: 810)
 
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(a.area.w) == 500)
-            #expect(Int32(v.area.x) == 510)
-            #expect(Int32(b.area.h) == 400)
-            #expect(Int32(c.area.y) == 410)
+            #expect(Int(a.area.w) == 500)
+            #expect(Int(v.area.x) == 510)
+            #expect(Int(b.area.h) == 400)
+            #expect(Int(c.area.y) == 410)
 
             // growing the right edge of window 2 searches up to the horizontal split
             #expect(tree_resize(b, .west, -100) == true)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(a.area.w) == 401)
+            #expect(Int(a.area.w) == 401)
             #expect(tree_resize(a, .west, 10) == false)
 
             // the children of a tabbed container share its area below the bar
             tree_set_layout(b, .tabbed)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
-            #expect(Int32(b.area.y) == 24)
-            #expect(Int32(c.area.y) == 24)
-            #expect(Int32(c.area.h) == 786)
+            #expect(Int(b.area.y) == 24)
+            #expect(Int(c.area.y) == 24)
+            #expect(Int(c.area.h) == 786)
 
             // the bar offset moves them further down, or up under the bar when negative
             Yabai.tree_update(root, full, 10, 24, 6, 0)
-            #expect(Int32(c.area.y) == 30)
-            #expect(Int32(c.area.h) == 780)
+            #expect(Int(c.area.y) == 30)
+            #expect(Int(c.area.h) == 780)
             Yabai.tree_update(root, full, 10, 24, -30, 0)
-            #expect(Int32(c.area.y) == 0)
-            #expect(Int32(c.area.h) == 810)
+            #expect(Int(c.area.y) == 0)
+            #expect(Int(c.area.h) == 810)
 
             // a backdrop card insets the windows from every edge of the container, below the bar
             Yabai.tree_update(root, full, 10, 24, 4, 6)
-            #expect(Int32(c.area.x) == Int32(b.area.x))
-            #expect(Int32(c.area.x) == Int32(v.area.x) + 6)
-            #expect(Int32(c.area.w) == Int32(v.area.w) - 12)
-            #expect(Int32(c.area.y) == 6 + 24 + 4)
-            #expect(Int32(c.area.h) == 810 - 12 - 24 - 4)
+            #expect(Int(c.area.x) == Int(b.area.x))
+            #expect(Int(c.area.x) == Int(v.area.x) + 6)
+            #expect(Int(c.area.w) == Int(v.area.w) - 12)
+            #expect(Int(c.area.y) == 6 + 24 + 4)
+            #expect(Int(c.area.h) == 810 - 12 - 24 - 4)
             Yabai.tree_update(root, full, 10, 24, 0, 0)
 
             // and resizing a tab skips the tabbed container
@@ -845,17 +845,17 @@ extension DaemonState
             b.area     = Area(x: 500, y: 0, w: 500,  h: 800)
 
             #expect(treeHasZoom(root, .none) == false)
-            #expect(Int32(tree_con_frame(target, a).h) == 400)
+            #expect(Int(tree_con_frame(target, a).h) == 400)
 
             a.zoom = .parent
             #expect(treeHasZoom(root, .none) == true)
             #expect(treeHasZoom(root, .fullscreen) == false)
-            #expect(Int32(tree_con_frame(target, a).h) == 800)
-            #expect(Int32(tree_con_frame(target, a).w) == 500)
+            #expect(Int(tree_con_frame(target, a).h) == 800)
+            #expect(Int(tree_con_frame(target, a).w) == 500)
 
             a.zoom = .fullscreen
             #expect(treeHasZoom(root, .fullscreen) == true)
-            #expect(Int32(tree_con_frame(target, a).w) == 1000)
+            #expect(Int(tree_con_frame(target, a).w) == 1000)
 
             #expect(treeContainsWindow(root, 2) == true)
             #expect(treeContainsWindow(root, 3) == false)

@@ -37,7 +37,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    guard let window = window_manager_find_window_at_point(WindowManager.shared, point), !window.isFullscreen else { return }
+    guard let window = WindowManager.shared.window(at: point), !window.isFullscreen else { return }
 
     ms.window = window
     ms.window_frame = window.frame
@@ -87,8 +87,8 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let cursorSid = display_manager_point_display_id(point).flatMap(display_space_id)
     let dstView = cursorSid.map { space_manager_find_view(space_manager_global(), $0) }
 
-    var window = window_manager_find_window_at_point_filtering_window(wm, point, ms.window.id)
-    if window == nil { window = window_manager_find_window_at_point(wm, point) }
+    var window = wm.window(at: point, excluding: ms.window.id)
+    if window == nil { window = wm.window(at: point) }
     return (dstView, window == ms.window ? nil : window)
 }
 
@@ -334,7 +334,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     let point = event.location
 
-    if let window = window_manager_find_window_at_point(wm, point) {
+    if let window = wm.window(at: point) {
         ffmFocusWindow(window)
     } else {
         ffmFocusDisplayAtPoint(point)

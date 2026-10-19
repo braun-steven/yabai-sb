@@ -60,7 +60,7 @@ private func windowManagerApplyScratchpadGrid(_ wm: WindowManager, _ target: Win
 /// `window_manager_hide_scratchpad_window`
 private func windowManagerHideScratchpadWindow(_ wm: WindowManager, _ target: Window, _ sid: SpaceID)
 {
-    if let next = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, target.id) {
+    if let next = wm.window(on: sid, byRank: 1, excluding: target.id) {
         window_manager_focus_window_with_raise(&next.application.psn, next.id, next.ref)
     } else {
         _SLPSSetFrontProcessWithOptions(&process_manager_global().finder_psn, 0, FrontProcessMode.noWindows.rawValue)

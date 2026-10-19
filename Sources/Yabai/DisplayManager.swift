@@ -379,7 +379,7 @@ func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
 {
     let wm = window_manager_global()
 
-    if let sid, let window = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, nil) {
+    if let sid, let window = wm.window(on: sid, byRank: 1, excluding: nil) {
         window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
         wm.centerMouse(on: window)
         display_manager_set_active_display_id(did)

@@ -139,7 +139,7 @@ enum Daemon
 
     @MainActor private static func configureSettingsAndAcquireLock() -> Bool
     {
-        guard let user = ScriptingAddition.shared.daemonUser else {
+        guard let user = getenv("USER").map({ String(cString: $0) }) else {
             error("yabai: 'env USER' not set! abort..\n")
         }
 
@@ -316,7 +316,7 @@ enum Daemon
             }
         }
 
-        guard let user = ScriptingAddition.shared.daemonUser else {
+        guard let user = getenv("USER").map({ String(cString: $0) }) else {
             error("yabai: 'env USER' not set! abort..\n")
         }
         let socketFile = "/tmp/yabai_\(user).socket"

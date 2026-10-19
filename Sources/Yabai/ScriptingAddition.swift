@@ -96,8 +96,9 @@ final class ScriptingAddition
     // NOTE: The single scripting addition, used by the event loop and the IPC handlers it runs.
     nonisolated(unsafe) static let shared = ScriptingAddition()
 
-    // NOTE: The daemon socket and root loader socket are resolved once when the singleton is initialized.
-    let daemonUser: String?
+    // NOTE: The sockets of the payload, resolved once in init and immutable afterwards, so any thread may read them:
+    // socketPath (for the user in $USER) is used by the daemon's event loop (send, payloadIsCurrent), sudoSocketPath
+    // (for the user of SUDO_UID, only when running as root) by --load-sa.
     let socketPath: String?
     private let sudoSocketPath: String?
 
@@ -111,9 +112,7 @@ final class ScriptingAddition
 
     private init()
     {
-        let user = getenv("USER").map { String(cString: $0) }
-        daemonUser = user
-        socketPath = user.map { "/tmp/yabai-sa_\($0).socket" }
+        socketPath = getenv("USER").map { "/tmp/yabai-sa_\(String(cString: $0)).socket" }
         sudoSocketPath = Self.resolveSudoSocketPath()
     }
 

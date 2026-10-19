@@ -2,10 +2,10 @@
 #define CPRIVATE_H
 
 //
-// NOTE: The private functions of SkyLight, HIServices and the mach runtime that yabai calls. The C unity build includes
-// this header through yabai_c.h, and Swift imports it as the module CPrivate; Sources/Yabai/Platform wraps it. CPrivate.c
-// holds the function pointers that are resolved at runtime and SLSGetWindowSubLevelBounded, Notify.m the user
-// notifications. The inline wrappers below keep the calls that Swift cannot make itself.
+// NOTE: The private functions of SkyLight, HIServices and the mach runtime that yabai calls. Swift imports this header
+// as the module CPrivate; Sources/Yabai/Platform wraps it. CPrivate.c holds the function pointers that are resolved at
+// runtime and SLSGetWindowSubLevelBounded, Notify.m the user notifications. The inline wrappers below keep the calls
+// that Swift cannot make itself.
 //
 // Ownership: inside CF_IMPLICIT_BRIDGING_ENABLED, functions with Copy or Create in their name return a +1 object, the
 // others a +0 one. A private function that returns a +1 object without Copy/Create in its name needs CF_RETURNS_RETAINED,
@@ -27,9 +27,6 @@
 #include <AppKit/AppKit.h>
 #endif
 
-// NOTE: The macro has no nullability, because a single annotated pointer makes clang require one on every pointer of the
-// file that defines the callback.
-#define CONNECTION_CALLBACK(name) void name(uint32_t type, void *data, size_t data_length, void *context, int cid)
 typedef void connection_callback(uint32_t type, void *_Nullable data, size_t data_length, void *_Nullable context, int cid);
 
 CF_IMPLICIT_BRIDGING_ENABLED
@@ -41,7 +38,7 @@ extern int64_t (*_Nullable SLSPerformAsynchronousBridgedWindowManagementOperatio
 
 //
 // NOTE: Swift reads the function pointer above through these functions: Swift 6 rejects references to a C global
-// variable. The caller checks SLSHasBridgedWindowOperation first, as space_manager.c did.
+// variable. The caller checks SLSHasBridgedWindowOperation first (`SLS.bridgedMoveWindows`).
 //
 
 static inline bool SLSHasBridgedWindowOperation(void)
@@ -189,10 +186,10 @@ extern void mig_dealloc_special_reply_port(mach_port_t port);
 
 //
 // NOTE: The sub-level of a window, asked from the window server with the message that SLSGetWindowSubLevel sends, but
-// with a bounded wait. False when CGSGetConnectionPortById was not resolved or the message failed; window_sub_level
-// (Sources/Yabai/Window.swift) then calls SLSGetWindowSubLevel. A C function in CPrivate.c, because Swift can neither
-// lay out the packed message nor read NDR_record and the function pointer (C globals); a static inline body here made
-// Swift emit its own NDR_record, a duplicate symbol in the release link.
+// with a bounded wait. False when CGSGetConnectionPortById was not resolved or the message failed; `WindowID.subLevel`
+// (Sources/Yabai/Window.swift) then falls back to SLSGetWindowSubLevel. A C function in CPrivate.c, because Swift can
+// neither lay out the packed message nor read NDR_record and the function pointer (C globals); a static inline body
+// here made Swift emit its own NDR_record, a duplicate symbol in the release link.
 //
 
 bool SLSGetWindowSubLevelBounded(int cid, uint32_t wid, int *sub_level);
@@ -220,7 +217,6 @@ extern CGError SLSSetWindowTags(int cid, uint32_t wid, uint64_t *tags, int tag_s
 extern CGError SLSClearWindowTags(int cid, uint32_t wid, uint64_t *tags, int tag_size);
 extern CGError SLSSetWindowShape(int cid, uint32_t wid, float x_offset, float y_offset, CFTypeRef shape);
 extern CGError SLSSetWindowOpacity(int cid, uint32_t wid, bool opaque);
-extern CGError SLSSetWindowBackgroundBlurRadiusStyle(int cid, uint32_t wid, int radius, int style);
 extern CGError SLSOrderWindow(int cid, uint32_t wid, int mode, uint32_t rel_wid);
 extern CGError SLSWindowIsOrderedIn(int cid, uint32_t wid, uint8_t *value);
 extern CGError SLSSetWindowLevel(int cid, uint32_t wid, int level);
@@ -247,8 +243,6 @@ extern CFStringRef _Nullable SLSSpaceCopyName(int cid, uint64_t sid);
 extern CFArrayRef _Nullable SLSCopyWindowsWithOptionsAndTags(int cid, uint32_t owner, CFArrayRef spaces, uint32_t options, uint64_t *set_tags, uint64_t *clear_tags);
 extern int SLSGetSpaceManagementMode(int cid);
 extern CFArrayRef _Nullable SLSCopyManagedDisplaySpaces(int cid);
-extern CGError SLSProcessAssignToSpace(int cid, pid_t pid, uint64_t sid);
-extern CGError SLSProcessAssignToAllSpaces(int cid, pid_t pid);
 extern void SLSMoveWindowsToManagedSpace(int cid, CFArrayRef window_list, uint64_t sid);
 extern CGError CoreDockSendNotification(CFStringRef notification, int unknown);
 extern CGError SLSMoveWindow(int cid, uint32_t wid, CGPoint *point);
@@ -274,11 +268,9 @@ extern OSStatus SLSFindWindowAndOwner(int cid, int zero, int one, int zero_again
 extern CGError SLSGetCurrentCursorLocation(int cid, CGPoint *point);
 extern CGError SLSWindowSetShadowProperties(uint32_t wid, CFDictionaryRef options);
 extern CGError SLSRequestNotificationsForWindows(int cid, uint32_t *window_list, int window_count);
-extern CGError SLSSetWindowTransform(int cid, uint32_t wid, CGAffineTransform t);
 extern CFTypeRef _Nullable SLSTransactionCreate(int cid);
 extern CGError SLSTransactionCommit(CFTypeRef transaction, int synchronous);
 extern CGError SLSTransactionSetWindowTransform(CFTypeRef transaction, uint32_t wid, int unknown, int unknown2, CGAffineTransform t);
-extern CGError SLSTransactionOrderWindow(CFTypeRef transaction, uint32_t wid, int order, uint32_t rel_wid);
 extern CGError SLSTransactionOrderWindowGroup(CFTypeRef transaction, uint32_t wid, int order, uint32_t rel_wid);
 extern CGError SLSTransactionSetWindowAlpha(CFTypeRef transaction, uint32_t wid, float alpha);
 extern CGError SLSTransactionSetWindowSystemAlpha(CFTypeRef transaction, uint32_t wid, float alpha);

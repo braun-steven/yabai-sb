@@ -40,7 +40,7 @@ extension DaemonState
         {
             let wm = WindowManager.shared
             let sm = SpaceManager.shared
-            let mouse = mouse_state_global()
+            let mouse = MouseState.shared
 
             let mff = wm.mouseFollowsFocusEnabled
             let modifier = mouse.modifier

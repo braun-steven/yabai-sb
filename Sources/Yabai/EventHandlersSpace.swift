@@ -56,7 +56,7 @@ import YabaiCore
 
     if sm.refreshApplicationWindows() {
         if let focusedWindow = wm.focusedWindow, wm.hasLostFocusedEvent(for: focusedWindow.id) {
-            windowDidReceiveFocus(wm, mouse_state_global(), focusedWindow)
+            windowDidReceiveFocus(wm, MouseState.shared, focusedWindow)
             wm.removeLostFocusedEvent(for: focusedWindow.id)
         }
     }

@@ -243,7 +243,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.isMinimized      = window.isMinimized
     info.isHidden         = application.isHidden
     info.isFloating       = window.isFloating
-    info.isGrabbed        = window == mouse_state_global().window
+    info.isGrabbed        = window == MouseState.shared.window
 
     if wanted(flags, WindowProperty.title)     { info.title     = window.cachedTitle }
     if wanted(flags, WindowProperty.role)      { info.role      = window.roleString }

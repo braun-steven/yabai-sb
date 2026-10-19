@@ -166,7 +166,7 @@ func update_window_notifications()
     wm.setWindowOpacity(window, to: wm.activeWindowOpacity)
 
     if wm.focusedWindowID != window.id {
-        if ms.ffm_window_id != window.id {
+        if ms.ffmWindowID != window.id {
             wm.centerMouse(on: window)
         }
 
@@ -176,7 +176,7 @@ func update_window_notifications()
     let prevFocusedWindowID = wm.focusedWindowID
     wm.focusedWindowID = window.id
     wm.focusedWindowPSN = window.application.psn
-    ms.ffm_window_id = nil
+    ms.ffmWindowID = nil
 
     //
     // NOTE: Late focus events of windows focused earlier must not end a pending focus, so it is only
@@ -332,7 +332,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     defer { process.releaseRunningApplication() }
 
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     guard let application = wm.application(for: process.pid) else {
         debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process)) (not observed)\n")
@@ -361,7 +361,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         }
 
         if ms.window == window { ms.window = nil }
-        if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
+        if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
 
         if window.isEligible {
             EventSignals.shared.push(.windowDestroyed, .window(window))
@@ -432,7 +432,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     wm.lastWindowID = prevFocusedWindowID
     wm.focusedWindowID = nil
     wm.focusedWindowPSN = application.psn
-    mouse_state_global().ffm_window_id = nil
+    MouseState.shared.ffmWindowID = nil
 
     if let prevFocusedWindowID {
         TabBar.refresh(for: prevFocusedWindowID)
@@ -491,7 +491,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         return
     }
 
-    windowDidReceiveFocus(wm, mouse_state_global(), window)
+    windowDidReceiveFocus(wm, MouseState.shared, window)
     EventSignals.shared.push(.windowFocused, .window(window))
     pendingWindowFocus.store(false, ordering: .releasing)
 }

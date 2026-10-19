@@ -45,12 +45,12 @@ extension WindowManager
 
     func setFocusFollowsMouse(_ mode: FocusFollowsMouse)
     {
-        mouse_handler_end(mouse_state_global())
+        MouseState.shared.endEventTap()
 
         if mode == .disabled {
-            mouse_handler_begin(mouse_state_global(), mouseEventMask)
+            MouseState.shared.beginEventTap(mask: mouseEventMask)
         } else {
-            mouse_handler_begin(mouse_state_global(), mouseEventMaskFFM)
+            MouseState.shared.beginEventTap(mask: mouseEventMaskFFM)
         }
 
         focusFollowsMouseMode = mode

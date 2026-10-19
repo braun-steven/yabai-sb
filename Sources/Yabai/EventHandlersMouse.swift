@@ -6,7 +6,7 @@ import YabaiCore
 
 //
 // NOTE: The handlers of mouse events: moving and resizing windows with the mouse modifier, dropping them on
-// other windows, tab bar clicks, and focus follows mouse. Ported from src/event_handlers_mouse.c.
+// other windows, tab bar clicks, and focus follows mouse.
 //
 
 //
@@ -29,10 +29,10 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 /// `EVENT_HANDLER(MOUSE_DOWN)`
 @WM func mouseDown(_ event: CGEvent, _ modifiers: MouseModifiers)
 {
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     if MissionControl.shared.isActive                 { return }
-    if ms.current_action != .none { return }
+    if ms.currentAction != .none { return }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
@@ -40,20 +40,20 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     guard let window = WindowManager.shared.window(at: point), !window.isFullscreen else { return }
 
     ms.window = window
-    ms.window_frame = window.frame
-    ms.down_location = point
+    ms.windowFrame = window.frame
+    ms.downLocation = point
     ms.direction = []
 
     let button = event.getIntegerValueField(.mouseEventButtonNumber)
 
     if button == Int64(CGMouseButton.left.rawValue) && ms.modifier.modifiers == modifiers {
-        ms.current_action = ms.action1
+        ms.currentAction = ms.action1
     } else if button == Int64(CGMouseButton.right.rawValue) && ms.modifier.modifiers == modifiers {
-        ms.current_action = ms.action2
+        ms.currentAction = ms.action2
     }
 
-    if ms.current_action == .resize {
-        ms.direction = mouseResizeDirection(ms.window_frame, point)
+    if ms.currentAction == .resize {
+        ms.direction = mouseResizeDirection(ms.windowFrame, point)
     }
 }
 
@@ -82,7 +82,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 @WM private func mouseDropTarget(_ point: CGPoint) -> (view: View?, window: Window?)
 {
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     let cursorSid = DisplayID(containing: point).flatMap { $0.currentSpace }
     let dstView = cursorSid.map { SpaceManager.shared.view(for: $0) }
@@ -96,18 +96,18 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 @WM func mouseUp(_ event: CGEvent)
 {
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     if MissionControl.shared.isActive { return }
 
     guard let window = ms.window else {
-        ms.current_action = .none
+        ms.currentAction = .none
         return
     }
 
     defer {
         ms.window = nil
-        ms.current_action = .none
+        ms.currentAction = .none
     }
 
     if !window.isValid {
@@ -125,24 +125,23 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 
     guard let srcView = wm.managedView(for: window) else { return }
 
-    var info = MouseWindowChange()
-    mouse_window_info_populate(ms, &info)
+    let info = ms.windowChange
 
-    if info.changed_position && !info.changed_size {
+    if info.changedPosition && !info.changedSize {
         let target = mouseDropTarget(point)
 
-        mouse_drop(SpaceManager.shared, wm, ms, srcView, target.view, window, target.window, point)
-    } else if info.changed_position || info.changed_size {
-        mouse_drop_try_adjust_tree(wm, srcView, window, &info)
+        ms.drop(window, from: srcView, onto: target.window, in: target.view, at: point)
+    } else if info.changedPosition || info.changedSize {
+        wm.resizeAfterDrag(window, in: srcView, by: info)
     }
 }
 
 @WM private func mouseDragMoveWindow(_ point: CGPoint)
 {
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
-    var newPoint = CGPoint(x: ms.window_frame.origin.x + (point.x - ms.down_location.x),
-                           y: ms.window_frame.origin.y + (point.y - ms.down_location.y))
+    var newPoint = CGPoint(x: ms.windowFrame.origin.x + (point.x - ms.downLocation.x),
+                           y: ms.windowFrame.origin.y + (point.y - ms.downLocation.y))
 
     let did = DisplayID(containing: newPoint)
     if let did {
@@ -164,25 +163,25 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func mouseDragResizeWindow(_ point: CGPoint) -> Bool
 {
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     let eventTime = OSTimer.now
-    if OSTimer.milliseconds(from: ms.last_moved_time, to: eventTime) < mouseResizeThrottleMs { return false }
+    if OSTimer.milliseconds(from: ms.lastMovedTime, to: eventTime) < mouseResizeThrottleMs { return false }
 
-    let dx = Int(point.x - ms.down_location.x)
-    let dy = Int(point.y - ms.down_location.y)
+    let dx = Int(point.x - ms.downLocation.x)
+    let dy = Int(point.y - ms.downLocation.y)
 
     ms.window.resizeRelative(frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy), animate: false)
 
-    ms.last_moved_time = eventTime
-    ms.down_location = point
+    ms.lastMovedTime = eventTime
+    ms.downLocation = point
     return true
 }
 
 /// `EVENT_HANDLER(MOUSE_DRAGGED)`
 @WM func mouseDragged(_ event: CGEvent)
 {
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     //
     // NOTE: Only the most recent drag event matters, because the new frame is computed from the
@@ -197,28 +196,27 @@ private let mouseResizeThrottleMs: Float = 67.67
     if !window.isValid {
         debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.id) has been marked invalid by the system, ignoring event..\n")
         ms.window = nil
-        ms.current_action = .none
+        ms.currentAction = .none
         return
     }
 
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DRAGGED: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    if ms.current_action == .move {
+    if ms.currentAction == .move {
         mouseDragMoveWindow(point)
-    } else if ms.current_action == .resize {
+    } else if ms.currentAction == .resize {
         if !mouseDragResizeWindow(point) { return }
     }
 
     if WindowManager.shared.managedView(for: ms.window) == nil { return }
 
-    var info = MouseWindowChange()
-    mouse_window_info_populate(ms, &info)
+    let info = ms.windowChange
 
-    if info.changed_position && !info.changed_size {
+    if info.changedPosition && !info.changedSize {
         let target = mouseDropTarget(point)
 
-        mouse_drag(ms, target.view, target.window, point)
+        ms.showDropFeedback(view: target.view, window: target.window, at: point)
     }
 }
 
@@ -286,7 +284,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 @WM private func ffmFocusWindow(_ window: Window)
 {
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     if window.id == wm.focusedWindowID { return }
     if !window.isEligibleForManagement { return }
@@ -294,12 +292,12 @@ private let mouseResizeThrottleMs: Float = 67.67
     if wm.focusFollowsMouseMode == .autofocus {
         let target = ffmWindowToFocus(window)
         WindowManager.shared.focusWithoutRaise(target)
-        ms.ffm_window_id = target.id
+        ms.ffmWindowID = target.id
     } else if wm.focusFollowsMouseMode == .autoraise {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
         WindowManager.shared.focusWithRaise(window)
-        ms.ffm_window_id = window.id
+        ms.ffmWindowID = window.id
     }
 }
 
@@ -314,7 +312,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     let wid = DisplayManager.shared.focusWindow(at: point)
     if wid == nil { did.activate() }
-    mouse_state_global().ffm_window_id = wid
+    MouseState.shared.ffmWindowID = wid
 }
 
 /// `EVENT_HANDLER(MOUSE_MOVED)`
@@ -326,7 +324,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if wm.focusFollowsMouseMode == .disabled                { return }
     if MissionControl.shared.isActive                     { return }
-    if mouse_state_global().ffm_window_id != nil { return }
+    if MouseState.shared.ffmWindowID != nil { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
     let dt = OSTimer.milliseconds(from: lastGestureTime.load(ordering: .relaxed), to: OSTimer.now)

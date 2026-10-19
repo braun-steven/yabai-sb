@@ -50,7 +50,7 @@ import YabaiCore
     }
 
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
 
@@ -62,7 +62,7 @@ import YabaiCore
     }
 
     if ms.window == window { ms.window = nil }
-    if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
+    if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
 
     if window.isEligible {
         EventSignals.shared.push(.windowDestroyed, .window(window))
@@ -130,7 +130,7 @@ import YabaiCore
         }
     }
 
-    windowDidReceiveFocus(wm, mouse_state_global(), window)
+    windowDidReceiveFocus(wm, MouseState.shared, window)
     EventSignals.shared.push(.windowFocused, .window(window))
 }
 
@@ -138,7 +138,7 @@ import YabaiCore
 @WM func windowMoved(_ windowID: WindowID)
 {
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     guard let window = wm.window(for: windowID) else { return }
 
@@ -178,7 +178,7 @@ import YabaiCore
 @WM func windowResized(_ windowID: WindowID)
 {
     let wm = WindowManager.shared
-    let ms = mouse_state_global()
+    let ms = MouseState.shared
 
     guard let window = wm.window(for: windowID) else { return }
 
@@ -226,8 +226,8 @@ import YabaiCore
             if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }
         }
     } else {
-        if ms.current_action == .move && ms.window == window {
-            ms.window_frame.size = ms.window.frame.size
+        if ms.currentAction == .move && ms.window == window {
+            ms.windowFrame.size = ms.window.frame.size
         }
 
         if !windowedFullscreen {

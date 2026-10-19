@@ -3,7 +3,7 @@ import CPrivate
 import Synchronization
 import YabaiCore
 
-// Ported from src/mouse_handler.c. The event tap runs on the main run loop and only posts events.
+// The event tap runs on the main run loop and only posts events.
 
 /// What a mouse drag does (`config mouse_action1`, `mouse_action2`, `mouse_drop_action`), named by its config value.
 enum MouseAction: String, Sendable
@@ -81,66 +81,62 @@ enum DockSwipe
     static let phaseCancelled: Int64 = 8                     // kCGSGesturePhaseCancelled
 }
 
-/// `struct mouse_window_info`: how a dragged window changed.
+/// How a dragged window changed since the mouse went down.
 struct MouseWindowChange: Sendable
 {
     var dx: Float = 0, dy: Float = 0, dw: Float = 0, dh: Float = 0
-    var changed_x = false, changed_y = false
-    var changed_w = false, changed_h = false
-    var changed_position = false
-    var changed_size = false
+    var changedX = false, changedY = false
+    var changedWidth = false, changedHeight = false
+    var changedPosition = false
+    var changedSize = false
 }
 
-/// `struct mouse_state`
+/// The mouse event tap and the state of the mouse action in progress.
 final class MouseState
 {
-    // NOTE: The event tap reads the handle (a +1 CFMachPort) while the event loop tears it down (mouse_handler_end).
+    // NOTE: The event tap reads the fields on the main thread, see the NOTE of `DisplayManager.shared`.
+    nonisolated(unsafe) static let shared = MouseState()
+
+    // NOTE: The event tap reads the handle (a +1 CFMachPort) while the event loop tears it down (endEventTap).
     let handle = Atomic<UnsafeMutableRawPointer?>(nil)
     // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
-    let tracks_focus = Atomic(false)
-    var runloop_source: CFRunLoopSource?
-    var consume_mouse_click = false
-    var consume_tab_click = false
-    var drag_detected = false
-    var consumed_event: CGEvent?
+    let tracksFocus = Atomic(false)
+    var runLoopSource: CFRunLoopSource?
+    var consumeMouseClick = false
+    var consumeTabClick = false
+    var dragDetected = false
+    var consumedEvent: CGEvent?
     var action1 = MouseAction.none
     var action2 = MouseAction.none
     var modifier = MouseModifierKey.fn
-    var drop_action = MouseAction.none
-    var current_action = MouseAction.none
-    var down_location = CGPoint.zero
-    var last_moved_time: UInt64 = 0
+    var dropAction = MouseAction.none
+    var currentAction = MouseAction.none
+    var downLocation = CGPoint.zero
+    var lastMovedTime: UInt64 = 0
     var window: Window!
-    var window_frame = CGRect.zero
-    var ffm_window_id: WindowID?
+    var windowFrame = CGRect.zero
+    var ffmWindowID: WindowID?
     var direction: ResizeHandle = []
-    var feedback_wid: WindowID?
-    var feedback_dir: InsertDirection?
+    var feedbackWindowID: WindowID?
+    var feedbackDirection: InsertDirection?
 
-    /// `mouse_handle_load`
     var handlePort: CFMachPort?
     {
         handle.load(ordering: .relaxed).map { Unmanaged<CFMachPort>.fromOpaque($0).takeUnretainedValue() }
     }
 }
 
-/// `g_mouse_state`: the event tap reads the fields it read in C, on the main thread (see the NOTE of `DisplayManager.shared`).
-nonisolated(unsafe) let g_mouse_state = MouseState()
-
-func mouse_state_global() -> MouseState
+extension MouseModifiers
 {
-    g_mouse_state
-}
-
-private func mouseModFromCGFlags(_ flags: CGEventFlags) -> MouseModifiers
-{
-    var result: MouseModifiers = []
-    if flags.contains(.maskAlternate) { result.insert(.alt) }
-    if flags.contains(.maskShift) { result.insert(.shift) }
-    if flags.contains(.maskCommand) { result.insert(.cmd) }
-    if flags.contains(.maskControl) { result.insert(.ctrl) }
-    if flags.contains(.maskSecondaryFn) { result.insert(.fn) }
-    return result
+    init(_ flags: CGEventFlags)
+    {
+        self.init(rawValue: 0)
+        if flags.contains(.maskAlternate) { insert(.alt) }
+        if flags.contains(.maskShift) { insert(.shift) }
+        if flags.contains(.maskCommand) { insert(.cmd) }
+        if flags.contains(.maskControl) { insert(.ctrl) }
+        if flags.contains(.maskSecondaryFn) { insert(.fn) }
+    }
 }
 
 //
@@ -167,49 +163,49 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
     case .tapDisabledByTimeout, .tapDisabledByUserInput:
         if let handle = ms.handlePort { CGEvent.tapEnable(tap: handle, enable: true) }
     case .leftMouseDown, .rightMouseDown:
-        let mod = mouseModFromCGFlags(event.flags)
+        let mod = MouseModifiers(event.flags)
         var tabWid: WindowID?
         if type == .leftMouseDown && mod != ms.modifier.modifiers && TabBar.hitTest(event.location, window: &tabWid) {
             TabBar.updatePointer(event.location, pressed: true)
-            ms.consume_tab_click = true
+            ms.consumeTabClick = true
             if let tabWid { EventLoop.post(.tabBarClicked(windowID: tabWid)) }
             return nil
         }
         EventLoop.post(.mouseDown(Handoff(value: .passRetained(event)), modifiers: mod))
         if mod == ms.modifier.modifiers {
-            ms.consume_mouse_click = true
-            ms.consumed_event = event
+            ms.consumeMouseClick = true
+            ms.consumedEvent = event
             return nil
         }
     case .leftMouseUp, .rightMouseUp:
-        if type == .leftMouseUp && ms.consume_tab_click {
+        if type == .leftMouseUp && ms.consumeTabClick {
             TabBar.updatePointer(event.location, pressed: false)
-            ms.consume_tab_click = false
+            ms.consumeTabClick = false
             return nil
         }
         EventLoop.post(.mouseUp(Handoff(value: .passRetained(event))))
-        if ms.consume_mouse_click {
-            if !ms.drag_detected {
-                ms.consumed_event!.tapPostEvent(proxy)
+        if ms.consumeMouseClick {
+            if !ms.dragDetected {
+                ms.consumedEvent!.tapPostEvent(proxy)
                 event.tapPostEvent(proxy)
             }
-            ms.drag_detected = false
-            ms.consume_mouse_click = false
-            ms.consumed_event = nil
+            ms.dragDetected = false
+            ms.consumeMouseClick = false
+            ms.consumedEvent = nil
             return nil
         }
     case .leftMouseDragged, .rightMouseDragged:
-        if type == .leftMouseDragged && ms.consume_tab_click {
+        if type == .leftMouseDragged && ms.consumeTabClick {
             TabBar.updatePointer(event.location, pressed: true)
             return nil
         }
-        ms.drag_detected = true
+        ms.dragDetected = true
         pending_mouse_dragged_add()
         EventLoop.post(.mouseDragged(Handoff(value: .passRetained(event))))
     case .mouseMoved:
         TabBar.updatePointer(event.location, pressed: false)
-        if !ms.tracks_focus.load(ordering: .relaxed) { return .passUnretained(event) }
-        let mod = mouseModFromCGFlags(event.flags)
+        if !ms.tracksFocus.load(ordering: .relaxed) { return .passUnretained(event) }
+        let mod = MouseModifiers(event.flags)
         if mod == ms.modifier.modifiers { return .passUnretained(event) }
         pending_mouse_moved_add()
         EventLoop.post(.mouseMoved(Handoff(value: .passRetained(event)), modifiers: mod))
@@ -219,189 +215,203 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
     return .passUnretained(event)
 }
 
-@WM func mouse_window_info_populate(_ ms: MouseState, _ info: UnsafeMutablePointer<MouseWindowChange>)
+extension MouseState
 {
-    let frame = ms.window.frame
-    info.pointee.dx = Float(frame.origin.x - ms.window_frame.origin.x)
-    info.pointee.dy = Float(frame.origin.y - ms.window_frame.origin.y)
-    info.pointee.dw = Float(frame.width - ms.window_frame.width)
-    info.pointee.dh = Float(frame.height - ms.window_frame.height)
-    info.pointee.changed_x = info.pointee.dx != 0
-    info.pointee.changed_y = info.pointee.dy != 0
-    info.pointee.changed_w = info.pointee.dw != 0
-    info.pointee.changed_h = info.pointee.dh != 0
-    info.pointee.changed_position = info.pointee.changed_x || info.pointee.changed_y
-    info.pointee.changed_size = info.pointee.changed_w || info.pointee.changed_h
-}
-
-func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CGPoint) -> MouseDropAction
-{
-    let f = target.frame
-    let wp = CGPoint(x: point.x - f.minX, y: point.y - f.minY)
-    let center = CGRect(x: 0.25 * f.width, y: 0.25 * f.height, width: 0.5 * f.width, height: 0.5 * f.height)
-    let mid = CGPoint(x: 0.5 * f.width, y: 0.5 * f.height)
-    let top = [CGPoint.zero, mid, CGPoint(x: f.width, y: 0)]
-    let right = [CGPoint(x: f.width, y: 0), mid, CGPoint(x: f.width, y: f.height)]
-    let bottom = [CGPoint(x: f.width, y: f.height), mid, CGPoint(x: 0, y: f.height)]
-    let left = [CGPoint(x: 0, y: f.height), mid, CGPoint.zero]
-    if center.contains(wp) { return ms.drop_action == .stack ? .stack : .swap }
-    if wp.isInTriangle(top) { return .warpTop }
-    if wp.isInTriangle(right) { return .warpRight }
-    if wp.isInTriangle(bottom) { return .warpBottom }
-    if wp.isInTriangle(left) { return .warpLeft }
-    return .none
-}
-
-@WM func mouse_drop_try_adjust_tree(_ wm: WindowManager, _ targetView: View, _ target: Window, _ info: UnsafeMutablePointer<MouseWindowChange>)
-{
-    var success = true
-    if info.pointee.changed_position {
-        var direction: ResizeHandle = []
-        if info.pointee.changed_x { direction.insert(.left) }
-        if info.pointee.changed_y { direction.insert(.top) }
-        if wm.resizeWindow(target, direction: direction, dx: info.pointee.dx, dy: info.pointee.dy, animate: true) == .invalidDestinationNode { success = false }
+    /// How the dragged window has changed since the mouse went down.
+    @WM var windowChange: MouseWindowChange
+    {
+        let frame = window.frame
+        var change = MouseWindowChange()
+        change.dx = Float(frame.origin.x - windowFrame.origin.x)
+        change.dy = Float(frame.origin.y - windowFrame.origin.y)
+        change.dw = Float(frame.width - windowFrame.width)
+        change.dh = Float(frame.height - windowFrame.height)
+        change.changedX = change.dx != 0
+        change.changedY = change.dy != 0
+        change.changedWidth = change.dw != 0
+        change.changedHeight = change.dh != 0
+        change.changedPosition = change.changedX || change.changedY
+        change.changedSize = change.changedWidth || change.changedHeight
+        return change
     }
-    if info.pointee.changed_size {
-        var direction: ResizeHandle = []
-        if info.pointee.changed_w && !info.pointee.changed_x { direction.insert(.right) }
-        if info.pointee.changed_h && !info.pointee.changed_y { direction.insert(.bottom) }
-        if wm.resizeWindow(target, direction: direction, dx: info.pointee.dw, dy: info.pointee.dh, animate: true) == .invalidDestinationNode { success = false }
+
+    /// The action for dropping a window at a point of the target window, from the target's center and edges.
+    func resolveDrop(onto target: Window, at point: CGPoint) -> MouseDropAction
+    {
+        let f = target.frame
+        let wp = CGPoint(x: point.x - f.minX, y: point.y - f.minY)
+        let center = CGRect(x: 0.25 * f.width, y: 0.25 * f.height, width: 0.5 * f.width, height: 0.5 * f.height)
+        let mid = CGPoint(x: 0.5 * f.width, y: 0.5 * f.height)
+        let top = [CGPoint.zero, mid, CGPoint(x: f.width, y: 0)]
+        let right = [CGPoint(x: f.width, y: 0), mid, CGPoint(x: f.width, y: f.height)]
+        let bottom = [CGPoint(x: f.width, y: f.height), mid, CGPoint(x: 0, y: f.height)]
+        let left = [CGPoint(x: 0, y: f.height), mid, CGPoint.zero]
+        if center.contains(wp) { return dropAction == .stack ? .stack : .swap }
+        if wp.isInTriangle(top) { return .warpTop }
+        if wp.isInTriangle(right) { return .warpRight }
+        if wp.isInTriangle(bottom) { return .warpBottom }
+        if wp.isInTriangle(left) { return .warpLeft }
+        return .none
     }
-    if !success { targetView.flush() }
-}
 
-private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirection?
-{
-    switch action {
-    case .stack, .swap: .stack
-    case .warpTop:      .north
-    case .warpRight:    .east
-    case .warpBottom:   .south
-    case .warpLeft:     .west
-    case .none:         nil
+    @WM func clearFeedback()
+    {
+        guard let feedbackWid = feedbackWindowID else { return }
+        let wm = WindowManager.shared
+        let target = wm.window(for: feedbackWid)
+        let targetView = target.flatMap { wm.managedView(for: $0) }
+        if let con = container(of: target, in: targetView), con.insertDirection == nil { con.hideFeedback() }
+        feedbackWindowID = nil
+        feedbackDirection = nil
+    }
+
+    //
+    // NOTE: While a window is dragged over a managed window, the half where it would be placed
+    // is outlined, or the whole window when dropping would swap or stack them.
+    //
+
+    @WM func showDropFeedback(view: View?, window: Window?, at point: CGPoint)
+    {
+        guard let con = container(of: window, in: view), let window else { clearFeedback(); return }
+        let direction = resolveDrop(onto: window, at: point).insertDirection
+        if feedbackWindowID == window.id && feedbackDirection == direction { return }
+        clearFeedback()
+        guard let direction else { return }
+        con.showFeedback(direction: direction)
+        feedbackWindowID = window.id
+        feedbackDirection = direction
+    }
+
+    @WM private func dropWithoutTarget(_ target: Window, from srcView: View, to dstView: View)
+    {
+        if srcView.sid == dstView.sid || dstView.layout == .float { srcView.flush(); return }
+        let wm = WindowManager.shared
+        wm.unmanageWindow(target, from: srcView)
+        wm.manageWindow(target, on: dstView.sid, inserting: nil)
+    }
+
+    //
+    // NOTE: Dropping a window on a managed window: the center swaps the two windows, or makes
+    // the dropped window a tab of the other one with mouse_drop_action stack. The edges place the dropped
+    // window on that side of the other window.
+    //
+
+    @WM func drop(_ srcWindow: Window, from srcView: View, onto dstWindow: Window?, in dstView: View?, at point: CGPoint)
+    {
+        clearFeedback()
+        let wm = WindowManager.shared
+        guard let dstView else { srcView.flush(); return }
+        guard let dstCon = container(of: dstWindow, in: dstView), let dstWindow else { dropWithoutTarget(srcWindow, from: srcView, to: dstView); return }
+        let action = resolveDrop(onto: dstWindow, at: point)
+        let direction = action.insertDirection
+        if action == .none {
+            srcView.flush()
+        } else if action == .swap {
+            _ = wm.swapWindow(srcWindow, dstWindow)
+        } else if direction == .stack {
+            _ = wm.stackWindow(dstWindow, srcWindow)
+            if srcView != dstView { srcView.flush() }
+        } else if srcView == dstView {
+            // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
+            guard let container = srcView.tree?.find(srcWindow.id), let direction else { return }
+            container.detach()
+            dstCon.insert(container, toward: direction)
+            container.focus()
+            srcView.tree!.flatten()
+            if !srcView.updateAutoPadding() { srcView.updateTree() }
+            srcView.flush()
+        } else {
+            dstCon.insertDirection = direction
+            dstView.insertionPoint = dstWindow.id
+            wm.unmanageWindow(srcWindow, from: srcView)
+            wm.manageWindow(srcWindow, on: dstView.sid, inserting: nil)
+        }
+    }
+
+    @WM private func container(of window: Window?, in view: View?) -> Con?
+    {
+        guard let view, let window else { return nil }
+        return view.findWindow(window.id)
+    }
+
+    func setDefaults()
+    {
+        modifier = .fn
+        action1 = .move
+        action2 = .resize
+        dropAction = .swap
+    }
+
+    //
+    // NOTE: The tap gets the state as its context, unretained: the state is a global that lives as long as the daemon.
+    //
+
+    @discardableResult
+    func beginEventTap(mask: UInt32) -> Bool
+    {
+        if handle.load(ordering: .relaxed) != nil { return true }
+        let moveMask = UInt32(1 << CGEventType.mouseMoved.rawValue)
+        guard let port = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return false }
+        tracksFocus.store(mask & moveMask != 0, ordering: .relaxed)
+        handle.store(Unmanaged.passRetained(port).toOpaque(), ordering: .relaxed)
+        if !CGEvent.tapIsEnabled(tap: port) {
+            CFMachPortInvalidate(port)
+            Unmanaged<CFMachPort>.passUnretained(port).release()
+            handle.store(nil, ordering: .releasing)
+            return false
+        }
+        let source = CFMachPortCreateRunLoopSource(nil, port, 0)!
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        return true
+    }
+
+    func endEventTap()
+    {
+        guard let port = handlePort else { return }
+        CGEvent.tapEnable(tap: port, enable: false)
+        CFMachPortInvalidate(port)
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource!, .commonModes)
+        runLoopSource = nil
+        Unmanaged<CFMachPort>.passUnretained(port).release()
+        handle.store(nil, ordering: .releasing)
     }
 }
 
-@WM private func mouseFindCon(_ targetView: View?, _ target: Window?) -> Con?
+extension MouseDropAction
 {
-    guard let targetView, let target else { return nil }
-    return targetView.findWindow(target.id)
-}
-
-@WM func mouse_feedback_clear(_ ms: MouseState)
-{
-    guard let feedbackWid = ms.feedback_wid else { return }
-    let wm = WindowManager.shared
-    let target = wm.window(for: feedbackWid)
-    let targetView = target.flatMap { wm.managedView(for: $0) }
-    if let container = mouseFindCon(targetView, target), container.insertDirection == nil { container.hideFeedback() }
-    ms.feedback_wid = nil
-    ms.feedback_dir = nil
-}
-
-//
-// NOTE: While a window is dragged over a managed window, the half where it would be placed
-// is outlined, or the whole window when dropping would swap or stack them.
-//
-
-@WM func mouse_drag(_ ms: MouseState, _ dstView: View?, _ dstWindow: Window?, _ point: CGPoint)
-{
-    guard let container = mouseFindCon(dstView, dstWindow), let dstWindow else { mouse_feedback_clear(ms); return }
-    let direction = mouseDropActionDirection(mouse_determine_drop_action(ms, dstWindow, point))
-    if ms.feedback_wid == dstWindow.id && ms.feedback_dir == direction { return }
-    mouse_feedback_clear(ms)
-    guard let direction else { return }
-    container.showFeedback(direction: direction)
-    ms.feedback_wid = dstWindow.id
-    ms.feedback_dir = direction
-}
-
-@WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
-{
-    if srcView.sid == dstView.sid || dstView.layout == .float { srcView.flush(); return }
-    wm.unmanageWindow(target, from: srcView)
-    wm.manageWindow(target, on: dstView.sid, inserting: nil)
-}
-
-//
-// NOTE: Dropping a window on a managed window: the center swaps the two windows, or makes
-// the dropped window a tab of the other one with mouse_drop_action stack. The edges place the dropped
-// window on that side of the other window.
-//
-
-@WM func mouse_drop(_ sm: SpaceManager?, _ wm: WindowManager, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
-{
-    mouse_feedback_clear(ms)
-    guard let dstView else { srcView.flush(); return }
-    guard let dstCon = mouseFindCon(dstView, dstWindow), let dstWindow else { mouseDropNoTarget(sm!, wm, srcView, dstView, srcWindow); return }
-    let action = mouse_determine_drop_action(ms, dstWindow, point)
-    let direction = mouseDropActionDirection(action)
-    if action == .none {
-        srcView.flush()
-    } else if action == .swap {
-        _ = wm.swapWindow(srcWindow, dstWindow)
-    } else if direction == .stack {
-        _ = wm.stackWindow(dstWindow, srcWindow)
-        if srcView != dstView { srcView.flush() }
-    } else if srcView == dstView {
-        // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
-        guard let container = srcView.tree?.find(srcWindow.id), let direction else { return }
-        container.detach()
-        dstCon.insert(container, toward: direction)
-        container.focus()
-        srcView.tree!.flatten()
-        if !srcView.updateAutoPadding() { srcView.updateTree() }
-        srcView.flush()
-    } else {
-        dstCon.insertDirection = direction
-        dstView.insertionPoint = dstWindow.id
-        wm.unmanageWindow(srcWindow, from: srcView)
-        wm.manageWindow(srcWindow, on: dstView.sid, inserting: nil)
+    /// The direction a window is inserted toward when it is dropped with this action, or nil when nothing is dropped.
+    var insertDirection: InsertDirection?
+    {
+        switch self {
+        case .stack, .swap: .stack
+        case .warpTop:      .north
+        case .warpRight:    .east
+        case .warpBottom:   .south
+        case .warpLeft:     .west
+        case .none:         nil
+        }
     }
 }
 
-/// `mouse_state_init`
-func mouse_state_init(_ state: MouseState)
+extension WindowManager
 {
-    state.modifier = .fn
-    state.action1 = .move
-    state.action2 = .resize
-    state.drop_action = .swap
-}
-
-//
-// NOTE: The tap gets the state as its context, unretained: the state is a global that lives as long as the daemon.
-//
-
-/// `mouse_handler_begin`
-@discardableResult
-func mouse_handler_begin(_ state: MouseState, _ mask: UInt32) -> Bool
-{
-    if state.handle.load(ordering: .relaxed) != nil { return true }
-    let moveMask = UInt32(1 << CGEventType.mouseMoved.rawValue)
-    guard let handle = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler, userInfo: Unmanaged.passUnretained(state).toOpaque()) else { return false }
-    state.tracks_focus.store(mask & moveMask != 0, ordering: .relaxed)
-    state.handle.store(Unmanaged.passRetained(handle).toOpaque(), ordering: .relaxed)
-    if !CGEvent.tapIsEnabled(tap: handle) {
-        CFMachPortInvalidate(handle)
-        Unmanaged<CFMachPort>.passUnretained(handle).release()
-        state.handle.store(nil, ordering: .releasing)
-        return false
+    /// Resizes the windows that the edges of a dragged window moved, and flushes the view when a resize fails.
+    @WM func resizeAfterDrag(_ target: Window, in targetView: View, by change: MouseWindowChange)
+    {
+        var success = true
+        if change.changedPosition {
+            var direction: ResizeHandle = []
+            if change.changedX { direction.insert(.left) }
+            if change.changedY { direction.insert(.top) }
+            if resizeWindow(target, direction: direction, dx: change.dx, dy: change.dy, animate: true) == .invalidDestinationNode { success = false }
+        }
+        if change.changedSize {
+            var direction: ResizeHandle = []
+            if change.changedWidth && !change.changedX { direction.insert(.right) }
+            if change.changedHeight && !change.changedY { direction.insert(.bottom) }
+            if resizeWindow(target, direction: direction, dx: change.dw, dy: change.dh, animate: true) == .invalidDestinationNode { success = false }
+        }
+        if !success { targetView.flush() }
     }
-    let source = CFMachPortCreateRunLoopSource(nil, handle, 0)!
-    state.runloop_source = source
-    CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-    return true
-}
-
-/// `mouse_handler_end`
-func mouse_handler_end(_ state: MouseState)
-{
-    guard let handle = state.handlePort else { return }
-    CGEvent.tapEnable(tap: handle, enable: false)
-    CFMachPortInvalidate(handle)
-    CFRunLoopRemoveSource(CFRunLoopGetMain(), state.runloop_source!, .commonModes)
-    state.runloop_source = nil
-    Unmanaged<CFMachPort>.passUnretained(handle).release()
-    state.handle.store(nil, ordering: .releasing)
 }

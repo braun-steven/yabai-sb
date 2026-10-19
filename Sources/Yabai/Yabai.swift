@@ -158,7 +158,7 @@ enum Daemon
         signal(SIGPIPE, SIG_IGN)
         CGSetLocalEventsSuppressionIntervalC(0.0)
         CGEnableEventStateCombiningC(false)
-        mouse_state_init(mouse_state_global())
+        MouseState.shared.setDefaults()
 
         let handle = open(lockFile, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
         if handle == -1 {
@@ -284,7 +284,7 @@ enum Daemon
             error("yabai: could not start display manager! abort..\n")
         }
 
-        if !mouse_handler_begin(mouse_state_global(), mouseEventMask) {
+        if !MouseState.shared.beginEventTap(mask: mouseEventMask) {
             error("yabai: could not start mouse handler! abort..\n")
         }
 

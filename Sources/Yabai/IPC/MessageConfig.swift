@@ -511,7 +511,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     let wm = WindowManager.shared
     let sm = SpaceManager.shared
     let dm = DisplayManager.shared
-    let mouse = mouse_state_global()
+    let mouse = MouseState.shared
 
     if configBorder(&rsp, domain, command, &message)  { return true }
     if configTabBar(&rsp, domain, command, &message) { return true }
@@ -639,8 +639,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             mouse.action2 = choice
         }
     } else if command.equals(Config.mouseDropAction) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.drop_action) {
-            mouse.drop_action = choice
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.dropAction) {
+            mouse.dropAction = choice
         }
     } else if command.equals(Config.externalBar) {
         configExternalBar(&rsp, domain, command, &message)

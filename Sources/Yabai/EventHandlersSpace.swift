@@ -105,28 +105,28 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(DISPLAY_CHANGED)`
 @WM func displayChanged()
 {
-    let dm = display_manager_global()
+    let dm = DisplayManager.shared
     let sm = space_manager_global()
 
-    let newDid = display_manager_active_display_id()
-    if dm.current_display_id == newDid {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: newly activated display \(dm.current_display_id?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0))! ignoring event..\n")
+    let newDid = DisplayID.active
+    if dm.currentDisplayID == newDid {
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: newly activated display \(dm.currentDisplayID?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0))! ignoring event..\n")
         return
     }
 
-    dm.last_display_id = dm.current_display_id
-    dm.current_display_id = newDid
+    dm.lastDisplayID = dm.currentDisplayID
+    dm.currentDisplayID = newDid
 
     sm.last_space_id = sm.current_space_id
-    sm.current_space_id = dm.current_display_id.flatMap(display_space_id)
+    sm.current_space_id = dm.currentDisplayID.flatMap { $0.currentSpace }
 
     let expectedDisplayID = sm.current_space_id.flatMap(space_display_id)
-    if dm.current_display_id != expectedDisplayID {
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
+    if dm.currentDisplayID != expectedDisplayID {
+        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
         return
     }
 
-    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.current_display_id?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
+    debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.current_space_id?.rawValue ?? 0))\n")
     refreshCurrentSpace()
 
     eventSignalPush(.displayChanged, nil)
@@ -146,8 +146,8 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 @WM func displayRemoved(_ did: DisplayID)
 {
     debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
-    _ = display_manager_global().labels.remove(id: did)
-    WindowManager.shared.handleDisplayAddAndRemove(display_manager_main_display_id())
+    _ = DisplayManager.shared.labels.remove(id: did)
+    WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayRemoved, signalContext(did))
 }

@@ -106,15 +106,15 @@ extension WindowManager
 
     func correctForMissionControlChanges()
     {
-        let displays = displayManagerActiveDisplays()
+        let displays = DisplayID.all
 
         let animationDuration = windowAnimationDuration
         windowAnimationDuration = 0.0
 
         for did in displays {
-            guard let spaceList = displaySpaces(did) else { continue }
+            guard let spaceList = did.spaces else { continue }
 
-            let sid = display_space_id(did)
+            let sid = did.currentSpace
             for space in spaceList {
                 if let sid, space == sid {
                     validateAndCheckForWindows(on: sid)
@@ -129,7 +129,7 @@ extension WindowManager
 
     func handleDisplayAddAndRemove(_ did: DisplayID)
     {
-        guard let spaceList = displaySpaces(did) else { return }
+        guard let spaceList = did.spaces else { return }
 
         for space in spaceList where space_is_user(space) {
             if let windowList = windows(onSpace: space) {
@@ -141,7 +141,7 @@ extension WindowManager
             break
         }
 
-        let sid = display_space_id(did)
+        let sid = did.currentSpace
         for space in spaceList {
             if let sid, space == sid {
                 space_manager_refresh_view(SpaceManager.shared, sid)

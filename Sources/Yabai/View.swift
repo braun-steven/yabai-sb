@@ -161,7 +161,7 @@ final class View
         isUnpadded = unpadded
 
         guard let did = space_display_id(sid) else { return }
-        let frame = display_bounds_constrained(did, false)
+        let frame = did.constrainedBounds(ignoringExternalBar: false)
         area = rootArea(in: frame)
 
         updateTree()

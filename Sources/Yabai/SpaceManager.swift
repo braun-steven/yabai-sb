@@ -51,7 +51,7 @@ final class SpaceManager
     var space_layout_passes = 0
 }
 
-/// `g_space_manager` (see the NOTE of g_display_manager)
+/// `g_space_manager` (see the NOTE of `DisplayManager.shared`)
 nonisolated(unsafe) let g_space_manager = SpaceManager()
 
 func space_manager_global() -> SpaceManager
@@ -365,7 +365,7 @@ func missionControlSpaces() -> [SpaceID]
 {
     var result: [SpaceID] = []
 
-    for display in display_manager_copy_managed_display_spaces() {
+    for display in DisplayManager.shared.managedDisplaySpaces {
         guard let spaces = display["Spaces"] as? [NSDictionary] else { continue }
 
         for space in spaces {
@@ -402,7 +402,7 @@ func space_manager_mission_control_space(_ desktopID: Int) -> SpaceID?
 /// `space_manager_cursor_space`
 func space_manager_cursor_space() -> SpaceID?
 {
-    return display_manager_cursor_display_id().flatMap(display_space_id)
+    return DisplayID.underCursor.flatMap { $0.currentSpace }
 }
 
 /// `space_manager_prev_space`
@@ -468,9 +468,9 @@ func space_manager_active_space() -> SpaceID?
     let focused = spaceManagerFocusedWindow()
 
     if let focused { did = focused.id.displayID }
-    if did == nil { did = display_manager_active_display_id() }
+    if did == nil { did = DisplayID.active }
 
-    return did.flatMap(display_space_id)
+    return did.flatMap { $0.currentSpace }
 }
 
 /// The windows of a space, as `space_window_list` lists them.
@@ -545,13 +545,13 @@ func space_manager_move_window_to_space(_ sid: SpaceID, _ win: Window)
 /// `space_manager_find_first_user_space_for_display`
 private func spaceManagerFindFirstUserSpaceForDisplay(_ did: DisplayID) -> SpaceID?
 {
-    return displaySpaces(did)?.first(where: { space_is_user($0) })
+    return did.spaces?.first(where: { space_is_user($0) })
 }
 
 /// `space_manager_is_space_last_user_space`: whether no other user space is on the display of sid.
 func space_manager_is_space_last_user_space(_ sid: SpaceID) -> Bool
 {
-    guard let did = space_display_id(sid), let spaces = displaySpaces(did) else { return true }
+    guard let did = space_display_id(sid), let spaces = did.spaces else { return true }
 
     for other in spaces {
         if sid == other { continue }
@@ -718,7 +718,7 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
 
     if space_manager_is_space_last_user_space(sid) { return .invalidSource }
 
-    guard let dSid = display_space_id(did) else { return .missingDestination }
+    guard let dSid = did.currentSpace else { return .missingDestination }
 
     let focusSpace = sid == space_manager_active_space()
 
@@ -728,10 +728,10 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
     // to that display's current space, and its menubar stays on screen above the real one.
     //
 
-    guard let spaceList = sDid.flatMap(displaySpaces) else { return .missingSource }
+    guard let spaceList = sDid.flatMap({ $0.spaces }) else { return .missingSource }
 
     let user = spaceUserList(spaceList)
-    let visibleSid = sDid.flatMap(display_space_id)
+    let visibleSid = sDid.flatMap { $0.currentSpace }
     let replacementSid = visibleSid.flatMap { SpaceList.moveReplacement(spaces: spaceList, user: user, sid: sid, visible: $0) }
 
     //
@@ -752,17 +752,17 @@ func space_manager_move_space_to_display(_ sm: SpaceManager, _ sid: SpaceID?, _ 
 @discardableResult
 func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: SpaceID) -> Bool
 {
-    let curIndex = display_space_id(newDid).map(space_manager_mission_control_index) ?? 0
+    let curIndex = newDid.currentSpace.map(space_manager_mission_control_index) ?? 0
     let newIndex = space_manager_mission_control_index(newSid)
 
     let count = abs(newIndex - curIndex)
     if count == 0 {
-        display_manager_focus_display(newDid, newSid)
+        newDid.focus(space: newSid)
         return true
     }
 
-    let point = display_center(newDid)
-    let curDid = display_manager_cursor_display_id()
+    let point = newDid.center
+    let curDid = DisplayID.underCursor
 
     let focusDisplay = curDid != newDid
     if focusDisplay { CGWarpMouseCursorPosition(point) }
@@ -795,7 +795,7 @@ func space_manager_focus_space_using_gesture(_ newDid: DisplayID, _ newSid: Spac
     }
 
     if focusDisplay {
-        display_manager_set_active_display_id(newDid)
+        newDid.activate()
         if space_manager_active_space() != newSid {
             CGPostMouseEventC(point, false, true)
             CGPostMouseEventC(point, false, false)
@@ -819,7 +819,7 @@ func space_manager_focus_space(_ sid: SpaceID) -> SpaceOperationResult
 
     if scripting_addition_focus_space(sid) {
         if focusDisplay, let newDid {
-            display_manager_focus_display(newDid, sid)
+            newDid.focus(space: sid)
         }
     } else if let newDid {
         _ = space_manager_focus_space_using_gesture(newDid, sid)
@@ -841,7 +841,7 @@ func space_manager_switch_space(_ sid: SpaceID) -> SpaceOperationResult
 
     if curDid != did {
         _ = spaceManagerSwapSpaceWithSpaceOnDisplay(curSid, sid)
-        if let curDid { display_manager_focus_display(curDid, curSid) }
+        if let curDid { curDid.focus(space: curSid) }
         return .success
     }
 
@@ -887,9 +887,9 @@ func space_manager_is_window_on_space(_ sid: SpaceID, _ win: Window) -> Bool
 /// `space_manager_mark_spaces_invalid_for_display`
 func space_manager_mark_spaces_invalid_for_display(_ sm: SpaceManager, _ did: DisplayID)
 {
-    guard let spaceList = displaySpaces(did) else { return }
+    guard let spaceList = did.spaces else { return }
 
-    let sid = display_space_id(did)
+    let sid = did.currentSpace
     for space in spaceList {
         if space == sid, let sid {
             space_manager_refresh_view(sm, sid)
@@ -902,7 +902,7 @@ func space_manager_mark_spaces_invalid_for_display(_ sm: SpaceManager, _ did: Di
 /// `space_manager_mark_spaces_invalid`
 func space_manager_mark_spaces_invalid(_ sm: SpaceManager)
 {
-    for did in displayManagerActiveDisplays() {
+    for did in DisplayID.all {
         space_manager_mark_spaces_invalid_for_display(sm, did)
     }
 }
@@ -935,7 +935,7 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 /// `space_manager_handle_display_add`: the views of the spaces of a new display keep their names, and take the new ids.
 func space_manager_handle_display_add(_ sm: SpaceManager, _ did: DisplayID)
 {
-    guard let spaceList = displaySpaces(did) else { return }
+    guard let spaceList = did.spaces else { return }
 
     var viewList: [View?] = sm.view.values.sorted(by: { $0.sid < $1.sid }).map { Optional($0) }
     var uuidList: [CFString?] = viewList.map { $0?.uuid }
@@ -988,8 +988,8 @@ func space_manager_begin(_ sm: SpaceManager)
 {
     space_manager_init(sm)
 
-    for did in displayManagerActiveDisplays() {
-        guard let spaceList = displaySpaces(did) else { continue }
+    for did in DisplayID.all {
+        guard let spaceList = did.spaces else { continue }
 
         for sid in spaceList {
             let created = View.create(sid: sid)

@@ -124,7 +124,7 @@ final class MouseState
     }
 }
 
-/// `g_mouse_state`: the event tap reads the fields it read in C, on the main thread (see the NOTE of g_display_manager).
+/// `g_mouse_state`: the event tap reads the fields it read in C, on the main thread (see the NOTE of `DisplayManager.shared`).
 nonisolated(unsafe) let g_mouse_state = MouseState()
 
 func mouse_state_global() -> MouseState

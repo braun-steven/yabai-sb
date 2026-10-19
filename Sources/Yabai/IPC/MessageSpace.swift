@@ -111,11 +111,11 @@ extension Response
 
 func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
-    let dm = display_manager_global()
+    let dm = DisplayManager.shared
     let context = CSelectorContext()
 
     let command: Token
-    var actingDid = display_manager_active_display_id()
+    var actingDid = DisplayID.active
     var ignored = Response()
     let selector = parseDisplaySelector(&ignored, message.next(), acting: actingDid, optional: true, context)
 
@@ -135,15 +135,15 @@ func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inou
         let selector = parseDisplaySelector(&rsp, message.next(), acting: did, optional: false, context)
         if selector.didParse, let target = selector.value {
             if did != target {
-                display_manager_focus_display(target, display_space_id(target))
+                target.focus(space: target.currentSpace)
             } else {
                 rsp.fail("cannot focus an already focused display.\n")
             }
         }
     } else if command.equals(DisplayCommand.space) {
-        let selector = parseSpaceSelector(&rsp, message.next(), acting: display_space_id(did), optional: false, context)
+        let selector = parseSpaceSelector(&rsp, message.next(), acting: did.currentSpace, optional: false, context)
         if selector.didParse, let target = selector.value {
-            let result = display_manager_focus_space(did, target)
+            let result = did.focusSpace(target)
             if result == .sameDisplay {
                 rsp.fail("acting display does not contain the given space.\n")
             } else {
@@ -229,7 +229,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
             }
         }
     } else if command.equals(SpaceCommand.display) {
-        let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: false, context)
+        let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: false, context)
         if selector.didParse, let target = selector.value {
             let result = space_manager_move_space_to_display(space_manager_global(), actingSid, target)
             if result == .missingSource {
@@ -245,11 +245,11 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
             }
         }
     } else if command.equals(SpaceCommand.create) {
-        let selector = parseDisplaySelector(&rsp, message.next(), acting: display_manager_active_display_id(), optional: true, context)
+        let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: true, context)
 
         if selector.token.isValid {
             if selector.didParse, let target = selector.value {
-                actingSid = display_space_id(target)
+                actingSid = target.currentSpace
             } else {
                 return .stop
             }

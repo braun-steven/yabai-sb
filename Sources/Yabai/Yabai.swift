@@ -291,7 +291,7 @@ private func parseArguments(_ arguments: [String]) -> String?
         error("yabai: could not start process manager! abort..\n")
     }
 
-    if !display_manager_begin(display_manager_global()) {
+    if !DisplayManager.shared.begin() {
         error("yabai: could not start display manager! abort..\n")
     }
 

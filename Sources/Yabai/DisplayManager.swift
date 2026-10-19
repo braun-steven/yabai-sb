@@ -6,7 +6,7 @@ import YabaiCore
 
 //
 // NOTE: The displays of yabai: their arrangement (display_arrangement_order and builtin_display_last), the menu bar and
-// the Dock that shrink their area, and the focus of a display. Ported from src/display_manager.c.
+// the Dock that shrink their area, and the focus of a display.
 //
 
 /// The order of the display indices (`config display_arrangement_order`): the window server's, or by the centers of the
@@ -34,62 +34,179 @@ enum DockOrientation: Int32, Sendable
     case right  = 4
 }
 
-/// `struct display_manager`
+//
+// NOTE: The reconfiguration callback runs on a thread of the window server. It only posts events; the handlers change
+// the state on the @WM queue (see EventLoop.swift).
+//
+
+/// Registered by `DisplayManager.begin()`.
+let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
+    if flags.contains(.addFlag) {
+        EventLoop.post(.displayAdded(displayID: DisplayID(did)))
+    } else if flags.contains(.removeFlag) {
+        EventLoop.post(.displayRemoved(displayID: DisplayID(did)))
+    } else if flags.contains(.movedFlag) {
+        EventLoop.post(.displayMoved(displayID: DisplayID(did)))
+    } else if flags.contains(.desktopShapeChangedFlag) {
+        EventLoop.post(.displayResized(displayID: DisplayID(did)))
+    }
+}
+
 final class DisplayManager
 {
-    var current_display_id: DisplayID?
-    var last_display_id: DisplayID?
+    var currentDisplayID: DisplayID?
+    var lastDisplayID: DisplayID?
 
-    var top_padding: Int = 0
-    var bottom_padding: Int = 0
+    var topPadding: Int = 0
+    var bottomPadding: Int = 0
 
     var order = DisplayArrangementOrder.default
-    var builtin_last = false
+    var builtinDisplayLast = false
     var mode = ExternalBarMode.off
 
     var labels = LabelList<DisplayID>()
-}
 
-//
-// NOTE: The global singletons are created before the event loop starts. Like the C globals they replace, the event loop
-// owns them; the producers on other threads read only what they read in C, under the locks named where they do.
-//
+    //
+    // NOTE: The managers' shared instances are created before the event loop starts. The event loop owns them; producers
+    // on other threads read only what the NOTEs at their reads name.
+    //
+    nonisolated(unsafe) static let shared = DisplayManager()
 
-/// `g_display_manager`
-nonisolated(unsafe) let g_display_manager = DisplayManager()
+    /// Reads the active display and registers the reconfiguration callback.
+    func begin() -> Bool
+    {
+        currentDisplayID = DisplayID.active
+        lastDisplayID = currentDisplayID
+        order = .default
+        mode = .off
+        topPadding = 0
+        bottomPadding = 0
 
-func display_manager_global() -> DisplayManager
-{
-    g_display_manager
-}
+        return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
+    }
 
-/// `display_manager_main_display_id`
-func display_manager_main_display_id() -> DisplayID
-{
-    return DisplayID(CGMainDisplayID())
-}
+    /// The display spaces of the window server, with builtin_display_last applied.
+    var managedDisplaySpaces: [NSDictionary]
+    {
+        return orderedBuiltinLast(SLS.managedDisplaySpaces(connection_global()), displaySpaces: true)
+    }
 
-/// `display_manager_active_display_id`; nil when the window server names no active display.
-func display_manager_active_display_id() -> DisplayID?
-{
-    let uuid = SLS.activeMenuBarDisplay(connection_global())
-    assert(uuid != nil)
+    //
+    // NOTE: The uuids of all displays in the order of their arrangement index (display_arrangement_order,
+    // then builtin_display_last).
+    //
 
-    return uuid.flatMap(displayID)
-}
+    /// The uuids of all displays in arrangement order; nil when the window server does not list the displays.
+    var arrangedDisplays: [String]?
+    {
+        guard let displays = SLS.managedDisplays(connection_global()) else { return nil }
 
-/// `display_manager_dock_display_id`
-func display_manager_dock_display_id() -> DisplayID?
-{
-    guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: display_manager_dock_rect()) else { return nil }
-    return displayID(uuid)
-}
+        let count = CFArrayGetCount(displays)
+        let order = self.order
 
-/// `display_manager_point_display_id`
-func display_manager_point_display_id(_ point: CGPoint) -> DisplayID?
-{
-    guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return nil }
-    return displayID(uuid)
+        var sorted = displays
+        if count > 0 && order != .default {
+            let mutable = CFArrayCreateMutableCopy(nil, count, displays)!
+            CFArraySortValues(mutable, CFRangeMake(0, count), displayCoordinateComparator, UnsafeMutableRawPointer(bitPattern: order == .vertical ? 1 : 0))
+            sorted = mutable as CFArray
+        }
+
+        return orderedBuiltinLast((sorted as NSArray as? [String]) ?? [], displaySpaces: false)
+    }
+
+    /// The uuid of the display at an arrangement index (1-based).
+    func arrangedDisplayUUID(_ arrangement: Int) -> String?
+    {
+        guard let displays = arrangedDisplays else { return nil }
+
+        let index = arrangement - 1
+        guard index >= 0 && index < displays.count else { return nil }
+
+        return displays[index]
+    }
+
+    /// Moves the first builtin display of a list to its end, when builtin_display_last is set. displaySpaces reads the uuid
+    /// from the "Display Identifier" of each dictionary of the list.
+    private func orderedBuiltinLast<T>(_ list: [T], displaySpaces: Bool) -> [T]
+    {
+        if !builtinDisplayLast { return list }
+
+        for i in 0..<max(list.count - 1, 0) {
+            let item = list[i]
+            let uuid: Any? = displaySpaces ? (item as? NSDictionary)?["Display Identifier"] : (item as Any)
+            if !DisplayManager.isBuiltin(uuid: uuid) { continue }
+
+            var result = list
+            result.remove(at: i)
+            result.append(item)
+            return result
+        }
+
+        return list
+    }
+
+    /// Whether a uuid names a builtin display.
+    private static func isBuiltin(uuid value: Any?) -> Bool
+    {
+        guard let uuid = value as? String else { return false }
+
+        guard let did = DisplayID(uuid: uuid) else { return false }
+        return CGDisplayIsBuiltin(did.rawValue) != 0
+    }
+
+    var isMenuBarHidden: Bool
+    {
+        return SLS.menuBarAutohideEnabled(connection_global())
+    }
+
+    var isDockHidden: Bool
+    {
+        return CoreDock.autoHideEnabled
+    }
+
+    var dockOrientation: DockOrientation?
+    {
+        return DockOrientation(rawValue: CoreDock.orientationAndPinning.orientation)
+    }
+
+    var dockRect: CGRect
+    {
+        return SLS.dockRect(connection_global())
+    }
+
+    /// Focuses the window under a point; returns its id, or nil.
+    @discardableResult
+    func focusWindow(at point: CGPoint) -> WindowID?
+    {
+        guard let elementRef = element(at: point) else { return nil }
+
+        guard let elementID = ax_window_id(elementRef) else { return nil }
+
+        var elementPSN = SLS.connectionPSN(SLS.windowOwner(connection_global(), elementID) ?? 0)
+        WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)
+
+        return elementID
+    }
+
+    /// The window under a point, found through the accessibility element at it.
+    private func element(at point: CGPoint) -> AXUIElement?
+    {
+        var elementRef: AXUIElement?
+        AXUIElementCopyElementAtPosition(WindowManager.shared.systemElement!, Float(point.x), Float(point.y), &elementRef)
+        guard let elementRef else { return nil }
+
+        var role: CFTypeRef?
+        AXUIElementCopyAttributeValue(elementRef, kAXRoleAttribute as CFString, &role)
+        guard let role else { return nil }
+
+        if CFEqual(role, kAXWindowRole as CFString) { return elementRef }
+
+        var windowRef: CFTypeRef?
+        AXUIElementCopyAttributeValue(elementRef, kAXWindowAttribute as CFString, &windowRef)
+        guard let windowRef else { return nil }
+
+        return (windowRef as! AXUIElement)
+    }
 }
 
 //
@@ -100,8 +217,8 @@ func display_manager_point_display_id(_ point: CGPoint) -> DisplayID?
 private let displayCoordinateComparator: CFComparatorFunction = { a, b, context in
     let byY = context != nil
 
-    let aCenter = display_center(display_id(Unmanaged<CFString>.fromOpaque(a!).takeUnretainedValue()))
-    let bCenter = display_center(display_id(Unmanaged<CFString>.fromOpaque(b!).takeUnretainedValue()))
+    let aCenter = DisplayID(uuid: Unmanaged<CFString>.fromOpaque(a!).takeUnretainedValue() as String)?.center ?? .zero
+    let bCenter = DisplayID(uuid: Unmanaged<CFString>.fromOpaque(b!).takeUnretainedValue() as String)?.center ?? .zero
 
     var aCoord = Float(byY ? aCenter.y : aCenter.x)
     var bCoord = Float(byY ? bCenter.y : bCenter.x)
@@ -116,305 +233,4 @@ private let displayCoordinateComparator: CFComparatorFunction = { a, b, context 
     if aCoord > bCoord { return .compareGreaterThan }
 
     return .compareEqualTo
-}
-
-/// `display_manager_uuid_is_builtin`
-private func displayManagerUUIDIsBuiltin(_ value: Any?) -> Bool
-{
-    guard let uuid = value as? String else { return false }
-
-    guard let did = displayID(uuid) else { return false }
-    return CGDisplayIsBuiltin(did.rawValue) != 0
-}
-
-/// `display_manager_order_builtin_last`: moves the first builtin display of a list to its end, when builtin_display_last
-/// is set. display_spaces reads the uuid from the "Display Identifier" of each dictionary of the list.
-private func displayManagerOrderBuiltinLast<T>(_ list: [T], displaySpaces: Bool) -> [T]
-{
-    if !display_manager_global().builtin_last { return list }
-
-    for i in 0..<max(list.count - 1, 0) {
-        let item = list[i]
-        let uuid: Any? = displaySpaces ? (item as? NSDictionary)?["Display Identifier"] : (item as Any)
-        if !displayManagerUUIDIsBuiltin(uuid) { continue }
-
-        var result = list
-        result.remove(at: i)
-        result.append(item)
-        return result
-    }
-
-    return list
-}
-
-/// `display_manager_copy_managed_display_spaces`: the display spaces of the window server, with builtin_display_last applied.
-func display_manager_copy_managed_display_spaces() -> [NSDictionary]
-{
-    return displayManagerOrderBuiltinLast(SLS.managedDisplaySpaces(connection_global()), displaySpaces: true)
-}
-
-//
-// NOTE: The uuids of all displays in the order of their arrangement index (display_arrangement_order,
-// then builtin_display_last).
-//
-
-/// `display_manager_copy_arranged_displays`; nil when the window server does not list the displays.
-private func displayManagerCopyArrangedDisplays() -> [String]?
-{
-    guard let displays = SLS.managedDisplays(connection_global()) else { return nil }
-
-    let count = CFArrayGetCount(displays)
-    let order = display_manager_global().order
-
-    var sorted = displays
-    if count > 0 && order != .default {
-        let mutable = CFArrayCreateMutableCopy(nil, count, displays)!
-        CFArraySortValues(mutable, CFRangeMake(0, count), displayCoordinateComparator, UnsafeMutableRawPointer(bitPattern: order == .vertical ? 1 : 0))
-        sorted = mutable as CFArray
-    }
-
-    return displayManagerOrderBuiltinLast((sorted as NSArray as? [String]) ?? [], displaySpaces: false)
-}
-
-/// `display_manager_display_id_arrangement`
-func display_manager_display_id_arrangement(_ did: DisplayID) -> Int
-{
-    guard let uuid = displayUUID(did) else { return 0 }
-    guard let displays = displayManagerCopyArrangedDisplays() else { return 0 }
-    guard let index = displays.firstIndex(where: { $0.utf8.elementsEqual(uuid.utf8) }) else { return 0 }
-
-    return index + 1
-}
-
-/// `display_manager_arrangement_display_uuid`
-func displayManagerArrangementDisplayUUID(_ arrangement: Int) -> String?
-{
-    guard let displays = displayManagerCopyArrangedDisplays() else { return nil }
-
-    let index = arrangement - 1
-    guard index >= 0 && index < displays.count else { return nil }
-
-    return displays[index]
-}
-
-/// `display_manager_arrangement_display_id`
-func display_manager_arrangement_display_id(_ arrangement: Int) -> DisplayID?
-{
-    guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return nil }
-    return displayID(uuid)
-}
-
-/// `display_manager_cursor_display_id`
-func display_manager_cursor_display_id() -> DisplayID?
-{
-    return display_manager_point_display_id(SLS.cursorLocation(connection_global()))
-}
-
-/// `display_manager_prev_display_id`
-func display_manager_prev_display_id(_ did: DisplayID) -> DisplayID?
-{
-    let arrangement = display_manager_display_id_arrangement(did)
-    if arrangement <= 1 { return nil }
-
-    return display_manager_arrangement_display_id(arrangement - 1)
-}
-
-/// `display_manager_next_display_id`
-func display_manager_next_display_id(_ did: DisplayID) -> DisplayID?
-{
-    let arrangement = display_manager_display_id_arrangement(did)
-    if arrangement >= display_manager_active_display_count() { return nil }
-
-    return display_manager_arrangement_display_id(arrangement + 1)
-}
-
-/// `display_manager_first_display_id`
-func display_manager_first_display_id() -> DisplayID?
-{
-    return display_manager_arrangement_display_id(1)
-}
-
-/// `display_manager_last_display_id`
-func display_manager_last_display_id() -> DisplayID?
-{
-    let arrangement = display_manager_active_display_count()
-    return display_manager_arrangement_display_id(arrangement)
-}
-
-/// `display_manager_find_closest_display_in_direction`: the nearest display in a direction, nil if there is none.
-func display_manager_find_closest_display_in_direction(_ sourceDid: DisplayID, _ direction: Direction) -> DisplayID?
-{
-
-    var bestDid: DisplayID? = nil
-    var bestDistance = Int.max
-
-    let sourceArea = Area(CGDisplayBounds(sourceDid.rawValue))
-    let sourceAreaMax = sourceArea.maxPoint
-
-    for did in displayManagerActiveDisplays() {
-        if did == sourceDid { continue }
-
-        let targetArea = Area(CGDisplayBounds(did.rawValue))
-        let targetAreaMax = targetArea.maxPoint
-
-        if Area.isInDirection(sourceArea, sourceAreaMax, targetArea, targetAreaMax, direction) {
-            let distance = Area.distanceInDirection(sourceArea, sourceAreaMax, targetArea, targetAreaMax, direction)
-            if distance < bestDistance {
-                bestDid = did
-                bestDistance = distance
-            }
-        }
-    }
-
-    return bestDid
-}
-
-/// `display_manager_menu_bar_hidden`
-func display_manager_menu_bar_hidden() -> Bool
-{
-    return SLS.menuBarAutohideEnabled(connection_global())
-}
-
-/// `display_manager_menu_bar_rect`
-func display_manager_menu_bar_rect(_ did: DisplayID) -> CGRect
-{
-    //
-    // NOTE(asmvik): SLSGetRevealedMenuBarBounds is broken on Apple Silicon,
-    // but we expected it to return the full display bounds along with the menubar
-    // height. Combine this information ourselves using two separate functions..
-    //
-
-    var bounds = CGDisplayBounds(did.rawValue)
-    bounds.size.height = CGFloat(SLS.displayMenuBarHeight(did))
-
-    //
-    // NOTE(asmvik): Height needs to be offset by 1 because that is the actual
-    // position on the screen that windows can be positioned at..
-    //
-
-    bounds.size.height += 1
-    return bounds
-}
-
-/// `display_manager_dock_hidden`
-func display_manager_dock_hidden() -> Bool
-{
-    return CoreDock.autoHideEnabled
-}
-
-/// `display_manager_dock_orientation`
-func display_manager_dock_orientation() -> DockOrientation?
-{
-    return DockOrientation(rawValue: CoreDock.orientationAndPinning.orientation)
-}
-
-/// `display_manager_dock_rect`
-func display_manager_dock_rect() -> CGRect
-{
-    return SLS.dockRect(connection_global())
-}
-
-/// `display_manager_active_display_count`
-func display_manager_active_display_count() -> Int
-{
-    var count: UInt32 = 0
-    CGGetActiveDisplayList(0, nil, &count)
-    return Int(count)
-}
-
-/// The active displays, as `display_manager_active_display_list` lists them.
-func displayManagerActiveDisplays() -> [DisplayID]
-{
-    let displayCount = display_manager_active_display_count()
-
-    var displays = [UInt32](repeating: 0, count: displayCount)
-    var actual: UInt32 = 0
-    CGGetActiveDisplayList(UInt32(displayCount), &displays, &actual)
-
-    return displays.prefix(Int(actual)).map { DisplayID($0) }
-}
-
-/// `display_manager_find_element_at_point`: the window under a point, found through the accessibility element at it.
-private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
-{
-    var elementRef: AXUIElement?
-    AXUIElementCopyElementAtPosition(WindowManager.shared.systemElement!, Float(point.x), Float(point.y), &elementRef)
-    guard let elementRef else { return nil }
-
-    var role: CFTypeRef?
-    AXUIElementCopyAttributeValue(elementRef, kAXRoleAttribute as CFString, &role)
-    guard let role else { return nil }
-
-    if CFEqual(role, kAXWindowRole as CFString) { return elementRef }
-
-    var windowRef: CFTypeRef?
-    AXUIElementCopyAttributeValue(elementRef, kAXWindowAttribute as CFString, &windowRef)
-    guard let windowRef else { return nil }
-
-    return (windowRef as! AXUIElement)
-}
-
-/// `display_manager_focus_display_with_window_at_point`: focuses the window under a point; returns its id, or nil.
-func display_manager_focus_display_with_window_at_point(_ point: CGPoint) -> WindowID?
-{
-    guard let elementRef = displayManagerFindElementAtPoint(point) else { return nil }
-
-    guard let elementID = ax_window_id(elementRef) else { return nil }
-
-    var elementPSN = SLS.connectionPSN(SLS.windowOwner(connection_global(), elementID) ?? 0)
-    WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)
-
-    return elementID
-}
-
-/// `display_manager_set_active_display_id`
-func display_manager_set_active_display_id(_ did: DisplayID)
-{
-    guard let uuid = displayUUID(did) else { return }
-    SLS.setActiveMenuBarDisplay(connection_global(), uuid)
-}
-
-/// `display_manager_focus_display`: focuses the display, through its frontmost window on the space, or its cursor.
-func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
-{
-    let wm = WindowManager.shared
-
-    if let sid, let window = wm.window(on: sid, byRank: 1, excluding: nil) {
-        WindowManager.shared.focusWithRaise(window)
-        wm.centerMouse(on: window)
-        display_manager_set_active_display_id(did)
-    } else {
-        let point = display_center(did)
-        CGWarpMouseCursorPosition(point)
-        display_manager_set_active_display_id(did)
-
-        if space_manager_active_space() != display_space_id(did) {
-            CGPostMouseEventC(point, false, true)
-            CGPostMouseEventC(point, false, false)
-        }
-    }
-}
-
-/// `display_manager_focus_space`
-func display_manager_focus_space(_ did: DisplayID, _ sid: SpaceID) -> SpaceOperationResult
-{
-    if MissionControl.shared.isActive { return .inMissionControl }
-
-    let spaceDid = space_display_id(sid)
-    if spaceDid != did { return .sameDisplay }
-
-    return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed
-}
-
-/// `display_manager_begin`: reads the active display and registers the reconfiguration callback.
-func display_manager_begin(_ dm: DisplayManager) -> Bool
-{
-    dm.current_display_id = display_manager_active_display_id()
-    dm.last_display_id = dm.current_display_id
-    dm.order = .default
-    dm.mode = .off
-    dm.top_padding = 0
-    dm.bottom_padding = 0
-
-    return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
 }

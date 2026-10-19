@@ -63,7 +63,7 @@ extension WindowManager
     {
         if effects.sid != nil || effects.did != nil {
             if !target.reportsFullscreen && !(target.id.space.map(space_is_fullscreen) ?? false) {
-                if let sid = effects.sid ?? effects.did.flatMap({ display_space_id($0) }) {
+                if let sid = effects.sid ?? effects.did.flatMap({ $0.currentSpace }) {
                     sendWindow(target, to: sid, movedByRule: true)
                     if effects.flags.contains(.followSpace) || effects.fullscreen == true {
                         _ = space_manager_focus_space(sid)

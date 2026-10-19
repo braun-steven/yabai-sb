@@ -84,7 +84,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let wm = WindowManager.shared
     let ms = mouse_state_global()
 
-    let cursorSid = display_manager_point_display_id(point).flatMap(display_space_id)
+    let cursorSid = DisplayID(containing: point).flatMap { $0.currentSpace }
     let dstView = cursorSid.map { space_manager_find_view(space_manager_global(), $0) }
 
     var window = wm.window(at: point, excluding: ms.window.id)
@@ -144,9 +144,9 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     var newPoint = CGPoint(x: ms.window_frame.origin.x + (point.x - ms.down_location.x),
                            y: ms.window_frame.origin.y + (point.y - ms.down_location.y))
 
-    let did = display_manager_point_display_id(newPoint)
+    let did = DisplayID(containing: newPoint)
     if let did {
-        let bounds = display_bounds_constrained(did, false)
+        let bounds = did.constrainedBounds(ignoringExternalBar: false)
         if newPoint.y < bounds.origin.y { newPoint.y = bounds.origin.y }
     }
 
@@ -305,15 +305,15 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmFocusDisplayAtPoint(_ point: CGPoint)
 {
-    let cursorDid = display_manager_point_display_id(point)
-    if display_manager_global().current_display_id == cursorDid { return }
+    let cursorDid = DisplayID(containing: point)
+    if DisplayManager.shared.currentDisplayID == cursorDid { return }
     guard let did = cursorDid else { return }
 
-    let bounds = display_bounds_constrained(did, false)
+    let bounds = did.constrainedBounds(ignoringExternalBar: false)
     if !cgrect_contains_point(bounds, point) { return }
 
-    let wid = display_manager_focus_display_with_window_at_point(point)
-    if wid == nil { display_manager_set_active_display_id(did) }
+    let wid = DisplayManager.shared.focusWindow(at: point)
+    if wid == nil { did.activate() }
     mouse_state_global().ffm_window_id = wid
 }
 

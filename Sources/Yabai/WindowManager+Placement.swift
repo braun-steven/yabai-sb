@@ -50,10 +50,10 @@ extension WindowManager
         if width > columns &- x { width = columns &- x }
         if height > rows &- y { height = rows &- y }
 
-        var bounds = display_bounds_constrained(displayID, false)
+        var bounds = displayID.constrainedBounds(ignoringExternalBar: false)
 
         // NOTE: A display without a space applies the grid without padding and gaps because its view has none.
-        let displayView = display_space_id(displayID).map { space_manager_find_view(SpaceManager.shared, $0) }
+        let displayView = displayID.currentSpace.map { space_manager_find_view(SpaceManager.shared, $0) }
 
         if let displayView, displayView.isPaddingEnabled {
             bounds.origin.x    += CGFloat(displayView.leftPadding)

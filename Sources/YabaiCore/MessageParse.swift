@@ -371,7 +371,6 @@ public protocol SelectorContext
 {
     associatedtype Window
 
-    /// `display_manager_active_display_id`
     var activeDisplay: DisplayID? { get }
     /// `space_manager_active_space`
     var activeSpace: SpaceID? { get }

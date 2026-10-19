@@ -359,7 +359,7 @@ extension WindowID
     var displayID: DisplayID?
     {
         guard let uuid = displayUUID else { return nil }
-        return Yabai.displayID(uuid)
+        return DisplayID(uuid: uuid)
     }
 
     private var displaySpace: SpaceID?

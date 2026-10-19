@@ -176,7 +176,7 @@ enum SLS
         return SpaceID(nonzero: SLSManagedDisplayGetCurrentSpace(cid, uuid as CFString))
     }
 
-    /// `SLSCopyManagedDisplaySpaces`: one dictionary per display, as `display_space_list` reads it.
+    /// `SLSCopyManagedDisplaySpaces`: one dictionary per display, as `DisplayID.spaces` reads it.
     static func managedDisplaySpaces(_ cid: Int32) -> [NSDictionary]
     {
         return SLSCopyManagedDisplaySpaces(cid) as? [NSDictionary] ?? []
@@ -212,7 +212,7 @@ enum SLS
         SLSSetActiveMenuBarDisplayIdentifier(cid, uuid as CFString, uuid as CFString)
     }
 
-    /// `SLSGetMenuBarAutohideEnabled`; false if the call fails, like `display_manager_menu_bar_hidden`.
+    /// `SLSGetMenuBarAutohideEnabled`; false if the call fails, like `DisplayManager.isMenuBarHidden`.
     static func menuBarAutohideEnabled(_ cid: Int32) -> Bool
     {
         var status: Int32 = 0
@@ -228,7 +228,7 @@ enum SLS
         return height
     }
 
-    /// `SLSGetDockRectWithReason`; the zero rect if the call fails, like `display_manager_dock_rect`.
+    /// `SLSGetDockRectWithReason`; the zero rect if the call fails, like `DisplayManager.dockRect`.
     static func dockRect(_ cid: Int32) -> CGRect
     {
         var bounds = CGRect.zero

@@ -6,27 +6,27 @@ struct CSelectorContext: SelectorContext
 {
     typealias Window = Yabai.Window
 
-    var activeDisplay: DisplayID? { display_manager_active_display_id() }
+    var activeDisplay: DisplayID? { DisplayID.active }
     var activeSpace: SpaceID? { space_manager_active_space() }
     var actingWindow: Window? { WindowManager.shared.actingWindow }
 
     func display(_ query: DisplayQuery) -> DisplayID?
     {
         switch query {
-        case .arrangement(let index):         display_manager_arrangement_display_id(index)
-        case .inDirection(let direction, let did): display_manager_find_closest_display_in_direction(did, direction)
-        case .prev(let did):                  display_manager_prev_display_id(did)
-        case .next(let did):                  display_manager_next_display_id(did)
-        case .first:                          display_manager_first_display_id()
-        case .last:                           display_manager_last_display_id()
-        case .recent:                         display_manager_global().last_display_id
-        case .cursor:                         display_manager_cursor_display_id()
+        case .arrangement(let index):         DisplayID(arrangement: index)
+        case .inDirection(let direction, let did): did.closestDisplay(in: direction)
+        case .prev(let did):                  did.previous
+        case .next(let did):                  did.next
+        case .first:                          DisplayID.first
+        case .last:                           DisplayID.last
+        case .recent:                         DisplayManager.shared.lastDisplayID
+        case .cursor:                         DisplayID.underCursor
         }
     }
 
     func displayLabel(_ label: Token) -> DisplayID?
     {
-        display_manager_global().labels.find(name: label.string)?.id
+        DisplayManager.shared.labels.find(name: label.string)?.id
     }
 
     func space(_ query: SpaceQuery) -> SpaceID?

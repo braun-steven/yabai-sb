@@ -7,13 +7,13 @@ import CPrivate
 
 enum CoreDock
 {
-    /// `CoreDockGetAutoHideEnabled` (`display_manager_dock_hidden`)
+    /// `CoreDockGetAutoHideEnabled` (`DisplayManager.isDockHidden`)
     static var autoHideEnabled: Bool
     {
         return CoreDockGetAutoHideEnabled()
     }
 
-    /// `CoreDockGetOrientationAndPinning`; `display_manager_dock_orientation` uses the orientation.
+    /// `CoreDockGetOrientationAndPinning`; `DisplayManager.dockOrientation` uses the orientation.
     static var orientationAndPinning: (orientation: Int32, pinning: Int32)
     {
         var orientation: Int32 = 0

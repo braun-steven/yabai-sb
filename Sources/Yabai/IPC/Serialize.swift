@@ -27,7 +27,7 @@ private func jsonList<Value: BinaryInteger>(_ values: some Sequence<Value>) -> S
 
 private func displayUUIDText(_ did: DisplayID) -> String
 {
-    return displayUUID(did) ?? "<unknown>"
+    return did.uuid ?? "<unknown>"
 }
 
 //
@@ -36,7 +36,7 @@ private func displayUUIDText(_ did: DisplayID) -> String
 
 private func displaySpaceIndexList(_ did: DisplayID) -> String
 {
-    guard let spaceList = displaySpaces(did), spaceList.count > 0 else { return "[]" }
+    guard let spaceList = did.spaces, spaceList.count > 0 else { return "[]" }
 
     let first = space_manager_mission_control_index(spaceList[0])
     return jsonList((0..<spaceList.count).map { first + $0 })
@@ -45,16 +45,16 @@ private func displaySpaceIndexList(_ did: DisplayID) -> String
 /// `display_serialize`
 func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
 {
-    let dm = display_manager_global()
+    let dm = DisplayManager.shared
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
 
     json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did.rawValue))")
     json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUIDText(did))\"")
-    json.property(DisplayProperty.index,    "\"index\":\(display_manager_display_id_arrangement(did))")
+    json.property(DisplayProperty.index,    "\"index\":\(did.arrangement)")
     json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.labels, did))\"")
     json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did.rawValue)))
     json.property(DisplayProperty.spaces,   "\"spaces\":\(displaySpaceIndexList(did))")
-    json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.current_display_id))")
+    json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.currentDisplayID))")
 
     return json.finish()
 }
@@ -63,7 +63,7 @@ func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
 @discardableResult
 func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
-    let displays = displayManagerActiveDisplays().map { displaySerialize($0, flags) }
+    let displays = DisplayID.all.map { displaySerialize($0, flags) }
     rsp.write("[\(displays.joined(separator: ","))]\n")
     return true
 }
@@ -110,7 +110,7 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
     json.property(SpaceProperty.index,        "\"index\":\(space_manager_mission_control_index(sid))")
     json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
     json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
-    json.property(SpaceProperty.display,      "\"display\":\(space_display_id(sid).map { display_manager_display_id_arrangement($0) } ?? 0)")
+    json.property(SpaceProperty.display,      "\"display\":\(space_display_id(sid).map { $0.arrangement } ?? 0)")
     json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
     json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)?.rawValue ?? 0))")
     json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)?.rawValue ?? 0))")
@@ -155,7 +155,7 @@ func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _
 /// `space_manager_query_spaces_for_display`
 func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64) -> Bool
 {
-    guard let spaceList = displaySpaces(did) else { return false }
+    guard let spaceList = did.spaces else { return false }
 
     spaceManagerQuerySpaceList(&rsp, spaceList, flags)
     return true
@@ -189,7 +189,7 @@ private func wanted(_ flags: UInt64, _ properties: UInt64) -> Bool
 // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
 private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
 {
-    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { space_display_id($0) }.map { display_manager_display_id_arrangement($0) } ?? 0 }
+    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { space_display_id($0) }.map { $0.arrangement } ?? 0 }
     if wanted(flags, WindowProperty.space)   { info.space   = sid.map { space_manager_mission_control_index($0) } ?? 0 }
 }
 
@@ -343,7 +343,7 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [Spa
 /// `window_manager_query_windows_for_display`
 func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64)
 {
-    windowManagerQueryWindowsForSpaces(&rsp, displaySpaces(did) ?? [], flags)
+    windowManagerQueryWindowsForSpaces(&rsp, did.spaces ?? [], flags)
 }
 
 /// `window_manager_query_windows_for_displays`

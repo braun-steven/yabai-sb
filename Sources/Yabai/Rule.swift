@@ -32,7 +32,7 @@ extension Rule
 
     func serialize(into response: inout Response, index: Int)
     {
-        let display = effects.did.map { display_manager_display_id_arrangement($0) } ?? 0
+        let display = effects.did.map { $0.arrangement } ?? 0
         let space = effects.sid.map { space_manager_mission_control_index($0) } ?? 0
         let layer = effects.flags.contains(.layer) ? effects.layer.rawValue : ""
         let grid = effects.grid

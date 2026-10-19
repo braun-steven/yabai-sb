@@ -288,7 +288,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
 
 private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
-    let dm = display_manager_global()
+    let dm = DisplayManager.shared
     let value = message.next()
 
     var mode = [CChar](repeating: 0, count: 6)
@@ -301,15 +301,15 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
     }
 
     if count != 3 {
-        rsp.write("\(dm.mode.rawValue):\(dm.top_padding):\(dm.bottom_padding)\n")
+        rsp.write("\(dm.mode.rawValue):\(dm.topPadding):\(dm.bottomPadding)\n")
         return
     }
 
     let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
     if let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) {
         dm.mode = choice
-        dm.top_padding = Int(top)
-        dm.bottom_padding = Int(bottom)
+        dm.topPadding = Int(top)
+        dm.bottomPadding = Int(bottom)
         space_manager_mark_spaces_invalid(space_manager_global())
         return
     }
@@ -510,7 +510,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
 {
     let wm = WindowManager.shared
     let sm = space_manager_global()
-    let dm = display_manager_global()
+    let dm = DisplayManager.shared
     let mouse = mouse_state_global()
 
     if configBorder(&rsp, domain, command, &message)  { return true }
@@ -536,7 +536,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             dm.order = choice
         }
     } else if command.equals(Config.builtinLast) {
-        if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
+        if parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
             wm.windowOriginMode = choice

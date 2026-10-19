@@ -83,7 +83,7 @@ extension WindowManager
         } else {
             target.isWindowed = true
             target.windowedFrame = target.frame
-            let bounds = display_bounds_constrained(displayID, true)
+            let bounds = displayID.constrainedBounds(ignoringExternalBar: true)
             window_manager_animate_window(window_capture(
                 window: target,
                 x: Float(bounds.origin.x),
@@ -105,9 +105,9 @@ extension WindowManager
         guard let displayID = target.id.displayID else { return }
 
         // NOTE: Without a space on the display, its bounds are not reduced by padding because the space's view has none.
-        let view = display_space_id(displayID).map { space_manager_find_view(SpaceManager.shared, $0) }
+        let view = displayID.currentSpace.map { space_manager_find_view(SpaceManager.shared, $0) }
 
-        var bounds = display_bounds_constrained(displayID, false)
+        var bounds = displayID.constrainedBounds(ignoringExternalBar: false)
         if let view, view.isPaddingEnabled {
             bounds.origin.x    += CGFloat(view.leftPadding)
             bounds.size.width  -= CGFloat(view.leftPadding + view.rightPadding)

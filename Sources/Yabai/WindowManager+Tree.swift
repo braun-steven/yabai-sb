@@ -20,8 +20,8 @@ extension WindowManager
     private func treeDisplay(in direction: Direction, from owner: View) -> DisplayID?
     {
         guard let sourceDid = space_display_id(owner.sid),
-              let did = display_manager_find_closest_display_in_direction(sourceDid, direction) else { return nil }
-        if let sid = display_space_id(did), space_is_fullscreen(sid) { return nil }
+              let did = sourceDid.closestDisplay(in: direction) else { return nil }
+        if let sid = did.currentSpace, space_is_fullscreen(sid) { return nil }
         return did
     }
 
@@ -32,14 +32,14 @@ extension WindowManager
 
     private func treeFocusDisplay(_ did: DisplayID)
     {
-        let sid = display_space_id(did)
+        let sid = did.currentSpace
         let owner = sid.map { space_manager_find_view(SpaceManager.shared, $0) }
         let leaf = owner?.layout == .tree && owner?.tree != nil ? owner?.tree?.focusedDescendant : nil
 
         if let leaf, leaf.isLeaf {
             focusWindow(id: leaf.windowID)
         } else {
-            display_manager_focus_display(did, sid)
+            did.focus(space: sid)
         }
     }
 
@@ -159,7 +159,7 @@ extension WindowManager
         // NOTE: A display without a current space has no space to move the node to.
         //
 
-        guard let sid = display_space_id(did) else { return }
+        guard let sid = did.currentSpace else { return }
         let dstView = space_manager_find_view(SpaceManager.shared, sid)
 
         if dstView.layout == .tree {

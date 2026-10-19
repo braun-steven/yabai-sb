@@ -56,7 +56,7 @@ static inline int64_t SLSPerformBridgedWindowOperation(void *operation)
 
 //
 // NOTE: The window server clicks at a point through CGPostMouseEvent, which is deprecated and marked unavailable for Swift.
-// The C wrapper keeps the call for the focus of a display (display_manager_focus_display, space_manager_focus_space_using_gesture),
+// The C wrapper keeps the call for the focus of a display (`DisplayID.focus(space:)`, space_manager_focus_space_using_gesture),
 // with the arguments of the C code: one click, the cursor moved.
 //
 

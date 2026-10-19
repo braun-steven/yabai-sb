@@ -12,7 +12,7 @@ import YabaiCore
 func space_display_id(_ sid: SpaceID) -> DisplayID?
 {
     guard let uuid = SLS.managedDisplay(connection_global(), forSpace: sid) else { return nil }
-    return displayID(uuid)
+    return DisplayID(uuid: uuid)
 }
 
 /// Every window the window server lists on the spaces (of the connection, or of every connection for 0), including
@@ -73,5 +73,5 @@ func space_is_fullscreen(_ sid: SpaceID) -> Bool
 func space_is_visible(_ sid: SpaceID) -> Bool
 {
     guard let did = space_display_id(sid) else { return false }
-    return sid == display_space_id(did)
+    return sid == did.currentSpace
 }

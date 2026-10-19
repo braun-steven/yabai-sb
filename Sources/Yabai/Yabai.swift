@@ -131,12 +131,10 @@ enum Daemon
         return AXIsProcessTrustedWithOptions(options)
     }
 
-    /// A function of SkyLight that it does not export, found with macho_find_symbol.
+    /// A function of SkyLight that it does not export, found in its symbol table.
     private static func skyLightSymbol(_ name: String) -> UnsafeMutableRawPointer?
     {
-        var image = Array("/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight".utf8CString)
-        var symbol = Array(name.utf8CString)
-        return macho_find_symbol(&image, &symbol)
+        return MachOSymbol.address(of: name, inImage: "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight")
     }
 
     @MainActor private static func configureSettingsAndAcquireLock() -> Bool

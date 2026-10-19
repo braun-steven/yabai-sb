@@ -352,7 +352,7 @@ func space_manager_toggle_window_split(_ sm: SpaceManager, _ win: Window)
     let target = space_manager_find_view(sm, sid)
     if target.layout != .tree { return }
 
-    _ = window_manager_set_window_layout(window_manager_global(), win, .toggleSplit)
+    _ = WindowManager.shared.setWindowLayout(win, .toggleSplit)
 }
 
 //

@@ -208,7 +208,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
     } else if command.equals(WindowCommand.swap) {
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
-            let result = window_manager_swap_window(wm, actingWindow, window)
+            let result = wm.swapWindow(actingWindow, window)
             if result == .sameWindow {
                 rsp.fail("cannot swap a window with itself.\n")
             } else {
@@ -229,7 +229,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
 
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
-            let result = window_manager_warp_window(sm, wm, actingWindow, window)
+            let result = wm.warpWindow(actingWindow, window)
             if result == .sameWindow {
                 rsp.fail("cannot warp a window onto itself.\n")
             } else {
@@ -239,7 +239,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
     } else if command.equals(WindowCommand.stack) {
         let selector = parseWindowSelector(&rsp, message.next(), acting: actingWindow, optional: false, context)
         if selector.didParse, let window = selector.value {
-            let result = window_manager_stack_window(sm, wm, actingWindow, window)
+            let result = wm.stackWindow(actingWindow, window)
             if result == .sameWindow {
                 rsp.fail("cannot stack a window onto itself.\n")
             } else {
@@ -268,7 +268,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
             return .stop
         }
 
-        rsp.failUnmanagedWindow(window_manager_set_window_layout(wm, actingWindow, layout))
+        rsp.failUnmanagedWindow(wm.setWindowLayout(actingWindow, layout))
     } else if command.equals(WindowCommand.split) {
         let value = message.next()
         guard let orientation = parseSplitOrientation(value) else {
@@ -280,7 +280,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
     } else if command.equals(WindowCommand.insert) {
         let selector = parseInsertSelector(&rsp, message.next())
         if selector.didParse, let direction = selector.value {
-            rsp.failUnmanagedWindow(window_manager_set_window_insertion(space_manager_global(), actingWindow, direction))
+            rsp.failUnmanagedWindow(wm.setWindowInsertion(actingWindow, direction))
         }
     } else {
         return .unknown

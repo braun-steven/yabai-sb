@@ -339,9 +339,9 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     if action == .none {
         srcView.flush()
     } else if action == .swap {
-        _ = window_manager_swap_window(wm, srcWindow, dstWindow)
+        _ = wm.swapWindow(srcWindow, dstWindow)
     } else if direction == .stack {
-        _ = window_manager_stack_window(sm!, wm, dstWindow, srcWindow)
+        _ = wm.stackWindow(dstWindow, srcWindow)
         if srcView != dstView { srcView.flush() }
     } else if srcView == dstView {
         // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set

@@ -366,7 +366,7 @@ extension WindowCommand
         first = message.next()
     }
 
-    try runCommands(&rsp, &message, from: first) { (_, source, token) throws(CommandError) -> CommandResult in
+    try runCommands(&rsp, &message, from: first) { (_, source, token) throws(CommandError) -> Bool in
         let name = WindowCommand.Name(token)
         if actingWindow == nil && name?.needsWindow != false {
             throw noActingWindow.stoppingMessage
@@ -374,6 +374,6 @@ extension WindowCommand
         guard let name else { throw CommandError.unknownCommand(domain, token) }
 
         try WindowCommand.parse(name, &source).run(acting: &actingWindow)
-        return .done
+        return true
     }
 }

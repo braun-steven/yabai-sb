@@ -76,7 +76,7 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
     }
 }
 
-@WM private func execute(_ command: SpaceCommand, acting sid: inout SpaceID?) throws(CommandError) -> CommandResult
+@WM private func execute(_ command: SpaceCommand, acting sid: inout SpaceID?) throws(CommandError) -> Bool
 {
     let context = CSelectorContext()
     let sm = SpaceManager.shared
@@ -118,7 +118,7 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
             let target: DisplayID?
             do { target = try selector.resolve(acting: DisplayID.active, context) }
             catch { throw error.stoppingMessage }
-            guard let target else { return .stop }
+            guard let target else { return false }
             sid = target.currentSpace
         }
         do { try sm.addSpace(onDisplayOf: sid) }
@@ -129,7 +129,7 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
             let target: SpaceID?
             do { target = try selector.resolve(acting: sid, context) }
             catch { throw error.stoppingMessage }
-            guard let target else { return .stop }
+            guard let target else { return false }
             sid = target
         }
         do { try sm.destroySpace(sid) }
@@ -174,7 +174,7 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
         if let label = try parseLabel(token, .space) { sm.labels.set(id: sid, name: label.string) }
         else if !sm.labels.remove(id: sid) { throw CommandError("the selected space was not associated with a label!\n") }
     }
-    return .done
+    return true
 }
 
 private extension SpaceCommand
@@ -208,7 +208,7 @@ private extension SpaceCommand
         throw CommandError("could not locate the space to act on!\n")
     }
 
-    try runCommands(&rsp, &message, from: command) { (_, source, token) throws(CommandError) -> CommandResult in
+    try runCommands(&rsp, &message, from: command) { (_, source, token) throws(CommandError) -> Bool in
         guard let name = SpaceCommand.Name(token) else { throw CommandError.unknownCommand(domain, token) }
         return try execute(SpaceCommand.parse(name, &source), acting: &actingSid)
     }

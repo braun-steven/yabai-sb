@@ -492,9 +492,9 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         command = message.next()
     }
 
-    try runCommands(&rsp, &message, from: command) { (rsp, source, command) throws(CommandError) -> CommandResult in
+    try runCommands(&rsp, &message, from: command) { (rsp, source, command) throws(CommandError) -> Bool in
         try handleConfigCommand(&rsp, domain, command, &source, selSid)
-        return .done
+        return true
     }
 }
 

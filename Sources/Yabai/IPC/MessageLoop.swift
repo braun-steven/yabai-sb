@@ -131,29 +131,17 @@ struct ResponseWriter
     }
 }
 
-//
-// NOTE: A command of a domain is unknown to a group of commands, done, or stops the remaining commands of the message
-// without a failure, e.g. when a 'recent' selector found nothing. Failures are thrown (CommandError).
-//
-
-enum CommandResult
-{
-    case unknown
-    case done
-    case stop
-}
-
-//
-// NOTE: Runs the commands of a message from first on. A failing command writes its failure and the next command still
-// runs, unless the failure stops the message (CommandError.stopsMessage): handleMessage writes that one.
+// NOTE: Runs the commands of a message from first on. A command returns false to stop silently. A failing command
+// writes its failure and the next command still runs, unless the failure stops the message (CommandError.stopsMessage):
+// handleMessage writes that one.
 //
 
-@WM func runCommands<Source: TokenSource>(_ rsp: inout Response, _ message: inout Source, from first: Token, _ run: (inout Response, inout Source, Token) throws(CommandError) -> CommandResult) throws(CommandError)
+@WM func runCommands<Source: TokenSource>(_ rsp: inout Response, _ message: inout Source, from first: Token, _ run: (inout Response, inout Source, Token) throws(CommandError) -> Bool) throws(CommandError)
 {
     var command = first
     while command.isValid {
         do {
-            if try run(&rsp, &message, command) == .stop { return }
+            if try run(&rsp, &message, command) == false { return }
         } catch where !error.stopsMessage {
             rsp.fail(error)
         }

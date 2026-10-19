@@ -236,19 +236,21 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(missing.response == "" && missing.label == nil)
 }
 
+private enum TestProperty: String, CaseIterable, Sendable
+{
+    case id, frame, app
+}
+
 @Test func messageProperties() throws
 {
-    let names = ["id", "frame", "app"]
-    let values: [UInt64] = [0x1, 0x2, 0x4]
+    let properties = try parseProperties(Token("id,app"), as: TestProperty.self)
+    #expect(properties.didParse && properties.selection == [.id, .app])
 
-    let properties = try parseProperties(Token("id,app"), names: names, values: values)
-    #expect(properties.didParse && properties.flags == 0x5)
-
-    let option = try parseProperties(Token("--window"), names: names, values: values)
-    #expect(!option.didParse && option.flags == 0)
+    let option = try parseProperties(Token("--window"), as: TestProperty.self)
+    #expect(!option.didParse && option.selection == Set(TestProperty.allCases))
 
     // NOTE: the last byte always belongs to the last property, even a comma; every invalid property is reported in one failure
-    let text = thrownText { () throws(CommandError) in _ = try parseProperties(Token("id,,frame,"), names: names, values: values) }
+    let text = thrownText { () throws(CommandError) in _ = try parseProperties(Token("id,,frame,"), as: TestProperty.self) }
     #expect(text == "'' is not a valid property.\n'frame,' is not a valid property.\n")
 }
 

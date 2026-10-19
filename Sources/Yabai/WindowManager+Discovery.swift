@@ -229,7 +229,7 @@ extension WindowManager
         guard Log.verbose.load(ordering: .relaxed) else { return }
 
         fputs("window info: \n", stdout_global())
-        fputs(windowSerialize(target, 0), stdout_global())
+        fputs(String(decoding: JSON.encode(target.info(Set(WindowInfo.Key.allCases))), as: UTF8.self), stdout_global())
         fputs("\n", stdout_global())
     }
 }

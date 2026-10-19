@@ -9,9 +9,9 @@ public enum QueryCommand: Equatable, Sendable
         case window(WindowSelector?)
     }
 
-    case displays(properties: UInt64, target: Target)
-    case spaces(properties: UInt64, target: Target)
-    case windows(properties: UInt64, target: Target)
+    case displays(properties: Set<DisplayInfo.Key>, target: Target)
+    case spaces(properties: Set<SpaceInfo.Key>, target: Target)
+    case windows(properties: Set<WindowInfo.Key>, target: Target)
     case tree(space: SpaceSelector?)
 
     private enum Name: String, CaseIterable, Equatable
@@ -56,24 +56,26 @@ public enum QueryCommand: Equatable, Sendable
             return .tree(space: nil)
         }
 
-        let propertyList: PropertyList
         switch name {
-        case .displays: propertyList = DisplayProperty.list
-        case .spaces:   propertyList = SpaceProperty.list
-        case .windows:  propertyList = WindowProperty.list
-        case .tree:     return .tree(space: nil)
+        case .displays:
+            let (properties, target) = try parseSelection(DisplayInfo.Key.self, nameToken, &message)
+            return .displays(properties: properties, target: target)
+        case .spaces:
+            let (properties, target) = try parseSelection(SpaceInfo.Key.self, nameToken, &message)
+            return .spaces(properties: properties, target: target)
+        case .windows:
+            let (properties, target) = try parseSelection(WindowInfo.Key.self, nameToken, &message)
+            return .windows(properties: properties, target: target)
+        case .tree:
+            return .tree(space: nil)
         }
+    }
 
-        let properties = try parseProperties(message.next(), names: propertyList.map(\.name), values: propertyList.map(\.value))
+    private static func parseSelection<Key: CaseIterable & RawRepresentable<String> & Hashable & Sendable>(_ key: Key.Type, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> (Set<Key>, Target)
+    {
+        let properties = try parseProperties(message.next(), as: Key.self)
         let optionToken = properties.didParse ? message.next() : properties.token
-        let target = try parseTarget(optionToken, nameToken, &message)
-
-        switch name {
-        case .displays: return .displays(properties: properties.flags, target: target)
-        case .spaces:   return .spaces(properties: properties.flags, target: target)
-        case .windows:  return .windows(properties: properties.flags, target: target)
-        case .tree:     return .tree(space: nil)
-        }
+        return (properties.selection, try parseTarget(optionToken, command, &message))
     }
 
     private static func parseTarget(_ optionToken: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> Target

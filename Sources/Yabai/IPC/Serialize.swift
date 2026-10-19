@@ -5,167 +5,72 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the managers.
+// NOTE: The query response values of displays, spaces, windows and the tree, read from the managers. Only the values
+// of selected properties are queried, because some of them are slow (AX) calls.
 //
-
-/// The name of a label of a display or space, escaped for json; "" when it has none.
-private func labelJSON<ID>(_ list: LabelList<ID>, _ id: ID) -> String
-{
-    list.find(id: id).map { JSON.string($0.name) } ?? ""
-}
-
-/// A list of ids or indices as a json array, separated by ", ".
-private func jsonList<Value: BinaryInteger>(_ values: some Sequence<Value>) -> String
-{
-    "[" + values.map { String($0) }.joined(separator: ", ") + "]"
-}
 
 // MARK: Displays
 
-private func displayUUIDText(_ did: DisplayID) -> String
+extension DisplayID
 {
-    return did.uuid ?? "<unknown>"
-}
+    /// The display for `query --displays`.
+    @WM func info(_ properties: Set<DisplayInfo.Key>) -> DisplayInfo
+    {
+        let dm = DisplayManager.shared
+        var info = DisplayInfo(id: self, properties: properties)
 
-//
-// NOTE: The Mission Control indices of the spaces of a display.
-//
+        if properties.contains(.uuid)     { info.uuid     = uuid ?? "<unknown>" }
+        if properties.contains(.index)    { info.index    = arrangement }
+        if properties.contains(.label)    { info.label    = dm.labels.find(id: self)?.name ?? "" }
+        if properties.contains(.frame)    { info.frame    = QueryFrame(CGDisplayBounds(rawValue)) }
+        if properties.contains(.spaces)   { info.spaces   = spaceIndices }
+        if properties.contains(.hasFocus) { info.hasFocus = self == dm.currentDisplayID }
 
-@WM private func displaySpaceIndexList(_ did: DisplayID) -> String
-{
-    guard let spaceList = did.spaces, spaceList.count > 0 else { return "[]" }
+        return info
+    }
 
-    let first = spaceList[0].missionControlIndex
-    return jsonList((0..<spaceList.count).map { first + $0 })
-}
-
-/// `display_serialize`
-@WM func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
-{
-    let dm = DisplayManager.shared
-    var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
-
-    json.property(DisplayProperty.id,       "\"id\":\(Int32(bitPattern: did.rawValue))")
-    json.property(DisplayProperty.uuid,     "\"uuid\":\"\(displayUUIDText(did))\"")
-    json.property(DisplayProperty.index,    "\"index\":\(did.arrangement)")
-    json.property(DisplayProperty.label,    "\"label\":\"\(labelJSON(dm.labels, did))\"")
-    json.property(DisplayProperty.frame,    "\"frame\":" + JSON.frame(CGDisplayBounds(did.rawValue)))
-    json.property(DisplayProperty.spaces,   "\"spaces\":\(displaySpaceIndexList(did))")
-    json.property(DisplayProperty.hasFocus, "\"has-focus\":\(JSON.bool(did == dm.currentDisplayID))")
-
-    return json.finish()
-}
-
-/// `display_manager_query_displays`
-@discardableResult
-@WM func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
-{
-    let displays = DisplayID.all.map { displaySerialize($0, flags) }
-    rsp.write("[\(displays.joined(separator: ","))]\n")
-    return true
+    // NOTE: The Mission Control indices of the spaces of a display.
+    @WM private var spaceIndices: [Int]
+    {
+        guard let spaceList = spaces, let first = spaceList.first?.missionControlIndex else { return [] }
+        return (0..<spaceList.count).map { first + $0 }
+    }
 }
 
 // MARK: Spaces
 
-@WM private func viewUUID(_ view: View) -> String
+extension View
 {
-    guard let uuid = view.uuid else { return "<unknown>" }
-    return uuid as String
+    /// The space for `query --spaces`.
+    func info(_ properties: Set<SpaceInfo.Key>) -> SpaceInfo
+    {
+        let sm = SpaceManager.shared
+        var info = SpaceInfo(id: sid, properties: properties)
+
+        if properties.contains(.uuid)         { info.uuid         = uuid.map { $0 as String } ?? "<unknown>" }
+        if properties.contains(.index)        { info.index        = sid.missionControlIndex }
+        if properties.contains(.label)        { info.label        = sm.labels.find(id: sid)?.name ?? "" }
+        if properties.contains(.type)         { info.type         = layout.rawValue }
+        if properties.contains(.display)      { info.display      = sid.display.map { $0.arrangement } ?? 0 }
+        if properties.contains(.windows)      { info.windows      = sid.windows(includingMinimized: true) ?? [] }
+        if properties.contains(.firstWindow)  { info.firstWindow  = tree?.firstLeaf?.focusedDescendant.windowID }
+        if properties.contains(.lastWindow)   { info.lastWindow   = tree?.lastLeaf?.windowID }
+        if properties.contains(.hasFocus)     { info.hasFocus     = sid == sm.currentSpaceID }
+        if properties.contains(.isVisible)    { info.isVisible    = sid.isVisible }
+        if properties.contains(.isFullscreen) { info.isFullscreen = sid.isFullscreen }
+
+        return info
+    }
 }
 
-//
-// NOTE: The windows of a space.
-//
-
-@WM private func viewWindowList(_ sid: SpaceID) -> String
+extension SpaceManager
 {
-    guard let windowList = sid.windows(includingMinimized: true) else { return "[]" }
-    return jsonList(windowList.map { Int32(bitPattern: $0.rawValue) })
-}
-
-@WM private func viewFirstWindow(_ view: View) -> WindowID?
-{
-    guard let tree = view.tree, let first = tree.firstLeaf?.focusedDescendant else { return nil }
-    return first.windowID
-}
-
-@WM private func viewLastWindow(_ view: View) -> WindowID?
-{
-    guard let tree = view.tree, let last = tree.lastLeaf else { return nil }
-    return last.windowID
-}
-
-/// `view_serialize`
-@WM func viewSerialize(_ view: View, _ flags: UInt64) -> String
-{
-    let sm = SpaceManager.shared
-    let sid = view.sid
-    var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
-
-    json.property(SpaceProperty.id,           "\"id\":\(Int64(bitPattern: sid.rawValue))")
-    json.property(SpaceProperty.uuid,         "\"uuid\":\"\(viewUUID(view))\"")
-    json.property(SpaceProperty.index,        "\"index\":\(sid.missionControlIndex)")
-    json.property(SpaceProperty.label,        "\"label\":\"\(labelJSON(sm.labels, sid))\"")
-    json.property(SpaceProperty.type,         "\"type\":\"\(view.layout.rawValue)\"")
-    json.property(SpaceProperty.display,      "\"display\":\(sid.display.map { $0.arrangement } ?? 0)")
-    json.property(SpaceProperty.windows,      "\"windows\":\(viewWindowList(sid))")
-    json.property(SpaceProperty.firstWindow,  "\"first-window\":\(Int32(bitPattern: viewFirstWindow(view)?.rawValue ?? 0))")
-    json.property(SpaceProperty.lastWindow,   "\"last-window\":\(Int32(bitPattern: viewLastWindow(view)?.rawValue ?? 0))")
-    json.property(SpaceProperty.hasFocus,     "\"has-focus\":\(JSON.bool(sid == sm.currentSpaceID))")
-    json.property(SpaceProperty.isVisible,    "\"is-visible\":\(JSON.bool(sid.isVisible))")
-    json.property(SpaceProperty.isFullscreen, "\"is-native-fullscreen\":\(JSON.bool(sid.isFullscreen))")
-
-    return json.finish()
-}
-
-/// `space_manager_query_space`
-@WM func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt64) -> Bool
-{
-    guard let view = SpaceManager.shared.queryView(for: sid) else { return false }
-
-    rsp.write("\(viewSerialize(view, flags))\n")
-    return true
-}
-
-//
-// NOTE: Spaces that have no view are left out, so the separators are written before each element.
-//
-
-@WM private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
-{
-    let sm = SpaceManager.shared
-    let spaces = spaceList.compactMap { sid in sm.queryView(for: sid).map { viewSerialize($0, flags) } }
-    rsp.write("[\(spaces.joined(separator: ","))]\n")
-}
-
-/// `space_manager_query_spaces_for_window`
-@discardableResult
-@WM func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
-{
-    let spaceList = window.id.spaces
-    if spaceList.isEmpty { return false }
-
-    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
-    return true
-}
-
-/// `space_manager_query_spaces_for_display`
-@WM func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64) -> Bool
-{
-    guard let spaceList = did.spaces else { return false }
-
-    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
-    return true
-}
-
-/// `space_manager_query_spaces_for_displays`
-@WM func spaceManagerQuerySpacesForDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
-{
-    let spaceList = SpaceID.all
-    if spaceList.isEmpty { return false }
-
-    spaceManagerQuerySpaceList(&rsp, spaceList, flags)
-    return true
+    // NOTE: Spaces that have no view are left out.
+    /// The spaces of the list for `query --spaces`.
+    func spaceInfos(_ spaceList: [SpaceID], _ properties: Set<SpaceInfo.Key>) -> [SpaceInfo]
+    {
+        spaceList.compactMap { queryView(for: $0)?.info(properties) }
+    }
 }
 
 // MARK: Windows
@@ -179,217 +84,178 @@ private func layerName(_ level: Int32) -> String
     return "unknown"
 }
 
-private func wanted(_ flags: UInt64, _ properties: UInt64) -> Bool
+extension WindowInfo
 {
-    flags & properties != 0
-}
-
-// NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
-@WM private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
-{
-    if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { $0.display }.map { $0.arrangement } ?? 0 }
-    if wanted(flags, WindowProperty.space)   { info.space   = sid.map { $0.missionControlIndex } ?? 0 }
-}
-
-private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ flags: UInt64)
-{
-    if wanted(flags, WindowProperty.level | WindowProperty.layer)         { info.level     = wid.level }
-    if wanted(flags, WindowProperty.subLevel | WindowProperty.subLayer)   { info.subLevel  = wid.subLevel }
-    if wanted(flags, WindowProperty.opacity)                              { info.opacity   = wid.opacity }
-    if wanted(flags, WindowProperty.hasShadow)                            { info.hasShadow = wid.hasShadow }
-}
-
-/// `window_info_set_tree`: the split, stack index and zoom of the container of a managed window.
-@WM func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
-{
-    guard let node else { return }
-
-    if let parent = node.parent {
-        if parent.layout == .splitH { info.split = .y }
-        if parent.layout == .splitV { info.split = .x }
+    private func wants(_ keys: Set<Key>) -> Bool
+    {
+        !properties.isDisjoint(with: keys)
     }
 
-    var tab = node
-    while let parent = tab.parent, parent.layout != .tabbed { tab = parent }
-    info.stackIndex = tab.index.map { $0 + 1 } ?? 0
-
-    info.hasParentZoom = node.zoom == .parent
-    info.hasFullscreenZoom = node.zoom == .fullscreen
-}
-
-//
-// NOTE: Only the properties selected by flags are queried, because some of them are slow (AX) calls.
-//
-
-/// `window_info_for_window`
-@WM func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
-{
-    let wm = WindowManager.shared
-    let application = window.application!
-    let wid = window.id
-
-    var info = WindowInfo(id: wid)
-    info.pid              = application.pid
-    info.app              = application.name
-    info.scratchpad       = window.scratchpad ?? ""
-    info.frame            = window.frame
-    info.isRoot           = window.isRoot
-    info.hasFocus         = wid == wm.focusedWindowID
-    info.hasAXReference   = true
-    info.isFullscreen     = window.isFullscreen
-    info.isMinimized      = window.isMinimized
-    info.isHidden         = application.isHidden
-    info.isFloating       = window.isFloating
-    info.isGrabbed        = window == MouseState.shared.window
-
-    if wanted(flags, WindowProperty.title)     { info.title     = window.cachedTitle }
-    if wanted(flags, WindowProperty.role)      { info.role      = window.roleString }
-    if wanted(flags, WindowProperty.subrole)   { info.subrole   = window.subroleString }
-    if wanted(flags, WindowProperty.canMove)   { info.canMove   = window.canMove }
-    if wanted(flags, WindowProperty.canResize) { info.canResize = window.canResize }
-    windowInfoSetLevels(&info, wid, flags)
-
-    var sid: SpaceID?
-    if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isVisible) {
-        sid = wid.space
-        windowInfoSetSpace(&info, sid, flags)
+    // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
+    @WM fileprivate mutating func setSpace(_ sid: SpaceID?)
+    {
+        if wants([.display]) { display = sid.flatMap { $0.display }.map { $0.arrangement } ?? 0 }
+        if wants([.space])   { space   = sid.map { $0.missionControlIndex } ?? 0 }
     }
 
-    if wanted(flags, WindowProperty.splitType | WindowProperty.stackIndex | WindowProperty.hasParentZoom | WindowProperty.hasFullscreenZoom) {
-        let view = wm.managedView(for: window)
-        windowInfoSetTree(&info, view?.findWindow(wid))
+    fileprivate mutating func setLevels(_ wid: WindowID)
+    {
+        if wants([.level, .layer])       { level     = wid.level }
+        if wants([.subLevel, .subLayer]) { subLevel  = wid.subLevel }
+        if wants([.layer])               { layer     = layerName(level) }
+        if wants([.subLayer])            { subLayer  = layerName(subLevel) }
+        if wants([.opacity])             { opacity   = wid.opacity }
+        if wants([.hasShadow])           { hasShadow = wid.hasShadow }
     }
 
-    if wanted(flags, WindowProperty.isVisible | WindowProperty.isSticky) {
-        info.isSticky = window.isSticky || wid.isSticky
-    }
+    /// The split, stack index and zoom of the container of a managed window.
+    @WM mutating func setTree(_ node: Con?)
+    {
+        guard let node else { return }
 
-    if wanted(flags, WindowProperty.isVisible) {
-        info.isVisible = SLS.windowIsOrderedIn(SLS.connection, wid) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { $0.isVisible } ?? false))
-    }
-
-    return info
-}
-
-//
-// NOTE: Windows that yabai has no AX reference for only report what the window server knows.
-//
-
-/// `window_info_for_window_id`
-@WM func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
-{
-    var info = WindowInfo(id: wid)
-    info.app        = ""
-    info.scratchpad = ""
-    info.role       = ""
-    info.subrole    = ""
-
-    if wanted(flags, WindowProperty.pid | WindowProperty.app) {
-        if let owner = SLS.windowOwner(SLS.connection, wid), let pid = SLS.connectionPID(owner) { info.pid = pid }
-
-        if wanted(flags, WindowProperty.app) {
-            // NOTE: PROC_PIDPATHINFO_MAXSIZE, which Swift does not import
-            var name = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
-            if proc_name(info.pid, &name, UInt32(name.count)) > 0 { info.app = name.withUnsafeBufferPointer { String(cString: $0.baseAddress!) } }
+        if let parent = node.parent {
+            if parent.layout == .splitH { split = .y }
+            if parent.layout == .splitV { split = .x }
         }
+
+        var tab = node
+        while let parent = tab.parent, parent.layout != .tabbed { tab = parent }
+        stackIndex = tab.index.map { $0 + 1 } ?? 0
+
+        hasParentZoom = node.zoom == .parent
+        hasFullscreenZoom = node.zoom == .fullscreen
     }
+}
 
-    if wanted(flags, WindowProperty.title)      { info.title    = SLS.windowTitle(SLS.connection, wid) ?? "" }
-    if wanted(flags, WindowProperty.frame)      { info.frame    = SLS.windowBounds(SLS.connection, wid) ?? .zero }
-    if wanted(flags, WindowProperty.rootWindow) { info.isRoot   = wid.parent == nil }
-    if wanted(flags, WindowProperty.isSticky)   { info.isSticky = wid.isSticky }
-    windowInfoSetLevels(&info, wid, flags)
+extension Window
+{
+    /// The window for `query --windows`.
+    func info(_ properties: Set<WindowInfo.Key>) -> WindowInfo
+    {
+        let wm = WindowManager.shared
+        let application = self.application!
 
-    if wanted(flags, WindowProperty.display | WindowProperty.space | WindowProperty.isFullscreen) {
-        let sid = wid.space
-        windowInfoSetSpace(&info, sid, flags)
-        if wanted(flags, WindowProperty.isFullscreen) { info.isFullscreen = sid.map { $0.isFullscreen } ?? false }
+        var info = WindowInfo(id: id, properties: properties)
+        info.pid              = application.pid
+        info.app              = application.name
+        info.scratchpad       = scratchpad ?? ""
+        info.frame            = frame
+        info.isRoot           = isRoot
+        info.hasFocus         = id == wm.focusedWindowID
+        info.hasAXReference   = true
+        info.isFullscreen     = isFullscreen
+        info.isMinimized      = isMinimized
+        info.isHidden         = application.isHidden
+        info.isFloating       = isFloating
+        info.isGrabbed        = self == MouseState.shared.window
+
+        if properties.contains(.title)     { info.title     = cachedTitle }
+        if properties.contains(.role)      { info.role      = roleString }
+        if properties.contains(.subrole)   { info.subrole   = subroleString }
+        if properties.contains(.canMove)   { info.canMove   = canMove }
+        if properties.contains(.canResize) { info.canResize = canResize }
+        info.setLevels(id)
+
+        var sid: SpaceID?
+        if !properties.isDisjoint(with: [.display, .space, .isVisible]) {
+            sid = id.space
+            info.setSpace(sid)
+        }
+
+        if !properties.isDisjoint(with: [.splitType, .stackIndex, .hasParentZoom, .hasFullscreenZoom]) {
+            info.setTree(wm.managedView(for: self)?.findWindow(id))
+        }
+
+        if !properties.isDisjoint(with: [.isVisible, .isSticky]) {
+            info.isSticky = isSticky || id.isSticky
+        }
+
+        if properties.contains(.isVisible) {
+            info.isVisible = SLS.windowIsOrderedIn(SLS.connection, id) && !info.isMinimized && !info.isHidden && (info.isSticky || (sid.map { $0.isVisible } ?? false))
+        }
+
+        return info
     }
-
-    return info
 }
 
-/// `window_serialize`
-@WM func windowSerialize(_ window: Window, _ flags: UInt64) -> String
+extension WindowID
 {
-    let flags = flags == 0 ? ~flags : flags
-    return windowInfo(for: window, flags).serialize(flags, layer: layerName)
-}
+    // NOTE: Windows that yabai has no AX reference for only report what the window server knows.
+    /// A window yabai does not track, for `query --windows`.
+    @WM func info(_ properties: Set<WindowInfo.Key>) -> WindowInfo
+    {
+        var info = WindowInfo(id: self, properties: properties)
+        info.app        = ""
+        info.scratchpad = ""
+        info.role       = ""
+        info.subrole    = ""
 
-/// `window_nonax_serialize`
-@WM func windowNonAXSerialize(_ wid: WindowID, _ flags: UInt64) -> String
-{
-    let flags = flags == 0 ? ~flags : flags
-    return windowInfo(forID: wid, flags).serialize(flags, layer: layerName)
-}
+        if !properties.isDisjoint(with: [.pid, .app]) {
+            if let owner = SLS.windowOwner(SLS.connection, self), let pid = SLS.connectionPID(owner) { info.pid = pid }
 
-/// `window_manager_query_windows_for_spaces`
-@WM func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
-{
-    let wm = WindowManager.shared
+            if properties.contains(.app) {
+                // NOTE: PROC_PIDPATHINFO_MAXSIZE, which Swift does not import
+                var name = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
+                if proc_name(info.pid, &name, UInt32(name.count)) > 0 { info.app = name.withUnsafeBufferPointer { String(cString: $0.baseAddress!) } }
+            }
+        }
 
-    let windowList = SpaceID.windows(on: spaceList, connection: 0, includingMinimized: true) ?? []
+        if properties.contains(.title)      { info.title    = SLS.windowTitle(SLS.connection, self) ?? "" }
+        if properties.contains(.frame)      { info.frame    = SLS.windowBounds(SLS.connection, self) ?? .zero }
+        if properties.contains(.rootWindow) { info.isRoot   = parent == nil }
+        if properties.contains(.isSticky)   { info.isSticky = isSticky }
+        info.setLevels(self)
 
-    let windows = windowList.map { wid in
-        if let window = wm.window(for: wid) { return windowSerialize(window, flags) }
-        return windowNonAXSerialize(wid, flags)
+        if !properties.isDisjoint(with: [.display, .space, .isFullscreen]) {
+            let sid = space
+            info.setSpace(sid)
+            if properties.contains(.isFullscreen) { info.isFullscreen = sid.map { $0.isFullscreen } ?? false }
+        }
+
+        return info
     }
-
-    rsp.write("[\(windows.joined(separator: ","))]\n")
 }
 
-/// `window_manager_query_windows_for_display`
-@WM func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64)
+extension WindowManager
 {
-    windowManagerQueryWindowsForSpaces(&rsp, did.spaces ?? [], flags)
-}
-
-/// `window_manager_query_windows_for_displays`
-@WM func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64)
-{
-    windowManagerQueryWindowsForSpaces(&rsp, SpaceID.all, flags)
+    /// The windows of the spaces for `query --windows`, tracked or not.
+    func windowInfos(on spaceList: [SpaceID], _ properties: Set<WindowInfo.Key>) -> [WindowInfo]
+    {
+        let windowList = SpaceID.windows(on: spaceList, connection: 0, includingMinimized: true) ?? []
+        return windowList.map { wid in window(for: wid)?.info(properties) ?? wid.info(properties) }
+    }
 }
 
 // MARK: Tree
 
-@WM private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
+extension View
 {
-    let leaf = node.isLeaf
-    let frame = leaf ? view.frame(for: node) : node.area
-    let visible = node.isVisible
-    let parent = node.parent
+    //
+    // NOTE: The container tree of a space, similar to i3's get_tree. Containers list their children
+    // in tab or split order. Spaces without the tree layout have no tree.
+    //
 
-    let type = parent == nil ? "workspace" : leaf ? "window" : "container"
-    let layout = leaf ? "null" : "\"\(node.layout.rawValue)\""
-    let percent = parent != nil ? node.percent : 1.0
-    let focused = leaf && node.windowID == WindowManager.shared.focusedWindowID
-
-    output += String(repeating: " ", count: depth)
-    output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.windowID?.rawValue ?? 0))"
-    output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
-    output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.isSelected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
-
-    let childCount = node.children.count
-    for i in 0..<childCount {
-        output += i != 0 ? ",\n" : "\n"
-        treeSerializeCon(&output, view, node.children[i], depth + 1)
+    /// The tree for `query --tree`; nil unless the space uses the tree layout.
+    func treeNode() -> TreeNode?
+    {
+        guard layout == .tree else { return nil }
+        return treeNode(for: root)
     }
 
-    output += childCount != 0 ? "\n]}" : "]}"
-}
+    private func treeNode(for node: Con) -> TreeNode
+    {
+        let leaf = node.isLeaf
+        let parent = node.parent
 
-//
-// NOTE: The container tree of a space, similar to i3's get_tree. Containers list their children
-// in tab or split order. Spaces without the tree layout have no tree.
-//
-
-/// `tree_serialize`
-@WM func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
-{
-    guard view.layout == .tree else { return false }
-
-    var output = ""
-    treeSerializeCon(&output, view, view.root, 0)
-    rsp.write("\(output)\n")
-    return true
+        return TreeNode(
+            type: parent == nil ? .workspace : leaf ? .window : .container,
+            layout: leaf ? nil : node.layout.rawValue,
+            percent: parent != nil ? node.percent : 1.0,
+            window: node.windowID,
+            frame: leaf ? frame(for: node) : node.area,
+            focused: leaf && node.windowID == WindowManager.shared.focusedWindowID,
+            selected: node.isSelected,
+            visible: node.isVisible,
+            nodes: node.children.map { treeNode(for: $0) })
+    }
 }

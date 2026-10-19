@@ -25,24 +25,24 @@ extension DaemonState
             leaf.zoom = .parent
 
             var info = WindowInfo(id: 1)
-            windowInfoSetTree(&info, leaf)
+            info.setTree(leaf)
             #expect(info.split == .x)
             #expect(info.stackIndex == 2)
             #expect(info.hasParentZoom)
             #expect(!info.hasFullscreenZoom)
 
             info = WindowInfo(id: 1)
-            windowInfoSetTree(&info, side)
+            info.setTree(side)
             #expect(info.split == .y)
             #expect(info.stackIndex == 0)
 
             info = WindowInfo(id: 1)
-            windowInfoSetTree(&info, nil)
+            info.setTree(nil)
             #expect(info.split == WindowSplit.none)
         }
 
-        @Test("tree_view_serialize_tree")
-        func treeViewSerializeTree()
+        @Test
+        func treeNodeOfTreeView() throws
         {
             let root = Con(layout: .splitH)
             defer { root.destroy() }
@@ -54,16 +54,16 @@ extension DaemonState
             testView.layout = .tree
             testView.tree = root
 
-            var response = Response()
-            #expect(treeSerialize(&response, testView))
-            #expect(response.text.hasPrefix("{\"type\":\"workspace\",\"layout\":\"splith\""))
-            #expect(response.text.contains("{\"type\":\"container\",\"layout\":\"tabbed\""))
-            #expect(response.text.contains("{\"type\":\"window\",\"layout\":null,\"percent\":1.0000,\"window\":7"))
+            let tree = try #require(testView.treeNode())
+            let text = String(decoding: JSON.encode(tree), as: UTF8.self)
+            #expect(text.hasPrefix("{\"focused\":false,"))
+            #expect(text.contains("\"layout\":\"splith\""))
+            #expect(text.contains("\"layout\":\"tabbed\""))
+            #expect(text.contains("\"layout\":null,\"nodes\":[],\"percent\":1,\"selected\":"))
+            #expect(text.contains("\"type\":\"window\",\"visible\":true,\"window\":7}"))
 
             testView.layout = .float
-            var floating = Response()
-            #expect(!treeSerialize(&floating, testView))
-            #expect(floating.bytes.isEmpty)
+            #expect(testView.treeNode() == nil)
         }
     }
 }

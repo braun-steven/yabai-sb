@@ -227,11 +227,12 @@ public func parseLabel(_ token: Token, _ kind: LabelKind) throws(CommandError) -
 }
 
 /// `struct properties`: the properties a query selects, e.g. "id,frame".
-public struct Properties: Sendable
+public struct Properties<Key: Hashable & Sendable>: Sendable
 {
     public var token: Token
     public var didParse: Bool
-    public var flags: UInt64 = 0
+    /// The selected keys; every key when the token selects none.
+    public var selection: Set<Key> = []
 
     public init(token: Token, didParse: Bool)
     {
@@ -245,12 +246,15 @@ public struct Properties: Sendable
 // even when it is a comma.
 //
 
-/// `parse_properties`: names[i] selects values[i]. A token that starts with "--" is the next option, not properties.
-/// Every invalid property is reported in one failure.
-public func parseProperties(_ token: Token, names: [String], values: [UInt64]) throws(CommandError) -> Properties
+/// `parse_properties`: the keys named by a comma-separated token, by their raw values; every key when it names none. A
+/// token that starts with "--" is the next option, not properties. Every invalid property is reported in one failure.
+public func parseProperties<Key: CaseIterable & RawRepresentable<String> & Hashable & Sendable>(_ token: Token, as _: Key.Type) throws(CommandError) -> Properties<Key>
 {
-    var result = Properties(token: token, didParse: token.isValid && !token.hasPrefix("--"))
-    guard result.didParse else { return result }
+    var result = Properties<Key>(token: token, didParse: token.isValid && !token.hasPrefix("--"))
+    guard result.didParse else {
+        result.selection = Set(Key.allCases)
+        return result
+    }
 
     var failures: [CommandError] = []
     let bytes = token.bytes
@@ -267,8 +271,8 @@ public func parseProperties(_ token: Token, names: [String], values: [UInt64]) t
         }
 
         let property = Token(bytes[cursor..<end])
-        if let index = names.firstIndex(where: { property.equals($0) }) {
-            result.flags |= values[index]
+        if let key = Key.allCases.first(where: { property.equals($0.rawValue) }) {
+            result.selection.insert(key)
         } else {
             failures.append(CommandError("'\(property)' is not a valid property.\n"))
         }
@@ -277,6 +281,7 @@ public func parseProperties(_ token: Token, names: [String], values: [UInt64]) t
     }
 
     if !failures.isEmpty { throw CommandError(combining: failures) }
+    if result.selection.isEmpty { result.selection = Set(Key.allCases) }
     return result
 }
 

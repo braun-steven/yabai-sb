@@ -15,37 +15,45 @@ import YabaiCore
     case .displays(let properties, let target):
         guard let target = try resolve(target, context) else { return }
         switch target {
-        case .all:              displayManagerQueryDisplays(&rsp, properties)
-        case .display(let did): rsp.write("\(displaySerialize(did, properties))\n")
+        case .all:              rsp.write(json: DisplayID.all.map { $0.info(properties) })
+        case .display(let did): rsp.write(json: did.info(properties))
         case .space(let sid):
-            if let did = sid.display { rsp.write("\(displaySerialize(did, properties))\n") }
-            else { throw CommandError("could not find display details.\n") }
+            guard let did = sid.display else { throw CommandError("could not find display details.\n") }
+            rsp.write(json: did.info(properties))
         case .window(let window):
-            if let window, let did = window.id.displayID { rsp.write("\(displaySerialize(did, properties))\n") }
-            else { throw CommandError("could not find window to retrieve display details.\n") }
+            guard let window, let did = window.id.displayID else { throw CommandError("could not find window to retrieve display details.\n") }
+            rsp.write(json: did.info(properties))
         }
     case .spaces(let properties, let target):
         guard let target = try resolve(target, context) else { return }
+        let sm = SpaceManager.shared
         switch target {
         case .all:
-            if !spaceManagerQuerySpacesForDisplays(&rsp, properties) { throw CommandError("could not retrieve spaces for displays.\n") }
+            let spaceList = SpaceID.all
+            if spaceList.isEmpty { throw CommandError("could not retrieve spaces for displays.\n") }
+            rsp.write(json: sm.spaceInfos(spaceList, properties))
         case .display(let did):
-            if !spaceManagerQuerySpacesForDisplay(&rsp, did, properties) { throw CommandError("could not retrieve spaces for display.\n") }
+            guard let spaceList = did.spaces else { throw CommandError("could not retrieve spaces for display.\n") }
+            rsp.write(json: sm.spaceInfos(spaceList, properties))
         case .space(let sid):
-            if !spaceManagerQuerySpace(&rsp, sid, properties) { throw CommandError("could not retrieve space details.\n") }
+            guard let view = sm.queryView(for: sid) else { throw CommandError("could not retrieve space details.\n") }
+            rsp.write(json: view.info(properties))
         case .window(let window):
-            if let window { spaceManagerQuerySpacesForWindow(&rsp, window, properties) }
-            else { throw CommandError("could not find window to retrieve space details.\n") }
+            guard let window else { throw CommandError("could not find window to retrieve space details.\n") }
+            // NOTE: A window on no space prints nothing.
+            let spaceList = window.id.spaces
+            if !spaceList.isEmpty { rsp.write(json: sm.spaceInfos(spaceList, properties)) }
         }
     case .windows(let properties, let target):
         guard let target = try resolve(target, context) else { return }
+        let wm = WindowManager.shared
         switch target {
-        case .all:              windowManagerQueryWindowsForDisplays(&rsp, properties)
-        case .display(let did): windowManagerQueryWindowsForDisplay(&rsp, did, properties)
-        case .space(let sid):   windowManagerQueryWindowsForSpaces(&rsp, [sid], properties)
+        case .all:              rsp.write(json: wm.windowInfos(on: SpaceID.all, properties))
+        case .display(let did): rsp.write(json: wm.windowInfos(on: did.spaces ?? [], properties))
+        case .space(let sid):   rsp.write(json: wm.windowInfos(on: [sid], properties))
         case .window(let window):
-            if let window { rsp.write("\(windowSerialize(window, properties))\n") }
-            else { throw CommandError("could not retrieve window details.\n") }
+            guard let window else { throw CommandError("could not retrieve window details.\n") }
+            rsp.write(json: window.info(properties))
         }
     case .tree(let selector):
         let sid: SpaceID?
@@ -55,10 +63,10 @@ import YabaiCore
         } else {
             sid = context.activeSpace
         }
-        guard let sid else { throw CommandError("the selected space does not use the tree layout.\n") }
-        if !treeSerialize(&rsp, SpaceManager.shared.view(for: sid)) {
+        guard let sid, let tree = SpaceManager.shared.view(for: sid).treeNode() else {
             throw CommandError("the selected space does not use the tree layout.\n")
         }
+        rsp.write(json: tree)
     }
 }
 

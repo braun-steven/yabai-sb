@@ -198,17 +198,6 @@ func window_manager_add_application_refresh(_ wm: WindowManager, _ owner: Applic
     wm.applications_to_refresh.append(owner)
 }
 
-//
-// NOTE: Removing a rule moves the last rule into its place, as the sbuffer of the C version did; `rule --list` shows
-// that order.
-//
-
-func window_manager_remove_rule(_ wm: WindowManager, _ index: Int)
-{
-    wm.rules.swapAt(index, wm.rules.count - 1)
-    wm.rules.removeLast()
-}
-
 func window_manager_scratchpad_count(_ wm: WindowManager) -> Int
 {
     return wm.scratchpad_window.count

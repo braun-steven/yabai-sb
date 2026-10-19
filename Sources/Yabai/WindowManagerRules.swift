@@ -8,155 +8,250 @@ import YabaiCore
 // the window is managed, the effects round applies everything else to eligible windows.
 //
 
-/// `window_manager_query_window_rules`: the json of `rule --list`.
-func window_manager_query_window_rules(_ rsp: inout Response)
+extension WindowManager
 {
-    let rules = window_manager_global().rules
-
-    rsp.write("[")
-    for (i, candidate) in rules.enumerated() {
-        rule_serialize(&rsp, candidate, i)
-        if i < rules.count - 1 { rsp.write(",") }
+    func queryWindowRules(into response: inout Response)
+    {
+        response.write("[")
+        for (index, candidate) in rules.enumerated() {
+            candidate.serialize(into: &response, index: index)
+            if index < rules.count - 1 { response.write(",") }
+        }
+        response.write("]\n")
     }
-    rsp.write("]\n")
-}
 
-/// `window_manager_rule_matches_window`
-func window_manager_rule_matches_window(_ candidate: Rule, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String) -> Bool
-{
-    candidate.matches(app: target.application.name, title: windowTitle, role: windowRole, subrole: windowSubrole)
-}
+    // NOTE: Matching rule effects combine in WindowManager.rules order; matching one-shot rules are marked for removal.
+    func combineMatchingRuleEffects(
+        for target: Window,
+        title: String,
+        role: String,
+        subrole: String,
+        includingOneShotRules: Bool,
+        manageRound: Bool,
+        into effects: inout RuleEffects
+    ) -> Bool
+    {
+        var match = false
 
-/// `window_manager_apply_manage_rule_effects_to_window`
-func window_manager_apply_manage_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: RuleEffects)
-{
-    if let manage = effects.manage {
-        target.isManagedByRule = manage
-        window_manager_make_window_floating(sm, wm, target, !manage, true)
+        for index in rules.indices {
+            let candidate = rules[index]
+
+            if !includingOneShotRules && candidate.oneShot { continue }
+            if !candidate.matches(app: target.application.name, title: title, role: role, subrole: subrole) { continue }
+
+            let standardOnly = manageRound ? candidate.effects.manage == true : !target.isManagedByRule
+            if standardOnly && candidate.skipsNonstandardWindow(role: role, subrole: subrole) { continue }
+
+            match = true
+            effects.combine(candidate.effects)
+
+            if candidate.oneShot { rules[index].matched = true }
+        }
+
+        return match
     }
-}
 
-/// `window_manager_apply_rule_effects_to_window`
-func window_manager_apply_rule_effects_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ effects: RuleEffects)
-{
-    if effects.sid != nil || effects.did != nil {
-        if !target.reportsFullscreen && !(target.id.space.map(space_is_fullscreen) ?? false) {
-            if let sid = effects.sid ?? effects.did.flatMap({ display_space_id($0) }) {
-                window_manager_send_window_to_space(sm, wm, target, sid, true)
-                if effects.flags.contains(.followSpace) || effects.fullscreen == true {
-                    _ = space_manager_focus_space(sid)
+    func applyManageRuleEffects(_ effects: RuleEffects, to target: Window)
+    {
+        if let manage = effects.manage {
+            target.isManagedByRule = manage
+            window_manager_make_window_floating(SpaceManager.shared, self, target, !manage, true)
+        }
+    }
+
+    func applyRuleEffects(_ effects: RuleEffects, to target: Window)
+    {
+        let spaceManager = SpaceManager.shared
+
+        if effects.sid != nil || effects.did != nil {
+            if !target.reportsFullscreen && !(target.id.space.map(space_is_fullscreen) ?? false) {
+                if let sid = effects.sid ?? effects.did.flatMap({ display_space_id($0) }) {
+                    window_manager_send_window_to_space(spaceManager, self, target, sid, true)
+                    if effects.flags.contains(.followSpace) || effects.fullscreen == true {
+                        _ = space_manager_focus_space(sid)
+                    }
+                }
+            }
+        }
+
+        if let sticky = effects.sticky {
+            window_manager_make_window_sticky(spaceManager, self, target, sticky)
+        }
+
+        if let mouseFollowsFocus = effects.mouseFollowsFocus {
+            target.mouseFollowsFocusByRule = mouseFollowsFocus
+        }
+
+        if effects.flags.contains(.layer) {
+            _ = window_manager_set_window_layer(target, effects.layer)
+        }
+
+        if effects.flags.contains(.opacity) && effects.opacity >= 0.0 && effects.opacity <= 1.0 {
+            target.opacity = effects.opacity
+            window_manager_set_opacity(self, target, effects.opacity)
+        }
+
+        if effects.fullscreen == true {
+            AXUIElementSetAttributeValue(target.ref, Window.fullscreenAttribute as CFString, kCFBooleanTrue)
+            target.isFullscreenByRule = true
+        }
+
+        if let scratchpad = effects.scratchpad {
+            _ = window_manager_set_scratchpad_for_window(self, target, scratchpad)
+        }
+
+        let grid = effects.grid
+        if grid.rows != 0 && grid.columns != 0 {
+            window_manager_apply_grid(spaceManager, self, target, grid)
+        }
+    }
+
+    func applyManageRules(
+        to target: Window,
+        title: String,
+        role: String,
+        subrole: String,
+        includingOneShotRules: Bool
+    )
+    {
+        var effects = RuleEffects()
+
+        if combineMatchingRuleEffects(
+            for: target,
+            title: title,
+            role: role,
+            subrole: subrole,
+            includingOneShotRules: includingOneShotRules,
+            manageRound: true,
+            into: &effects
+        ) {
+            applyManageRuleEffects(effects, to: target)
+        }
+    }
+
+    func applyRules(
+        to target: Window,
+        title: String,
+        role: String,
+        subrole: String,
+        includingOneShotRules: Bool
+    )
+    {
+        var effects = RuleEffects()
+
+        if combineMatchingRuleEffects(
+            for: target,
+            title: title,
+            role: role,
+            subrole: subrole,
+            includingOneShotRules: includingOneShotRules,
+            manageRound: false,
+            into: &effects
+        ) {
+            applyRuleEffects(effects, to: target)
+        }
+    }
+
+    func reapplyAllRules()
+    {
+        // Windows in id order, so rules apply in the same order every time.
+        for target in window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
+            let title = target.cachedTitle
+            let role = target.roleString
+            let subrole = target.subroleString
+
+            applyManageRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
+
+            if window_manager_is_window_eligible(target) {
+                target.is_eligible = true
+                applyRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
+            }
+        }
+    }
+
+    func reapplyRule(at index: Int) -> Bool
+    {
+        guard rules.indices.contains(index) else { return false }
+
+        if !rules[index].oneShot {
+            applyRule(rules[index])
+        }
+
+        return true
+    }
+
+    func reapplyRule(label: some Collection<UInt8>) -> Bool
+    {
+        guard let index = ruleIndex(label: label) else { return false }
+
+        if !rules[index].oneShot {
+            applyRule(rules[index])
+        }
+
+        return true
+    }
+
+    private func ruleIndex(label: some Collection<UInt8>) -> Int?
+    {
+        rules.firstIndex { $0.label?.utf8.elementsEqual(label) ?? false }
+    }
+
+    func applyRule(_ candidate: Rule)
+    {
+        // Windows in id order, so rules apply in the same order every time.
+        for target in window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
+            if candidate.matches(app: target.application.name, title: target.cachedTitle, role: target.roleString, subrole: target.subroleString) {
+                applyManageRuleEffects(candidate.effects, to: target)
+
+                if window_manager_is_window_eligible(target) {
+                    target.is_eligible = true
+                    applyRuleEffects(candidate.effects, to: target)
                 }
             }
         }
     }
 
-    if let sticky = effects.sticky {
-        window_manager_make_window_sticky(sm, wm, target, sticky)
+    /// Replaces any rule with the same label, then appends the new rule.
+    func addRule(_ candidate: Rule)
+    {
+        if let label = candidate.label { _ = removeRule(label: label.utf8) }
+        rules.append(candidate)
     }
 
-    if let mouseFollowsFocus = effects.mouseFollowsFocus {
-        target.mouseFollowsFocusByRule = mouseFollowsFocus
+    func removeRule(at index: Int) -> Bool
+    {
+        guard rules.indices.contains(index) else { return false }
+
+        removeRule(index)
+        return true
     }
 
-    if effects.flags.contains(.layer) {
-        _ = window_manager_set_window_layer(target, effects.layer)
+    func removeRule(label: some Collection<UInt8>) -> Bool
+    {
+        guard let index = ruleIndex(label: label) else { return false }
+
+        removeRule(index)
+        return true
     }
 
-    if effects.flags.contains(.opacity) && effects.opacity >= 0.0 && effects.opacity <= 1.0 {
-        target.opacity = effects.opacity
-        window_manager_set_opacity(wm, target, effects.opacity)
+    /// Removes by moving the last rule into its place, preserving the existing list behavior.
+    private func removeRule(_ index: Int)
+    {
+        rules.swapAt(index, rules.count - 1)
+        rules.removeLast()
     }
 
-    if effects.fullscreen == true {
-        AXUIElementSetAttributeValue(target.ref, Window.fullscreenAttribute as CFString, kCFBooleanTrue)
-        target.isFullscreenByRule = true
-    }
-
-    if let scratchpad = effects.scratchpad {
-        _ = window_manager_set_scratchpad_for_window(wm, target, scratchpad)
-    }
-
-    let grid = effects.grid
-    if grid.rows != 0 && grid.columns != 0 {
-        window_manager_apply_grid(sm, wm, target, grid)
-    }
-}
-
-//
-// NOTE: A rule without a role or subrole pattern only matches standard windows (AXWindow, AXStandardWindow)
-// when it makes a window managed (manage round), or when the window is not managed by a rule (effects round).
-//
-
-/// `window_manager_rule_skips_nonstandard_window`
-private func windowManagerRuleSkipsNonstandardWindow(_ candidate: Rule, _ windowRole: String, _ windowSubrole: String) -> Bool
-{
-    if !candidate.hasRole    && !string_equals(windowRole,    "AXWindow")         { return true }
-    if !candidate.hasSubrole && !string_equals(windowSubrole, "AXStandardWindow") { return true }
-    return false
-}
-
-//
-// NOTE: Combines the effects of every matching rule into effects, in the order of WindowManager.rules, and marks
-// matching one-shot rules for removal.
-//
-
-/// `window_manager_combine_matching_rule_effects`
-func window_manager_combine_matching_rule_effects(_ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool, _ manageRound: Bool, _ effects: inout RuleEffects) -> Bool
-{
-    var match = false
-
-    for i in wm.rules.indices {
-        let candidate = wm.rules[i]
-
-        if !oneShotRules && candidate.oneShot { continue }
-        if !window_manager_rule_matches_window(candidate, target, windowTitle, windowRole, windowSubrole) { continue }
-
-        let standardOnly = manageRound ? candidate.effects.manage == true : !target.isManagedByRule
-        if standardOnly && windowManagerRuleSkipsNonstandardWindow(candidate, windowRole, windowSubrole) { continue }
-
-        match = true
-        effects.combine(candidate.effects)
-
-        if candidate.oneShot { wm.rules[i].matched = true }
-    }
-
-    return match
-}
-
-/// `window_manager_apply_manage_rules_to_window`
-func window_manager_apply_manage_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool)
-{
-    var effects = RuleEffects()
-
-    if window_manager_combine_matching_rule_effects(wm, target, windowTitle, windowRole, windowSubrole, oneShotRules, true, &effects) {
-        window_manager_apply_manage_rule_effects_to_window(sm, wm, target, effects)
-    }
-}
-
-/// `window_manager_apply_rules_to_window`
-func window_manager_apply_rules_to_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ windowTitle: String, _ windowRole: String, _ windowSubrole: String, _ oneShotRules: Bool)
-{
-    var effects = RuleEffects()
-
-    if window_manager_combine_matching_rule_effects(wm, target, windowTitle, windowRole, windowSubrole, oneShotRules, false, &effects) {
-        window_manager_apply_rule_effects_to_window(sm, wm, target, effects)
-    }
-}
-
-//
-// NOTE: One-shot rules are marked when they were applied to a window, and removed once all windows that
-// were created together have been checked.
-//
-
-/// `window_manager_remove_one_shot_rules`: removing moves the last rule into the hole, which is checked again.
-func window_manager_remove_one_shot_rules(_ wm: WindowManager)
-{
-    var i = 0
-    while i < wm.rules.count {
-        if wm.rules[i].matched {
-            window_manager_remove_rule(wm, i)
-            continue
+    // NOTE: One-shot rules are marked when applied to a window, then removed once all windows created together
+    // have been checked. After swap-removal, the replacement at that index is checked again.
+    func removeOneShotRules()
+    {
+        var index = 0
+        while index < rules.count {
+            if rules[index].matched {
+                removeRule(index)
+                continue
+            }
+            index += 1
         }
-        i += 1
     }
 }

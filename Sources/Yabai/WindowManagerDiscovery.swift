@@ -82,11 +82,11 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
         // no such rule matches this window, it will be ignored if it does not have a role of kAXWindowRole.
         //
 
-        window_manager_apply_manage_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, oneShotRules)
+        wm.applyManageRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: oneShotRules)
 
         if window_manager_is_window_eligible(target) {
             target.is_eligible = true
-            window_manager_apply_rules_to_window(sm, wm, target, windowTitle, windowRole, windowSubrole, oneShotRules)
+            wm.applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: oneShotRules)
             window_manager_purify_window(wm, target)
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
 
@@ -148,7 +148,7 @@ func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowMana
         if let target = window_manager_create_and_add_window(sm, wm, owner, windowRef, windowID, true) { result.append(target) }
     }
 
-    window_manager_remove_one_shot_rules(wm)
+    wm.removeOneShotRules()
 
     return result
 }

@@ -140,24 +140,24 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
         }
 
         if parseRule(&rsp, &message, &result, token, CSelectorContext()) {
-            rule_add(result)
+            WindowManager.shared.addRule(result)
         }
     } else if command.equals(RuleCommand.apply) {
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !rule_reapply_by_index(Int(index)) {
+            if !WindowManager.shared.reapplyRule(at: Int(index)) {
                 rsp.fail("rule with index '\(index)' not found.\n")
             }
         case .string:
-            if !rule_reapply_by_label(token.bytes) {
+            if !WindowManager.shared.reapplyRule(label: token.bytes) {
                 var result = Rule()
                 if parseRule(&rsp, &message, &result, token, CSelectorContext()) {
-                    rule_apply(result)
+                    WindowManager.shared.applyRule(result)
                 }
             }
         case .invalid:
-            rule_reapply_all()
+            WindowManager.shared.reapplyAllRules()
         default:
             rsp.fail("value '\(token)' is not a valid option for RULE_SEL\n")
         }
@@ -165,18 +165,18 @@ func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout s
         let token = message.next()
         switch token.value {
         case .int(let index):
-            if !rule_remove_by_index(Int(index)) {
+            if !WindowManager.shared.removeRule(at: Int(index)) {
                 rsp.fail("rule with index '\(index)' not found.\n")
             }
         case .string:
-            if !rule_remove_by_label(token.bytes) {
+            if !WindowManager.shared.removeRule(label: token.bytes) {
                 rsp.fail("rule with label '\(token)' not found.\n")
             }
         default:
             rsp.fail("value '\(token)' is not a valid option for RULE_SEL\n")
         }
     } else if command.equals(RuleCommand.list) {
-        window_manager_query_window_rules(&rsp)
+        WindowManager.shared.queryWindowRules(into: &rsp)
     } else {
         rsp.failUnknownCommand(domain, command)
     }

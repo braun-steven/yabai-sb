@@ -106,7 +106,7 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
     wm.rules = [oneShotTestRule(matched: true, "a"), oneShotTestRule(matched: false, "b"),
                 oneShotTestRule(matched: true, "c"), oneShotTestRule(matched: true, "d")]
 
-    window_manager_remove_one_shot_rules(wm)
+    wm.removeOneShotRules()
     #expect(wm.rules.map(\.label) == ["b"])
 }
 
@@ -140,7 +140,7 @@ private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Boo
     return result
 }
 
-/// The window properties that window_manager_combine_matching_rule_effects takes.
+/// The window properties used when combining matching rule effects.
 private struct WindowStrings
 {
     let title = ""
@@ -178,7 +178,7 @@ private struct WindowStrings
     wm.rules.append(oneShot)
 
     var effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: false, into: &effects) == true)
     #expect(effects.sid == nil)
     #expect(effects.sticky == true)
     #expect(effects.mouseFollowsFocus == nil)
@@ -188,17 +188,17 @@ private struct WindowStrings
 
     // NOTE: one-shot rules only apply to new windows, and are then marked for removal
     effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, true, false, &effects) == true)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: true, manageRound: false, into: &effects) == true)
     #expect(effects.flags.contains(.layer) == true)
     #expect(wm.rules[3].matched == true)
 
-    window_manager_remove_one_shot_rules(wm)
+    wm.removeOneShotRules()
     #expect(wm.rules.count == 3)
 
     // NOTE: a window managed by a rule matches rules without a subrole pattern
     target.isManagedByRule = true
     effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, false, &effects) == true)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: false, into: &effects) == true)
     #expect(effects.sid == 4)
 }
 
@@ -220,15 +220,15 @@ private struct WindowStrings
     wm.rules.append(effectsOnly)
 
     var effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.dialog, false, true, &effects) == true)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: true, into: &effects) == true)
     #expect(effects.manage == nil)
     #expect(effects.sticky == true)
 
     effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == true)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.standard, includingOneShotRules: false, manageRound: true, into: &effects) == true)
     #expect(effects.manage == true)
 
     owner.name = "Mail"
     effects = RuleEffects()
-    #expect(window_manager_combine_matching_rule_effects(wm, target, strings.title, strings.role, strings.standard, false, true, &effects) == false)
+    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.standard, includingOneShotRules: false, manageRound: true, into: &effects) == false)
 }

@@ -28,7 +28,7 @@ import YabaiCore
     // the border then needs the ensuing move/resize notification to leave the window's creation frame.
     update_window_notifications()
 
-    window_manager_remove_one_shot_rules(wm)
+    wm.removeOneShotRules()
 
     if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
         if let sid = window_manager_origin_space(wm, window) { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }

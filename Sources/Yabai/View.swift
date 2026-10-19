@@ -203,5 +203,5 @@ final class View
 
 extension View: Equatable
 {
-    static func == (a: View, b: View) -> Bool { a === b }
+    nonisolated static func == (a: View, b: View) -> Bool { a === b }
 }

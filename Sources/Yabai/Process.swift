@@ -6,17 +6,19 @@ import YabaiCore
 
 final class Process
 {
-    var psn: ProcessSerialNumber
-    var pid: pid_t
-    var name: String
+    let psn: ProcessSerialNumber
+    let pid: pid_t
+    let name: String
 
     //
     // NOTE: terminated and runningApplicationPointer (the NSRunningApplication at +1) are written on the event loop; the
-    // key-value observer on the main thread reads terminated with acquire ordering (Workspace.swift).
+    // key-value observer on the main thread reads terminated with acquire ordering (Workspace.swift). policy (the
+    // activation policy) is stored by isObservable on the event loop and compared and stored by the key-value observer
+    // on the main thread, relaxed (Workspace.swift).
     //
 
     let runningApplicationPointer = Atomic<UnsafeMutableRawPointer?>(nil)
-    var policy = 0
+    let policy = Atomic<Int>(0)
     var launchAttempts = 0
     var launchGivenUp = false
     let terminated = Atomic<Bool>(false)
@@ -38,7 +40,7 @@ final class Process
     var hasRunningApplication: Bool { runningApplicationPointer.load(ordering: .relaxed) != nil }
 
     /// The name and pid of the process, as the debug output prints them.
-    var nameAndPID: String { "\(name) (\(pid))" }
+    nonisolated var nameAndPID: String { "\(name) (\(pid))" }
 }
 
 extension Process

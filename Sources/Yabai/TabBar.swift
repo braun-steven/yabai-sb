@@ -44,7 +44,7 @@ final class TabBar
 
 extension TabBar: Equatable
 {
-    static func == (a: TabBar, b: TabBar) -> Bool { a === b }
+    nonisolated static func == (a: TabBar, b: TabBar) -> Bool { a === b }
 }
 
 /// How tab bars are drawn (`config tab_bar_style`).
@@ -129,7 +129,7 @@ extension TabBar
 //
 
     /// The tab at the index among count tabs of the area, rounded with float widths and integer offsets.
-    static func slot(in area: CGRect, index: Int, count: Int) -> CGRect
+    nonisolated static func slot(in area: CGRect, index: Int, count: Int) -> CGRect
     {
         let width = Float(area.size.width / CGFloat(count))
         let x0 = Float(area.origin.x + CGFloat(Int(Float(index) * width)))
@@ -180,7 +180,7 @@ extension TabBar
     // window (menu bar extras, Control Center, notifications, floating windows) may cover it. A click goes
     // to the bar only when the window that would receive it is one of ours or is ordered behind the bar.
     //
-    private static func isCovered(_ point: CGPoint, above aboveWid: WindowID) -> Bool
+    private nonisolated static func isCovered(_ point: CGPoint, above aboveWid: WindowID) -> Bool
     {
         let (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: nil, order: 1)
         guard let wid = found, owner != SLS.connection, wid != aboveWid else { return false }
@@ -188,7 +188,7 @@ extension TabBar
         return CFArrayContainsValue(windows, CFRange(location: 0, length: CFArrayGetCount(windows)), UnsafeRawPointer(bitPattern: UInt(wid.rawValue)))
     }
 
-    static func hitTest(_ point: CGPoint, window: inout WindowID?) -> Bool
+    nonisolated static func hitTest(_ point: CGPoint, window: inout WindowID?) -> Bool
     {
         let above: WindowID? = tabBarHits.withLock { hits in
             for hit in hits {
@@ -203,7 +203,7 @@ extension TabBar
     }
 
     /// Match the drawn slots, including the rounded track's outer hit padding.
-    static func hitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) -> Int?
+    nonisolated static func hitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) -> Int?
     {
         guard count > 0, frame.width > 0, frame.contains(point) else { return nil }
         let slots = glass ? TabBarGlass.innerRect(frame) : frame
@@ -226,7 +226,7 @@ private let tabBarPointer = Mutex(TabBarPointer())
 
 extension TabBar
 {
-    static func updatePointer(_ point: CGPoint, pressed: Bool)
+    nonisolated static func updatePointer(_ point: CGPoint, pressed: Bool)
     {
         let hit = tabBarHits.withLock { hits in
             hits.first { $0.glass != nil && $0.frame.contains(point) && $0.sid.isVisible }

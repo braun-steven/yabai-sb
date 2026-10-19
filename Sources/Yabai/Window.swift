@@ -8,7 +8,7 @@ final class Window
 {
     var application: Application!
     var ref: AXUIElement!
-    var id: WindowID
+    let id: WindowID
 
     // NOTE: A window stays valid until it is invalidated. Events already queued for a window hold on to it, so their
     // handlers check that it is still valid before using it. Exactly one caller can invalidate it and then owns its
@@ -273,7 +273,7 @@ final class Window
 
 extension Window: Equatable
 {
-    static func == (a: Window, b: Window) -> Bool { a === b }
+    nonisolated static func == (a: Window, b: Window) -> Bool { a === b }
 }
 
 struct WindowNotifications: OptionSet, Sendable

@@ -91,10 +91,10 @@ private let saBundlePlist = """
 </plist>
 """
 
-final class ScriptingAddition
+final class ScriptingAddition: Sendable
 {
     // NOTE: The single scripting addition, used by the event loop and the IPC handlers it runs.
-    nonisolated(unsafe) static let shared = ScriptingAddition()
+    static let shared = ScriptingAddition()
 
     // NOTE: The sockets of the payload, resolved once in init and immutable afterwards, so any thread may read them:
     // socketPath (for the user in $USER) is used by the daemon's event loop (send, payloadIsCurrent), sudoSocketPath

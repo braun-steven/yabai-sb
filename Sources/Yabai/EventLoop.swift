@@ -39,6 +39,16 @@ actor WM
             try unsafeBitCast(operation, to: (() throws -> T).self)()
         }
     }
+
+    //
+    // NOTE: Runs code isolated to @WM from another thread (the startup on the main thread) and waits until it returns.
+    // It deadlocks when called on the queue itself.
+    //
+
+    static func sync<T>(_ operation: @WM () throws -> T) rethrows -> T
+    {
+        try shared.queue.sync { try assumeIsolated(operation) }
+    }
 }
 
 //

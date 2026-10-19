@@ -80,7 +80,7 @@ final class Workspace: NSObject, Sendable
             if process.terminated.load(ordering: .acquiring) { return }
 
             let result = (change?[.newKey] as? NSNumber)?.intValue ?? 0
-            if result != process.policy {
+            if result != process.policy.load(ordering: .relaxed) {
                 //
                 // :WorstApiEverMade
                 //
@@ -92,7 +92,7 @@ final class Workspace: NSObject, Sendable
 
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.activationPolicy, context)
 
-                process.policy = result
+                process.policy.store(result, ordering: .relaxed)
                 debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(process.nameAndPID)\n")
                 EventLoop.post(.applicationLaunched(Handoff(value: process)))
             }
@@ -301,10 +301,11 @@ extension Process
     func isObservable() -> Bool
     {
         if let application = runningApplication {
-            policy = application.activationPolicy.rawValue
-            return policy == NSApplication.ActivationPolicy.regular.rawValue
+            let value = application.activationPolicy.rawValue
+            policy.store(value, ordering: .relaxed)
+            return value == NSApplication.ActivationPolicy.regular.rawValue
         } else {
-            policy = NSApplication.ActivationPolicy.prohibited.rawValue
+            policy.store(NSApplication.ActivationPolicy.prohibited.rawValue, ordering: .relaxed)
             return false
         }
     }

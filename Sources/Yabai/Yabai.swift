@@ -155,7 +155,7 @@ enum Daemon
         signal(SIGPIPE, SIG_IGN)
         CGSetLocalEventsSuppressionIntervalC(0.0)
         CGEnableEventStateCombiningC(false)
-        MouseState.shared.setDefaults()
+        WM.sync { MouseState.shared.setDefaults() }
 
         let handle = open(lockFile, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
         if handle == -1 {
@@ -281,7 +281,7 @@ enum Daemon
             error("yabai: could not start display manager! abort..\n")
         }
 
-        if !MouseState.shared.beginEventTap(mask: mouseEventMask) {
+        if !WM.sync({ MouseState.shared.beginEventTap(mask: mouseEventMask) }) {
             error("yabai: could not start mouse handler! abort..\n")
         }
 
@@ -307,13 +307,11 @@ enum Daemon
         //
         // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue.
         //
-        WM.shared.queue.sync {
-            WM.assumeIsolated {
-                WindowManager.shared.initialize()
-                SpaceManager.shared.begin()
-                WindowManager.shared.begin()
-                WindowManager.shared.updateWindowNotifications()
-            }
+        WM.sync {
+            WindowManager.shared.initialize()
+            SpaceManager.shared.begin()
+            WindowManager.shared.begin()
+            WindowManager.shared.updateWindowNotifications()
         }
 
         guard let user = getenv("USER").map({ String(cString: $0) }) else {

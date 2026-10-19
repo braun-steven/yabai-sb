@@ -12,10 +12,6 @@ import YabaiCore
 final class ProcessManager
 {
     var processes: [ProcessKey: Process] = [:]
-    var target: EventTargetRef?
-    var handler: EventHandlerUPP?
-    var eventTypes = (EventTypeSpec(), EventTypeSpec(), EventTypeSpec())
-    var handlerRef: EventHandlerRef?
     var frontPID: pid_t = 0
     var lastFrontPID: pid_t = 0
     var switchEventTime: EventTime = 0
@@ -26,31 +22,24 @@ final class ProcessManager
 
     /// Called by Daemon.run on the main thread: enumerates the running processes on the event loop's queue, then
     /// installs the Carbon handler, which runs only once the main run loop does.
-    func begin() -> Bool
+    nonisolated func begin() -> Bool
     {
-        target = GetApplicationEventTarget()
-        handler = processHandler
-        eventTypes.0 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppLaunched))
-        eventTypes.1 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppTerminated))
-        eventTypes.2 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppFrontSwitched))
-
-        WM.shared.queue.sync {
-            WM.assumeIsolated {
-                autoreleasepool {
-                    ProcessManager.shared.addRunningProcesses()
-                }
-
-                ProcessManager.shared.frontPID = ProcessGetPIDC(SLS.frontProcess())
-                ProcessManager.shared.lastFrontPID = ProcessManager.shared.frontPID
-                ProcessManager.shared.switchEventTime = GetCurrentEventTime()
+        WM.sync {
+            autoreleasepool {
+                ProcessManager.shared.addRunningProcesses()
             }
+
+            ProcessManager.shared.frontPID = ProcessGetPIDC(SLS.frontProcess())
+            ProcessManager.shared.lastFrontPID = ProcessManager.shared.frontPID
+            ProcessManager.shared.switchEventTime = GetCurrentEventTime()
         }
 
-        var types = [eventTypes.0, eventTypes.1, eventTypes.2]
-        var ref: EventHandlerRef?
-        let result = InstallEventHandler(self.target, self.handler, 3, &types, nil, &ref) == noErr
-        handlerRef = ref
-        return result
+        var types = [
+            EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppLaunched)),
+            EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppTerminated)),
+            EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppFrontSwitched)),
+        ]
+        return InstallEventHandler(GetApplicationEventTarget(), processHandler, 3, &types, nil, nil) == noErr
     }
 
     func process(for key: ProcessKey) -> Process?

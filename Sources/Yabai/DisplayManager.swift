@@ -72,15 +72,19 @@ final class DisplayManager
     //
     nonisolated(unsafe) static let shared = DisplayManager()
 
-    /// Reads the active display and registers the reconfiguration callback.
-    func begin() -> Bool
+    /// Called by Daemon.run on the main thread: reads the active display on the event loop's queue, then registers
+    /// the reconfiguration callback, which posts events to the event loop.
+    nonisolated func begin() -> Bool
     {
-        currentDisplayID = DisplayID.active
-        lastDisplayID = currentDisplayID
-        order = .default
-        mode = .off
-        topPadding = 0
-        bottomPadding = 0
+        WM.sync {
+            let manager = DisplayManager.shared
+            manager.currentDisplayID = DisplayID.active
+            manager.lastDisplayID = manager.currentDisplayID
+            manager.order = .default
+            manager.mode = .off
+            manager.topPadding = 0
+            manager.bottomPadding = 0
+        }
 
         return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
     }

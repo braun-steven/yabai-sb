@@ -139,11 +139,10 @@ enum Daemon
 
     @MainActor private static func configureSettingsAndAcquireLock() -> Bool
     {
-        guard let user = getenv("USER").map({ String(cString: $0) }) else {
+        guard let user = ScriptingAddition.shared.daemonUser else {
             error("yabai: 'env USER' not set! abort..\n")
         }
 
-        ScriptingAddition.shared.socketPath = "/tmp/yabai-sa_\(user).socket"
         let lockFile = "/tmp/yabai_\(user).lock"
 
         NSApplicationLoadC()
@@ -317,7 +316,10 @@ enum Daemon
             }
         }
 
-        let socketFile = "/tmp/yabai_\(String(cString: getenv("USER")!)).socket"
+        guard let user = ScriptingAddition.shared.daemonUser else {
+            error("yabai: 'env USER' not set! abort..\n")
+        }
+        let socketFile = "/tmp/yabai_\(user).socket"
         if !MessageLoop.begin(socketPath: socketFile) {
             error("yabai: could not start message loop! abort..\n")
         }

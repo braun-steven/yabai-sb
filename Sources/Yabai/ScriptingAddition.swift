@@ -96,9 +96,10 @@ final class ScriptingAddition
     // NOTE: The single scripting addition, used by the event loop and the IPC handlers it runs.
     nonisolated(unsafe) static let shared = ScriptingAddition()
 
-    // NOTE: The socket of the payload. The daemon sets it at startup (Daemon.configureSettingsAndAcquireLock), before any
-    // other thread runs, and --load-sa or --uninstall-sa sets it for the user of sudo before it connects.
-    var socketPath = ""
+    // NOTE: The daemon socket and root loader socket are resolved once when the singleton is initialized.
+    let daemonUser: String?
+    let socketPath: String?
+    private let sudoSocketPath: String?
 
     //
     // NOTE: A daemon can talk to the payload of an older yabai until Dock is restarted, and an older
@@ -108,7 +109,22 @@ final class ScriptingAddition
 
     @WM private var payloadIsCurrentCache: Bool?
 
-    private init() {}
+    private init()
+    {
+        let user = getenv("USER").map { String(cString: $0) }
+        daemonUser = user
+        socketPath = user.map { "/tmp/yabai-sa_\($0).socket" }
+        sudoSocketPath = Self.resolveSudoSocketPath()
+    }
+
+    private static func resolveSudoSocketPath() -> String?
+    {
+        guard getuid() == 0, let value = getenv("SUDO_UID") else { return nil }
+        var uid: uid_t = 0
+        let parsed = sscanfUIntC(value, &uid)
+        guard parsed == 1, let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return nil }
+        return "/tmp/yabai-sa_\(String(cString: name)).socket"
+    }
 
     private func createDirectory() -> Bool
     {
@@ -146,18 +162,6 @@ final class ScriptingAddition
     private func restartDock()
     {
         for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") { dock.terminate() }
-    }
-
-    private func setSocketPathFromSudoUser() -> Bool
-    {
-        assert(getuid() == 0)
-        guard let value = getenv("SUDO_UID") else { return false }
-        var uid: uid_t = 0
-        let parsed = sscanfUIntC(value, &uid)
-        guard parsed == 1, let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return false }
-        let path = "/tmp/yabai-sa_\(String(cString: name)).socket"
-        socketPath = path
-        return true
     }
 
     private var isInstalled: Bool
@@ -199,7 +203,7 @@ final class ScriptingAddition
         return 0
     }
 
-    private func requestHandshake() -> (version: [UInt8], attributes: UInt32)?
+    private func requestHandshake(socketPath: String) -> (version: [UInt8], attributes: UInt32)?
     {
         var sockfd: Int32 = 0
         guard UnixSocket.open(&sockfd) else { return nil }
@@ -208,10 +212,10 @@ final class ScriptingAddition
         return connection.handshake()
     }
 
-    private func performValidation() -> Int32
+    private func performValidation(socketPath: String) -> Int32
     {
         let isLatestInstalled = check() == 0
-        guard let handshake = requestHandshake() else { report("connection failed!"); return 1 }
+        guard let handshake = requestHandshake(socketPath: socketPath) else { report("connection failed!"); return 1 }
         if handshake.version.elementsEqual(saVersion.utf8) {
             // OSAX_ATTRIB_ALL (the macro combines macros and does not import).
             let all = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
@@ -288,7 +292,7 @@ final class ScriptingAddition
                 report("missing required nvram boot-arg '-arm64e_preview_abi'!")
                 return 1
             }
-            guard setSocketPathFromSudoUser() else {
+            guard let sudoSocketPath else {
                 Client.writeAll(STDERR_FILENO, "yabai: cannot determine the scripting-addition user from SUDO_UID!\n".utf8)
                 return 1
             }
@@ -297,7 +301,7 @@ final class ScriptingAddition
                 report("failed to inject payload into Dock.app!")
                 return 1
             }
-            return performValidation()
+            return performValidation(socketPath: sudoSocketPath)
         }
     }
 
@@ -306,7 +310,8 @@ final class ScriptingAddition
         var sockfd: Int32 = 0
         guard UnixSocket.open(&sockfd) else { return false }
         defer { UnixSocket.close(sockfd) }
-        guard let connection = SAConnection(fd: sockfd), connection.connect(socketPath) else { return false }
+        guard let socketPath,
+              let connection = SAConnection(fd: sockfd), connection.connect(socketPath) else { return false }
         return connection.command(bytes).isSuccess
     }
 
@@ -409,7 +414,9 @@ final class ScriptingAddition
 
     @WM private func payloadIsCurrent() -> Bool
     {
-        if payloadIsCurrentCache == nil, let handshake = requestHandshake() {
+        if payloadIsCurrentCache == nil,
+           let socketPath,
+           let handshake = requestHandshake(socketPath: socketPath) {
             payloadIsCurrentCache = handshake.version.elementsEqual(saVersion.utf8)
         }
         return payloadIsCurrentCache == true

@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- While a menu is open, *config focus_follows_mouse* prints the configured mode instead of *off*, and a mode set while the menu is open stays after it closes; focus follows mouse is still off while the menu is open
 - An invalid stack window selector (e.g. *stack.foo*) is always reported as an invalid *WINDOW_SEL*, also when there is no window to act on, instead of "could not locate the selected window."
 - A failure that lists several problems (every invalid key of a *rule --add* or *signal --add*, every unknown property of a query) starts with a single failure byte, instead of one before each line
 - Split windows inside an active tab retain focus borders with *window_border_hide_single*

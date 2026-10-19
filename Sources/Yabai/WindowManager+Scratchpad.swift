@@ -47,10 +47,7 @@ extension WindowManager
         // would capture a stale image; set the frame directly instead.
         //
 
-        let animationDuration = Config.current.animation.duration
-        Config.current.animation.duration = 0.0
-        try? applyGrid(grid, to: target)
-        Config.current.animation.duration = animationDuration
+        withoutAnimations { try? applyGrid(grid, to: target) }
     }
 
     private func hideScratchpad(_ target: Window, on spaceID: SpaceID)

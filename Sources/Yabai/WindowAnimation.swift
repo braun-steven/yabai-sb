@@ -258,7 +258,7 @@ extension WindowManager
     private func animateWindowsAsync(_ list: [WindowPlacement])
     {
         let connection = SLS.newConnection()
-        let duration = Config.current.animation.duration
+        let duration = animationDuration
         let easing = Config.current.animation.easing
         let animations = list.map { WindowAnimation($0, connection: connection) }
         let workers = DispatchGroup()
@@ -328,11 +328,32 @@ private extension Window
 
 extension WindowManager
 {
+    //
+    // NOTE: Some operations set frames without animating them (a scratchpad that is still ordered out, spaces swapped
+    // across displays, Mission Control corrections). They suppress animations as runtime state instead of changing
+    // the configured duration, so Config only changes through the config domain.
+    //
+
+    /// The duration in effect: zero while animations are suppressed.
+    var animationDuration: Float
+    {
+        animationsSuppressed ? 0 : Config.current.animation.duration
+    }
+
+    /// Runs body with animations suppressed.
+    func withoutAnimations(_ body: () -> Void)
+    {
+        let suppressed = animationsSuppressed
+        animationsSuppressed = true
+        defer { animationsSuppressed = suppressed }
+        body()
+    }
+
     func animateWindows(_ list: [WindowPlacement])
     {
         let list = list.filter { $0.window.frameNeedsUpdate(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
         if list.isEmpty { return }
-        if Config.current.animation.duration != 0 {
+        if animationDuration != 0 {
             animateWindowsAsync(list)
         } else {
             setWindowFrames(list)
@@ -342,7 +363,7 @@ extension WindowManager
     func animateWindow(_ placement: WindowPlacement)
     {
         if !placement.window.frameNeedsUpdate(x: placement.x, y: placement.y, w: placement.w, h: placement.h) { return }
-        if Config.current.animation.duration != 0 {
+        if animationDuration != 0 {
             animateWindowsAsync([placement])
         } else {
             placement.window.setFrame(x: placement.x, y: placement.y, width: placement.w, height: placement.h)

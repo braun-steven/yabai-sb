@@ -108,11 +108,6 @@ extension EventHandler
     {
         debug("EVENT_HANDLER_MENU_OPENED\n")
         openMenuCount += 1
-
-        if openMenuCount == 1 {
-            focusFollowsMouseBeforeMenu = Config.current.window.focusFollowsMouse
-            Config.current.window.focusFollowsMouse = .disabled
-        }
     }
 
     func menuClosed()
@@ -120,9 +115,7 @@ extension EventHandler
         debug("EVENT_HANDLER_MENU_CLOSED\n")
         openMenuCount -= 1
 
-        if openMenuCount == 0 {
-            Config.current.window.focusFollowsMouse = focusFollowsMouseBeforeMenu
-        } else if openMenuCount < 0 {
+        if openMenuCount < 0 {
             openMenuCount = 0
         }
     }

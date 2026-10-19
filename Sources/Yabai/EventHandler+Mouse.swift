@@ -286,11 +286,11 @@ extension EventHandler
         if window.id == wm.focusedWindowID { return }
         if !window.isEligibleForManagement { return }
 
-        if Config.current.window.focusFollowsMouse == .autofocus {
+        if focusFollowsMouse == .autofocus {
             let target = ffmWindowToFocus(window)
             WindowManager.shared.focusWithoutRaise(target)
             ms.ffmWindowID = target.id
-        } else if Config.current.window.focusFollowsMouse == .autoraise {
+        } else if focusFollowsMouse == .autoraise {
             if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
             WindowManager.shared.focusWithRaise(window)
@@ -318,7 +318,7 @@ extension EventHandler
 
         if EventHandler.isStale(pendingMouseMoved) { return }
 
-        if Config.current.window.focusFollowsMouse == .disabled { return }
+        if focusFollowsMouse == .disabled                     { return }
         if MissionControl.shared.isActive                     { return }
         if MouseState.shared.ffmWindowID != nil { return }
 

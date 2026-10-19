@@ -108,23 +108,20 @@ extension WindowManager
     {
         let displays = DisplayID.all
 
-        let animationDuration = Config.current.animation.duration
-        Config.current.animation.duration = 0.0
+        withoutAnimations {
+            for did in displays {
+                guard let spaceList = did.spaces else { continue }
 
-        for did in displays {
-            guard let spaceList = did.spaces else { continue }
-
-            let sid = did.currentSpace
-            for space in spaceList {
-                if let sid, space == sid {
-                    validateAndCheckForWindows(on: sid)
-                } else {
-                    SpaceManager.shared.markViewInvalid(for: space)
+                let sid = did.currentSpace
+                for space in spaceList {
+                    if let sid, space == sid {
+                        validateAndCheckForWindows(on: sid)
+                    } else {
+                        SpaceManager.shared.markViewInvalid(for: space)
+                    }
                 }
             }
         }
-
-        Config.current.animation.duration = animationDuration
     }
 
     func handleDisplayAddAndRemove(_ did: DisplayID)

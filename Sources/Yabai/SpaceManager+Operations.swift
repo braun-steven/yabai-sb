@@ -25,45 +25,42 @@ extension SpaceManager
     /// Swaps two spaces that are on different displays.
     private func swapSpaceAcrossDisplays(_ aSid: SpaceID, with bSid: SpaceID)
     {
-        let windowAnimationDuration = Config.current.animation.duration
-        Config.current.animation.duration = 0.0
+        WindowManager.shared.withoutAnimations {
+            let aWindows = aSid.windows(includingMinimized: true) ?? []
+            let bWindows = bSid.windows(includingMinimized: true) ?? []
 
-        let aWindows = aSid.windows(includingMinimized: true) ?? []
-        let bWindows = bSid.windows(includingMinimized: true) ?? []
+            let aView = views[aSid]!
+            let bView = views[bSid]!
 
-        let aView = views[aSid]!
-        let bView = views[bSid]!
+            views.removeValue(forKey: aSid)
+            views.removeValue(forKey: bSid)
 
-        views.removeValue(forKey: aSid)
-        views.removeValue(forKey: bSid)
+            aView.sid = bSid
+            bView.sid = aSid
 
-        aView.sid = bSid
-        bView.sid = aSid
+            let uuid = aView.uuid
+            aView.uuid = bView.uuid
+            bView.uuid = uuid
 
-        let uuid = aView.uuid
-        aView.uuid = bView.uuid
-        bView.uuid = uuid
+            views[aSid] = bView
+            views[bSid] = aView
 
-        views[aSid] = bView
-        views[bSid] = aView
+            if !aWindows.isEmpty {
+                bSid.moveWindows(aWindows)
+            }
 
-        if !aWindows.isEmpty {
-            bSid.moveWindows(aWindows)
+            if !bWindows.isEmpty {
+                aSid.moveWindows(bWindows)
+            }
+
+            labels.swap(aSid, bSid)
+
+            aView.update()
+            bView.update()
+
+            aView.flush()
+            bView.flush()
         }
-
-        if !bWindows.isEmpty {
-            aSid.moveWindows(bWindows)
-        }
-
-        labels.swap(aSid, bSid)
-
-        aView.update()
-        bView.update()
-
-        aView.flush()
-        bView.flush()
-
-        Config.current.animation.duration = windowAnimationDuration
     }
 
     func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) throws(SpaceOperationError)

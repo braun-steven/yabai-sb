@@ -16,9 +16,19 @@ import YabaiCore
 {
     static let shared = EventHandler()
 
-    /// The focus follows mouse mode while a menu is open, and the number of open menus.
-    var focusFollowsMouseBeforeMenu = FocusFollowsMouse.disabled
+    /// The number of open menus.
     var openMenuCount = 0
+
+    //
+    // NOTE: Focus follows mouse is off while a menu is open, so that moving the cursor through a menu does not focus
+    // the windows below it. This is runtime state: the configured mode in Config stays as it is.
+    //
+
+    /// The focus follows mouse mode in effect.
+    var focusFollowsMouse: FocusFollowsMouse
+    {
+        openMenuCount > 0 ? .disabled : Config.current.window.focusFollowsMouse
+    }
 }
 
 //

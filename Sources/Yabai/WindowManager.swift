@@ -97,6 +97,8 @@ struct Scratchpad
     var lastWindowID: WindowID?
     var tabBarFont: CTFont?
     var scratchpads: [Scratchpad] = []
+    /// Set while an operation moves windows without animating them; see withoutAnimations(_:).
+    var animationsSuppressed = false
 }
 
 /// The mouse events the event tap receives.

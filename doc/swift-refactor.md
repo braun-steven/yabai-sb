@@ -128,7 +128,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | Phase | Title | Status | Last commit | Note |
 |---|---|---|---|---|
 | 1 | Cleanup, one type per concept, Swift strings | [x] | c05a4dd6 | baseline in `doc/performance/2026-10-18-refactor-baseline/` |
-| **2** | **Swift types** | [~] | | |
+| **2** | **Swift types** | [x] | 15a53089 | live check without mouse checks; bench within 10% |
 | 2.1 | Pseudo-enums → enums and OptionSets | [x] | 51ef4736 | flags left to 2.2 |
 | 2.2 | Bit fields → OptionSets and Bools | [x] | 78fcf65e | `Definitions.swift` deleted |
 | 2.3 | Typed IDs | [x] | c97529ef | own border/proxy windows stay raw |

@@ -107,7 +107,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.1 | Pseudo-enums → enums and OptionSets | [x] | 51ef4736 | flags left to 2.2 |
 | 2.2 | Bit fields → OptionSets and Bools | [x] | 78fcf65e | `Definitions.swift` deleted |
 | 2.3 | Typed IDs | [x] | c97529ef | own border/proxy windows stay raw |
-| 2.4 | `Int32` → `Int`, sentinels → optionals | [ ] | | |
+| 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [ ] | | |
 | 2.6 | Verification: live check, benchmark | [ ] | | |
 | **3** | **Models and managers as types with methods** | [ ] | | |
@@ -397,6 +397,14 @@ Carried between phases; add, resolve or strike items here.
 - Phase 1 had no live check (not required); the first live check of the refactor is phase 2's (2.6). It should
   exercise rules (`rule --add app=… manage=off`, `rule --apply`, one-shot rules) and scratchpads, whose storage
   changed.
+- Sentinel ids (2.4) changed a few paths that only the window server's "no id" reaches: the daemon no longer passes
+  id 0 on (no view for space 0, no gesture/warp for display 0, no layout of a view whose space has no display, no
+  `display_manager_focus_display` window search without a space). `query --windows` `is-visible` of a window on no
+  space is now false (was true through `space_is_visible(0)`); `query --displays --window/--space` without a display,
+  `space`/`window --display` without a current space and `query --tree` without an active space now fail. The 2.6
+  live check should watch for regressions there.
+- `Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
+  unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.
 
 ## Reports
 
@@ -497,3 +505,26 @@ not here.
 - Notes for the next agent: compile-error-driven mass edits worked well (a script reading `swift build` errors and
   appending `.rawValue`/wrapping), but review its output: it also "fixes" Swift declarations that should change type.
   New pitfall (ambiguous `.map(ID.init)`, C out-parameters) is in `AGENTS.md`.
+
+### 2026-10-19 Subphase 2.4 [x]
+- Commits: 2c675624..4153f4ae (2c675624 from an earlier session; plus this report)
+- Done: 2c675624 made `Int32` `Int` outside C and wire formats. cca8ca95: `WindowID`/`SpaceID`/`DisplayID` lost
+  `ExpressibleByIntegerLiteral` (tests keep it in `tests/*/IdentifierLiterals.swift`) and gained `init?(nonzero:)`;
+  every 0 id is now nil: model fields (focused/last window, current/last space and display, `Con.window_id`, insertion
+  points, tab bar/border/feedback/glass ids, mouse ids), id-returning lookups (`window_space`, `display_space_id`,
+  `display_manager_*_display_id`, `space_manager_*_space`, `ax_window_id`, …), selectors (`SelectorContext`,
+  `Selection<DisplayID?>`), `RuleEffects.did/sid`, `SpaceList`/`SpaceLayout` results. `Window(id:)`, `View(sid:)`,
+  `WindowInfo(id:)` replace the zero defaults; `Window.isDestroyed` replaces the zeroed id of `window_destroy`.
+  4153f4ae: -1 sentinels (`saPayloadCurrent: Bool?`, reconcile surplus/deficit `Int?`, `backdropRadius: CGFloat?`,
+  child-window walk), Dock pid `pid_t?`, test `Int32` helpers.
+- Output changes: none in the golden (unchanged). JSON, signal env and SA bytes print 0 for nil via `?.rawValue ?? 0`.
+  Degenerate window-server cases listed in **Open issues**.
+- Verification: `make`, `make test` (112 tests: 70 Yabai + 42 YabaiCore, golden included) at 4153f4ae.
+- Decisions: remaining fixed-width integers are C/ABI or wire (connection ids, fds, pids, window levels, exit codes,
+  SA payload, sscanf buffers, `Token.positiveInteger`'s C int wrap, JSON `Int32(bitPattern:)`), plus `Grid` (Open
+  issues). Int results that print 0 (`space_manager_mission_control_index`, arrangement index) stay for 5.5.
+  `tab_bar_hit_test` keeps its out-pointer (`WindowID?`); phase 3 can return an optional.
+- Next: 2.5.
+- Notes for the next agent: `swift build` stops after the first failing batch; to see every type error of the Yabai
+  target at once, run `swiftc -typecheck -wmo -continue-building-after-errors` over `Sources/Yabai` with
+  `-I .build/out/Products/Debug` and the CPrivate/OSAX module maps (see AGENTS.md pitfall).

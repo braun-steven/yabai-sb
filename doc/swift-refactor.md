@@ -153,7 +153,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
 | 5.2 | Typed commands: window | [x] | bb24ea9b | `WindowCommand` + typed selectors in YabaiCore; `Selection` adaptors left for 5.3 |
 | 5.3 | Typed commands: other domains | [x] | 22ab2700 | `Space/Display/Query/Rule/SignalCommand`; `Selection`, `CommandResult` gone |
-| 5.4 | `Config` values and option table | [ ] | | |
+| 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [ ] | | |
 | 5.6 | Verification: docs, live check, benchmark, perf | [ ] | | |
 | **6** | **Async event loop and Observation** | [ ] | | |
@@ -438,8 +438,14 @@ Carried between phases; add, resolve or strike items here.
   focus-follows-mouse and alt-drag checks (T6, T7). Those two need the user's terminal or a granted posting
   permission. Posting worked in 3.6's session, where `live.py run` passed 28/28 including T6/T7; check
   `mouse trusted` before each live check, since it depends on the session.
-- `Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
-  unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.
+- ~~`Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
+  unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.~~
+  Kept `UInt32` in 5.4 (behavior stays): a9f64b98 documents the semantics in `Grid` and tests them
+  (`gridScanPreservesNegativeBitsAndPartialValues`, `scratchpad_grid -1:…` prints 4294967295).
+- Config still holds two temporary runtime overrides: the menu-open handler sets `window.focusFollowsMouse` to
+  disabled and restores it afterwards, and scratchpad/space operations zero `animation.duration` around their frame
+  changes. Behavior is unchanged; phase 6.5 (Observation of `Config`) should move them to runtime state, so that
+  observers do not see these as config changes.
 - 3.6's live check did not cover a session with the scripting addition unloaded (space moves without SA); a later
   live check should.
 
@@ -976,4 +982,30 @@ not here.
   `preconditionFailure` in `SignalCommand.parse`, since `parseSignal` throws whenever the event is missing. Kept
   `SpaceCommandLayout` separate from the daemon's `ViewType`, which has `default`.
 - Next: 5.4. Its commits ec9e3699..d82222d7 do not touch the 5.3 files.
+- Notes for the next agent: none.
+
+### 2026-10-19 Subphase 5.4 [x]
+- Commits: ec9e3699, a9f64b98, cd8a103d, 11bdb531, e7d2124e, e2b8f25a, 071fb141, a2feac30, 4fd83936, 97f7d6ae,
+  d82222d7 (outside the workflow; reviewed here), c2b06de2, b777d3e7, 80c613f4 (one Haiku piece each), plus this report.
+- Done: the reviewed commits add YabaiCore `ConfigCommand` (`Name`, `parseScope`, `parseName`) and the daemon's `Config`
+  (`Config.current`: `BorderConfig`, `TabBarConfig`, `WindowConfig`, `MouseConfig`, `AnimationConfig`,
+  `ScratchpadConfig`, `SpaceDefaults`, `DisplayConfig`), with no settings left on the managers. They replace the if/else
+  chain with the `configOptions` descriptor table and have renderers read `let config = Config.current.tabBar`-style
+  snapshots. The review found the same texts, validations and side-effect order, with three gaps. (1) c2b06de2 drops the
+  redundant field prefixes (`scratchpad.grid`, `animation.duration`, `window.activeOpacity`, …), nests
+  `display.externalBar` and renames `ViewSpacing.spaceDefault`. (2) `WindowManager.initialize` reset the whole Config,
+  so the mouse defaults had moved after the event tap started. b777d3e7 makes the struct defaults the daemon defaults
+  (mouse move/resize/swap), deletes `MouseState.setDefaults`, the Config reset in `initialize` and the redundant
+  display resets, and the golden fixture resets `Config` itself. (3) 80c613f4 removes the always-identical `apply`
+  field (`parse` returns the change), gives each helper one `set` closure (no `set: { _ in }`), makes
+  `parseConfigBool/Choice` pure YabaiCore functions of a value token, and restores the dropped NOTEs (space_layout,
+  animations, opacities).
+- Output changes: golden `config mouse_action1/mouse_action2/mouse_drop_action` in the test fixture now print
+  move/resize/swap (were none). These are the daemon's real defaults; the fixture used to skip `setDefaults`. Not
+  visible to users, so no CHANGELOG.
+- Verification: `make` (no warnings), `make test` 128 tests (69 + 59) incl. golden after each commit. No live check (5.6).
+- Decisions: `Grid` keeps `UInt32` (Open issue resolved). `SpaceDefaults.layout` stays `.default` until
+  `SpaceManager.begin` sets tree, as before. `MouseTapState.modifier` mirrors `Config.mouse.modifier` for the tap.
+  Temporary runtime overrides of config (ffm during menus, zeroed animation duration) are left for 6.5 (Open issues).
+- Next: 5.5.
 - Notes for the next agent: none.

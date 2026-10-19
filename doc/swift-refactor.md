@@ -135,9 +135,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [~] | f073c381 | paused by user during 3.2; see latest handover |
+| **3** | **Models and managers as types with methods** | [~] | 4e0c6d6b | 3.1–3.2 done |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
-| 3.2 | Windows, applications, rules | [~] | f073c381 | operations converted; naming/accessor cleanup remains |
+| 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
 | 3.3 | Spaces, displays, processes | [ ] | | |
 | 3.4 | Events, signals, rendering, input, SA, startup | [ ] | | |
 | 3.5 | Platform boundary | [ ] | | |
@@ -607,3 +607,37 @@ not here.
 - Notes for the next agent: the restored installed build crashed once in `live.py cleanup` (pre-existing, Open
   issues); launchd restarts it, which resets layouts again. Check `crashes.py` and which binary's UUID a report names
   (`dwarfdump --uuid`) before blaming the build under test.
+
+### 2026-10-19 Subphase 3.1 [x]
+- Commits: 0e5fc200..7f4762fc (written afterwards by the 3.2 agent from git history; the 3.1 agent left no report).
+- Done: `Tree.swift` became `Con.swift`; `Con` has the tree primitives and i3 operations as methods, `View` owns
+  layout/flush (`TreeView.swift`), tree navigation and cross-display moves are `WindowManager` methods
+  (`WindowManagerTree.swift`); C-origin comments in the tree tests removed.
+- Output changes: none (golden untouched).
+- Verification: `make`, `make test` (112 tests) per the board note.
+- Decisions: unknown (no report).
+- Next: none for 3.1.
+- Notes for the next agent: none recorded.
+
+### 2026-10-19 Subphase 3.2 [x]
+- Commits: d2c252a8..4e0c6d6b (d2c252a8..09932c6f by an earlier agent, paused without report; ffdf0670..4e0c6d6b
+  by this one).
+- Done: window, application and rule operations are methods (`Window`, `WindowID`, `Application`, `Rule`,
+  `WindowManager`); `WindowManager.swift` split into `WindowManager+{Appearance, Discovery, Focus, Geometry, Layout,
+  Lookup, Management, Placement, Reconciliation, Registry, Rules, Scratchpad, Startup, Toggles, Tree}.swift`
+  (`WindowManagerRules/Tree.swift` renamed); all `WindowManager` state has Swift names (tab bar: `tabBarHeight`, …,
+  `tabBarFocusedColorIsCustom`; scratchpads: `scratchpads`, `scratchpadGrid`, …); `g_window_manager` and
+  `window_manager_global()` replaced by `nonisolated(unsafe) static let shared` (phase 4 removes the
+  `nonisolated(unsafe)`); C-name comments in the scope files reworded; stale `window_manager_global()` pitfall removed
+  from `AGENTS.md`, file names there updated.
+- Output changes: none (golden untouched; config keys keep their snake_case CLI names).
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden, at each of ffdf0670, 9eb0a863, 4e0c6d6b.
+- Decisions: piece 1 (property renames) was run as a script by this agent before the user's "Haiku pieces strictly"
+  reminder arrived; a revert was denied, so it was reviewed and committed as is. Pieces 2–3 ran through Haiku agents.
+- Next: belongs to later subphases: `space_manager_can_use_known_focus`, `windowDidReceiveFocus`, `mouse_drop*` still
+  take `wm`/`sm` parameters (3.3/3.4); `WindowAnimation.swift`'s `window_manager_*`/`window_frame_*` free functions
+  (3.4); `connection_global()`, `process_manager_global()`, `space_manager_*`/`display_manager_*` calls inside the
+  3.2 files and raw `SLS*`/AX calls in `Window.swift`, `WindowManager+Lookup/Appearance.swift` (3.3–3.5);
+  `Application.observe()` still logs `application_observe:` in its debug text.
+- Notes for the next agent: config keys (`"tab_bar_height"`, `runConfig("scratchpad_grid…")`) and golden records
+  share spellings with old property names; restrict mass renames to member uses, not string literals.

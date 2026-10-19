@@ -150,7 +150,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
         if newPoint.y < bounds.origin.y { newPoint.y = bounds.origin.y }
     }
 
-    if !scripting_addition_move_window(ms.window.id, Int32(newPoint.x), Int32(newPoint.y)) {
+    if !ScriptingAddition.shared.moveWindow(ms.window.id, x: Int32(newPoint.x), y: Int32(newPoint.y)) {
         ms.window.move(to: newPoint)
     }
 }

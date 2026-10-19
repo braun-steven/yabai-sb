@@ -151,13 +151,13 @@ final class Window
     func adjustLayer(to layer: WindowLayer)
     {
         if self.layer != .auto { return }
-        scripting_addition_set_layer(id, layer.level)
+        ScriptingAddition.shared.setLayer(layer.level, of: id)
     }
 
     func toggleShadow()
     {
         let shadow = !hasShadow
-        if scripting_addition_set_shadow(id, shadow) {
+        if ScriptingAddition.shared.setShadow(shadow, of: id) {
             hasShadow = shadow
         }
     }

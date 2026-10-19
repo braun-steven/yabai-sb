@@ -117,13 +117,13 @@ extension WindowManager
         if !target.isEligibleForManagement { return }
 
         if shouldBeSticky {
-            if scripting_addition_set_sticky(target.id, true) {
+            if ScriptingAddition.shared.setSticky(true, of: target.id) {
                 if let owner = managedView(for: target) {
                     unmanageWindow(target, from: owner)
                 }
                 target.isSticky = true
             }
-        } else if scripting_addition_set_sticky(target.id, false) {
+        } else if ScriptingAddition.shared.setSticky(false, of: target.id) {
             target.isSticky = false
 
             if !target.isFloating && target.shouldBeManaged && managedView(for: target) == nil {

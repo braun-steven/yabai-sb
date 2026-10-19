@@ -247,7 +247,7 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
     } else if let duration = value.floatValue {
         if duration == 0.0 {
             wm.windowAnimationDuration = duration
-        } else if !scripting_addition_is_sip_friendly() {
+        } else if !ScriptingAddition.shared.isSIPFriendly {
             rsp.fail("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
         } else if CGPreflightScreenCaptureAccess() {
             wm.windowAnimationDuration = duration

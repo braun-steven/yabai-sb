@@ -672,10 +672,10 @@ extension DaemonState
         @Test("tree_window_order_collect")
         func treeWindowOrderCollect()
         {
-            func orderIs(_ list: [sa_window_order], _ index: Int, _ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
+            func orderIs(_ list: [WindowOrder], _ index: Int, _ aWid: WindowID, _ order: Int32, _ bWid: WindowID) -> Bool
             {
                 if index >= list.count { return false }
-                return list[index].a_wid == aWid && list[index].order == order && list[index].b_wid == bWid
+                return list[index].window == aWid && list[index].order == order && list[index].relativeTo == bWid
             }
 
             // H[ 1 T[ 2 V[ 3 4 ] T[ 5 6 ] ] ] with 3 focused and 5 the active tab of the hidden tabbed container
@@ -694,11 +694,11 @@ extension DaemonState
             c3.focus()
 
             // ordering below collects every window, hidden tabs included
-            var list: [sa_window_order] = []
+            var list: [WindowOrder] = []
             t.collectWindowOrder(order: -1, relative: 99, into: &list)
             #expect(list.count == 5)
             #expect(orderIs(list, 0, 2, -1, 99))
-            #expect(list.map(\.a_wid) == [2, 3, 4, 5, 6])
+            #expect(list.map(\.window) == [2, 3, 4, 5, 6])
             #expect(orderIs(list, 4, 6, -1, 99))
 
             // ordering above skips hidden tabs and the relative window itself
@@ -710,7 +710,7 @@ extension DaemonState
 
             list = []
             v.collectWindowOrder(order: -1, relative: 4, into: &list)
-            #expect(list.map(\.a_wid) == [3])
+            #expect(list.map(\.window) == [3])
 
             // a tab change orders the other tabs below the focused window, then the rest of the active tab above it
             list = []
@@ -753,10 +753,10 @@ extension DaemonState
             c3.focus()
 
             // a card ordered below the focused window of a split tab orders the rest of the tab above it again
-            var list: [sa_window_order] = []
+            var list: [WindowOrder] = []
             root.collectCardOrder(after: 3, into: &list)
             #expect(list.count == 1)
-            #expect(list.first.map { $0.a_wid == 4 && $0.order == 1 && $0.b_wid == 3 } == true)
+            #expect(list.first.map { $0.window == 4 && $0.order == 1 && $0.relativeTo == 3 } == true)
 
             // a card below any other window, or below the window of a single-window tab, orders nothing
             list = []

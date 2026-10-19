@@ -415,7 +415,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
             relativeWid = window.id
         }
 
-        if !scripting_addition_order_window(actingWindow.id, raise ? 1 : -1, relativeWid) {
+        if !ScriptingAddition.shared.orderWindow(actingWindow.id, raise ? 1 : -1, relativeTo: relativeWid) {
             rsp.fail("could not \(raise ? "raise" : "lower") window with id '\(id)' due to an error with the scripting-addition.\n")
         }
     } else if command.equals(WindowCommand.scratchpad) {

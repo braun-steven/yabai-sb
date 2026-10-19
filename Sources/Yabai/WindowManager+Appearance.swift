@@ -24,7 +24,7 @@ extension WindowManager
             }
         }
 
-        return scripting_addition_set_opacity(target.id, value, windowOpacityDuration)
+        return ScriptingAddition.shared.setOpacity(value, of: target.id, duration: windowOpacityDuration)
     }
 
     func setWindowOpacity(_ target: Window, to opacity: Float)
@@ -72,7 +72,7 @@ extension WindowManager
 
         // NOTE: Managed windows and scratchpads configured below the normal layer keep child windows at the normal layer.
         target.layer = layer
-        let result = scripting_addition_set_layer(target.id, parentLayer.level)
+        let result = ScriptingAddition.shared.setLayer(parentLayer.level, of: target.id)
         if !result { return false }
 
         guard let associated = SLSCopyAssociatedWindows(SLS.connection, target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
@@ -85,7 +85,7 @@ extension WindowManager
         }
 
         for descendant in Self.collectChildWindows(target.id, parents: &parentList, children: childList) {
-            scripting_addition_set_layer(descendant, childLayer.level)
+            ScriptingAddition.shared.setLayer(childLayer.level, of: descendant)
         }
 
         return result
@@ -121,7 +121,7 @@ extension WindowManager
         case .always:   shouldHaveShadow = false
         }
 
-        if scripting_addition_set_shadow(target.id, shouldHaveShadow) {
+        if ScriptingAddition.shared.setShadow(shouldHaveShadow, of: target.id) {
             target.hasShadow = shouldHaveShadow
         }
     }

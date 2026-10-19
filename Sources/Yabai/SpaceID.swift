@@ -157,7 +157,7 @@ extension SpaceID
     {
         if SLS.hasBridgedWindowOperation {
             SLS.bridgedMoveWindows(windows, toSpace: self)
-        } else if !scripting_addition_move_window_list_to_space(self, windows) {
+        } else if !ScriptingAddition.shared.moveWindows(windows, to: self) {
             SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x79616265)
             var rawWindows = windows.map(\.rawValue)
             SLSSetWindowListWorkspace(SLS.connection, &rawWindows, Int32(rawWindows.count), 0x79616265)
@@ -169,7 +169,7 @@ extension SpaceID
     {
         if SLS.hasBridgedWindowOperation {
             SLS.bridgedMoveWindows([win.id], toSpace: self)
-        } else if !scripting_addition_move_window_to_space(self, win.id) {
+        } else if !ScriptingAddition.shared.moveWindow(win.id, to: self) {
             var windows = [win.id.rawValue]
             SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x79616265)
             SLSSetWindowListWorkspace(SLS.connection, &windows, 1, 0x79616265)

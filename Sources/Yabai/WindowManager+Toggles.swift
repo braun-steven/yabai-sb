@@ -116,12 +116,12 @@ extension WindowManager
             bounds.size.height -= CGFloat(view.topPadding + view.bottomPadding)
         }
 
-        scripting_addition_scale_window(
+        ScriptingAddition.shared.scaleWindow(
             target.id,
-            Float(bounds.origin.x),
-            Float(bounds.origin.y),
-            Float(bounds.size.width),
-            Float(bounds.size.height)
+            x: Float(bounds.origin.x),
+            y: Float(bounds.origin.y),
+            width: Float(bounds.size.width),
+            height: Float(bounds.size.height)
         )
     }
 }

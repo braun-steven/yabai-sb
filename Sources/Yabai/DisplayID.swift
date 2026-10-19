@@ -297,6 +297,6 @@ extension DisplayID
         let spaceDid = sid.display
         if spaceDid != self { return .sameDisplay }
 
-        return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed
+        return ScriptingAddition.shared.focusSpace(sid) ? .success : .scriptingAdditionFailed
     }
 }

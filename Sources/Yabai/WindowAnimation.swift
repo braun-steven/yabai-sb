@@ -216,7 +216,7 @@ private final class WindowAnimationDisplayLink: NSObject
     {
         windowAnimations.withLock { table in
             SLSDisableUpdate(connection)
-            scripting_addition_swap_window_proxy_out(animations)
+            ScriptingAddition.shared.swapProxiesOut(animations)
             for animation in animations where !animation.skip {
                 table.removeValue(forKey: animation.wid)
                 windowManagerDestroyWindowProxy(animation)
@@ -275,7 +275,7 @@ private func windowManagerAnimateWindowListAsync(_ list: [window_capture])
         }
     }
     workers.wait()
-    scripting_addition_swap_window_proxy_in(animations)
+    ScriptingAddition.shared.swapProxiesIn(animations)
     for animation in animations { border_suspend(animation.wid, true) }
     window_manager_set_window_frames(list)
     SLSReenableUpdate(connection)

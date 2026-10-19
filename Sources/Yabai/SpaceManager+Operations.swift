@@ -96,25 +96,25 @@ extension SpaceManager
         // NOTE: A prev space is nil only where the sid is first, so the branches that move past it bind it.
         //
         if actingSidIsFirst && !selectorSidIsFirst && selectorMCI - actingMCI == 1 {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
+            success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
         } else if !actingSidIsFirst && selectorSidIsFirst && actingMCI - selectorMCI == 1 {
-            success = scripting_addition_move_space_after_space(selectorSid, actingSid, selectorSid == SpaceID.active)
+            success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: selectorSid == SpaceID.active)
         } else if actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
-            success = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
-            let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
+            success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
+            let second = ScriptingAddition.shared.moveSpace(actingSid, after: selectorPrevSid, focus: actingSid == SpaceID.active)
             success = success && second
         } else if !actingSidIsFirst && selectorSidIsFirst, let actingPrevSid {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
-            let second = scripting_addition_move_space_after_space(selectorSid, actingPrevSid, false)
+            success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
+            let second = ScriptingAddition.shared.moveSpace(selectorSid, after: actingPrevSid, focus: false)
             success = success && second
         } else if !actingSidIsFirst && !selectorSidIsFirst, let actingPrevSid, let selectorPrevSid {
             if actingMCI > selectorMCI {
-                success = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
-                let second = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
+                success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
+                let second = ScriptingAddition.shared.moveSpace(actingSid, after: selectorPrevSid, focus: actingSid == SpaceID.active)
                 success = success && second
             } else {
-                success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
-                let second = scripting_addition_move_space_after_space(selectorSid, actingPrevSid, false)
+                success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
+                let second = ScriptingAddition.shared.moveSpace(selectorSid, after: actingPrevSid, focus: false)
                 success = success && second
             }
         }
@@ -143,16 +143,16 @@ extension SpaceManager
         var success = true
 
         if actingSidIsFirst && !selectorSidIsFirst {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
+            success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
         } else if !actingSidIsFirst && selectorSidIsFirst {
-            success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
-            let second = scripting_addition_move_space_after_space(selectorSid, actingSid, false)
+            success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
+            let second = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
             success = success && second
         } else if !actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
             if actingSid.missionControlIndex > selectorSid.missionControlIndex {
-                success = scripting_addition_move_space_after_space(actingSid, selectorPrevSid, actingSid == SpaceID.active)
+                success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorPrevSid, focus: actingSid == SpaceID.active)
             } else {
-                success = scripting_addition_move_space_after_space(actingSid, selectorSid, actingSid == SpaceID.active)
+                success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
             }
         }
 
@@ -188,7 +188,7 @@ extension SpaceManager
         //
         // NOTE: The scripting addition takes a plain space id, and it packs nil as 0, "no replacement space".
         //
-        if scripting_addition_move_space_to_display(sid, dSid, replacementSid, isActive) {
+        if ScriptingAddition.shared.moveSpace(sid, toDisplayOf: dSid, previous: replacementSid, focus: isActive) {
             markViewInvalid(for: sid)
             if isActive {
                 _ = focusSpace(sid)
@@ -267,7 +267,7 @@ extension SpaceManager
         let newDid = sid.display
         let focusDisplay = curDid != newDid
 
-        if scripting_addition_focus_space(sid) {
+        if ScriptingAddition.shared.focusSpace(sid) {
             if focusDisplay, let newDid {
                 newDid.focus(space: sid)
             }
@@ -294,7 +294,7 @@ extension SpaceManager
             return .success
         }
 
-        return scripting_addition_focus_space(sid) ? .success : .scriptingAdditionFailed
+        return ScriptingAddition.shared.focusSpace(sid) ? .success : .scriptingAdditionFailed
     }
 
     func destroySpace(_ sid: SpaceID?) -> SpaceOperationResult
@@ -308,7 +308,7 @@ extension SpaceManager
         let did = sid.display
         let firstSid = did?.spaces?.first(where: { $0.isUser })
 
-        if !scripting_addition_destroy_space(sid) { return .scriptingAdditionFailed }
+        if !ScriptingAddition.shared.destroySpace(sid) { return .scriptingAdditionFailed }
 
         if let firstSid {
             WindowManager.shared.validateAndCheckForWindows(on: firstSid)
@@ -323,6 +323,6 @@ extension SpaceManager
         if MissionControl.shared.isActive { return .inMissionControl }
         guard let sid else { return .missingSource }
 
-        return scripting_addition_create_space(sid) ? .success : .scriptingAdditionFailed
+        return ScriptingAddition.shared.createSpace(sid) ? .success : .scriptingAdditionFailed
     }
 }

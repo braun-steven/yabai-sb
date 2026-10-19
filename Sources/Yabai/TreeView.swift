@@ -463,10 +463,10 @@ extension Con
 
 extension Con
 {
-    func collectWindowOrder(order: Int32, relative: WindowID, into list: inout [sa_window_order])
+    func collectWindowOrder(order: Int32, relative: WindowID, into list: inout [WindowOrder])
     {
         if isLeaf {
-            if let windowID = self.windowID, windowID != relative { list.append(sa_window_order(a_wid: windowID, order: order, b_wid: relative)) }
+            if let windowID = self.windowID, windowID != relative { list.append(WindowOrder(window: windowID, order: order, relativeTo: relative)) }
             return
         }
 
@@ -490,7 +490,7 @@ extension Con
 // collected first and sent to the scripting addition in one message.
 //
 
-    func collectTabOrder(force: Bool, into list: inout [sa_window_order])
+    func collectTabOrder(force: Bool, into list: inout [WindowOrder])
     {
         if isLeaf { return }
 
@@ -507,7 +507,7 @@ extension Con
                 render.raisedCard = cardWid
 
                 if let anchorWid, let cardWid {
-                    list.append(sa_window_order(a_wid: anchorWid, order: 1, b_wid: cardWid))
+                    list.append(WindowOrder(window: anchorWid, order: 1, relativeTo: cardWid))
                 }
 
             // NOTE: The other tabs are ordered against the card, or the anchor when there is no card. Without either
@@ -529,10 +529,10 @@ extension Con
 
     func raiseTabs(force: Bool)
     {
-        var list: [sa_window_order] = []
+        var list: [WindowOrder] = []
         collectTabOrder(force: force, into: &list)
 
-        if !list.isEmpty { scripting_addition_order_window_list(list) }
+        if !list.isEmpty { ScriptingAddition.shared.orderWindows(list) }
     }
 
 //
@@ -543,7 +543,7 @@ extension Con
 // the focused window again each time the card has been ordered below it.
 //
 
-    func collectCardOrder(after windowID: WindowID, into list: inout [sa_window_order])
+    func collectCardOrder(after windowID: WindowID, into list: inout [WindowOrder])
     {
         if isLeaf { return }
 
@@ -566,9 +566,9 @@ extension WindowManager
         guard let owner = managedWindows[windowID] else { return }
         if owner.layout != .tree || owner.tree == nil || !owner.sid.isVisible { return }
 
-        var list: [sa_window_order] = []
+        var list: [WindowOrder] = []
         owner.tree!.collectCardOrder(after: windowID, into: &list)
-        if !list.isEmpty { scripting_addition_order_window_list(list) }
+        if !list.isEmpty { ScriptingAddition.shared.orderWindows(list) }
     }
 }
 

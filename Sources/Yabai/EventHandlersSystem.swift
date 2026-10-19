@@ -108,7 +108,7 @@ import CPrivate
 {
     debug("EVENT_HANDLER_DOCK_DID_RESTART:\n")
 
-    scripting_addition_payload_changed()
+    ScriptingAddition.shared.payloadChanged()
 
     MissionControl.shared.unobserve()
     MissionControl.shared.observe()

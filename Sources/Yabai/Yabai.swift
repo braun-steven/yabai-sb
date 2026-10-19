@@ -145,7 +145,7 @@ enum Daemon
             error("yabai: 'env USER' not set! abort..\n")
         }
 
-        g_sa_socket_file = "/tmp/yabai-sa_\(user).socket"
+        ScriptingAddition.shared.socketPath = "/tmp/yabai-sa_\(user).socket"
         let lockFile = "/tmp/yabai_\(user).lock"
 
         NSApplicationLoadC()
@@ -199,11 +199,11 @@ enum Daemon
         }
 
         if arguments[1] == scriptingAdditionUninstallOption {
-            exit(scripting_addition_uninstall())
+            exit(ScriptingAddition.shared.uninstall())
         }
 
         if arguments[1] == scriptingAdditionLoadOption {
-            exit(scripting_addition_load())
+            exit(ScriptingAddition.shared.load())
         }
 
         if arguments[1] == serviceInstallOption {

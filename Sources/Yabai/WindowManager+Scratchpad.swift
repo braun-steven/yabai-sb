@@ -33,7 +33,7 @@ extension WindowManager
             let other = entry.window
             if other == target { continue }
 
-            if SLS.windowIsOrderedIn(SLS.connection, other.id) { scripting_addition_order_window(other.id, 0, nil) }
+            if SLS.windowIsOrderedIn(SLS.connection, other.id) { ScriptingAddition.shared.orderWindow(other.id, 0, relativeTo: nil) }
         }
     }
 
@@ -61,7 +61,7 @@ extension WindowManager
             _SLPSSetFrontProcessWithOptions(&ProcessManager.shared.finderPSN, 0, FrontProcessMode.noWindows.rawValue)
         }
 
-        scripting_addition_order_window(target.id, 0, nil)
+        ScriptingAddition.shared.orderWindow(target.id, 0, relativeTo: nil)
     }
 
     private func showScratchpad(
@@ -77,7 +77,7 @@ extension WindowManager
         }
 
         if applyingGrid { applyScratchpadGrid(to: target) }
-        scripting_addition_order_window(target.id, 1, nil)
+        ScriptingAddition.shared.orderWindow(target.id, 1, relativeTo: nil)
         focusWithRaise(target)
     }
 
@@ -167,7 +167,7 @@ extension WindowManager
     {
         guard let windowList = existingApplicationWindowList(for: nil) else { return }
 
-        if scripting_addition_order_window_in(windowList) {
+        if ScriptingAddition.shared.orderIn(windowList) {
             _ = SpaceManager.shared.refreshApplicationWindows()
         }
     }

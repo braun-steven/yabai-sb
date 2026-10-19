@@ -63,7 +63,7 @@ extension Process
 }
 
 /// A process serial number as a dictionary key: `ProcessSerialNumber` is not `Hashable`.
-struct ProcessKey: Hashable
+struct ProcessKey: Hashable, Sendable
 {
     let high: UInt32
     let low: UInt32

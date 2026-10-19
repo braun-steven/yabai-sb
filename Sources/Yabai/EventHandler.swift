@@ -46,6 +46,24 @@ let pendingMouseDragged = Atomic<UInt32>(0)
 
 extension EventHandler
 {
+    func carbonProcessLaunched(_ key: ProcessKey)
+    {
+        guard let process = ProcessManager.shared.processLaunched(key) else { return }
+        EventLoop.post(.applicationLaunched(Handoff(value: process)))
+    }
+
+    func carbonProcessTerminated(_ key: ProcessKey)
+    {
+        guard let process = ProcessManager.shared.processTerminated(key) else { return }
+        EventLoop.post(.applicationTerminated(Handoff(value: process)))
+    }
+
+    func carbonProcessFrontSwitched(_ key: ProcessKey)
+    {
+        guard let process = ProcessManager.shared.processFrontSwitched(key) else { return }
+        EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
+    }
+
     //
     // NOTE: The event tap counts the mouse events it posts. A handler that sees a newer event of the same
     // type still queued drops its own, so only the most recent one is handled.
@@ -177,12 +195,19 @@ extension EventHandler
         process.launchAttempts += 1
         debug("EventHandler.applicationLaunchRetry: retrying \(process.nameAndPID) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launchAttempts))\n")
 
-        let psn = process.psn
+        let key = ProcessKey(process.psn)
         DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(delay * Float(NSEC_PER_SEC)))) {
-            if let process = ProcessManager.shared.process(for: psn) {
-                EventLoop.post(.applicationLaunched(Handoff(value: process)))
-            }
+            EventLoop.post(.applicationLaunchRetry(key))
         }
+    }
+
+    func applicationLaunchRetry(_ key: ProcessKey)
+    {
+        var psn = ProcessSerialNumber()
+        psn.highLongOfPSN = key.high
+        psn.lowLongOfPSN = key.low
+        guard let process = ProcessManager.shared.process(for: psn) else { return }
+        EventLoop.post(.applicationLaunched(Handoff(value: process)))
     }
 
     func applicationLaunched(_ process: Process)

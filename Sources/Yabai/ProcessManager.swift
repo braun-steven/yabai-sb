@@ -5,8 +5,8 @@ import Synchronization
 import YabaiCore
 
 //
-// NOTE: The processes of the session, from the Carbon application events. The event handler runs on the main thread and
-// only keeps the process table and posts events; the handlers run on the event loop.
+// NOTE: Carbon's process callback runs on the main thread and only posts ProcessKey values. The event loop owns and
+// accesses this process table; startup enumeration completes before the callback is installed.
 //
 
 final class ProcessManager
@@ -21,7 +21,7 @@ final class ProcessManager
     var switchEventTime: EventTime = 0
     var finderPSN = ProcessSerialNumber()
 
-    /// The Carbon handler changes the process table on the main thread, as the display manager does.
+    /// The Carbon handler posts process keys; the event loop owns the process table.
     nonisolated(unsafe) static let shared = ProcessManager()
 
     /// Called by Daemon.run on the main thread, before the event loop starts.
@@ -33,22 +33,21 @@ final class ProcessManager
         eventTypes.1 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppTerminated))
         eventTypes.2 = EventTypeSpec(eventClass: OSType(kEventClassApplication), eventKind: UInt32(kEventAppFrontSwitched))
 
-        autoreleasepool {
-            addRunningProcesses()
+        WM.shared.queue.sync {
+            WM.assumeIsolated {
+                autoreleasepool {
+                    ProcessManager.shared.addRunningProcesses()
+                }
+
+                ProcessManager.shared.frontPID = ProcessGetPIDC(SLS.frontProcess())
+                ProcessManager.shared.lastFrontPID = ProcessManager.shared.frontPID
+                ProcessManager.shared.switchEventTime = GetCurrentEventTime()
+            }
         }
-
-        frontPID = ProcessGetPIDC(SLS.frontProcess())
-        lastFrontPID = frontPID
-        switchEventTime = GetCurrentEventTime()
-
-        //
-        // NOTE: The handler gets the process manager as its context, unretained: ProcessManager.shared lives as long as the
-        // daemon, and the handler is never removed.
-        //
 
         var types = [eventTypes.0, eventTypes.1, eventTypes.2]
         var ref: EventHandlerRef?
-        let result = InstallEventHandler(self.target, self.handler, 3, &types, Unmanaged.passUnretained(self).toOpaque(), &ref) == noErr
+        let result = InstallEventHandler(self.target, self.handler, 3, &types, nil, &ref) == noErr
         handlerRef = ref
         return result
     }
@@ -75,7 +74,50 @@ final class ProcessManager
         return nil
     }
 
-    fileprivate func createProcess(_ psn: ProcessSerialNumber, _ pid: pid_t) -> Process?
+    func processLaunched(_ key: ProcessKey) -> Process?
+    {
+        guard processes[key] == nil else {
+
+            //
+            // NOTE: Carbon can report the same launch twice with the same PID and PSN (for example Steam). A PID and
+            // PSN pair cannot identify two simultaneous processes, so discard the duplicate notification.
+            //
+
+            return nil
+        }
+
+        let psn = ProcessSerialNumber(key)
+        let pid = ProcessGetPIDC(psn)
+        if ProcessManager.isBeingDebugged(pid) {
+            debug("ProcessManager.processLaunched: process with pid \(pid) is running under a debugger! ignoring..\n")
+            return nil
+        }
+
+        guard let process = createProcess(psn, pid) else { return nil }
+        processes[key] = process
+        return process
+    }
+
+    func processTerminated(_ key: ProcessKey) -> Process?
+    {
+        guard let process = processes.removeValue(forKey: key) else { return nil }
+
+        //
+        // NOTE: The event loop reads isTerminated. Posting the termination event after this release-store orders the
+        // write before its handler, matching the C version's compiler barrier.
+        //
+
+        process.isTerminated = true
+        process.unobserve()
+        return process
+    }
+
+    func processFrontSwitched(_ key: ProcessKey) -> Process?
+    {
+        processes[key]
+    }
+
+    private func createProcess(_ psn: ProcessSerialNumber, _ pid: pid_t) -> Process?
     {
         let processType = ProcessGetTypeC(psn)
 
@@ -147,10 +189,16 @@ private let processNameBlacklist =
 // 'XPC!'
 private let processTypeXPC: OSType = 0x58504321
 
+private extension ProcessSerialNumber
+{
+    init(_ key: ProcessKey)
+    {
+        self.init(highLongOfPSN: key.high, lowLongOfPSN: key.low)
+    }
+}
+
 private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ context: UnsafeMutableRawPointer?) -> OSStatus
 {
-    let pm = Unmanaged<ProcessManager>.fromOpaque(context!).takeUnretainedValue()
-
     var psn = ProcessSerialNumber()
     if GetEventParameter(event, EventParamName(kEventParamProcessID), EventParamType(typeProcessSerialNumber), nil, MemoryLayout<ProcessSerialNumber>.size, nil, &psn) != noErr {
         return -1
@@ -158,44 +206,11 @@ private func processHandler(_ ref: EventHandlerCallRef?, _ event: EventRef?, _ c
 
     switch Int(GetEventKind(event)) {
     case kEventAppLaunched:
-        if pm.process(for: psn) != nil {
-
-            //
-            // NOTE(asmvik): Some garbage applications (e.g Steam) are reported twice with the same PID and PSN for some hecking reason.
-            // It is by definition NOT possible for two processes to exist at the same time with the same PID and PSN.
-            // If we detect such a scenario we simply discard the dupe notification..
-            //
-
-            return noErr
-        }
-
-        let pid = ProcessGetPIDC(psn)
-        if ProcessManager.isBeingDebugged(pid) {
-            debug("processHandler: process with pid \(pid) is running under a debugger! ignoring..\n")
-            return noErr
-        }
-
-        guard let process = pm.createProcess(psn, pid) else { return noErr }
-
-        if pm.processes[ProcessKey(process.psn)] == nil { pm.processes[ProcessKey(process.psn)] = process }
-        EventLoop.post(.applicationLaunched(Handoff(value: process)))
+        EventLoop.post(.carbonProcessLaunched(ProcessKey(psn)))
     case kEventAppTerminated:
-        guard let process = pm.process(for: psn) else { return noErr }
-
-        //
-        // NOTE: The handlers on the event loop read terminated (isTerminated); posting the event below orders
-        // these writes before the handler of the event, as the compiler barrier of the C version did.
-        //
-
-        process.isTerminated = true
-        pm.processes.removeValue(forKey: ProcessKey(psn))
-        process.unobserve()
-
-        EventLoop.post(.applicationTerminated(Handoff(value: process)))
+        EventLoop.post(.carbonProcessTerminated(ProcessKey(psn)))
     case kEventAppFrontSwitched:
-        guard let process = pm.process(for: psn) else { return noErr }
-
-        EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
+        EventLoop.post(.carbonProcessFrontSwitched(ProcessKey(psn)))
     default:
         break
     }

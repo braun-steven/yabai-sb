@@ -56,6 +56,10 @@ struct Handoff<Value>: @unchecked Sendable
 /// The events of the event loop, with the context and param1 of each event as associated values.
 enum Event: Sendable
 {
+    case carbonProcessLaunched(ProcessKey)
+    case carbonProcessTerminated(ProcessKey)
+    case carbonProcessFrontSwitched(ProcessKey)
+    case applicationLaunchRetry(ProcessKey)
     case applicationLaunched(Handoff<Process>)
     case applicationTerminated(Handoff<Process>)
     case applicationFrontSwitched(Handoff<Process>)
@@ -123,6 +127,10 @@ extension EventHandler
     func handle(_ event: Event)
     {
         switch event {
+        case .carbonProcessLaunched(let key):           carbonProcessLaunched(key)
+        case .carbonProcessTerminated(let key):         carbonProcessTerminated(key)
+        case .carbonProcessFrontSwitched(let key):      carbonProcessFrontSwitched(key)
+        case .applicationLaunchRetry(let key):          applicationLaunchRetry(key)
         case .applicationLaunched(let process):          applicationLaunched(process.value)
         case .applicationTerminated(let process):        applicationTerminated(process.value)
         case .applicationFrontSwitched(let process):     applicationFrontSwitched(process.value)

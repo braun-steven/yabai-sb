@@ -305,11 +305,17 @@ enum Daemon
 
         SLS.registerNotification(SLS.connection, 804, handler: connectionNotificationHandler)
 
-        WindowManager.shared.initialize()
-        SpaceManager.shared.begin()
-        WindowManager.shared.begin()
-
-        WindowManager.shared.updateWindowNotifications()
+        //
+        // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue.
+        //
+        WM.shared.queue.sync {
+            WM.assumeIsolated {
+                WindowManager.shared.initialize()
+                SpaceManager.shared.begin()
+                WindowManager.shared.begin()
+                WindowManager.shared.updateWindowNotifications()
+            }
+        }
 
         let socketFile = "/tmp/yabai_\(String(cString: getenv("USER")!)).socket"
         if !MessageLoop.begin(socketPath: socketFile) {

@@ -22,6 +22,34 @@ extension DaemonState
     @Suite
     @WM struct MessageConfigTests
     {
+        @Test("config_option_table_is_complete")
+        func optionTableCoversNames()
+        {
+            let expected: Set<String> = [
+                "debug_output", "mouse_follows_focus", "focus_follows_mouse", "display_arrangement_order",
+                "builtin_display_last", "window_origin_display", "window_opacity", "window_opacity_duration",
+                "window_animation_duration", "window_animation_easing", "window_shadow", "menubar_opacity",
+                "active_window_opacity", "normal_window_opacity", "insert_feedback_color", "window_border",
+                "window_border_width", "window_border_hide_single", "active_window_border_color",
+                "normal_window_border_color", "tab_bar", "tab_bar_height", "tab_bar_offset", "tab_bar_font",
+                "tab_bar_icons", "tab_bar_style", "tab_bar_appearance", "tab_bar_backdrop", "tab_bar_card_padding",
+                "tab_bar_window_radius", "tab_bar_focused_color", "tab_bar_focused_text_color",
+                "tab_bar_inactive_color", "tab_bar_inactive_text_color", "tab_bar_unfocused_color",
+                "tab_bar_unfocused_text_color", "tab_bar_backdrop_color", "top_padding", "bottom_padding",
+                "left_padding", "right_padding", "window_gap", "layout", "auto_padding", "tree_default_orientation",
+                "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "mouse_modifier", "mouse_action1",
+                "mouse_action2", "mouse_drop_action", "external_bar", "skip_window_focus_animation", "space_layout",
+                "scratchpad_exclusive", "scratchpad_raise", "scratchpad_below", "scratchpad_grid",
+            ]
+            let actual = configOptionNames.map(\.rawValue)
+
+            #expect(configOptionTableIsComplete)
+            #expect(ConfigName.allCases.count == 59)
+            #expect(actual.count == 59)
+            #expect(Set(actual).count == actual.count)
+            #expect(Set(actual) == expected)
+        }
+
         @Test("tab_bar_appearance_config")
         func tabBarAppearanceConfig()
         {
@@ -95,6 +123,7 @@ extension DaemonState
             #expect(runConfig("scratchpad_grid\0off\0scratchpad_grid\0") == "off\n")
             #expect(runConfig("scratchpad_grid\04:4:1:1:2:2\0scratchpad_grid\0") == "4:4:1:1:2:2\n")
             #expect(runConfig("scratchpad_grid\00:4:1:1:2:2\0").contains("unknown value '0:4:1:1:2:2'"))
+            #expect(runConfig("scratchpad_grid\0-1:4:1:1:2:2\0scratchpad_grid\0") == "4294967295:4:1:1:2:2\n")
 
             #expect(runConfig("window_animation_duration\00\0window_animation_duration\0") == "0.000000\n")
             #expect(runConfig("window_animation_duration\0fast\0").contains("unknown value 'fast'"))
@@ -113,6 +142,36 @@ extension DaemonState
             #expect(runConfig("tree_workspace_layout\0tabbed\0tree_workspace_layout\0") == "tabbed\n")
             #expect(runConfig("tree_workspace_layout\0default\0tree_workspace_layout\0") == "default\n")
             #expect(runConfig("tree_workspace_layout\0stacked\0").contains("unknown value 'stacked'"))
+        }
+
+        @Test("numeric_and_color_config_values_validate_before_applying")
+        func numericAndColorConfigValuesValidateBeforeApplying()
+        {
+            let duration = Config.current.window.windowOpacityDuration
+            let insertionColor = Config.current.window.insertionFeedbackColor
+            let focusedColor = Config.current.tabBar.focusedColor
+            let focusedColorIsCustom = Config.current.tabBar.focusedColorIsCustom
+            defer {
+                Config.current.window.windowOpacityDuration = duration
+                Config.current.window.insertionFeedbackColor = insertionColor
+                Config.current.tabBar.focusedColor = focusedColor
+                Config.current.tabBar.focusedColorIsCustom = focusedColorIsCustom
+            }
+
+            #expect(runConfig("window_opacity_duration\00.25\0window_opacity_duration\0") == "0.250000\n")
+            #expect(Config.current.window.windowOpacityDuration == 0.25)
+            #expect(runConfig("window_opacity_duration\0fast\0").contains("unknown value 'fast'"))
+            #expect(Config.current.window.windowOpacityDuration == 0.25)
+
+            #expect(runConfig("insert_feedback_color\00xff123456\0insert_feedback_color\0") == "0xff123456\n")
+            #expect(Config.current.window.insertionFeedbackColor.argb == 0xff123456)
+            #expect(runConfig("insert_feedback_color\00\0").contains("unknown value '0'"))
+            #expect(Config.current.window.insertionFeedbackColor.argb == 0xff123456)
+
+            Config.current.tabBar.focusedColorIsCustom = false
+            #expect(runConfig("tab_bar_focused_color\00xffabcdef\0tab_bar_focused_color\0") == "0xffabcdef\n")
+            #expect(Config.current.tabBar.focusedColor.argb == 0xffabcdef)
+            #expect(Config.current.tabBar.focusedColorIsCustom)
         }
     }
 }

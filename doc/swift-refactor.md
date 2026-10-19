@@ -135,12 +135,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [~] | e12b2e71 | 3.1–3.4 done |
+| **3** | **Models and managers as types with methods** | [~] | 2a055797 | 3.1–3.5 done |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
 | 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
 | 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
-| 3.5 | Platform boundary | [ ] | | |
+| 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [ ] | | |
 | **4** | **Compiler-checked isolation** | [ ] | | |
 | 4.1 | Mouse event tap state | [ ] | | |
@@ -702,3 +702,28 @@ not here.
   compare with a whitespace-normalized diff. Methods named like Darwin functions (`UnixSocket.connect/close`) must
   call `Darwin.` explicitly, and a method `notify(_:)` would shadow the global `notify(_:_:)` (hence
   `ScriptingAddition.report(_:)`).
+
+### 2026-10-19 Subphase 3.5 [x]
+- Commits: 157cd2c7..2a055797 (7 pieces, each through a Haiku agent, plus this report).
+- Done: AX calls go through `AXUIElement`/`AXObserver`/`AXError` extensions in `Platform/AX.swift` (`attribute`,
+  `attributeValue`, typed getters, `setAttribute(_:to:)`, `perform`, `element(at:)`, `withEnhancedUserInterfaceDisabled`,
+  `AXError.name`); `AXElement`, `axErrorName` and `axEnhancedUIWorkaround` are gone. SkyLight calls for the daemon's own
+  windows are in the new `Platform/SkyLight+Windows.swift` (`SLS.region/newWindow/order(_:_:_:relativeTo:)` with
+  `SLS.Order`, setters, `moveWindow(s)`, `context`, `cornerRadius`, `SLS.Transaction`, connections, `captureImage`); the
+  rest in `SkyLight.swift` (`SLS.FrontProcessMode`, `setFrontProcess`, `postEventRecord`, `setMenuBarAlpha`,
+  `registerNotification`, `moveWindows(_:_:toSpaceByCompatID:)`, `associatedWindows`, `findWindow`, …). Focus helpers
+  take `ProcessSerialNumber` by value. `macho_find_symbol` is `MachOSymbol.address(of:inImage:)`. CPrivate lost five
+  unused declarations and `CONNECTION_CALLBACK`; C-era comments in CPrivate.h and Platform reworded.
+- Output changes: none (golden untouched).
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden at every commit; `swift build -c release`
+  after the CPrivate change. No live check (3.6).
+- Decisions: wrappers keep the connection as first parameter like the existing ones; border edge and animation proxy ids
+  stay raw `UInt32` (2.3) and are wrapped with `WindowID(_)` at the calls. Failure-only differences: `SLS.windowAlpha`
+  and `windowBounds` return nil on a non-success result (callers keep their old defaults); proxy and feedback windows
+  skip their setters when creation fails (old code called them with id 0); `SLS.newWindow(_:shape:options:tags:)`
+  returns nil without an empty region; `orderIn` no longer reuses a stale ordered-in flag after a failed query.
+- Next: 3.6 should exercise focus (with/without raise), scratchpad hide, space moves without SA, borders, tab bars,
+  insertion feedback and animations live, since these call paths changed shape. CGWindowListCreateC and other public
+  CoreGraphics calls stay outside `Platform/` (not SkyLight/AX).
+- Notes for the next agent: a C function typedef (`connection_callback`) does not work as a Swift parameter type; the
+  wrapper spells `@convention(c)` (pitfall added to AGENTS.md).

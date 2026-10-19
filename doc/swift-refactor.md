@@ -141,7 +141,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
-| 3.6 | Verification: done-when sweep, live check, benchmark | [ ] | | |
+| 3.6 | Verification: done-when sweep, live check, benchmark | [~] | 8816cfb1 | stopped by user in piece 1; see 3.6 handover |
 | **4** | **Compiler-checked isolation** | [ ] | | |
 | 4.1 | Mouse event tap state | [ ] | | |
 | 4.2 | Process table | [ ] | | |
@@ -727,3 +727,19 @@ not here.
   CoreGraphics calls stay outside `Platform/` (not SkyLight/AX).
 - Notes for the next agent: a C function typedef (`connection_callback`) does not work as a Swift parameter type; the
   wrapper spells `@convention(c)` (pitfall added to AGENTS.md).
+
+### 2026-10-19 Subphase 3.6 [~] (handover, stopped by user)
+- Commits: none. Last commit 8816cfb1. Nothing live was run (no deploy; installed binary untouched).
+- Sweep done (by the stopped agent): no raw SLS/AX calls outside `Platform/`, no manager `*_global()` accessors;
+  `stdout_global`/`environ_global` are CPrivate accessors for libc globals and stay. Two code leftovers remain:
+  1. `IPC/MessageLoop.swift`: `message_loop_begin`/`daemon_message_handle` → `enum MessageLoop { static func
+     begin(socketPath:); static func handle(_:) }`, call sites in `Yabai.swift` and `EventLoop.swift`, C-origin
+     comments in that file reworded.
+  2. `IPC/Serialize.swift`: drop the global `var connection` alias; uses → `SLS.connection`.
+- State: piece 1's Haiku agent was stopped mid-run. Its edits are **uncommitted and unreviewed** in
+  `EventLoop.swift`, `IPC/MessageLoop.swift`, `Yabai.swift` (not built or tested). Review that diff against piece 1
+  above; finish it (or `git checkout` those three files and redo it), build, test, commit.
+- Next: piece 2, then the live check (deploy, `live.py run` without T6/T7 as in 2.6, plus focus with/without raise,
+  scratchpad hide, space moves without SA, borders, tab bars, insertion feedback, animations), bench against the
+  baseline as in 2.6, restore the installed binary, return focus to the terminal. Then the phase agent marks phase 3
+  `[x]` and starts phase 4.

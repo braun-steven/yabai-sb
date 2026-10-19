@@ -4,10 +4,17 @@ import CPrivate
 import YabaiCore
 
 //
-// NOTE: The socket of the daemon (/tmp/yabai_$USER.socket). A thread accepts the connections and posts a
-// daemonMessage event for each; the handler of that event (MessageLoop.handle) reads the message and writes the
+// NOTE: The socket of the daemon (/tmp/yabai_$USER.socket). A thread accepts the connections, reads each message and
+// posts it as a daemonMessage event; the handler of that event (MessageLoop.handle) runs its commands and writes the
 // response on the event loop.
 //
+
+/// A message of a client: its tokens, read by the socket thread, and the socket its response goes to.
+struct DaemonMessage: Sendable
+{
+    let sockfd: Int32
+    let bytes: [UInt8]
+}
 
 enum MessageLoop
 {
@@ -58,15 +65,20 @@ enum MessageLoop
             if sockfd == -1 { continue }
 
             //
-            // NOTE: The message is read and the response written on the event loop thread. A client that
-            // stalls must not be able to block it, so reads and writes on the socket time out.
+            // NOTE: This thread reads the message, so a client that stalls cannot block the event loop; reads and
+            // writes on the socket time out, so it cannot block the other clients for long either.
             //
 
             var timeout = timeval(tv_sec: 1, tv_usec: 0)
             setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
             setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
-            EventLoop.post(.daemonMessage(sockfd: sockfd))
+            guard let bytes = readMessage(sockfd) else {
+                UnixSocket.close(sockfd)
+                continue
+            }
+
+            EventLoop.post(.daemonMessage(DaemonMessage(sockfd: sockfd, bytes: bytes)))
         }
     }
 
@@ -75,15 +87,15 @@ enum MessageLoop
     // null bytes after the message end it even when a client left out its empty last token.
     //
 
-    @WM static func handle(_ sockfd: Int32)
+    /// Reads the message of a client; nil when the client sent no complete message.
+    private static func readMessage(_ sockfd: Int32) -> [UInt8]?
     {
         var bytesToRead: Int32 = 0
         guard Darwin.read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size, bytesToRead >= 0 else {
-            UnixSocket.close(sockfd)
-            return
+            return nil
         }
 
-        var message = [CChar](repeating: 0, count: Int(bytesToRead) + 2)
+        var message = [UInt8](repeating: 0, count: Int(bytesToRead) + 2)
         var bytesRead = 0
 
         repeat {
@@ -94,17 +106,25 @@ enum MessageLoop
         } while bytesRead < bytesToRead
 
         guard bytesRead == bytesToRead else {
-            UnixSocket.close(sockfd)
-            return
+            return nil
         }
 
-        message.withUnsafeMutableBufferPointer { debugMessage("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
+        return message
+    }
+
+    /// Runs the commands of a message and sends the response.
+    @WM static func handle(_ message: DaemonMessage)
+    {
+        var text = message.bytes
+        text.withUnsafeMutableBufferPointer { buffer in
+            buffer.withMemoryRebound(to: CChar.self) { debugMessage("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
+        }
 
         var response = Response()
-        var tokens = Message(message.map { UInt8(bitPattern: $0) })
+        var tokens = Message(message.bytes)
         handleMessage(&response, &tokens)
 
-        ResponseWriter(sockfd: sockfd).send(response)
+        ResponseWriter(sockfd: message.sockfd).send(response)
     }
 }
 

@@ -120,7 +120,7 @@ enum Event: Sendable
     case dockDidChangePref
     case systemWoke
     case spaceLayoutReconcile(generation: UInt32)
-    case daemonMessage(sockfd: Int32)
+    case daemonMessage(DaemonMessage)
 }
 
 enum EventLoop
@@ -264,7 +264,7 @@ extension EventHandler
         case .dockDidChangePref:                         dockDidChangePref()
         case .systemWoke:                                systemWoke()
         case .spaceLayoutReconcile(let generation):      spaceLayoutReconcile(generation)
-        case .daemonMessage(let sockfd):                 MessageLoop.handle(sockfd)
+        case .daemonMessage(let message):                MessageLoop.handle(message)
         }
     }
 }

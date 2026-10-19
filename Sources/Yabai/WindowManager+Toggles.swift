@@ -9,14 +9,38 @@ extension WindowManager
 {
     private static var nativeFullscreenWaitIterations: Int { 30 }
 
-    func waitForNativeFullscreenTransition()
+    //
+    // NOTE: A window has left native fullscreen, but its display may still be animating. Keep waiting before
+    // interacting with the window, until the active space is a user space. The display manager API does not work for
+    // this on macOS Monterey. The wait is bounded because the destination space may never become active, such as
+    // after a cancelled transition.
+    //
+
+    private var isNativeFullscreenTransitionDone: Bool
+    {
+        SpaceID.active.map { $0.isUser } ?? false
+    }
+
+    /// Waits for the display animation after a window left native fullscreen. The event loop takes no other event
+    /// meanwhile, but other @WM code can run at each await.
+    func waitForNativeFullscreenTransition() async
     {
         var iteration = 0
-        while iteration < Self.nativeFullscreenWaitIterations && !(SpaceID.active.map { $0.isUser } ?? false) {
-            // NOTE: A window has left native fullscreen, but its display may still be animating. Keep waiting before
-            // interacting with the window. The display manager API does not work for this on macOS Monterey.
-            // The wait is bounded because the destination space may never become active, such as after a cancelled
-            // transition, and this synchronous wait blocks the event loop.
+        while iteration < Self.nativeFullscreenWaitIterations && !isNativeFullscreenTransitionDone {
+            try? await Task.sleep(for: .milliseconds(100))
+            iteration += 1
+        }
+    }
+
+    //
+    // NOTE: The synchronous wait of toggleNativeFullscreen blocks the event loop. Window commands still run
+    // synchronously; phase 6.4 of doc/swift-refactor.md decides whether they may await.
+    //
+
+    private func blockUntilNativeFullscreenTransitionIsDone()
+    {
+        var iteration = 0
+        while iteration < Self.nativeFullscreenWaitIterations && !isNativeFullscreenTransitionDone {
             usleep(100000)
             iteration += 1
         }
@@ -38,7 +62,7 @@ extension WindowManager
         target.ref.setAttribute(Window.fullscreenAttribute, to: !target.reportsFullscreen)
 
         // NOTE: After changing fullscreen, wait for the display animation to finish.
-        waitForNativeFullscreenTransition()
+        blockUntilNativeFullscreenTransitionIsDone()
     }
 
     private func toggleZoom(for target: Window, to zoom: ConZoom)

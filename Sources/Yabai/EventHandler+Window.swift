@@ -172,27 +172,37 @@ extension EventHandler
         }
     }
 
-    func windowResized(_ windowID: WindowID)
+    func windowResized(_ windowID: WindowID) async
+    {
+        guard let window = autoreleasepool(invoking: { applyResize(windowID) }) else { return }
+
+        await WindowManager.shared.waitForNativeFullscreenTransition()
+
+        autoreleasepool { manageAfterNativeFullscreen(window) }
+    }
+
+    /// Handles the resize up to the wait; returns the window when it has left native fullscreen.
+    private func applyResize(_ windowID: WindowID) -> Window?
     {
         let wm = WindowManager.shared
         let ms = MouseState.shared
 
-        guard let window = wm.window(for: windowID) else { return }
+        guard let window = wm.window(for: windowID) else { return nil }
 
         if !window.isValid {
             debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) has been marked invalid by the system, ignoring event..\n")
-            return
+            return nil
         }
 
         if window.application.isHidden {
             debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) was resized while the application is hidden, ignoring event..\n")
-            return
+            return nil
         }
 
         let newFrame = window.axFrame
         if newFrame.equalTo(window.frame) {
             debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(window.application.name) \(window.id)\n")
-            return
+            return nil
         }
 
         debug("EVENT_HANDLER_WINDOW_RESIZED: \(window.application.name) \(window.id)\n")
@@ -217,11 +227,7 @@ extension EventHandler
                 wm.unmanageWindow(window, from: view)
             }
         } else if wasFullscreen && !isFullscreen {
-            wm.waitForNativeFullscreenTransition()
-
-            if window.shouldBeManaged && wm.managedView(for: window) == nil {
-                if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }
-            }
+            return window
         } else {
             if ms.currentAction == .move && ms.window == window {
                 ms.windowFrame.size = ms.window.frame.size
@@ -236,6 +242,23 @@ extension EventHandler
                     }
                 }
             }
+        }
+
+        return nil
+    }
+
+    //
+    // NOTE: Other @WM code may have run during the wait: the window may have been destroyed or managed meanwhile.
+    //
+
+    private func manageAfterNativeFullscreen(_ window: Window)
+    {
+        let wm = WindowManager.shared
+
+        guard !window.isDestroyed, window.isValid, wm.window(for: window.id) == window else { return }
+
+        if window.shouldBeManaged && wm.managedView(for: window) == nil {
+            if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }
         }
     }
 

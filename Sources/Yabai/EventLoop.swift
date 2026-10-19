@@ -5,9 +5,11 @@ import YabaiCore
 //
 // NOTE: The event loop. Producers on other threads (AX observers, SkyLight notify procs, the NSWorkspace notifications,
 // the mouse event tap, the socket thread) only yield events into one AsyncStream; a single long-lived @WM task
-// consumes it and runs the handlers one at a time, in the order the events were posted. After each handler the
-// signals it pushed run. Events never get a Task {} of their own: separate tasks could run them out of order. The
-// handlers are EventHandler methods, in EventHandler*.swift.
+// consumes it and runs the handlers one at a time, in the order the events were posted. A handler that waits is
+// async: the loop awaits it before it takes the next event, but other @WM code (WM.sync blocks, C callbacks on
+// yabai.wm) can run at its await, so the handler re-checks the state it relies on afterwards. After each handler
+// the signals it pushed run. Events never get a Task {} of their own: separate tasks could run them out of order.
+// The handlers are EventHandler methods, in EventHandler*.swift.
 //
 
 /// The actor of the window manager state. Its executor is the serial queue of the event loop.
@@ -143,10 +145,8 @@ enum EventLoop
     {
         Task(priority: .medium) { @WM in
             for await event in events.stream {
-                autoreleasepool {
-                    EventHandler.shared.handle(event)
-                    EventSignals.shared.flush()
-                }
+                await EventHandler.shared.handle(event)
+                autoreleasepool { EventSignals.shared.flush() }
             }
         }
     }
@@ -154,9 +154,23 @@ enum EventLoop
 
 extension EventHandler
 {
-    /// Runs the handler of an event. The retained CF objects are taken here, so they are released when the handler
-    /// returns.
-    func handle(_ event: Event)
+    //
+    // NOTE: An autorelease pool cannot span an await. Handlers that wait drain their own pools around their
+    // synchronous parts; the others run in one pool per event.
+    //
+
+    /// Runs the handler of an event.
+    func handle(_ event: Event) async
+    {
+        switch event {
+        case .windowResized(let wid):                    await windowResized(wid)
+        default:                                         autoreleasepool { handleSynchronously(event) }
+        }
+    }
+
+    /// Runs the handler of an event that does not wait. The retained CF objects are taken here, so they are released
+    /// when the handler returns.
+    private func handleSynchronously(_ event: Event)
     {
         switch event {
         case .carbonProcessLaunched(let key):           carbonProcessLaunched(key)
@@ -173,7 +187,7 @@ extension EventHandler
         case .windowFocused(let wid):                    windowFocused(wid)
         case .windowFocusDeferred(let wid):              windowFocusDeferred(wid)
         case .windowMoved(let wid):                      windowMoved(wid)
-        case .windowResized(let wid):                    windowResized(wid)
+        case .windowResized:                             break // async, run by handle(_:)
         case .windowMinimized(let window):               windowMinimized(window)
         case .windowDeminimized(let window):             windowDeminimized(window)
         case .windowTitleChanged(let wid):               windowTitleChanged(wid)

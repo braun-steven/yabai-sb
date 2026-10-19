@@ -134,7 +134,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.3 | Typed IDs | [x] | c97529ef | own border/proxy windows stay raw |
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
-| 2.6 | Verification: live check, benchmark | [ ] | | |
+| 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
 | **3** | **Models and managers as types with methods** | [ ] | | |
 | 3.1 | Tree and views | [ ] | | |
 | 3.2 | Windows, applications, rules | [ ] | | |
@@ -419,15 +419,24 @@ shows other events still handled, live check and benchmark pass.
 Carried between phases; add, resolve or strike items here.
 
 - ~~Keep or delete the port-era benchmark report?~~ Kept (user, 2026-10-18).
-- Phase 1 had no live check (not required); the first live check of the refactor is phase 2's (2.6). It should
-  exercise rules (`rule --add app=… manage=off`, `rule --apply`, one-shot rules) and scratchpads, whose storage
-  changed.
+- ~~Phase 1 had no live check; rules and scratchpads (storage changed) need one.~~ Checked live in 2.6 (rules,
+  `rule --apply`, one-shot rules, scratchpad toggles across spaces): no regression.
 - Sentinel ids (2.4) changed a few paths that only the window server's "no id" reaches: the daemon no longer passes
   id 0 on (no view for space 0, no gesture/warp for display 0, no layout of a view whose space has no display, no
   `display_manager_focus_display` window search without a space). `query --windows` `is-visible` of a window on no
   space is now false (was true through `space_is_visible(0)`); `query --displays --window/--space` without a display,
-  `space`/`window --display` without a current space and `query --tree` without an active space now fail. The 2.6
-  live check should watch for regressions there.
+  `space`/`window --display` without a current space and `query --tree` without an active space now fail. 2.6 found
+  no regression in the reachable neighbours (hidden and minimized windows, the same queries and commands with ids,
+  one display), but could not produce a real nil id; later live checks keep watching.
+- Pre-existing crash (not from the refactor; seen in the C build since 2026-10-14 and again in 2.6 with the
+  installed pre-phase-2 build): quitting several applications quickly (`live.py cleanup`) traps in
+  `window_manager_group_window_frames` on `capture.window.application!` (`WindowAnimation.swift`), from
+  `windowDestroyed` → `space_manager_untile_window` → `tree_flush`; related reports trap in `window_unobserve`. A
+  window of an already terminated application is still laid out. Needs its own fix commit (not a refactor change).
+- Live checks run in an environment where synthetic mouse posting is denied (`mouse trusted` prints false even outside
+  the sandbox, 2026-10-19), so `live.py run` cannot run as is; 2.6 ran a temporary copy without the
+  focus-follows-mouse and alt-drag checks (T6, T7). Those two need the user's terminal or a granted posting
+  permission.
 - `Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
   unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.
 
@@ -571,3 +580,30 @@ not here.
 - Next: 2.6 (verification; the live check could include `rule --apply` and app hide/show with several windows).
 - Notes for the next agent: Dictionary iteration order differs between runs; any new loop over `wm.window`,
   `sm.view` or `pm.process` whose order can show must sort.
+
+### 2026-10-19 Subphase 2.6 [x]
+- Commits: none in code; verified c50e63e3 (plus this report).
+- Done: **Done when** sweep: no RawRepresentable pseudo-enums or global enum constants (only typed ids, OptionSets
+  and plain constants remain), `Table` gone, golden changes explained in 2.1–2.5. Live check of a release build of
+  HEAD (`deploy.sh install`, restored afterwards; one display, laptop only, like the baseline): `live.py run` without
+  T6/T7 23/23, `extra` 5/5 (cross-display and ctrl+arrow skipped); own checks 30/34 with the 4 misses being errors
+  in the check script, rerun by hand and passing: `rule --add … manage=off` + `rule --apply <label>`, `rule --apply
+  <args>` (no rule stored), one-shot rule (first new window floats, rule removed, second tiles), scratchpad assign /
+  toggle hide-show / toggle from space 5 and back / clear (also while hidden), hiding and showing TextEdit with 3
+  windows (leaves and rejoins the tree, `is-hidden`, focus moves off), minimize/deminimize, `query --displays
+  --window/--space`, `query --tree`, `space`/`window --display 1`, `display --focus` current. Probes compared with the
+  installed build gave identical results. No new crash report from HEAD.
+- Output changes: none.
+- Verification: `make`, `make test` (112 tests) at c50e63e3. Bench, standard fixture on space 4: matched flat tree
+  (autotiling off, float → tree, balance; two runs each, same session) HEAD tab/rotate/split medians 33.7/147.2/31.8 ms
+  vs installed 47.9/141.8/41.5 ms (rotate +3.8%, focus faster). Setup's nested tree as in phase 1: HEAD
+  31.9/129.5/32.5 ms vs phase-1 baseline 29.2/124.9/30.0 ms (+9%, +4%, +8%; within 10%). A first installed run on
+  the nested tree before the deploy gave 24.0/111.9/22.7 ms, but the restart rebuilt a different tree, so it is not
+  a matched pair.
+- Decisions: a stale `~/.local/state/yabai/yabai.before-deploy` (2026-10-18 09:29, older than the binary
+  `update-yabai-fork` installed at 21:59) would have made `deploy.sh restore` install an old build; it was moved to
+  `yabai.stale-before-deploy-20261018` before the deploy, and restore put back the current binary (sha256 eabeafba…).
+- Next: phase 2 done-when holds; phase 3. The crash and mouse-posting items are in **Open issues**.
+- Notes for the next agent: the restored installed build crashed once in `live.py cleanup` (pre-existing, Open
+  issues); launchd restarts it, which resets layouts again. Check `crashes.py` and which binary's UUID a report names
+  (`dwarfdump --uuid`) before blaming the build under test.

@@ -156,12 +156,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | 537f9265 | |
+| **6** | **Async event loop and Observation** | [~] | ade2e794 | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
 | 6.4 | IPC | [x] | 537f9265 | socket thread reads, serial queue writes; commands stay synchronous |
-| 6.5 | Observation | [ ] | | |
+| 6.5 | Observation | [x] | ade2e794 | `ConfigObserver` drives borders, tab bars, opacity, shadows; model refreshes stay explicit |
 | 6.6 | Animation completion | [ ] | | |
 | 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [ ] | | |
 
@@ -442,10 +442,11 @@ Carried between phases; add, resolve or strike items here.
   unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.~~
   Kept `UInt32` in 5.4 (behavior stays): a9f64b98 documents the semantics in `Grid` and tests them
   (`gridScanPreservesNegativeBitsAndPartialValues`, `scratchpad_grid -1:…` prints 4294967295).
-- Config still holds two temporary runtime overrides: the menu-open handler sets `window.focusFollowsMouse` to
+- ~~Config still holds two temporary runtime overrides: the menu-open handler sets `window.focusFollowsMouse` to
   disabled and restores it afterwards, and scratchpad/space operations zero `animation.duration` around their frame
   changes. Behavior is unchanged; phase 6.5 (Observation of `Config`) should move them to runtime state, so that
-  observers do not see these as config changes.
+  observers do not see these as config changes.~~ Moved in 6.5 (ba1c96ed): `EventHandler.focusFollowsMouse` and
+  `WindowManager.withoutAnimations`.
 - 3.6's live check did not cover a session with the scripting addition unloaded (space moves without SA); a later
   live check should.
 - 5.6: `query --tree` over the socket took 0.41 → 0.48 ms (+0.07 ms) on a flat 5-window space; the `perf.py` metrics
@@ -1136,3 +1137,27 @@ not here.
 - Next: 6.5 Observation. 6.7 should check IPC live (a `nc -U` client that sends nothing no longer stalls events).
 - Notes for the next agent: the socket fd is closed by the response queue with `Darwin.close` (as before), not
   `UnixSocket.close` (which also shuts it down).
+
+### 2026-10-20 Subphase 6.5 [x]
+- Commits: ba1c96ed..(this record)
+- Done: `Config` is a `@WM @Observable final class` (`static let current`, `resetToDefaults()`); `ConfigObserver`
+  tracks `border`/`tabBar`/`window` with `withObservationTracking`, whose `onChange` posts one `.configChanged`;
+  its handler re-tracks and diffs against the last applied values: `Border.refreshAll()`, `TabBar.applyConfig`
+  (rebuild when `TabBarConfig.needsRebuild`, else redraw), `WindowManager.applyWindowConfig` (opacity, menu bar
+  alpha, shadows). The config setters no longer refresh renderers; `setPurifyMode`, `setMenuBarOpacity`,
+  `set{Active,Normal}WindowOpacity`, `setWindowOpacityEnabled` are gone. Open issue resolved: the open-menu
+  override is `EventHandler.focusFollowsMouse`, animation zeroing is `WindowManager.withoutAnimations`.
+- Output changes: golden unchanged. While a menu is open, `config focus_follows_mouse` prints the configured mode
+  (was `off`) and a mode set then survives the menu closing (CHANGELOG).
+- Verification: make, make test (73 + 61) pass at each commit; no live run (6.7).
+- Decisions: model state (focus, frames, tab entries) is not made `@Observable`: every renderer update from it is
+  order-bound (border hand-over and opacity on focus, borders after the tree flush, frames via SkyLight
+  notifications, tab cards after raising tabs), so it would have no observer; NOTEs at `Border.refresh`,
+  `TabBar.refresh(for:)`, `windowDidReceiveFocus` and the flush. Renderer updates run in a following event, not
+  `Observations` tasks, to keep the single ordered stream. Setting a value equal to the current one no longer
+  re-applies it (e.g. re-running `menubar_opacity 0.5` does not reset an alpha macOS changed). Setters that the next
+  commands rely on stay explicit (event tap mask, mouse modifier mirror, scratchpad layers, space layouts).
+- Next: 6.6. 6.7 should check live that config changes (border, tab bar height/colors, opacity, menubar opacity,
+  window_shadow) still apply, and that focus-follows-mouse stays off while a menu is open.
+- Notes for the next agent: renderers apply after the response is written; a script that queries yabai next still
+  sees the update (the event precedes its message), but one reading the window server at once may not.

@@ -74,7 +74,7 @@ extension WindowManager
                         created.destroy()
                     }
                 } else {
-                    debug("window_manager_begin: \(describe(candidate)) is not observable, subscribing to activationPolicy changes\n")
+                    debug("window_manager_begin: \(candidate.nameAndPID) is not observable, subscribing to activationPolicy changes\n")
                     candidate.observeActivationPolicy()
                 }
             }
@@ -86,5 +86,14 @@ extension WindowManager
             focusedWindowPSN = target.application.psn
             setWindowOpacity(target, to: activeWindowOpacity)
         }
+    }
+
+    /// Requests the SkyLight notifications of all known windows. Daemon.run calls it before the event loop runs, so it is not @WM.
+    func updateWindowNotifications()
+    {
+        // NOTE(asmvik): Subscribe to all windows because of the window destroyed (and ordered) notifications
+        var windowIDs = window.values.map { $0.id.rawValue }
+
+        SLSRequestNotificationsForWindows(SLS.connection, &windowIDs, Int32(windowIDs.count))
     }
 }

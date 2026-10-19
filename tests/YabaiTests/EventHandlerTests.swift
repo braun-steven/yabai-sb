@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 @testable import Yabai
 import CPrivate
+import YabaiCore
 
 @Test("mouse_event_coalescing")
 func mouseEventCoalescing()
@@ -15,15 +16,15 @@ func mouseEventCoalescing()
     //
 
     _ = pending.wrappingAdd(3, ordering: .acquiringAndReleasing)
-    let first = mouseEventIsStale(pending)
-    let second = mouseEventIsStale(pending)
-    let third = mouseEventIsStale(pending)
+    let first = EventHandler.isStale(pending)
+    let second = EventHandler.isStale(pending)
+    let third = EventHandler.isStale(pending)
     #expect(first)
     #expect(second)
     #expect(!third)
 
     _ = pending.wrappingAdd(1, ordering: .acquiringAndReleasing)
-    let only = mouseEventIsStale(pending)
+    let only = EventHandler.isStale(pending)
     #expect(!only)
     #expect(pending.load(ordering: .relaxed) == 0)
 }
@@ -35,20 +36,20 @@ func applicationLaunchRetryBackoff()
     // NOTE: The delay doubles from 100ms and is capped at 5s; delays are compared in milliseconds.
     //
 
-    #expect(Int(applicationLaunchRetryDelay(0) * 1000 + 0.5) == 100)
-    #expect(Int(applicationLaunchRetryDelay(1) * 1000 + 0.5) == 200)
-    #expect(Int(applicationLaunchRetryDelay(5) * 1000 + 0.5) == 3200)
-    #expect(Int(applicationLaunchRetryDelay(6) * 1000 + 0.5) == 5000)
-    #expect(Int(applicationLaunchRetryDelay(40) * 1000 + 0.5) == 5000)
+    #expect(Int(Process.launchRetryDelay(0) * 1000 + 0.5) == 100)
+    #expect(Int(Process.launchRetryDelay(1) * 1000 + 0.5) == 200)
+    #expect(Int(Process.launchRetryDelay(5) * 1000 + 0.5) == 3200)
+    #expect(Int(Process.launchRetryDelay(6) * 1000 + 0.5) == 5000)
+    #expect(Int(Process.launchRetryDelay(40) * 1000 + 0.5) == 5000)
 
     var total: Float = 0
     var attempts = 0
-    while applicationLaunchCanRetry(attempts) {
-        total += applicationLaunchRetryDelay(attempts)
+    while Process.canRetryLaunch(attempts) {
+        total += Process.launchRetryDelay(attempts)
         attempts += 1
     }
 
-    #expect(attempts == applicationLaunchMaxAttempts)
+    #expect(attempts == Process.maxLaunchAttempts)
     #expect(total > 30 && total < 40)
 }
 
@@ -57,11 +58,11 @@ func mouseResizeHandle()
 {
     let frame = CGRect(x: 100, y: 100, width: 200, height: 100)
 
-    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 110)) == [.left, .top])
-    #expect(mouseResizeDirection(frame, CGPoint(x: 290, y: 190)) == [.right, .bottom])
+    #expect(ResizeHandle(at: CGPoint(x: 110, y: 110), in: frame) == [.left, .top])
+    #expect(ResizeHandle(at: CGPoint(x: 290, y: 190), in: frame) == [.right, .bottom])
 
     // NOTE: on a center line only one edge is dragged
-    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 190)) == .bottom)
-    #expect(mouseResizeDirection(frame, CGPoint(x: 110, y: 150)) == .left)
-    #expect(mouseResizeDirection(frame, CGPoint(x: 200, y: 150)) == [])
+    #expect(ResizeHandle(at: CGPoint(x: 200, y: 190), in: frame) == .bottom)
+    #expect(ResizeHandle(at: CGPoint(x: 110, y: 150), in: frame) == .left)
+    #expect(ResizeHandle(at: CGPoint(x: 200, y: 150), in: frame) == [])
 }

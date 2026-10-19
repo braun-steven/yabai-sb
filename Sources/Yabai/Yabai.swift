@@ -311,7 +311,7 @@ enum Daemon
         SpaceManager.shared.begin()
         WindowManager.shared.begin()
 
-        update_window_notifications()
+        WindowManager.shared.updateWindowNotifications()
 
         let socketFile = "/tmp/yabai_\(String(cString: getenv("USER")!)).socket"
         if !message_loop_begin(socketFile) {

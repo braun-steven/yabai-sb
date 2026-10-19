@@ -149,10 +149,10 @@ private func mouseHandleDockGesture(_ event: CGEvent)
           event.getIntegerValueField(DockSwipe.motionField) == DockSwipe.motionHorizontal else { return }
     let phase = event.getIntegerValueField(DockSwipe.phaseField)
     if phase == DockSwipe.phaseBegan {
-        pending_gesture_set(true)
+        pendingGesture.store(true, ordering: .releasing)
     } else if phase == DockSwipe.phaseEnded || phase == DockSwipe.phaseCancelled {
-        pending_gesture_set(false)
-        last_gesture_time_set(OSTimer.now)
+        pendingGesture.store(false, ordering: .releasing)
+        lastGestureTime.store(OSTimer.now, ordering: .releasing)
     }
 }
 
@@ -200,14 +200,14 @@ private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event
             return nil
         }
         ms.dragDetected = true
-        pending_mouse_dragged_add()
+        _ = pendingMouseDragged.wrappingAdd(1, ordering: .acquiringAndReleasing)
         EventLoop.post(.mouseDragged(Handoff(value: .passRetained(event))))
     case .mouseMoved:
         TabBar.updatePointer(event.location, pressed: false)
         if !ms.tracksFocus.load(ordering: .relaxed) { return .passUnretained(event) }
         let mod = MouseModifiers(event.flags)
         if mod == ms.modifier.modifiers { return .passUnretained(event) }
-        pending_mouse_moved_add()
+        _ = pendingMouseMoved.wrappingAdd(1, ordering: .acquiringAndReleasing)
         EventLoop.post(.mouseMoved(Handoff(value: .passRetained(event)), modifiers: mod))
     default:
         if type.rawValue == DockSwipe.eventType { mouseHandleDockGesture(event) }

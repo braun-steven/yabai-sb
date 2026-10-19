@@ -36,6 +36,30 @@ final class Process
     }
 
     var hasRunningApplication: Bool { runningApplicationPointer.load(ordering: .relaxed) != nil }
+
+    /// The name and pid of the process, as the debug output prints them.
+    var nameAndPID: String { "\(name) (\(pid))" }
+}
+
+extension Process
+{
+    //
+    // NOTE: An application that cannot be observed yet is tried again with a growing delay. After
+    // maxLaunchAttempts attempts (about 36s) it is given up on, until the user activates it, so that an
+    // application that never responds is not polled forever.
+    //
+
+    static let maxLaunchAttempts = 12
+
+    static func launchRetryDelay(_ attempt: Int) -> Float
+    {
+        min(0.1 * Float(1 << min(attempt, 16)), 5.0)
+    }
+
+    static func canRetryLaunch(_ attempt: Int) -> Bool
+    {
+        attempt < maxLaunchAttempts
+    }
 }
 
 /// A process serial number as a dictionary key: `ProcessSerialNumber` is not `Hashable`.

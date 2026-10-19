@@ -127,7 +127,7 @@ final class ProcessManager
             guard let process = createProcess(psn, pid) else { continue }
 
             if process.name.bytesEqual("Finder") {
-                debug("process_manager_add_running_processes: \(describe(process)) was found! caching psn..\n")
+                debug("process_manager_add_running_processes: \(process.nameAndPID) was found! caching psn..\n")
                 finderPSN = psn
             }
 

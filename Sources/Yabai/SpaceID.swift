@@ -132,7 +132,7 @@ extension SpaceID
         let front = SLS.frontProcess()
 
         let wm = WindowManager.shared
-        let pendingFocus = pending_window_focus()
+        let pendingFocus = pendingWindowFocus.load(ordering: .acquiring)
 
         if wm.canUseKnownFocus(front: front, pendingFocus: pendingFocus) {
             if let focusedID = wm.focusedWindowID, let target = wm.window(for: focusedID) { return target }

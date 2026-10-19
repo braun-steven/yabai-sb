@@ -154,7 +154,7 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     case kAXCreatedNotification:
         EventLoop.post(.windowCreated(Handoff(value: Unmanaged.passRetained(element))))
     case kAXFocusedWindowChangedNotification:
-        pending_window_focus_set(true)
+        pendingWindowFocus.store(true, ordering: .releasing)
         EventLoop.post(.windowFocused(windowID: element.windowID))
     case kAXWindowMovedNotification:
         if let windowID = element.windowID { EventLoop.post(.windowMoved(windowID: windowID)) }

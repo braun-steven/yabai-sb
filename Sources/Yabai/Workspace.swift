@@ -93,7 +93,7 @@ final class Workspace: NSObject, Sendable
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.activationPolicy, context)
 
                 process.policy = result
-                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(describe(process))\n")
+                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(process.nameAndPID)\n")
                 EventLoop.post(.applicationLaunched(Handoff(value: process)))
             }
         }
@@ -115,7 +115,7 @@ final class Workspace: NSObject, Sendable
 
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.finishedLaunching, context)
 
-                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: \(describe(process)) finished launching\n")
+                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: \(process.nameAndPID) finished launching\n")
                 EventLoop.post(.applicationLaunched(Handoff(value: process)))
             }
         }
@@ -256,7 +256,7 @@ extension Process
         if let application = runningApplication {
             application.addObserver(Workspace.shared, forKeyPath: keyPath, options: [.initial, .new], context: observationContext)
         } else {
-            debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(describe(self))\n")
+            debug("workspace_application_add_observer: could not subscribe to \(keyPath) changes for \(self.nameAndPID)\n")
         }
     }
 

@@ -1,5 +1,6 @@
 import ApplicationServices
 import Dispatch
+import Synchronization
 import YabaiCore
 
 //
@@ -9,7 +10,7 @@ import YabaiCore
 // async: the loop awaits it before it takes the next event, but other @WM code (WM.sync blocks, C callbacks on
 // yabai.wm) can run at its await, so the handler re-checks the state it relies on afterwards. After each handler
 // the signals it pushed run. Events never get a Task {} of their own: separate tasks could run them out of order.
-// The handlers are EventHandler methods, in EventHandler*.swift.
+// Delays post their event later through post(_:after:). The handlers are EventHandler methods, in EventHandler*.swift.
 //
 
 /// The actor of the window manager state. Its executor is the serial queue of the event loop.
@@ -134,6 +135,49 @@ enum EventLoop
     static func post(_ event: Event)
     {
         events.continuation.yield(event)
+    }
+
+    //
+    // NOTE: A delayed event waits in delayedEvents until its deadline, so the loop keeps handling the events posted
+    // meanwhile; handlers never await a delay themselves. A task sleeps until the deadline and then posts every due
+    // event, in deadline order and in posting order for equal deadlines: two sleeping tasks can wake in either
+    // order, but the delayed events keep the order of their deadlines (two deferred focus activations must not
+    // swap). The tasks only sleep and post, they never run a handler. Posting under the lock keeps two waking tasks
+    // from interleaving their events.
+    //
+
+    private struct DelayedEvent: Sendable
+    {
+        let deadline: ContinuousClock.Instant
+        let event: Event
+    }
+
+    private static let delayedEvents = Mutex<[DelayedEvent]>([])
+
+    /// Posts an event after a delay. Callable from any thread.
+    static func post(_ event: Event, after delay: Duration)
+    {
+        let deadline = ContinuousClock.now + delay
+        delayedEvents.withLock { pending in
+            let index = pending.firstIndex { $0.deadline > deadline } ?? pending.endIndex
+            pending.insert(DelayedEvent(deadline: deadline, event: event), at: index)
+        }
+
+        Task {
+            try? await Task.sleep(until: deadline, clock: .continuous)
+            postDueEvents()
+        }
+    }
+
+    /// Posts the delayed events whose deadline has passed.
+    private static func postDueEvents()
+    {
+        let now = ContinuousClock.now
+        delayedEvents.withLock { pending in
+            let count = pending.prefix { $0.deadline <= now }.count
+            for delayed in pending.prefix(count) { post(delayed.event) }
+            pending.removeFirst(count)
+        }
     }
 
     //

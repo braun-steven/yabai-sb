@@ -166,7 +166,7 @@ private enum WorkspaceLayout: String, CaseIterable
         return {
             Config.current.space.spaceLayouts = layouts
             Config.current.space.spaceLayoutSpec = layoutSpec
-            SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true)
+            SpaceManager.shared.scheduleSpaceLayout(after: .zero, resetPasses: true)
         }
     })
 }
@@ -313,7 +313,7 @@ private enum WorkspaceLayout: String, CaseIterable
     boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocus }, set: { Config.current.window.mouseFollowsFocus = $0 }),
     focusFollowsMouseOption(),
     choiceOption(.displayArrangementOrder, choices: DisplayArrangementOrder.allCases, get: { Config.current.display.order }, set: { Config.current.display.order = $0 }),
-    boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0; SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
+    boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0; SpaceManager.shared.scheduleSpaceLayout(after: .zero, resetPasses: true) }),
     choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.origin }, set: { Config.current.window.origin = $0 }),
     boolOption(.scratchpadExclusive, get: { Config.current.scratchpad.exclusive }, set: { Config.current.scratchpad.exclusive = $0 }),
     boolOption(.scratchpadRaise, get: { Config.current.scratchpad.raise }, set: { Config.current.scratchpad.raise = $0 }),

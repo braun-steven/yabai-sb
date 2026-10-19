@@ -1,5 +1,4 @@
 import CoreGraphics
-import Dispatch
 import Foundation
 import AppKit
 import CPrivate
@@ -41,9 +40,7 @@ extension EventHandler
         debug("EVENT_HANDLER_MISSION_CONTROL_ENTER:\n")
         MissionControl.shared.mode = .show
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
-            EventLoop.post(.missionControlCheckForExit)
-        }
+        EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100))
 
         EventSignals.shared.push(.missionControlEnter, .missionControl(.show))
     }
@@ -69,13 +66,9 @@ extension EventHandler
         }
 
         if found {
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
-                EventLoop.post(.missionControlCheckForExit)
-            }
+            EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100))
         } else {
-            DispatchQueue.main.asyncAfter(deadline: .now()) {
-                EventLoop.post(.missionControlExit)
-            }
+            EventLoop.post(.missionControlExit)
         }
     }
 
@@ -158,7 +151,7 @@ extension EventHandler
             wm.centerMouse(on: focusedWindow)
         }
 
-        SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
+        SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
         EventSignals.shared.push(.systemWoke)
     }
 
@@ -170,7 +163,7 @@ extension EventHandler
         if Config.current.space.spaceLayouts.isEmpty { return }
 
         if MissionControl.shared.isActive {
-            sm.scheduleSpaceLayout(after: 0.5, resetPasses: false)
+            sm.scheduleSpaceLayout(after: .milliseconds(500), resetPasses: false)
             return
         }
 
@@ -182,8 +175,8 @@ extension EventHandler
 
         let result = sm.reconcileSpaceLayout()
         switch result {
-        case .performed: sm.scheduleSpaceLayout(after: 0.5, resetPasses: false)
-        case .failed:    sm.scheduleSpaceLayout(after: 1.0, resetPasses: false)
+        case .performed: sm.scheduleSpaceLayout(after: .milliseconds(500), resetPasses: false)
+        case .failed:    sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
         case .done:      sm.spaceLayoutPasses = 0
         }
     }

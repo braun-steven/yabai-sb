@@ -18,7 +18,7 @@ extension EventHandler
             debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
             SpaceManager.shared.view(for: sid)
             EventSignals.shared.push(.spaceCreated, .space(sid))
-            SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: false)
+            SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
         }
     }
 
@@ -32,7 +32,7 @@ extension EventHandler
             sm.views.removeValue(forKey: sid)
             view.destroy()
             EventSignals.shared.push(.spaceDestroyed, .space(sid))
-            sm.scheduleSpaceLayout(after: 1.0, resetPasses: false)
+            sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
         }
     }
 
@@ -121,7 +121,7 @@ extension EventHandler
         debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
         SpaceManager.shared.handleDisplayAdd(did)
         WindowManager.shared.handleDisplayAddAndRemove(did)
-        SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
+        SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
         EventSignals.shared.push(.displayAdded, .display(did))
     }
 
@@ -130,7 +130,7 @@ extension EventHandler
         debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
         _ = DisplayManager.shared.labels.remove(id: did)
         WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
-        SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
+        SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
         EventSignals.shared.push(.displayRemoved, .display(did))
     }
 
@@ -138,7 +138,7 @@ extension EventHandler
     {
         debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
         SpaceManager.shared.markSpacesInvalid()
-        SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
+        SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
         EventSignals.shared.push(.displayMoved, .display(did))
     }
 

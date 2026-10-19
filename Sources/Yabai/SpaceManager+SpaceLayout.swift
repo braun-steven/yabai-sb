@@ -1,5 +1,4 @@
 import CoreGraphics
-import Dispatch
 import AppKit
 import CPrivate
 import YabaiCore
@@ -109,8 +108,8 @@ extension SpaceManager
     // resetPasses restarts the limit of passes for a new change of the displays.
     //
 
-    /// Posts the space layout reconcile event for the current generation after delay seconds.
-    func scheduleSpaceLayout(after delay: Double, resetPasses: Bool)
+    /// Posts the space layout reconcile event for the current generation after the delay.
+    func scheduleSpaceLayout(after delay: Duration, resetPasses: Bool)
     {
         if Config.current.space.spaceLayouts.isEmpty { return }
         if resetPasses { spaceLayoutPasses = 0 }
@@ -118,8 +117,6 @@ extension SpaceManager
         spaceLayoutGeneration &+= 1
         let generation = spaceLayoutGeneration
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            EventLoop.post(.spaceLayoutReconcile(generation: generation))
-        }
+        EventLoop.post(.spaceLayoutReconcile(generation: generation), after: delay)
     }
 }

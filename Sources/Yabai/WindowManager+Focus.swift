@@ -1,5 +1,4 @@
 import ApplicationServices
-import Dispatch
 import CPrivate
 import AppKit
 import YabaiCore
@@ -84,10 +83,7 @@ extension WindowManager
             // so that the event loop keeps handling events in the meantime.
             //
 
-            let windowID = target.id
-            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(40)) {
-                EventLoop.post(.windowFocusDeferred(windowID: windowID))
-            }
+            EventLoop.post(.windowFocusDeferred(windowID: target.id), after: .milliseconds(40))
 
             return
         }

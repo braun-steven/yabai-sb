@@ -19,11 +19,14 @@ agent → Haiku subagents.
 1. Read `AGENTS.md`, this file's **Rules**, the **Status board**, the section of the phase you take and the latest
    **Reports**. Skim the **Target conventions**. Do not read source code or change it yourself: that is the subphase
    agents' job, and your context must last for the whole phase.
-2. Take the first phase in the Status board that is not `[x]`. Work only on that phase.
+2. Take the first phase in the Status board that is not `[x]`. Work only on that phase. Track it with the Claude
+   Code Task tools (see **Progress tracking**): check `TaskList`, then create one task per subphase that is not
+   `[x]` and does not have a task yet.
 3. For each of its subphases that is not `[x]`, in board order:
    - Spawn one subphase agent with the Agent tool: `subagent_type: "general-purpose"`, `model: "opus"` (Opus 5.5),
      `effort: "medium"`, and the prompt template below. Spawn exactly one at a time and wait for its completion
      notification before doing anything else: subphase agents share the working tree, the build directory and git.
+     Set its task `in_progress` (owner: the agent id) when you spawn it, and give the task id in the prompt.
    - Before a subphase with live work (deploys, harness, bench, perf; usually the verification subphase), tell the
      user in your reply that a live test is about to start, that yabai will restart and layouts reset, and that they
      must not touch keyboard or touchpad until the terminal window is focused again.
@@ -31,7 +34,7 @@ agent → Haiku subagents.
      uncommitted, send the agent back with SendMessage to commit it before you go on.
      Do not trust the summary alone: if the report does not state that `make` and `make test` passed at its last
      commit, run both through `output-summarizer`.
-   - Row `[x]`: go on with the next subphase. Row `[~]` (context ran out or the work was larger than expected):
+   - Row `[x]`: set its task `completed` and go on with the next subphase. Row `[~]` (context ran out or the work was larger than expected):
      spawn a fresh subphase agent for the same subphase; it continues from the report. Stop and report to the user
      if two agents in a row made no progress on a subphase, or if the build or tests fail at HEAD.
    - The agent returned `BLOCKED: <question>` (a decision only the user can make): ask the user with
@@ -49,6 +52,7 @@ Prompt template for a subphase agent (fill in the angle brackets, drop the optio
 ```
 You are a subphase agent for the yabai Swift refactor. Do subphase <n.m> (<title>) of phase <n> in
 doc/swift-refactor.md and nothing else. Follow that file's "Subphase agent" section.
+Your subphase task is #<task id>.
 <Optional: An earlier agent left this subphase [~]; continue from its report.>
 <Optional: The user decided: <answer to the BLOCKED question>.>
 End your final message with exactly one of:
@@ -94,6 +98,23 @@ End your final message with exactly one of:
    commit before you return, on `DONE`, `PARTIAL` and `BLOCKED` alike, so `git status` is clean. A fresh agent with no
    other context must be able to continue from it. When your context runs low, stop at a clean commit and return
    `PARTIAL` rather than starting another step.
+
+### Progress tracking
+
+All three roles keep progress visible with the Claude Code Task tools (`TaskCreate`, `TaskUpdate`, `TaskList`,
+`TaskGet`; load them with `ToolSearch` if they are deferred). Without them (e.g. Codex), skip this section.
+
+- **Phase agent:** one task per subphase, subject `<n.m> <title>`. `in_progress` with the subphase agent as owner
+  while it runs, `completed` once its row is `[x]`. A `[~]` row keeps its task `in_progress` for the next agent.
+- **Subphase agent:** after writing the plan, one task per piece, subject `<n.m> piece: <change>`, blocked by the
+  previous piece where order matters. `in_progress` with the Haiku agent as owner when you spawn it; `completed` once
+  its diff is checked and committed. Update your subphase task's description with a one-line status after each
+  commit (e.g. "2 of 4 pieces committed, at abc1234"). Do not complete the subphase task; the phase agent does.
+  Pieces left on `PARTIAL` or `BLOCKED` stay open, with what remains in their description.
+- **Haiku subagent:** the subphase agent gives it its piece's task id. Add a one-line status to the task's
+  description when it finishes (done, or what is unfinished or unclear). It never sets `completed`.
+- Check `TaskList` before creating tasks so a resumed or fresh agent reuses open tasks instead of duplicating them.
+  Tasks are a live view only; the Status board and Reports stay the record.
 
 ## Status board
 

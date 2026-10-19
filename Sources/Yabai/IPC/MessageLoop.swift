@@ -75,12 +75,7 @@ enum MessageLoop
     // null bytes after the message end it even when a client left out its empty last token.
     //
 
-    static func handle(_ sockfd: Int32)
-    {
-        WM.assumeIsolated { MessageLoop.read(sockfd) }
-    }
-
-    @WM private static func read(_ sockfd: Int32)
+    @WM static func handle(_ sockfd: Int32)
     {
         var bytesToRead: Int32 = 0
         guard Darwin.read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size, bytesToRead >= 0 else {

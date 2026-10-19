@@ -1,6 +1,11 @@
 import CPrivate
 import YabaiCore
 
+//
+// NOTE: SelectorContext is a nonisolated YabaiCore protocol, and the lookups read the @WM managers, so the conformance
+// is isolated to @WM. The IPC handlers that parse selectors run on the event loop, so they may use it.
+//
+
 /// The selectors look up displays, spaces and windows in the managers.
 @WM struct CSelectorContext: @WM SelectorContext
 {

@@ -27,9 +27,10 @@ actor WM
     }
 
     //
-    // NOTE: Runs code isolated to @WM from a synchronous context that is already on the queue, e.g. a callback
-    // that the event loop called. It traps when called from another thread, like MainActor.assumeIsolated, which a
-    // custom global actor does not get from the standard library.
+    // NOTE: Runs code isolated to @WM from a synchronous context that is already on the queue but has no static
+    // isolation: the block of EventLoop.post and WM.sync. Code that is @WM itself calls @WM code directly. It traps
+    // when called from another thread, like MainActor.assumeIsolated, which a custom global actor does not get from
+    // the standard library.
     //
 
     static func assumeIsolated<T>(_ operation: @WM () throws -> T) rethrows -> T

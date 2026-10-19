@@ -106,6 +106,7 @@ final class ScriptingAddition: Sendable
     // NOTE: A daemon can talk to the payload of an older yabai until Dock is restarted, and an older
     // payload ignores opcodes it does not know. Whether the payload is current is asked once with a
     // handshake and remembered until Dock restarts. An outdated payload gets one message per window.
+    // The cache is @WM: only the event loop reads it and payloadChanged resets it.
     //
 
     @WM private var payloadIsCurrentCache: Bool?
@@ -421,16 +422,15 @@ final class ScriptingAddition: Sendable
         return payloadIsCurrentCache == true
     }
 
-    func payloadChanged()
+    @WM func payloadChanged()
     {
-        WM.assumeIsolated { ScriptingAddition.shared.payloadIsCurrentCache = nil }
+        payloadIsCurrentCache = nil
     }
 
-    @discardableResult func orderWindows(_ list: [WindowOrder]) -> Bool
+    @WM @discardableResult func orderWindows(_ list: [WindowOrder]) -> Bool
     {
         if list.isEmpty { return true }
-        // NOTE: The tree calls this synchronously on the event-loop queue, which owns the handshake cache.
-        if !WM.assumeIsolated({ ScriptingAddition.shared.payloadIsCurrent() }) {
+        if !payloadIsCurrent() {
             var result = true
             for entry in list { result = orderWindow(entry.window, entry.order, relativeTo: entry.relativeTo) && result }
             return result

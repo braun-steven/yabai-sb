@@ -316,7 +316,7 @@ private func windowManagerWindowFrameNeedsUpdate(_ target: Window, _ x: Float, _
 {
     if !window_frame_is_close(target.frameRequest, x, y, w, h) { return true }
     var bounds = CGRect.zero
-    let hasBounds = SLSGetWindowBounds(connection_global(), target.id.rawValue, &bounds) == .success
+    let hasBounds = SLSGetWindowBounds(SLS.connection, target.id.rawValue, &bounds) == .success
     return window_frame_needs_update(target.frameRequest, hasBounds, bounds, x, y, w, h)
 }
 

@@ -64,9 +64,9 @@ final class ProcessManager
         let spaces = SpaceID.all
         if spaces.isEmpty { return nil }
 
-        guard let windows = SLS.windows(connection_global(), owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }
+        guard let windows = SLS.windows(SLS.connection, owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }
 
-        for window in SLS.queryWindows(connection_global(), windows) {
+        for window in SLS.queryWindows(SLS.connection, windows) {
             if SpaceWindow.isUserWindow(parentID: window.parent, level: window.level, tags: window.tags, attributes: window.attributes) {
                 return window.id.space
             }

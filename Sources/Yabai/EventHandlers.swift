@@ -90,7 +90,7 @@ func update_window_notifications()
     // NOTE(asmvik): Subscribe to all windows because of window_destroyed (and ordered) notifications
     var windowIDs = wm.window.values.map { $0.id.rawValue }
 
-    SLSRequestNotificationsForWindows(connection_global(), &windowIDs, Int32(windowIDs.count))
+    SLSRequestNotificationsForWindows(SLS.connection, &windowIDs, Int32(windowIDs.count))
 }
 
 //
@@ -398,7 +398,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     if pendingWindowFocus.load(ordering: .relaxed) == false {
         if let psnSid, !psnSid.isVisible {
-            SLSSpaceSetFrontPSN(connection_global(), psnSid.rawValue, process.psn)
+            SLSSpaceSetFrontPSN(SLS.connection, psnSid.rawValue, process.psn)
             if let psnDid = psnSid.display {
                 SpaceManager.shared.focusSpaceUsingGesture(psnSid, on: psnDid)
             }

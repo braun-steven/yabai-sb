@@ -24,7 +24,7 @@ extension WindowManager
 
         destination.moveWindow(target)
         _ = destination.waitForWindow(target.id, timeoutMS: 200)
-        SLSSpaceSetFrontPSN(connection_global(), destination.rawValue, target.application.psn)
+        SLSSpaceSetFrontPSN(SLS.connection, destination.rawValue, target.application.psn)
 
         if target.shouldBeManaged {
             manageWindow(target, on: destination, inserting: nil)

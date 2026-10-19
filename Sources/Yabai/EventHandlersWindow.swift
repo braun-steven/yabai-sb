@@ -123,7 +123,7 @@ import YabaiCore
 
     if SpaceManager.shared.skipWindowFocusAnimation {
         if let sid = window.id.space, !sid.isVisible {
-            SLSSpaceSetFrontPSN(connection_global(), sid.rawValue, window.application.psn)
+            SLSSpaceSetFrontPSN(SLS.connection, sid.rawValue, window.application.psn)
             if let did = sid.display {
                 SpaceManager.shared.focusSpaceUsingGesture(sid, on: did)
             }

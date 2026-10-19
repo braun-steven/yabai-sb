@@ -5,8 +5,8 @@ import YabaiCore
 
 //
 // NOTE: Swift wrappers of the SkyLight functions in CPrivate.h, for the code that the port moves to Swift. They take the
-// connection like the C calls do (g_connection of yabai.c is SLSMainConnectionID()). A failed call gives what the C
-// helper it replaces gives: nil, an empty list or the zero value.
+// connection like the SkyLight calls do (usually SLS.connection). A failed call gives what the C helper it replaces
+// gives: nil, an empty list or the zero value.
 //
 
 enum SLS
@@ -22,11 +22,8 @@ enum SLS
         let level: Int32
     }
 
-    /// `SLSMainConnectionID`, the connection yabai.c stores in `g_connection`.
-    static var mainConnection: Int32
-    {
-        SLSMainConnectionID()
-    }
+    /// The main connection of the daemon to the window server.
+    static let connection: Int32 = SLSMainConnectionID()
 
     //
     // NOTE: The C code builds these lists with cfarray_of_cfnumbers: window ids as kCFNumberSInt32Type and space ids as

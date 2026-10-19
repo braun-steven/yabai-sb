@@ -51,9 +51,9 @@ extension Con
     {
         guard let feedbackWindowID = render.feedbackWindow.id else { return }
 
-        SLSOrderWindow(connection_global(), feedbackWindowID.rawValue, 0, 0)
+        SLSOrderWindow(SLS.connection, feedbackWindowID.rawValue, 0, 0)
         render.feedbackWindow.context = nil
-        SLSReleaseWindow(connection_global(), feedbackWindowID.rawValue)
+        SLSReleaseWindow(SLS.connection, feedbackWindowID.rawValue)
         render.feedbackWindow = FeedbackWindow()
     }
 }
@@ -639,7 +639,7 @@ extension Con
     {
         guard let windowID = focusedDescendant.windowID else { return }
 
-        let cid = connection_global()
+        let cid = SLS.connection
         let area = self.area
         var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
         var region: CFTypeRef?

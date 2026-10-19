@@ -479,7 +479,7 @@ func scripting_addition_payload_changed()
     var orderedIn: UInt8 = 0
     var payload = SAPayload(); payload.pack(Int32(windows.count))
     for wid in windows {
-        SLSWindowIsOrderedIn(connection_global(), wid.rawValue, &orderedIn)
+        SLSWindowIsOrderedIn(SLS.connection, wid.rawValue, &orderedIn)
         payload.pack(orderedIn != 0 ? 0 : wid.rawValue)
     }
     return payload.send(SA_OPCODE_WINDOW_ORDER_IN)

@@ -68,7 +68,7 @@ extension WindowManager
     {
         if !(target.mouseFollowsFocusByRule ?? mouseFollowsFocusEnabled) { return }
 
-        let cursor = SLS.cursorLocation(connection_global())
+        let cursor = SLS.cursorLocation(SLS.connection)
         if target.frame.contains(cursor) { return }
 
         guard let did = target.id.displayID else { return }

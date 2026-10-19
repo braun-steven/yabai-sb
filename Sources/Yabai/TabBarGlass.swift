@@ -621,13 +621,13 @@ func tab_bar_glass_tint(_ color: rgba_color, _ custom: Bool, _ alpha: Float) -> 
 func tab_bar_glass_move_to_space(_ wid: WindowID, _ sid: SpaceID?)
 {
     let windows = [NSNumber(value: Int32(bitPattern: wid.rawValue))] as CFArray
-    SLSMoveWindowsToManagedSpace(connection_global(), windows, sid?.rawValue ?? 0)
+    SLSMoveWindowsToManagedSpace(SLS.connection, windows, sid?.rawValue ?? 0)
 }
 
 func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
 {
-    SLSSetWindowLevel(connection_global(), wid.rawValue, level)
-    SLSSetWindowSubLevel(connection_global(), wid.rawValue, subLevel)
+    SLSSetWindowLevel(SLS.connection, wid.rawValue, level)
+    SLSSetWindowSubLevel(SLS.connection, wid.rawValue, subLevel)
 }
 
 //
@@ -636,7 +636,7 @@ func tab_bar_glass_set_level(_ wid: WindowID, _ level: Int32, _ subLevel: Int32)
 //
 func tab_bar_glass_order_panel(_ wid: WindowID, _ below: Bool, _ relativeWid: WindowID)
 {
-    SLSOrderWindow(connection_global(), wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
+    SLSOrderWindow(SLS.connection, wid.rawValue, below ? -1 : 1, relativeWid.rawValue)
     if below { border_window_ordered(relativeWid) }
 }
 

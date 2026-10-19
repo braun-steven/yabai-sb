@@ -230,7 +230,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
 @WM private func ffmWindowToFocus(_ window: Window) -> Window
 {
-    guard let associatedWindows = SLSCopyAssociatedWindows(connection_global(), window.id.rawValue) else { return window }
+    guard let associatedWindows = SLSCopyAssociatedWindows(SLS.connection, window.id.rawValue) else { return window }
 
     let wm = WindowManager.shared
 

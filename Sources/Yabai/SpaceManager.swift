@@ -141,7 +141,7 @@ final class SpaceManager
         var uuidList: [CFString?] = viewList.map { $0?.uuid }
 
         for sid in spaceList {
-            guard let uuid = SLS.spaceNameObject(connection_global(), sid) else { continue }
+            guard let uuid = SLS.spaceNameObject(SLS.connection, sid) else { continue }
 
             for j in 0..<viewList.count {
                 guard let viewUUID = uuidList[j], let target = viewList[j] else { continue }

@@ -27,14 +27,6 @@ private let major = 7
 private let minor = 1
 private let patch = 25
 
-/// `g_connection`: the main connection to the window server.
-let g_connection: Int32 = SLSMainConnectionID()
-
-func connection_global() -> Int32
-{
-    g_connection
-}
-
 /// `file_exists`: false for a directory.
 func fileExists(_ filename: String) -> Bool
 {
@@ -161,7 +153,7 @@ private func skyLightSymbol(_ name: String) -> UnsafeMutableRawPointer?
 
     NSApplicationLoadC()
     let pid = getpid()
-    _ = connection_global()
+    _ = SLS.connection
     CPrivateSetResolvedFunctions(skyLightSymbol("_CGSGetConnectionPortById"),
                                  skyLightSymbol("__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"))
 
@@ -301,22 +293,22 @@ private func parseArguments(_ arguments: [String]) -> String?
 
     MissionControl.shared.observe()
 
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1327, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1328, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1327, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1328, nil)
 
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,808, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,808, nil)
 
     //
     // NOTE: Moves, resizes and hides of windows that have a border.
     //
 
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,806, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,807, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,815, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,816, nil)
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,1202, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,806, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,807, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,815, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,816, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,1202, nil)
 
-    SLSRegisterConnectionNotifyProc(g_connection, connectionNotificationHandler,804, nil)
+    SLSRegisterConnectionNotifyProc(SLS.connection, connectionNotificationHandler,804, nil)
 
     WindowManager.shared.initialize()
     SpaceManager.shared.begin()

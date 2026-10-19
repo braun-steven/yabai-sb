@@ -170,8 +170,8 @@ private func tabBarIsCovered(_ point: CGPoint, _ aboveWid: WindowID) -> Bool
     var windowPoint = CGPoint.zero
     var wid: UInt32 = 0
     var cid: Int32 = 0
-    SLSFindWindowAndOwner(connection_global(), 0, 1, 0, &point, &windowPoint, &wid, &cid)
-    if wid == 0 || cid == connection_global() || wid == aboveWid.rawValue { return false }
+    SLSFindWindowAndOwner(SLS.connection, 0, 1, 0, &point, &windowPoint, &wid, &cid)
+    if wid == 0 || cid == SLS.connection || wid == aboveWid.rawValue { return false }
     guard let windows = CGWindowListCreateC(.optionOnScreenAboveWindow, aboveWid.rawValue) else { return false }
     return CFArrayContainsValue(windows, CFRange(location: 0, length: CFArrayGetCount(windows)), UnsafeRawPointer(bitPattern: UInt(wid)))
 }
@@ -342,8 +342,8 @@ func tabBarSeparatorColor(_ text: rgba_color) -> rgba_color
 
 private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
 {
-    SLSDisableUpdate(connection_global())
-    defer { SLSReenableUpdate(connection_global()) }
+    SLSDisableUpdate(SLS.connection)
+    defer { SLSReenableUpdate(SLS.connection) }
     guard let context = bar.context else { return }
     let bounds = CGRect(origin: .zero, size: bar.frame.size)
     context.clear(bounds)
@@ -390,15 +390,15 @@ private func tabBarCreate(_ bar: TabBar, _ frame: CGRect)
     CGSNewRegionWithRect(&frame, &region)
     let shape = region!
     var barID: UInt32 = 0
-    SLSNewWindow(connection_global(), 2, 0, 0, shape, &barID)
+    SLSNewWindow(SLS.connection, 2, 0, 0, shape, &barID)
     bar.id = WindowID(nonzero: barID)
     guard let id = bar.id else { return }
     var tags: UInt64 = (1 << 1) | (1 << 9)
-    SLSSetWindowTags(connection_global(), id.rawValue, &tags, 64)
+    SLSSetWindowTags(SLS.connection, id.rawValue, &tags, 64)
     sls_window_disable_shadow(id.rawValue)
-    SLSSetWindowResolution(connection_global(), id.rawValue, 2)
-    SLSSetWindowOpacity(connection_global(), id.rawValue, false)
-    bar.context = SLWindowContextCreate(connection_global(), id.rawValue, nil)
+    SLSSetWindowResolution(SLS.connection, id.rawValue, 2)
+    SLSSetWindowOpacity(SLS.connection, id.rawValue, false)
+    bar.context = SLWindowContextCreate(SLS.connection, id.rawValue, nil)
 }
 
 //
@@ -429,9 +429,9 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
             var region: CFTypeRef?
             CGSNewRegionWithRect(&frame, &region)
             let shape = region!
-            SLSDisableUpdate(connection_global())
-            SLSSetWindowShape(connection_global(), id.rawValue, 0, 0, shape)
-            SLSReenableUpdate(connection_global())
+            SLSDisableUpdate(SLS.connection)
+            SLSSetWindowShape(SLS.connection, id.rawValue, 0, 0, shape)
+            SLSReenableUpdate(SLS.connection)
         }
         bar.frame = frame
     }
@@ -445,9 +445,9 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
     bar.entry_list = (0..<count).map { entries[$0].focus_wid }
     if let id = bar.id {
         tabBarDraw(bar, entries, count)
-        SLSSetWindowLevel(connection_global(), id.rawValue, aboveWid.level)
-        SLSSetWindowSubLevel(connection_global(), id.rawValue, aboveWid.subLevel)
-        SLSOrderWindow(connection_global(), id.rawValue, 1, aboveWid.rawValue)
+        SLSSetWindowLevel(SLS.connection, id.rawValue, aboveWid.level)
+        SLSSetWindowSubLevel(SLS.connection, id.rawValue, aboveWid.subLevel)
+        SLSOrderWindow(SLS.connection, id.rawValue, 1, aboveWid.rawValue)
         tabBarKeepOnSpace(bar)
     } else { tab_bar_glass_render(bar, aboveWid, entries, count) }
     tabBarPublishHits()
@@ -456,7 +456,7 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
 func tab_bar_hide(_ bar: TabBar)
 {
     if !tabBarExists(bar) || bar.hidden { return }
-    if let id = bar.id { SLSOrderWindow(connection_global(), id.rawValue, 0, 0) }
+    if let id = bar.id { SLSOrderWindow(SLS.connection, id.rawValue, 0, 0) }
     else { tab_bar_glass_hide(bar) }
     bar.hidden = true
     tabBarPublishHits()
@@ -467,9 +467,9 @@ func tab_bar_release(_ bar: TabBar)
     if !tabBarExists(bar) { return }
     if let i = tabBarList.firstIndex(of: bar) { tabBarList.remove(at: i) }
     if let id = bar.id {
-        SLSOrderWindow(connection_global(), id.rawValue, 0, 0)
+        SLSOrderWindow(SLS.connection, id.rawValue, 0, 0)
         bar.context = nil
-        SLSReleaseWindow(connection_global(), id.rawValue)
+        SLSReleaseWindow(SLS.connection, id.rawValue)
     } else { tab_bar_glass_release(bar) }
     bar.reset()
     tabBarPublishHits()
@@ -490,7 +490,7 @@ func tab_bar_order(_ wid: WindowID)
 {
     for bar in tabBarOuterFirst(tabBarList.filter { !$0.hidden && $0.above_wid == wid }) {
         if let id = bar.id {
-            SLSOrderWindow(connection_global(), id.rawValue, 1, wid.rawValue)
+            SLSOrderWindow(SLS.connection, id.rawValue, 1, wid.rawValue)
             tabBarKeepOnSpace(bar)
         } else { tab_bar_glass_order(bar, wid) }
     }

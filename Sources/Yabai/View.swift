@@ -178,7 +178,7 @@ final class View
     {
         let target = View(sid: sid)
 
-        target.uuid = SLS.spaceNameObject(connection_global(), sid)
+        target.uuid = SLS.spaceNameObject(SLS.connection, sid)
         target.isPaddingEnabled = true
         target.isGapEnabled = true
 

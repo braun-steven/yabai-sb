@@ -29,7 +29,7 @@ final class Application
         isHidden = !ProcessIsVisibleC(psn)
 
         var processSerialNumber = psn
-        SLSGetConnectionIDForPSN(connection_global(), &processSerialNumber, &connection)
+        SLSGetConnectionIDForPSN(SLS.connection, &processSerialNumber, &connection)
     }
 
     /// The AX notifications that `observe()` registered for this application.

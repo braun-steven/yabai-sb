@@ -13,7 +13,7 @@ extension SpaceID
     /// The display of the space; nil when the window server does not know it.
     var display: DisplayID?
     {
-        guard let uuid = SLS.managedDisplay(connection_global(), forSpace: self) else { return nil }
+        guard let uuid = SLS.managedDisplay(SLS.connection, forSpace: self) else { return nil }
         return DisplayID(uuid: uuid)
     }
 
@@ -22,7 +22,7 @@ extension SpaceID
     static func windowCandidates(on spaces: [SpaceID], connection cid: Int32, includingMinimized: Bool) -> [WindowID]?
     {
         let options: UInt32 = includingMinimized ? 0x7 : 0x2
-        return SLS.windows(connection_global(), owner: UInt32(bitPattern: cid), spaces: spaces, options: options)
+        return SLS.windows(SLS.connection, owner: UInt32(bitPattern: cid), spaces: spaces, options: options)
     }
 
     /// The windows on the spaces; nil when the window server fails.
@@ -40,7 +40,7 @@ extension SpaceID
         if candidates.isEmpty { return [] }
 
         var result: [WindowID] = []
-        for window in SLS.queryWindows(connection_global(), candidates) {
+        for window in SLS.queryWindows(SLS.connection, candidates) {
             let known = WindowManager.shared.window(for: window.id).map { target in
                 includingMinimized || !target.isMinimized
             } ?? false
@@ -63,12 +63,12 @@ extension SpaceID
 
     var isUser: Bool
     {
-        return SLS.spaceType(connection_global(), self) == 0
+        return SLS.spaceType(SLS.connection, self) == 0
     }
 
     var isFullscreen: Bool
     {
-        return SLS.spaceType(connection_global(), self) == 4
+        return SLS.spaceType(SLS.connection, self) == 4
     }
 
     /// The space is the one that its display shows.
@@ -158,10 +158,10 @@ extension SpaceID
         if SLS.hasBridgedWindowOperation {
             SLS.bridgedMoveWindows(windows, toSpace: self)
         } else if !scripting_addition_move_window_list_to_space(self, windows) {
-            SLSSpaceSetCompatID(connection_global(), self.rawValue, 0x79616265)
+            SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x79616265)
             var rawWindows = windows.map(\.rawValue)
-            SLSSetWindowListWorkspace(connection_global(), &rawWindows, Int32(rawWindows.count), 0x79616265)
-            SLSSpaceSetCompatID(connection_global(), self.rawValue, 0x0)
+            SLSSetWindowListWorkspace(SLS.connection, &rawWindows, Int32(rawWindows.count), 0x79616265)
+            SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x0)
         }
     }
 
@@ -171,9 +171,9 @@ extension SpaceID
             SLS.bridgedMoveWindows([win.id], toSpace: self)
         } else if !scripting_addition_move_window_to_space(self, win.id) {
             var windows = [win.id.rawValue]
-            SLSSpaceSetCompatID(connection_global(), self.rawValue, 0x79616265)
-            SLSSetWindowListWorkspace(connection_global(), &windows, 1, 0x79616265)
-            SLSSpaceSetCompatID(connection_global(), self.rawValue, 0x0)
+            SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x79616265)
+            SLSSetWindowListWorkspace(SLS.connection, &windows, 1, 0x79616265)
+            SLSSpaceSetCompatID(SLS.connection, self.rawValue, 0x0)
         }
     }
 

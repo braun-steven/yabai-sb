@@ -37,9 +37,9 @@ extension WindowManager
         var windowID: UInt32 = 0
         var windowCid: Int32 = 0
 
-        SLSFindWindowAndOwner(connection_global(), Int32(bitPattern: startID?.rawValue ?? 0), order, 0, &point, &windowPoint, &windowID, &windowCid)
-        while windowID != 0 && connection_global() == windowCid {
-            SLSFindWindowAndOwner(connection_global(), Int32(bitPattern: windowID), -1, 0, &point, &windowPoint, &windowID, &windowCid)
+        SLSFindWindowAndOwner(SLS.connection, Int32(bitPattern: startID?.rawValue ?? 0), order, 0, &point, &windowPoint, &windowID, &windowCid)
+        while windowID != 0 && SLS.connection == windowCid {
+            SLSFindWindowAndOwner(SLS.connection, Int32(bitPattern: windowID), -1, 0, &point, &windowPoint, &windowID, &windowCid)
         }
 
         guard let foundID = WindowID(nonzero: windowID) else { return nil }
@@ -58,7 +58,7 @@ extension WindowManager
 
     func windowBelowCursor() -> Window?
     {
-        window(at: SLS.cursorLocation(connection_global()))
+        window(at: SLS.cursorLocation(SLS.connection))
     }
 
     func closestManagedWindow(to target: Window, in direction: Direction) -> Window?

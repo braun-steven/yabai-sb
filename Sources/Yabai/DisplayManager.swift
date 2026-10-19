@@ -88,7 +88,7 @@ final class DisplayManager
     /// The display spaces of the window server, with builtin_display_last applied.
     var managedDisplaySpaces: [NSDictionary]
     {
-        return orderedBuiltinLast(SLS.managedDisplaySpaces(connection_global()), displaySpaces: true)
+        return orderedBuiltinLast(SLS.managedDisplaySpaces(SLS.connection), displaySpaces: true)
     }
 
     //
@@ -99,7 +99,7 @@ final class DisplayManager
     /// The uuids of all displays in arrangement order; nil when the window server does not list the displays.
     var arrangedDisplays: [String]?
     {
-        guard let displays = SLS.managedDisplays(connection_global()) else { return nil }
+        guard let displays = SLS.managedDisplays(SLS.connection) else { return nil }
 
         let count = CFArrayGetCount(displays)
         let order = self.order
@@ -156,7 +156,7 @@ final class DisplayManager
 
     var isMenuBarHidden: Bool
     {
-        return SLS.menuBarAutohideEnabled(connection_global())
+        return SLS.menuBarAutohideEnabled(SLS.connection)
     }
 
     var isDockHidden: Bool
@@ -171,7 +171,7 @@ final class DisplayManager
 
     var dockRect: CGRect
     {
-        return SLS.dockRect(connection_global())
+        return SLS.dockRect(SLS.connection)
     }
 
     /// Focuses the window under a point; returns its id, or nil.
@@ -182,7 +182,7 @@ final class DisplayManager
 
         guard let elementID = ax_window_id(elementRef) else { return nil }
 
-        var elementPSN = SLS.connectionPSN(SLS.windowOwner(connection_global(), elementID) ?? 0)
+        var elementPSN = SLS.connectionPSN(SLS.windowOwner(SLS.connection, elementID) ?? 0)
         WindowManager.shared.focusWithRaise(process: &elementPSN, windowID: elementID, reference: elementRef)
 
         return elementID

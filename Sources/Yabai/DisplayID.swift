@@ -27,7 +27,7 @@ extension DisplayID
     /// The display under a point; nil when the window server knows none.
     init?(containing point: CGPoint)
     {
-        guard let uuid = SLS.bestManagedDisplay(connection_global(), forPoint: point) else { return nil }
+        guard let uuid = SLS.bestManagedDisplay(SLS.connection, forPoint: point) else { return nil }
         self.init(uuid: uuid)
     }
 
@@ -104,7 +104,7 @@ extension DisplayID
     var currentSpace: SpaceID?
     {
         guard let uuid = self.uuid else { return nil }
-        return SLS.currentSpace(connection_global(), forDisplay: uuid)
+        return SLS.currentSpace(SLS.connection, forDisplay: uuid)
     }
 
     /// The spaces of the display in the order of the window server; nil when the display or the window server does not
@@ -114,7 +114,7 @@ extension DisplayID
         guard let uuid = self.uuid else { return nil }
 
         var result: [SpaceID]?
-        for display in SLS.managedDisplaySpaces(connection_global()) {
+        for display in SLS.managedDisplaySpaces(SLS.connection) {
             guard let identifier = display["Display Identifier"] as? String, identifier.utf8.elementsEqual(uuid.utf8) else { continue }
 
             let spaceList = display["Spaces"] as? [NSDictionary] ?? []
@@ -222,7 +222,7 @@ extension DisplayID
     /// The display of the active menu bar; nil when the window server names no active display.
     static var active: DisplayID?
     {
-        let uuid = SLS.activeMenuBarDisplay(connection_global())
+        let uuid = SLS.activeMenuBarDisplay(SLS.connection)
         assert(uuid != nil)
 
         return uuid.flatMap { DisplayID(uuid: $0) }
@@ -231,14 +231,14 @@ extension DisplayID
     /// The display holding the Dock; nil when the window server names none.
     static var dock: DisplayID?
     {
-        guard let uuid = SLS.bestManagedDisplay(connection_global(), forRect: DisplayManager.shared.dockRect) else { return nil }
+        guard let uuid = SLS.bestManagedDisplay(SLS.connection, forRect: DisplayManager.shared.dockRect) else { return nil }
         return DisplayID(uuid: uuid)
     }
 
     /// The display under the cursor.
     static var underCursor: DisplayID?
     {
-        return DisplayID(containing: SLS.cursorLocation(connection_global()))
+        return DisplayID(containing: SLS.cursorLocation(SLS.connection))
     }
 
     /// The number of active displays.
@@ -265,7 +265,7 @@ extension DisplayID
     func activate()
     {
         guard let uuid = self.uuid else { return }
-        SLS.setActiveMenuBarDisplay(connection_global(), uuid)
+        SLS.setActiveMenuBarDisplay(SLS.connection, uuid)
     }
 
     /// Focuses the display, through its frontmost window on the space, or its cursor.

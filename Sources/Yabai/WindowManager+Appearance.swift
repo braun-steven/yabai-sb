@@ -39,7 +39,7 @@ extension WindowManager
     func setMenuBarOpacity(_ opacity: Float)
     {
         menuBarOpacity = opacity
-        SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, opacity)
+        SLSSetMenuBarInsetAndAlpha(SLS.connection, 0, 1, opacity)
     }
 
     func setActiveWindowOpacity(_ opacity: Float)
@@ -75,11 +75,11 @@ extension WindowManager
         let result = scripting_addition_set_layer(target.id, parentLayer.level)
         if !result { return false }
 
-        guard let associated = SLSCopyAssociatedWindows(connection_global(), target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
+        guard let associated = SLSCopyAssociatedWindows(SLS.connection, target.id.rawValue) as? [NSNumber], !associated.isEmpty else { return result }
 
         var parentList: [WindowID?] = []
         var childList: [WindowID] = []
-        for queried in SLS.queryWindows(connection_global(), associated.map { WindowID($0.uint32Value) }).prefix(associated.count) {
+        for queried in SLS.queryWindows(SLS.connection, associated.map { WindowID($0.uint32Value) }).prefix(associated.count) {
             parentList.append(queried.parent)
             childList.append(queried.id)
         }

@@ -33,7 +33,7 @@ extension WindowManager
             let other = entry.window
             if other == target { continue }
 
-            if SLS.windowIsOrderedIn(connection_global(), other.id) { scripting_addition_order_window(other.id, 0, nil) }
+            if SLS.windowIsOrderedIn(SLS.connection, other.id) { scripting_addition_order_window(other.id, 0, nil) }
         }
     }
 
@@ -88,7 +88,7 @@ extension WindowManager
         // TODO(asmvik): Both functions use the same underlying API and could be combined in a single function to reduce redundant work.
         let visibleSpace = target.id.space == spaceID || target.id.isSticky
 
-        let orderedIn = SLS.windowIsOrderedIn(connection_global(), target.id)
+        let orderedIn = SLS.windowIsOrderedIn(SLS.connection, target.id)
 
         var shown = true
 

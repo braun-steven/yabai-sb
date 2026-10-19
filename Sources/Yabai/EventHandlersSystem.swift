@@ -92,7 +92,7 @@ import CPrivate
     if wm.menuBarOpacity != 1.0 {
         let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
-        SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
+        SLSSetMenuBarInsetAndAlpha(SLS.connection, 0, 1, alpha)
     }
 
     if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {

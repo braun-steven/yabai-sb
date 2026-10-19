@@ -25,7 +25,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 /// `EVENT_HANDLER(SLS_SPACE_CREATED)`
 @WM func slsSpaceCreated(_ sid: SpaceID)
 {
-    let type = SLSSpaceGetType(connection_global(), sid.rawValue)
+    let type = SLSSpaceGetType(SLS.connection, sid.rawValue)
 
     if type == 0 || type == 4 {
         debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
@@ -63,7 +63,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     if wm.menuBarOpacity != 1.0 {
         let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
         let alpha: Float = isFullscreen ? 1.0 : wm.menuBarOpacity
-        SLSSetMenuBarInsetAndAlpha(connection_global(), 0, 1, alpha)
+        SLSSetMenuBarInsetAndAlpha(SLS.connection, 0, 1, alpha)
     }
 
     let view = sm.currentSpaceID.map { sm.view(for: $0) }

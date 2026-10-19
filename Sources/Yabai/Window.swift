@@ -351,9 +351,9 @@ extension WindowID
 {
     private var displayUUID: String?
     {
-        if let uuid = SLS.managedDisplay(connection_global(), forWindow: self) { return uuid }
-        let frame = SLS.windowBounds(connection_global(), self) ?? .zero
-        return SLS.bestManagedDisplay(connection_global(), forRect: frame)
+        if let uuid = SLS.managedDisplay(SLS.connection, forWindow: self) { return uuid }
+        let frame = SLS.windowBounds(SLS.connection, self) ?? .zero
+        return SLS.bestManagedDisplay(SLS.connection, forRect: frame)
     }
 
     var displayID: DisplayID?
@@ -365,25 +365,25 @@ extension WindowID
     private var displaySpace: SpaceID?
     {
         guard let uuid = displayUUID else { return nil }
-        return SLS.currentSpace(connection_global(), forDisplay: uuid)
+        return SLS.currentSpace(SLS.connection, forDisplay: uuid)
     }
 
     // The first space of the window, or the current space of its display when the server reports none.
     var space: SpaceID?
     {
-        let first = SLS.spaces(connection_global(), forWindows: [self]).first.flatMap { SpaceID(nonzero: $0.rawValue) }
+        let first = SLS.spaces(SLS.connection, forWindows: [self]).first.flatMap { SpaceID(nonzero: $0.rawValue) }
         return first ?? displaySpace
     }
 
     // More than one space indicates a sticky window.
-    var spaces: [SpaceID] { SLS.spaces(connection_global(), forWindows: [self]) }
+    var spaces: [SpaceID] { SLS.spaces(SLS.connection, forWindows: [self]) }
     var isSticky: Bool { spaces.count > 1 }
     var hasShadow: Bool { (tags & 0x8) == 0 }
-    var opacity: Float { SLS.windowAlpha(connection_global(), self) }
+    var opacity: Float { SLS.windowAlpha(SLS.connection, self) }
 
     private var queriedWindow: SLS.QueriedWindow?
     {
-        let windows = SLS.queryWindows(connection_global(), [self])
+        let windows = SLS.queryWindows(SLS.connection, [self])
         return windows.count == 1 ? windows[0] : nil
     }
 
@@ -394,8 +394,8 @@ extension WindowID
     var subLevel: Int32
     {
         var result: Int32 = 0
-        if SLSGetWindowSubLevelBounded(connection_global(), rawValue, &result) { return result }
-        return SLS.windowSubLevel(connection_global(), self)
+        if SLSGetWindowSubLevelBounded(SLS.connection, rawValue, &result) { return result }
+        return SLS.windowSubLevel(SLS.connection, self)
     }
 
     var tags: UInt64 { queriedWindow?.tags ?? 0 }

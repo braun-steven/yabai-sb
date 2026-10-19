@@ -8,8 +8,8 @@ import YabaiCore
 // NOTE: The json of `query --displays`, `--spaces`, `--windows` and `--tree`, read from the managers.
 //
 
-/// The SkyLight connection of the daemon (`g_connection`).
-var connection: Int32 { connection_global() }
+/// The SkyLight connection of the daemon.
+var connection: Int32 { SLS.connection }
 
 /// The name of a label of a display or space, escaped for json; "" when it has none.
 private func labelJSON<ID>(_ list: LabelList<ID>, _ id: ID) -> String

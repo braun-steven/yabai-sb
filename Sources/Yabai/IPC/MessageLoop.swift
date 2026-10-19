@@ -5,8 +5,8 @@ import YabaiCore
 
 //
 // NOTE: The socket of the daemon (/tmp/yabai_$USER.socket). A thread accepts the connections, reads each message and
-// posts it as a daemonMessage event; the handler of that event (MessageLoop.handle) runs its commands and writes the
-// response on the event loop.
+// posts it as a daemonMessage event; the handler of that event (MessageLoop.handle) runs its commands on the event loop
+// and hands the response to a serial queue that writes it.
 //
 
 /// A message of a client: its tokens, read by the socket thread, and the socket its response goes to.
@@ -65,8 +65,9 @@ enum MessageLoop
             if sockfd == -1 { continue }
 
             //
-            // NOTE: This thread reads the message, so a client that stalls cannot block the event loop; reads and
-            // writes on the socket time out, so it cannot block the other clients for long either.
+            // NOTE: This thread reads the message and the queue of the responses writes the response, so a client that
+            // stalls cannot block the event loop; reads and writes on the socket time out, so it cannot block the other
+            // clients for long either.
             //
 
             var timeout = timeval(tv_sec: 1, tv_usec: 0)
@@ -112,7 +113,7 @@ enum MessageLoop
         return message
     }
 
-    /// Runs the commands of a message and sends the response.
+    /// Runs the commands of a message and hands its response to the queue of the responses.
     @WM static func handle(_ message: DaemonMessage)
     {
         var text = message.bytes
@@ -124,30 +125,30 @@ enum MessageLoop
         var tokens = Message(message.bytes)
         handleMessage(&response, &tokens)
 
-        ResponseWriter(sockfd: message.sockfd).send(response)
+        send(response, to: message.sockfd)
     }
-}
-
-/// The connection of a client: the handlers write into a Response, which is sent at the end.
-struct ResponseWriter
-{
-    let sockfd: Int32
 
     //
-    // NOTE: The write stops at the first error, e.g. when the send timeout expires or the
-    // client is gone (SIGPIPE is ignored). The socket is closed either way.
+    // NOTE: The responses are written on their own serial queue, in the order of the messages, so a client that does
+    // not read its response cannot block the event loop. The write stops at the first error, e.g. when the send
+    // timeout expires or the client is gone (SIGPIPE is ignored). The socket is closed either way.
     //
 
-    func send(_ response: Response)
+    private static let responses = DispatchSerialQueue(label: "yabai.ipc")
+
+    /// Writes the response to the client and closes its socket, on the queue of the responses.
+    private static func send(_ response: Response, to sockfd: Int32)
     {
-        var written = 0
-        while written < response.bytes.count {
-            let result = response.bytes.withUnsafeBytes { write(sockfd, $0.baseAddress! + written, response.bytes.count - written) }
-            if result <= 0 { break }
-            written += result
-        }
+        responses.async {
+            var written = 0
+            while written < response.bytes.count {
+                let result = response.bytes.withUnsafeBytes { Darwin.write(sockfd, $0.baseAddress! + written, response.bytes.count - written) }
+                if result <= 0 { break }
+                written += result
+            }
 
-        close(sockfd)
+            Darwin.close(sockfd)
+        }
     }
 }
 

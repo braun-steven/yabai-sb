@@ -1,6 +1,12 @@
 import Observation
 import YabaiCore
 
+//
+// NOTE: Each renderer action has its own property (border, tabBar, opacity, windowOpacity, menuBar, shadow), since
+// Observation tracks Config's properties, not their fields. A set through a field notifies even with an equal value,
+// so re-running a config applies it again; assigning a whole equal struct does not notify.
+//
+
 /// The settings of the config domain. `Config.current` starts with the defaults of a new daemon; the space layout
 /// default becomes tree in `SpaceManager.begin`. It is observable, so that renderers follow its changes; runtime state
 /// that only lasts for an operation stays out of it.
@@ -11,6 +17,10 @@ import YabaiCore
     var border = BorderConfig()
     var tabBar = TabBarConfig()
     var window = WindowConfig()
+    var opacity = OpacityConfig()
+    var windowOpacity = WindowOpacityConfig()
+    var menuBar = MenuBarConfig()
+    var shadow = ShadowConfig()
     var mouse = MouseConfig()
     var animation = AnimationConfig()
     var scratchpad = ScratchpadConfig()
@@ -24,6 +34,10 @@ import YabaiCore
         border = defaults.border
         tabBar = defaults.tabBar
         window = defaults.window
+        opacity = defaults.opacity
+        windowOpacity = defaults.windowOpacity
+        menuBar = defaults.menuBar
+        shadow = defaults.shadow
         mouse = defaults.mouse
         animation = defaults.animation
         scratchpad = defaults.scratchpad
@@ -68,15 +82,35 @@ struct WindowConfig: Equatable
 {
     var mouseFollowsFocus = false
     var focusFollowsMouse = FocusFollowsMouse.disabled
-    var purifyMode = PurifyMode.disabled
     var origin = WindowOrigin.default
-    var opacityEnabled = false
-    var menuBarOpacity: Float = 1.0
-    var activeOpacity: Float = 1.0
-    var normalOpacity: Float = 1.0
     var opacityDuration: Float = 0.0
     var insertionFeedbackColor = RGBAColor(hex: 0xffd75f5f)
     var focusWrapping = FocusWrapping.on
+}
+
+/// Whether yabai sets window opacity (`window_opacity`).
+struct OpacityConfig: Equatable
+{
+    var enabled = false
+}
+
+/// The opacity of the focused and the other windows (`active_window_opacity`, `normal_window_opacity`).
+struct WindowOpacityConfig: Equatable
+{
+    var active: Float = 1.0
+    var normal: Float = 1.0
+}
+
+/// The menu bar (`menubar_opacity`).
+struct MenuBarConfig: Equatable
+{
+    var opacity: Float = 1.0
+}
+
+/// Window shadows (`window_shadow`).
+struct ShadowConfig: Equatable
+{
+    var mode = PurifyMode.disabled
 }
 
 /// The mouse actions. `MouseTapState.modifier` mirrors `modifier` for the event tap; both start as fn.

@@ -4,31 +4,31 @@ import YabaiCore
 extension WindowManager
 {
     //
-    // NOTE: Applies a window config change (from ConfigObserver): window opacity, the menu bar alpha and shadows.
+    //
+    // NOTE: Apply a set of the opacity and shadow config (from ConfigObserver), as the config setters did.
     //
 
-    func applyWindowConfig(_ config: WindowConfig, from old: WindowConfig)
+    func applyOpacityEnabled()
     {
-        if config.opacityEnabled != old.opacityEnabled {
-            for target in window.values where target.isEligibleForManagement {
-                setOpacity(for: target, to: config.opacityEnabled ? target.opacity : 1.0)
-            }
+        let enabled = Config.current.opacity.enabled
+        for target in window.values where target.isEligibleForManagement {
+            setOpacity(for: target, to: enabled ? target.opacity : 1.0)
         }
-        if config.activeOpacity != old.activeOpacity, let target = focusedWindow {
-            setWindowOpacity(target, to: config.activeOpacity)
+    }
+
+    func applyWindowOpacity()
+    {
+        let config = Config.current.windowOpacity
+        if let target = focusedWindow { setWindowOpacity(target, to: config.active) }
+        for target in window.values where target.id != focusedWindowID && target.isEligibleForManagement {
+            setWindowOpacity(target, to: config.normal)
         }
-        if config.normalOpacity != old.normalOpacity {
-            for target in window.values where target.id != focusedWindowID && target.isEligibleForManagement {
-                setWindowOpacity(target, to: config.normalOpacity)
-            }
-        }
-        if config.menuBarOpacity != old.menuBarOpacity {
-            SLS.setMenuBarAlpha(SLS.connection, config.menuBarOpacity)
-        }
-        if config.purifyMode != old.purifyMode {
-            for target in window.values where target.isEligibleForManagement {
-                purifyWindow(target)
-            }
+    }
+
+    func applyShadows()
+    {
+        for target in window.values where target.isEligibleForManagement {
+            purifyWindow(target)
         }
     }
 
@@ -38,8 +38,9 @@ extension WindowManager
     {
         var value = opacity
         if value == 0.0 {
-            if Config.current.window.opacityEnabled {
-                value = target.id == focusedWindowID ? Config.current.window.activeOpacity : Config.current.window.normalOpacity
+            if Config.current.opacity.enabled {
+                let config = Config.current.windowOpacity
+                value = target.id == focusedWindowID ? config.active : config.normal
             } else {
                 value = 1.0
             }
@@ -50,7 +51,7 @@ extension WindowManager
 
     func setWindowOpacity(_ target: Window, to opacity: Float)
     {
-        if !Config.current.window.opacityEnabled { return }
+        if !Config.current.opacity.enabled { return }
         if !target.isEligibleForManagement { return }
         if target.opacity != 0.0 { return }
 
@@ -113,7 +114,7 @@ extension WindowManager
     func purifyWindow(_ target: Window)
     {
         let shouldHaveShadow: Bool
-        switch Config.current.window.purifyMode {
+        switch Config.current.shadow.mode {
         case .disabled: shouldHaveShadow = true
         case .managed:  shouldHaveShadow = managedView(for: target) == nil
         case .always:   shouldHaveShadow = false

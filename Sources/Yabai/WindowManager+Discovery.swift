@@ -58,7 +58,7 @@ extension WindowManager
                 target.isEligible = true
                 applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
                 purifyWindow(target)
-                setWindowOpacity(target, to: Config.current.window.normalOpacity)
+                setWindowOpacity(target, to: Config.current.windowOpacity.normal)
 
                 if owner.isHidden        { return target }
                 if target.isMinimized     { return target }

@@ -529,10 +529,11 @@ extension TabBar
         publishHits()
     }
 
-    /// Applies a tab bar config change.
+    /// Applies a set of the tab bar config. A change of the drawing only redraws the bars; other sets, also of an equal
+    /// value, rebuild them as their setters did.
     static func applyConfig(_ config: TabBarConfig, from old: TabBarConfig)
     {
-        if config.needsRebuild(from: old) { refreshAll() }
-        else { redrawAll() }
+        if config != old && !config.needsRebuild(from: old) { redrawAll() }
+        else { refreshAll() }
     }
 }

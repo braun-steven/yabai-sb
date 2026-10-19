@@ -5,8 +5,8 @@ import Testing
 import YabaiCore
 
 //
-// NOTE: The tests change Config, so they are part of DaemonState. They do not start ConfigObserver, whose updates reach
-// the window server.
+// NOTE: The tests set Config to its current values, so they change nothing, but they are part of DaemonState. They do
+// not start ConfigObserver, whose updates reach the window server.
 //
 
 extension DaemonState
@@ -19,20 +19,56 @@ extension DaemonState
             let isSet = Atomic(false)
         }
 
-        @Test("a change of a config value is observable")
-        func configChangeIsObservable()
+        @Test("a config set notifies its group, also with an equal value")
+        func equalSetNotifies()
         {
-            let width = Config.current.border.width
-            defer { Config.current.border.width = width }
             let flag = Flag()
             withObservationTracking {
-                _ = Config.current.border
+                ConfigObserver.read(.menuBar)
             } onChange: {
                 flag.isSet.store(true, ordering: .relaxed)
             }
-            Config.current.border.width = width + 1
+            Config.current.menuBar.opacity = Config.current.menuBar.opacity
             let isSet = flag.isSet.load(ordering: .relaxed)
             #expect(isSet)
+        }
+
+        @Test("a config set notifies only its own group")
+        func setNotifiesOnlyItsGroup()
+        {
+            let flag = Flag()
+            withObservationTracking {
+                ConfigObserver.read(.windowOpacity)
+            } onChange: {
+                flag.isSet.store(true, ordering: .relaxed)
+            }
+            Config.current.window.mouseFollowsFocus = Config.current.window.mouseFollowsFocus
+            Config.current.opacity.enabled = Config.current.opacity.enabled
+            let isSet = flag.isSet.load(ordering: .relaxed)
+            #expect(!isSet)
+        }
+
+        @Test("every group is tracked")
+        func everyGroupNotifies()
+        {
+            for group in ConfigGroup.allCases {
+                let flag = Flag()
+                withObservationTracking {
+                    ConfigObserver.read(group)
+                } onChange: {
+                    flag.isSet.store(true, ordering: .relaxed)
+                }
+                switch group {
+                case .border:        Config.current.border.width = Config.current.border.width
+                case .tabBar:        Config.current.tabBar.height = Config.current.tabBar.height
+                case .opacity:       Config.current.opacity.enabled = Config.current.opacity.enabled
+                case .windowOpacity: Config.current.windowOpacity.active = Config.current.windowOpacity.active
+                case .menuBar:       Config.current.menuBar.opacity = Config.current.menuBar.opacity
+                case .shadow:        Config.current.shadow.mode = Config.current.shadow.mode
+                }
+                let isSet = flag.isSet.load(ordering: .relaxed)
+                #expect(isSet, "\(group)")
+            }
         }
 
         @Test("tab bar changes of the window area rebuild the bars, others redraw them")

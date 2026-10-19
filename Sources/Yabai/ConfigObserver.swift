@@ -2,62 +2,83 @@ import Observation
 import YabaiCore
 
 //
-// NOTE: Borders, tab bars, window opacity, the menu bar alpha and shadows follow Config through Observation. The first
-// change after Config was tracked posts one configChanged event. Its handler runs after the event that changed the
-// config (a whole config message, for example) and before the next event: it tracks Config again and hands each
-// renderer the values that differ from the ones it applied last. Several changes of one message apply together, and
-// the window server gets them in event order. The renderers start with the defaults applied, so start() changes
-// nothing.
+// NOTE: Borders, tab bars, window opacity, the menu bar alpha and shadows follow Config through Observation. Each
+// group is tracked on its own; the first set of it posts one configChanged event, also when the value is equal, so
+// re-running a config re-applies it as the config setters did. The handler runs after the event that set the config (a
+// whole config message, for example) and before the next event: it tracks the group again and applies it. Several
+// sets of one message apply once, and the window server gets them in event order.
 //
+
+/// The parts of Config that a renderer applies.
+enum ConfigGroup: CaseIterable, Sendable
+{
+    case border
+    case tabBar
+    case opacity
+    case windowOpacity
+    case menuBar
+    case shadow
+}
 
 /// Follows Config for the renderers.
 @WM final class ConfigObserver
 {
     static let shared = ConfigObserver()
 
-    private var border = BorderConfig()
+    /// The tab bar config last applied, to choose between rebuilding and redrawing the bars.
     private var tabBar = TabBarConfig()
-    private var window = WindowConfig()
 
     /// Starts following Config; call once, at startup.
     func start()
     {
-        border = Config.current.border
         tabBar = Config.current.tabBar
-        window = Config.current.window
-        track()
+        for group in ConfigGroup.allCases { track(group) }
     }
 
-    /// Applies the config changes since the last call to the renderers.
-    func apply()
+    /// Applies a group of Config that was set.
+    func apply(_ group: ConfigGroup)
     {
-        track()
-        let config = Config.current
-        if config.border != border {
-            border = config.border
+        track(group)
+        let wm = WindowManager.shared
+        switch group {
+        case .border:
             Border.refreshAll()
-        }
-        if config.tabBar != tabBar {
+        case .tabBar:
             let old = tabBar
-            tabBar = config.tabBar
+            tabBar = Config.current.tabBar
             TabBar.applyConfig(tabBar, from: old)
-        }
-        if config.window != window {
-            let old = window
-            window = config.window
-            WindowManager.shared.applyWindowConfig(window, from: old)
+        case .opacity:
+            wm.applyOpacityEnabled()
+        case .windowOpacity:
+            wm.applyWindowOpacity()
+        case .menuBar:
+            SLS.setMenuBarAlpha(SLS.connection, Config.current.menuBar.opacity)
+        case .shadow:
+            wm.applyShadows()
         }
     }
 
-    /// Tracks the config the renderers show; its next change posts configChanged.
-    private func track()
+    /// Reads the group, so that Observation tracks it.
+    static func read(_ group: ConfigGroup)
+    {
+        let config = Config.current
+        switch group {
+        case .border:        _ = config.border
+        case .tabBar:        _ = config.tabBar
+        case .opacity:       _ = config.opacity
+        case .windowOpacity: _ = config.windowOpacity
+        case .menuBar:       _ = config.menuBar
+        case .shadow:        _ = config.shadow
+        }
+    }
+
+    /// Tracks a group; its next set posts configChanged.
+    private func track(_ group: ConfigGroup)
     {
         withObservationTracking {
-            _ = Config.current.border
-            _ = Config.current.tabBar
-            _ = Config.current.window
+            Self.read(group)
         } onChange: {
-            EventLoop.post(.configChanged)
+            EventLoop.post(.configChanged(group))
         }
     }
 }

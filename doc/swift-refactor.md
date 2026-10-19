@@ -1141,21 +1141,25 @@ not here.
 ### 2026-10-20 Subphase 6.5 [x]
 - Commits: ba1c96ed..(this record)
 - Done: `Config` is a `@WM @Observable final class` (`static let current`, `resetToDefaults()`); `ConfigObserver`
-  tracks `border`/`tabBar`/`window` with `withObservationTracking`, whose `onChange` posts one `.configChanged`;
-  its handler re-tracks and diffs against the last applied values: `Border.refreshAll()`, `TabBar.applyConfig`
-  (rebuild when `TabBarConfig.needsRebuild`, else redraw), `WindowManager.applyWindowConfig` (opacity, menu bar
-  alpha, shadows). The config setters no longer refresh renderers; `setPurifyMode`, `setMenuBarOpacity`,
+  tracks each `ConfigGroup` (`border`, `tabBar`, `opacity`, `windowOpacity`, `menuBar`, `shadow`: one Config
+  property per renderer action, split out of `WindowConfig`) with `withObservationTracking`, whose `onChange` posts
+  one `.configChanged(group)`, also for a set of an equal value (a set through a field notifies; follow-up
+  commit). Its handler re-tracks and applies the group as the old setter did: `Border.refreshAll()`,
+  `TabBar.applyConfig` (redraw for a changed drawing value, else rebuild), `applyOpacityEnabled`,
+  `applyWindowOpacity`, menu bar alpha, `applyShadows`. The config setters no longer refresh renderers; `setPurifyMode`, `setMenuBarOpacity`,
   `set{Active,Normal}WindowOpacity`, `setWindowOpacityEnabled` are gone. Open issue resolved: the open-menu
   override is `EventHandler.focusFollowsMouse`, animation zeroing is `WindowManager.withoutAnimations`.
 - Output changes: golden unchanged. While a menu is open, `config focus_follows_mouse` prints the configured mode
   (was `off`) and a mode set then survives the menu closing (CHANGELOG).
-- Verification: make, make test (73 + 61) pass at each commit; no live run (6.7).
+- Verification: make, make test (75 + 61) pass at each commit; no live run (6.7).
 - Decisions: model state (focus, frames, tab entries) is not made `@Observable`: every renderer update from it is
   order-bound (border hand-over and opacity on focus, borders after the tree flush, frames via SkyLight
   notifications, tab cards after raising tabs), so it would have no observer; NOTEs at `Border.refresh`,
   `TabBar.refresh(for:)`, `windowDidReceiveFocus` and the flush. Renderer updates run in a following event, not
-  `Observations` tasks, to keep the single ordered stream. Setting a value equal to the current one no longer
-  re-applies it (e.g. re-running `menubar_opacity 0.5` does not reset an alpha macOS changed). Setters that the next
+  `Observations` tasks, to keep the single ordered stream. A set of an equal value re-applies (re-running a yabairc
+  restores e.g. a menu bar alpha macOS changed); granularity is the group: `active_window_opacity` also re-applies
+  the (unchanged) normal opacity and vice versa, and a message that changes a tab bar drawing value only redraws
+  even if it also re-sets a layout value. Setters that the next
   commands rely on stay explicit (event tap mask, mouse modifier mirror, scratchpad layers, space layouts).
 - Next: 6.6. 6.7 should check live that config changes (border, tab bar height/colors, opacity, menubar opacity,
   window_shadow) still apply, and that focus-follows-mouse stays off while a menu is open.

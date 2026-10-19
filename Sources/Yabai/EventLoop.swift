@@ -119,7 +119,7 @@ enum Event: Sendable
     case menuBarHiddenChanged
     case dockDidChangePref
     case systemWoke
-    case configChanged
+    case configChanged(ConfigGroup)
     case spaceLayoutReconcile(generation: UInt32)
     case daemonMessage(DaemonMessage)
 }
@@ -264,7 +264,7 @@ extension EventHandler
         case .menuBarHiddenChanged:                      menuBarHiddenChanged()
         case .dockDidChangePref:                         dockDidChangePref()
         case .systemWoke:                                systemWoke()
-        case .configChanged:                             configChanged()
+        case .configChanged(let group):                  configChanged(group)
         case .spaceLayoutReconcile(let generation):      spaceLayoutReconcile(generation)
         case .daemonMessage(let message):                MessageLoop.handle(message)
         }

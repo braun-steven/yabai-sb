@@ -11,8 +11,8 @@ final class Process
     var name: String
 
     //
-    // NOTE: terminated and runningApplicationPointer (the NSRunningApplication at +1) are also written on other threads; the
-    // key-value observer reads terminated with acquire ordering (Workspace.swift).
+    // NOTE: terminated and runningApplicationPointer (the NSRunningApplication at +1) are written on the event loop; the
+    // key-value observer on the main thread reads terminated with acquire ordering (Workspace.swift).
     //
 
     let runningApplicationPointer = Atomic<UnsafeMutableRawPointer?>(nil)

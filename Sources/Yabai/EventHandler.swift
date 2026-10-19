@@ -46,22 +46,28 @@ let pendingMouseDragged = Atomic<UInt32>(0)
 
 extension EventHandler
 {
+    //
+    // NOTE: Carbon's process handler on the main thread only posts the process key. These handlers update the process
+    // table on the event loop and run the application handler in the same event, so it keeps the place in the event
+    // order that Carbon gave it.
+    //
+
     func carbonProcessLaunched(_ key: ProcessKey)
     {
         guard let process = ProcessManager.shared.processLaunched(key) else { return }
-        EventLoop.post(.applicationLaunched(Handoff(value: process)))
+        applicationLaunched(process)
     }
 
     func carbonProcessTerminated(_ key: ProcessKey)
     {
         guard let process = ProcessManager.shared.processTerminated(key) else { return }
-        EventLoop.post(.applicationTerminated(Handoff(value: process)))
+        applicationTerminated(process)
     }
 
     func carbonProcessFrontSwitched(_ key: ProcessKey)
     {
         guard let process = ProcessManager.shared.processFrontSwitched(key) else { return }
-        EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
+        applicationFrontSwitched(process)
     }
 
     //
@@ -201,13 +207,11 @@ extension EventHandler
         }
     }
 
+    /// The delayed retry of a launch: the process is looked up again, since it can terminate during the delay.
     func applicationLaunchRetry(_ key: ProcessKey)
     {
-        var psn = ProcessSerialNumber()
-        psn.highLongOfPSN = key.high
-        psn.lowLongOfPSN = key.low
-        guard let process = ProcessManager.shared.process(for: psn) else { return }
-        EventLoop.post(.applicationLaunched(Handoff(value: process)))
+        guard let process = ProcessManager.shared.process(for: key) else { return }
+        applicationLaunched(process)
     }
 
     func applicationLaunched(_ process: Process)

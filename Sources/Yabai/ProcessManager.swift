@@ -24,7 +24,8 @@ final class ProcessManager
     /// The Carbon handler posts process keys; the event loop owns the process table.
     nonisolated(unsafe) static let shared = ProcessManager()
 
-    /// Called by Daemon.run on the main thread, before the event loop starts.
+    /// Called by Daemon.run on the main thread: enumerates the running processes on the event loop's queue, then
+    /// installs the Carbon handler, which runs only once the main run loop does.
     func begin() -> Bool
     {
         target = GetApplicationEventTarget()
@@ -52,9 +53,9 @@ final class ProcessManager
         return result
     }
 
-    func process(for psn: ProcessSerialNumber) -> Process?
+    func process(for key: ProcessKey) -> Process?
     {
-        processes[ProcessKey(psn)]
+        processes[key]
     }
 
     /// The space of the first user window of the connection, or nil.
@@ -103,8 +104,8 @@ final class ProcessManager
         guard let process = processes.removeValue(forKey: key) else { return nil }
 
         //
-        // NOTE: The event loop reads isTerminated. Posting the termination event after this release-store orders the
-        // write before its handler, matching the C version's compiler barrier.
+        // NOTE: The key-value observer on the main thread (Workspace.swift) reads terminated with acquire ordering;
+        // isTerminated stores it with release ordering.
         //
 
         process.isTerminated = true

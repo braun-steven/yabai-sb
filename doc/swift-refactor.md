@@ -149,12 +149,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 4.4 | Managers and models `@WM` | [x] | f41900d1 | no `nonisolated(unsafe)` left; startup through `WM.sync` |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [x] | ae90086a | `Handoff` only for CF; `assumeIsolated` only in `EventLoop.post`/`WM.sync`; each `@unchecked` has a NOTE |
 | 4.6 | Verification: tsan live run, live check, benchmark | [x] | 25219f86 | no code changes; mouse checks skipped (posting denied) |
-| **5** | **Commands, errors, config, Codable queries** | [~] | bb24ea9b | |
+| **5** | **Commands, errors, config, Codable queries** | [~] | 3ae65fef | |
 | 5.1 | `CommandError` and throwing handlers | [x] | cfea5195 | chained commands keep continue/stop semantics via `stopsMessage` |
 | 5.2 | Typed commands: window | [x] | bb24ea9b | `WindowCommand` + typed selectors in YabaiCore; `Selection` adaptors left for 5.3 |
 | 5.3 | Typed commands: other domains | [x] | 22ab2700 | `Space/Display/Query/Rule/SignalCommand`; `Selection`, `CommandResult` gone |
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
-| 5.5 | Queries with `JSONEncoder` | [ ] | | |
+| 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [ ] | | |
 | **6** | **Async event loop and Observation** | [ ] | | |
 | 6.1 | `AsyncStream` event loop | [ ] | | |
@@ -1009,3 +1009,25 @@ not here.
   Temporary runtime overrides of config (ffm during menus, zeroed animation duration) are left for 6.5 (Open issues).
 - Next: 5.5.
 - Notes for the next agent: none.
+
+### 2026-10-19 Subphase 5.5 [x]
+- Commits: 6f5dd4f1, 5b4cf0b2, 5db6448a, 3ae65fef (one Haiku piece each), plus this report.
+- Done: YabaiCore `JSON` is only `JSON.encode` (JSONEncoder); `Response.write(json:)`. Encodable `DisplayInfo`, `SpaceInfo`,
+  `WindowInfo`, `TreeNode`, `QueryFrame` (Query.swift; `Area` is Encodable), `RuleInfo` (+ `Rule.info(index:display:space:)`),
+  `SignalInfo` (`SignalTable.list()` returns them). Each response type's `Key` enum (CLI name = json key) replaces the
+  `*Property` flag tables; `parseProperties(_:as:)` returns a `Set<Key>` (every key when none named), `QueryCommand`
+  carries it, and `encode(to:)` writes only selected keys. `Serialize.swift` is `DisplayID/View/Window/WindowID.info(_:)`,
+  `View.treeNode()`, `SpaceManager.spaceInfos`, `WindowManager.windowInfos(on:)`. `JSONWriter`, `JSON.escape/string/bool/
+  number/frame`, `json:` interpolation and the C-named query functions are gone.
+- Output changes: every query, `rule --list` and `signal --list` response is compact json with sorted keys, shortest
+  numbers (0, 1512.5, 0.9), non-finite numbers as "nan"/"inf"/"-inf" (was bare `nan`, invalid json). Golden: only the
+  two `rule --list` and two `signal --list` records changed (format only, same values). CHANGELOG, `doc/yabai.asciidoc`
+  (+ `make man`) updated.
+- Verification: `make` (no warnings), `make test` 130 tests (69 + 61) incl. golden at 5db6448a. No live check (5.6).
+- Decisions: `.sortedKeys` (a scratch test showed JSONEncoder writes keys in hash order: 7 different orders in 2000
+  encodings of one value; AGENTS.md pitfall); compact rather than `.prettyPrinted` (smaller, one line, pretty mode prints
+  empty arrays over two lines); custom `encode(to:)` skipping unselected keys, with the daemon still querying only selected
+  values; ids keep their signed bit patterns; tree frames stay Float (`Area`), display/window frames Double.
+- Next: 5.6. `ipc_compare.sh` diffs will differ in format against a pre-5.5 build: normalize with `jq -S .`
+  (noted in doc/live-testing.md). `perf.py` query latency must be compared (JSONEncoder vs string building).
+- Notes for the next agent: `encode(_:forKey:)` of an Optional writes null; synthesized conformances skip nil.

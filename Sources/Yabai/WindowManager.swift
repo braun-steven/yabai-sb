@@ -387,8 +387,8 @@ func windowManagerTreeApply(_ owner: View)
 
     if let focused = owner.tree?.find(window_manager_global().focused_window_id) { focused.focus() }
 
-    if !view_update_auto_padding(owner) { tree_view_update(owner) }
-    view_flush(owner)
+    if !owner.updateAutoPadding() { tree_view_update(owner) }
+    owner.flush()
 }
 
 /// `window_manager_focus_window_id`
@@ -465,7 +465,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
     }
 
     tree_view_update(owner)
-    view_flush(owner)
+    owner.flush()
 
     return .success
 }
@@ -524,7 +524,7 @@ func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window
         if !didResize { return .invalidDestinationNode }
 
         tree_view_update(owner)
-        view_flush(owner)
+        owner.flush()
     } else {
         if direction == .abs {
             if animate {
@@ -804,8 +804,8 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
 
     guard let node = owner.tree?.find(target.id) else { return .invalidSourceNode }
 
-    if owner.insertion_point != nil && owner.insertion_point != target.id {
-        if let insert = owner.tree?.find(owner.insertion_point) {
+    if owner.insertionPoint != nil && owner.insertionPoint != target.id {
+        if let insert = owner.tree?.find(owner.insertionPoint) {
             insert.insertDirection = nil
             tree_feedback_hide(insert)
         }
@@ -814,12 +814,12 @@ func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, 
     if direction == node.insertDirection {
         node.insertDirection = nil
         tree_feedback_hide(node)
-        owner.insertion_point = nil
+        owner.insertionPoint = nil
         return .success
     }
 
     node.insertDirection = direction
-    owner.insertion_point = target.id
+    owner.insertionPoint = target.id
     if space_is_visible(owner.sid) { tree_feedback_show(node, direction) }
 
     return .success
@@ -1036,14 +1036,14 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
     let dview = display_space_id(did).map { space_manager_find_view(sm, $0) }
 
     if let dview, dview.isPaddingEnabled {
-        bounds.origin.x    += CGFloat(dview.left_padding)
-        bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
-        bounds.origin.y    += CGFloat(dview.top_padding)
-        bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
+        bounds.origin.x    += CGFloat(dview.leftPadding)
+        bounds.size.width  -= CGFloat(dview.leftPadding + dview.rightPadding)
+        bounds.origin.y    += CGFloat(dview.topPadding)
+        bounds.size.height -= CGFloat(dview.topPadding + dview.bottomPadding)
     }
 
     if let dview, dview.isGapEnabled {
-        let gap = CGFloat(dview.window_gap)
+        let gap = CGFloat(dview.windowGap)
 
         if x > 0 {
             bounds.origin.x   += gap
@@ -1250,10 +1250,10 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 
     var bounds = display_bounds_constrained(did, false)
     if let dview, dview.isPaddingEnabled {
-        bounds.origin.x    += CGFloat(dview.left_padding)
-        bounds.size.width  -= CGFloat(dview.left_padding + dview.right_padding)
-        bounds.origin.y    += CGFloat(dview.top_padding)
-        bounds.size.height -= CGFloat(dview.top_padding + dview.bottom_padding)
+        bounds.origin.x    += CGFloat(dview.leftPadding)
+        bounds.size.width  -= CGFloat(dview.leftPadding + dview.rightPadding)
+        bounds.origin.y    += CGFloat(dview.topPadding)
+        bounds.size.height -= CGFloat(dview.topPadding + dview.bottomPadding)
     }
 
     scripting_addition_scale_window(target.id, Float(bounds.origin.x), Float(bounds.origin.y), Float(bounds.size.width), Float(bounds.size.height))
@@ -1262,7 +1262,7 @@ func window_manager_toggle_window_pip(_ sm: SpaceManager, _ target: Window)
 /// `window_manager_validate_windows_on_space`
 private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [WindowID])
 {
-    let viewWindowList = view_find_window_list(owner)
+    let viewWindowList = owner.windowIDs
 
     for i in 0..<viewWindowList.count {
         if windowList.contains(viewWindowList[i]) { continue }
@@ -1279,7 +1279,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
         // This is necessary to make sure that we do not call the AX API for each modification to the tree.
         //
 
-        view_remove_window(owner, target)
+        owner.remove(target)
         window_manager_adjust_layer(target, .normal)
         window_manager_remove_managed_window(wm, target.id)
         window_manager_purify_window(wm, target)
@@ -1307,7 +1307,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_remove_window(existingView, target)
+            existingView.remove(target)
             window_manager_adjust_layer(target, .normal)
             window_manager_remove_managed_window(wm, target.id)
             window_manager_purify_window(wm, target)
@@ -1326,7 +1326,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            view_add_window(owner, target, nil)
+            owner.add(target, insertionPoint: nil)
             window_manager_adjust_layer(target, .below)
             window_manager_add_managed_window(wm, target, owner)
             owner.isDirty = true
@@ -1359,8 +1359,8 @@ func window_manager_validate_and_check_for_windows_on_space(_ sm: SpaceManager, 
     // This is necessary to make sure that we do not call the AX API for each modification to the tree.
     //
 
-    if space_is_visible(owner.sid) && view_is_dirty(owner) {
-        view_flush(owner)
+    if space_is_visible(owner.sid) && owner.isDirty {
+        owner.flush()
     }
 }
 

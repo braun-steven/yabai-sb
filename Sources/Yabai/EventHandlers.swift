@@ -107,13 +107,13 @@ func update_window_notifications()
 @WM private func tileWindowBatched(_ view: View, _ window: Window, _ insertionPoint: WindowID?)
 {
     window_manager_adjust_layer(window, .below)
-    view_add_window(view, window, insertionPoint)
+    view.add(window, insertionPoint: insertionPoint)
     window_manager_add_managed_window(window_manager_global(), window, view)
 }
 
 @WM private func untileWindowBatched(_ view: View, _ window: Window)
 {
-    view_remove_window(view, window)
+    view.remove(window)
     window_manager_remove_managed_window(window_manager_global(), window.id)
 }
 
@@ -121,9 +121,9 @@ func update_window_notifications()
 {
     for view in viewList {
         if !space_is_visible(view.sid) { continue }
-        if !view_is_dirty(view)                 { continue }
+        if !view.isDirty                 { continue }
 
-        view_flush(view)
+        view.flush()
     }
 }
 

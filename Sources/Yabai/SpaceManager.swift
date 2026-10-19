@@ -99,7 +99,7 @@ func space_manager_find_view(_ sm: SpaceManager, _ sid: SpaceID) -> View
 {
     if let found = sm.view[sid] { return found }
 
-    let created = view_create(sid)
+    let created = View.create(sid: sid)
     sm.view[sid] = created
     return created
 }
@@ -110,7 +110,7 @@ func space_manager_refresh_view(_ sm: SpaceManager, _ sid: SpaceID)
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return }
 
-    view_update_and_flush(target)
+    target.updateAndFlush()
 }
 
 /// `space_manager_mark_view_invalid`
@@ -128,7 +128,7 @@ func space_manager_untile_window(_ target: View, _ win: Window)
     if target.layout == .float { return }
 
     window_manager_adjust_layer(win, .normal)
-    if view_remove_window(target, win) { view_flush(target) }
+    if target.remove(win) { target.flush() }
 }
 
 /// `space_manager_set_layout_for_space`
@@ -136,7 +136,7 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ la
 {
     let target = space_manager_find_view(sm, sid)
     target.layout = layout
-    view_clear(target)
+    target.clear()
 
     if target.layout != .float {
         window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), sid)
@@ -150,12 +150,12 @@ func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type:
     if target.layout == .float { return false }
 
     if type == .abs {
-        target.window_gap = gap
+        target.windowGap = gap
     } else if type == .rel {
-        target.window_gap = addAndClampToZero(target.window_gap, gap)
+        target.windowGap = addAndClampToZero(target.windowGap, gap)
     }
 
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -168,7 +168,7 @@ private func spaceManagerToggleView(_ sm: SpaceManager, _ sid: SpaceID, _ settin
 
     target[keyPath: setting].toggle()
 
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -202,7 +202,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
         if !target.overrides.contains(.layout) {
             if space_is_user(target.sid) {
                 target.layout = layout
-                view_clear(target)
+                target.clear()
 
                 if target.layout != .float {
                     window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), target.sid)
@@ -220,7 +220,7 @@ func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: Vie
     for target in sm.view.values.sorted(by: { $0.sid < $1.sid }) {
         if !target.overrides.contains(spacing.override) {
             target[keyPath: spacing.view] = value
-            view_update_and_flush(target)
+            target.updateAndFlush()
         }
     }
 }
@@ -228,12 +228,12 @@ func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: Vie
 /// `space_manager_apply_auto_padding`
 private func spaceManagerApplyAutoPadding(_ target: View, _ autoPadding: Bool)
 {
-    if target.auto_padding == autoPadding { return }
+    if target.autoPadding == autoPadding { return }
 
-    target.auto_padding = autoPadding
+    target.autoPadding = autoPadding
     if target.layout == .float { return }
 
-    view_update_and_flush(target)
+    target.updateAndFlush()
 }
 
 /// `space_manager_set_auto_padding_for_all_spaces`
@@ -263,18 +263,18 @@ func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ t
     if target.layout == .float { return false }
 
     if type == .abs {
-        target.top_padding    = top
-        target.bottom_padding = bottom
-        target.left_padding   = left
-        target.right_padding  = right
+        target.topPadding     = top
+        target.bottomPadding  = bottom
+        target.leftPadding    = left
+        target.rightPadding   = right
     } else if type == .rel {
-        target.top_padding    = addAndClampToZero(target.top_padding, top)
-        target.bottom_padding = addAndClampToZero(target.bottom_padding, bottom)
-        target.left_padding   = addAndClampToZero(target.left_padding, left)
-        target.right_padding  = addAndClampToZero(target.right_padding, right)
+        target.topPadding     = addAndClampToZero(target.topPadding, top)
+        target.bottomPadding  = addAndClampToZero(target.bottomPadding, bottom)
+        target.leftPadding    = addAndClampToZero(target.leftPadding, left)
+        target.rightPadding   = addAndClampToZero(target.rightPadding, right)
     }
 
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -298,7 +298,7 @@ func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: I
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
     target.tree!.rotate(by: degrees)
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -309,7 +309,7 @@ func space_manager_mirror_space(_ sm: SpaceManager, _ sid: SpaceID, _ axis: Wind
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
     target.tree!.mirror(axis == .x ? .vertical : .horizontal)
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -320,7 +320,7 @@ func space_manager_balance_space(_ sm: SpaceManager, _ sid: SpaceID) -> Bool
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
     target.tree!.balance()
-    view_update_and_flush(target)
+    target.updateAndFlush()
 
     return true
 }
@@ -332,8 +332,8 @@ func space_manager_tile_window_on_space_with_insertion_point(_ sm: SpaceManager,
     if target.layout == .float { return target }
 
     window_manager_adjust_layer(win, .below)
-    view_add_window(target, win, insertionPoint)
-    view_flush(target)
+    target.add(win, insertionPoint: insertionPoint)
+    target.flush()
 
     return target
 }
@@ -605,11 +605,11 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
 
     sm.labels.swap(aSid, bSid)
 
-    view_update(aView)
-    view_update(bView)
+    aView.update()
+    bView.update()
 
-    view_flush(aView)
-    view_flush(bView)
+    aView.flush()
+    bView.flush()
 
     wm.window_animation_duration = windowAnimationDuration
     return .success
@@ -992,7 +992,7 @@ func space_manager_begin(_ sm: SpaceManager)
         guard let spaceList = displaySpaces(did) else { continue }
 
         for sid in spaceList {
-            let created = view_create(sid)
+            let created = View.create(sid: sid)
             if sm.view[sid] == nil { sm.view[sid] = created }
         }
     }

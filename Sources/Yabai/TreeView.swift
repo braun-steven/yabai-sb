@@ -94,7 +94,7 @@ func tree_view_root(_ owner: View) -> Con
 func tree_view_update(_ owner: View!)
 {
     guard let root = owner.tree else { return }
-    root.layOut(owner.area, gap: view_window_gap(owner), barHeight: treeBarHeight(), barOffset: window_manager_global().tab_bar_offset, barInset: treeBarInset())
+    root.layOut(owner.area, gap: owner.windowGapValue, barHeight: treeBarHeight(), barOffset: window_manager_global().tab_bar_offset, barInset: treeBarInset())
 }
 
 /// `tree_unmanage_windows`
@@ -170,10 +170,10 @@ func tree_add_window(_ owner: View, _ target: Window, _ insertionPoint: WindowID
 
     treeViewResetEmptyRoot(owner, root)
 
-    if let ownerInsertionPoint = owner.insertion_point, let anchor = root.find(ownerInsertionPoint), let direction = anchor.insertDirection {
+    if let ownerInsertionPoint = owner.insertionPoint, let anchor = root.find(ownerInsertionPoint), let direction = anchor.insertDirection {
         anchor.insertDirection = nil
         treeFeedbackDestroy(anchor)
-        owner.insertion_point = nil
+        owner.insertionPoint = nil
 
         anchor.insert(node, toward: direction)
         treeFocusNewWindow(root, node, target.id)
@@ -211,7 +211,7 @@ func tree_remove_window(_ owner: View, _ target: Window) -> Bool
 {
     guard let node = owner.tree?.find(target.id) else { return false }
 
-    if owner.insertion_point == target.id { owner.insertion_point = nil }
+    if owner.insertionPoint == target.id { owner.insertionPoint = nil }
 
     node.detach()
     node.destroy()
@@ -607,7 +607,7 @@ func tree_flush(_ owner: View)
 
     if let selected = root.findSelected() { tree_selection_show(selected) }
 
-    if let insertionPoint = owner.insertion_point, let insert = root.find(insertionPoint), let insertDir = insert.insertDirection {
+    if let insertionPoint = owner.insertionPoint, let insert = root.find(insertionPoint), let insertDir = insert.insertDirection {
         tree_feedback_show(insert, insertDir)
     }
 

@@ -595,7 +595,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             if let view {
                 view.overrides.insert(spacing.override)
                 view[keyPath: spacing.view] = value
-                view_update_and_flush(view)
+                view.updateAndFlush()
             } else {
                 space_manager_set_spacing_for_all_spaces(sm, spacing, value)
             }
@@ -620,7 +620,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         }
     } else if command.equals(Config.autoPadding) {
         if let selSid {
-            var enabled = space_manager_find_view(sm, selSid).auto_padding
+            var enabled = space_manager_find_view(sm, selSid).autoPadding
             if parseConfigBool(&rsp, domain, command, &message, &enabled) { space_manager_set_auto_padding_for_space(sm, selSid, enabled) }
         } else {
             var enabled = sm.auto_padding

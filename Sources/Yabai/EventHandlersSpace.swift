@@ -44,7 +44,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid.rawValue))\n")
         _ = sm.labels.remove(id: sid)
         sm.view.removeValue(forKey: sid)
-        view_destroy(view)
+        view.destroy()
         eventSignalPush(.spaceDestroyed, signalContext(sid))
         space_layout_schedule(1.0, false)
     }
@@ -78,12 +78,12 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     if !mission_control_is_active(), let sid = sm.current_space_id, space_is_user(sid) {
         window_manager_validate_and_check_for_windows_on_space(sm, wm, sid)
 
-        if let view, view_is_invalid(view) {
-            view_update(view)
+        if let view, view.isInvalid {
+            view.update()
         }
 
-        if let view, view_is_dirty(view) {
-            view_flush(view)
+        if let view, view.isDirty {
+            view.flush()
         }
     }
 }

@@ -168,7 +168,7 @@ import YabaiCore
 
         if ms.window == nil || ms.window != window {
             if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, window.frame) {
-                view_flush(view)
+                view.flush()
             }
         }
     }
@@ -235,7 +235,7 @@ import YabaiCore
 
             if ms.window == nil || ms.window != window {
                 if let view = window_manager_find_managed_window(wm, window), tree_window_needs_flush(view, window.id, newFrame) {
-                    view_flush(view)
+                    view.flush()
                 }
             }
         }

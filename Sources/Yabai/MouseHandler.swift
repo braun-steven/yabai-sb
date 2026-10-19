@@ -267,7 +267,7 @@ func mouse_determine_drop_action(_ ms: MouseState, _ target: Window, _ point: CG
         if info.pointee.changed_h && !info.pointee.changed_y { direction.insert(.bottom) }
         if window_manager_resize_window_relative(wm, target, direction, info.pointee.dw, info.pointee.dh, true) == .invalidDestinationNode { success = false }
     }
-    if !success { view_flush(targetView) }
+    if !success { targetView.flush() }
 }
 
 private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirection?
@@ -318,7 +318,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 
 @WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
 {
-    if srcView.sid == dstView.sid || dstView.layout == .float { view_flush(srcView); return }
+    if srcView.sid == dstView.sid || dstView.layout == .float { srcView.flush(); return }
     window_manager_unmanage_window(wm, srcView, target)
     window_manager_manage_window(sm, wm, target, dstView.sid, nil)
 }
@@ -332,17 +332,17 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 @WM func mouse_drop(_ sm: SpaceManager?, _ wm: WindowManager, _ ms: MouseState, _ srcView: View, _ dstView: View?, _ srcWindow: Window, _ dstWindow: Window?, _ point: CGPoint)
 {
     mouse_feedback_clear(ms)
-    guard let dstView else { view_flush(srcView); return }
+    guard let dstView else { srcView.flush(); return }
     guard let dstCon = mouseFindCon(dstView, dstWindow), let dstWindow else { mouseDropNoTarget(sm!, wm, srcView, dstView, srcWindow); return }
     let action = mouse_determine_drop_action(ms, dstWindow, point)
     let direction = mouseDropActionDirection(action)
     if action == .none {
-        view_flush(srcView)
+        srcView.flush()
     } else if action == .swap {
         _ = window_manager_swap_window(wm, srcWindow, dstWindow)
     } else if direction == .stack {
         _ = window_manager_stack_window(sm!, wm, dstWindow, srcWindow)
-        if srcView != dstView { view_flush(srcView) }
+        if srcView != dstView { srcView.flush() }
     } else if srcView == dstView {
         // NOTE: every action other than none, swap and stack is a warp to a side, so direction is set
         guard let container = srcView.tree?.find(srcWindow.id), let direction else { return }
@@ -350,11 +350,11 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
         dstCon.insert(container, toward: direction)
         container.focus()
         srcView.tree!.flatten()
-        if !view_update_auto_padding(srcView) { tree_view_update(srcView) }
-        view_flush(srcView)
+        if !srcView.updateAutoPadding() { tree_view_update(srcView) }
+        srcView.flush()
     } else {
         dstCon.insertDirection = direction
-        dstView.insertion_point = dstWindow.id
+        dstView.insertionPoint = dstWindow.id
         window_manager_unmanage_window(wm, srcView, srcWindow)
         window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, nil)
     }

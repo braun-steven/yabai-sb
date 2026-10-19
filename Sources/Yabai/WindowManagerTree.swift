@@ -118,7 +118,7 @@ private func windowManagerTreeMoveToDisplay(_ sm: SpaceManager, _ wm: WindowMana
         node.detach()
         owner.tree!.flatten()
 
-        if view_is_invalid(dstView) { view_update(dstView) }
+        if dstView.isInvalid { dstView.update() }
         tree_view_attach_from_direction(dstView, node, direction)
         let moved = windowManagerTreeSetView(wm, node, dstView)
         windowManagerTreeWaitForView(moved, dstView)

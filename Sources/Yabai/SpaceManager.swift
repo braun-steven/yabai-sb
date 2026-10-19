@@ -139,7 +139,7 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ la
     target.clear()
 
     if target.layout != .float {
-        window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), sid)
+        WindowManager.shared.validateAndCheckForWindows(on: sid)
     }
 }
 
@@ -205,7 +205,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
                 target.clear()
 
                 if target.layout != .float {
-                    window_manager_validate_and_check_for_windows_on_space(sm, window_manager_global(), target.sid)
+                    WindowManager.shared.validateAndCheckForWindows(on: target.sid)
                 }
             }
         }
@@ -863,7 +863,7 @@ func space_manager_destroy_space(_ sid: SpaceID?) -> SpaceOperationResult
     if !scripting_addition_destroy_space(sid) { return .scriptingAdditionFailed }
 
     if let firstSid {
-        window_manager_validate_and_check_for_windows_on_space(space_manager_global(), window_manager_global(), firstSid)
+        WindowManager.shared.validateAndCheckForWindows(on: firstSid)
     }
 
     return .success

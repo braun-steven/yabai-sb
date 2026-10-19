@@ -100,7 +100,7 @@ enum Golden
 
     @WM static func fixture()
     {
-        window_manager_init(window_manager_global())
+        WindowManager.shared.initialize()
         space_manager_init(space_manager_global())
         eventSignals = SignalTable()
     }

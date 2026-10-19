@@ -1,0 +1,153 @@
+import YabaiCore
+
+extension WindowManager
+{
+    /// The windows of `space_window_list` without minimized windows.
+    private func windows(onSpace sid: SpaceID) -> [WindowID]?
+    {
+        space_window_list(sid, false)
+    }
+
+    private func validateWindows(on owner: View, against windowList: [WindowID])
+    {
+        let viewWindowList = owner.windowIDs
+
+        for i in 0..<viewWindowList.count {
+            if windowList.contains(viewWindowList[i]) { continue }
+
+            guard let target = window(for: viewWindowList[i]) else { continue }
+
+            //
+            // @cleanup
+            //
+            // :AXBatching
+            //
+            // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
+            // making sure that each window is only moved and resized a single time, when the final layout has been computed.
+            // This is necessary to make sure that we do not call the AX API for each modification to the tree.
+            //
+
+            owner.remove(target)
+            target.adjustLayer(to: .normal)
+            removeManagedWindow(target.id)
+            purifyWindow(target)
+
+            owner.isDirty = true
+        }
+    }
+
+    private func checkForWindows(on owner: View, in windowList: [WindowID])
+    {
+        for windowID in windowList {
+            guard let target = window(for: windowID), target.shouldBeManaged else { continue }
+
+            let existingView = managedView(for: target)
+            if let existingView, existingView.layout != .float, existingView != owner {
+
+                //
+                // @cleanup
+                //
+                // :AXBatching
+                //
+                // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
+                // making sure that each window is only moved and resized a single time, when the final layout has been computed.
+                // This is necessary to make sure that we do not call the AX API for each modification to the tree.
+                //
+
+                existingView.remove(target)
+                target.adjustLayer(to: .normal)
+                removeManagedWindow(target.id)
+                purifyWindow(target)
+                existingView.isDirty = true
+            }
+
+            if existingView == nil || (existingView!.layout != .float && existingView != owner) {
+
+                //
+                // @cleanup
+                //
+                // :AXBatching
+                //
+                // NOTE(asmvik): Batch all operations and mark the view as dirty so that we can perform a single flush,
+                // making sure that each window is only moved and resized a single time, when the final layout has been computed.
+                // This is necessary to make sure that we do not call the AX API for each modification to the tree.
+                //
+
+                owner.add(target, insertionPoint: nil)
+                target.adjustLayer(to: .below)
+                addManagedWindow(target, to: owner)
+                owner.isDirty = true
+            }
+        }
+    }
+
+    func validateAndCheckForWindows(on sid: SpaceID)
+    {
+        let owner = space_manager_find_view(SpaceManager.shared, sid)
+        if owner.layout == .float { return }
+
+        let windowList = windows(onSpace: sid) ?? []
+        validateWindows(on: owner, against: windowList)
+        checkForWindows(on: owner, in: windowList)
+
+        //
+        // @cleanup
+        //
+        // :AXBatching
+        //
+        // NOTE(asmvik): Flush previously batched operations if the view is marked as dirty.
+        // This is necessary to make sure that we do not call the AX API for each modification to the tree.
+        //
+
+        if space_is_visible(owner.sid) && owner.isDirty {
+            owner.flush()
+        }
+    }
+
+    func correctForMissionControlChanges()
+    {
+        let displays = displayManagerActiveDisplays()
+
+        let animationDuration = window_animation_duration
+        window_animation_duration = 0.0
+
+        for did in displays {
+            guard let spaceList = displaySpaces(did) else { continue }
+
+            let sid = display_space_id(did)
+            for space in spaceList {
+                if let sid, space == sid {
+                    validateAndCheckForWindows(on: sid)
+                } else {
+                    space_manager_mark_view_invalid(SpaceManager.shared, space)
+                }
+            }
+        }
+
+        window_animation_duration = animationDuration
+    }
+
+    func handleDisplayAddAndRemove(_ did: DisplayID)
+    {
+        guard let spaceList = displaySpaces(did) else { return }
+
+        for space in spaceList where space_is_user(space) {
+            if let windowList = windows(onSpace: space) {
+                let owner = space_manager_find_view(SpaceManager.shared, space)
+                if owner.layout != .float {
+                    checkForWindows(on: owner, in: windowList)
+                }
+            }
+            break
+        }
+
+        let sid = display_space_id(did)
+        for space in spaceList {
+            if let sid, space == sid {
+                space_manager_refresh_view(SpaceManager.shared, sid)
+            } else {
+                space_manager_mark_view_invalid(SpaceManager.shared, space)
+            }
+        }
+    }
+}

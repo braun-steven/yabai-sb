@@ -318,9 +318,9 @@ private func parseArguments(_ arguments: [String]) -> String?
 
     SLSRegisterConnectionNotifyProc(g_connection, connection_handler, 804, nil)
 
-    window_manager_init(window_manager_global())
+    WindowManager.shared.initialize()
     space_manager_begin(space_manager_global())
-    window_manager_begin(space_manager_global(), window_manager_global())
+    WindowManager.shared.begin()
 
     update_window_notifications()
 

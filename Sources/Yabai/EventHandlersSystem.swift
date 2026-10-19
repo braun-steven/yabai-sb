@@ -96,7 +96,7 @@ import CPrivate
     }
 
     if g_mission_control_mode == .show || g_mission_control_mode == .showAllWindows {
-        window_manager_correct_for_mission_control_changes(sm, wm)
+        wm.correctForMissionControlChanges()
     }
 
     eventSignalPush(.missionControlExit, UnsafeMutableRawPointer(bitPattern: g_mission_control_mode.rawValue))

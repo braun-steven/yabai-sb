@@ -76,7 +76,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     }
 
     if !mission_control_is_active(), let sid = sm.current_space_id, space_is_user(sid) {
-        window_manager_validate_and_check_for_windows_on_space(sm, wm, sid)
+        wm.validateAndCheckForWindows(on: sid)
 
         if let view, view.isInvalid {
             view.update()
@@ -137,7 +137,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
     debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
     space_manager_handle_display_add(space_manager_global(), did)
-    window_manager_handle_display_add_and_remove(space_manager_global(), window_manager_global(), did)
+    WindowManager.shared.handleDisplayAddAndRemove(did)
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayAdded, signalContext(did))
 }
@@ -147,7 +147,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
     debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
     _ = display_manager_global().labels.remove(id: did)
-    window_manager_handle_display_add_and_remove(space_manager_global(), window_manager_global(), display_manager_main_display_id())
+    WindowManager.shared.handleDisplayAddAndRemove(display_manager_main_display_id())
     space_layout_schedule(1.0, true)
     eventSignalPush(.displayRemoved, signalContext(did))
 }

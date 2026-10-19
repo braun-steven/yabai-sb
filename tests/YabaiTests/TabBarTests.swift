@@ -7,7 +7,7 @@ import CPrivate
 extension DaemonState
 {
     @Suite
-    struct TabBarTests
+    @WM struct TabBarTests
     {
         @Test("Tab bar styles, backdrops and appearances are named by their config values")
         func configNames()

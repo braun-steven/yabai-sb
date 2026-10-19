@@ -5,7 +5,7 @@ import CPrivate
 import YabaiCore
 
 /// The classic bar window or native glass panel, and the tabs it shows.
-final class TabBar
+@WM final class TabBar
 {
     /// The font of the tab bars until `config tab_bar_font` sets one.
     static let defaultFont = "system:12"
@@ -80,7 +80,7 @@ enum TabBarState: Sendable
 extension TabBarState
 {
     /// The background and text colors of a tab in this state.
-    var colors: (background: RGBAColor, text: RGBAColor)
+    @WM var colors: (background: RGBAColor, text: RGBAColor)
     {
         let wm = WindowManager.shared
         switch self {

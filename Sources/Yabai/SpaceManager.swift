@@ -26,10 +26,10 @@ enum SpaceOperationResult: Sendable
     case scriptingAdditionFailed
 }
 
-final class SpaceManager
+@WM final class SpaceManager
 {
     /// See the NOTE of `DisplayManager.shared`.
-    nonisolated(unsafe) static let shared = SpaceManager()
+    static let shared = SpaceManager()
 
     var views: [SpaceID: View] = [:]
     var currentSpaceID: SpaceID?
@@ -206,7 +206,7 @@ final class SpaceManager
 extension ViewSpacing
 {
     /// The default of the space manager, for the views without their own value.
-    var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int>
+    @WM var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int>
     {
         switch self {
         case .topPadding:    \.topPadding

@@ -30,7 +30,7 @@ func mouseEventCoalescing()
 }
 
 @Test("application_launch_retry_backoff")
-func applicationLaunchRetryBackoff()
+@WM func applicationLaunchRetryBackoff()
 {
     //
     // NOTE: The delay doubles from 100ms and is capped at 5s; delays are compared in milliseconds.

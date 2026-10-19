@@ -6,7 +6,7 @@ import YabaiCore
 // NOTE: Ported from tests/src/message.c. Messages are null-separated tokens that end with an empty token, as sent by
 // the client.
 
-private func runGroup(_ body: (inout Response, inout Message) -> CommandResult, _ message: String) -> (CommandResult, String)
+@WM private func runGroup(_ body: (inout Response, inout Message) -> CommandResult, _ message: String) -> (CommandResult, String)
 {
     var response = Response()
     var source = Message(message)
@@ -27,7 +27,7 @@ func messageWindowLayoutValues()
 }
 
 @Test("message_window_command_groups")
-func messageWindowCommandGroups()
+@WM func messageWindowCommandGroups()
 {
     let domain = Token(Domain.window)
 
@@ -43,7 +43,7 @@ func messageWindowCommandGroups()
 }
 
 @Test("message_space_command_groups")
-func messageSpaceCommandGroups()
+@WM func messageSpaceCommandGroups()
 {
     let domain = Token(Domain.space)
 

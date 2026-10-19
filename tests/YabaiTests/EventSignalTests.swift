@@ -4,7 +4,7 @@ import YabaiCore
 
 // NOTE: A destroyed space and a removed display are described by their id alone, without the managers.
 
-@Test("event_signal_describe_spaces") func eventSignalDescribeSpaces()
+@Test("event_signal_describe_spaces") @WM func eventSignalDescribeSpaces()
 {
     var es = PendingSignal(.spaceDestroyed)
     es.describeSpace(.space(1234))

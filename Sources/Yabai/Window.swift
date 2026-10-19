@@ -4,7 +4,7 @@ import Synchronization
 import YabaiCore
 
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
-final class Window
+@WM final class Window
 {
     var application: Application!
     var ref: AXUIElement!
@@ -63,10 +63,10 @@ final class Window
         isSticky = id.isSticky
     }
 
-    var isValid: Bool { valid.load(ordering: .sequentiallyConsistent) }
+    nonisolated var isValid: Bool { valid.load(ordering: .sequentiallyConsistent) }
 
     @discardableResult
-    func invalidate() -> Bool
+    nonisolated func invalidate() -> Bool
     {
         valid.compareExchange(expected: true, desired: false, ordering: .sequentiallyConsistent).exchanged
     }

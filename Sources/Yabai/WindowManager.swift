@@ -87,10 +87,10 @@ struct Scratchpad
 }
 
 /// The windows and applications yabai tracks, and the window settings.
-final class WindowManager
+@WM final class WindowManager
 {
     // NOTE: The single window manager, used by the event loop and the IPC handlers it runs.
-    nonisolated(unsafe) static let shared = WindowManager()
+    static let shared = WindowManager()
 
     var systemElement: AXUIElement?
     var application: [pid_t: Application] = [:]

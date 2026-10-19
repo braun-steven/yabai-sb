@@ -2,7 +2,7 @@ import CPrivate
 import YabaiCore
 
 /// The selectors look up displays, spaces and windows in the managers.
-struct CSelectorContext: SelectorContext
+@WM struct CSelectorContext: @WM SelectorContext
 {
     typealias Window = Yabai.Window
 

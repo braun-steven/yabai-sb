@@ -37,7 +37,7 @@ private enum SignalCommand
     static let list   = "--list"
 }
 
-func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     let context = CSelectorContext()
     let command = message.next()
@@ -126,7 +126,7 @@ func handleDomainQuery(_ rsp: inout Response, _ domain: Token, _ message: inout 
     }
 }
 
-func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainRule(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     let command = message.next()
 

@@ -26,7 +26,7 @@ extension SpaceID
     }
 
     /// The windows on the spaces; nil when the window server fails.
-    static func windows(on spaces: [SpaceID], connection cid: Int32, includingMinimized: Bool) -> [WindowID]?
+    @WM static func windows(on spaces: [SpaceID], connection cid: Int32, includingMinimized: Bool) -> [WindowID]?
     {
         return windowCandidates(on: spaces, connection: cid, includingMinimized: includingMinimized).map { candidates in
             userWindows(among: candidates, includingMinimized: includingMinimized)
@@ -35,7 +35,7 @@ extension SpaceID
 
     /// The candidates that are windows of the user: the ones yabai knows (minimized ones only with includingMinimized) and
     /// the ones the window server describes as user windows.
-    static func userWindows(among candidates: [WindowID], includingMinimized: Bool) -> [WindowID]
+    @WM static func userWindows(among candidates: [WindowID], includingMinimized: Bool) -> [WindowID]
     {
         if candidates.isEmpty { return [] }
 
@@ -56,7 +56,7 @@ extension SpaceID
     }
 
     /// The windows on the space; nil when the window server fails.
-    func windows(includingMinimized: Bool) -> [WindowID]?
+    @WM func windows(includingMinimized: Bool) -> [WindowID]?
     {
         return SpaceID.windows(on: [self], connection: 0, includingMinimized: includingMinimized)
     }
@@ -79,7 +79,7 @@ extension SpaceID
     }
 
     /// Every space in the order Mission Control numbers them, display by display.
-    static var all: [SpaceID]
+    @WM static var all: [SpaceID]
     {
         var result: [SpaceID] = []
 
@@ -96,13 +96,13 @@ extension SpaceID
     }
 
     /// The Mission Control number of the space, or 0.
-    var missionControlIndex: Int
+    @WM var missionControlIndex: Int
     {
         return (SpaceList.indexOf(spaces: SpaceID.all, sid: self) ?? -1) + 1
     }
 
     /// The space with the Mission Control number, or nil.
-    init?(missionControlIndex desktopID: Int)
+    @WM init?(missionControlIndex desktopID: Int)
     {
         let spaces = SpaceID.all
         guard desktopID >= 1 && desktopID <= spaces.count else { return nil }
@@ -116,18 +116,18 @@ extension SpaceID
         return DisplayID.underCursor.flatMap { $0.currentSpace }
     }
 
-    var previous: SpaceID?
+    @WM var previous: SpaceID?
     {
         return SpaceList.neighbour(spaces: SpaceID.all, sid: self, offset: -1)
     }
 
-    var next: SpaceID?
+    @WM var next: SpaceID?
     {
         return SpaceList.neighbour(spaces: SpaceID.all, sid: self, offset: 1)
     }
 
     /// The focused window, or the one that the known focus names when it is still valid.
-    private static var focusedWindow: Window?
+    @WM private static var focusedWindow: Window?
     {
         let front = SLS.frontProcess()
 
@@ -142,7 +142,7 @@ extension SpaceID
     }
 
     /// The space of the focused window, or of the active display; nil when neither is known.
-    static var active: SpaceID?
+    @WM static var active: SpaceID?
     {
         var did: DisplayID? = nil
         let focused = focusedWindow

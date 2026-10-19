@@ -42,7 +42,7 @@ final class WindowAnimation: @unchecked Sendable
     var proxy = WindowProxy()
     var skip = false
 
-    init(_ placement: WindowPlacement, connection: Int32)
+    @WM init(_ placement: WindowPlacement, connection: Int32)
     {
         cid = connection
         wid = placement.window.id
@@ -404,14 +404,14 @@ final class WindowFrameGroup: @unchecked Sendable
     var list: [WindowFrameRequest] = []
     var error = AXError.success
 
-    init(_ target: Application)
+    @WM init(_ target: Application)
     {
         application = target
         ref = target.ref
         name = target.name
     }
 
-    static func groups(for list: [WindowPlacement]) -> [WindowFrameGroup]
+    @WM static func groups(for list: [WindowPlacement]) -> [WindowFrameGroup]
     {
         var result: [WindowFrameGroup] = []
         for placement in list {

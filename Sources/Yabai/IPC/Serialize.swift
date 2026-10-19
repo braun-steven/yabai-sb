@@ -31,7 +31,7 @@ private func displayUUIDText(_ did: DisplayID) -> String
 // NOTE: The Mission Control indices of the spaces of a display.
 //
 
-private func displaySpaceIndexList(_ did: DisplayID) -> String
+@WM private func displaySpaceIndexList(_ did: DisplayID) -> String
 {
     guard let spaceList = did.spaces, spaceList.count > 0 else { return "[]" }
 
@@ -40,7 +40,7 @@ private func displaySpaceIndexList(_ did: DisplayID) -> String
 }
 
 /// `display_serialize`
-func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
+@WM func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
 {
     let dm = DisplayManager.shared
     var json = JSONWriter(flags: flags == 0 ? ~flags : flags)
@@ -58,7 +58,7 @@ func displaySerialize(_ did: DisplayID, _ flags: UInt64) -> String
 
 /// `display_manager_query_displays`
 @discardableResult
-func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
+@WM func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
     let displays = DisplayID.all.map { displaySerialize($0, flags) }
     rsp.write("[\(displays.joined(separator: ","))]\n")
@@ -67,7 +67,7 @@ func displayManagerQueryDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 
 // MARK: Spaces
 
-private func viewUUID(_ view: View) -> String
+@WM private func viewUUID(_ view: View) -> String
 {
     guard let uuid = view.uuid else { return "<unknown>" }
     return uuid as String
@@ -77,26 +77,26 @@ private func viewUUID(_ view: View) -> String
 // NOTE: The windows of a space.
 //
 
-private func viewWindowList(_ sid: SpaceID) -> String
+@WM private func viewWindowList(_ sid: SpaceID) -> String
 {
     guard let windowList = sid.windows(includingMinimized: true) else { return "[]" }
     return jsonList(windowList.map { Int32(bitPattern: $0.rawValue) })
 }
 
-private func viewFirstWindow(_ view: View) -> WindowID?
+@WM private func viewFirstWindow(_ view: View) -> WindowID?
 {
     guard let tree = view.tree, let first = tree.firstLeaf?.focusedDescendant else { return nil }
     return first.windowID
 }
 
-private func viewLastWindow(_ view: View) -> WindowID?
+@WM private func viewLastWindow(_ view: View) -> WindowID?
 {
     guard let tree = view.tree, let last = tree.lastLeaf else { return nil }
     return last.windowID
 }
 
 /// `view_serialize`
-func viewSerialize(_ view: View, _ flags: UInt64) -> String
+@WM func viewSerialize(_ view: View, _ flags: UInt64) -> String
 {
     let sm = SpaceManager.shared
     let sid = view.sid
@@ -119,7 +119,7 @@ func viewSerialize(_ view: View, _ flags: UInt64) -> String
 }
 
 /// `space_manager_query_space`
-func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt64) -> Bool
+@WM func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt64) -> Bool
 {
     guard let view = SpaceManager.shared.queryView(for: sid) else { return false }
 
@@ -131,7 +131,7 @@ func spaceManagerQuerySpace(_ rsp: inout Response, _ sid: SpaceID, _ flags: UInt
 // NOTE: Spaces that have no view are left out, so the separators are written before each element.
 //
 
-private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
+@WM private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
 {
     let sm = SpaceManager.shared
     let spaces = spaceList.compactMap { sid in sm.queryView(for: sid).map { viewSerialize($0, flags) } }
@@ -140,7 +140,7 @@ private func spaceManagerQuerySpaceList(_ rsp: inout Response, _ spaceList: [Spa
 
 /// `space_manager_query_spaces_for_window`
 @discardableResult
-func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
+@WM func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _ flags: UInt64) -> Bool
 {
     let spaceList = window.id.spaces
     if spaceList.isEmpty { return false }
@@ -150,7 +150,7 @@ func spaceManagerQuerySpacesForWindow(_ rsp: inout Response, _ window: Window, _
 }
 
 /// `space_manager_query_spaces_for_display`
-func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64) -> Bool
+@WM func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64) -> Bool
 {
     guard let spaceList = did.spaces else { return false }
 
@@ -159,7 +159,7 @@ func spaceManagerQuerySpacesForDisplay(_ rsp: inout Response, _ did: DisplayID, 
 }
 
 /// `space_manager_query_spaces_for_displays`
-func spaceManagerQuerySpacesForDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
+@WM func spaceManagerQuerySpacesForDisplays(_ rsp: inout Response, _ flags: UInt64) -> Bool
 {
     let spaceList = SpaceID.all
     if spaceList.isEmpty { return false }
@@ -185,7 +185,7 @@ private func wanted(_ flags: UInt64, _ properties: UInt64) -> Bool
 }
 
 // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
-private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
+@WM private func windowInfoSetSpace(_ info: inout WindowInfo, _ sid: SpaceID?, _ flags: UInt64)
 {
     if wanted(flags, WindowProperty.display) { info.display = sid.flatMap { $0.display }.map { $0.arrangement } ?? 0 }
     if wanted(flags, WindowProperty.space)   { info.space   = sid.map { $0.missionControlIndex } ?? 0 }
@@ -200,7 +200,7 @@ private func windowInfoSetLevels(_ info: inout WindowInfo, _ wid: WindowID, _ fl
 }
 
 /// `window_info_set_tree`: the split, stack index and zoom of the container of a managed window.
-func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
+@WM func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 {
     guard let node else { return }
 
@@ -222,7 +222,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 //
 
 /// `window_info_for_window`
-func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
+@WM func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 {
     let wm = WindowManager.shared
     let application = window.application!
@@ -276,7 +276,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
 //
 
 /// `window_info_for_window_id`
-func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
+@WM func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 {
     var info = WindowInfo(id: wid)
     info.app        = ""
@@ -310,21 +310,21 @@ func windowInfo(forID wid: WindowID, _ flags: UInt64) -> WindowInfo
 }
 
 /// `window_serialize`
-func windowSerialize(_ window: Window, _ flags: UInt64) -> String
+@WM func windowSerialize(_ window: Window, _ flags: UInt64) -> String
 {
     let flags = flags == 0 ? ~flags : flags
     return windowInfo(for: window, flags).serialize(flags, layer: layerName)
 }
 
 /// `window_nonax_serialize`
-func windowNonAXSerialize(_ wid: WindowID, _ flags: UInt64) -> String
+@WM func windowNonAXSerialize(_ wid: WindowID, _ flags: UInt64) -> String
 {
     let flags = flags == 0 ? ~flags : flags
     return windowInfo(forID: wid, flags).serialize(flags, layer: layerName)
 }
 
 /// `window_manager_query_windows_for_spaces`
-func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
+@WM func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [SpaceID], _ flags: UInt64)
 {
     let wm = WindowManager.shared
 
@@ -339,20 +339,20 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [Spa
 }
 
 /// `window_manager_query_windows_for_display`
-func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64)
+@WM func windowManagerQueryWindowsForDisplay(_ rsp: inout Response, _ did: DisplayID, _ flags: UInt64)
 {
     windowManagerQueryWindowsForSpaces(&rsp, did.spaces ?? [], flags)
 }
 
 /// `window_manager_query_windows_for_displays`
-func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64)
+@WM func windowManagerQueryWindowsForDisplays(_ rsp: inout Response, _ flags: UInt64)
 {
     windowManagerQueryWindowsForSpaces(&rsp, SpaceID.all, flags)
 }
 
 // MARK: Tree
 
-private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
+@WM private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con, _ depth: Int)
 {
     let leaf = node.isLeaf
     let frame = leaf ? view.frame(for: node) : node.area
@@ -384,7 +384,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
 //
 
 /// `tree_serialize`
-func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
+@WM func treeSerialize(_ rsp: inout Response, _ view: View) -> Bool
 {
     guard view.layout == .tree else { return false }
 

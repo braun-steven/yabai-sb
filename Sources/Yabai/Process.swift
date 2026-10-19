@@ -4,7 +4,7 @@ import CPrivate
 import Synchronization
 import YabaiCore
 
-final class Process
+@WM final class Process
 {
     let psn: ProcessSerialNumber
     let pid: pid_t

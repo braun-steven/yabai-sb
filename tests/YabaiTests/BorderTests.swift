@@ -7,7 +7,7 @@ import YabaiCore
 extension DaemonState
 {
     @Suite
-    struct BorderTests
+    @WM struct BorderTests
     {
         @Test("border_counts_visible_split_windows_in_active_tab")
         func visibleSplitCount()

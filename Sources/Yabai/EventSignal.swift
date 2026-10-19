@@ -128,7 +128,7 @@ enum SignalSubject
 
 extension PendingSignal
 {
-    fileprivate mutating func describeApplication(_ subject: SignalSubject)
+    @WM fileprivate mutating func describeApplication(_ subject: SignalSubject)
     {
         let pm = ProcessManager.shared
 
@@ -175,7 +175,7 @@ extension PendingSignal
         }
     }
 
-    fileprivate mutating func describeWindow(_ subject: SignalSubject)
+    @WM fileprivate mutating func describeWindow(_ subject: SignalSubject)
     {
         let target = subject.window!
         let focusedWindowID = WindowManager.shared.focusedWindowID
@@ -203,7 +203,7 @@ extension PendingSignal
     }
 
     /// Describes a space signal: the id of the space, and for a space change the current and the recent space.
-    mutating func describeSpace(_ subject: SignalSubject)
+    @WM mutating func describeSpace(_ subject: SignalSubject)
     {
         switch type {
         case .spaceCreated:
@@ -235,7 +235,7 @@ extension PendingSignal
     }
 
     /// Describes a display signal: the id of the display, and for a display change the current and the recent display.
-    mutating func describeDisplay(_ subject: SignalSubject)
+    @WM mutating func describeDisplay(_ subject: SignalSubject)
     {
         switch type {
         case .displayAdded, .displayMoved, .displayResized:

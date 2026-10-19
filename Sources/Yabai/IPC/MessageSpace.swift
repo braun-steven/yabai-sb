@@ -109,7 +109,7 @@ extension Response
     }
 }
 
-func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainDisplay(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     let dm = DisplayManager.shared
     let context = CSelectorContext()
@@ -180,7 +180,7 @@ enum CommandResult
 // NOTE: Focusing, moving, swapping, creating and destroying spaces.
 //
 
-private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout SpaceID?) -> CommandResult
+@WM private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingSid: inout SpaceID?) -> CommandResult
 {
     let context = CSelectorContext()
 
@@ -285,7 +285,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
 // NOTE: The layout, padding, gap and label of a space.
 //
 
-func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: SpaceID) -> CommandResult
+@WM func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingSid: SpaceID) -> CommandResult
 {
     let sm = SpaceManager.shared
 
@@ -395,7 +395,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
     return .done
 }
 
-func handleDomainSpace(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainSpace(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     var command: Token
     var actingSid = SpaceID.active

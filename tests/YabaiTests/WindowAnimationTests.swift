@@ -5,7 +5,7 @@ import CPrivate
 @testable import Yabai
 
 @Test("frame closeness")
-func windowFrameClose()
+@WM func windowFrameClose()
 {
     let frame = CGRect(x: 100, y: 200, width: 300, height: 400)
     #expect(frame.isClose(x: 100, y: 200, w: 300, h: 400))
@@ -18,7 +18,7 @@ func windowFrameClose()
 }
 
 @Test("frames grouped by application")
-func windowFrameGroupByApplication()
+@WM func windowFrameGroupByApplication()
 {
     let owners = [Application(), Application()]
     let windows = (0..<5).map { _ in Window(id: 0) }
@@ -47,7 +47,7 @@ func windowFrameGroupByApplication()
 }
 
 @Test("frame update decision")
-func windowFrameNeedsUpdateDecision()
+@WM func windowFrameNeedsUpdateDecision()
 {
     let target = CGRect(x: 10, y: 20, width: 300, height: 400)
     let other = CGRect(x: 10, y: 20, width: 500, height: 400)
@@ -67,7 +67,7 @@ func windowFrameNeedsUpdateDecision()
 }
 
 @Test("animation alpha restoration handles a partial pixel block")
-func animationAlphaTail() throws
+@WM func animationAlphaTail() throws
 {
     // NOTE: The C helper processed four pixels at a time even when the bitmap ended mid-block.
     let sourcePixel: [UInt8] = [64, 32, 16, 128]

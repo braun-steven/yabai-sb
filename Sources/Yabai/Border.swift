@@ -405,7 +405,7 @@ extension Border
 
 extension Border
 {
-    private static func shouldShow(_ target: Window) -> Bool
+    @WM private static func shouldShow(_ target: Window) -> Bool
     {
         if !target.isEligible { return false }
         guard let app = target.application, !app.isHidden else { return false }
@@ -419,7 +419,7 @@ extension Border
     // NOTE: The number of windows that count for windowBorderHideSingle on a space: the tiled windows, where a tabbed
     // container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
     //
-    private static func windowCount(on sid: SpaceID?) -> Int
+    @WM private static func windowCount(on sid: SpaceID?) -> Int
     {
         var count = 0
         if let sid {
@@ -436,7 +436,7 @@ extension Border
     }
 
     /// Refreshes the border of a window; count is the windowCount(on:) of its space, nil when it still has to be counted.
-    private static func refresh(_ target: Window?, space sid: SpaceID?, windowCount count: Int?)
+    @WM private static func refresh(_ target: Window?, space sid: SpaceID?, windowCount count: Int?)
     {
         guard let target, !target.isDestroyed else { return }
         let wm = WindowManager.shared
@@ -521,14 +521,14 @@ extension Border
     // e.g. its focus. Changes that can also affect the borders of the other windows on the space (a window appears or
     // disappears, a container changes) refresh the whole space instead.
     //
-    static func refresh(_ target: Window?) { refresh(target, space: nil, windowCount: nil) }
+    @WM static func refresh(_ target: Window?) { refresh(target, space: nil, windowCount: nil) }
 
     //
     // NOTE: Without windowBorderHideSingle a change on a space only affects the borders of its tiled windows and of
     // the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
     // without asking the window server for the space of every window.
     //
-    static func refresh(space sid: SpaceID?)
+    @WM static func refresh(space sid: SpaceID?)
     {
         guard let sid else { return }
         beginBatch()
@@ -550,7 +550,7 @@ extension Border
         for wid in windows { refresh(WindowManager.shared.window(for: wid), space: sid, windowCount: 0) }
     }
 
-    static func refreshSpace(of target: Window?)
+    @WM static func refreshSpace(of target: Window?)
     {
         guard let target, !target.isDestroyed else { return }
         let sid = target.id.space
@@ -558,7 +558,7 @@ extension Border
         else { refresh(target) }
     }
 
-    static func refreshAll()
+    @WM static func refreshAll()
     {
         var counts: [SpaceID: Int] = [:]
         for target in WindowManager.shared.window.values {

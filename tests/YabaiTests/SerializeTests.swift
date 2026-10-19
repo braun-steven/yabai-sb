@@ -9,7 +9,7 @@ import YabaiCore
 extension DaemonState
 {
     @Suite
-    struct SerializeTests
+    @WM struct SerializeTests
     {
         @Test("window_info_tree_fields")
         func windowInfoTreeFields()

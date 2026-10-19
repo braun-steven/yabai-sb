@@ -52,7 +52,7 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     }
 }
 
-final class DisplayManager
+@WM final class DisplayManager
 {
     var currentDisplayID: DisplayID?
     var lastDisplayID: DisplayID?
@@ -67,10 +67,12 @@ final class DisplayManager
     var labels = LabelList<DisplayID>()
 
     //
-    // NOTE: The managers' shared instances are created before the event loop starts. The event loop owns them; producers
-    // on other threads read only what the NOTEs at their reads name.
+    // NOTE: The managers are @WM: the event loop owns their state, and producers on other threads read only what the
+    // NOTEs at their reads name (atomics, immutable ids). shared of DisplayManager and ProcessManager is nonisolated so
+    // that Daemon.run can call their nonisolated begin() on the main thread; begin() still changes the state through
+    // WM.sync.
     //
-    nonisolated(unsafe) static let shared = DisplayManager()
+    nonisolated static let shared = DisplayManager()
 
     /// Called by Daemon.run on the main thread: reads the active display on the event loop's queue, then registers
     /// the reconfiguration callback, which posts events to the event loop.

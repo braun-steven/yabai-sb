@@ -38,7 +38,7 @@ enum ViewSpacing: CaseIterable, Sendable
     case windowGap
 
     /// The value in a view.
-    var view: ReferenceWritableKeyPath<View, Int>
+    @WM var view: ReferenceWritableKeyPath<View, Int>
     {
         switch self {
         case .topPadding:    \.topPadding
@@ -64,7 +64,7 @@ enum ViewSpacing: CaseIterable, Sendable
 
 /// isValid is false once the area of the view must be recomputed, isDirty while its tree has not been laid out since it
 /// changed, and isUnpadded while auto padding removes its padding.
-final class View
+@WM final class View
 {
     var uuid: CFString?
     var sid: SpaceID

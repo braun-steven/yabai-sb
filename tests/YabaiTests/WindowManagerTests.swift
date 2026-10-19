@@ -8,19 +8,19 @@ import YabaiCore
 // so they do not touch the state of the daemon.
 
 /// A window manager with the defaults of its fields, released by windowManagerFree.
-private func windowManagerCreate() -> WindowManager
+@WM private func windowManagerCreate() -> WindowManager
 {
     return WindowManager()
 }
 
-private func windowManagerFree(_ wm: WindowManager)
+@WM private func windowManagerFree(_ wm: WindowManager)
 {
     wm.rules = []
     wm.window.removeAll()
 }
 
 /// A valid window with an id and an application.
-private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
+@WM private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
 {
     let result = Window(id: id)
     result.application = owner
@@ -28,14 +28,14 @@ private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window
 }
 
 /// An application with a malloc'ed name, which the test frees.
-private func applicationCreate(_ name: String) -> Application
+@WM private func applicationCreate(_ name: String) -> Application
 {
     let result = Application()
     result.name = name
     return result
 }
 
-@Test("window_pending_focus") func windowPendingFocus()
+@Test("window_pending_focus") @WM func windowPendingFocus()
 {
     let wm = windowManagerCreate()
     let target = windowCreate(42)
@@ -62,7 +62,7 @@ private func applicationCreate(_ name: String) -> Application
     #expect(wm.pendingFocusWindowID == nil)
 }
 
-@Test("window_unresolved_list") func windowUnresolvedList()
+@Test("window_unresolved_list") @WM func windowUnresolvedList()
 {
     let wm = windowManagerCreate()
     let windows = [12, 14, 11, 13].map { windowCreate($0) }
@@ -77,7 +77,7 @@ private func applicationCreate(_ name: String) -> Application
     #expect(wm.unresolvedWindows(in: [11, 12, 13, 14]).isEmpty)
 }
 
-@Test("window_validity") func windowValidity()
+@Test("window_validity") @WM func windowValidity()
 {
     let target = windowCreate(5)
 
@@ -98,7 +98,7 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
     return result
 }
 
-@Test("window_one_shot_rules") func windowOneShotRules()
+@Test("window_one_shot_rules") @WM func windowOneShotRules()
 {
     let wm = windowManagerCreate()
     defer { windowManagerFree(wm) }
@@ -115,7 +115,7 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 // make every window a direct child, which needs as many entries as there are relations.
 //
 
-@Test("window_child_windows_collect") func windowChildWindowsCollect()
+@Test("window_child_windows_collect") @WM func windowChildWindowsCollect()
 {
     var parentList: [WindowID?] = [3, 1, 9, 1]
     #expect(WindowManager.collectChildWindows(1, parents: &parentList, children: [4, 2, 8, 3]) == [2, 3, 4])
@@ -150,7 +150,7 @@ private struct WindowStrings
 
 }
 
-@Test("window_rules_combine_matching") func windowRulesCombineMatching()
+@Test("window_rules_combine_matching") @WM func windowRulesCombineMatching()
 {
     let owner = applicationCreate("Safari")
     let target = windowCreate(1, owner)
@@ -202,7 +202,7 @@ private struct WindowStrings
     #expect(effects.sid == 4)
 }
 
-@Test("window_rules_manage_round") func windowRulesManageRound()
+@Test("window_rules_manage_round") @WM func windowRulesManageRound()
 {
     let owner = applicationCreate("Safari")
     let target = windowCreate(1, owner)

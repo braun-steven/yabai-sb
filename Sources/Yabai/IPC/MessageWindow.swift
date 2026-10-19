@@ -55,7 +55,7 @@ extension Response
     }
 }
 
-private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> WindowOperationResult
+@WM private func windowTreeFocus(_ window: Window?, _ focus: TreeFocus) -> WindowOperationResult
 {
     let wm = WindowManager.shared
     switch focus {
@@ -81,7 +81,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 }
 
 /// `window_toggle_list`: what a value of `window --toggle` that is a window property does.
-private func windowToggle(_ toggle: WindowToggle, _ window: Window)
+@WM private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 {
     let sm = SpaceManager.shared
     let wm = WindowManager.shared
@@ -104,7 +104,7 @@ private func windowToggle(_ toggle: WindowToggle, _ window: Window)
 // NOTE: Focusing, closing, minimizing and deminimizing windows.
 //
 
-private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: inout Window?) -> CommandResult
+@WM private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: inout Window?) -> CommandResult
 {
     let context = CSelectorContext()
 
@@ -177,7 +177,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
 // NOTE: Moving a window to another display, space or position in the tree.
 //
 
-private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
+@WM private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
     let wm = WindowManager.shared
     let context = CSelectorContext()
@@ -256,7 +256,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
 // NOTE: The container of a window in the tree.
 //
 
-func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
+@WM func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
     let wm = WindowManager.shared
 
@@ -292,7 +292,7 @@ func windowCommandTree(_ rsp: inout Response, _ domain: Token, _ command: Token,
 // NOTE: The frame of a floating window and the share of a tiled one.
 //
 
-private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
+@WM private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window) -> CommandResult
 {
     let wm = WindowManager.shared
 
@@ -360,7 +360,7 @@ private func windowCommandFrame(_ rsp: inout Response, _ domain: Token, _ comman
 // NOTE: Window properties: toggles, layer, opacity, order and scratchpads.
 //
 
-private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
+@WM private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ actingWindow: Window?) -> CommandResult
 {
     let wm = WindowManager.shared
 
@@ -441,7 +441,7 @@ private func windowCommandProperty(_ rsp: inout Response, _ domain: Token, _ com
     return .done
 }
 
-func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     var command: Token
     var actingWindow: Window? = WindowManager.shared.actingWindow

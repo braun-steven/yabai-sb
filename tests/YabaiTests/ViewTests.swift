@@ -11,7 +11,7 @@ import YabaiCore
 extension DaemonState
 {
     @Suite
-    struct ViewTests
+    @WM struct ViewTests
     {
         /// A tree view with padding, a gap and auto padding enabled.
         private func autoPaddingView() -> View

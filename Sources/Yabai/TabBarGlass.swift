@@ -46,7 +46,7 @@ private struct Snapshot: @unchecked Sendable
     // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
     // AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window.
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
-    init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
+    @WM init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
     {
         let wm = WindowManager.shared
         frame = bar.frame

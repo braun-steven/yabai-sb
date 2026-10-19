@@ -7,31 +7,31 @@ import YabaiCore
 // NOTE: Tree layout tests share space-manager state, so they run in DaemonState.
 //
 
-private func treeTestWindow(_ node: Con?) -> WindowID?
+@WM private func treeTestWindow(_ node: Con?) -> WindowID?
 {
     guard let node, node.isLeaf else { return nil }
     return node.windowID
 }
 
-private func treeTestChild(_ node: Con, _ index: Int) -> WindowID?
+@WM private func treeTestChild(_ node: Con, _ index: Int) -> WindowID?
 {
     return index < node.children.count ? treeTestWindow(node.children[Int(index)]) : nil
 }
 
 /// A share of space in percent, rounded to the nearest integer.
-private func percent(_ node: Con, _ scale: Float = 100) -> Int
+@WM private func percent(_ node: Con, _ scale: Float = 100) -> Int
 {
     return Int(node.percent * scale + 0.5)
 }
 
 /// A leaf that is not part of a tree.
-private func treeTestCon(_ windowID: WindowID) -> Con
+@WM private func treeTestCon(_ windowID: WindowID) -> Con
 {
     let node = Con(windowID: windowID)
     return node
 }
 
-private func treeViewTestView(_ root: Con?) -> View
+@WM private func treeViewTestView(_ root: Con?) -> View
 {
     let target = View(sid: 1)
     target.layout = .tree
@@ -42,7 +42,7 @@ private func treeViewTestView(_ root: Con?) -> View
 extension DaemonState
 {
     @Suite
-    struct TreeTests
+    @WM struct TreeTests
     {
         // NOTE: the golden replay of this suite sets tree_workspace_layout tabbed, which wraps every container that is
         // attached to the workspace; the tests expect the default (Swift Testing creates the suite for each test)

@@ -9,7 +9,7 @@ private func knownFocusPSN(_ low: UInt32) -> ProcessSerialNumber
     return psn
 }
 
-@Test("space_known_focus") func spaceKnownFocus()
+@Test("space_known_focus") @WM func spaceKnownFocus()
 {
     let wm = WindowManager()
 

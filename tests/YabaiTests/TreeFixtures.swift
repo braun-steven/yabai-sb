@@ -6,7 +6,7 @@ import YabaiCore
 // with the border tests. The calls name the Swift functions, which the C prototypes do not shadow here.
 
 @discardableResult
-func treeTestLeaf(_ parent: Con, _ windowID: WindowID) -> Con
+@WM func treeTestLeaf(_ parent: Con, _ windowID: WindowID) -> Con
 {
     let node = Con(windowID: windowID)
     parent.attach(node, at: nil)
@@ -14,7 +14,7 @@ func treeTestLeaf(_ parent: Con, _ windowID: WindowID) -> Con
 }
 
 @discardableResult
-func treeTestSplit(_ parent: Con, _ layout: ConLayout) -> Con
+@WM func treeTestSplit(_ parent: Con, _ layout: ConLayout) -> Con
 {
     let node = Con(layout: layout)
     parent.attach(node, at: nil)

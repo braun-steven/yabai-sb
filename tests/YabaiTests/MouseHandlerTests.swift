@@ -4,7 +4,7 @@ import CPrivate
 @testable import Yabai
 
 @Test("mouse_drop_action_regions")
-func mouseDropActionRegions()
+@WM func mouseDropActionRegions()
 {
     let target = Window(id: 0)
     target.frame = CGRect(x: 100, y: 100, width: 200, height: 100)

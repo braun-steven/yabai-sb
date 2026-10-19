@@ -94,7 +94,7 @@ struct FeedbackWindow
 // and the tab bar. raised is one of the children, and the tree clears it when the child leaves.
 //
 
-struct ConRender
+@WM struct ConRender
 {
     weak var raised: Con!
     var raisedAnchor: WindowID?
@@ -107,7 +107,7 @@ struct ConRender
 // NOTE: A container owns its children; parent is weak so the tree has no retain cycle.
 //
 
-final class Con
+@WM final class Con
 {
     weak var parent: Con?
     var children: [Con] = []
@@ -136,7 +136,7 @@ final class Con
 
 extension Con: Equatable
 {
-    static func == (a: Con, b: Con) -> Bool { a === b }
+    nonisolated static func == (a: Con, b: Con) -> Bool { a === b }
 }
 
 private extension Direction

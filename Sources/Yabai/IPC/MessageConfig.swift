@@ -83,7 +83,7 @@ private enum WorkspaceLayout: String, CaseIterable
     case tabbed
 }
 
-private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, RGBAColor>?
+@WM private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowManager, RGBAColor>?
 {
     if command.equals(Config.tabBarFocusedColor)       { return \.tabBarFocusedColor }
     if command.equals(Config.tabBarFocusedTextColor)   { return \.tabBarFocusedTextColor }
@@ -95,7 +95,7 @@ private func tabBarColor(for command: Token) -> ReferenceWritableKeyPath<WindowM
     return nil
 }
 
-private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<WindowManager, Bool>?
+@WM private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<WindowManager, Bool>?
 {
     if command.equals(Config.tabBarFocusedColor)   { return \.tabBarFocusedColorIsCustom }
     if command.equals(Config.tabBarInactiveColor)  { return \.tabBarInactiveColorIsCustom }
@@ -107,7 +107,7 @@ private func tabBarColorCustom(for command: Token) -> ReferenceWritableKeyPath<W
     return nil
 }
 
-private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
     let wm = WindowManager.shared
     let value = message.next()
@@ -139,7 +139,7 @@ private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ comm
 // is invalid and the remaining commands must not be run.
 //
 
-private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
+@WM private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
     let sm = SpaceManager.shared
 
@@ -236,7 +236,7 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
     return nil
 }
 
-private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
     let wm = WindowManager.shared
     let token = message.next()
@@ -260,7 +260,7 @@ private func configAnimationDuration(_ rsp: inout Response, _ domain: Token, _ c
     }
 }
 
-private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?)
+@WM private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?)
 {
     let sm = SpaceManager.shared
     let value = message.next()
@@ -286,7 +286,7 @@ private func configLayout(_ rsp: inout Response, _ domain: Token, _ command: Tok
     }
 }
 
-private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
+@WM private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource)
 {
     let dm = DisplayManager.shared
     let value = message.next()
@@ -359,7 +359,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 // NOTE: The window_border options. Returns false when command is not one of them.
 //
 
-private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
+@WM private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
     let wm = WindowManager.shared
 
@@ -393,7 +393,7 @@ private func configBorder(_ rsp: inout Response, _ domain: Token, _ command: Tok
 // NOTE: The tab_bar options. Returns false when command is not one of them.
 //
 
-private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
+@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource) -> Bool
 {
     let wm = WindowManager.shared
 
@@ -485,7 +485,7 @@ private func configTabBar(_ rsp: inout Response, _ domain: Token, _ command: Tok
 }
 
 /// `handle_domain_config`
-func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
+@WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource)
 {
     var selSid: SpaceID?
     let selector = message.next()
@@ -506,7 +506,7 @@ func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout
 }
 
 /// One command of the config domain. Returns false when the remaining commands must not be run.
-private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
+@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ command: Token, _ message: inout some TokenSource, _ selSid: SpaceID?) -> Bool
 {
     let wm = WindowManager.shared
     let sm = SpaceManager.shared

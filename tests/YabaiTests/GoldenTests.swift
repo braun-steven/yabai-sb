@@ -121,7 +121,7 @@ enum Golden
 extension DaemonState
 {
     @Suite
-    struct GoldenTests
+    @WM struct GoldenTests
     {
         @Test func goldenCaptureCoversEveryCommand() throws
         {

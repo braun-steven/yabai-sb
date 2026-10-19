@@ -154,9 +154,9 @@ final class MouseTapState
 }
 
 /// The mouse action state used by yabai.wm while a window is being dragged.
-final class MouseState
+@WM final class MouseState
 {
-    nonisolated(unsafe) static let shared = MouseState()
+    static let shared = MouseState()
 
     // NOTE: The tap state is retained by this daemon-lifetime singleton and is passed unretained as callback context.
     let tap = MouseTapState()

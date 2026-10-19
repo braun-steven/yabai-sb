@@ -18,7 +18,7 @@ extension DisplayID
     }
 
     /// The display at an arrangement index (1-based); nil when there is none.
-    init?(arrangement: Int)
+    @WM init?(arrangement: Int)
     {
         guard let uuid = DisplayManager.shared.arrangedDisplayUUID(arrangement) else { return nil }
         self.init(uuid: uuid)
@@ -45,7 +45,7 @@ extension DisplayID
     }
 
     /// The area of the display that windows can use, without the menu bar, the Dock and, unless ignored, the external bar.
-    func constrainedBounds(ignoringExternalBar: Bool) -> CGRect
+    @WM func constrainedBounds(ignoringExternalBar: Bool) -> CGRect
     {
         let dm = DisplayManager.shared
         var frame = CGDisplayBounds(rawValue)
@@ -125,7 +125,7 @@ extension DisplayID
     }
 
     /// The arrangement index of the display (1-based); 0 when the window server does not arrange it.
-    var arrangement: Int
+    @WM var arrangement: Int
     {
         guard let uuid = self.uuid else { return 0 }
         guard let displays = DisplayManager.shared.arrangedDisplays else { return 0 }
@@ -135,7 +135,7 @@ extension DisplayID
     }
 
     /// The display before this one in the arrangement.
-    var previous: DisplayID?
+    @WM var previous: DisplayID?
     {
         let arrangement = self.arrangement
         if arrangement <= 1 { return nil }
@@ -144,7 +144,7 @@ extension DisplayID
     }
 
     /// The display after this one in the arrangement.
-    var next: DisplayID?
+    @WM var next: DisplayID?
     {
         let arrangement = self.arrangement
         if arrangement >= DisplayID.count { return nil }
@@ -153,13 +153,13 @@ extension DisplayID
     }
 
     /// The first display in the arrangement.
-    static var first: DisplayID?
+    @WM static var first: DisplayID?
     {
         return DisplayID(arrangement: 1)
     }
 
     /// The last display in the arrangement.
-    static var last: DisplayID?
+    @WM static var last: DisplayID?
     {
         let arrangement = DisplayID.count
         return DisplayID(arrangement: arrangement)
@@ -229,7 +229,7 @@ extension DisplayID
     }
 
     /// The display holding the Dock; nil when the window server names none.
-    static var dock: DisplayID?
+    @WM static var dock: DisplayID?
     {
         guard let uuid = SLS.bestManagedDisplay(SLS.connection, forRect: DisplayManager.shared.dockRect) else { return nil }
         return DisplayID(uuid: uuid)
@@ -269,7 +269,7 @@ extension DisplayID
     }
 
     /// Focuses the display, through its frontmost window on the space, or its cursor.
-    func focus(space: SpaceID?)
+    @WM func focus(space: SpaceID?)
     {
         let wm = WindowManager.shared
 

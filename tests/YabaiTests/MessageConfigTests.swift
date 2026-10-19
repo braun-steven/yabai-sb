@@ -5,7 +5,7 @@ import YabaiCore
 
 // NOTE: The handler changes the global managers, so the tests are part of DaemonState.
 
-private func runConfig(_ message: String) -> String
+@WM private func runConfig(_ message: String) -> String
 {
     var response = Response()
     var source = Message(message)
@@ -16,7 +16,7 @@ private func runConfig(_ message: String) -> String
 extension DaemonState
 {
     @Suite
-    struct MessageConfigTests
+    @WM struct MessageConfigTests
     {
         @Test("tab_bar_appearance_config")
         func tabBarAppearanceConfig()

@@ -4,7 +4,7 @@ import AppKit
 import YabaiCore
 
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and observer.
-final class Application
+@WM final class Application
 {
     var ref: AXUIElement!
     var connection: Int32 = 0
@@ -102,7 +102,7 @@ final class Application
 
 extension Application: Equatable
 {
-    static func == (a: Application, b: Application) -> Bool { a === b }
+    nonisolated static func == (a: Application, b: Application) -> Bool { a === b }
 }
 
 /// The AX notifications that an application can observe.

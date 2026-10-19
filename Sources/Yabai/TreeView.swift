@@ -58,12 +58,12 @@ extension Con
     }
 }
 
-private func treeBarHeight() -> Int
+@WM private func treeBarHeight() -> Int
 {
     return TabBar.isEnabled ? WindowManager.shared.tabBarHeight : 0
 }
 
-private func treeBarInset() -> Int
+@WM private func treeBarInset() -> Int
 {
     return TabBar.isEnabled ? TabBar.cardPadding : 0
 }

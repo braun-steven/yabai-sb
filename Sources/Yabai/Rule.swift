@@ -30,7 +30,7 @@ extension Rule
         return false
     }
 
-    func serialize(into response: inout Response, index: Int)
+    @WM func serialize(into response: inout Response, index: Int)
     {
         let display = effects.did.map { $0.arrangement } ?? 0
         let space = effects.sid.map { $0.missionControlIndex } ?? 0

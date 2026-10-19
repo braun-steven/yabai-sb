@@ -9,7 +9,7 @@ import YabaiCore
 // accesses this process table; startup enumeration completes before the callback is installed.
 //
 
-final class ProcessManager
+@WM final class ProcessManager
 {
     var processes: [ProcessKey: Process] = [:]
     var frontPID: pid_t = 0
@@ -18,7 +18,7 @@ final class ProcessManager
     var finderPSN = ProcessSerialNumber()
 
     /// The Carbon handler posts process keys; the event loop owns the process table.
-    nonisolated(unsafe) static let shared = ProcessManager()
+    nonisolated static let shared = ProcessManager()
 
     /// Called by Daemon.run on the main thread: enumerates the running processes on the event loop's queue, then
     /// installs the Carbon handler, which runs only once the main run loop does.

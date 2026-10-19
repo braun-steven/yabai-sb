@@ -383,15 +383,6 @@ extension MouseState
         return view.findWindow(window.id)
     }
 
-    func setDefaults()
-    {
-        Config.current.mouse.modifier = .fn
-        Config.current.mouse.action1 = .move
-        Config.current.mouse.action2 = .resize
-        Config.current.mouse.dropAction = .swap
-        tap.modifier = Config.current.mouse.modifier
-    }
-
     //
     // NOTE: The main run-loop tap receives its dedicated state unretained; MouseState.shared retains it for daemon lifetime.
     //

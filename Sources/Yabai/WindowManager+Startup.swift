@@ -11,7 +11,6 @@ extension WindowManager
         systemElement.setMessagingTimeout(1.0)
         self.systemElement = systemElement
 
-        Config.current = Config()
         _ = TabBar.setFont(TabBar.defaultFont)
 
         application = [:]

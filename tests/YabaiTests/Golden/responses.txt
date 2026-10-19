@@ -149,13 +149,13 @@ on
 fn
 
 ### 5 config mouse_action1
-none
+move
 
-### 5 config mouse_action2
-none
+### 7 config mouse_action2
+resize
 
 ### 5 config mouse_drop_action
-none
+swap
 
 ### 8 config external_bar
 off:0:0

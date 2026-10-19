@@ -307,7 +307,6 @@ enum Daemon
         //
         WM.sync {
             WindowManager.shared.initialize()
-            MouseState.shared.setDefaults()
             SpaceManager.shared.begin()
             WindowManager.shared.begin()
             WindowManager.shared.updateWindowNotifications()

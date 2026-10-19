@@ -1,5 +1,7 @@
 import YabaiCore
 
+/// The settings of the config domain. `Config.current` starts with the defaults of a new daemon; the space layout
+/// default becomes tree in `SpaceManager.begin`.
 @WM struct Config
 {
     static var current = Config()
@@ -61,12 +63,13 @@ struct WindowConfig
     var focusWrapping = FocusWrapping.on
 }
 
+/// The mouse actions. `MouseTapState.modifier` mirrors `modifier` for the event tap; both start as fn.
 struct MouseConfig
 {
     var modifier = MouseModifierKey.fn
-    var action1 = MouseAction.none
-    var action2 = MouseAction.none
-    var dropAction = MouseAction.none
+    var action1 = MouseAction.move
+    var action2 = MouseAction.resize
+    var dropAction = MouseAction.swap
 }
 
 struct AnimationConfig

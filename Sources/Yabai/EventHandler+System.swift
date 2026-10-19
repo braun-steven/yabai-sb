@@ -117,8 +117,8 @@ extension EventHandler
         openMenuCount += 1
 
         if openMenuCount == 1 {
-            focusFollowsMouseBeforeMenu = Config.current.window.focusFollowsMouseMode
-            Config.current.window.focusFollowsMouseMode = .disabled
+            focusFollowsMouseBeforeMenu = Config.current.window.focusFollowsMouse
+            Config.current.window.focusFollowsMouse = .disabled
         }
     }
 
@@ -128,7 +128,7 @@ extension EventHandler
         openMenuCount -= 1
 
         if openMenuCount == 0 {
-            Config.current.window.focusFollowsMouseMode = focusFollowsMouseBeforeMenu
+            Config.current.window.focusFollowsMouse = focusFollowsMouseBeforeMenu
         } else if openMenuCount < 0 {
             openMenuCount = 0
         }
@@ -154,7 +154,7 @@ extension EventHandler
 
         let wm = WindowManager.shared
         if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
-            wm.setWindowOpacity(focusedWindow, to: Config.current.window.activeWindowOpacity)
+            wm.setWindowOpacity(focusedWindow, to: Config.current.window.activeOpacity)
             wm.centerMouse(on: focusedWindow)
         }
 

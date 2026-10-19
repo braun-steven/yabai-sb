@@ -90,7 +90,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func focusFollowsMouseOption() -> ConfigOption
 {
-    configOption(.focusFollowsMouse, print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouseMode.rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    configOption(.focusFollowsMouse, print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouse.rawValue)\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         let value: FocusFollowsMouse
@@ -104,7 +104,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 @WM private func scratchpadGridOption() -> ConfigOption
 {
     configOption(.scratchpadGrid, print: { rsp, _ in
-        let grid = Config.current.scratchpad.scratchpadGrid
+        let grid = Config.current.scratchpad.grid
         if grid.rows == 0 || grid.columns == 0 { rsp.write("\(Argument.off)\n") }
         else {
             let values = [grid.rows, grid.columns, grid.x, grid.y, grid.width, grid.height]
@@ -113,10 +113,10 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        if token.equals(Argument.off) { return { Config.current.scratchpad.scratchpadGrid = Grid() } }
+        if token.equals(Argument.off) { return { Config.current.scratchpad.grid = Grid() } }
         var grid = Grid()
         guard grid.scan(token) == 6, grid.rows > 0, grid.columns > 0 else { throw CommandError.unknownValue(domain, command, token) }
-        return { Config.current.scratchpad.scratchpadGrid = grid }
+        return { Config.current.scratchpad.grid = grid }
     })
 }
 
@@ -174,17 +174,17 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private func animationDurationOption() -> ConfigOption
 {
-    configOption(.windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.windowAnimationDuration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    configOption(.windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
         guard let duration = token.value.floatValue else { throw CommandError.unknownValue(domain, command, token) }
         return { () throws(CommandError) in
             if duration == 0.0 {
-                Config.current.animation.windowAnimationDuration = duration
+                Config.current.animation.duration = duration
             } else if !ScriptingAddition.shared.isSIPFriendly {
                 throw CommandError("command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n")
             } else if CGPreflightScreenCaptureAccess() {
-                Config.current.animation.windowAnimationDuration = duration
+                Config.current.animation.duration = duration
             } else {
                 CGRequestScreenCaptureAccess()
                 throw CommandError("command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n")
@@ -209,8 +209,8 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 @WM private func externalBarOption() -> ConfigOption
 {
     configOption(.externalBar, print: { rsp, _ in
-        let display = Config.current.display
-        rsp.write("\(display.mode.rawValue):\(display.topPadding):\(display.bottomPadding)\n")
+        let externalBar = Config.current.display.externalBar
+        rsp.write("\(externalBar.mode.rawValue):\(externalBar.topPadding):\(externalBar.bottomPadding)\n")
     }, parse: { (domain, command, message, _) throws(CommandError) in
         let value = message.next()
         var mode = [CChar](repeating: 0, count: 6)
@@ -229,9 +229,9 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
         let topPadding = Int(top)
         let bottomPadding = Int(bottom)
         return {
-            Config.current.display.mode = choice
-            Config.current.display.topPadding = topPadding
-            Config.current.display.bottomPadding = bottomPadding
+            Config.current.display.externalBar.mode = choice
+            Config.current.display.externalBar.topPadding = topPadding
+            Config.current.display.externalBar.bottomPadding = bottomPadding
             SpaceManager.shared.markSpacesInvalid()
         }
     })
@@ -241,7 +241,7 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 {
     configOption(name, print: { rsp, selSid in
         let manager = SpaceManager.shared
-        let value = selSid.map { manager.view(for: $0)[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceManager]
+        let value = selSid.map { manager.view(for: $0)[keyPath: spacing.view] } ?? Config.current.space[keyPath: spacing.spaceDefault]
         rsp.write("\(value)\n")
     }, parse: { (domain, command, message, selSid) throws(CommandError) in
         let token = message.next()
@@ -310,17 +310,17 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
 
 @WM private let configOptions: [ConfigOption] = [
     boolOption(.debugOutput, get: { Log.verbose.load(ordering: .relaxed) }, set: { Log.verbose.store($0, ordering: .relaxed) }),
-    boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocusEnabled }, set: { Config.current.window.mouseFollowsFocusEnabled = $0 }),
+    boolOption(.mouseFollowsFocus, get: { Config.current.window.mouseFollowsFocus }, set: { Config.current.window.mouseFollowsFocus = $0 }),
     focusFollowsMouseOption(),
     choiceOption(.displayArrangementOrder, choices: DisplayArrangementOrder.allCases, get: { Config.current.display.order }, set: { Config.current.display.order = $0 }),
     boolOption(.builtinDisplayLast, get: { Config.current.display.builtinDisplayLast }, set: { Config.current.display.builtinDisplayLast = $0 }, applyChange: { _ in SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }),
-    choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.windowOriginMode }, set: { Config.current.window.windowOriginMode = $0 }),
-    boolOption(.scratchpadExclusive, get: { Config.current.scratchpad.scratchpadExclusive }, set: { Config.current.scratchpad.scratchpadExclusive = $0 }),
-    boolOption(.scratchpadRaise, get: { Config.current.scratchpad.scratchpadRaise }, set: { Config.current.scratchpad.scratchpadRaise = $0 }),
-    boolOption(.scratchpadBelow, get: { Config.current.scratchpad.scratchpadBelow }, set: { Config.current.scratchpad.scratchpadBelow = $0 }, applyChange: { _ in WindowManager.shared.setScratchpadLayers() }),
+    choiceOption(.windowOriginDisplay, choices: WindowOrigin.allCases, get: { Config.current.window.origin }, set: { Config.current.window.origin = $0 }),
+    boolOption(.scratchpadExclusive, get: { Config.current.scratchpad.exclusive }, set: { Config.current.scratchpad.exclusive = $0 }),
+    boolOption(.scratchpadRaise, get: { Config.current.scratchpad.raise }, set: { Config.current.scratchpad.raise = $0 }),
+    boolOption(.scratchpadBelow, get: { Config.current.scratchpad.below }, set: { Config.current.scratchpad.below = $0 }, applyChange: { _ in WindowManager.shared.setScratchpadLayers() }),
     boolOption(.skipWindowFocusAnimation, get: { Config.current.space.skipWindowFocusAnimation }, set: { Config.current.space.skipWindowFocusAnimation = $0 }),
-    boolOption(.windowOpacity, get: { Config.current.window.windowOpacityEnabled }, set: { _ in }, applyChange: { WindowManager.shared.setWindowOpacityEnabled($0) }),
-    choiceOption(.windowAnimationEasing, choices: AnimationEasing.allCases, get: { Config.current.animation.windowAnimationEasing }, set: { Config.current.animation.windowAnimationEasing = $0 }),
+    boolOption(.windowOpacity, get: { Config.current.window.opacityEnabled }, set: { _ in }, applyChange: { WindowManager.shared.setWindowOpacityEnabled($0) }),
+    choiceOption(.windowAnimationEasing, choices: AnimationEasing.allCases, get: { Config.current.animation.easing }, set: { Config.current.animation.easing = $0 }),
     choiceOption(.windowShadow, choices: PurifyMode.allCases, get: { Config.current.window.purifyMode }, set: { _ in }, applyChange: { WindowManager.shared.setPurifyMode($0) }),
     choiceOption(.treeDefaultOrientation, choices: TreeOrientation.allCases, get: { Config.current.space.treeDefaultOrientation }, set: { Config.current.space.treeDefaultOrientation = $0 }),
     choiceOption(.treeWorkspaceLayout, choices: WorkspaceLayout.allCases, get: { Config.current.space.treeWorkspaceTabbed ? .tabbed : .default }, set: { Config.current.space.treeWorkspaceTabbed = $0 == .tabbed }),
@@ -357,10 +357,10 @@ private typealias ConfigMutation = @WM () throws(CommandError) -> Void
     colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0 }, markCustom: { Config.current.tabBar.unfocusedColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
     colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0 }, markCustom: { Config.current.tabBar.unfocusedTextColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
     colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0 }, markCustom: { Config.current.tabBar.backdropColorIsCustom = true }, applyChange: { TabBar.redrawAll() }),
-    floatOption(.windowOpacityDuration, get: { Config.current.window.windowOpacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, apply: { Config.current.window.windowOpacityDuration = $0 }),
+    floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, apply: { Config.current.window.opacityDuration = $0 }),
     floatOption(.menubarOpacity, get: { Config.current.window.menuBarOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setMenuBarOpacity($0) }),
-    floatOption(.activeWindowOpacity, get: { Config.current.window.activeWindowOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setActiveWindowOpacity($0) }),
-    floatOption(.normalWindowOpacity, get: { Config.current.window.normalWindowOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setNormalWindowOpacity($0) }),
+    floatOption(.activeWindowOpacity, get: { Config.current.window.activeOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setActiveWindowOpacity($0) }),
+    floatOption(.normalWindowOpacity, get: { Config.current.window.normalOpacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, apply: { WindowManager.shared.setNormalWindowOpacity($0) }),
     colorOption(.insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor }, set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
     scratchpadGridOption(),
     spaceLayoutOption(),

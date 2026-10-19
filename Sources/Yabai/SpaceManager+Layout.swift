@@ -89,7 +89,7 @@ extension SpaceManager
 
     func setSpacingForAllSpaces(_ spacing: ViewSpacing, to value: Int)
     {
-        Config.current.space[keyPath: spacing.spaceManager] = value
+        Config.current.space[keyPath: spacing.spaceDefault] = value
 
         for target in views.values.sorted(by: { $0.sid < $1.sid }) {
             if !target.overrides.contains(spacing.override) {

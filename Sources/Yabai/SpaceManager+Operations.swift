@@ -25,8 +25,8 @@ extension SpaceManager
     /// Swaps two spaces that are on different displays.
     private func swapSpaceAcrossDisplays(_ aSid: SpaceID, with bSid: SpaceID)
     {
-        let windowAnimationDuration = Config.current.animation.windowAnimationDuration
-        Config.current.animation.windowAnimationDuration = 0.0
+        let windowAnimationDuration = Config.current.animation.duration
+        Config.current.animation.duration = 0.0
 
         let aWindows = aSid.windows(includingMinimized: true) ?? []
         let bWindows = bSid.windows(includingMinimized: true) ?? []
@@ -63,7 +63,7 @@ extension SpaceManager
         aView.flush()
         bView.flush()
 
-        Config.current.animation.windowAnimationDuration = windowAnimationDuration
+        Config.current.animation.duration = windowAnimationDuration
     }
 
     func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) throws(SpaceOperationError)

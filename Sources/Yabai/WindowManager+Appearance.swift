@@ -17,19 +17,19 @@ extension WindowManager
     {
         var value = opacity
         if value == 0.0 {
-            if Config.current.window.windowOpacityEnabled {
-                value = target.id == focusedWindowID ? Config.current.window.activeWindowOpacity : Config.current.window.normalWindowOpacity
+            if Config.current.window.opacityEnabled {
+                value = target.id == focusedWindowID ? Config.current.window.activeOpacity : Config.current.window.normalOpacity
             } else {
                 value = 1.0
             }
         }
 
-        return ScriptingAddition.shared.setOpacity(value, of: target.id, duration: Config.current.window.windowOpacityDuration)
+        return ScriptingAddition.shared.setOpacity(value, of: target.id, duration: Config.current.window.opacityDuration)
     }
 
     func setWindowOpacity(_ target: Window, to opacity: Float)
     {
-        if !Config.current.window.windowOpacityEnabled { return }
+        if !Config.current.window.opacityEnabled { return }
         if !target.isEligibleForManagement { return }
         if target.opacity != 0.0 { return }
 
@@ -44,17 +44,17 @@ extension WindowManager
 
     func setActiveWindowOpacity(_ opacity: Float)
     {
-        Config.current.window.activeWindowOpacity = opacity
-        if let target = focusedWindow { setWindowOpacity(target, to: Config.current.window.activeWindowOpacity) }
+        Config.current.window.activeOpacity = opacity
+        if let target = focusedWindow { setWindowOpacity(target, to: Config.current.window.activeOpacity) }
     }
 
     func setNormalWindowOpacity(_ opacity: Float)
     {
-        Config.current.window.normalWindowOpacity = opacity
+        Config.current.window.normalOpacity = opacity
         for target in window.values {
             if target.id == focusedWindowID { continue }
             if target.isEligibleForManagement {
-                setWindowOpacity(target, to: Config.current.window.normalWindowOpacity)
+                setWindowOpacity(target, to: Config.current.window.normalOpacity)
             }
         }
     }
@@ -65,7 +65,7 @@ extension WindowManager
         var childLayer = layer
 
         if layer == .auto {
-            let below = managedView(for: target) != nil || (Config.current.scratchpad.scratchpadBelow && target.scratchpad != nil)
+            let below = managedView(for: target) != nil || (Config.current.scratchpad.below && target.scratchpad != nil)
             parentLayer = below ? .below : .normal
             childLayer = .normal
         }

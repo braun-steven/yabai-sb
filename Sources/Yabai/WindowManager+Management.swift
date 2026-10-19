@@ -53,12 +53,12 @@ extension WindowManager
             MouseState.shared.beginEventTap(mask: mouseEventMaskFFM)
         }
 
-        Config.current.window.focusFollowsMouseMode = mode
+        Config.current.window.focusFollowsMouse = mode
     }
 
     func setWindowOpacityEnabled(_ enabled: Bool)
     {
-        Config.current.window.windowOpacityEnabled = enabled
+        Config.current.window.opacityEnabled = enabled
         for target in window.values where target.isEligibleForManagement {
             setOpacity(for: target, to: enabled ? target.opacity : 1.0)
         }
@@ -66,7 +66,7 @@ extension WindowManager
 
     func centerMouse(on target: Window)
     {
-        if !(target.mouseFollowsFocusByRule ?? Config.current.window.mouseFollowsFocusEnabled) { return }
+        if !(target.mouseFollowsFocusByRule ?? Config.current.window.mouseFollowsFocus) { return }
 
         let cursor = SLS.cursorLocation(SLS.connection)
         if target.frame.contains(cursor) { return }

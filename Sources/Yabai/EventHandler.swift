@@ -148,10 +148,10 @@ extension EventHandler
 
         let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
         if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
-            wm.setWindowOpacity(focusedWindow, to: Config.current.window.normalWindowOpacity)
+            wm.setWindowOpacity(focusedWindow, to: Config.current.window.normalOpacity)
         }
 
-        wm.setWindowOpacity(window, to: Config.current.window.activeWindowOpacity)
+        wm.setWindowOpacity(window, to: Config.current.window.activeOpacity)
 
         if wm.focusedWindowID != window.id {
             if ms.ffmWindowID != window.id {
@@ -384,7 +384,7 @@ extension EventHandler
 
         let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
         if let focusedWindow {
-            wm.setWindowOpacity(focusedWindow, to: Config.current.window.normalWindowOpacity)
+            wm.setWindowOpacity(focusedWindow, to: Config.current.window.normalOpacity)
         }
 
         return focusedWindow

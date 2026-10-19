@@ -258,8 +258,8 @@ extension WindowManager
     private func animateWindowsAsync(_ list: [WindowPlacement])
     {
         let connection = SLS.newConnection()
-        let duration = Config.current.animation.windowAnimationDuration
-        let easing = Config.current.animation.windowAnimationEasing
+        let duration = Config.current.animation.duration
+        let easing = Config.current.animation.easing
         let animations = list.map { WindowAnimation($0, connection: connection) }
         let workers = DispatchGroup()
         SLS.disableUpdate(connection)
@@ -332,7 +332,7 @@ extension WindowManager
     {
         let list = list.filter { $0.window.frameNeedsUpdate(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
         if list.isEmpty { return }
-        if Config.current.animation.windowAnimationDuration != 0 {
+        if Config.current.animation.duration != 0 {
             animateWindowsAsync(list)
         } else {
             setWindowFrames(list)
@@ -342,7 +342,7 @@ extension WindowManager
     func animateWindow(_ placement: WindowPlacement)
     {
         if !placement.window.frameNeedsUpdate(x: placement.x, y: placement.y, w: placement.w, h: placement.h) { return }
-        if Config.current.animation.windowAnimationDuration != 0 {
+        if Config.current.animation.duration != 0 {
             animateWindowsAsync([placement])
         } else {
             placement.window.setFrame(x: placement.x, y: placement.y, width: placement.w, height: placement.h)

@@ -76,9 +76,9 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
             manager.currentDisplayID = DisplayID.active
             manager.lastDisplayID = manager.currentDisplayID
             Config.current.display.order = .default
-            Config.current.display.mode = .off
-            Config.current.display.topPadding = 0
-            Config.current.display.bottomPadding = 0
+            Config.current.display.externalBar.mode = .off
+            Config.current.display.externalBar.topPadding = 0
+            Config.current.display.externalBar.bottomPadding = 0
         }
 
         return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success

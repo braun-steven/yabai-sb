@@ -58,7 +58,7 @@ extension WindowManager
                 target.isEligible = true
                 applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
                 purifyWindow(target)
-                setWindowOpacity(target, to: Config.current.window.normalWindowOpacity)
+                setWindowOpacity(target, to: Config.current.window.normalOpacity)
 
                 if owner.isHidden        { return target }
                 if target.isMinimized     { return target }
@@ -94,7 +94,7 @@ extension WindowManager
     // NOTE: The space a new window is managed on, as selected by window_origin_display.
     func originSpace(for target: Window) -> SpaceID?
     {
-        switch Config.current.window.windowOriginMode {
+        switch Config.current.window.origin {
         case .focused: return SpaceManager.shared.currentSpaceID
         case .cursor:  return SpaceID.underCursor
         case .default: return target.id.space

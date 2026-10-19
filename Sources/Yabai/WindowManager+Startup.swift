@@ -47,7 +47,7 @@ extension WindowManager
             lastWindowID = target.id
             focusedWindowID = target.id
             focusedWindowPSN = target.application.psn
-            setWindowOpacity(target, to: Config.current.window.activeWindowOpacity)
+            setWindowOpacity(target, to: Config.current.window.activeOpacity)
         }
     }
 

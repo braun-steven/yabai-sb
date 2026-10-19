@@ -72,12 +72,12 @@ extension DaemonState
             let mouse = Config.current.mouse
             let tap = MouseState.shared.tap
 
-            let mff = Config.current.window.mouseFollowsFocusEnabled
+            let mff = Config.current.window.mouseFollowsFocus
             let modifier = mouse.modifier
             let wrapping = Config.current.window.focusWrapping
             let topPadding = Config.current.space.topPadding
             defer {
-                Config.current.window.mouseFollowsFocusEnabled = mff
+                Config.current.window.mouseFollowsFocus = mff
                 Config.current.mouse.modifier = modifier
                 tap.modifier = modifier
                 Config.current.window.focusWrapping = wrapping
@@ -85,7 +85,7 @@ extension DaemonState
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
-            #expect(Config.current.window.mouseFollowsFocusEnabled)
+            #expect(Config.current.window.mouseFollowsFocus)
             #expect(Config.current.mouse.modifier == .ctrl)
             #expect(tap.modifier == .ctrl)
             #expect(Config.current.window.focusWrapping == .force)
@@ -109,14 +109,14 @@ extension DaemonState
         @Test("message_config_values")
         func messageConfigValues()
         {
-            let grid = Config.current.scratchpad.scratchpadGrid
-            let duration = Config.current.animation.windowAnimationDuration
-            let opacityDuration = Config.current.window.windowOpacityDuration
+            let grid = Config.current.scratchpad.grid
+            let duration = Config.current.animation.duration
+            let opacityDuration = Config.current.window.opacityDuration
             let workspaceTabbed = Config.current.space.treeWorkspaceTabbed
             defer {
-                Config.current.scratchpad.scratchpadGrid = grid
-                Config.current.animation.windowAnimationDuration = duration
-                Config.current.window.windowOpacityDuration = opacityDuration
+                Config.current.scratchpad.grid = grid
+                Config.current.animation.duration = duration
+                Config.current.window.opacityDuration = opacityDuration
                 Config.current.space.treeWorkspaceTabbed = workspaceTabbed
             }
 
@@ -147,21 +147,21 @@ extension DaemonState
         @Test("numeric_and_color_config_values_validate_before_applying")
         func numericAndColorConfigValuesValidateBeforeApplying()
         {
-            let duration = Config.current.window.windowOpacityDuration
+            let duration = Config.current.window.opacityDuration
             let insertionColor = Config.current.window.insertionFeedbackColor
             let focusedColor = Config.current.tabBar.focusedColor
             let focusedColorIsCustom = Config.current.tabBar.focusedColorIsCustom
             defer {
-                Config.current.window.windowOpacityDuration = duration
+                Config.current.window.opacityDuration = duration
                 Config.current.window.insertionFeedbackColor = insertionColor
                 Config.current.tabBar.focusedColor = focusedColor
                 Config.current.tabBar.focusedColorIsCustom = focusedColorIsCustom
             }
 
             #expect(runConfig("window_opacity_duration\00.25\0window_opacity_duration\0") == "0.250000\n")
-            #expect(Config.current.window.windowOpacityDuration == 0.25)
+            #expect(Config.current.window.opacityDuration == 0.25)
             #expect(runConfig("window_opacity_duration\0fast\0").contains("unknown value 'fast'"))
-            #expect(Config.current.window.windowOpacityDuration == 0.25)
+            #expect(Config.current.window.opacityDuration == 0.25)
 
             #expect(runConfig("insert_feedback_color\00xff123456\0insert_feedback_color\0") == "0xff123456\n")
             #expect(Config.current.window.insertionFeedbackColor.argb == 0xff123456)

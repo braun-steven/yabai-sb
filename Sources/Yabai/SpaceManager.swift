@@ -190,8 +190,8 @@ enum SpaceOperationError: Error, Sendable
 
 extension ViewSpacing
 {
-    /// The default of the space manager, for the views without their own value.
-    @WM var spaceManager: WritableKeyPath<SpaceDefaults, Int>
+    /// The field of SpaceDefaults that views without their own value use.
+    @WM var spaceDefault: WritableKeyPath<SpaceDefaults, Int>
     {
         switch self {
         case .topPadding:    \.topPadding

@@ -1,10 +1,12 @@
+import Observation
 import YabaiCore
 
 /// The settings of the config domain. `Config.current` starts with the defaults of a new daemon; the space layout
-/// default becomes tree in `SpaceManager.begin`.
-@WM struct Config
+/// default becomes tree in `SpaceManager.begin`. It is observable, so that renderers follow its changes; runtime state
+/// that only lasts for an operation stays out of it.
+@WM @Observable final class Config
 {
-    static var current = Config()
+    static let current = Config()
 
     var border = BorderConfig()
     var tabBar = TabBarConfig()
@@ -14,6 +16,20 @@ import YabaiCore
     var scratchpad = ScratchpadConfig()
     var space = SpaceDefaults()
     var display = DisplayConfig()
+
+    /// Restores the defaults of a new daemon.
+    func resetToDefaults()
+    {
+        let defaults = Config()
+        border = defaults.border
+        tabBar = defaults.tabBar
+        window = defaults.window
+        mouse = defaults.mouse
+        animation = defaults.animation
+        scratchpad = defaults.scratchpad
+        space = defaults.space
+        display = defaults.display
+    }
 }
 
 struct SpaceDefaults
@@ -48,7 +64,7 @@ struct ExternalBarConfig
     var bottomPadding: Int = 0
 }
 
-struct WindowConfig
+struct WindowConfig: Equatable
 {
     var mouseFollowsFocus = false
     var focusFollowsMouse = FocusFollowsMouse.disabled
@@ -86,7 +102,7 @@ struct ScratchpadConfig
     var grid = Grid()
 }
 
-struct BorderConfig
+struct BorderConfig: Equatable
 {
     var enabled = false
     var hideSingle = false
@@ -95,7 +111,7 @@ struct BorderConfig
     var normalColor = RGBAColor(hex: 0xff494d64)
 }
 
-struct TabBarConfig
+struct TabBarConfig: Equatable
 {
     var enabled = true
     var height = 24

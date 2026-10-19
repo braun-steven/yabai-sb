@@ -87,7 +87,7 @@ enum OSTimer
 }
 
 /// A color: argb is the color as 0xAARRGGBB, and r, g, b and a are its components from 0 to 1.
-struct RGBAColor: Sendable
+struct RGBAColor: Sendable, Equatable
 {
     var argb: UInt32 = 0
     var r: Float = 0

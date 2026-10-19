@@ -100,7 +100,7 @@ enum Golden
 
     @WM static func fixture()
     {
-        Config.current = Config()
+        Config.current.resetToDefaults()
         WindowManager.shared.initialize()
         SpaceManager.shared.resetToDefaults()
         EventSignals.shared.table = SignalTable()

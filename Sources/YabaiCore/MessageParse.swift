@@ -403,174 +403,63 @@ public struct Selection<Value>
 }
 
 //
-// NOTE: Records that a selector found nothing, described by what, as its failure, and passes the result through.
+// NOTE: The selections of the domains that are not parsed into typed commands yet: the typed selector, resolved at
+// once. didParse is false for a token that is no selector, and for a display or space label that names nothing.
 //
 
-private func require<Value>(_ value: Value?, _ what: String, _ failure: inout CommandError?) -> Value?
-{
-    if value == nil { failure = CommandError("could not locate \(what).\n") }
-    return value
-}
-
-/// `parse_display_selector`
+/// The display a token selects, with the failure of an invalid or unknown one.
 public func parseDisplaySelector<C: SelectorContext>(_ token: Token, acting: DisplayID?, optional: Bool, _ context: C) -> Selection<DisplayID?>
 {
     var result = Selection<DisplayID?>(token: token, didParse: true, value: nil)
-
-    switch token.value {
-    case .int(let index):
-        result.value = context.display(.arrangement(index))
-        if result.value == nil { result.failure = CommandError("could not locate display with arrangement index '\(index)'.\n") }
-    case .string:
-        let direction = parseDirection(token)
-        let relative = direction != nil || token.equals(Argument.prev) || token.equals(Argument.next)
-
-        if relative && acting == nil {
-            result.failure = CommandError("could not locate the selected display.\n")
-        } else if let direction, let acting {
-            result.value = require(context.display(.inDirection(direction, from: acting)), "\(directionDescription(direction)) display", &result.failure)
-        } else if token.equals(Argument.prev), let acting {
-            result.value = require(context.display(.prev(acting)), "the previous display", &result.failure)
-        } else if token.equals(Argument.next), let acting {
-            result.value = require(context.display(.next(acting)), "the next display", &result.failure)
-        } else if token.equals(Argument.first) {
-            result.value = require(context.display(.first), "the first display", &result.failure)
-        } else if token.equals(Argument.last) {
-            result.value = require(context.display(.last), "the last display", &result.failure)
-        } else if token.equals(Argument.recent) {
-            result.value = context.display(.recent)
-        } else if token.equals(Argument.mouse) {
-            result.value = require(context.display(.cursor), "display containing cursor", &result.failure)
-        } else if let id = context.displayLabel(token) {
-            result.value = id
-        } else {
-            result.didParse = false
-            result.failure = CommandError("value '\(token)' is not a valid option for DISPLAY_SEL\n")
-        }
-    default:
+    guard let selector = DisplaySelector(token) else {
         result.didParse = false
-        if token.isValid || !optional {
-            result.failure = CommandError("value '\(token)' is not a valid option for DISPLAY_SEL\n")
-        }
+        if token.isValid || !optional { result.failure = DisplaySelector.invalid(token) }
+        return result
     }
 
+    do {
+        result.value = try selector.resolve(acting: acting, context)
+    } catch {
+        result.failure = error
+        if case .label = selector { result.didParse = false }
+    }
     return result
 }
 
-/// `parse_space_selector`
+/// The space a token selects, with the failure of an invalid or unknown one.
 public func parseSpaceSelector<C: SelectorContext>(_ token: Token, acting: SpaceID?, optional: Bool, _ context: C) -> Selection<SpaceID?>
 {
     var result = Selection<SpaceID?>(token: token, didParse: true, value: nil)
-
-    switch token.value {
-    case .int(let index):
-        result.value = context.space(.missionControl(index))
-        if result.value == nil { result.failure = CommandError("could not locate space with mission-control index '\(index)'.\n") }
-    case .string:
-        let relative = token.equals(Argument.prev) || token.equals(Argument.next)
-
-        if relative && acting == nil {
-            result.failure = CommandError("could not locate the selected space.\n")
-        } else if token.equals(Argument.prev), let acting {
-            result.value = require(context.space(.prev(acting)), "the previous space", &result.failure)
-        } else if token.equals(Argument.next), let acting {
-            result.value = require(context.space(.next(acting)), "the next space", &result.failure)
-        } else if token.equals(Argument.first) {
-            result.value = require(context.space(.first), "the first space", &result.failure)
-        } else if token.equals(Argument.last) {
-            result.value = require(context.space(.last), "the last space", &result.failure)
-        } else if token.equals(Argument.recent) {
-            result.value = context.space(.recent)
-        } else if token.equals(Argument.mouse) {
-            result.value = require(context.space(.cursor), "space containing cursor", &result.failure)
-        } else if let id = context.spaceLabel(token) {
-            result.value = id
-        } else {
-            result.didParse = false
-            result.failure = CommandError("value '\(token)' is not a valid option for SPACE_SEL\n")
-        }
-    default:
+    guard let selector = SpaceSelector(token) else {
         result.didParse = false
-        if token.isValid || !optional {
-            result.failure = CommandError("value '\(token)' is not a valid option for SPACE_SEL\n")
-        }
+        if token.isValid || !optional { result.failure = SpaceSelector.invalid(token) }
+        return result
     }
 
+    do {
+        result.value = try selector.resolve(acting: acting, context)
+    } catch {
+        result.failure = error
+        if case .label = selector { result.didParse = false }
+    }
     return result
 }
 
-/// `parse_stack_window_selector`: token is the part after "stack.".
-private func parseStackWindowSelector<C: SelectorContext>(_ token: Token, _ acting: C.Window, _ didParse: inout Bool, _ failure: inout CommandError?, _ context: C) -> C.Window?
-{
-    if token.equals(Argument.prev)   { return require(context.window(.stackPrev(acting)), "the prev stacked window", &failure) }
-    if token.equals(Argument.next)   { return require(context.window(.stackNext(acting)), "the next stacked window", &failure) }
-    if token.equals(Argument.first)  { return require(context.window(.stackFirst(acting)), "the first stacked window", &failure) }
-    if token.equals(Argument.last)   { return require(context.window(.stackLast(acting)), "the last stacked window", &failure) }
-    if token.equals(Argument.recent) { return require(context.window(.stackRecent(acting)), "the recent stacked window", &failure) }
-
-    if token.isValid, let index = token.positiveInteger, index > 0 {
-        let window = context.window(.stackPosition(acting, index))
-        if window == nil { failure = CommandError("could not locate the stacked window in position \(index).\n") }
-        return window
-    }
-
-    didParse = false
-    failure = CommandError("value '\(Argument.stackPrefix)\(token)' is not a valid option for WINDOW_SEL\n")
-    return nil
-}
-
-//
-// NOTE: The relative selectors (directions, stack, prev and next) fail when there is no acting window, so the branches
-// after the first one always have one when they need it.
-//
-
-/// `parse_window_selector`
+/// The window a token selects, with the failure of an invalid one or one that found nothing.
 public func parseWindowSelector<C: SelectorContext>(_ token: Token, acting: C.Window?, optional: Bool, _ context: C) -> Selection<C.Window?>
 {
     var result = Selection<C.Window?>(token: token, didParse: true, value: nil)
-
-    switch token.value {
-    case .int(let id):
-        result.value = context.window(.id(WindowID(UInt32(truncatingIfNeeded: id))))
-        if result.value == nil { result.failure = CommandError("could not locate window with the specified id '\(id)'.\n") }
-    case .string:
-        let direction = parseDirection(token)
-        let stack = token.hasPrefix(Argument.stackPrefix)
-        let relative = direction != nil || stack || token.equals(Argument.prev) || token.equals(Argument.next)
-
-        if relative && acting == nil {
-            result.failure = CommandError("could not locate the selected window.\n")
-        } else if let direction, let acting {
-            result.value = require(context.window(.inDirection(direction, from: acting)), "\(directionDescription(direction)) managed window", &result.failure)
-        } else if token.equals(Argument.mouse) {
-            result.value = require(context.window(.belowCursor), "a window below the cursor", &result.failure)
-        } else if token.equals(Argument.largest) {
-            result.value = require(context.window(.largest), "window with the largest area", &result.failure)
-        } else if token.equals(Argument.smallest) {
-            result.value = require(context.window(.smallest), "window with the smallest area", &result.failure)
-        } else if token.equals(Argument.prev), let acting {
-            result.value = require(context.window(.prev(acting)), "the prev managed window", &result.failure)
-        } else if token.equals(Argument.next), let acting {
-            result.value = require(context.window(.next(acting)), "the next managed window", &result.failure)
-        } else if token.equals(Argument.first) {
-            result.value = require(context.window(.first), "the first managed window", &result.failure)
-        } else if token.equals(Argument.last) {
-            result.value = require(context.window(.last), "the last managed window", &result.failure)
-        } else if token.equals(Argument.recent) {
-            result.value = require(context.window(.recent), "the most recently focused window", &result.failure)
-        } else if stack, let acting {
-            result.value = parseStackWindowSelector(token.dropFirst(Argument.stackPrefix.utf8.count), acting, &result.didParse, &result.failure, context)
-        } else {
-            result.didParse = false
-            result.failure = CommandError("value '\(token)' is not a valid option for WINDOW_SEL\n")
-        }
-    default:
+    guard let selector = WindowSelector(token) else {
         result.didParse = false
-        if token.isValid || !optional {
-            result.failure = CommandError("value '\(token)' is not a valid option for WINDOW_SEL\n")
-        }
+        if token.isValid || !optional { result.failure = WindowSelector.invalid(token) }
+        return result
     }
 
+    do {
+        result.value = try selector.resolve(acting: acting, context)
+    } catch {
+        result.failure = error
+    }
     return result
 }
 
@@ -646,15 +535,15 @@ public enum TreeFocus: Equatable, Sendable
     case direction(Direction)
     case parent
     case child
-}
 
-/// `peek_tree_direction`: the caller peeks at the token, which this does not consume.
-public func parseTreeFocus(_ token: Token) -> TreeFocus?
-{
-    if let direction = parseDirection(token) { return .direction(direction) }
-    if token.equals(Argument.parent) { return .parent }
-    if token.equals(Argument.child)  { return .child }
-    return nil
+    /// nil when the token is no direction, parent or child.
+    public init?(_ token: Token)
+    {
+        if let direction = parseDirection(token) { self = .direction(direction) }
+        else if token.equals(Argument.parent)   { self = .parent }
+        else if token.equals(Argument.child)    { self = .child }
+        else                                    { return nil }
+    }
 }
 
 /// `struct query_target`: what a query covers.

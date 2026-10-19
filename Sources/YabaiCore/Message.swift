@@ -7,7 +7,7 @@ import Darwin
 //
 
 /// `struct token`: one argument of a message. Invalid when empty (`token_is_valid`).
-public struct Token: Sendable
+public struct Token: Equatable, Sendable
 {
     public var bytes: ArraySlice<UInt8>
 
@@ -121,6 +121,33 @@ public struct Token: Sendable
         if let value = hexadecimal     { return .u32(value) }
         if let value = float           { return .float(value) }
         return .string(self)
+    }
+}
+
+extension Token
+{
+    /// sscanf with a format like "%255[^:]:%d:%d" (`MAXLEN` buffer for the string, then one pointer per value);
+    /// returns the number of assigned conversions.
+    public func scan<T>(_ format: String, _ type: inout [CChar], _ values: inout [T]) -> Int
+    {
+        type = [CChar](repeating: 0, count: 512)
+        return type.withUnsafeMutableBufferPointer { t in
+            values.withUnsafeMutableBufferPointer { v in
+                let arguments: [CVarArg] = [t.baseAddress!] + (0..<v.count).map { v.baseAddress! + $0 }
+                return Int(withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } })
+            }
+        }
+    }
+
+    /// The token of a buffer that sscanf filled.
+    public init(cString: UnsafePointer<CChar>?)
+    {
+        guard let cString else {
+            self.init(ArraySlice<UInt8>())
+            return
+        }
+
+        self.init(UnsafeRawBufferPointer(start: cString, count: strlen(cString)))
     }
 }
 

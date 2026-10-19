@@ -37,10 +37,6 @@ private enum WindowCommand
     static let moveFormat   = "%255[^:]:%f:%f"
     static let resizeFormat = "%255[^:]:%f:%f"
     static let ratioFormat  = "%255[^:]:%f"
-
-    static let splitHorizontal   = "horizontal"
-    static let splitVertical     = "vertical"
-    static let splitToggle       = "toggle"
 }
 
 /// Throws the failure of a window command whose acting or selected window is not managed; the command words the
@@ -67,16 +63,13 @@ private func checkManaged(_ error: WindowOperationError) throws(CommandError)
 /// `parse_window_layout`
 func parseWindowLayout(_ value: Token) -> WindowLayout?
 {
-    WindowLayout.allCases.first { value.equals($0.rawValue) }
+    WindowLayout(value)
 }
 
 /// `parse_split_orientation`
 func parseSplitOrientation(_ value: Token) -> SplitOrientation?
 {
-    if value.equals(WindowCommand.splitHorizontal) { return .fixed(.horizontal) }
-    if value.equals(WindowCommand.splitVertical)   { return .fixed(.vertical) }
-    if value.equals(WindowCommand.splitToggle)     { return .toggle }
-    return nil
+    SplitOrientation(value)
 }
 
 /// `window_toggle_list`: what a value of `window --toggle` that is a window property does.
@@ -108,7 +101,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
     let context = CSelectorContext()
 
     if command.equals(WindowCommand.focus) {
-        let treeFocus = WindowManager.shared.treeView(for: actingWindow) != nil ? parseTreeFocus(message.peek()) : nil
+        let treeFocus = WindowManager.shared.treeView(for: actingWindow) != nil ? TreeFocus(message.peek()) : nil
         if let treeFocus {
             _ = message.next()
 
@@ -230,7 +223,7 @@ func parseSplitOrientation(_ value: Token) -> SplitOrientation?
             }
         }
     } else if command.equals(WindowCommand.warp) {
-        if wm.treeView(for: actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
+        if wm.treeView(for: actingWindow) != nil, case .direction(let direction) = TreeFocus(message.peek()) {
             _ = message.next()
 
             do {

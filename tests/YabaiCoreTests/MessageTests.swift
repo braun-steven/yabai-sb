@@ -276,9 +276,9 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     let text = thrownText { () throws(CommandError) in _ = try parseInsertSelector(Token("up")) }
     #expect(text == "value 'up' is not a valid option for DIR_SEL\n")
 
-    #expect(parseTreeFocus(Token("parent")) == .parent)
-    #expect(parseTreeFocus(Token("east")) == .direction(.east))
-    #expect(parseTreeFocus(Token("1")) == nil)
+    #expect(TreeFocus(Token("parent")) == .parent)
+    #expect(TreeFocus(Token("east")) == .direction(.east))
+    #expect(TreeFocus(Token("1")) == nil)
 }
 
 @Test("message_selectors") func messageSelectors()
@@ -291,7 +291,8 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     #expect(failureText(window.failure).contains("could not locate the selected window."))
 
     window = parseWindowSelector(Token("stack.bogus"), acting: nil, optional: false, context)
-    #expect(failureText(window.failure).contains("could not locate the selected window."))
+    #expect(window.didParse == false)
+    #expect(failureText(window.failure) == "value 'stack.bogus' is not a valid option for WINDOW_SEL\n")
 
     window = parseWindowSelector(Token("bogus"), acting: nil, optional: false, context)
     #expect(window.didParse == false)
@@ -366,6 +367,136 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
     let found = try parseOptionalSpaceSelector(&message, &sid, context)
     #expect(found == true)
     #expect(sid == 10)
+}
+
+//
+// NOTE: The typed selectors and commands of the window domain.
+//
+
+@Test func typedSelectorsParseWithoutLookups()
+{
+    #expect(WindowSelector(Token("8")) == .id(8))
+    #expect(WindowSelector(Token("east")) == .direction(.east))
+    #expect(WindowSelector(Token("stack.2")) == .stack(.position(2)))
+    #expect(WindowSelector(Token("stack.recent")) == .stack(.recent))
+    #expect(WindowSelector(Token("stack.0")) == nil)
+    #expect(WindowSelector(Token("0x10")) == nil)
+    #expect(WindowSelector(Token("")) == nil)
+
+    #expect(DisplaySelector(Token("west")) == .direction(.west))
+    #expect(DisplaySelector(Token("main")) == .label(Token("main")))
+    #expect(SpaceSelector(Token("3")) == .missionControl(3))
+    #expect(SpaceSelector(Token("recent")) == .recent)
+    #expect(SpaceSelector(Token("1.5")) == nil)
+}
+
+@Test func typedSelectorsResolveThroughTheContext() throws
+{
+    let context = FixtureContext(activeDisplay: 1, actingWindow: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2], spaceLabels: ["code": 11], windows: [7, 8], stack: [7, 9])
+
+    #expect(try WindowSelector.first.resolve(acting: nil, context) == 7)
+    #expect(try WindowSelector.stack(.position(2)).resolve(acting: 7, context) == 9)
+    #expect(try DisplaySelector.label(Token("main")).resolve(acting: 1, context) == 2)
+    #expect(try SpaceSelector.recent.resolve(acting: 10, context) == nil)
+
+    let relative = thrownText { () throws(CommandError) in _ = try WindowSelector.next.resolve(acting: nil, context) }
+    #expect(relative == "could not locate the selected window.\n")
+    let unknownLabel = thrownText { () throws(CommandError) in _ = try SpaceSelector.label(Token("mail")).resolve(acting: 10, context) }
+    #expect(unknownLabel == "value 'mail' is not a valid option for SPACE_SEL\n")
+}
+
+/// Parses one window command from text that starts with its name: the command, or the failure text and whether it
+/// stops the message.
+private func parseWindowCommand(_ text: String) -> (WindowCommand?, String, Bool)
+{
+    var message = Message(text)
+    guard let name = WindowCommand.Name(message.next()) else { return (nil, "no name", false) }
+
+    do {
+        return (try WindowCommand.parse(name, &message), "", false)
+    } catch {
+        return (nil, error.description, error.stopsMessage)
+    }
+}
+
+@Test func windowCommandNames()
+{
+    #expect(WindowCommand.Name(Token("--sub-layer")) == .subLayer)
+    #expect(WindowCommand.Name(Token("--foo")) == nil)
+    #expect(!WindowCommand.Name.toggle.needsWindow)
+    #expect(!WindowCommand.Name.deminimize.needsWindow)
+    #expect(WindowCommand.Name.swap.needsWindow)
+}
+
+@Test func windowCommandValues()
+{
+    #expect(parseWindowCommand("--swap\0east\0").0 == .swap(.direction(.east)))
+    #expect(parseWindowCommand("--focus\0parent\0").0 == .focus(.container(.parent)))
+    #expect(parseWindowCommand("--focus\0").0 == .focus(.window(nil)))
+    #expect(parseWindowCommand("--focus\0recent\0").0 == .focus(.window(.recent)))
+    #expect(parseWindowCommand("--display\0main\0").0 == .display(.label(Token("main"))))
+    #expect(parseWindowCommand("--move\0rel:10:-5\0").0 == .move(.rel, dx: 10, dy: -5))
+    #expect(parseWindowCommand("--move\0sideways:1:2\0").0 == .move(nil, dx: 1, dy: 2))
+    #expect(parseWindowCommand("--resize\0top_left:1:2\0").0 == .resize([.top, .left], dx: 1, dy: 2))
+    #expect(parseWindowCommand("--ratio\0abs:0.3\0").0 == .ratio(.abs, 0.3))
+    #expect(parseWindowCommand("--grid\04:4:1:1:2:2\0").0 == .grid(Grid(4, 4, 1, 1, 2, 2)))
+    #expect(parseWindowCommand("--opacity\01\0").0 == .opacity(1))
+    #expect(parseWindowCommand("--toggle\0float\0").0 == .toggle(.float))
+    #expect(parseWindowCommand("--toggle\0notes\0").0 == .toggleScratchpad(Token("notes")))
+    #expect(parseWindowCommand("--scratchpad\0recover\0").0 == .scratchpad(.recover))
+    #expect(parseWindowCommand("--scratchpad\0term\0").0 == .scratchpad(.assign(label: "term")))
+    #expect(parseWindowCommand("--scratchpad\0").0 == .scratchpad(.remove))
+    #expect(parseWindowCommand("--layout\0toggle-split\0").0 == .layout(.toggleSplit))
+    #expect(parseWindowCommand("--split\0vertical\0").0 == .split(.fixed(.vertical)))
+    #expect(parseWindowCommand("--insert\0stack\0").0 == .insert(.stack))
+}
+
+@Test func windowCommandFailures()
+{
+    // NOTE: an invalid optional selector stops the message, an invalid required one does not
+    let focus = parseWindowCommand("--focus\0bogus\0")
+    #expect(focus.1 == "value 'bogus' is not a valid option for WINDOW_SEL\n")
+    #expect(focus.2)
+
+    let swap = parseWindowCommand("--swap\0bogus\0")
+    #expect(swap.1 == "value 'bogus' is not a valid option for WINDOW_SEL\n")
+    #expect(!swap.2)
+
+    let layout = parseWindowCommand("--layout\0stacked\0")
+    #expect(layout.1 == "unknown value 'stacked' given to command '--layout' for domain 'window'\n")
+    #expect(layout.2)
+
+    let split = parseWindowCommand("--split\0diagonal\0")
+    #expect(split.1 == "unknown value 'diagonal' given to command '--split' for domain 'window'\n")
+    #expect(split.2)
+
+    let opacity = parseWindowCommand("--opacity\01.5\0")
+    #expect(opacity.1 == "unknown value '1.5' given to command '--opacity' for domain 'window'\n")
+    #expect(!opacity.2)
+
+    #expect(parseWindowCommand("--grid\0a\0").1 == "unknown value 'a' given to command '--grid' for domain 'window'\n")
+    #expect(parseWindowCommand("--scratchpad\0float\0").1 == "'float' is a reserved keyword and cannot be used as a scratchpad.\n")
+    #expect(parseWindowCommand("--space\0").1 == "value '' is not a valid option for SPACE_SEL\n")
+}
+
+@Test func windowFocusTargetWithoutTree() throws
+{
+    #expect(try WindowFocusTarget.container(.direction(.east)).windowSelector() == .direction(.east))
+    #expect(try WindowFocusTarget.window(nil).windowSelector() == nil)
+
+    let parent = thrownText { () throws(CommandError) in _ = try WindowFocusTarget.container(.parent).windowSelector() }
+    #expect(parent == "value 'parent' is not a valid option for WINDOW_SEL\n")
+}
+
+@Test func windowLayoutValues()
+{
+    #expect(WindowLayout(Token("tabbed")) == .tabbed)
+    #expect(WindowLayout(Token("toggle-split")) == .toggleSplit)
+    #expect(WindowLayout(Token("stacked")) == nil)
+
+    #expect(SplitOrientation(Token("vertical")) == .fixed(.vertical))
+    #expect(SplitOrientation(Token("toggle")) == .toggle)
+    #expect(SplitOrientation(Token("diagonal")) == nil)
 }
 
 private func parseQuery(_ option: String, _ context: FixtureContext = FixtureContext()) -> (QueryTarget<WindowID>?, String)

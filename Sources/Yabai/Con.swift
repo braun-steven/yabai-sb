@@ -20,13 +20,6 @@ enum ConLayout: String, Sendable
     case tabbed
 }
 
-/// The axis along which a split container places its children.
-enum ConOrientation: Sendable
-{
-    case horizontal
-    case vertical
-}
-
 /// The zoom of a window's container: to its parent's area or to the whole view.
 enum ConZoom: Sendable
 {

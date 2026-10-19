@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- An invalid stack window selector (e.g. *stack.foo*) is always reported as an invalid *WINDOW_SEL*, also when there is no window to act on, instead of "could not locate the selected window."
 - A failure that lists several problems (every invalid key of a *rule --add* or *signal --add*, every unknown property of a query) starts with a single failure byte, instead of one before each line
 - Split windows inside an active tab retain focus borders with *window_border_hide_single*
 - Windows of a split inside an active tab are no longer hidden behind the container backdrop after the focused window is raised by its application and the tab bar redraws

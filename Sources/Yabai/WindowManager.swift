@@ -26,17 +26,6 @@ enum WindowOperationError: Error, Sendable
     case deminimizeFailed
 }
 
-/// A value of `window --layout`, named by its token.
-enum WindowLayout: String, CaseIterable, Sendable
-{
-    case tabbed
-    case split
-    case toggle
-    case splitH      = "splith"
-    case splitV      = "splitv"
-    case toggleSplit = "toggle-split"
-}
-
 /// Focus follows mouse (`config focus_follows_mouse`): off, focus the window under the cursor, or also raise it. The
 /// raw values are the names the setting prints; `off` sets `.disabled`.
 enum FocusFollowsMouse: String, Sendable

@@ -3,13 +3,6 @@ import AppKit
 import CPrivate
 import YabaiCore
 
-/// The orientation of `window --split`: a fixed one, or across the orientation of the parent container (`toggle`).
-enum SplitOrientation: Equatable, Sendable
-{
-    case fixed(ConOrientation)
-    case toggle
-}
-
 extension WindowManager
 {
     //

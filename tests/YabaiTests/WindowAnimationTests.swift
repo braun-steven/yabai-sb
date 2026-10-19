@@ -30,7 +30,7 @@ func windowFrameGroupByApplication()
         windows[i].ref = windowRefs[i]
         return window_capture(window: windows[i], x: Float(i), y: Float(10 * i), w: 100, h: 200)
     }
-    let groups = captures.withUnsafeBufferPointer { window_manager_group_window_frames($0.baseAddress!, 5) }
+    let groups = window_manager_group_window_frames(captures)
     #expect(groups.count == 2)
     #expect(groups[0].application == owners[0])
     #expect(groups[0].list.count == 3)

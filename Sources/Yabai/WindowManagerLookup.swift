@@ -12,16 +12,15 @@ import YabaiCore
 
 /// `window_manager_find_window_on_space_by_rank_filtering_window`: the window with the rank (from 1, top first) among the
 /// known windows of the space, without filterWid.
-func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: SpaceID, _ rank: Int32, _ filterWid: WindowID) -> Window?
+func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowManager, _ sid: SpaceID, _ rank: Int, _ filterWid: WindowID) -> Window?
 {
-    var count: Int32 = 0
-    guard let windowList = space_window_list(sid, &count, false) else { return nil }
+    guard let windowList = space_window_list(sid, false) else { return nil }
 
-    var j: Int32 = 0
-    for i in 0..<Int(count) {
-        if windowList[i] == filterWid { continue }
+    var j = 0
+    for wid in windowList {
+        if wid == filterWid { continue }
 
-        guard let target = window_manager_find_window(wm, windowList[i]) else { continue }
+        guard let target = window_manager_find_window(wm, wid) else { continue }
 
         j += 1
         if j == rank { return target }
@@ -155,40 +154,54 @@ private func windowManagerFindTab(_ sm: SpaceManager, _ target: Window) -> (tab:
     return (node, parent)
 }
 
+/// A tab of the tabbed container around a window.
+private enum TabPosition
+{
+    /// The tab at an offset from the tab of the window.
+    case offset(Int)
+    /// The tab at an index (from 0).
+    case index(Int)
+    case last
+}
+
 /// `window_manager_find_tab_window`
-private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ index: Int32, _ relative: Bool) -> Window?
+private func windowManagerFindTabWindow(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ position: TabPosition) -> Window?
 {
     guard let found = windowManagerFindTab(sm, target) else { return nil }
     let (tab, tabbed) = found
 
-    let index = relative ? con_index(tab) + index : index == Int32.max ? tabbed.child_count - 1 : index
+    let index = switch position {
+    case .offset(let offset): con_index(tab)! + offset
+    case .index(let index):   index
+    case .last:               tabbed.child_count - 1
+    }
     if index < 0 || index >= tabbed.child_count { return nil }
 
-    return windowManagerFindWindowForCon(wm, tree_descend_focused(tabbed.children[Int(index)]))
+    return windowManagerFindWindowForCon(wm, tree_descend_focused(tabbed.children[index]))
 }
 
 /// `window_manager_find_prev_window_in_stack`
 func window_manager_find_prev_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    return windowManagerFindTabWindow(sm, wm, target, -1, true)
+    return windowManagerFindTabWindow(sm, wm, target, .offset(-1))
 }
 
 /// `window_manager_find_next_window_in_stack`
 func window_manager_find_next_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    return windowManagerFindTabWindow(sm, wm, target, 1, true)
+    return windowManagerFindTabWindow(sm, wm, target, .offset(1))
 }
 
 /// `window_manager_find_first_window_in_stack`
 func window_manager_find_first_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    return windowManagerFindTabWindow(sm, wm, target, 0, false)
+    return windowManagerFindTabWindow(sm, wm, target, .index(0))
 }
 
 /// `window_manager_find_last_window_in_stack`
 func window_manager_find_last_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window) -> Window?
 {
-    return windowManagerFindTabWindow(sm, wm, target, Int32.max, false)
+    return windowManagerFindTabWindow(sm, wm, target, .last)
 }
 
 /// `window_manager_find_recent_window_in_stack`
@@ -202,9 +215,9 @@ func window_manager_find_recent_window_in_stack(_ sm: SpaceManager, _ wm: Window
 }
 
 /// `window_manager_find_window_in_stack`: the tab at the index (from 1).
-func window_manager_find_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ index: Int32) -> Window?
+func window_manager_find_window_in_stack(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ index: Int) -> Window?
 {
-    return windowManagerFindTabWindow(sm, wm, target, index - 1, false)
+    return windowManagerFindTabWindow(sm, wm, target, .index(index - 1))
 }
 
 /// `window_manager_find_managed_window_by_area`: the visible leaf with the largest area (the first one), or the smallest

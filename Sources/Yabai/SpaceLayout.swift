@@ -35,9 +35,7 @@ private func spaceLayoutDestroyCandidate(_ did: DisplayID) -> SpaceID
         if !space_is_user(sid) { continue }
         if space_manager_is_space_last_user_space(sid) { continue }
 
-        var windowCount: Int32 = -1
-        _ = space_window_list(sid, &windowCount, true)
-        if windowCount != 0 { continue }
+        guard let windows = space_window_list(sid, true), windows.isEmpty else { continue }
 
         if sid != visibleSid { return sid }
         if fallbackSid == 0 { fallbackSid = sid }
@@ -58,17 +56,17 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
     }
 
     var didList: [DisplayID] = []
-    var builtin = -1
+    var builtin: Int?
 
-    for i in 0..<Int(displayCount) {
-        let did = display_manager_arrangement_display_id(Int32(i + 1))
+    for i in 0..<displayCount {
+        let did = display_manager_arrangement_display_id(i + 1)
         if did == 0 { return .failed }
 
         didList.append(did)
-        if builtin == -1 && CGDisplayIsBuiltin(did.rawValue) != 0 { builtin = i }
+        if builtin == nil && CGDisplayIsBuiltin(did.rawValue) != 0 { builtin = i }
     }
 
-    let target = layout.targets(builtin: builtin == -1 ? nil : builtin)
+    let target = layout.targets(builtin: builtin)
 
     var actual: [Int] = []
     for did in didList {
@@ -78,7 +76,7 @@ func space_layout_reconcile(_ sm: SpaceManager) -> SpaceLayoutResult
 
     var surplus = -1
     var deficit = -1
-    for i in 0..<Int(displayCount) {
+    for i in 0..<displayCount {
         if surplus == -1 && actual[i] > target[i] { surplus = i }
         if deficit == -1 && actual[i] < target[i] { deficit = i }
     }
@@ -129,6 +127,6 @@ func space_layout_schedule(_ delay: Double, _ resetPasses: Bool)
     let generation = sm.space_layout_gen
 
     DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-        EventLoop.post(.spaceLayoutReconcile(generation: Int32(bitPattern: generation)))
+        EventLoop.post(.spaceLayoutReconcile(generation: generation))
     }
 }

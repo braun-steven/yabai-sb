@@ -160,8 +160,8 @@ func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [Windo
 {
     guard let spaceList = space_manager_mission_control_space_list() else { return nil }
 
-    var windowCount: Int32 = 0
-    return space_window_list_for_connection(spaceList, owner?.connection ?? 0, &windowCount, true)
+    guard let candidates = spaceWindowCandidates(spaceList, owner?.connection ?? 0, true), !candidates.isEmpty else { return nil }
+    return spaceUserWindows(candidates, true)
 }
 
 /// `window_manager_unresolved_windows`: the windows of the list that the window manager does not know.
@@ -218,9 +218,9 @@ private func windowManagerAddWindowsByElementID(_ sm: SpaceManager, _ wm: Window
 }
 
 /// `window_manager_add_existing_application_windows`: true when the windows of an application in applications_to_refresh
-/// (at refreshIndex) are now all resolved; it is then removed from the list. With refreshIndex -1 (a new application),
+/// (at refreshIndex) are now all resolved; it is then removed from the list. With refreshIndex nil (a new application),
 /// the application is added to the list when windows are still missing.
-func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ refreshIndex: Int32) -> Bool
+func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application, _ refreshIndex: Int?) -> Bool
 {
     guard let globalWindowList = windowManagerExistingApplicationWindowList(owner) else { return false }
 
@@ -255,7 +255,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
         var unresolved = window_manager_unresolved_windows(wm, globalWindowList)
         resolved = unresolved.isEmpty
 
-        if !resolved && refreshIndex == -1 {
+        if !resolved && refreshIndex == nil {
             debug("window_manager_add_existing_application_windows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
             windowManagerAddWindowsByElementID(sm, wm, owner, &unresolved)
 
@@ -270,7 +270,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
         }
     }
 
-    if !resolved || refreshIndex == -1 { return false }
+    guard resolved, let refreshIndex else { return false }
 
     debug("window_manager_add_existing_application_windows: all windows for \(owner.name) are now resolved\n")
     window_manager_remove_application_refresh(wm, refreshIndex)

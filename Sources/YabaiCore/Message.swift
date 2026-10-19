@@ -56,14 +56,14 @@ public struct Token: Sendable
     //
 
     /// `token_is_positive_integer`: true for an empty token.
-    public var positiveInteger: Int32?
+    public var positiveInteger: Int?
     {
         var value: Int32 = 0
         for byte in bytes {
             guard byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") else { return nil }
             value = value &* 10 &+ Int32(byte - UInt8(ascii: "0"))
         }
-        return value
+        return Int(value)
     }
 
     /// `token_is_hexadecimal`: 0x or 0X followed by at least one hexadecimal digit.
@@ -108,9 +108,9 @@ public struct Token: Sendable
     }
 
     /// sscanf on the token, e.g. `token.scan("%d:%d", &a, &b)`; returns the number of assigned conversions.
-    public func scan(_ format: String, _ arguments: CVarArg...) -> Int32
+    public func scan(_ format: String, _ arguments: CVarArg...) -> Int
     {
-        withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } }
+        Int(withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } })
     }
 
     /// `token_to_value`
@@ -128,7 +128,7 @@ public struct Token: Sendable
 public enum TokenValue: Sendable
 {
     case invalid
-    case int(Int32)
+    case int(Int)
     case u32(UInt32)
     case float(Float)
     case string(Token)

@@ -14,7 +14,7 @@ final class TabBar
     var sid: SpaceID = 0
     var above_wid: WindowID = 0
     var hidden = false
-    var entry_count: Int32 = 0
+    var entry_count = 0
     var entry_list: [WindowID] = []
     var glass: TabBarGlass?
     var owner: UnsafeMutableRawPointer?
@@ -75,14 +75,14 @@ enum TabBarState: Sendable
 let tabBarDefaultFont = "system:12"
 
 /// The most tabs a tab bar shows.
-let tabBarMaxEntryCount: Int32 = 64
+let tabBarMaxEntryCount = 64
 
 /// `tab_bar_slot`: the tab at the index among count tabs of the area, with the C rounding (float widths, int offsets).
-func tab_bar_slot(_ area: CGRect, _ index: Int32, _ count: Int32) -> CGRect
+func tab_bar_slot(_ area: CGRect, _ index: Int, _ count: Int) -> CGRect
 {
     let width = Float(area.size.width / CGFloat(count))
-    let x0 = Float(area.origin.x + CGFloat(Int32(Float(index) * width)))
-    let x1 = index == count - 1 ? Float(area.origin.x + area.size.width) : Float(area.origin.x + CGFloat(Int32(Float(index + 1) * width)))
+    let x0 = Float(area.origin.x + CGFloat(Int(Float(index) * width)))
+    let x1 = index == count - 1 ? Float(area.origin.x + area.size.width) : Float(area.origin.x + CGFloat(Int(Float(index + 1) * width)))
     return CGRect(x: CGFloat(x0), y: area.origin.y, width: CGFloat(x1 - x0), height: area.size.height)
 }
 
@@ -151,7 +151,7 @@ private func tabBarPublishHits()
         hits.removeAll(keepingCapacity: true)
         for bar in tabBarList where hits.count < 256 {
             if bar.hidden || bar.entry_count == 0 { continue }
-            let entries = Array(bar.entry_list.prefix(Int(bar.entry_count)))
+            let entries = Array(bar.entry_list.prefix(bar.entry_count))
             hits.append(TabBarHit(frame: bar.frame, sid: bar.sid, aboveWid: bar.above_wid, entries: entries, glass: bar.glass))
         }
     }
@@ -194,7 +194,7 @@ func tabBarHitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) ->
     guard count > 0, frame.width > 0, frame.contains(point) else { return nil }
     let slots = glass ? tabBarGlassInnerRect(frame) : frame
     for index in 0..<count - 1 {
-        if point.x < tab_bar_slot(slots, Int32(index), Int32(count)).maxX { return index }
+        if point.x < tab_bar_slot(slots, index, count).maxX { return index }
     }
     return count - 1
 }
@@ -338,17 +338,17 @@ func tabBarSeparatorColor(_ text: rgba_color) -> rgba_color
     return text
 }
 
-private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
+private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
 {
     SLSDisableUpdate(connection_global())
     defer { SLSReenableUpdate(connection_global()) }
     guard let context = bar.context else { return }
     let bounds = CGRect(origin: .zero, size: bar.frame.size)
     context.clear(bounds)
-    for i in 0..<Int(count) {
+    for i in 0..<count {
         let entry = entries[i]
         let (background, text) = tabBarStateColors(entry.state)
-        let tab = tab_bar_slot(bounds, Int32(i), count)
+        let tab = tab_bar_slot(bounds, i, count)
         context.setFillColor(red: CGFloat(background.r), green: CGFloat(background.g), blue: CGFloat(background.b), alpha: CGFloat(background.a))
         context.fill(tab)
         if i > 0 {
@@ -365,7 +365,7 @@ private func tabBarDraw(_ bar: TabBar, _ entries: UnsafeMutablePointer<TabBarEnt
 
 private func tabBarUsesGlass() -> Bool { window_manager_global().tab_bar_style == .glass }
 
-func tab_bar_card_padding() -> Int32
+func tab_bar_card_padding() -> Int
 {
     if !tabBarUsesGlass() || window_manager_global().tab_bar_backdrop == .off { return 0 }
     return window_manager_global().tab_bar_card_padding
@@ -413,7 +413,7 @@ private func tabBarKeepOnSpace(_ bar: TabBar)
 // sits above, draws the entries and orders it right above that window (right below it for a glass bar
 // with a backdrop card, which then covers the whole card). Titles stay owned by the caller.
 //
-func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int32)
+func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ entryCount: Int)
 {
     bar.card = card
     let count = min(entryCount, tabBarMaxEntryCount)
@@ -438,7 +438,7 @@ func tab_bar_render(_ bar: TabBar, _ frame: CGRect, _ card: CGRect, _ aboveWid: 
     bar.above_wid = aboveWid
     bar.hidden = false
     bar.entry_count = count
-    bar.entry_list = (0..<Int(count)).map { entries[$0].focus_wid }
+    bar.entry_list = (0..<count).map { entries[$0].focus_wid }
     if bar.id != 0 {
         tabBarDraw(bar, entries, count)
         SLSSetWindowLevel(connection_global(), bar.id.rawValue, window_level(aboveWid))

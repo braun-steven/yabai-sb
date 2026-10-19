@@ -308,8 +308,8 @@ private func configExternalBar(_ rsp: inout Response, _ domain: Token, _ command
     let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
     if let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) {
         dm.mode = choice
-        dm.top_padding = top
-        dm.bottom_padding = bottom
+        dm.top_padding = Int(top)
+        dm.bottom_padding = Int(bottom)
         space_manager_mark_spaces_invalid(space_manager_global())
         return
     }
@@ -331,12 +331,12 @@ private func spacing(for command: Token) -> ViewSpacing?
 // NOTE: The C version converted with (int), which on arm64 saturates at the limits of int and turns NaN into 0.
 //
 
-private func cInt(_ value: Float) -> Int32
+private func cInt(_ value: Float) -> Int
 {
     if value.isNaN { return 0 }
-    if value >= Float(Int32.max) { return .max }
-    if value <= Float(Int32.min) { return .min }
-    return Int32(value)
+    if value >= Float(Int32.max) { return Int(Int32.max) }
+    if value <= Float(Int32.min) { return Int(Int32.min) }
+    return Int(value)
 }
 
 /// A color option: prints it as "0x%x", or sets it from a hexadecimal value. Returns true when it was set.

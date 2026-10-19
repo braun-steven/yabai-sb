@@ -207,14 +207,14 @@ func update_window_notifications()
 // activates it, so that an application that never responds is not polled forever.
 //
 
-let applicationLaunchMaxAttempts: Int32 = 12
+let applicationLaunchMaxAttempts = 12
 
-func applicationLaunchRetryDelay(_ attempt: Int32) -> Float
+func applicationLaunchRetryDelay(_ attempt: Int) -> Float
 {
     min(0.1 * Float(1 << min(attempt, 16)), 5.0)
 }
 
-func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
+func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     attempt < applicationLaunchMaxAttempts
 }
@@ -345,7 +345,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     window_manager_remove_application(wm, application.pid)
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)
-    if refreshIndex >= 0 { window_manager_remove_application_refresh(wm, refreshIndex) }
+    if let refreshIndex { window_manager_remove_application_refresh(wm, refreshIndex) }
 
     let windows = window_manager_find_application_windows(wm, application)
     var viewList: [View] = []
@@ -474,7 +474,7 @@ func applicationLaunchCanRetry(_ attempt: Int32) -> Bool
     eventSignalPush(.applicationFrontSwitched, nil)
 
     let refreshIndex = window_manager_application_refresh_index(wm, application)
-    if refreshIndex >= 0 {
+    if let refreshIndex {
         debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(application.name) has windows that are not yet resolved\n")
         _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
     }

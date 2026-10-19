@@ -489,7 +489,7 @@ private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String
     #expect(event == 7)
     #expect(signal.app?.regex != nil)
     #expect(signal.app?.exclude == true)
-    #expect(signal.active == .yes)
+    #expect(signal.active == true)
     #expect(signal.command == "echo hi")
     #expect(response == "")
 

@@ -121,7 +121,7 @@ public struct PendingSignal
 
     private func activeMismatch(_ signal: EventSignal) -> Bool
     {
-        signal.active != .undefined && active != (signal.active == .yes)
+        signal.active.map { $0 != active } ?? false
     }
 
     //
@@ -216,11 +216,7 @@ public struct SignalTable
     /// `event_signal_serialize`
     private static func serialize(_ signal: EventSignal, _ type: SignalType, _ index: Int) -> String
     {
-        let active = switch signal.active {
-        case .undefined: "null"
-        case .yes:       "true"
-        case .no:        "false"
-        }
+        let active = signal.active.map { $0 ? "true" : "false" } ?? "null"
 
         return "{\n"
              + "\t\"index\":\(index),\n"

@@ -42,7 +42,7 @@ func applicationLaunchRetryBackoff()
     #expect(Int(applicationLaunchRetryDelay(40) * 1000 + 0.5) == 5000)
 
     var total: Float = 0
-    var attempts: Int32 = 0
+    var attempts = 0
     while applicationLaunchCanRetry(attempts) {
         total += applicationLaunchRetryDelay(attempts)
         attempts += 1

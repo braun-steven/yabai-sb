@@ -85,7 +85,7 @@ public struct Grid: Equatable, Sendable
     //
 
     /// sscanf with "%d:%d:%d:%d:%d:%d"; returns the number of values read.
-    public mutating func scan(_ value: Token) -> Int32
+    public mutating func scan(_ value: Token) -> Int
     {
         var values = [rows, columns, x, y, width, height]
         let count = values.withUnsafeMutableBufferPointer { v in
@@ -348,21 +348,14 @@ public func parseRule<C: SelectorContext>(_ rsp: inout Response, _ message: inou
     return didParse
 }
 
-/// `SIGNAL_PROP_UD`, `SIGNAL_PROP_YES` and `SIGNAL_PROP_NO` (the former src/event_signal.h)
-public enum SignalProp: Int32, Sendable
-{
-    case undefined = 0
-    case yes       = 1
-    case no        = 2
-}
-
 /// `struct signal` (the former src/event_signal.h): the filters and the action of a signal.
 public struct EventSignal
 {
     public var label: String?
     public var app: RulePattern?
     public var title: RulePattern?
-    public var active = SignalProp.undefined
+    /// Whether the application or window of the event must be active (focused); nil when it does not matter.
+    public var active: Bool?
     public var command: String?
 
     public init() {}
@@ -405,9 +398,9 @@ public func parseSignal<Event>(_ rsp: inout Response, _ message: inout some Toke
             validPattern = signal.title?.regex != nil
         } else if key.equals("active") {
             if value.equals("yes") {
-                signal.active = .yes
+                signal.active = true
             } else if value.equals("no") {
-                signal.active = .no
+                signal.active = false
             } else {
                 validValue = false
             }

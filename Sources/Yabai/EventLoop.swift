@@ -100,7 +100,7 @@ enum Event: Sendable
     case menuBarHiddenChanged
     case dockDidChangePref
     case systemWoke
-    case spaceLayoutReconcile(generation: Int32)
+    case spaceLayoutReconcile(generation: UInt32)
     case daemonMessage(sockfd: Int32)
 }
 

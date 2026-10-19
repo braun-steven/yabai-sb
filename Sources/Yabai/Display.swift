@@ -54,7 +54,7 @@ func display_bounds_constrained(_ did: DisplayID, _ ignoreExternalBar: Bool) -> 
 {
     let dm = display_manager_global()
     var frame = CGDisplayBounds(did.rawValue)
-    var effectiveExtTopPadding: Int32 = 0
+    var effectiveExtTopPadding: Int = 0
 
     if !ignoreExternalBar {
         if (dm.mode == .main && did == display_manager_main_display_id()) ||

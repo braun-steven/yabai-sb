@@ -413,7 +413,7 @@ private func borderShouldShow(_ target: Window) -> Bool
 // NOTE: The number of windows that count for window_border_hide_single on a space: the tiled windows, where a tabbed
 // container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
 //
-private func borderSpaceWindowCount(_ sid: SpaceID) -> Int32
+private func borderSpaceWindowCount(_ sid: SpaceID) -> Int
 {
     let owner = space_manager_find_view(space_manager_global(), sid)
     var count = owner.layout == .tree ? owner.tree.map(treeVisibleWindowCount) ?? 0 : 0
@@ -426,17 +426,19 @@ private func borderSpaceWindowCount(_ sid: SpaceID) -> Int32
     return count
 }
 
-private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID, _ windowCount: Int32)
+/// Refreshes the border of a window; windowCount is the count of borderSpaceWindowCount for its space, nil when it
+/// still has to be counted.
+private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID, _ windowCount: Int?)
 {
     guard let target, target.id != 0 else { return }
     let wm = window_manager_global()
     var windowArea = Area.zero
     var borderArea = Area.zero
-    var containerRadius: Int32 = 0
+    var containerRadius = 0
     let owner = window_manager_find_managed_window(wm, target)
     var enabled = wm.enable_window_border && borderShouldShow(target) && tree_window_border_area(owner, target.id, &windowArea, &borderArea, &containerRadius)
     if enabled && wm.window_border_hide_single && owner != nil && target.scratchpad == nil {
-        let count = windowCount < 0 ? borderSpaceWindowCount(sid != 0 ? sid : window_space(target.id)) : windowCount
+        let count = windowCount ?? borderSpaceWindowCount(sid != 0 ? sid : window_space(target.id))
         enabled = count > 1
     }
     let focused = wm.focused_window_id == target.id
@@ -510,7 +512,7 @@ func border_end_batch()
 // e.g. its focus. Changes that can also affect the borders of the other windows on the space (a window appears or
 // disappears, a container changes) refresh the whole space instead.
 //
-func border_refresh(_ target: Window!) { borderRefreshWithCount(target, 0, -1) }
+func border_refresh(_ target: Window!) { borderRefreshWithCount(target, 0, nil) }
 
 //
 // NOTE: Without window_border_hide_single a change on a space only affects the borders of its tiled windows and of
@@ -530,7 +532,7 @@ func border_refresh_space(_ sid: SpaceID)
     var windows: [WindowID] = []
     let owner = space_manager_find_view(space_manager_global(), sid)
     if owner.layout == .tree { windows = treeViewWindowList(owner) }
-    let capacity = windows.count + Int(window_manager_global().window.count)
+    let capacity = windows.count + window_manager_global().window.count
     borderLock.withLock { state in
         for border in state.borders.values where border.sid == sid {
             if !windows.contains(border.wid) && windows.count < capacity { windows.append(border.wid) }
@@ -549,15 +551,16 @@ func border_refresh_window_space(_ target: Window!)
 
 func border_refresh_all()
 {
-    var counts: [SpaceID: Int32] = [:]
+    var counts: [SpaceID: Int] = [:]
     for target in window_manager_global().window.values {
         let sid = window_space(target.id)
-        var count: Int32 = -1
+        var count: Int?
         if window_manager_global().window_border_hide_single && sid != 0 {
-            count = counts[sid] ?? -1
-            if count < 0 {
-                count = borderSpaceWindowCount(sid)
-                if counts.count < 64 { counts[sid] = count }
+            count = counts[sid]
+            if count == nil {
+                let spaceCount = borderSpaceWindowCount(sid)
+                if counts.count < 64 { counts[sid] = spaceCount }
+                count = spaceCount
             }
         }
         borderRefreshWithCount(target, sid, count)

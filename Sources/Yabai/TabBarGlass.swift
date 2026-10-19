@@ -46,7 +46,7 @@ private struct Snapshot: @unchecked Sendable
     // NOTE: The glass style uses the Liquid Glass material of macOS 26, which the window server only renders for
     // AppKit views. Each bar is therefore a borderless panel owned by AppKit instead of a raw SkyLight window.
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
-    init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
+    init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
     {
         let wm = window_manager_global()
         frame = bar.frame
@@ -66,7 +66,7 @@ private struct Snapshot: @unchecked Sendable
         var customPill = false
         var focused = false
         var entries: [Entry] = []
-        for i in 0..<Int(count) {
+        for i in 0..<count {
             let source = list[i]
             let (background, text) = tabBarStateColors(source.state)
             let customText = source.state == .focused ? wm.tab_bar_focused_text_color_custom
@@ -328,7 +328,7 @@ private final class Panel
         let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
         for (index, entry) in snapshot.entries.enumerated() {
             let button = buttons[index]
-            let slot = tab_bar_slot(inner, Int32(index), Int32(buttons.count))
+            let slot = tab_bar_slot(inner, index, buttons.count)
             let title = entry.title.map { $0 as String } ?? ""
             let color = entry.customText ? NSColor(cgColor: entry.text) ?? .labelColor
                       : entry.active || contrast ? NSColor.labelColor : NSColor.secondaryLabelColor
@@ -479,7 +479,7 @@ private final class Panel
         pillTint.isHidden = active == nil
         guard let active else { return }
 
-        let pillFrame = tab_bar_slot(inner, Int32(active), Int32(snapshot.entries.count))
+        let pillFrame = tab_bar_slot(inner, active, snapshot.entries.count)
         pill.cornerRadius = pillFrame.height * 0.5
         let pillColor = snapshot.focused ? NSColor.controlAccentColor.withAlphaComponent(0.65) : NSColor.selectedContentBackgroundColor.withAlphaComponent(0.35)
         setTint(pillTint, radius: pillFrame.height * 0.5, color: resolvedTint(snapshot.pillTint, custom: snapshot.customPill, fallback: pillColor))
@@ -638,7 +638,7 @@ func tab_bar_glass_order_panel(_ wid: WindowID, _ below: Bool, _ relativeWid: Wi
     if below { border_window_ordered(relativeWid) }
 }
 
-func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int32)
+func tab_bar_glass_render(_ bar: TabBar, _ aboveWid: WindowID, _ entries: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
 {
     let snapshot = Snapshot(bar, aboveWid, entries, count)
     if bar.glass == nil { bar.glass = TabBarGlass() }

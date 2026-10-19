@@ -169,8 +169,8 @@ private let mouseResizeThrottleMs: Float = 67.67
     let eventTime = read_os_timer()
     if os_timer_ms_between(ms.last_moved_time, eventTime) < mouseResizeThrottleMs { return false }
 
-    let dx = Int32(point.x - ms.down_location.x)
-    let dy = Int32(point.y - ms.down_location.y)
+    let dx = Int(point.x - ms.down_location.x)
+    let dy = Int(point.y - ms.down_location.y)
 
     window_manager_resize_window_relative_internal(ms.window, ms.window.frame, ms.direction, Float(dx), Float(dy), false)
 
@@ -266,14 +266,12 @@ private let mouseResizeThrottleMs: Float = 67.67
 {
     let wm = window_manager_global()
 
-    var windowCount: Int32 = 0
-    guard let windowIDs = space_window_list(space_manager_global().current_space_id, &windowCount, false) else { return false }
+    guard let windowIDs = space_window_list(space_manager_global().current_space_id, false) else { return false }
 
     let level = window_level(window.id)
     let subLevel = window_sub_level(window.id)
 
-    for i in 0..<Int(windowCount) {
-        let wid = windowIDs[i]
+    for wid in windowIDs {
         if wid == window.id { break }
 
         guard let subWindow = window_manager_find_window(wm, wid) else { continue }

@@ -455,41 +455,40 @@ func scripting_addition_payload_changed()
     return saPayloadCurrent == 1
 }
 
-@discardableResult func scripting_addition_order_window_list(_ list: UnsafeMutablePointer<sa_window_order>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_order_window_list(_ list: [sa_window_order]) -> Bool
 {
-    if count <= 0 { return true }
-    let list = list!
+    if list.isEmpty { return true }
     // NOTE: The tree calls this synchronously on the event-loop queue, which owns the handshake cache.
     if !WM.assumeIsolated({ scriptingAdditionPayloadIsCurrent() }) {
         var result = true
-        for i in 0..<Int(count) { result = scripting_addition_order_window(list[i].a_wid, list[i].order, list[i].b_wid) && result }
+        for entry in list { result = scripting_addition_order_window(entry.a_wid, entry.order, entry.b_wid) && result }
         return result
     }
     var result = true
-    for offset in stride(from: 0, to: Int(count), by: 256) { // SA_WINDOW_ORDER_CHUNK
-        let chunk = min(Int(count) - offset, 256)
-        var payload = SAPayload(); payload.pack(Int32(chunk))
-        for i in offset..<(offset + chunk) { payload.pack(list[i].a_wid); payload.pack(list[i].order); payload.pack(list[i].b_wid) }
+    for offset in stride(from: 0, to: list.count, by: 256) { // SA_WINDOW_ORDER_CHUNK
+        let chunk = list[offset..<min(offset + 256, list.count)]
+        var payload = SAPayload(); payload.pack(Int32(chunk.count))
+        for entry in chunk { payload.pack(entry.a_wid); payload.pack(entry.order); payload.pack(entry.b_wid) }
         result = payload.send(SA_OPCODE_WINDOW_ORDER_LIST) && result
     }
     return result
 }
 
-@discardableResult func scripting_addition_order_window_in(_ windowList: UnsafeMutablePointer<WindowID>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_order_window_in(_ windows: [WindowID]) -> Bool
 {
     var orderedIn: UInt8 = 0
-    var payload = SAPayload(); payload.pack(count)
-    for i in 0..<max(0, Int(count)) {
-        SLSWindowIsOrderedIn(connection_global(), windowList![i].rawValue, &orderedIn)
-        payload.pack(orderedIn != 0 ? 0 : windowList![i])
+    var payload = SAPayload(); payload.pack(Int32(windows.count))
+    for wid in windows {
+        SLSWindowIsOrderedIn(connection_global(), wid.rawValue, &orderedIn)
+        payload.pack(orderedIn != 0 ? 0 : wid)
     }
     return payload.send(SA_OPCODE_WINDOW_ORDER_IN)
 }
 
-@discardableResult func scripting_addition_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<WindowID>?, _ count: Int32) -> Bool
+@discardableResult func scripting_addition_move_window_list_to_space(_ sid: SpaceID, _ windows: [WindowID]) -> Bool
 {
-    var payload = SAPayload(); payload.pack(sid); payload.pack(count)
-    for i in 0..<max(0, Int(count)) { payload.pack(windowList![i]) }
+    var payload = SAPayload(); payload.pack(sid); payload.pack(Int32(windows.count))
+    for wid in windows { payload.pack(wid) }
     return payload.send(SA_OPCODE_WINDOW_LIST_TO_SPACE)
 }
 

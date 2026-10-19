@@ -86,7 +86,7 @@ extension DaemonState
             owner.tree = root
             var windowArea = Area.zero
             var borderArea = Area.zero
-            var radius: Int32 = -1
+            var radius = -1
             func same(_ lhs: Area, _ rhs: Area) -> Bool { lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h }
             #expect(Yabai.tree_window_border_area(owner,1, &windowArea, &borderArea, &radius))
             #expect(same(borderArea, a.area))

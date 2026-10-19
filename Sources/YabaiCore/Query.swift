@@ -126,13 +126,13 @@ public struct WindowInfo: Sendable
     public var role: String?
     public var subrole: String?
     public var isRoot = false
-    public var display: Int32 = 0
-    public var space: Int32 = 0
+    public var display = 0
+    public var space = 0
     public var level: Int32 = 0
     public var subLevel: Int32 = 0
     public var opacity: Float = 0
     public var split = WindowSplit.none
-    public var stackIndex: Int32 = 0
+    public var stackIndex = 0
     public var canMove = false
     public var canResize = false
     public var hasFocus = false

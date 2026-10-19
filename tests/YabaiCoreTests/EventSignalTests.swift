@@ -29,14 +29,14 @@ private func filters(_ type: SignalType, _ app: String?, _ title: String?, _ act
     #expect(filters(.windowFocused, "Mail", "x", false, signal) == false)
 
     signal.app?.exclude = false
-    signal.active = .yes
+    signal.active = true
     #expect(filters(.windowMoved, "Safari", "x", true, signal) == false)
     #expect(filters(.windowMoved, "Safari", "x", false, signal) == true)
 
     // NOTE: focused windows have no active property to filter on
     #expect(filters(.windowFocused, "Safari", "x", false, signal) == false)
 
-    signal.active = .no
+    signal.active = false
     #expect(filters(.applicationHidden, "Safari", nil, false, signal) == false)
     #expect(filters(.applicationHidden, "Safari", nil, true, signal) == true)
 }
@@ -90,7 +90,7 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
     // NOTE: the index counts in the order of the event types, not in the order the signals were added
     var titled = signal(nil, "x")
     titled.title = RulePattern(Token("^T$"), exclude: true)
-    titled.active = .no
+    titled.active = false
     table.add(titled, .applicationLaunched)
     #expect(table.list() == "[{\n\t\"index\":0,\n\t\"label\":\"\",\n\t\"app\":\"\",\n\t\"title\":\"\",\n\t\"active\":null,\n\t\"event\":\"application_launched\",\n\t\"action\":\"echo b\"\n},"
                           + "{\n\t\"index\":1,\n\t\"label\":\"\",\n\t\"app\":\"\",\n\t\"title\":\"^T$\",\n\t\"active\":false,\n\t\"event\":\"application_launched\",\n\t\"action\":\"x\"\n},"

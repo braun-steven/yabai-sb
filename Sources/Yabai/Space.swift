@@ -15,16 +15,25 @@ func space_display_id(_ sid: SpaceID) -> DisplayID
     return displayID(uuid)
 }
 
-/// `space_window_list_for_connection`: the windows on the spaces; count gets their number. nil when the window server
-/// fails (count is left alone), or when no window is on the spaces (count is 0).
-func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count: inout Int32, _ includeMinimized: Bool) -> [WindowID]?
+/// Every window the window server lists on the spaces (of the connection, or of every connection for 0), including
+/// the ones that are not user windows; nil when the window server fails.
+func spaceWindowCandidates(_ spaces: [SpaceID], _ cid: Int32, _ includeMinimized: Bool) -> [WindowID]?
 {
     let options: UInt32 = includeMinimized ? 0x7 : 0x2
+    return SLS.windows(connection_global(), owner: UInt32(bitPattern: cid), spaces: spaces, options: options)
+}
 
-    guard let candidates = SLS.windows(connection_global(), owner: UInt32(bitPattern: cid), spaces: spaces, options: options) else { return nil }
+/// `space_window_list_for_connection`: the windows on the spaces; nil when the window server fails.
+func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ includeMinimized: Bool) -> [WindowID]?
+{
+    return spaceWindowCandidates(spaces, cid, includeMinimized).map { spaceUserWindows($0, includeMinimized) }
+}
 
-    count = Int32(candidates.count)
-    if candidates.isEmpty { return nil }
+/// The candidates that are windows of the user: the ones yabai knows (minimized ones only with includeMinimized) and
+/// the ones the window server describes as user windows.
+func spaceUserWindows(_ candidates: [WindowID], _ includeMinimized: Bool) -> [WindowID]
+{
+    if candidates.isEmpty { return [] }
 
     var result: [WindowID] = []
     for window in SLS.queryWindows(connection_global(), candidates) {
@@ -39,14 +48,13 @@ func space_window_list_for_connection(_ spaces: [SpaceID], _ cid: Int32, _ count
         }
     }
 
-    count = Int32(result.count)
     return result
 }
 
-/// `space_window_list`: the windows on one space.
-func space_window_list(_ sid: SpaceID, _ count: inout Int32, _ includeMinimized: Bool) -> [WindowID]?
+/// `space_window_list`: the windows on one space; nil when the window server fails.
+func space_window_list(_ sid: SpaceID, _ includeMinimized: Bool) -> [WindowID]?
 {
-    return space_window_list_for_connection([sid], 0, &count, includeMinimized)
+    return space_window_list_for_connection([sid], 0, includeMinimized)
 }
 
 /// `space_is_user`

@@ -18,7 +18,7 @@ private func labelJSON<ID>(_ list: LabelList<ID>, _ id: ID) -> String
 }
 
 /// A list of ids or indices as a json array, separated by ", ".
-private func jsonList(_ values: some Sequence<Int32>) -> String
+private func jsonList<Value: BinaryInteger>(_ values: some Sequence<Value>) -> String
 {
     "[" + values.map { String($0) }.joined(separator: ", ") + "]"
 }
@@ -39,7 +39,7 @@ private func displaySpaceIndexList(_ did: DisplayID) -> String
     guard let spaceList = displaySpaces(did), spaceList.count > 0 else { return "[]" }
 
     let first = space_manager_mission_control_index(spaceList[0])
-    return jsonList((0..<Int32(spaceList.count)).map { first + $0 })
+    return jsonList((0..<spaceList.count).map { first + $0 })
 }
 
 /// `display_serialize`
@@ -82,9 +82,8 @@ private func viewUUID(_ view: View) -> String
 
 private func viewWindowList(_ sid: SpaceID) -> String
 {
-    var count: Int32 = 0
-    guard let windowList = space_window_list(sid, &count, true) else { return "[]" }
-    return jsonList((0..<Int(count)).map { Int32(bitPattern: windowList[$0].rawValue) })
+    guard let windowList = space_window_list(sid, true) else { return "[]" }
+    return jsonList(windowList.map { Int32(bitPattern: $0.rawValue) })
 }
 
 private func viewFirstWindow(_ view: View) -> WindowID
@@ -213,7 +212,7 @@ func windowInfoSetTree(_ info: inout WindowInfo, _ node: Con?)
 
     var tab = node
     while let parent = tab.parent, parent.layout != .tabbed { tab = parent }
-    info.stackIndex = tab.parent != nil ? con_index(tab) + 1 : 0
+    info.stackIndex = con_index(tab).map { $0 + 1 } ?? 0
 
     info.hasParentZoom = node.zoom == .parent
     info.hasFullscreenZoom = node.zoom == .fullscreen
@@ -332,11 +331,9 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [Spa
 {
     let wm = window_manager_global()
 
-    var windowCount: Int32 = 0
-    let windowList = space_window_list_for_connection(spaceList, 0, &windowCount, true)
+    let windowList = space_window_list_for_connection(spaceList, 0, true) ?? []
 
-    let windows = (0..<Int(windowCount)).map { i in
-        let wid = windowList![i]
+    let windows = windowList.map { wid in
         if let window = window_manager_find_window(wm, wid) { return windowSerialize(window, flags) }
         return windowNonAXSerialize(wid, flags)
     }
@@ -375,7 +372,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     output += ",\"frame\":{\"x\":\(JSON.number(Double(frame.x))),\"y\":\(JSON.number(Double(frame.y))),\"w\":\(JSON.number(Double(frame.w))),\"h\":\(JSON.number(Double(frame.h)))}"
     output += ",\"focused\":\(JSON.bool(focused)),\"selected\":\(JSON.bool(node.selected)),\"visible\":\(JSON.bool(visible)),\"nodes\":["
 
-    let childCount = Int(node.child_count)
+    let childCount = node.child_count
     for i in 0..<childCount {
         output += i != 0 ? ",\n" : "\n"
         treeSerializeCon(&output, view, node.children[i], depth + 1)

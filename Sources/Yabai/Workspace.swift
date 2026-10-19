@@ -79,7 +79,7 @@ final class WorkspaceContext: NSObject, Sendable
             let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
             if process_is_terminated_acquire(process) { return }
 
-            let result = (change?[.newKey] as? NSNumber)?.int32Value ?? 0
+            let result = (change?[.newKey] as? NSNumber)?.intValue ?? 0
             if result != process.policy {
                 //
                 // :WorstApiEverMade
@@ -102,7 +102,7 @@ final class WorkspaceContext: NSObject, Sendable
             let process = Unmanaged<Process>.fromOpaque(context!).takeUnretainedValue()
             if process_is_terminated_acquire(process) { return }
 
-            let result = (change?[.newKey] as? NSNumber)?.int32Value ?? 0
+            let result = (change?[.newKey] as? NSNumber)?.intValue ?? 0
             if result == 1 {
                 //
                 // :WorstApiEverMade
@@ -291,10 +291,10 @@ func workspace_application_unobserve(_ process: Process)
 func workspace_application_is_observable(_ process: Process) -> Bool
 {
     if let application = runningApplication(process) {
-        process.policy = Int32(application.activationPolicy.rawValue)
-        return process.policy == Int32(NSApplication.ActivationPolicy.regular.rawValue)
+        process.policy = application.activationPolicy.rawValue
+        return process.policy == NSApplication.ActivationPolicy.regular.rawValue
     } else {
-        process.policy = Int32(NSApplication.ActivationPolicy.prohibited.rawValue)
+        process.policy = NSApplication.ActivationPolicy.prohibited.rawValue
         return false
     }
 }
@@ -306,13 +306,13 @@ func workspace_application_is_finished_launching(_ process: Process) -> Bool
 }
 
 /// `workspace_display_notch_height`: the top safe area inset of a builtin display, else 0.
-func workspace_display_notch_height(_ did: DisplayID) -> Int32
+func workspace_display_notch_height(_ did: DisplayID) -> Int
 {
     if CGDisplayIsBuiltin(did.rawValue) == 0 { return 0 }
 
     for screen in NSScreen.screens {
         if (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == did.rawValue {
-            return Int32(screen.safeAreaInsets.top)
+            return Int(screen.safeAreaInsets.top)
         }
     }
 

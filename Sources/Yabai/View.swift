@@ -40,7 +40,7 @@ enum ViewSpacing: CaseIterable, Sendable
     case windowGap
 
     /// The value in a view.
-    var view: ReferenceWritableKeyPath<View, Int32>
+    var view: ReferenceWritableKeyPath<View, Int>
     {
         switch self {
         case .topPadding:    \.top_padding
@@ -74,11 +74,11 @@ final class View
     var tree: Con!
     var insertion_point: WindowID = 0
     var layout = ViewType.default
-    var top_padding: Int32 = 0
-    var bottom_padding: Int32 = 0
-    var left_padding: Int32 = 0
-    var right_padding: Int32 = 0
-    var window_gap: Int32 = 0
+    var top_padding: Int = 0
+    var bottom_padding: Int = 0
+    var left_padding: Int = 0
+    var right_padding: Int = 0
+    var window_gap: Int = 0
     var auto_padding = false
     var overrides: ViewOverrides = []
     var isPaddingEnabled = false
@@ -94,7 +94,7 @@ extension View: Equatable
 }
 
 /// `view_window_gap`
-func view_window_gap(_ target: View) -> Int32
+func view_window_gap(_ target: View) -> Int
 {
     return ViewArea.windowGap(gapEnabled: target.isGapEnabled, windowGap: target.window_gap)
 }
@@ -148,13 +148,13 @@ func view_flush(_ target: View)
 }
 
 /// `view_auto_padding_applies`
-func view_auto_padding_applies(_ layout: ViewType, _ autoPadding: Bool, _ tiledCount: Int32) -> Bool
+func view_auto_padding_applies(_ layout: ViewType, _ autoPadding: Bool, _ tiledCount: Int) -> Bool
 {
-    return ViewArea.autoPaddingApplies(isTree: layout == .tree, autoPadding: autoPadding, tiledCount: Int(tiledCount))
+    return ViewArea.autoPaddingApplies(isTree: layout == .tree, autoPadding: autoPadding, tiledCount: tiledCount)
 }
 
 /// `view_tiled_count`
-func view_tiled_count(_ target: View) -> Int32
+func view_tiled_count(_ target: View) -> Int
 {
     return tree_view_tiled_count(target)
 }

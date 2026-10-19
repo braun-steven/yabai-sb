@@ -323,7 +323,7 @@ public func directionDescription(_ direction: Direction) -> String
 /// The displays a display selector asks for. 0 is no display.
 public enum DisplayQuery: Sendable
 {
-    case arrangement(Int32)
+    case arrangement(Int)
     case inDirection(Direction, from: DisplayID)
     case prev(DisplayID)
     case next(DisplayID)
@@ -336,7 +336,7 @@ public enum DisplayQuery: Sendable
 /// The spaces a space selector asks for. 0 is no space.
 public enum SpaceQuery: Sendable
 {
-    case missionControl(Int32)
+    case missionControl(Int)
     case prev(SpaceID)
     case next(SpaceID)
     case first
@@ -363,7 +363,7 @@ public enum WindowQuery<Window>
     case stackFirst(Window)
     case stackLast(Window)
     case stackRecent(Window)
-    case stackPosition(Window, Int32)
+    case stackPosition(Window, Int)
 }
 
 /// What the selectors look up: the daemon implements it over its managers, the tests with fixtures.
@@ -537,7 +537,7 @@ public func parseWindowSelector<C: SelectorContext>(_ rsp: inout Response, _ tok
 
     switch token.value {
     case .int(let id):
-        result.value = context.window(.id(WindowID(UInt32(bitPattern: id))))
+        result.value = context.window(.id(WindowID(UInt32(truncatingIfNeeded: id))))
         if result.value == nil { rsp.fail("could not locate window with the specified id '\(id)'.\n") }
     case .string:
         let direction = parseDirection(token)
@@ -619,7 +619,7 @@ public func parseOptionalWindowSelector<C: SelectorContext>(_ rsp: inout Respons
 }
 
 /// Where `window --insert` or a mouse drop puts a window: on one side of the target, or into its tabbed container.
-public enum InsertDirection: Int32, Sendable
+public enum InsertDirection: Int, Sendable
 {
     case north = 360
     case east  = 90

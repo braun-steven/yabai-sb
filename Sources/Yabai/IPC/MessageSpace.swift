@@ -59,13 +59,13 @@ extension Token
 {
     /// sscanf with a format like "%255[^:]:%d:%d" (`MAXLEN` buffer for the string, then one pointer per value);
     /// returns the number of assigned conversions.
-    func scan<T>(_ format: String, _ type: inout [CChar], _ values: inout [T]) -> Int32
+    func scan<T>(_ format: String, _ type: inout [CChar], _ values: inout [T]) -> Int
     {
         type = [CChar](repeating: 0, count: 512)
         return type.withUnsafeMutableBufferPointer { t in
             values.withUnsafeMutableBufferPointer { v in
                 let arguments: [CVarArg] = [t.baseAddress!] + (0..<v.count).map { v.baseAddress! + $0 }
-                return withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } }
+                return Int(withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } })
             }
         }
     }
@@ -304,7 +304,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         }
     } else if command.equals(SpaceCommand.rotate) {
         let value = message.next()
-        let degrees: Int32 = value.equals(SpaceCommand.rotate90)  ? 90
+        let degrees = value.equals(SpaceCommand.rotate90)  ? 90
                            : value.equals(SpaceCommand.rotate180) ? 180
                            : value.equals(SpaceCommand.rotate270) ? 270
                            : 0
@@ -318,7 +318,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var spacing: [Int32] = [0, 0, 0, 0]
         let value = message.next()
         if value.scan(SpaceCommand.paddingFormat, &type, &spacing) == 5 {
-            if !space_manager_set_padding_for_space(sm, actingSid, valueType(type), spacing[0], spacing[1], spacing[2], spacing[3]) {
+            if !space_manager_set_padding_for_space(sm, actingSid, valueType(type), Int(spacing[0]), Int(spacing[1]), Int(spacing[2]), Int(spacing[3])) {
                 rsp.fail("cannot set padding for a non-managed space.\n")
             }
         } else {
@@ -329,7 +329,7 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
         var gap: [Int32] = [0]
         let value = message.next()
         if value.scan(SpaceCommand.gapFormat, &type, &gap) == 2 {
-            if !space_manager_set_gap_for_space(sm, actingSid, valueType(type), gap[0]) {
+            if !space_manager_set_gap_for_space(sm, actingSid, valueType(type), Int(gap[0])) {
                 rsp.fail("cannot set gap for a non-managed space.\n")
             }
         } else {

@@ -110,7 +110,7 @@ final class Con
     var insert_dir: InsertDirection?
     var render = ConRender()
 
-    var child_count: Int32 { Int32(children.count) }
+    var child_count: Int { children.count }
 }
 
 extension Con: Equatable
@@ -121,14 +121,14 @@ extension Con: Equatable
 // TREE_MIN_PERCENT
 private let treeMinPercent: Float = 0.05
 
-private func child(_ node: Con, _ index: Int32) -> Con
+private func child(_ node: Con, _ index: Int) -> Con
 {
-    return node.children[Int(index)]
+    return node.children[index]
 }
 
-private func focusChild(_ node: Con, _ index: Int32) -> Con
+private func focusChild(_ node: Con, _ index: Int) -> Con
 {
-    return node.focus[Int(index)]
+    return node.focus[index]
 }
 
 /// `con_create`
@@ -190,28 +190,16 @@ private func conIsSplit(_ node: Con) -> Bool
     return !con_is_leaf(node) && (node.layout == .splitH || node.layout == .splitV)
 }
 
-/// `con_index`
-func con_index(_ node: Con) -> Int32
+/// `con_index`: the index of the container among the children of its parent; nil without a parent.
+func con_index(_ node: Con) -> Int?
 {
-    guard let parent = node.parent else { return -1 }
-
-    for i in 0..<parent.child_count {
-        if child(parent, i) == node { return i }
-    }
-
-    return -1
+    return node.parent?.children.firstIndex(of: node)
 }
 
-/// `con_focus_index`
-private func conFocusIndex(_ node: Con) -> Int32
+/// `con_focus_index`: the index of the container in the focus order of its parent; nil without a parent.
+private func conFocusIndex(_ node: Con) -> Int?
 {
-    guard let parent = node.parent else { return -1 }
-
-    for i in 0..<parent.child_count {
-        if focusChild(parent, i) == node { return i }
-    }
-
-    return -1
+    return node.parent?.focus.firstIndex(of: node)
 }
 
 //
@@ -225,7 +213,7 @@ func tree_fix_percent(_ node: Con)
     if node.child_count == 0 { return }
 
     var total: Float = 0.0
-    var childrenWithPercent: Int32 = 0
+    var childrenWithPercent = 0
 
     for i in 0..<node.child_count {
         if child(node, i).percent > 0.0 {
@@ -252,23 +240,27 @@ func tree_fix_percent(_ node: Con)
 //
 // NOTE: Inserts the container among the children of the parent at the index, and at the focus index
 // in their focus order (0 is the most recently focused child). Either goes to the end when it is
-// out of range. The share of space is left alone.
+// nil or out of range. The share of space is left alone.
 //
 
 // CON_FOCUS_HEAD, CON_FOCUS_TAIL
-private let conFocusHead: Int32 = 0
-private let conFocusTail: Int32 = -1
+private let conFocusHead: Int? = 0
+private let conFocusTail: Int? = nil
+
+/// The index, or the end of a list of count elements when it is nil or out of range.
+private func clampedIndex(_ index: Int?, _ count: Int) -> Int
+{
+    guard let index, index >= 0 && index <= count else { return count }
+    return index
+}
 
 /// `con_insert`
-private func conInsert(_ parent: Con, _ node: Con, _ index: Int32, _ focusIndex: Int32)
+private func conInsert(_ parent: Con, _ node: Con, _ index: Int?, _ focusIndex: Int?)
 {
     let count = parent.child_count
 
-    let index = index < 0 || index > count ? count : index
-    parent.children.insert(node, at: Int(index))
-
-    let focusIndex = focusIndex < 0 || focusIndex > count ? count : focusIndex
-    parent.focus.insert(node, at: Int(focusIndex))
+    parent.children.insert(node, at: clampedIndex(index, count))
+    parent.focus.insert(node, at: clampedIndex(focusIndex, count))
 
     node.parent = parent
 
@@ -289,11 +281,8 @@ private func conUnlink(_ node: Con)
 {
     guard let parent = node.parent else { return }
 
-    let index = con_index(node)
-    let focusIndex = conFocusIndex(node)
-
-    parent.children.remove(at: Int(index))
-    parent.focus.remove(at: Int(focusIndex))
+    parent.children.remove(at: con_index(node)!)
+    parent.focus.remove(at: conFocusIndex(node)!)
 
     if parent.render.raised == node { parent.render.raised = nil }
     node.parent = nil
@@ -309,8 +298,8 @@ private func conReplace(_ node: Con, _ replacement: Con)
 {
     let parent = node.parent!
 
-    parent.children[Int(con_index(node))] = replacement
-    parent.focus[Int(conFocusIndex(node))] = replacement
+    parent.children[con_index(node)!] = replacement
+    parent.focus[conFocusIndex(node)!] = replacement
     if parent.render.raised == node { parent.render.raised = nil }
 
     replacement.parent = parent
@@ -341,13 +330,13 @@ private func conWrap(_ node: Con, _ layout: ConLayout) -> Con
 //
 
 /// `con_reparent_children`
-private func conReparentChildren(_ from: Con, _ to: Con, _ index: Int32, _ focusIndex: Int32)
+private func conReparentChildren(_ from: Con, _ to: Con, _ index: Int?, _ focusIndex: Int?)
 {
     let count = from.child_count
     if count == 0 { return }
 
-    let index = index < 0 || index > to.child_count ? to.child_count : index
-    let focusIndex = focusIndex < 0 || focusIndex > to.child_count ? to.child_count : focusIndex
+    let index = clampedIndex(index, to.child_count)
+    let focusIndex = clampedIndex(focusIndex, to.child_count)
 
     let focus = from.focus
 
@@ -362,8 +351,8 @@ private func conReparentChildren(_ from: Con, _ to: Con, _ index: Int32, _ focus
     // own focus order (the memmove of the C version).
     //
 
-    to.focus.removeLast(Int(count))
-    to.focus.insert(contentsOf: focus, at: Int(focusIndex))
+    to.focus.removeLast(count)
+    to.focus.insert(contentsOf: focus, at: focusIndex)
 }
 
 //
@@ -422,7 +411,7 @@ private func conApplyWorkspaceLayout(_ node: Con)
 }
 
 /// `tree_attach`
-func tree_attach(_ parent: Con!, _ node: Con!, _ index: Int32)
+func tree_attach(_ parent: Con!, _ node: Con!, _ index: Int?)
 {
     node.percent = 0.0
     conInsert(parent, node, index, conFocusTail)
@@ -454,7 +443,7 @@ func tree_detach(_ node: Con!) -> Con!
 func tree_flatten(_ node: Con!)
 {
     // NOTE: flattening a child can change the count, so it is read on every pass like the C loop did
-    var i: Int32 = 0
+    var i = 0
     while i < node.child_count {
         tree_flatten(child(node, i))
         i += 1
@@ -486,8 +475,8 @@ func tree_flatten(_ node: Con!)
         child(only, i).percent *= node.percent
     }
 
-    let index = con_index(node)
-    let focusIndex = conFocusIndex(node)
+    let index = con_index(node)!
+    let focusIndex = conFocusIndex(node)!
 
     conUnlink(node)
     conReparentChildren(only, parent, index, focusIndex)
@@ -552,11 +541,11 @@ func tree_focus_candidate(_ node: Con) -> Con?
 }
 
 /// `tree_window_count`
-func tree_window_count(_ node: Con) -> Int32
+func tree_window_count(_ node: Con) -> Int
 {
     if con_is_leaf(node) { return 1 }
 
-    var count: Int32 = 0
+    var count = 0
     for i in 0..<node.child_count {
         count += tree_window_count(child(node, i))
     }
@@ -608,7 +597,7 @@ func tree_next_leaf(_ node: Con) -> Con?
 {
     var node = node
     while let parent = node.parent {
-        let index = con_index(node)
+        let index = con_index(node)!
         if index + 1 < parent.child_count {
             return tree_first_leaf(child(parent, index + 1))
         }
@@ -624,7 +613,7 @@ func tree_prev_leaf(_ node: Con) -> Con?
 {
     var node = node
     while let parent = node.parent {
-        let index = con_index(node)
+        let index = con_index(node)!
         if index > 0 {
             return tree_last_leaf(child(parent, index - 1))
         }
@@ -668,9 +657,9 @@ func tree_focus(_ node: Con!)
 {
     var node: Con = node
     while let parent = node.parent {
-        let focusIndex = conFocusIndex(node)
+        let focusIndex = conFocusIndex(node)!
 
-        parent.focus.remove(at: Int(focusIndex))
+        parent.focus.remove(at: focusIndex)
         parent.focus.insert(node, at: 0)
         node = parent
     }
@@ -727,7 +716,7 @@ func tree_next(_ node: Con, _ direction: Direction, _ wrapping: FocusWrapping, _
         defer { node = parent }
         if parent.child_count < 2 || con_orientation(parent) != orientation { continue }
 
-        let index = con_index(node) + (backward ? -1 : 1)
+        let index = con_index(node)! + (backward ? -1 : 1)
         if index >= 0 && index < parent.child_count {
             result = tree_descend_focused(child(parent, index))
             return .done
@@ -828,7 +817,7 @@ func tree_insert_con(_ node: Con, _ target: Con, _ position: TreePosition)
         if conAncestor == targetAncestor {
             focusBefore = movesFocus
         } else {
-            focusBefore = conFocusIndex(conAncestor) < conFocusIndex(targetAncestor)
+            focusBefore = conFocusIndex(conAncestor)! < conFocusIndex(targetAncestor)!
 
             //
             // NOTE: The focused container takes the focus with it to the ancestor it moves into,
@@ -836,25 +825,25 @@ func tree_insert_con(_ node: Con, _ target: Con, _ position: TreePosition)
             //
 
             if movesFocus && focusBefore {
-                let conFocus = conFocusIndex(conAncestor)
-                let targetFocus = conFocusIndex(targetAncestor)
-                lca.focus.remove(at: Int(targetFocus))
-                lca.focus.insert(targetAncestor, at: Int(conFocus))
+                let conFocus = conFocusIndex(conAncestor)!
+                let targetFocus = conFocusIndex(targetAncestor)!
+                lca.focus.remove(at: targetFocus)
+                lca.focus.insert(targetAncestor, at: conFocus)
             }
         }
 
         conUnlink(node)
     }
 
-    let focusIndex: Int32
+    let focusIndex: Int?
     if parent == lca {
-        focusIndex = conFocusIndex(target) + (focusBefore ? 0 : 1)
+        focusIndex = conFocusIndex(target)! + (focusBefore ? 0 : 1)
     } else {
         focusIndex = focusBefore ? conFocusHead : conFocusTail
     }
 
     node.percent = 0.0
-    conInsert(parent, node, con_index(target) + (position == .after ? 1 : 0), focusIndex)
+    conInsert(parent, node, con_index(target)! + (position == .after ? 1 : 0), focusIndex)
     tree_fix_percent(parent)
     conApplyWorkspaceLayout(node)
 
@@ -879,10 +868,10 @@ private func treeMoveToward(_ node: Con, _ above: Con, _ next: Con, _ direction:
         tree_insert_con(node, target, after ? .after : .before)
     } else if above == node {
         let parent = node.parent!
-        let index = con_index(node)
-        let nextIndex = con_index(next)
-        parent.children[Int(index)] = next
-        parent.children[Int(nextIndex)] = node
+        let index = con_index(node)!
+        let nextIndex = con_index(next)!
+        parent.children[index] = next
+        parent.children[nextIndex] = node
     } else {
         tree_insert_con(node, above, backward ? .before : .after)
     }
@@ -907,7 +896,7 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
     if node.parent == root && root.child_count == 1 { return edge }
 
     let orientation = directionOrientation(direction)
-    let offset: Int32 = directionIsBackward(direction) ? -1 : 1
+    let offset = directionIsBackward(direction) ? -1 : 1
     var wrapped = false
 
     var current = node
@@ -926,7 +915,7 @@ func tree_move(_ root: Con, _ node: Con, _ direction: Direction, _ hasOutput: Bo
             continue
         }
 
-        let index = con_index(current) + offset
+        let index = con_index(current)! + offset
         next = index >= 0 && index < parent.child_count ? child(parent, index) : nil
         if current != node { break }
 
@@ -972,7 +961,7 @@ func tree_insert_relative(_ target: Con!, _ node: Con!, _ insertion: InsertDirec
             conWrap(target, .tabbed).last_split = lastSplit
         }
 
-        tree_attach(target.parent, node, con_index(target) + 1)
+        tree_attach(target.parent, node, con_index(target)! + 1)
         return
     }
 
@@ -991,7 +980,7 @@ func tree_insert_relative(_ target: Con!, _ node: Con!, _ insertion: InsertDirec
         }
     }
 
-    tree_attach(target.parent, node, con_index(target) + (directionIsBackward(direction) ? 0 : 1))
+    tree_attach(target.parent, node, con_index(target)! + (directionIsBackward(direction) ? 0 : 1))
     conApplyWorkspaceLayout(node)
 }
 
@@ -1050,9 +1039,9 @@ func tree_open_con(_ root: Con, _ node: Con, _ target: Con?, _ autotile: Bool)
 {
     if let target, target != root {
         if autotile && con_is_leaf(target) { tree_autotile(target) }
-        tree_attach(target.parent, node, con_index(target) + 1)
+        tree_attach(target.parent, node, con_index(target)! + 1)
     } else {
-        tree_attach(root, node, root.child_count != 0 ? con_index(focusChild(root, 0)) + 1 : -1)
+        tree_attach(root, node, root.child_count != 0 ? con_index(focusChild(root, 0))! + 1 : nil)
     }
 
     conApplyWorkspaceLayout(node)
@@ -1070,7 +1059,7 @@ func tree_attach_from_direction(_ root: Con, _ node: Con, _ direction: Direction
 {
     if root.child_count == 0 || con_orientation(root) == directionOrientation(direction) {
         node.percent = 0.0
-        conInsert(root, node, directionIsBackward(direction) ? -1 : 0, conFocusHead)
+        conInsert(root, node, directionIsBackward(direction) ? nil : 0, conFocusHead)
         tree_fix_percent(root)
         conApplyWorkspaceLayout(node)
         return
@@ -1169,7 +1158,7 @@ func tree_resize(_ node: Con, _ direction: Direction, _ delta: Float) -> Bool
             continue
         }
 
-        let index = con_index(first) + (backward ? -1 : 1)
+        let index = con_index(first)! + (backward ? -1 : 1)
         if index >= 0 && index < parent.child_count {
             second = child(parent, index)
         } else {
@@ -1217,7 +1206,7 @@ func tree_balance(_ node: Con)
 private func conReverseChildren(_ node: Con)
 {
     var i = 0
-    var j = Int(node.child_count) - 1
+    var j = node.child_count - 1
     while i < j {
         let temp = node.children[i]
         node.children[i] = node.children[j]
@@ -1233,7 +1222,7 @@ private func conReverseChildren(_ node: Con)
 //
 
 /// `tree_rotate`
-func tree_rotate(_ node: Con, _ degrees: Int32)
+func tree_rotate(_ node: Con, _ degrees: Int)
 {
     if conIsSplit(node) {
         if (degrees ==  90 && node.layout == .splitH) ||
@@ -1276,10 +1265,10 @@ func tree_swap(_ a: Con, _ b: Con)
 
     let aParent = a.parent!
     let bParent = b.parent!
-    let aIndex = Int(con_index(a))
-    let bIndex = Int(con_index(b))
-    let aFocusIndex = Int(conFocusIndex(a))
-    let bFocusIndex = Int(conFocusIndex(b))
+    let aIndex = con_index(a)!
+    let bIndex = con_index(b)!
+    let aFocusIndex = conFocusIndex(a)!
+    let bFocusIndex = conFocusIndex(b)!
 
     aParent.children[aIndex] = b
     aParent.focus[aFocusIndex] = b
@@ -1306,7 +1295,7 @@ func tree_swap(_ a: Con, _ b: Con)
 //
 
 /// `tree_bar_card_inset`
-func tree_bar_card_inset(_ area: Area, _ barHeight: Int32, _ barInset: Int32) -> Int32
+func tree_bar_card_inset(_ area: Area, _ barHeight: Int, _ barInset: Int) -> Int
 {
     if barInset <= 0 { return 0 }
     if area.w <= Float(4 * barInset) || area.h - Float(2 * barInset) <= Float(2 * barHeight) { return 0 }
@@ -1314,7 +1303,7 @@ func tree_bar_card_inset(_ area: Area, _ barHeight: Int32, _ barInset: Int32) ->
 }
 
 /// `tree_update`
-func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _ barOffset: Int32, _ barInset: Int32)
+func tree_update(_ node: Con!, _ area: Area, _ gap: Int, _ barHeight: Int, _ barOffset: Int, _ barInset: Int)
 {
     node.area = area
     if con_is_leaf(node) || node.child_count == 0 { return }
@@ -1328,7 +1317,7 @@ func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _
             childArea.w -= Float(2 * inset)
             childArea.h -= Float(2 * inset)
 
-            let reserve = max(0, min(barHeight + barOffset, Int32(childArea.h) - barHeight))
+            let reserve = max(0, min(barHeight + barOffset, Int(childArea.h) - barHeight))
             childArea.y += Float(reserve)
             childArea.h -= Float(reserve)
         }
@@ -1347,7 +1336,7 @@ func tree_update(_ node: Con!, _ area: Area, _ gap: Int32, _ barHeight: Int32, _
 
     for i in 0..<node.child_count {
         let next = child(node, i)
-        let size = i == node.child_count - 1 ? end - offset : Float(Int32(total * next.percent + 0.5))
+        let size = i == node.child_count - 1 ? end - offset : Float(Int(total * next.percent + 0.5))
 
         var childArea = area
         if horizontal {

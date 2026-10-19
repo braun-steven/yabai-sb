@@ -254,14 +254,14 @@ private func windowAnimationTakeOver(_ animation: WindowAnimation, _ existing: W
     windowManagerDestroyWindowProxy(existing)
 }
 
-private func windowManagerAnimateWindowListAsync(_ list: UnsafeMutablePointer<window_capture>, _ count: Int32)
+private func windowManagerAnimateWindowListAsync(_ list: [window_capture])
 {
     let wm = window_manager_global()
     var connection: Int32 = 0
     SLSNewConnection(0, &connection)
     let duration = wm.window_animation_duration
     let easing = wm.window_animation_easing
-    let animations = (0..<Int(count)).map { WindowAnimation(list[$0], connection: connection) }
+    let animations = list.map { WindowAnimation($0, connection: connection) }
     let workers = DispatchGroup()
     SLSDisableUpdate(connection)
     windowAnimations.withLock { table in
@@ -277,7 +277,7 @@ private func windowManagerAnimateWindowListAsync(_ list: UnsafeMutablePointer<wi
     workers.wait()
     scripting_addition_swap_window_proxy_in(animations)
     for animation in animations { border_suspend(animation.wid, true) }
-    window_manager_set_window_frames(list, count)
+    window_manager_set_window_frames(list)
     SLSReenableUpdate(connection)
     let animationConnection = connection
     DispatchQueue.main.async {
@@ -320,28 +320,14 @@ private func windowManagerWindowFrameNeedsUpdate(_ target: Window, _ x: Float, _
     return window_frame_needs_update(target.frame_request, hasBounds, bounds, x, y, w, h)
 }
 
-private func windowManagerFilterWindowFrames(_ list: UnsafeMutablePointer<window_capture>, _ count: Int32) -> Int32
+func window_manager_animate_window_list(_ list: [window_capture])
 {
-    var updates: Int32 = 0
-    for i in 0..<Int(count) {
-        let capture = list[i]
-        if windowManagerWindowFrameNeedsUpdate(capture.window, capture.x, capture.y, capture.w, capture.h) {
-            list[Int(updates)] = capture
-            updates += 1
-        }
-    }
-    return updates
-}
-
-func window_manager_animate_window_list(_ list: UnsafeMutablePointer<window_capture>!, _ count: Int32)
-{
-    guard count > 0, let list else { return }
-    let count = windowManagerFilterWindowFrames(list, count)
-    if count == 0 { return }
+    let list = list.filter { windowManagerWindowFrameNeedsUpdate($0.window, $0.x, $0.y, $0.w, $0.h) }
+    if list.isEmpty { return }
     if window_manager_global().window_animation_duration != 0 {
-        windowManagerAnimateWindowListAsync(list, count)
+        windowManagerAnimateWindowListAsync(list)
     } else {
-        window_manager_set_window_frames(list, count)
+        window_manager_set_window_frames(list)
     }
 }
 
@@ -349,8 +335,7 @@ func window_manager_animate_window(_ capture: window_capture)
 {
     if !windowManagerWindowFrameNeedsUpdate(capture.window, capture.x, capture.y, capture.w, capture.h) { return }
     if window_manager_global().window_animation_duration != 0 {
-        var capture = capture
-        windowManagerAnimateWindowListAsync(&capture, 1)
+        windowManagerAnimateWindowListAsync([capture])
     } else {
         window_manager_set_window_frame(capture.window, capture.x, capture.y, capture.w, capture.h)
     }
@@ -421,12 +406,10 @@ final class WindowFrameGroup: @unchecked Sendable
     }
 }
 
-func window_manager_group_window_frames(_ list: UnsafePointer<window_capture>, _ count: Int32) -> [WindowFrameGroup]
+func window_manager_group_window_frames(_ list: [window_capture]) -> [WindowFrameGroup]
 {
-    if count <= 0 { return [] }
     var groups: [WindowFrameGroup] = []
-    for i in 0..<Int(count) {
-        let capture = list[i]
+    for capture in list {
         let owner = capture.window.application!
         let group: WindowFrameGroup
         if let existing = groups.first(where: { $0.application == owner }) {
@@ -463,15 +446,14 @@ private func windowManagerApplyWindowFrameGroup(_ group: WindowFrameGroup)
     if eui { AXUIElementSetAttributeValue(group.ref, attribute, kCFBooleanTrue) }
 }
 
-func window_manager_set_window_frames(_ list: UnsafeMutablePointer<window_capture>!, _ count: Int32)
+func window_manager_set_window_frames(_ list: [window_capture])
 {
-    guard count > 0, let list else { return }
-    for i in 0..<Int(count) {
-        let capture = list[i]
+    if list.isEmpty { return }
+    for capture in list {
         capture.window.frame_request = CGRect(x: CGFloat(capture.x), y: CGFloat(capture.y),
                                                      width: CGFloat(capture.w), height: CGFloat(capture.h))
     }
-    let groups = window_manager_group_window_frames(list, count)
+    let groups = window_manager_group_window_frames(list)
     if groups.count == 1 {
         windowManagerApplyWindowFrameGroup(groups[0])
     } else {

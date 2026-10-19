@@ -177,11 +177,11 @@ import CPrivate
 }
 
 /// `EVENT_HANDLER(SPACE_LAYOUT_RECONCILE)`
-@WM func spaceLayoutReconcile(_ generation: Int32)
+@WM func spaceLayoutReconcile(_ generation: UInt32)
 {
     let sm = space_manager_global()
 
-    if UInt32(bitPattern: generation) != sm.space_layout_gen { return }
+    if generation != sm.space_layout_gen { return }
     if sm.space_layouts.isEmpty { return }
 
     if mission_control_is_active() {

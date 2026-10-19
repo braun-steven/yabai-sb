@@ -123,14 +123,14 @@ final class WindowManager
     var normal_window_border_color = rgba_color()
     var focus_wrapping = FocusWrapping.off
     var enable_tab_bar = false
-    var tab_bar_height: Int32 = 0
-    var tab_bar_offset: Int32 = 0
+    var tab_bar_height: Int = 0
+    var tab_bar_offset: Int = 0
     var tab_bar_icons = false
     var tab_bar_style = TabBarStyle.glass
     var tab_bar_appearance = TabBarAppearance.dark
     var tab_bar_backdrop = TabBarBackdrop.off
-    var tab_bar_card_padding: Int32 = 0
-    var tab_bar_window_radius: Int32 = 0
+    var tab_bar_card_padding: Int = 0
+    var tab_bar_window_radius: Int = 0
     var tab_bar_font_name = ""
     var tab_bar_font: CTFont?
     var tab_bar_focused_color = rgba_color()
@@ -167,25 +167,25 @@ func window_manager_global() -> WindowManager
 // removal moves the last element into the hole, as buf_del did.
 //
 
-func window_manager_application_refresh_index(_ wm: WindowManager, _ owner: Application) -> Int32
+func window_manager_application_refresh_index(_ wm: WindowManager, _ owner: Application) -> Int?
 {
-    return wm.applications_to_refresh.firstIndex(of: owner).map { Int32($0) } ?? -1
+    return wm.applications_to_refresh.firstIndex(of: owner)
 }
 
-func window_manager_remove_application_refresh(_ wm: WindowManager, _ index: Int32)
+func window_manager_remove_application_refresh(_ wm: WindowManager, _ index: Int)
 {
-    wm.applications_to_refresh.swapAt(Int(index), wm.applications_to_refresh.count - 1)
+    wm.applications_to_refresh.swapAt(index, wm.applications_to_refresh.count - 1)
     wm.applications_to_refresh.removeLast()
 }
 
-func window_manager_application_refresh_count(_ wm: WindowManager) -> Int32
+func window_manager_application_refresh_count(_ wm: WindowManager) -> Int
 {
-    return Int32(wm.applications_to_refresh.count)
+    return wm.applications_to_refresh.count
 }
 
-func window_manager_application_refresh_at(_ wm: WindowManager, _ index: Int32) -> Application
+func window_manager_application_refresh_at(_ wm: WindowManager, _ index: Int) -> Application
 {
-    return wm.applications_to_refresh[Int(index)]
+    return wm.applications_to_refresh[index]
 }
 
 func window_manager_add_application_refresh(_ wm: WindowManager, _ owner: Application)
@@ -204,9 +204,9 @@ func window_manager_remove_rule(_ wm: WindowManager, _ index: Int)
     wm.rules.removeLast()
 }
 
-func window_manager_scratchpad_count(_ wm: WindowManager) -> Int32
+func window_manager_scratchpad_count(_ wm: WindowManager) -> Int
 {
-    return Int32(wm.scratchpad_window.count)
+    return wm.scratchpad_window.count
 }
 
 func window_manager_add_scratchpad(_ wm: WindowManager, _ label: String, _ target: Window)
@@ -214,9 +214,9 @@ func window_manager_add_scratchpad(_ wm: WindowManager, _ label: String, _ targe
     wm.scratchpad_window.append(Scratchpad(label: label, window: target))
 }
 
-func window_manager_remove_scratchpad(_ wm: WindowManager, _ index: Int32)
+func window_manager_remove_scratchpad(_ wm: WindowManager, _ index: Int)
 {
-    wm.scratchpad_window.swapAt(Int(index), wm.scratchpad_window.count - 1)
+    wm.scratchpad_window.swapAt(index, wm.scratchpad_window.count - 1)
     wm.scratchpad_window.removeLast()
 }
 
@@ -418,7 +418,7 @@ func windowManagerTreeSetView(_ wm: WindowManager, _ node: Con, _ owner: View) -
     }
 
     if !moveList.isEmpty {
-        moveList.withUnsafeMutableBufferPointer { space_manager_move_window_list_to_space(owner.sid, $0.baseAddress!, Int32($0.count)) }
+        space_manager_move_window_list_to_space(owner.sid, moveList)
     }
     return moveList
 }
@@ -428,8 +428,7 @@ func windowManagerTreeWaitForView(_ moveList: [WindowID], _ owner: View)
 {
     if moveList.isEmpty { return }
 
-    var moveList = moveList
-    _ = moveList.withUnsafeMutableBufferPointer { space_manager_wait_for_windows_on_space($0.baseAddress!, Int32($0.count), owner.sid, 200) }
+    _ = space_manager_wait_for_windows_on_space(moveList, owner.sid, 200)
 }
 
 //
@@ -1329,8 +1328,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 /// The windows of space_window_list (without minimized windows) as an array.
 private func spaceWindows(_ sid: SpaceID) -> [WindowID]?
 {
-    var count: Int32 = 0
-    return space_window_list(sid, &count, false)
+    return space_window_list(sid, false)
 }
 
 /// `window_manager_validate_and_check_for_windows_on_space`
@@ -1474,7 +1472,7 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
 
                 if application_observe(created) {
                     window_manager_add_application(wm, created)
-                    _ = window_manager_add_existing_application_windows(sm, wm, created, -1)
+                    _ = window_manager_add_existing_application_windows(sm, wm, created, nil)
                 } else {
                     application_unobserve(created)
                     application_destroy(created)

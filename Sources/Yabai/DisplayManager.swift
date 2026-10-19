@@ -40,8 +40,8 @@ final class DisplayManager
     var current_display_id: DisplayID = 0
     var last_display_id: DisplayID = 0
 
-    var top_padding: Int32 = 0
-    var bottom_padding: Int32 = 0
+    var top_padding: Int = 0
+    var bottom_padding: Int = 0
 
     var order = DisplayArrangementOrder.default
     var builtin_last = false
@@ -177,28 +177,28 @@ private func displayManagerCopyArrangedDisplays() -> [String]?
 }
 
 /// `display_manager_display_id_arrangement`
-func display_manager_display_id_arrangement(_ did: DisplayID) -> Int32
+func display_manager_display_id_arrangement(_ did: DisplayID) -> Int
 {
     guard let uuid = displayUUID(did) else { return 0 }
     guard let displays = displayManagerCopyArrangedDisplays() else { return 0 }
     guard let index = displays.firstIndex(where: { $0.utf8.elementsEqual(uuid.utf8) }) else { return 0 }
 
-    return Int32(index + 1)
+    return index + 1
 }
 
 /// `display_manager_arrangement_display_uuid`
-func displayManagerArrangementDisplayUUID(_ arrangement: Int32) -> String?
+func displayManagerArrangementDisplayUUID(_ arrangement: Int) -> String?
 {
     guard let displays = displayManagerCopyArrangedDisplays() else { return nil }
 
-    let index = Int(arrangement) - 1
+    let index = arrangement - 1
     guard index >= 0 && index < displays.count else { return nil }
 
     return displays[index]
 }
 
 /// `display_manager_arrangement_display_id`
-func display_manager_arrangement_display_id(_ arrangement: Int32) -> DisplayID
+func display_manager_arrangement_display_id(_ arrangement: Int) -> DisplayID
 {
     guard let uuid = displayManagerArrangementDisplayUUID(arrangement) else { return 0 }
     return displayID(uuid)
@@ -315,11 +315,11 @@ func display_manager_dock_rect() -> CGRect
 }
 
 /// `display_manager_active_display_count`
-func display_manager_active_display_count() -> Int32
+func display_manager_active_display_count() -> Int
 {
     var count: UInt32 = 0
     CGGetActiveDisplayList(0, nil, &count)
-    return Int32(count)
+    return Int(count)
 }
 
 /// The active displays, as `display_manager_active_display_list` lists them.
@@ -327,7 +327,7 @@ func displayManagerActiveDisplays() -> [DisplayID]
 {
     let displayCount = display_manager_active_display_count()
 
-    var displays = [UInt32](repeating: 0, count: Int(displayCount))
+    var displays = [UInt32](repeating: 0, count: displayCount)
     var actual: UInt32 = 0
     CGGetActiveDisplayList(UInt32(displayCount), &displays, &actual)
 

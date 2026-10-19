@@ -34,11 +34,11 @@ final class SpaceManager
     var last_space_id: SpaceID = 0
     var did_begin = false
     var layout = ViewType.default
-    var top_padding: Int32 = 0
-    var bottom_padding: Int32 = 0
-    var left_padding: Int32 = 0
-    var right_padding: Int32 = 0
-    var window_gap: Int32 = 0
+    var top_padding: Int = 0
+    var bottom_padding: Int = 0
+    var left_padding: Int = 0
+    var right_padding: Int = 0
+    var window_gap: Int = 0
     var auto_padding = false
     var tree_default_orientation = TreeOrientation.auto
     var tree_workspace_tabbed = false
@@ -48,7 +48,7 @@ final class SpaceManager
     var space_layouts: [SpaceLayout] = []
     var space_layout_spec: String?
     var space_layout_gen: UInt32 = 0
-    var space_layout_passes: Int32 = 0
+    var space_layout_passes = 0
 }
 
 /// `g_space_manager` (see the NOTE of g_display_manager)
@@ -62,7 +62,7 @@ func space_manager_global() -> SpaceManager
 extension ViewSpacing
 {
     /// The default of the space manager, for the views without their own value.
-    var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int32>
+    var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int>
     {
         switch self {
         case .topPadding:    \.top_padding
@@ -75,7 +75,7 @@ extension ViewSpacing
 }
 
 /// `add_and_clamp_to_zero`
-private func addAndClampToZero(_ a: Int32, _ b: Int32) -> Int32
+private func addAndClampToZero(_ a: Int, _ b: Int) -> Int
 {
     return a + b <= 0 ? 0 : a + b
 }
@@ -139,7 +139,7 @@ func space_manager_set_layout_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ la
 }
 
 /// `space_manager_set_gap_for_space`
-func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?,_ gap: Int32) -> Bool
+func space_manager_set_gap_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?, _ gap: Int) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
@@ -208,7 +208,7 @@ func space_manager_set_layout_for_all_spaces(_ sm: SpaceManager, _ layout: ViewT
 }
 
 /// `space_manager_set_spacing_for_all_spaces`
-func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: ViewSpacing, _ value: Int32)
+func space_manager_set_spacing_for_all_spaces(_ sm: SpaceManager, _ spacing: ViewSpacing, _ value: Int)
 {
     sm[keyPath: spacing.spaceManager] = value
 
@@ -252,7 +252,7 @@ func space_manager_set_auto_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID
 }
 
 /// `space_manager_set_padding_for_space`
-func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?,_ top: Int32, _ bottom: Int32, _ left: Int32, _ right: Int32) -> Bool
+func space_manager_set_padding_for_space(_ sm: SpaceManager, _ sid: SpaceID, _ type: ValueType?, _ top: Int, _ bottom: Int, _ left: Int, _ right: Int) -> Bool
 {
     let target = space_manager_find_view(sm, sid)
     if target.layout == .float { return false }
@@ -288,7 +288,7 @@ private func spaceManagerFindTreeView(_ sm: SpaceManager, _ sid: SpaceID) -> Vie
 }
 
 /// `space_manager_rotate_space`
-func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: Int32) -> Bool
+func space_manager_rotate_space(_ sm: SpaceManager, _ sid: SpaceID, _ degrees: Int) -> Bool
 {
     guard let target = spaceManagerFindTreeView(sm, sid) else { return false }
 
@@ -377,18 +377,18 @@ func space_manager_mission_control_space_list() -> [SpaceID]?
 }
 
 /// `space_manager_mission_control_index`: the Mission Control number of a space, or 0.
-func space_manager_mission_control_index(_ sid: SpaceID) -> Int32
+func space_manager_mission_control_index(_ sid: SpaceID) -> Int
 {
-    return Int32((SpaceList.indexOf(spaces: missionControlSpaces(), sid: sid) ?? -1) + 1)
+    return (SpaceList.indexOf(spaces: missionControlSpaces(), sid: sid) ?? -1) + 1
 }
 
 /// `space_manager_mission_control_space`: the space with a Mission Control number, or 0.
-func space_manager_mission_control_space(_ desktopID: Int32) -> SpaceID
+func space_manager_mission_control_space(_ desktopID: Int) -> SpaceID
 {
     let spaces = missionControlSpaces()
-    guard desktopID >= 1 && Int(desktopID) <= spaces.count else { return 0 }
+    guard desktopID >= 1 && desktopID <= spaces.count else { return 0 }
 
-    return spaces[Int(desktopID) - 1]
+    return spaces[desktopID - 1]
 }
 
 /// `space_manager_cursor_space`
@@ -469,30 +469,20 @@ func space_manager_active_space() -> SpaceID
 /// The windows of a space, as `space_window_list` lists them.
 private func spaceWindowIDs(_ sid: SpaceID) -> [WindowID]
 {
-    var count: Int32 = 0
-    return space_window_list(sid, &count, true) ?? []
+    return space_window_list(sid, true) ?? []
 }
 
 /// `space_manager_move_window_list_to_space`
-func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windowList: UnsafeMutablePointer<WindowID>, _ windowCount: Int32)
+func space_manager_move_window_list_to_space(_ sid: SpaceID, _ windows: [WindowID])
 {
-    var windows = Array(UnsafeBufferPointer(start: windowList, count: Int(windowCount)))
-
     if SLS.hasBridgedWindowOperation {
         SLS.bridgedMoveWindows(windows, toSpace: sid)
-    } else if !scripting_addition_move_window_list_to_space(sid, &windows, Int32(windows.count)) {
+    } else if !scripting_addition_move_window_list_to_space(sid, windows) {
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x79616265)
         var rawWindows = windows.map(\.rawValue)
         SLSSetWindowListWorkspace(connection_global(), &rawWindows, Int32(rawWindows.count), 0x79616265)
         SLSSpaceSetCompatID(connection_global(), sid.rawValue, 0x0)
     }
-}
-
-/// Moves a list of windows to a space, as `space_manager_move_window_list_to_space` does.
-private func moveWindows(_ windows: [WindowID], to sid: SpaceID)
-{
-    var list = windows
-    space_manager_move_window_list_to_space(sid, &list, Int32(list.count))
 }
 
 //
@@ -502,9 +492,9 @@ private func moveWindows(_ windows: [WindowID], to sid: SpaceID)
 //
 
 /// `space_manager_wait_for_window_on_space`
-func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ timeoutMS: Int) -> Bool
 {
-    var i: Int32 = 0
+    var i = 0
     while i < timeoutMS / 10 {
         if window_space(wid) == sid { return true }
         usleep(10000)
@@ -515,21 +505,21 @@ func space_manager_wait_for_window_on_space(_ wid: WindowID, _ sid: SpaceID, _ t
 }
 
 /// `space_manager_wait_for_windows_on_space`
-func space_manager_wait_for_windows_on_space(_ windowList: UnsafeMutablePointer<WindowID>, _ windowCount: Int32, _ sid: SpaceID, _ timeoutMS: Int32) -> Bool
+func space_manager_wait_for_windows_on_space(_ windows: [WindowID], _ sid: SpaceID, _ timeoutMS: Int) -> Bool
 {
-    var arrived: Int32 = 0
+    var arrived = 0
 
-    var i: Int32 = 0
+    var i = 0
     while i < timeoutMS / 10 {
-        while arrived < windowCount && window_space(windowList[Int(arrived)]) == sid { arrived += 1 }
-        if arrived == windowCount { return true }
+        while arrived < windows.count && window_space(windows[arrived]) == sid { arrived += 1 }
+        if arrived == windows.count { return true }
 
         usleep(10000)
         i += 1
     }
 
-    while arrived < windowCount && window_space(windowList[Int(arrived)]) == sid { arrived += 1 }
-    return arrived == windowCount
+    while arrived < windows.count && window_space(windows[arrived]) == sid { arrived += 1 }
+    return arrived == windows.count
 }
 
 /// `space_manager_move_window_to_space`
@@ -599,11 +589,11 @@ private func spaceManagerSwapSpaceWithSpaceOnDisplay(_ aSid: SpaceID, _ bSid: Sp
     sm.view.add(bSid, aView)
 
     if !aWindows.isEmpty {
-        moveWindows(aWindows, to: bSid)
+        space_manager_move_window_list_to_space(bSid, aWindows)
     }
 
     if !bWindows.isEmpty {
-        moveWindows(bWindows, to: aSid)
+        space_manager_move_window_list_to_space(aSid, bWindows)
     }
 
     sm.labels.swap(aSid, bSid)
@@ -909,16 +899,16 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 {
     let wm = window_manager_global()
 
-    var refreshCount = Int(window_manager_application_refresh_count(wm))
+    var refreshCount = window_manager_application_refresh_count(wm)
     if refreshCount == 0 { return false }
 
     let windowCount = wm.window.count
     var i = 0
     while i < refreshCount {
-        let application = window_manager_application_refresh_at(wm, Int32(i))
+        let application = window_manager_application_refresh_at(wm, i)
         debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
 
-        if window_manager_add_existing_application_windows(sm, wm, application, Int32(i)) {
+        if window_manager_add_existing_application_windows(sm, wm, application, i) {
             refreshCount -= 1
             i -= 1
         }

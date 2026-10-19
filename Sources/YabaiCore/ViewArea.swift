@@ -14,14 +14,14 @@ public enum ViewArea
     //
 
     /// `view_window_gap`
-    public static func windowGap(gapEnabled: Bool, windowGap: Int32) -> Int32
+    public static func windowGap(gapEnabled: Bool, windowGap: Int) -> Int
     {
         gapEnabled ? windowGap : 0
     }
 
     /// `view_root_area`: the area that the windows of a view fill inside frame. The padding is left out when it is
     /// disabled or when auto_padding removed it (unpadded).
-    public static func rootArea(_ frame: Area, paddingEnabled: Bool, unpadded: Bool, top: Int32, bottom: Int32, left: Int32, right: Int32) -> Area
+    public static func rootArea(_ frame: Area, paddingEnabled: Bool, unpadded: Bool, top: Int, bottom: Int, left: Int, right: Int) -> Area
     {
         var area = frame
 

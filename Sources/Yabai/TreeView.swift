@@ -23,7 +23,7 @@ private func treeAppendTitle(_ string: CFMutableString, _ node: Con)
     let layout = node.layout
     CFStringAppendCString(string, layout == .splitH ? "H[" : layout == .splitV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
         treeAppendTitle(string, node.children[i])
     }
@@ -58,13 +58,13 @@ func treeFeedbackDestroy(_ node: Con)
 }
 
 /// `tree_bar_height`
-private func treeBarHeight() -> Int32
+private func treeBarHeight() -> Int
 {
     return tab_bar_is_enabled() ? window_manager_global().tab_bar_height : 0
 }
 
 /// `tree_bar_inset`
-private func treeBarInset() -> Int32
+private func treeBarInset() -> Int
 {
     return tab_bar_is_enabled() ? tab_bar_card_padding() : 0
 }
@@ -105,7 +105,7 @@ private func treeUnmanageWindows(_ node: Con)
         return
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeUnmanageWindows(node.children[i])
     }
 }
@@ -229,7 +229,7 @@ private func treeAppendWindowList(_ node: Con, _ windowList: inout [WindowID])
         return
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeAppendWindowList(node.children[i], &windowList)
     }
 }
@@ -248,12 +248,12 @@ func treeViewWindowList(_ owner: View) -> [WindowID]
 //
 
 /// `tree_tiled_count`
-private func treeTiledCount(_ node: Con) -> Int32
+private func treeTiledCount(_ node: Con) -> Int
 {
     if con_is_leaf(node) { return node.zoom == .fullscreen ? 0 : 1 }
 
-    var count: Int32 = 0
-    for i in 0..<Int(node.child_count) {
+    var count = 0
+    for i in 0..<node.child_count {
         count += treeTiledCount(node.children[i])
     }
 
@@ -261,7 +261,7 @@ private func treeTiledCount(_ node: Con) -> Int32
 }
 
 /// `tree_view_tiled_count`
-func tree_view_tiled_count(_ owner: View!) -> Int32
+func tree_view_tiled_count(_ owner: View!) -> Int
 {
     guard let root = owner.tree else { return 0 }
     return treeTiledCount(root)
@@ -269,13 +269,13 @@ func tree_view_tiled_count(_ owner: View!) -> Int32
 
 // NOTE: Border suppression counts the windows actually shown by the active tabs. Auto-padding
 // keeps counting a whole tabbed container as one area, even when its active tab contains a split.
-func treeVisibleWindowCount(_ node: Con) -> Int32
+func treeVisibleWindowCount(_ node: Con) -> Int
 {
     if con_is_leaf(node) { return node.zoom == .fullscreen ? 0 : 1 }
     if node.layout == .tabbed {
         return node.child_count == 0 ? 0 : treeVisibleWindowCount(node.focus[0])
     }
-    var count: Int32 = 0
+    var count = 0
     for child in node.children { count += treeVisibleWindowCount(child) }
     return count
 }
@@ -317,7 +317,7 @@ private func treeCaptureWindows(_ owner: View, _ node: Con, _ windowList: inout 
         return
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeCaptureWindows(owner, node.children[i], &windowList)
     }
 }
@@ -327,7 +327,7 @@ func treeHasZoom(_ node: Con, _ zoom: ConZoom) -> Bool
 {
     if con_is_leaf(node) { return zoom == .none ? node.zoom != .none : node.zoom == zoom }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         if treeHasZoom(node.children[i], zoom) { return true }
     }
 
@@ -390,7 +390,7 @@ private func treeRenderBar(_ node: Con)
 
     var entryList: [TabBarEntry] = []
 
-    for i in 0..<Int(entryCount) {
+    for i in 0..<entryCount {
         let next = node.children[i]
         let leaf = tree_descend_focused(next)
 
@@ -423,11 +423,11 @@ private func treeRenderBar(_ node: Con)
 //
 
 /// `tree_window_border_area`
-func tree_window_border_area(_ owner: View!, _ windowID: WindowID, _ windowArea: UnsafeMutablePointer<Area>!, _ borderArea: UnsafeMutablePointer<Area>!, _ radius: UnsafeMutablePointer<Int32>!) -> Bool
+func tree_window_border_area(_ owner: View!, _ windowID: WindowID, _ windowArea: inout Area, _ borderArea: inout Area, _ radius: inout Int) -> Bool
 {
-    windowArea.pointee = Area.zero
-    borderArea.pointee = Area.zero
-    radius.pointee = 0
+    windowArea = Area.zero
+    borderArea = Area.zero
+    radius = 0
 
     guard let owner, owner.tree != nil, let leaf = tree_view_find_window(owner, windowID) else { return true }
     if !tree_con_is_visible(leaf) { return false }
@@ -439,13 +439,13 @@ func tree_window_border_area(_ owner: View!, _ windowID: WindowID, _ windowArea:
         node = parent
     }
 
-    windowArea.pointee = leaf.area
-    borderArea.pointee = outer?.area ?? leaf.area
+    windowArea = leaf.area
+    borderArea = outer?.area ?? leaf.area
 
     if let outer {
         let wm = window_manager_global()
         let inset = tree_bar_card_inset(outer.area, wm.tab_bar_height, treeBarInset())
-        if inset > 0 { radius.pointee = wm.tab_bar_window_radius + inset }
+        if inset > 0 { radius = wm.tab_bar_window_radius + inset }
     }
 
     return true
@@ -462,7 +462,7 @@ func tree_render_bars(_ node: Con)
         tab_bar_release(node.render.tab_bar)
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         tree_render_bars(node.children[i])
     }
 }
@@ -472,7 +472,7 @@ func tree_release_bars(_ node: Con!)
 {
     tab_bar_release(node.render.tab_bar)
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         tree_release_bars(node.children[i])
     }
 }
@@ -490,7 +490,7 @@ func treeCollectWindowOrder(_ node: Con, _ order: Int32, _ relative: WindowID, _
         return
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeCollectWindowOrder(node.children[i], order, relative, &list)
     }
 }
@@ -529,7 +529,7 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
             }
 
             if anchor != nil && node.child_count > 1 {
-                for i in 0..<Int(node.child_count) {
+                for i in 0..<node.child_count {
                     let next = node.children[i]
                     if next != active { treeCollectWindowOrder(next, -1, cardWid != 0 ? cardWid : anchorWid, &list) }
                 }
@@ -541,7 +541,7 @@ func treeCollectTabOrder(_ node: Con, _ force: Bool, _ list: inout [sa_window_or
         }
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeCollectTabOrder(node.children[i], force, &list)
     }
 }
@@ -552,7 +552,7 @@ func tree_raise_tabs(_ node: Con, _ force: Bool)
     var list: [sa_window_order] = []
     treeCollectTabOrder(node, force, &list)
 
-    if !list.isEmpty { scripting_addition_order_window_list(&list, Int32(list.count)) }
+    if !list.isEmpty { scripting_addition_order_window_list(list) }
 }
 
 //
@@ -576,7 +576,7 @@ func treeCollectCardOrder(_ node: Con, _ windowID: WindowID, _ list: inout [sa_w
         }
     }
 
-    for i in 0..<Int(node.child_count) {
+    for i in 0..<node.child_count {
         treeCollectCardOrder(node.children[i], windowID, &list)
     }
 }
@@ -589,7 +589,7 @@ func tree_card_did_order(_ windowID: WindowID)
 
     var list: [sa_window_order] = []
     treeCollectCardOrder(owner.tree, windowID, &list)
-    if !list.isEmpty { scripting_addition_order_window_list(&list, Int32(list.count)) }
+    if !list.isEmpty { scripting_addition_order_window_list(list) }
 }
 
 /// `tree_flush`
@@ -599,7 +599,7 @@ func tree_flush(_ owner: View)
 
     var windowList: [window_capture] = []
     treeCaptureWindows(owner, root, &windowList)
-    if !windowList.isEmpty { window_manager_animate_window_list(&windowList, Int32(windowList.count)) }
+    if !windowList.isEmpty { window_manager_animate_window_list(windowList) }
 
     tree_render_bars(root)
     tree_raise_tabs(root, false)

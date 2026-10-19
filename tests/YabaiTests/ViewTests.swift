@@ -45,7 +45,7 @@ extension DaemonState
 
             // a tabbed container counts once, however many tabs it holds
             let tabbed = Yabai.con_create(.tabbed)!
-            Yabai.tree_attach(target.tree, tabbed, -1)
+            Yabai.tree_attach(target.tree, tabbed, nil)
             let b = treeTestLeaf(tabbed, 2)
             let c = treeTestLeaf(tabbed, 3)
             #expect(view_tiled_count(target) == 2)
@@ -122,7 +122,7 @@ extension DaemonState
             target.tree.layout = .tabbed
 
             let split = Yabai.con_create(.splitH)!
-            Yabai.tree_attach(target.tree, split, -1)
+            Yabai.tree_attach(target.tree, split, nil)
             let a = treeTestLeaf(split, 1)
             let b = treeTestLeaf(split, 2)
 

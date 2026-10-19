@@ -1,7 +1,7 @@
 import CoreGraphics
 
 /// The directions of the selectors, in degrees (north is 360).
-public enum Direction: Int32, Sendable
+public enum Direction: Int, Sendable
 {
     case north = 360
     case east  = 90

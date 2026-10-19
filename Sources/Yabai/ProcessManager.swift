@@ -22,8 +22,8 @@ final class Process
     //
 
     let ns_application = Atomic<UnsafeMutableRawPointer?>(nil)
-    var policy: Int32 = 0
-    var launch_attempts: Int32 = 0
+    var policy = 0
+    var launch_attempts = 0
     var launch_given_up = false
     let terminated = Atomic<Bool>(false)
 

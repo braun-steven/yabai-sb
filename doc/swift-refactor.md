@@ -156,9 +156,9 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | 7b05bba5 | |
+| **6** | **Async event loop and Observation** | [~] | cf079fd3 | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
-| 6.2 | Async handlers where they wait | [ ] | | |
+| 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [ ] | | |
 | 6.4 | IPC | [ ] | | |
 | 6.5 | Observation | [ ] | | |
@@ -1083,3 +1083,22 @@ not here.
 - Next: 6.2 (async handlers where they wait). 6.7 should confirm event ordering and latency live (mouse drag).
 - Notes for the next agent: one task work item can handle several buffered events (`next()` returns without
   suspending), hence the explicit per-event pool; handlers are still synchronous, so no `await` between events yet.
+
+### 2026-10-20 Subphase 6.2 [x]
+- Commits: 9286297b..(this record)
+- Done: `EventHandler.handle(_:)` is async and the loop awaits it; synchronous handlers run in
+  `handleSynchronously(_:)`, one autorelease pool per event, and signals flush in their own pool. `windowResized` is
+  the one async handler: `applyResize` (synchronous part) returns the window that left native fullscreen,
+  `await WindowManager.waitForNativeFullscreenTransition()` polls with `Task.sleep` (30 × 100 ms), then
+  `manageAfterNativeFullscreen` re-checks `isDestroyed`/`isValid`/registry identity before managing it. NOTEs on the
+  waits that stay synchronous (cf079fd3); AGENTS.md event loop text updated.
+- Output changes: none.
+- Verification: make, make test (69 + 61) pass at cf079fd3; no live run (6.7).
+- Decisions: SA replies stay synchronous: the payload replies at once, the 2 s deadline bounds a stall, and SA calls
+  sit inside mouse drag / tree layout / focus code whose SkyLight/AX/SA order an await would expose. The 200 ms
+  `SpaceID.waitForWindow(s)` polls stay synchronous: rule effects during window creation, mouse-drop swap/stack and
+  cross-display tree moves wait in the middle of a model change. `toggleNativeFullscreen` (a command) keeps a
+  blocking wait (`blockUntilNativeFullscreenTransitionIsDone`) until 6.4 decides whether commands may await.
+- Next: 6.3 timers; 6.4 may turn the command waits (`toggleNativeFullscreen`, space moves of commands) async.
+- Notes for the next agent: an autorelease pool cannot span an `await`, so an async handler wraps its synchronous
+  segments itself; add new async handlers as a case in `handle(_:)` and a `break` in `handleSynchronously(_:)`.

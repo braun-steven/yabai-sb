@@ -158,7 +158,7 @@ func update_window_notifications()
 /// `window_did_receive_focus`
 @WM func windowDidReceiveFocus(_ wm: WindowManager, _ ms: MouseState, _ window: Window)
 {
-    let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
+    let focusedWindow = wm.focused_window_id.flatMap { wm.window(for: $0) }
     if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
         wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
@@ -195,7 +195,7 @@ func update_window_notifications()
 
     border_begin_batch()
     if prevFocusedWindowID != window.id {
-        border_refresh(prevFocusedWindowID.flatMap { window_manager_find_window(wm, $0) })
+        border_refresh(prevFocusedWindowID.flatMap { wm.window(for: $0) })
     }
     border_refresh_window_space(window)
     border_end_batch()
@@ -247,7 +247,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     if process_is_terminated(process) {
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process)) terminated during launch\n")
-        window_manager_remove_lost_front_switched_event(wm, process.pid)
+        wm.removeLostFrontSwitchedEvent(for: process.pid)
         return
     }
 
@@ -293,7 +293,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     // simply ignore the event..
     //
 
-    if window_manager_find_application(wm, process.pid) != nil { return }
+    if wm.application(for: process.pid) != nil { return }
     let application = Application(process: process)
 
     if !application.observe() {
@@ -307,13 +307,13 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         return
     }
 
-    if window_manager_find_lost_front_switched_event(wm, process.pid) {
+    if wm.hasLostFrontSwitchedEvent(for: process.pid) {
         EventLoop.post(.applicationFrontSwitched(Handoff(value: process)))
-        window_manager_remove_lost_front_switched_event(wm, process.pid)
+        wm.removeLostFrontSwitchedEvent(for: process.pid)
     }
 
     debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(describe(process))\n")
-    window_manager_add_application(wm, application)
+    wm.addApplication(application)
     eventSignalPush(.applicationLaunched, signalObject(application))
     process.launch_attempts = 0
     process.launch_given_up = false
@@ -335,19 +335,19 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    guard let application = window_manager_find_application(wm, process.pid) else {
+    guard let application = wm.application(for: process.pid) else {
         debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process)) (not observed)\n")
         return
     }
 
     debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(describe(process))\n")
     eventSignalPush(.applicationTerminated, signalObject(application))
-    window_manager_remove_application(wm, application.pid)
+    wm.removeApplication(pid: application.pid)
 
     let refreshIndex = wm.applicationRefreshIndex(of: application)
     if let refreshIndex { wm.removeApplicationRefresh(at: refreshIndex) }
 
-    let windows = window_manager_find_application_windows(wm, application)
+    let windows = wm.windows(for: application)
     var viewList: [View] = []
 
     for window in windows {
@@ -369,7 +369,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         }
 
         window_manager_remove_scratchpad_for_window(wm, window, false)
-        window_manager_remove_window(wm, window.id)
+        wm.removeWindow(window.id)
         window.unobserve()
         window.destroy()
     }
@@ -411,7 +411,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     let wm = window_manager_global()
 
-    let focusedWindow = wm.focused_window_id.flatMap { window_manager_find_window(wm, $0) }
+    let focusedWindow = wm.focused_window_id.flatMap { wm.window(for: $0) }
     if let focusedWindow {
         wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
@@ -447,8 +447,8 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     let wm = window_manager_global()
     let pm = process_manager_global()
 
-    guard let application = window_manager_find_application(wm, process.pid) else {
-        window_manager_add_lost_front_switched_event(wm, process.pid)
+    guard let application = wm.application(for: process.pid) else {
+        wm.addLostFrontSwitchedEvent(for: process.pid)
 
         if process.launch_given_up {
             debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(describe(process)) was activated, trying to observe it again\n")
@@ -464,7 +464,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         applicationFrontSwitchedFocusSpace(application, process)
     }
 
-    if let deactivatedApplication = window_manager_find_application(wm, pm.front_pid) {
+    if let deactivatedApplication = wm.application(for: pm.front_pid) {
         eventSignalPush(.applicationDeactivated, signalObject(deactivatedApplication))
     }
 
@@ -486,9 +486,9 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         return
     }
 
-    guard let window = window_manager_find_window(wm, applicationFocusedWindowID) else {
+    guard let window = wm.window(for: applicationFocusedWindowID) else {
         dimFocusedWindow()
-        window_manager_add_lost_focused_event(wm, applicationFocusedWindowID)
+        wm.addLostFocusedEvent(for: applicationFocusedWindowID)
         return
     }
 
@@ -501,12 +501,12 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 @WM func applicationVisible(_ pid: pid_t)
 {
     let wm = window_manager_global()
-    guard let application = window_manager_find_application(wm, pid) else { return }
+    guard let application = wm.application(for: pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(application.name)\n")
     application.isHidden = false
 
-    let windows = window_manager_find_application_windows(wm, application)
+    let windows = wm.windows(for: application)
     tileWindowsBatched(windows, wm.last_window_id, false)
 
     for window in windows {
@@ -520,12 +520,12 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 @WM func applicationHidden(_ pid: pid_t)
 {
     let wm = window_manager_global()
-    guard let application = window_manager_find_application(wm, pid) else { return }
+    guard let application = wm.application(for: pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(application.name)\n")
     application.isHidden = true
 
-    let windows = window_manager_find_application_windows(wm, application)
+    let windows = wm.windows(for: application)
     var viewList: [View] = []
 
     for window in windows {

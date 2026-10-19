@@ -37,7 +37,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    guard let window = window_manager_find_window_at_point(window_manager_global(), point), !window.isFullscreen else { return }
+    guard let window = window_manager_find_window_at_point(WindowManager.shared, point), !window.isFullscreen else { return }
 
     ms.window = window
     ms.window_frame = window.frame
@@ -62,7 +62,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
 {
     debug("EVENT_HANDLER_TAB_BAR_CLICKED: \(wid)\n")
 
-    guard let window = window_manager_find_window(window_manager_global(), wid) else { return }
+    guard let window = WindowManager.shared.window(for: wid) else { return }
 
     window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
 }
@@ -238,7 +238,7 @@ private let mouseResizeThrottleMs: Float = 67.67
         let number = unsafeBitCast(CFArrayGetValueAtIndex(associatedWindows, i), to: CFNumber.self)
         var childRawWid: UInt32 = 0
         CFNumberGetValue(number, .sInt32Type, &childRawWid)
-        guard let childWid = WindowID(nonzero: childRawWid), let child = window_manager_find_window(wm, childWid) else { continue }
+        guard let childWid = WindowID(nonzero: childRawWid), let child = wm.window(for: childWid) else { continue }
 
         // NOTE: `Window.role` owns its reference; reading it here does not transfer ownership.
 
@@ -271,7 +271,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     for wid in windowIDs {
         if wid == window.id { break }
 
-        guard let subWindow = window_manager_find_window(wm, wid) else { continue }
+        guard let subWindow = wm.window(for: wid) else { continue }
 
         if !subWindow.isFloating                      { continue }
         if level != subWindow.id.level        { continue }

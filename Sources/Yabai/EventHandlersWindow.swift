@@ -15,12 +15,12 @@ import YabaiCore
 
     guard let windowID = ax_window_id(element) else { return }
 
-    if window_manager_find_window(wm, windowID) != nil { return }
+    if wm.window(for: windowID) != nil { return }
 
     let windowPid = ax_window_pid(element)
     if windowPid == 0 { return }
 
-    guard let application = window_manager_find_application(wm, windowPid) else { return }
+    guard let application = wm.application(for: windowPid) else { return }
 
     guard let window = window_manager_create_and_add_window(space_manager_global(), wm, application, element, windowID, true) else { return }
 
@@ -69,7 +69,7 @@ import YabaiCore
     }
 
     window_manager_remove_scratchpad_for_window(wm, window, false)
-    window_manager_remove_window(wm, window.id)
+    wm.removeWindow(window.id)
     window.unobserve()
     window.destroy()
 
@@ -83,7 +83,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_FOCUS_DEFERRED)`
 @WM func windowFocusDeferred(_ windowID: WindowID)
 {
-    guard let window = window_manager_find_window(window_manager_global(), windowID), window.application != nil else {
+    guard let window = WindowManager.shared.window(for: windowID), window.application != nil else {
         debug("EVENT_HANDLER_WINDOW_FOCUS_DEFERRED: \(windowID) no longer exists, ignoring event..\n")
         return
     }
@@ -100,8 +100,8 @@ import YabaiCore
     // NOTE: A focus event without a window id (the element is not a window) only clears the pending focus.
     guard let windowID else { return }
 
-    guard let window = window_manager_find_window(wm, windowID) else {
-        window_manager_add_lost_focused_event(wm, windowID)
+    guard let window = wm.window(for: windowID) else {
+        wm.addLostFocusedEvent(for: windowID)
         return
     }
 
@@ -111,7 +111,7 @@ import YabaiCore
     }
 
     if window.isMinimized {
-        window_manager_add_lost_focused_event(wm, window.id)
+        wm.addLostFocusedEvent(for: window.id)
         return
     }
 
@@ -140,7 +140,7 @@ import YabaiCore
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    guard let window = window_manager_find_window(wm, windowID) else { return }
+    guard let window = wm.window(for: windowID) else { return }
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) has been marked invalid by the system, ignoring event..\n")
@@ -180,7 +180,7 @@ import YabaiCore
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    guard let window = window_manager_find_window(wm, windowID) else { return }
+    guard let window = wm.window(for: windowID) else { return }
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) has been marked invalid by the system, ignoring event..\n")
@@ -280,7 +280,7 @@ import YabaiCore
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
-        window_manager_remove_lost_focused_event(wm, window.id)
+        wm.removeLostFocusedEvent(for: window.id)
         return
     }
 
@@ -292,7 +292,7 @@ import YabaiCore
     if let sid, space_manager_is_window_on_space(sid, window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window.shouldBeManaged && wm.managedView(for: window) == nil {
-            let lastWindow = wm.last_window_id.flatMap { window_manager_find_window(wm, $0) }
+            let lastWindow = wm.last_window_id.flatMap { wm.window(for: $0) }
             let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
             wm.manageWindow(window, on: sid, inserting: insertionPoint)
         }
@@ -300,9 +300,9 @@ import YabaiCore
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on inactive space\n")
     }
 
-    if window_manager_find_lost_focused_event(wm, window.id) {
+    if wm.hasLostFocusedEvent(for: window.id) {
         EventLoop.post(.windowFocused(windowID: window.id))
-        window_manager_remove_lost_focused_event(wm, window.id)
+        wm.removeLostFocusedEvent(for: window.id)
     }
 
     border_refresh_window_space(window)
@@ -312,7 +312,7 @@ import YabaiCore
 /// `EVENT_HANDLER(WINDOW_TITLE_CHANGED)`
 @WM func windowTitleChanged(_ windowID: WindowID)
 {
-    guard let window = window_manager_find_window(window_manager_global(), windowID) else { return }
+    guard let window = WindowManager.shared.window(for: windowID) else { return }
 
     if !window.isValid {
         debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(windowID) has been marked invalid by the system, ignoring event..\n")
@@ -339,7 +339,7 @@ import YabaiCore
 {
     debug("EVENT_HANDLER_SLS_WINDOW_DESTROYED: \(wid)\n")
 
-    guard let window = window_manager_find_window(window_manager_global(), wid) else { return }
+    guard let window = WindowManager.shared.window(for: wid) else { return }
 
     //
     // NOTE: The AX destroyed notification for the same window can arrive on the main thread at any

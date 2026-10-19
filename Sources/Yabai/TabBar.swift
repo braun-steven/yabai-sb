@@ -300,7 +300,7 @@ func tab_bar_draw_title(_ context: CGContext, _ font: CTFont?, _ glass: Bool, _ 
 
 func tab_bar_copy_title(_ wid: WindowID?) -> CFString?
 {
-    guard let wid, let target = window_manager_find_window(window_manager_global(), wid) else { return nil }
+    guard let wid, let target = WindowManager.shared.window(for: wid) else { return nil }
     if let title = target.title, CFStringGetLength(title) > 0 { return title }
     if let app = target.application { return app.name as CFString }
     return nil
@@ -312,7 +312,7 @@ func tab_bar_copy_title(_ wid: WindowID?) -> CFString?
 func tab_bar_icon(_ wid: WindowID?) -> CGImage?
 {
     guard window_manager_global().tab_bar_icons, let wid,
-          let target = window_manager_find_window(window_manager_global(), wid), let app = target.application else { return nil }
+          let target = WindowManager.shared.window(for: wid), let app = target.application else { return nil }
     if let icon = app.icon { return icon }
     autoreleasepool {
         if let image = NSRunningApplication(processIdentifier: app.pid)?.icon {

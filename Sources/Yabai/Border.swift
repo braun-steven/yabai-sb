@@ -542,7 +542,7 @@ func border_refresh_space(_ sid: SpaceID?)
             if !windows.contains(border.wid) && windows.count < capacity { windows.append(border.wid) }
         }
     }
-    for wid in windows { borderRefreshWithCount(window_manager_find_window(window_manager_global(), wid), sid, 0) }
+    for wid in windows { borderRefreshWithCount(WindowManager.shared.window(for: wid), sid, 0) }
 }
 
 func border_refresh_window_space(_ target: Window!)

@@ -37,7 +37,7 @@ func spaceUserWindows(_ candidates: [WindowID], _ includeMinimized: Bool) -> [Wi
 
     var result: [WindowID] = []
     for window in SLS.queryWindows(connection_global(), candidates) {
-        let known = window_manager_find_window(window_manager_global(), window.id).map { target in
+        let known = WindowManager.shared.window(for: window.id).map { target in
             includeMinimized || !target.isMinimized
         } ?? false
 

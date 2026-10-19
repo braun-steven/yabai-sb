@@ -168,7 +168,7 @@ import CPrivate
     debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
 
     let wm = window_manager_global()
-    if let focusedWindowID = wm.focused_window_id, let focusedWindow = window_manager_find_window(wm, focusedWindowID) {
+    if let focusedWindowID = wm.focused_window_id, let focusedWindow = wm.window(for: focusedWindowID) {
         wm.setWindowOpacity(focusedWindow, to: wm.active_window_opacity)
         wm.centerMouse(on: focusedWindow)
     }

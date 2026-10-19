@@ -455,7 +455,7 @@ private func spaceManagerFocusedWindow() -> Window?
     let pendingFocus = pending_window_focus()
 
     if space_manager_can_use_known_focus(&front, wm, pendingFocus) {
-        if let focusedID = wm.focused_window_id, let target = window_manager_find_window(wm, focusedID) { return target }
+        if let focusedID = wm.focused_window_id, let target = wm.window(for: focusedID) { return target }
     }
 
     return window_manager_focused_window(wm)

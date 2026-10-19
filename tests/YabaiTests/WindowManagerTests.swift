@@ -41,7 +41,7 @@ private func applicationCreate(_ name: String) -> Application
     let target = windowCreate(42)
     defer { windowManagerFree(wm) }
 
-    window_manager_add_window(wm, target)
+    wm.addWindow(target)
 
     #expect(window_manager_pending_focus_window(wm) == nil)
 
@@ -68,12 +68,12 @@ private func applicationCreate(_ name: String) -> Application
     let windows = [12, 14, 11, 13].map { windowCreate($0) }
     defer { windowManagerFree(wm) }
 
-    window_manager_add_window(wm, windows[0])
-    window_manager_add_window(wm, windows[1])
+    wm.addWindow(windows[0])
+    wm.addWindow(windows[1])
     #expect(window_manager_unresolved_windows(wm, [11, 12, 13, 14]) == [11, 13])
 
-    window_manager_add_window(wm, windows[2])
-    window_manager_add_window(wm, windows[3])
+    wm.addWindow(windows[2])
+    wm.addWindow(windows[3])
     #expect(window_manager_unresolved_windows(wm, [11, 12, 13, 14]).isEmpty)
 }
 

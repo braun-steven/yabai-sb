@@ -13,7 +13,7 @@ extension Con
     private func appendTitle(to string: CFMutableString)
     {
         if isLeaf {
-            if let windowID, let target = window_manager_find_window(WindowManager.shared, windowID),
+            if let windowID, let target = WindowManager.shared.window(for: windowID),
                let application = target.application {
                 CFStringAppend(string, application.name as CFString)
             }
@@ -297,7 +297,7 @@ extension View
     private func captureWindows(in node: Con, into windowList: inout [window_capture])
     {
         if node.isLeaf {
-            if let windowID = node.windowID, let target = window_manager_find_window(WindowManager.shared, windowID) {
+            if let windowID = node.windowID, let target = WindowManager.shared.window(for: windowID) {
                 let area = frame(for: node)
                 windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
             }

@@ -200,86 +200,6 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
     if eui { AXUIElementSetAttributeValue(ref, axEnhancedUserInterface as CFString, kCFBooleanTrue) }
 }
 
-/// `window_manager_find_lost_front_switched_event`
-func window_manager_find_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t) -> Bool
-{
-    return wm.application_lost_front_switched_event.contains(pid)
-}
-
-/// `window_manager_remove_lost_front_switched_event`
-func window_manager_remove_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t)
-{
-    wm.application_lost_front_switched_event.remove(pid)
-}
-
-/// `window_manager_add_lost_front_switched_event`
-func window_manager_add_lost_front_switched_event(_ wm: WindowManager, _ pid: pid_t)
-{
-    wm.application_lost_front_switched_event.insert(pid)
-}
-
-/// `window_manager_find_lost_focused_event`
-func window_manager_find_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID) -> Bool
-{
-    return wm.window_lost_focused_event.contains(windowID)
-}
-
-/// `window_manager_remove_lost_focused_event`
-func window_manager_remove_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID)
-{
-    wm.window_lost_focused_event.remove(windowID)
-}
-
-/// `window_manager_add_lost_focused_event`
-func window_manager_add_lost_focused_event(_ wm: WindowManager, _ windowID: WindowID)
-{
-    wm.window_lost_focused_event.insert(windowID)
-}
-
-/// `window_manager_find_window`
-func window_manager_find_window(_ wm: WindowManager, _ windowID: WindowID) -> Window?
-{
-    return wm.window[windowID]
-}
-
-/// `window_manager_remove_window`
-func window_manager_remove_window(_ wm: WindowManager, _ windowID: WindowID)
-{
-    border_remove(windowID)
-
-    wm.window.removeValue(forKey: windowID)
-}
-
-/// `window_manager_add_window`
-func window_manager_add_window(_ wm: WindowManager, _ target: Window)
-{
-    if wm.window[target.id] == nil { wm.window[target.id] = target }
-}
-
-/// `window_manager_find_application`
-func window_manager_find_application(_ wm: WindowManager, _ pid: pid_t) -> Application?
-{
-    return wm.application[pid]
-}
-
-/// `window_manager_remove_application`
-func window_manager_remove_application(_ wm: WindowManager, _ pid: pid_t)
-{
-    wm.application.removeValue(forKey: pid)
-}
-
-/// `window_manager_add_application`
-func window_manager_add_application(_ wm: WindowManager, _ owner: Application)
-{
-    if wm.application[owner.pid] == nil { wm.application[owner.pid] = owner }
-}
-
-/// `window_manager_find_application_windows`: the windows of the application in id order.
-func window_manager_find_application_windows(_ wm: WindowManager, _ owner: Application) -> [Window]
-{
-    return wm.window.values.filter { $0.application == owner }.sorted { $0.id < $1.id }
-}
-
 /// `window_manager_set_window_insertion`
 func window_manager_set_window_insertion(_ sm: SpaceManager, _ target: Window?, _ direction: InsertDirection) -> WindowOperationResult
 {
@@ -754,7 +674,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
     for i in 0..<viewWindowList.count {
         if windowList.contains(viewWindowList[i]) { continue }
 
-        guard let target = window_manager_find_window(wm, viewWindowList[i]) else { continue }
+        guard let target = wm.window(for: viewWindowList[i]) else { continue }
 
         //
         // @cleanup
@@ -779,7 +699,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
 private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [WindowID])
 {
     for windowID in windowList {
-        guard let target = window_manager_find_window(wm, windowID), target.shouldBeManaged else { continue }
+        guard let target = wm.window(for: windowID), target.shouldBeManaged else { continue }
 
         let existingView = wm.managedView(for: target)
         if let existingView, existingView.layout != .float, existingView != owner {
@@ -964,7 +884,7 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
                 let created = Application(process: candidate)
 
                 if created.observe() {
-                    window_manager_add_application(wm, created)
+                    wm.addApplication(created)
                     _ = window_manager_add_existing_application_windows(sm, wm, created, nil)
                 } else {
                     created.unobserve()

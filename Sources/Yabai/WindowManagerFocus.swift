@@ -135,7 +135,7 @@ func window_manager_focus_window_with_raise(_ windowPsn: UnsafeMutablePointer<Pr
 func window_manager_focused_application(_ wm: WindowManager) -> Application?
 {
     let psn = SLS.frontProcess()
-    return window_manager_find_application(wm, ProcessGetPIDC(psn))
+    return wm.application(for: ProcessGetPIDC(psn))
 }
 
 /// `window_manager_focused_window`
@@ -144,7 +144,7 @@ func window_manager_focused_window(_ wm: WindowManager) -> Window?
     guard let owner = window_manager_focused_application(wm) else { return nil }
 
     guard let windowID = owner.focusedWindowID else { return nil }
-    return window_manager_find_window(wm, windowID)
+    return wm.window(for: windowID)
 }
 
 //
@@ -169,7 +169,7 @@ func window_manager_pending_focus_window(_ wm: WindowManager) -> Window?
     guard let pendingID = wm.pending_focus_window_id else { return nil }
 
     let dt = os_timer_ms_between(wm.pending_focus_time, read_os_timer())
-    let target = dt < pendingFocusTimeoutMs ? window_manager_find_window(wm, pendingID) : nil
+    let target = dt < pendingFocusTimeoutMs ? wm.window(for: pendingID) : nil
     if target == nil { wm.pending_focus_window_id = nil }
 
     return target

@@ -20,7 +20,7 @@ func window_manager_find_window_on_space_by_rank_filtering_window(_ wm: WindowMa
     for wid in windowList {
         if wid == filterWid { continue }
 
-        guard let target = window_manager_find_window(wm, wid) else { continue }
+        guard let target = wm.window(for: wid) else { continue }
 
         j += 1
         if j == rank { return target }
@@ -48,7 +48,7 @@ private func windowManagerFindWindowAtPointFrom(_ wm: WindowManager, _ point: CG
     }
 
     guard let foundID = WindowID(nonzero: windowID) else { return nil }
-    return window_manager_find_window(wm, foundID)
+    return wm.window(for: foundID)
 }
 
 /// `window_manager_find_window_at_point_filtering_window`
@@ -78,7 +78,7 @@ func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager
     guard let result = node.neighbor(direction, wrapping: .off, hasOutput: false).target else { return nil }
     guard result.isLeaf, result != node else { return nil }
 
-    return result.windowID.flatMap { window_manager_find_window(wm, $0) }
+    return result.windowID.flatMap { wm.window(for: $0) }
 }
 
 /// `window_manager_active_tree_view`
@@ -93,7 +93,7 @@ private func windowManagerActiveTreeView(_ sm: SpaceManager) -> View?
 private func windowManagerFindWindowForCon(_ wm: WindowManager, _ node: Con?) -> Window?
 {
     guard let node, node.isLeaf, let wid = node.windowID else { return nil }
-    return window_manager_find_window(wm, wid)
+    return wm.window(for: wid)
 }
 
 /// The leaf of the window in the tree of the active space.
@@ -134,7 +134,7 @@ func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowMan
 /// `window_manager_find_recent_managed_window`
 func window_manager_find_recent_managed_window(_ wm: WindowManager) -> Window?
 {
-    guard let lastWindowID = wm.last_window_id, let target = window_manager_find_window(wm, lastWindowID) else { return nil }
+    guard let lastWindowID = wm.last_window_id, let target = wm.window(for: lastWindowID) else { return nil }
     if wm.managedView(for: target) == nil { return nil }
 
     return target
@@ -243,7 +243,7 @@ private func windowManagerFindManagedWindowByArea(_ sm: SpaceManager, _ wm: Wind
         node = leaf.nextLeaf
     }
 
-    return bestID.flatMap { window_manager_find_window(wm, $0) }
+    return bestID.flatMap { wm.window(for: $0) }
 }
 
 /// `window_manager_find_largest_managed_window`

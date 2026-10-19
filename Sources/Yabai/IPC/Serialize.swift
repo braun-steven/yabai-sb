@@ -333,7 +333,7 @@ func windowManagerQueryWindowsForSpaces(_ rsp: inout Response, _ spaceList: [Spa
     let windowList = space_window_list_for_connection(spaceList, 0, true) ?? []
 
     let windows = windowList.map { wid in
-        if let window = window_manager_find_window(wm, wid) { return windowSerialize(window, flags) }
+        if let window = wm.window(for: wid) { return windowSerialize(window, flags) }
         return windowNonAXSerialize(wid, flags)
     }
 

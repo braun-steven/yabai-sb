@@ -44,7 +44,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 
     if target.isUnknown {
         debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
-        window_manager_remove_lost_focused_event(wm, target.id)
+        wm.removeLostFocusedEvent(for: target.id)
         target.destroy()
         return nil
     }
@@ -55,18 +55,18 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 
     if !target.observe() {
         debug("window_manager_create_and_add_window: could not observe \(owner.name) \(target.id)\n")
-        window_manager_remove_lost_focused_event(wm, target.id)
+        wm.removeLostFocusedEvent(for: target.id)
         target.unobserve()
         target.destroy()
         return nil
     }
 
-    if window_manager_find_lost_focused_event(wm, target.id) {
+    if wm.hasLostFocusedEvent(for: target.id) {
         EventLoop.post(.windowFocused(windowID: target.id))
-        window_manager_remove_lost_focused_event(wm, target.id)
+        wm.removeLostFocusedEvent(for: target.id)
     }
 
-    window_manager_add_window(wm, target)
+    wm.addWindow(target)
 
     //
     // NOTE(asmvik): However, only **root windows** are eligible for management.
@@ -143,7 +143,7 @@ func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowMana
     var result: [Window] = []
 
     for windowRef in axElements(windowList) {
-        guard let windowID = ax_window_id(windowRef), window_manager_find_window(wm, windowID) == nil else { continue }
+        guard let windowID = ax_window_id(windowRef), wm.window(for: windowID) == nil else { continue }
 
         if let target = window_manager_create_and_add_window(sm, wm, owner, windowRef, windowID, true) { result.append(target) }
     }
@@ -166,7 +166,7 @@ func windowManagerExistingApplicationWindowList(_ owner: Application?) -> [Windo
 /// `window_manager_unresolved_windows`: the windows of the list that the window manager does not know.
 func window_manager_unresolved_windows(_ wm: WindowManager, _ windowList: [WindowID]) -> [WindowID]
 {
-    return windowList.filter { window_manager_find_window(wm, $0) == nil }
+    return windowList.filter { wm.window(for: $0) == nil }
 }
 
 //
@@ -242,7 +242,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
             continue
         }
 
-        if window_manager_find_window(wm, windowID) == nil {
+        if wm.window(for: windowID) == nil {
             window_manager_create_and_add_window(sm, wm, owner, windowRef, windowID, false)
         }
     }

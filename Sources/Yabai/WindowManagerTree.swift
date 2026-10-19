@@ -72,7 +72,7 @@ extension WindowManager
 
         var moveList: [WindowID] = []
         for windowID in windowList {
-            guard let target = window_manager_find_window(self, windowID) else { continue }
+            guard let target = window(for: windowID) else { continue }
 
             if target.id.space != owner.sid { moveList.append(target.id) }
             removeManagedWindow(target.id)
@@ -192,12 +192,12 @@ extension WindowManager
         }
 
         for windowID in windowList {
-            if let windowID, let target = window_manager_find_window(self, windowID) {
+            if let windowID, let target = window(for: windowID) {
                 window_manager_send_window_to_space(SpaceManager.shared, self, target, sid, false)
             }
         }
 
-        if let focus = (windowList.first ?? nil).flatMap({ window_manager_find_window(self, $0) }) {
+        if let focus = (windowList.first ?? nil).flatMap({ window(for: $0) }) {
             window_manager_focus_window_with_raise(&focus.application.psn, focus.id, focus.ref)
         }
     }
@@ -238,7 +238,7 @@ extension WindowManager
 
         var wasFocused = target.id == focused_window_id
         if !wasFocused && target.id == last_window_id {
-            if let focusedID = focused_window_id, let focused = window_manager_find_window(self, focusedID) {
+            if let focusedID = focused_window_id, let focused = window(for: focusedID) {
                 wasFocused = focused.application == target.application || treeView(for: focused) == owner
             }
         }

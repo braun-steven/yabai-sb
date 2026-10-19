@@ -50,7 +50,7 @@ struct CSelectorContext: SelectorContext
     func window(_ query: WindowQuery<Window>) -> Window?
     {
         switch query {
-        case .id(let id):                          window_manager_find_window(window_manager_global(), id)
+        case .id(let id):                          WindowManager.shared.window(for: id)
         case .inDirection(let direction, let from): window_manager_find_closest_managed_window_in_direction(window_manager_global(), from, direction)
         case .belowCursor:                         window_manager_find_window_below_cursor(window_manager_global())
         case .largest:                             window_manager_find_largest_managed_window(space_manager_global(), window_manager_global())
@@ -65,7 +65,7 @@ struct CSelectorContext: SelectorContext
         case .stackFirst(let window):              window_manager_find_first_window_in_stack(space_manager_global(), window_manager_global(), window)
         case .stackLast(let window):               window_manager_find_last_window_in_stack(space_manager_global(), window_manager_global(), window)
         case .stackRecent(let window):             window_manager_find_recent_window_in_stack(space_manager_global(), window_manager_global(), window)
-        case .stackPosition(let window, let index): window_manager_find_window_in_stack(space_manager_global(), window_manager_global(), window, index)
+        case .stackPosition(let window, let index): window_manager_find_window_in_stack(space_manager_global(), WindowManager.shared, window, index)
         }
     }
 }

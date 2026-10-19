@@ -167,7 +167,7 @@ extension EventHandler
         let sm = SpaceManager.shared
 
         if generation != sm.spaceLayoutGeneration { return }
-        if sm.spaceLayouts.isEmpty { return }
+        if Config.current.space.spaceLayouts.isEmpty { return }
 
         if MissionControl.shared.isActive {
             sm.scheduleSpaceLayout(after: 0.5, resetPasses: false)

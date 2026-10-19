@@ -48,7 +48,7 @@ extension DaemonState
         // attached to the workspace; the tests expect the default (Swift Testing creates the suite for each test)
         init()
         {
-            SpaceManager.shared.treeWorkspaceTabbed = false
+            Config.current.space.treeWorkspaceTabbed = false
         }
 
         @Test("tree_attach_detach")
@@ -545,10 +545,9 @@ extension DaemonState
         @Test("tree_workspace_layout_tabbed")
         func treeWorkspaceLayoutTabbed()
         {
-            let sm = SpaceManager.shared
-            let workspaceTabbed = sm.treeWorkspaceTabbed
-            sm.treeWorkspaceTabbed = true
-            defer { sm.treeWorkspaceTabbed = workspaceTabbed }
+            let workspaceTabbed = Config.current.space.treeWorkspaceTabbed
+            Config.current.space.treeWorkspaceTabbed = true
+            defer { Config.current.space.treeWorkspaceTabbed = workspaceTabbed }
 
             // the first window of an empty workspace opens in a tabbed container
             let root = Con(layout: .splitH)

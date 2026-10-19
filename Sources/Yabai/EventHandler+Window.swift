@@ -120,7 +120,7 @@ extension EventHandler
 
         debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
 
-        if SpaceManager.shared.skipWindowFocusAnimation {
+        if Config.current.space.skipWindowFocusAnimation {
             if let sid = window.id.space, !sid.isVisible {
                 SLS.setFrontProcess(SLS.connection, window.application.psn, forSpace: sid)
                 if let did = sid.display {

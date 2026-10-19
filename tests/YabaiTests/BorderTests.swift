@@ -58,17 +58,17 @@ extension DaemonState
             let enabled = Config.current.tabBar.enabled
             let height = Config.current.tabBar.height
             let backdrop = Config.current.tabBar.backdrop
-            let workspaceTabbed = SpaceManager.shared.treeWorkspaceTabbed
+            let workspaceTabbed = Config.current.space.treeWorkspaceTabbed
             defer {
                 Config.current.tabBar.enabled = enabled
                 Config.current.tabBar.height = height
                 Config.current.tabBar.backdrop = backdrop
-                SpaceManager.shared.treeWorkspaceTabbed = workspaceTabbed
+                Config.current.space.treeWorkspaceTabbed = workspaceTabbed
             }
             Config.current.tabBar.enabled = true
             Config.current.tabBar.height = 24
             Config.current.tabBar.backdrop = .off
-            SpaceManager.shared.treeWorkspaceTabbed = false
+            Config.current.space.treeWorkspaceTabbed = false
             // H[ 1 T[ 2 T[ 4 5 ] 3 ] ]
             let root = Con(layout: .splitH)
             defer { root.destroy() }

@@ -430,7 +430,7 @@ extension EventHandler
             return
         }
 
-        if SpaceManager.shared.skipWindowFocusAnimation {
+        if Config.current.space.skipWindowFocusAnimation {
             applicationFrontSwitchedFocusSpace(application, process)
         }
 

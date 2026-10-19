@@ -183,15 +183,15 @@ enum ViewSpacing: CaseIterable, Sendable
         target.isGapEnabled = true
 
         if target.sid.isUser {
-            let sm = SpaceManager.shared
+            let defaults = Config.current.space
 
-            target.layout         = sm.layout
-            target.topPadding     = sm.topPadding
-            target.bottomPadding  = sm.bottomPadding
-            target.leftPadding    = sm.leftPadding
-            target.rightPadding   = sm.rightPadding
-            target.windowGap      = sm.windowGap
-            target.autoPadding    = sm.autoPadding
+            target.layout         = defaults.layout
+            target.topPadding     = defaults.topPadding
+            target.bottomPadding  = defaults.bottomPadding
+            target.leftPadding    = defaults.leftPadding
+            target.rightPadding   = defaults.rightPadding
+            target.windowGap      = defaults.windowGap
+            target.autoPadding    = defaults.autoPadding
             target.update()
         } else {
             target.layout = .float

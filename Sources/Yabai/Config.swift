@@ -10,6 +10,34 @@ import YabaiCore
     var mouse = MouseConfig()
     var animation = AnimationConfig()
     var scratchpad = ScratchpadConfig()
+    var space = SpaceDefaults()
+    var display = DisplayConfig()
+}
+
+struct SpaceDefaults
+{
+    var layout = ViewType.default
+    var topPadding: Int = 0
+    var bottomPadding: Int = 0
+    var leftPadding: Int = 0
+    var rightPadding: Int = 0
+    var windowGap: Int = 0
+    var autoPadding = false
+    var treeDefaultOrientation = TreeOrientation.auto
+    var treeWorkspaceTabbed = false
+    var treeAutotiling = false
+    var skipWindowFocusAnimation = false
+    var spaceLayouts: [SpaceLayout] = []
+    var spaceLayoutSpec: String?
+}
+
+struct DisplayConfig
+{
+    var topPadding: Int = 0
+    var bottomPadding: Int = 0
+    var order = DisplayArrangementOrder.default
+    var builtinDisplayLast = false
+    var mode = ExternalBarMode.off
 }
 
 struct WindowConfig

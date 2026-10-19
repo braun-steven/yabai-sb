@@ -71,7 +71,7 @@ extension SpaceManager
     /// The views without their own layout take the layout.
     func setLayoutForAllSpaces(_ layout: ViewType)
     {
-        self.layout = layout
+        Config.current.space.layout = layout
 
         for target in views.values.sorted(by: { $0.sid < $1.sid }) {
             if !target.overrides.contains(.layout) {
@@ -89,7 +89,7 @@ extension SpaceManager
 
     func setSpacingForAllSpaces(_ spacing: ViewSpacing, to value: Int)
     {
-        self[keyPath: spacing.spaceManager] = value
+        Config.current.space[keyPath: spacing.spaceManager] = value
 
         for target in views.values.sorted(by: { $0.sid < $1.sid }) {
             if !target.overrides.contains(spacing.override) {
@@ -111,7 +111,7 @@ extension SpaceManager
 
     func setAutoPaddingForAllSpaces(_ autoPadding: Bool)
     {
-        self.autoPadding = autoPadding
+        Config.current.space.autoPadding = autoPadding
 
         for target in views.values.sorted(by: { $0.sid < $1.sid }) {
             if !target.overrides.contains(.autoPadding) {

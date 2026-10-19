@@ -48,17 +48,18 @@ extension DisplayID
     @WM func constrainedBounds(ignoringExternalBar: Bool) -> CGRect
     {
         let dm = DisplayManager.shared
+        let display = Config.current.display
         var frame = CGDisplayBounds(rawValue)
         var effectiveExtTopPadding: Int = 0
 
         if !ignoringExternalBar {
-            if (dm.mode == .main && self == DisplayID.main) ||
-               (dm.mode == .all) {
-                effectiveExtTopPadding = dm.topPadding
+            if (display.mode == .main && self == DisplayID.main) ||
+               (display.mode == .all) {
+                effectiveExtTopPadding = display.topPadding
 
                 frame.origin.y    += CGFloat(effectiveExtTopPadding)
                 frame.size.height -= CGFloat(effectiveExtTopPadding)
-                frame.size.height -= CGFloat(dm.bottomPadding)
+                frame.size.height -= CGFloat(display.bottomPadding)
             }
         }
 

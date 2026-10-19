@@ -51,7 +51,7 @@ extension SpaceManager
         let displayCount = DisplayID.count
         if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
-        guard let layout = spaceLayouts.first(where: { $0.count == displayCount }) else {
+        guard let layout = Config.current.space.spaceLayouts.first(where: { $0.count == displayCount }) else {
             debug("SpaceManager.reconcileSpaceLayout: no space_layout for \(displayCount) display(s)\n")
             return .done
         }
@@ -112,7 +112,7 @@ extension SpaceManager
     /// Posts the space layout reconcile event for the current generation after delay seconds.
     func scheduleSpaceLayout(after delay: Double, resetPasses: Bool)
     {
-        if spaceLayouts.isEmpty { return }
+        if Config.current.space.spaceLayouts.isEmpty { return }
         if resetPasses { spaceLayoutPasses = 0 }
 
         spaceLayoutGeneration &+= 1

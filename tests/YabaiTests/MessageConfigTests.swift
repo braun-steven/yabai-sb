@@ -41,20 +41,19 @@ extension DaemonState
         @Test("message_config_options")
         func messageConfigOptions()
         {
-            let sm = SpaceManager.shared
             let mouse = Config.current.mouse
             let tap = MouseState.shared.tap
 
             let mff = Config.current.window.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
             let wrapping = Config.current.window.focusWrapping
-            let topPadding = sm.topPadding
+            let topPadding = Config.current.space.topPadding
             defer {
                 Config.current.window.mouseFollowsFocusEnabled = mff
                 Config.current.mouse.modifier = modifier
                 tap.modifier = modifier
                 Config.current.window.focusWrapping = wrapping
-                sm.topPadding = topPadding
+                Config.current.space.topPadding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
@@ -66,10 +65,10 @@ extension DaemonState
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")
             #expect(runConfig("focus_wrapping\0") == "force\n")
 
-            sm.topPadding = 7
+            Config.current.space.topPadding = 7
             #expect(runConfig("top_padding\0") == "7\n")
             #expect(runConfig("top_padding\0-1\0").contains("unknown value '-1'"))
-            #expect(sm.topPadding == 7)
+            #expect(Config.current.space.topPadding == 7)
 
             #expect(runConfig("not_an_option\0").contains("unknown command 'not_an_option'"))
 
@@ -82,17 +81,15 @@ extension DaemonState
         @Test("message_config_values")
         func messageConfigValues()
         {
-            let sm = SpaceManager.shared
-
             let grid = Config.current.scratchpad.scratchpadGrid
             let duration = Config.current.animation.windowAnimationDuration
             let opacityDuration = Config.current.window.windowOpacityDuration
-            let workspaceTabbed = sm.treeWorkspaceTabbed
+            let workspaceTabbed = Config.current.space.treeWorkspaceTabbed
             defer {
                 Config.current.scratchpad.scratchpadGrid = grid
                 Config.current.animation.windowAnimationDuration = duration
                 Config.current.window.windowOpacityDuration = opacityDuration
-                sm.treeWorkspaceTabbed = workspaceTabbed
+                Config.current.space.treeWorkspaceTabbed = workspaceTabbed
             }
 
             #expect(runConfig("scratchpad_grid\0off\0scratchpad_grid\0") == "off\n")

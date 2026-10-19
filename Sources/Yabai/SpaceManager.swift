@@ -33,20 +33,7 @@ enum SpaceOperationError: Error, Sendable
     var currentSpaceID: SpaceID?
     var lastSpaceID: SpaceID?
     var didBegin = false
-    var layout = ViewType.default
-    var topPadding: Int = 0
-    var bottomPadding: Int = 0
-    var leftPadding: Int = 0
-    var rightPadding: Int = 0
-    var windowGap: Int = 0
-    var autoPadding = false
-    var treeDefaultOrientation = TreeOrientation.auto
-    var treeWorkspaceTabbed = false
-    var treeAutotiling = false
     var labels = LabelList<SpaceID>()
-    var skipWindowFocusAnimation = false
-    var spaceLayouts: [SpaceLayout] = []
-    var spaceLayoutSpec: String?
     var spaceLayoutGeneration: UInt32 = 0
     var spaceLayoutPasses = 0
 
@@ -167,13 +154,13 @@ enum SpaceOperationError: Error, Sendable
     /// The defaults of the space manager and an empty table of views.
     func resetToDefaults()
     {
-        layout = .tree
-        autoPadding = false
-        treeDefaultOrientation = .auto
-        treeWorkspaceTabbed = false
-        treeAutotiling = false
+        Config.current.space.layout = .tree
+        Config.current.space.autoPadding = false
+        Config.current.space.treeDefaultOrientation = .auto
+        Config.current.space.treeWorkspaceTabbed = false
+        Config.current.space.treeAutotiling = false
         labels = LabelList<SpaceID>()
-        skipWindowFocusAnimation = false
+        Config.current.space.skipWindowFocusAnimation = false
         //
         // NOTE: The views are keyed by space id.
         //
@@ -204,7 +191,7 @@ enum SpaceOperationError: Error, Sendable
 extension ViewSpacing
 {
     /// The default of the space manager, for the views without their own value.
-    @WM var spaceManager: ReferenceWritableKeyPath<SpaceManager, Int>
+    @WM var spaceManager: WritableKeyPath<SpaceDefaults, Int>
     {
         switch self {
         case .topPadding:    \.topPadding

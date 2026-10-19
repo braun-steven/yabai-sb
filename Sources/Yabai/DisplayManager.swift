@@ -57,13 +57,6 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     var currentDisplayID: DisplayID?
     var lastDisplayID: DisplayID?
 
-    var topPadding: Int = 0
-    var bottomPadding: Int = 0
-
-    var order = DisplayArrangementOrder.default
-    var builtinDisplayLast = false
-    var mode = ExternalBarMode.off
-
     var labels = LabelList<DisplayID>()
 
     //
@@ -82,10 +75,10 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
             let manager = DisplayManager.shared
             manager.currentDisplayID = DisplayID.active
             manager.lastDisplayID = manager.currentDisplayID
-            manager.order = .default
-            manager.mode = .off
-            manager.topPadding = 0
-            manager.bottomPadding = 0
+            Config.current.display.order = .default
+            Config.current.display.mode = .off
+            Config.current.display.topPadding = 0
+            Config.current.display.bottomPadding = 0
         }
 
         return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
@@ -108,7 +101,7 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
         guard let displays = SLS.managedDisplays(SLS.connection) else { return nil }
 
         let count = CFArrayGetCount(displays)
-        let order = self.order
+        let order = Config.current.display.order
 
         var sorted = displays
         if count > 0 && order != .default {
@@ -135,7 +128,7 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     /// from the "Display Identifier" of each dictionary of the list.
     private func orderedBuiltinLast<T>(_ list: [T], displaySpaces: Bool) -> [T]
     {
-        if !builtinDisplayLast { return list }
+        if !Config.current.display.builtinDisplayLast { return list }
 
         for i in 0..<max(list.count - 1, 0) {
             let item = list[i]

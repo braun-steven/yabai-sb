@@ -115,7 +115,7 @@ import YabaiCore
         return
     }
 
-    if !application_is_frontmost(window.application) {
+    if !window.application.isFrontmost {
         return
     }
 
@@ -147,7 +147,7 @@ import YabaiCore
         return
     }
 
-    if window.application.is_hidden {
+    if window.application.isHidden {
         debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) was moved while the application is hidden, ignoring event..\n")
         return
     }
@@ -187,7 +187,7 @@ import YabaiCore
         return
     }
 
-    if window.application.is_hidden {
+    if window.application.isHidden {
         debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) was resized while the application is hidden, ignoring event..\n")
         return
     }

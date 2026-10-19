@@ -294,13 +294,13 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     //
 
     if window_manager_find_application(wm, process.pid) != nil { return }
-    let application = application_create(process)
+    let application = Application(process: process)
 
-    if !application_observe(application) {
-        let axRetry = application.ax_retry
+    if !application.observe() {
+        let axRetry = application.axRetry
 
-        application_unobserve(application)
-        application_destroy(application)
+        application.unobserve()
+        application.destroy()
         debug("EVENT_HANDLER_APPLICATION_LAUNCHED: could not observe notifications for \(describe(process)) (\(axRetry ? 1 : 0))\n")
 
         if axRetry { applicationLaunchRetry(process) }
@@ -374,8 +374,8 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         window.destroy()
     }
 
-    application_unobserve(application)
-    application_destroy(application)
+    application.unobserve()
+    application.destroy()
 
     flushDirtyViews(viewList)
 
@@ -481,7 +481,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
     }
 
-    guard let applicationFocusedWindowID = application_focused_window(application) else {
+    guard let applicationFocusedWindowID = application.focusedWindowID else {
         applicationFrontSwitchedWithoutWindow(application)
         return
     }
@@ -504,7 +504,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     guard let application = window_manager_find_application(wm, pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(application.name)\n")
-    application.is_hidden = false
+    application.isHidden = false
 
     let windows = window_manager_find_application_windows(wm, application)
     tileWindowsBatched(windows, wm.last_window_id, false)
@@ -523,7 +523,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     guard let application = window_manager_find_application(wm, pid) else { return }
 
     debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(application.name)\n")
-    application.is_hidden = true
+    application.isHidden = true
 
     let windows = window_manager_find_application_windows(wm, application)
     var viewList: [View] = []

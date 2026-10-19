@@ -194,7 +194,7 @@ final class Window
     // `Application.applicationNotificationHandler`, whose NOTE documents window ownership.
     func observe() -> Bool
     {
-        let observerRef = application.observer_ref!
+        let observerRef = application.observerRef!
         for notification in axWindowNotifications {
             let result = AXObserverAddNotification(observerRef, ref, notification.name as CFString, Unmanaged.passUnretained(self).toOpaque())
             if result == .success || result == .notificationAlreadyRegistered {
@@ -208,7 +208,7 @@ final class Window
 
     func unobserve()
     {
-        let observerRef = application.observer_ref!
+        let observerRef = application.observerRef!
         for notification in axWindowNotifications where notifications.contains(notification.notification) {
             AXObserverRemoveNotification(observerRef, ref, notification.name as CFString)
             notifications.remove(notification.notification)

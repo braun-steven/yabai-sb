@@ -90,7 +90,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
             window_manager_purify_window(wm, target)
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
 
-            if owner.is_hidden        { return target }
+            if owner.isHidden        { return target }
             if target.isMinimized     { return target }
             if target.isFullscreen    { return target }
             if target.isManagedByRule { return target }
@@ -138,7 +138,7 @@ func window_manager_origin_space(_ wm: WindowManager, _ target: Window) -> Space
 /// `window_manager_add_application_windows`: the windows of the AX list of the application that were not known yet.
 func window_manager_add_application_windows(_ sm: SpaceManager, _ wm: WindowManager, _ owner: Application) -> [Window]
 {
-    guard let windowList = application_window_list(owner) else { return [] }
+    guard let windowList = owner.windowList else { return [] }
 
     var result: [Window] = []
 
@@ -223,7 +223,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
 {
     guard let globalWindowList = windowManagerExistingApplicationWindowList(owner) else { return false }
 
-    let windowList = application_window_list(owner).map(axElements) ?? []
+    let windowList = owner.windowList.map(axElements) ?? []
 
     var emptyCount = 0
     for windowRef in windowList {

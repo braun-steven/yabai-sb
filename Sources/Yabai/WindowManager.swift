@@ -314,7 +314,7 @@ func window_manager_should_manage_window(_ target: Window) -> Bool
     if target.isFloating                        { return false }
     if target.id.isSticky                        { return false }
     if target.isMinimized                       { return false }
-    if target.application.is_hidden     { return false }
+    if target.application.isHidden     { return false }
 
     return (target.isStandard && target.isStandardLevel && target.canMove) || target.isManagedByRule
 }
@@ -1420,14 +1420,14 @@ func window_manager_begin(_ sm: SpaceManager, _ wm: WindowManager)
         // Applications in pid order, so their windows tile in the same order every start.
         for candidate in process_manager_global().process.values.sorted(by: { $0.pid < $1.pid }) {
             if workspace_application_is_observable(candidate) {
-                let created = application_create(candidate)
+                let created = Application(process: candidate)
 
-                if application_observe(created) {
+                if created.observe() {
                     window_manager_add_application(wm, created)
                     _ = window_manager_add_existing_application_windows(sm, wm, created, nil)
                 } else {
-                    application_unobserve(created)
-                    application_destroy(created)
+                    created.unobserve()
+                    created.destroy()
                 }
             } else {
                 debug("window_manager_begin: \(describe(candidate)) is not observable, subscribing to activationPolicy changes\n")

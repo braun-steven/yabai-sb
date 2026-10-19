@@ -240,7 +240,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.hasAXReference   = true
     info.isFullscreen     = window.isFullscreen
     info.isMinimized      = window.isMinimized
-    info.isHidden         = application.is_hidden
+    info.isHidden         = application.isHidden
     info.isFloating       = window.isFloating
     info.isGrabbed        = window == mouse_state_global().window
 

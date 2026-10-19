@@ -143,7 +143,7 @@ func window_manager_focused_window(_ wm: WindowManager) -> Window?
 {
     guard let owner = window_manager_focused_application(wm) else { return nil }
 
-    guard let windowID = application_focused_window(owner) else { return nil }
+    guard let windowID = owner.focusedWindowID else { return nil }
     return window_manager_find_window(wm, windowID)
 }
 

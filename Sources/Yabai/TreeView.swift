@@ -139,7 +139,7 @@ extension View
     {
         node.focus()
 
-        let focusedWindowID = WindowManager.shared.focused_window_id
+        let focusedWindowID = WindowManager.shared.focusedWindowID
         if windowID != focusedWindowID, let focused = root.find(focusedWindowID) {
             focused.focus()
         }
@@ -176,7 +176,7 @@ extension View
                 anchor = selected
             }
 
-            if anchor == nil { anchor = root.find(WindowManager.shared.focused_window_id) }
+            if anchor == nil { anchor = root.find(WindowManager.shared.focusedWindowID) }
             if anchor == nil { anchor = root.focusedDescendant }
 
             root.open(node, after: anchor, autotile: SpaceManager.shared.tree_autotiling)
@@ -369,7 +369,7 @@ extension Con
 
         let wm = WindowManager.shared
         let entryCount = min(children.count, tabBarMaxEntryCount)
-        let hasFocus = contains(wm.focused_window_id)
+        let hasFocus = contains(wm.focusedWindowID)
         let active = focusOrder[0]
 
         var entryList: [TabBarEntry] = []
@@ -563,7 +563,7 @@ extension WindowManager
 {
     func cardDidOrder(_ windowID: WindowID)
     {
-        guard let owner = managed_window[windowID] else { return }
+        guard let owner = managedWindows[windowID] else { return }
         if owner.layout != .tree || owner.tree == nil || !space_is_visible(owner.sid) { return }
 
         var list: [sa_window_order] = []
@@ -615,7 +615,7 @@ extension View
 {
     static func refreshBars(forWindowID windowID: WindowID?)
     {
-        guard let windowID, let owner = WindowManager.shared.managed_window[windowID] else { return }
+        guard let windowID, let owner = WindowManager.shared.managedWindows[windowID] else { return }
         if owner.layout != .tree || owner.tree == nil { return }
 
         if space_is_visible(owner.sid) { owner.tree!.renderBars() }

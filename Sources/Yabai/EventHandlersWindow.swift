@@ -260,8 +260,8 @@ import YabaiCore
     let view = wm.managedView(for: window)
     let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
 
-    if window.id == wm.last_window_id {
-        wm.last_window_id = wm.focused_window_id
+    if window.id == wm.lastWindowID {
+        wm.lastWindowID = wm.focusedWindowID
     }
 
     if let view {
@@ -292,7 +292,7 @@ import YabaiCore
     if let sid, space_manager_is_window_on_space(sid, window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
         if window.shouldBeManaged && wm.managedView(for: window) == nil {
-            let lastWindow = wm.last_window_id.flatMap { wm.window(for: $0) }
+            let lastWindow = wm.lastWindowID.flatMap { wm.window(for: $0) }
             let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
             wm.manageWindow(window, on: sid, inserting: insertionPoint)
         }

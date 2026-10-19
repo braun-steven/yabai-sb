@@ -441,9 +441,9 @@ func space_manager_last_space() -> SpaceID?
 func space_manager_can_use_known_focus(_ front: UnsafeMutablePointer<ProcessSerialNumber>, _ wm: WindowManager, _ pendingFocus: Bool) -> Bool
 {
     if pendingFocus { return false }
-    if wm.focused_window_id == nil { return false }
+    if wm.focusedWindowID == nil { return false }
 
-    return psn_equals(front, &wm.focused_window_psn)
+    return psn_equals(front, &wm.focusedWindowPSN)
 }
 
 /// `space_manager_focused_window`
@@ -455,7 +455,7 @@ private func spaceManagerFocusedWindow() -> Window?
     let pendingFocus = pending_window_focus()
 
     if space_manager_can_use_known_focus(&front, wm, pendingFocus) {
-        if let focusedID = wm.focused_window_id, let target = wm.window(for: focusedID) { return target }
+        if let focusedID = wm.focusedWindowID, let target = wm.window(for: focusedID) { return target }
     }
 
     return wm.focusedWindow

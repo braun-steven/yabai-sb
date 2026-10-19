@@ -47,19 +47,19 @@ private func applicationCreate(_ name: String) -> Application
 
     wm.setPendingFocus(42)
     #expect(wm.pendingFocusWindow == target)
-    #expect(wm.pending_focus_window_id == 42)
+    #expect(wm.pendingFocusWindowID == 42)
 
     //
     // NOTE: A pending focus expires, and is dropped for windows that no longer exist.
     //
 
-    wm.pending_focus_time = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
+    wm.pendingFocusTime = read_os_timer() - UInt64(Double(read_os_freq()) * 0.6)
     #expect(wm.pendingFocusWindow == nil)
-    #expect(wm.pending_focus_window_id == nil)
+    #expect(wm.pendingFocusWindowID == nil)
 
     wm.setPendingFocus(7)
     #expect(wm.pendingFocusWindow == nil)
-    #expect(wm.pending_focus_window_id == nil)
+    #expect(wm.pendingFocusWindowID == nil)
 }
 
 @Test("window_unresolved_list") func windowUnresolvedList()

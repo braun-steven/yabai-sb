@@ -338,7 +338,7 @@ func displayManagerActiveDisplays() -> [DisplayID]
 private func displayManagerFindElementAtPoint(_ point: CGPoint) -> AXUIElement?
 {
     var elementRef: AXUIElement?
-    AXUIElementCopyElementAtPosition(window_manager_global().system_element!, Float(point.x), Float(point.y), &elementRef)
+    AXUIElementCopyElementAtPosition(window_manager_global().systemElement!, Float(point.x), Float(point.y), &elementRef)
     guard let elementRef else { return nil }
 
     var role: CFTypeRef?

@@ -236,7 +236,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.scratchpad       = window.scratchpad ?? ""
     info.frame            = window.frame
     info.isRoot           = window.isRoot
-    info.hasFocus         = wid == wm.focused_window_id
+    info.hasFocus         = wid == wm.focusedWindowID
     info.hasAXReference   = true
     info.isFullscreen     = window.isFullscreen
     info.isMinimized      = window.isMinimized
@@ -364,7 +364,7 @@ private func treeSerializeCon(_ output: inout String, _ view: View, _ node: Con,
     let type = parent == nil ? "workspace" : leaf ? "window" : "container"
     let layout = leaf ? "null" : "\"\(node.layout.rawValue)\""
     let percent = parent != nil ? node.percent : 1.0
-    let focused = leaf && node.windowID == window_manager_global().focused_window_id
+    let focused = leaf && node.windowID == window_manager_global().focusedWindowID
 
     output += String(repeating: " ", count: depth)
     output += "{\"type\":\"\(type)\",\"layout\":\(layout),\"percent\":\(JSON.number(Double(percent))),\"window\":\(Int32(bitPattern: node.windowID?.rawValue ?? 0))"

@@ -158,24 +158,24 @@ func update_window_notifications()
 /// `window_did_receive_focus`
 @WM func windowDidReceiveFocus(_ wm: WindowManager, _ ms: MouseState, _ window: Window)
 {
-    let focusedWindow = wm.focused_window_id.flatMap { wm.window(for: $0) }
+    let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
     if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
         wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
 
     wm.setWindowOpacity(window, to: wm.active_window_opacity)
 
-    if wm.focused_window_id != window.id {
+    if wm.focusedWindowID != window.id {
         if ms.ffm_window_id != window.id {
             wm.centerMouse(on: window)
         }
 
-        wm.last_window_id = wm.focused_window_id
+        wm.lastWindowID = wm.focusedWindowID
     }
 
-    let prevFocusedWindowID = wm.focused_window_id
-    wm.focused_window_id = window.id
-    wm.focused_window_psn = window.application.psn
+    let prevFocusedWindowID = wm.focusedWindowID
+    wm.focusedWindowID = window.id
+    wm.focusedWindowPSN = window.application.psn
     ms.ffm_window_id = nil
 
     //
@@ -183,7 +183,7 @@ func update_window_notifications()
     // cleared when the window that was asked to be focused reports it.
     //
 
-    if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = nil }
+    if wm.pendingFocusWindowID == window.id { wm.pendingFocusWindowID = nil }
 
     if let view = WindowManager.shared.managedView(for: window), view.layout == .tree {
         view.focusWindow(window.id)
@@ -320,7 +320,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 
     let windows = wm.addApplicationWindows(application)
     update_window_notifications()
-    tileWindowsBatched(windows, wm.focused_window_id, true)
+    tileWindowsBatched(windows, wm.focusedWindowID, true)
 
     for window in windows where window.isEligibleForManagement {
         eventSignalPush(.windowCreated, signalObject(window))
@@ -411,7 +411,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
 {
     let wm = window_manager_global()
 
-    let focusedWindow = wm.focused_window_id.flatMap { wm.window(for: $0) }
+    let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
     if let focusedWindow {
         wm.setWindowOpacity(focusedWindow, to: wm.normal_window_opacity)
     }
@@ -429,10 +429,10 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     let wm = window_manager_global()
     let focusedWindow = dimFocusedWindow()
 
-    let prevFocusedWindowID = wm.focused_window_id
-    wm.last_window_id = prevFocusedWindowID
-    wm.focused_window_id = nil
-    wm.focused_window_psn = application.psn
+    let prevFocusedWindowID = wm.focusedWindowID
+    wm.lastWindowID = prevFocusedWindowID
+    wm.focusedWindowID = nil
+    wm.focusedWindowPSN = application.psn
     mouse_state_global().ffm_window_id = nil
 
     if let prevFocusedWindowID {
@@ -507,7 +507,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     application.isHidden = false
 
     let windows = wm.windows(for: application)
-    tileWindowsBatched(windows, wm.last_window_id, false)
+    tileWindowsBatched(windows, wm.lastWindowID, false)
 
     for window in windows {
         border_refresh_window_space(window)

@@ -45,7 +45,7 @@ extension WindowManager
 
     func treeActingCon(in owner: View, for target: Window) -> Con?
     {
-        if let selected = owner.tree?.findSelected(), target.id == focused_window_id { return selected }
+        if let selected = owner.tree?.findSelected(), target.id == focusedWindowID { return selected }
         return owner.tree?.find(target.id)
     }
 
@@ -55,7 +55,7 @@ extension WindowManager
         // NOTE: Operations on other windows must not hide the focused window in a tab that is not active.
         //
 
-        if let focused = owner.tree?.find(focused_window_id) { focused.focus() }
+        if let focused = owner.tree?.find(focusedWindowID) { focused.focus() }
 
         if !owner.updateAutoPadding() { owner.updateTree() }
         owner.flush()
@@ -236,9 +236,9 @@ extension WindowManager
         // That window may be on another space or display, so a window of the same application counts.
         //
 
-        var wasFocused = target.id == focused_window_id
-        if !wasFocused && target.id == last_window_id {
-            if let focusedID = focused_window_id, let focused = window(for: focusedID) {
+        var wasFocused = target.id == focusedWindowID
+        if !wasFocused && target.id == lastWindowID {
+            if let focusedID = focusedWindowID, let focused = window(for: focusedID) {
                 wasFocused = focused.application == target.application || treeView(for: focused) == owner
             }
         }

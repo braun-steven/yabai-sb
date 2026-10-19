@@ -519,11 +519,11 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     if command.equals(Config.debugOutput) {
         _ = parseConfigBool(&rsp, domain, command, &message, &g_verbose)
     } else if command.equals(Config.mff) {
-        _ = parseConfigBool(&rsp, domain, command, &message, &wm.enable_mff)
+        _ = parseConfigBool(&rsp, domain, command, &message, &wm.mouseFollowsFocusEnabled)
     } else if command.equals(Config.ffm) {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(wm.ffm_mode.rawValue)\n")
+            rsp.write("\(wm.focusFollowsMouseMode.rawValue)\n")
         } else if value.equals(Argument.off) {
             wm.setFocusFollowsMouse(.disabled)
         } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
@@ -538,8 +538,8 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
     } else if command.equals(Config.builtinLast) {
         if parseConfigBool(&rsp, domain, command, &message, &dm.builtin_last) { space_layout_schedule(0.0, true) }
     } else if command.equals(Config.windowOrigin) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.window_origin_mode) {
-            wm.window_origin_mode = choice
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
+            wm.windowOriginMode = choice
         }
     } else if command.equals(Config.scratchpadExclusive) {
         _ = parseConfigBool(&rsp, domain, command, &message, &wm.scratchpad_exclusive)
@@ -573,7 +573,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             wm.window_animation_easing = choice
         }
     } else if command.equals(Config.shadow) {
-        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purify_mode) {
+        if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.purifyMode) {
             wm.setPurifyMode(choice)
         }
     } else if command.equals(Config.menubarOpacity) {

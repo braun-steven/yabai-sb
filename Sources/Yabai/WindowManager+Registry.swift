@@ -6,32 +6,32 @@ extension WindowManager
 {
     func hasLostFrontSwitchedEvent(for pid: pid_t) -> Bool
     {
-        application_lost_front_switched_event.contains(pid)
+        applicationLostFrontSwitchedEvents.contains(pid)
     }
 
     func removeLostFrontSwitchedEvent(for pid: pid_t)
     {
-        application_lost_front_switched_event.remove(pid)
+        applicationLostFrontSwitchedEvents.remove(pid)
     }
 
     func addLostFrontSwitchedEvent(for pid: pid_t)
     {
-        application_lost_front_switched_event.insert(pid)
+        applicationLostFrontSwitchedEvents.insert(pid)
     }
 
     func hasLostFocusedEvent(for windowID: WindowID) -> Bool
     {
-        window_lost_focused_event.contains(windowID)
+        windowLostFocusedEvents.contains(windowID)
     }
 
     func removeLostFocusedEvent(for windowID: WindowID)
     {
-        window_lost_focused_event.remove(windowID)
+        windowLostFocusedEvents.remove(windowID)
     }
 
     func addLostFocusedEvent(for windowID: WindowID)
     {
-        window_lost_focused_event.insert(windowID)
+        windowLostFocusedEvents.insert(windowID)
     }
 
     func window(for id: WindowID) -> Window?

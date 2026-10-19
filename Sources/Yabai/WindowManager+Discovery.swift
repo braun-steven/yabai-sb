@@ -94,7 +94,7 @@ extension WindowManager
     // NOTE: The space a new window is managed on, as selected by window_origin_display.
     func originSpace(for target: Window) -> SpaceID?
     {
-        switch window_origin_mode {
+        switch windowOriginMode {
         case .focused: return SpaceManager.shared.current_space_id
         case .cursor:  return space_manager_cursor_space()
         case .default: return target.id.space
@@ -170,7 +170,7 @@ extension WindowManager
         }
     }
 
-    /// True when an application's windows in applications_to_refresh (at refreshIndex) are all resolved; it is then
+    /// True when an application's windows in applicationsToRefresh (at refreshIndex) are all resolved; it is then
     /// removed from the list. With refreshIndex nil (a new application), the application is added when windows are missing.
     func addExistingApplicationWindows(_ owner: Application, refreshIndex: Int?) -> Bool
     {

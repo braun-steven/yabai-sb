@@ -9,25 +9,25 @@ extension WindowManager
 
     func applicationRefreshIndex(of application: Application) -> Int?
     {
-        applications_to_refresh.firstIndex(of: application)
+        applicationsToRefresh.firstIndex(of: application)
     }
 
     func removeApplicationRefresh(at index: Int)
     {
-        applications_to_refresh.swapAt(index, applications_to_refresh.count - 1)
-        applications_to_refresh.removeLast()
+        applicationsToRefresh.swapAt(index, applicationsToRefresh.count - 1)
+        applicationsToRefresh.removeLast()
     }
 
-    var applicationRefreshCount: Int { applications_to_refresh.count }
+    var applicationRefreshCount: Int { applicationsToRefresh.count }
 
     func applicationRefresh(at index: Int) -> Application
     {
-        applications_to_refresh[index]
+        applicationsToRefresh[index]
     }
 
     func addApplicationToRefresh(_ application: Application)
     {
-        applications_to_refresh.append(application)
+        applicationsToRefresh.append(application)
     }
 
     var scratchpadCount: Int { scratchpad_window.count }
@@ -53,7 +53,7 @@ extension WindowManager
             mouse_handler_begin(mouse_state_global(), mouseEventMaskFFM)
         }
 
-        ffm_mode = mode
+        focusFollowsMouseMode = mode
     }
 
     func setWindowOpacityEnabled(_ enabled: Bool)
@@ -66,7 +66,7 @@ extension WindowManager
 
     func centerMouse(on target: Window)
     {
-        if !(target.mouseFollowsFocusByRule ?? enable_mff) { return }
+        if !(target.mouseFollowsFocusByRule ?? mouseFollowsFocusEnabled) { return }
 
         let cursor = SLS.cursorLocation(connection_global())
         if target.frame.contains(cursor) { return }
@@ -84,19 +84,19 @@ extension WindowManager
 
     func managedView(for target: Window) -> View?
     {
-        managed_window[target.id]
+        managedWindows[target.id]
     }
 
     func removeManagedWindow(_ windowID: WindowID)
     {
-        managed_window.removeValue(forKey: windowID)
+        managedWindows.removeValue(forKey: windowID)
     }
 
     func addManagedWindow(_ target: Window, to owner: View)
     {
         if owner.layout == .float { return }
 
-        if managed_window[target.id] == nil { managed_window[target.id] = owner }
+        if managedWindows[target.id] == nil { managedWindows[target.id] = owner }
         purifyWindow(target)
     }
 

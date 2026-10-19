@@ -10,7 +10,7 @@ extension WindowManager
         let source = target.id.space
         if source == destination { return }
 
-        if let source, space_is_visible(source) && (movedByRule || focused_window_id == target.id) {
+        if let source, space_is_visible(source) && (movedByRule || focusedWindowID == target.id) {
             if let next = window(on: source, byRank: 1, excluding: target.id) {
                 focusWithRaise(next)
             } else {

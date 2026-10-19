@@ -42,19 +42,19 @@ extension DaemonState
             let sm = space_manager_global()
             let mouse = mouse_state_global()
 
-            let mff = wm.enable_mff
+            let mff = wm.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
             let wrapping = wm.focus_wrapping
             let topPadding = sm.top_padding
             defer {
-                wm.enable_mff = mff
+                wm.mouseFollowsFocusEnabled = mff
                 mouse.modifier = modifier
                 wm.focus_wrapping = wrapping
                 sm.top_padding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
-            #expect(wm.enable_mff)
+            #expect(wm.mouseFollowsFocusEnabled)
             #expect(mouse.modifier == .ctrl)
             #expect(wm.focus_wrapping == .force)
 

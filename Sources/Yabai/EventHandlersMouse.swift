@@ -288,14 +288,14 @@ private let mouseResizeThrottleMs: Float = 67.67
     let wm = window_manager_global()
     let ms = mouse_state_global()
 
-    if window.id == wm.focused_window_id { return }
+    if window.id == wm.focusedWindowID { return }
     if !window.isEligibleForManagement { return }
 
-    if wm.ffm_mode == .autofocus {
+    if wm.focusFollowsMouseMode == .autofocus {
         let target = ffmWindowToFocus(window)
         WindowManager.shared.focusWithoutRaise(target)
         ms.ffm_window_id = target.id
-    } else if wm.ffm_mode == .autoraise {
+    } else if wm.focusFollowsMouseMode == .autoraise {
         if ffmRaiseWouldOccludeFloatingWindow(window) { return }
 
         WindowManager.shared.focusWithRaise(window)
@@ -324,7 +324,7 @@ private let mouseResizeThrottleMs: Float = 67.67
 
     if mouseEventIsStale(pendingMouseMoved) { return }
 
-    if wm.ffm_mode == .disabled                { return }
+    if wm.focusFollowsMouseMode == .disabled                { return }
     if mission_control_is_active()                        { return }
     if mouse_state_global().ffm_window_id != nil { return }
 

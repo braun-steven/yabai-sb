@@ -5,7 +5,7 @@ extension WindowManager
 {
     func setPurifyMode(_ mode: PurifyMode)
     {
-        purify_mode = mode
+        purifyMode = mode
         for target in window.values where target.isEligibleForManagement {
             purifyWindow(target)
         }
@@ -18,7 +18,7 @@ extension WindowManager
         var value = opacity
         if value == 0.0 {
             if enable_window_opacity {
-                value = target.id == focused_window_id ? active_window_opacity : normal_window_opacity
+                value = target.id == focusedWindowID ? active_window_opacity : normal_window_opacity
             } else {
                 value = 1.0
             }
@@ -52,7 +52,7 @@ extension WindowManager
     {
         normal_window_opacity = opacity
         for target in window.values {
-            if target.id == focused_window_id { continue }
+            if target.id == focusedWindowID { continue }
             if target.isEligibleForManagement {
                 setWindowOpacity(target, to: normal_window_opacity)
             }
@@ -115,7 +115,7 @@ extension WindowManager
     func purifyWindow(_ target: Window)
     {
         let shouldHaveShadow: Bool
-        switch purify_mode {
+        switch purifyMode {
         case .disabled: shouldHaveShadow = true
         case .managed:  shouldHaveShadow = managedView(for: target) == nil
         case .always:   shouldHaveShadow = false

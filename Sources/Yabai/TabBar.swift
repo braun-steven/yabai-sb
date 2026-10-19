@@ -510,7 +510,7 @@ func tab_bar_redraw_all()
 
 func tab_bar_refresh_for_window(_ wid: WindowID?)
 {
-    guard let wid, let owner = window_manager_global().managed_window[wid] else { return }
+    guard let wid, let owner = window_manager_global().managedWindows[wid] else { return }
     if owner.layout != .tree { return }
     View.refreshBars(forWindowID: wid)
 }

@@ -79,8 +79,8 @@ extension WindowManager
 
     func focusWithoutRaise(_ target: Window)
     {
-        if psn_equals(&target.application.psn, &focused_window_psn) {
-            Self.postFocusRecord(to: &focused_window_psn, windowID: focused_window_id, state: 0x02)
+        if psn_equals(&target.application.psn, &focusedWindowPSN) {
+            Self.postFocusRecord(to: &focusedWindowPSN, windowID: focusedWindowID, state: 0x02)
 
             //
             // @hack
@@ -149,17 +149,17 @@ extension WindowManager
 
     func setPendingFocus(_ windowID: WindowID)
     {
-        pending_focus_window_id = windowID
-        pending_focus_time = read_os_timer()
+        pendingFocusWindowID = windowID
+        pendingFocusTime = read_os_timer()
     }
 
     var pendingFocusWindow: Window?
     {
-        guard let pendingID = pending_focus_window_id else { return nil }
+        guard let pendingID = pendingFocusWindowID else { return nil }
 
-        let dt = os_timer_ms_between(pending_focus_time, read_os_timer())
+        let dt = os_timer_ms_between(pendingFocusTime, read_os_timer())
         let target = dt < pendingFocusTimeoutMs ? window(for: pendingID) : nil
-        if target == nil { pending_focus_window_id = nil }
+        if target == nil { pendingFocusWindowID = nil }
 
         return target
     }

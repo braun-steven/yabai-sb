@@ -90,23 +90,23 @@ struct Scratchpad
 /// `struct window_manager`
 final class WindowManager
 {
-    var system_element: AXUIElement?
+    var systemElement: AXUIElement?
     var application: [pid_t: Application] = [:]
     var window: [WindowID: Window] = [:]
-    var managed_window: [WindowID: View] = [:]
-    var window_lost_focused_event = Set<WindowID>()
-    var application_lost_front_switched_event = Set<pid_t>()
+    var managedWindows: [WindowID: View] = [:]
+    var windowLostFocusedEvents = Set<WindowID>()
+    var applicationLostFrontSwitchedEvents = Set<pid_t>()
     var rules: [Rule] = []
-    var applications_to_refresh: [Application] = []
-    var focused_window_id: WindowID?
-    var focused_window_psn = ProcessSerialNumber()
-    var pending_focus_window_id: WindowID?
-    var pending_focus_time: UInt64 = 0
-    var last_window_id: WindowID?
-    var enable_mff = false
-    var ffm_mode = FocusFollowsMouse.disabled
-    var purify_mode = PurifyMode.disabled
-    var window_origin_mode = WindowOrigin.default
+    var applicationsToRefresh: [Application] = []
+    var focusedWindowID: WindowID?
+    var focusedWindowPSN = ProcessSerialNumber()
+    var pendingFocusWindowID: WindowID?
+    var pendingFocusTime: UInt64 = 0
+    var lastWindowID: WindowID?
+    var mouseFollowsFocusEnabled = false
+    var focusFollowsMouseMode = FocusFollowsMouse.disabled
+    var purifyMode = PurifyMode.disabled
+    var windowOriginMode = WindowOrigin.default
     var enable_window_opacity = false
     var menubar_opacity: Float = 0
     var active_window_opacity: Float = 0

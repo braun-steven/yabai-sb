@@ -9,12 +9,12 @@ extension WindowManager
     {
         let systemElement = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(systemElement, 1.0)
-        system_element = systemElement
+        self.systemElement = systemElement
 
-        ffm_mode = .disabled
-        purify_mode = .disabled
-        window_origin_mode = .default
-        enable_mff = false
+        focusFollowsMouseMode = .disabled
+        purifyMode = .disabled
+        windowOriginMode = .default
+        mouseFollowsFocusEnabled = false
         enable_window_opacity = false
         menubar_opacity = 1.0
         active_window_opacity = 1.0
@@ -53,9 +53,9 @@ extension WindowManager
 
         application = [:]
         window = [:]
-        managed_window = [:]
-        window_lost_focused_event = []
-        application_lost_front_switched_event = []
+        managedWindows = [:]
+        windowLostFocusedEvents = []
+        applicationLostFrontSwitchedEvents = []
     }
 
     func begin()
@@ -81,9 +81,9 @@ extension WindowManager
         }
 
         if let target = focusedWindow {
-            last_window_id = target.id
-            focused_window_id = target.id
-            focused_window_psn = target.application.psn
+            lastWindowID = target.id
+            focusedWindowID = target.id
+            focusedWindowPSN = target.application.psn
             setWindowOpacity(target, to: active_window_opacity)
         }
     }

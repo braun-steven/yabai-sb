@@ -128,8 +128,8 @@ import CPrivate
 
     if isMenuOpen == 1 {
         let wm = window_manager_global()
-        ffmValue = wm.ffm_mode
-        wm.ffm_mode = .disabled
+        ffmValue = wm.focusFollowsMouseMode
+        wm.focusFollowsMouseMode = .disabled
     }
 }
 
@@ -140,7 +140,7 @@ import CPrivate
     isMenuOpen -= 1
 
     if isMenuOpen == 0 {
-        window_manager_global().ffm_mode = ffmValue
+        window_manager_global().focusFollowsMouseMode = ffmValue
     } else if isMenuOpen < 0 {
         isMenuOpen = 0
     }
@@ -168,7 +168,7 @@ import CPrivate
     debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
 
     let wm = window_manager_global()
-    if let focusedWindowID = wm.focused_window_id, let focusedWindow = wm.window(for: focusedWindowID) {
+    if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
         wm.setWindowOpacity(focusedWindow, to: wm.active_window_opacity)
         wm.centerMouse(on: focusedWindow)
     }

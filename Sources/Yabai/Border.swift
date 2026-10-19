@@ -445,7 +445,7 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
         let count = windowCount ?? borderSpaceWindowCount(sid ?? target.id.space)
         enabled = count > 1
     }
-    let focused = wm.focused_window_id == target.id
+    let focused = wm.focusedWindowID == target.id
     borderLock.withLock { state in
         state.settings.enabled = wm.enable_window_border
         state.settings.width = wm.window_border_width

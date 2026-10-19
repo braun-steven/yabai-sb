@@ -18,10 +18,10 @@ final class Window
     var subrole: CFString?
     var title: CFString?
     var frame = CGRect.zero
-    var frame_request = CGRect.zero
-    var windowed_frame = CGRect.zero
-    var is_root = false
-    var is_eligible = false
+    var frameRequest = CGRect.zero
+    var windowedFrame = CGRect.zero
+    var isRoot = false
+    var isEligible = false
     var notifications: WindowNotifications = []
     var hasShadow = false
     var isFullscreen = false
@@ -55,7 +55,7 @@ final class Window
         self.ref = reference
         frame = axFrame
         title = currentTitle()
-        is_root = id.parent == nil || hasApplicationAsParent
+        isRoot = id.parent == nil || hasApplicationAsParent
         hasShadow = id.hasShadow
         isMinimized = reportsMinimized
         refreshAXProperties()
@@ -109,7 +109,7 @@ final class Window
 
     func move(to point: CGPoint)
     {
-        frame_request.origin = point
+        frameRequest.origin = point
 
         var position = point
         guard let positionRef = AXValueCreate(.cgPoint, &position) else { return }
@@ -119,7 +119,7 @@ final class Window
 
     func resize(width: Float, height: Float)
     {
-        frame_request.size = CGSize(width: CGFloat(width), height: CGFloat(height))
+        frameRequest.size = CGSize(width: CGFloat(width), height: CGFloat(height))
 
         var size = CGSize(width: CGFloat(width), height: CGFloat(height))
         guard let sizeRef = AXValueCreate(.cgSize, &size) else { return }
@@ -257,11 +257,11 @@ final class Window
 
     var isStandardLevel: Bool { id.level == CGWindowLevelForKey(.normalWindow) }
 
-    var isEligibleForManagement: Bool { is_root && (isReal || isManagedByRule) }
+    var isEligibleForManagement: Bool { isRoot && (isReal || isManagedByRule) }
 
     var shouldBeManaged: Bool
     {
-        if !is_root { return false }
+        if !isRoot { return false }
         if isFloating { return false }
         if id.isSticky { return false }
         if isMinimized { return false }

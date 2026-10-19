@@ -153,7 +153,7 @@ extension WindowManager
     func reapplyAllRules()
     {
         // Windows in id order, so rules apply in the same order every time.
-        for target in window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
+        for target in window.values.sorted(by: { $0.id < $1.id }) where target.isRoot {
             let title = target.cachedTitle
             let role = target.roleString
             let subrole = target.subroleString
@@ -161,7 +161,7 @@ extension WindowManager
             applyManageRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
 
             if target.isEligibleForManagement {
-                target.is_eligible = true
+                target.isEligible = true
                 applyRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
             }
         }
@@ -197,12 +197,12 @@ extension WindowManager
     func applyRule(_ candidate: Rule)
     {
         // Windows in id order, so rules apply in the same order every time.
-        for target in window.values.sorted(by: { $0.id < $1.id }) where target.is_root {
+        for target in window.values.sorted(by: { $0.id < $1.id }) where target.isRoot {
             if candidate.matches(app: target.application.name, title: target.cachedTitle, role: target.roleString, subrole: target.subroleString) {
                 applyManageRuleEffects(candidate.effects, to: target)
 
                 if target.isEligibleForManagement {
-                    target.is_eligible = true
+                    target.isEligible = true
                     applyRuleEffects(candidate.effects, to: target)
                 }
             }

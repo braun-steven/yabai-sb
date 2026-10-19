@@ -364,7 +364,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         if ms.window == window { ms.window = nil }
         if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
-        if window.is_eligible {
+        if window.isEligible {
             eventSignalPush(.windowDestroyed, signalObject(window))
         }
 

@@ -401,7 +401,7 @@ private func borderHandOver(_ from: Border, _ to: Border, _ settings: BorderSett
 
 private func borderShouldShow(_ target: Window) -> Bool
 {
-    if !target.is_eligible { return false }
+    if !target.isEligible { return false }
     guard let app = target.application, !app.isHidden else { return false }
     if target.isMinimized { return false }
     if target.isFullscreen { return false }

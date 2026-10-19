@@ -235,7 +235,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     info.app              = application.name
     info.scratchpad       = window.scratchpad ?? ""
     info.frame            = window.frame
-    info.isRoot           = window.is_root
+    info.isRoot           = window.isRoot
     info.hasFocus         = wid == wm.focused_window_id
     info.hasAXReference   = true
     info.isFullscreen     = window.isFullscreen

@@ -72,7 +72,7 @@ extension WindowManager
 
         if target.isWindowed {
             target.isWindowed = false
-            let frame = target.windowed_frame
+            let frame = target.windowedFrame
             window_manager_animate_window(window_capture(
                 window: target,
                 x: Float(frame.origin.x),
@@ -82,7 +82,7 @@ extension WindowManager
             ))
         } else {
             target.isWindowed = true
-            target.windowed_frame = target.frame
+            target.windowedFrame = target.frame
             let bounds = display_bounds_constrained(displayID, true)
             window_manager_animate_window(window_capture(
                 window: target,

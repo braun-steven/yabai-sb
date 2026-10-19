@@ -22,7 +22,7 @@ extension WindowManager
         let windowTitle = target.cachedTitle
         let windowRole = target.roleString
         let windowSubrole = target.subroleString
-        debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.is_root ? 1 : 0))\n")
+        debug("window_manager_create_and_add_window:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))\n")
 
         if target.isUnknown {
             debug("window_manager_create_and_add_window: ignoring AXUnknown window \(owner.name) \(target.id)\n")
@@ -48,14 +48,14 @@ extension WindowManager
         addWindow(target)
 
         // NOTE: Only root windows are eligible for management.
-        if target.is_root {
+        if target.isRoot {
             // NOTE: Many windows misreport their accessibility role, so rules let users mark these windows
             // for management. Apply this rule before other rule properties. Without a matching rule, ignore
             // windows whose role is not kAXWindowRole.
             applyManageRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
 
             if target.isEligibleForManagement {
-                target.is_eligible = true
+                target.isEligible = true
                 applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: includingOneShotRules)
                 purifyWindow(target)
                 setWindowOpacity(target, to: normal_window_opacity)

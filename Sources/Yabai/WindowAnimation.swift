@@ -314,10 +314,10 @@ func window_frame_needs_update(_ request: CGRect, _ hasBounds: Bool, _ bounds: C
 
 private func windowManagerWindowFrameNeedsUpdate(_ target: Window, _ x: Float, _ y: Float, _ w: Float, _ h: Float) -> Bool
 {
-    if !window_frame_is_close(target.frame_request, x, y, w, h) { return true }
+    if !window_frame_is_close(target.frameRequest, x, y, w, h) { return true }
     var bounds = CGRect.zero
     let hasBounds = SLSGetWindowBounds(connection_global(), target.id.rawValue, &bounds) == .success
-    return window_frame_needs_update(target.frame_request, hasBounds, bounds, x, y, w, h)
+    return window_frame_needs_update(target.frameRequest, hasBounds, bounds, x, y, w, h)
 }
 
 func window_manager_animate_window_list(_ list: [window_capture])
@@ -366,7 +366,7 @@ private func windowManagerSetWindowFrameAX(_ ref: AXUIElement, _ position: CGPoi
 
 func window_manager_set_window_frame(_ target: Window, _ x: Float, _ y: Float, _ width: Float, _ height: Float)
 {
-    target.frame_request = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
+    target.frameRequest = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
     axEnhancedUIWorkaround(target.application.ref) {
         windowManagerSetWindowFrameAX(target.ref,
                                      CGPoint(x: CGFloat(x), y: CGFloat(y)), CGSize(width: CGFloat(width), height: CGFloat(height)))
@@ -450,7 +450,7 @@ func window_manager_set_window_frames(_ list: [window_capture])
 {
     if list.isEmpty { return }
     for capture in list {
-        capture.window.frame_request = CGRect(x: CGFloat(capture.x), y: CGFloat(capture.y),
+        capture.window.frameRequest = CGRect(x: CGFloat(capture.x), y: CGFloat(capture.y),
                                                      width: CGFloat(capture.w), height: CGFloat(capture.h))
     }
     let groups = window_manager_group_window_frames(list)

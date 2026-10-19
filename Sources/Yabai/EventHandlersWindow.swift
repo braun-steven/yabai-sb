@@ -64,7 +64,7 @@ import YabaiCore
     if ms.window == window { ms.window = nil }
     if ms.ffm_window_id == window.id { ms.ffm_window_id = nil }
 
-    if window.is_eligible {
+    if window.isEligible {
         eventSignalPush(.windowDestroyed, signalObject(window))
     }
 
@@ -160,7 +160,7 @@ import YabaiCore
 
     debug("EVENT_HANDLER_WINDOW_MOVED: \(window.application.name) \(window.id)\n")
     eventSignalPush(.windowMoved, signalObject(window))
-    let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
+    let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame.origin = newOrigin
 
     if !windowedFullscreen {
@@ -210,7 +210,7 @@ import YabaiCore
         window.refreshAXProperties()
     }
 
-    let windowedFullscreen = window.windowed_frame.equalTo(window.frame)
+    let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame = newFrame
 
     if wasFullscreen != isFullscreen { border_refresh_window_space(window) }

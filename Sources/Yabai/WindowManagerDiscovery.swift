@@ -84,7 +84,7 @@ func window_manager_create_and_add_window(_ sm: SpaceManager, _ wm: WindowManage
 
         wm.applyManageRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: oneShotRules)
 
-        if window_manager_is_window_eligible(target) {
+        if target.isEligibleForManagement {
             target.is_eligible = true
             wm.applyRules(to: target, title: windowTitle, role: windowRole, subrole: windowSubrole, includingOneShotRules: oneShotRules)
             window_manager_purify_window(wm, target)
@@ -258,7 +258,7 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
 
             if !unresolved.isEmpty {
                 debug("window_manager_add_existing_application_windows: workaround failed to resolve all windows for \(owner.name)\n")
-                window_manager_add_application_refresh(wm, owner)
+                wm.addApplicationToRefresh(owner)
             } else {
                 debug("window_manager_add_existing_application_windows: workaround resolved all windows for \(owner.name)\n")
             }
@@ -270,6 +270,6 @@ func window_manager_add_existing_application_windows(_ sm: SpaceManager, _ wm: W
     guard resolved, let refreshIndex else { return false }
 
     debug("window_manager_add_existing_application_windows: all windows for \(owner.name) are now resolved\n")
-    window_manager_remove_application_refresh(wm, refreshIndex)
+    wm.removeApplicationRefresh(at: refreshIndex)
     return true
 }

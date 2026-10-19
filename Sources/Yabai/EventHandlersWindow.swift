@@ -30,11 +30,11 @@ import YabaiCore
 
     wm.removeOneShotRules()
 
-    if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-        if let sid = window_manager_origin_space(wm, window) { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
+    if window.shouldBeManaged && wm.managedView(for: window) == nil {
+        if let sid = window_manager_origin_space(wm, window) { wm.manageWindow(window, on: sid, inserting: nil) }
     }
 
-    if window_manager_is_window_eligible(window) {
+    if window.isEligibleForManagement {
         eventSignalPush(.windowCreated, signalObject(window))
     }
 
@@ -54,10 +54,10 @@ import YabaiCore
 
     debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
 
-    if let view = window_manager_find_managed_window(wm, window) {
+    if let view = wm.managedView(for: window) {
         let nextFocus = wm.treeFocusCandidate(in: view, for: window)
         space_manager_untile_window(view, window)
-        window_manager_remove_managed_window(wm, window.id)
+        wm.removeManagedWindow(window.id)
         wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
 
@@ -167,7 +167,7 @@ import YabaiCore
         window.isWindowed = false
 
         if ms.window == nil || ms.window != window {
-            if let view = window_manager_find_managed_window(wm, window), view.needsFlush(windowID: window.id, frame: window.frame) {
+            if let view = wm.managedView(for: window), view.needsFlush(windowID: window.id, frame: window.frame) {
                 view.flush()
             }
         }
@@ -216,14 +216,14 @@ import YabaiCore
     if wasFullscreen != isFullscreen { border_refresh_window_space(window) }
 
     if !wasFullscreen && isFullscreen {
-        if let view = window_manager_find_managed_window(wm, window) {
-            window_manager_unmanage_window(wm, view, window)
+        if let view = wm.managedView(for: window) {
+            wm.unmanageWindow(window, from: view)
         }
     } else if wasFullscreen && !isFullscreen {
         window_manager_wait_for_native_fullscreen_transition()
 
-        if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
-            if let sid = window.id.space { window_manager_manage_window(space_manager_global(), wm, window, sid, nil) }
+        if window.shouldBeManaged && wm.managedView(for: window) == nil {
+            if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }
         }
     } else {
         if ms.current_action == .move && ms.window == window {
@@ -234,7 +234,7 @@ import YabaiCore
             window.isWindowed = false
 
             if ms.window == nil || ms.window != window {
-                if let view = window_manager_find_managed_window(wm, window), view.needsFlush(windowID: window.id, frame: newFrame) {
+                if let view = wm.managedView(for: window), view.needsFlush(windowID: window.id, frame: newFrame) {
                     view.flush()
                 }
             }
@@ -257,7 +257,7 @@ import YabaiCore
 
     window.refreshAXProperties()
 
-    let view = window_manager_find_managed_window(wm, window)
+    let view = wm.managedView(for: window)
     let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
 
     if window.id == wm.last_window_id {
@@ -265,7 +265,7 @@ import YabaiCore
     }
 
     if let view {
-        window_manager_unmanage_window(wm, view, window)
+        wm.unmanageWindow(window, from: view)
         wm.treeFocusAfterClose(in: view, windowID: nextFocus)
     }
 
@@ -291,10 +291,10 @@ import YabaiCore
     let sid = space_manager_active_space()
     if let sid, space_manager_is_window_on_space(sid, window) {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
-        if window_manager_should_manage_window(window) && window_manager_find_managed_window(wm, window) == nil {
+        if window.shouldBeManaged && wm.managedView(for: window) == nil {
             let lastWindow = wm.last_window_id.flatMap { window_manager_find_window(wm, $0) }
             let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
-            window_manager_manage_window(space_manager_global(), wm, window, sid, insertionPoint)
+            wm.manageWindow(window, on: sid, inserting: insertionPoint)
         }
     } else {
         debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on inactive space\n")

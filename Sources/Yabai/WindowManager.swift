@@ -6,9 +6,8 @@ import AppKit
 import YabaiCore
 
 //
-// NOTE: The windows of yabai: the tables of applications, windows and managed windows, the commands on windows (move,
-// resize, layout, opacity, layer, shadow, fullscreen, minimize, close, send to a space) and the checks of the windows on
-// a space after Mission Control and display changes. Ported from src/window_manager.c.
+// NOTE: WindowManager owns the application, window and managed-window tables, window command state, and reconciliation
+// after Mission Control and display changes.
 //
 
 /// The outcome of a window command: success, or why it failed (`Response.failUnmanagedWindow` words the failures of
@@ -167,53 +166,6 @@ extension WindowManager
     static var shared: WindowManager { g_window_manager }
 }
 
-//
-// NOTE: The lists of the window manager that were sbuffers (applications_to_refresh, rules, scratchpad_window). Their
-// removal moves the last element into the hole, as buf_del did.
-//
-
-func window_manager_application_refresh_index(_ wm: WindowManager, _ owner: Application) -> Int?
-{
-    return wm.applications_to_refresh.firstIndex(of: owner)
-}
-
-func window_manager_remove_application_refresh(_ wm: WindowManager, _ index: Int)
-{
-    wm.applications_to_refresh.swapAt(index, wm.applications_to_refresh.count - 1)
-    wm.applications_to_refresh.removeLast()
-}
-
-func window_manager_application_refresh_count(_ wm: WindowManager) -> Int
-{
-    return wm.applications_to_refresh.count
-}
-
-func window_manager_application_refresh_at(_ wm: WindowManager, _ index: Int) -> Application
-{
-    return wm.applications_to_refresh[index]
-}
-
-func window_manager_add_application_refresh(_ wm: WindowManager, _ owner: Application)
-{
-    wm.applications_to_refresh.append(owner)
-}
-
-func window_manager_scratchpad_count(_ wm: WindowManager) -> Int
-{
-    return wm.scratchpad_window.count
-}
-
-func window_manager_add_scratchpad(_ wm: WindowManager, _ label: String, _ target: Window)
-{
-    wm.scratchpad_window.append(Scratchpad(label: label, window: target))
-}
-
-func window_manager_remove_scratchpad(_ wm: WindowManager, _ index: Int)
-{
-    wm.scratchpad_window.swapAt(index, wm.scratchpad_window.count - 1)
-    wm.scratchpad_window.removeLast()
-}
-
 // MOUSE_EVENT_MASK (mouse_handler.h, which Swift does not import: the macro is built from other macros)
 let mouseEventMask: UInt32 =
     (1 << CGEventType.leftMouseDown.rawValue) |
@@ -225,7 +177,7 @@ let mouseEventMask: UInt32 =
     (1 << DockSwipe.eventType)
 
 // MOUSE_EVENT_MASK_FFM
-private let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
+let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
 
 // kAXEnhancedUserInterface (helpers.h; a static global there, which Swift cannot reach)
 private let axEnhancedUserInterface = "AXEnhancedUserInterface"
@@ -248,128 +200,6 @@ func axEnhancedUIWorkaround(_ ref: AXUIElement, _ body: () -> Void)
     if eui { AXUIElementSetAttributeValue(ref, axEnhancedUserInterface as CFString, kCFBooleanTrue) }
 }
 
-/// `window_manager_is_window_eligible`
-func window_manager_is_window_eligible(_ target: Window) -> Bool
-{
-    return target.is_root && (target.isReal || target.isManagedByRule)
-}
-
-/// `window_manager_set_focus_follows_mouse`
-func window_manager_set_focus_follows_mouse(_ wm: WindowManager, _ mode: FocusFollowsMouse)
-{
-    mouse_handler_end(mouse_state_global())
-
-    if mode == .disabled {
-        mouse_handler_begin(mouse_state_global(), mouseEventMask)
-    } else {
-        mouse_handler_begin(mouse_state_global(), mouseEventMaskFFM)
-    }
-
-    wm.ffm_mode = mode
-}
-
-/// `window_manager_set_window_opacity_enabled`
-func window_manager_set_window_opacity_enabled(_ wm: WindowManager, _ enabled: Bool)
-{
-    wm.enable_window_opacity = enabled
-    for target in wm.window.values where window_manager_is_window_eligible(target) {
-        window_manager_set_opacity(wm, target, enabled ? target.opacity : 1.0)
-    }
-}
-
-/// `window_manager_center_mouse`
-func window_manager_center_mouse(_ wm: WindowManager, _ target: Window)
-{
-    if !(target.mouseFollowsFocusByRule ?? wm.enable_mff) { return }
-
-    let cursor = SLS.cursorLocation(connection_global())
-    if target.frame.contains(cursor) { return }
-
-    guard let did = target.id.displayID else { return }
-
-    let center = CGPoint(x: target.frame.origin.x + target.frame.size.width / 2,
-                         y: target.frame.origin.y + target.frame.size.height / 2)
-
-    let bounds = CGDisplayBounds(did.rawValue)
-    if !bounds.contains(center) { return }
-
-    CGWarpMouseCursorPosition(center)
-}
-
-/// `window_manager_should_manage_window`
-func window_manager_should_manage_window(_ target: Window) -> Bool
-{
-    if !target.is_root                          { return false }
-    if target.isFloating                        { return false }
-    if target.id.isSticky                        { return false }
-    if target.isMinimized                       { return false }
-    if target.application.isHidden     { return false }
-
-    return (target.isStandard && target.isStandardLevel && target.canMove) || target.isManagedByRule
-}
-
-/// `window_manager_find_managed_window`: the view that manages the window, or nil.
-func window_manager_find_managed_window(_ wm: WindowManager, _ target: Window) -> View?
-{
-    return wm.managed_window[target.id]
-}
-
-/// `window_manager_remove_managed_window`
-func window_manager_remove_managed_window(_ wm: WindowManager, _ wid: WindowID)
-{
-    wm.managed_window.removeValue(forKey: wid)
-}
-
-/// `window_manager_add_managed_window`
-func window_manager_add_managed_window(_ wm: WindowManager, _ target: Window, _ owner: View)
-{
-    if owner.layout == .float { return }
-
-    if wm.managed_window[target.id] == nil { wm.managed_window[target.id] = owner }
-    window_manager_purify_window(wm, target)
-}
-
-//
-// NOTE: Operations on spaces with the 'tree' layout. They act on the container selected with
-// 'window --focus parent' when there is one, and on the window otherwise.
-//
-
-//
-// NOTE: Takes a window out of the tree of its view and gives it the shadow and layer of an unmanaged window.
-//
-
-/// `window_manager_unmanage_window`
-func window_manager_unmanage_window(_ wm: WindowManager, _ owner: View, _ target: Window)
-{
-    space_manager_untile_window(owner, target)
-    window_manager_remove_managed_window(wm, target.id)
-    window_manager_purify_window(wm, target)
-}
-
-/// `window_manager_manage_window`
-func window_manager_manage_window(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ sid: SpaceID, _ insertionPoint: WindowID?)
-{
-    let owner = space_manager_tile_window_on_space_with_insertion_point(sm, target, sid, insertionPoint)
-    window_manager_add_managed_window(wm, target, owner)
-}
-
-/// `window_manager_find_tree_view`: the view of the window when it is managed on a space with a tree.
-func window_manager_find_tree_view(_ wm: WindowManager, _ target: Window?) -> View?
-{
-    guard let target, let owner = window_manager_find_managed_window(wm, target) else { return nil }
-    return owner.tree != nil ? owner : nil
-}
-
-/// `window_manager_focus_window_id`
-func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
-{
-    guard let windowID else { return }
-    if let target = window_manager_find_window(wm, windowID) {
-        window_manager_focus_window_with_raise(&target.application.psn, target.id, target.ref)
-        window_manager_set_pending_focus(wm, target.id)
-    }
-}
-
 //
 // NOTE: The ratio of a window on a tree space is its share of its container. The space is taken from
 // or given to the next container, or the previous one for the last container.
@@ -378,7 +208,7 @@ func windowManagerFocusWindowID(_ wm: WindowManager, _ windowID: WindowID?)
 /// `window_manager_adjust_window_ratio`
 func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ ratio: Float) -> WindowOperationResult
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let owner = wm.treeView(for: target) else { return .invalidSourceView }
 
     //
     // NOTE: Tabs share the area of their container, so the ratio of a tab is the one of its tabbed
@@ -408,7 +238,7 @@ func window_manager_adjust_window_ratio(_ wm: WindowManager, _ target: Window, _
 /// `window_manager_move_window_relative`
 func window_manager_move_window_relative(_ wm: WindowManager, _ target: Window, _ type: ValueType?,_ dx: Float, _ dy: Float) -> WindowOperationResult
 {
-    if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
+    if wm.managedView(for: target) != nil { return .invalidSourceView }
 
     var dx = dx
     var dy = dy
@@ -446,7 +276,7 @@ func window_manager_resize_window_relative_internal(_ target: Window, _ frame: C
 /// `window_manager_resize_window_relative`
 func window_manager_resize_window_relative(_ wm: WindowManager, _ target: Window, _ direction: ResizeHandle, _ dx: Float, _ dy: Float, _ animate: Bool) -> WindowOperationResult
 {
-    if let owner = window_manager_find_managed_window(wm, target) {
+    if let owner = wm.managedView(for: target) {
         if direction == .abs || owner.tree == nil { return .invalidOperation }
 
         guard let node = wm.treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
@@ -501,7 +331,7 @@ func window_manager_resize_window(_ target: Window, _ width: Float, _ height: Fl
 func window_manager_set_purify_mode(_ wm: WindowManager, _ mode: PurifyMode)
 {
     wm.purify_mode = mode
-    for target in wm.window.values where window_manager_is_window_eligible(target) {
+    for target in wm.window.values where target.isEligibleForManagement {
         window_manager_purify_window(wm, target)
     }
 }
@@ -527,7 +357,7 @@ func window_manager_set_opacity(_ wm: WindowManager, _ target: Window, _ opacity
 func window_manager_set_window_opacity(_ wm: WindowManager, _ target: Window, _ opacity: Float)
 {
     if !wm.enable_window_opacity              { return }
-    if !window_manager_is_window_eligible(target)     { return }
+    if !target.isEligibleForManagement { return }
     if target.opacity != 0.0                  { return }
 
     window_manager_set_opacity(wm, target, opacity)
@@ -553,7 +383,7 @@ func window_manager_set_normal_window_opacity(_ wm: WindowManager, _ opacity: Fl
     wm.normal_window_opacity = opacity
     for target in wm.window.values {
         if target.id == wm.focused_window_id { continue }
-        if window_manager_is_window_eligible(target) {
+        if target.isEligibleForManagement {
             window_manager_set_window_opacity(wm, target, wm.normal_window_opacity)
         }
     }
@@ -606,7 +436,7 @@ func window_manager_set_window_layer(_ target: Window, _ layer: WindowLayer) -> 
 
     if layer == .auto {
         let wm = window_manager_global()
-        let below = window_manager_find_managed_window(wm, target) != nil || (wm.scratchpad_below && target.scratchpad != nil)
+        let below = wm.managedView(for: target) != nil || (wm.scratchpad_below && target.scratchpad != nil)
         parentLayer = below ? .below : .normal
         childLayer = .normal
     }
@@ -639,7 +469,7 @@ func window_manager_purify_window(_ wm: WindowManager, _ target: Window)
 
     switch wm.purify_mode {
     case .disabled: value = true
-    case .managed:  value = window_manager_find_managed_window(wm, target) == nil
+    case .managed:  value = wm.managedView(for: target) == nil
     case .always:   value = false
     }
 
@@ -770,13 +600,13 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 {
     if a.id == b.id { return .sameWindow }
 
-    guard let aView = window_manager_find_tree_view(wm, a) else { return .invalidSourceNode }
+    guard let aView = wm.treeView(for: a) else { return .invalidSourceNode }
     if aView.tree?.find(a.id) == nil { return .invalidSourceNode }
 
-    if let bView = window_manager_find_managed_window(wm, b) {
-        window_manager_unmanage_window(wm, bView, b)
+    if let bView = wm.managedView(for: b) {
+        wm.unmanageWindow(b, from: bView)
     } else if b.isFloating {
-        if !window_manager_is_window_eligible(b) { return .invalidDestinationNode }
+        if !b.isEligibleForManagement { return .invalidDestinationNode }
         b.isFloating = false
         if b.isSticky { window_manager_make_window_sticky(sm, wm, b, false) }
     }
@@ -791,7 +621,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
     let node = Con(windowID: b.id)
     aCon.insert(node, toward: .stack)
 
-    window_manager_add_managed_window(wm, b, aView)
+    wm.addManagedWindow(b, to: aView)
     window_manager_adjust_layer(b, .below)
     wm.treeApply(aView)
 
@@ -801,7 +631,7 @@ func window_manager_stack_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: W
 /// `window_manager_set_window_layout`
 func window_manager_set_window_layout(_ wm: WindowManager, _ target: Window?, _ layout: WindowLayout) -> WindowOperationResult
 {
-    guard let target, let owner = window_manager_find_tree_view(wm, target) else { return .invalidSourceView }
+    guard let target, let owner = wm.treeView(for: target) else { return .invalidSourceView }
     guard let node = wm.treeActingCon(in: owner, for: target) else { return .invalidSourceNode }
 
     let parent = node.parent ?? node
@@ -829,8 +659,8 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
 {
     if a.id == b.id { return .sameWindow }
 
-    let aView = window_manager_find_tree_view(wm, a)
-    let bView = window_manager_find_tree_view(wm, b)
+    let aView = wm.treeView(for: a)
+    let bView = wm.treeView(for: b)
     guard let aView else { return .invalidSourceView }
     guard let bView else { return .invalidDestinationView }
 
@@ -845,8 +675,8 @@ func window_manager_warp_window(_ sm: SpaceManager, _ wm: WindowManager, _ a: Wi
         wm.treeApply(aView)
     } else {
         space_manager_untile_window(aView, a)
-        window_manager_remove_managed_window(wm, a.id)
-        window_manager_add_managed_window(wm, a, bView)
+        wm.removeManagedWindow(a.id)
+        wm.addManagedWindow(a, to: bView)
         space_manager_move_window_to_space(bView.sid, a)
         _ = space_manager_wait_for_window_on_space(a.id, bView.sid, 200)
         _ = space_manager_tile_window_on_space_with_insertion_point(sm, a, bView.sid, b.id)
@@ -860,8 +690,8 @@ func window_manager_swap_window(_ wm: WindowManager, _ a: Window, _ b: Window) -
 {
     if a.id == b.id { return .sameWindow }
 
-    let aView = window_manager_find_tree_view(wm, a)
-    let bView = window_manager_find_tree_view(wm, b)
+    let aView = wm.treeView(for: a)
+    let bView = wm.treeView(for: b)
     guard let aView else { return .invalidSourceView }
     guard let bView else { return .invalidDestinationView }
 
@@ -928,16 +758,16 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
         }
     }
 
-    if let owner = window_manager_find_managed_window(wm, target) {
-        window_manager_unmanage_window(wm, owner, target)
+    if let owner = wm.managedView(for: target) {
+        wm.unmanageWindow(target, from: owner)
     }
 
     space_manager_move_window_to_space(dstSid, target)
     _ = space_manager_wait_for_window_on_space(target.id, dstSid, 200)
     SLSSpaceSetFrontPSN(connection_global(), dstSid.rawValue, target.application.psn)
 
-    if window_manager_should_manage_window(target) {
-        window_manager_manage_window(sm, wm, target, dstSid, nil)
+    if target.shouldBeManaged {
+        wm.manageWindow(target, on: dstSid, inserting: nil)
     }
 
     border_refresh_space(srcSid)
@@ -949,7 +779,7 @@ func window_manager_send_window_to_space(_ sm: SpaceManager, _ wm: WindowManager
 func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ grid: Grid) -> WindowOperationResult
 {
     let r = grid.rows, c = grid.columns
-    if window_manager_find_managed_window(wm, target) != nil { return .invalidSourceView }
+    if wm.managedView(for: target) != nil { return .invalidSourceView }
 
     guard let did = target.id.displayID else { return .invalidSourceView }
 
@@ -1008,7 +838,7 @@ func window_manager_apply_grid(_ sm: SpaceManager, _ wm: WindowManager, _ target
 /// `window_manager_make_window_floating`
 func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ shouldFloat: Bool, _ force: Bool)
 {
-    if !window_manager_is_window_eligible(target) { return }
+    if !target.isEligibleForManagement { return }
 
     if !force {
         if !target.isStandard || !target.isStandardLevel || !target.canMove {
@@ -1019,16 +849,16 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
     }
 
     if shouldFloat {
-        if let owner = window_manager_find_managed_window(wm, target) {
-            window_manager_unmanage_window(wm, owner, target)
+        if let owner = wm.managedView(for: target) {
+            wm.unmanageWindow(target, from: owner)
         }
         target.isFloating = true
     } else {
         target.isFloating = false
 
         if !target.isSticky {
-            if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
-                if let sid = space_manager_active_space() { window_manager_manage_window(sm, wm, target, sid, nil) }
+            if target.shouldBeManaged && wm.managedView(for: target) == nil {
+                if let sid = space_manager_active_space() { wm.manageWindow(target, on: sid, inserting: nil) }
             }
         }
     }
@@ -1037,12 +867,12 @@ func window_manager_make_window_floating(_ sm: SpaceManager, _ wm: WindowManager
 /// `window_manager_make_window_sticky`
 func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, _ target: Window, _ shouldSticky: Bool)
 {
-    if !window_manager_is_window_eligible(target) { return }
+    if !target.isEligibleForManagement { return }
 
     if shouldSticky {
         if scripting_addition_set_sticky(target.id, true) {
-            if let owner = window_manager_find_managed_window(wm, target) {
-                window_manager_unmanage_window(wm, owner, target)
+            if let owner = wm.managedView(for: target) {
+                wm.unmanageWindow(target, from: owner)
             }
             target.isSticky = true
         }
@@ -1051,8 +881,8 @@ func window_manager_make_window_sticky(_ sm: SpaceManager, _ wm: WindowManager, 
             target.isSticky = false
 
             if !target.isFloating {
-                if window_manager_should_manage_window(target) && window_manager_find_managed_window(wm, target) == nil {
-                    if let sid = space_manager_active_space() { window_manager_manage_window(sm, wm, target, sid, nil) }
+                if target.shouldBeManaged && wm.managedView(for: target) == nil {
+                    if let sid = space_manager_active_space() { wm.manageWindow(target, on: sid, inserting: nil) }
                 }
             }
         }
@@ -1125,7 +955,7 @@ func window_manager_toggle_window_native_fullscreen(_ target: Window)
 /// `window_manager_toggle_window_zoom`
 private func windowManagerToggleWindowZoom(_ wm: WindowManager, _ target: Window, _ zoom: ConZoom)
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return }
+    guard let owner = wm.treeView(for: target) else { return }
 
     guard let node = owner.tree?.find(target.id), node != owner.tree else { return }
 
@@ -1216,7 +1046,7 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
 
         owner.remove(target)
         window_manager_adjust_layer(target, .normal)
-        window_manager_remove_managed_window(wm, target.id)
+        wm.removeManagedWindow(target.id)
         window_manager_purify_window(wm, target)
 
         owner.isDirty = true
@@ -1227,9 +1057,9 @@ private func windowManagerValidateWindowsOnSpace(_ wm: WindowManager, _ owner: V
 private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: View, _ windowList: [WindowID])
 {
     for windowID in windowList {
-        guard let target = window_manager_find_window(wm, windowID), window_manager_should_manage_window(target) else { continue }
+        guard let target = window_manager_find_window(wm, windowID), target.shouldBeManaged else { continue }
 
-        let existingView = window_manager_find_managed_window(wm, target)
+        let existingView = wm.managedView(for: target)
         if let existingView, existingView.layout != .float, existingView != owner {
 
             //
@@ -1244,7 +1074,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 
             existingView.remove(target)
             window_manager_adjust_layer(target, .normal)
-            window_manager_remove_managed_window(wm, target.id)
+            wm.removeManagedWindow(target.id)
             window_manager_purify_window(wm, target)
             existingView.isDirty = true
         }
@@ -1263,7 +1093,7 @@ private func windowManagerCheckForWindowsOnSpace(_ wm: WindowManager, _ owner: V
 
             owner.add(target, insertionPoint: nil)
             window_manager_adjust_layer(target, .below)
-            window_manager_add_managed_window(wm, target, owner)
+            wm.addManagedWindow(target, to: owner)
             owner.isDirty = true
         }
     }

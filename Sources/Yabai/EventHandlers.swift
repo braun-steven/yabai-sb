@@ -108,13 +108,13 @@ func update_window_notifications()
 {
     window_manager_adjust_layer(window, .below)
     view.add(window, insertionPoint: insertionPoint)
-    window_manager_add_managed_window(window_manager_global(), window, view)
+    WindowManager.shared.addManagedWindow(window, to: view)
 }
 
 @WM private func untileWindowBatched(_ view: View, _ window: Window)
 {
     view.remove(window)
-    window_manager_remove_managed_window(window_manager_global(), window.id)
+    WindowManager.shared.removeManagedWindow(window.id)
 }
 
 @WM private func flushDirtyViews(_ viewList: [View])
@@ -140,8 +140,8 @@ func update_window_notifications()
     var viewList: [View] = []
 
     for window in windows {
-        if !window_manager_should_manage_window(window)            { continue }
-        if window_manager_find_managed_window(wm, window) != nil { continue }
+        if !window.shouldBeManaged { continue }
+        if wm.managedView(for: window) != nil { continue }
 
         guard let sid = newWindows ? window_manager_origin_space(wm, window) : window.id.space else { continue }
         let view = space_manager_find_view(space_manager_global(), sid)
@@ -167,7 +167,7 @@ func update_window_notifications()
 
     if wm.focused_window_id != window.id {
         if ms.ffm_window_id != window.id {
-            window_manager_center_mouse(wm, window)
+            wm.centerMouse(on: window)
         }
 
         wm.last_window_id = wm.focused_window_id
@@ -185,7 +185,7 @@ func update_window_notifications()
 
     if wm.pending_focus_window_id == window.id { wm.pending_focus_window_id = nil }
 
-    if let view = window_manager_find_managed_window(window_manager_global(), window), view.layout == .tree {
+    if let view = WindowManager.shared.managedView(for: window), view.layout == .tree {
         view.focusWindow(window.id)
     }
 
@@ -322,7 +322,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     update_window_notifications()
     tileWindowsBatched(windows, wm.focused_window_id, true)
 
-    for window in windows where window_manager_is_window_eligible(window) {
+    for window in windows where window.isEligibleForManagement {
         eventSignalPush(.windowCreated, signalObject(window))
     }
 }
@@ -344,8 +344,8 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     eventSignalPush(.applicationTerminated, signalObject(application))
     window_manager_remove_application(wm, application.pid)
 
-    let refreshIndex = window_manager_application_refresh_index(wm, application)
-    if let refreshIndex { window_manager_remove_application_refresh(wm, refreshIndex) }
+    let refreshIndex = wm.applicationRefreshIndex(of: application)
+    if let refreshIndex { wm.removeApplicationRefresh(at: refreshIndex) }
 
     let windows = window_manager_find_application_windows(wm, application)
     var viewList: [View] = []
@@ -356,7 +356,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
             continue
         }
 
-        if let view = window_manager_find_managed_window(wm, window) {
+        if let view = wm.managedView(for: window) {
             untileWindowBatched(view, window)
             viewList.append(view)
         }
@@ -475,7 +475,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     pm.front_pid = process.pid
     eventSignalPush(.applicationFrontSwitched, nil)
 
-    let refreshIndex = window_manager_application_refresh_index(wm, application)
+    let refreshIndex = wm.applicationRefreshIndex(of: application)
     if let refreshIndex {
         debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(application.name) has windows that are not yet resolved\n")
         _ = window_manager_add_existing_application_windows(space_manager_global(), wm, application, refreshIndex)
@@ -529,7 +529,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
     var viewList: [View] = []
 
     for window in windows {
-        if let view = window_manager_find_managed_window(wm, window) {
+        if let view = wm.managedView(for: window) {
             window_manager_adjust_layer(window, .normal)
             untileWindowBatched(view, window)
             window_manager_purify_window(wm, window)

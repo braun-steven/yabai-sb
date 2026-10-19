@@ -422,7 +422,7 @@ private func borderSpaceWindowCount(_ sid: SpaceID?) -> Int
     }
     for target in window_manager_global().window.values {
         if target.scratchpad != nil || !borderShouldShow(target) { continue }
-        if window_manager_find_managed_window(window_manager_global(), target) != nil { continue }
+        if WindowManager.shared.managedView(for: target) != nil { continue }
         if target.id.space != sid { continue }
         if SLS.windowIsOrderedIn(connection_global(), target.id) { count += 1 }
     }
@@ -435,7 +435,7 @@ private func borderRefreshWithCount(_ target: Window?, _ sid: SpaceID?, _ window
 {
     guard let target, !target.isDestroyed else { return }
     let wm = window_manager_global()
-    let owner = window_manager_find_managed_window(wm, target)
+    let owner = wm.managedView(for: target)
     let border = owner?.borderArea(windowID: target.id) ?? (visible: true, window: Area.zero, border: Area.zero, radius: 0)
     let windowArea = border.window
     let borderArea = border.border

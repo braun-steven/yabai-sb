@@ -98,7 +98,7 @@ extension View
     private func unmanageWindows(in node: Con)
     {
         if node.isLeaf {
-            if let windowID = node.windowID { window_manager_remove_managed_window(WindowManager.shared, windowID) }
+            if let windowID = node.windowID { WindowManager.shared.removeManagedWindow(windowID) }
             return
         }
 

@@ -912,13 +912,13 @@ func space_manager_refresh_application_windows(_ sm: SpaceManager) -> Bool
 {
     let wm = window_manager_global()
 
-    var refreshCount = window_manager_application_refresh_count(wm)
+    var refreshCount = wm.applicationRefreshCount
     if refreshCount == 0 { return false }
 
     let windowCount = wm.window.count
     var i = 0
     while i < refreshCount {
-        let application = window_manager_application_refresh_at(wm, i)
+        let application = wm.applicationRefresh(at: i)
         debug("space_manager_refresh_application_windows: \(application.name) has windows that are not yet resolved\n")
 
         if window_manager_add_existing_application_windows(sm, wm, application, i) {

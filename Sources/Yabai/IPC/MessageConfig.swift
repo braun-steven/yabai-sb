@@ -525,9 +525,9 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         if !value.isValid {
             rsp.write("\(wm.ffm_mode.rawValue)\n")
         } else if value.equals(Argument.off) {
-            window_manager_set_focus_follows_mouse(wm, .disabled)
+            wm.setFocusFollowsMouse(.disabled)
         } else if let mode = [FocusFollowsMouse.autofocus, .autoraise].first(where: { value.equals($0.rawValue) }) {
-            window_manager_set_focus_follows_mouse(wm, mode)
+            wm.setFocusFollowsMouse(mode)
         } else {
             rsp.failUnknownValue(domain, command, value)
         }
@@ -555,7 +555,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
         if !configSpaceLayout(&rsp, domain, command, &message, selSid) { return false }
     } else if command.equals(Config.opacity) {
         var enabled = wm.enable_window_opacity
-        if parseConfigBool(&rsp, domain, command, &message, &enabled) { window_manager_set_window_opacity_enabled(wm, enabled) }
+        if parseConfigBool(&rsp, domain, command, &message, &enabled) { wm.setWindowOpacityEnabled(enabled) }
     } else if command.equals(Config.opacityDuration) {
         let token = message.next()
         let value = token.value

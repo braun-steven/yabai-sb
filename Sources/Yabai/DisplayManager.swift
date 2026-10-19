@@ -381,7 +381,7 @@ func display_manager_focus_display(_ did: DisplayID, _ sid: SpaceID?)
 
     if let sid, let window = window_manager_find_window_on_space_by_rank_filtering_window(wm, sid, 1, nil) {
         window_manager_focus_window_with_raise(&window.application.psn, window.id, window.ref)
-        window_manager_center_mouse(wm, window)
+        wm.centerMouse(on: window)
         display_manager_set_active_display_id(did)
     } else {
         let point = display_center(did)

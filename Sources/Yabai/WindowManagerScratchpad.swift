@@ -120,7 +120,7 @@ func window_manager_set_scratchpad_for_window(_ wm: WindowManager, _ target: Win
     if windowManagerFindScratchpadWindow(wm, label) != nil { return false }
 
     _ = window_manager_remove_scratchpad_for_window(wm, target, false)
-    window_manager_add_scratchpad(wm, label, target)
+    wm.addScratchpad(label: label, window: target)
     target.scratchpad = label
     window_manager_make_window_floating(space_manager_global(), wm, target, true, false)
 
@@ -155,10 +155,10 @@ private func windowManagerReleaseScratchpadWindow(_ wm: WindowManager, _ target:
 @discardableResult
 func window_manager_remove_scratchpad_for_window(_ wm: WindowManager, _ target: Window, _ unfloat: Bool) -> Bool
 {
-    for i in 0..<window_manager_scratchpad_count(wm) where wm.scratchpad_window[Int(i)].window == target {
+    for i in 0..<wm.scratchpadCount where wm.scratchpad_window[i].window == target {
         target.scratchpad = nil
 
-        window_manager_remove_scratchpad(wm, i)
+        wm.removeScratchpad(at: i)
 
         if unfloat { windowManagerReleaseScratchpadWindow(wm, target) }
 

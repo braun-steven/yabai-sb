@@ -293,7 +293,7 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     guard let feedbackWid = ms.feedback_wid else { return }
     let wm = window_manager_global()
     let target = window_manager_find_window(wm, feedbackWid)
-    let targetView = target.flatMap { window_manager_find_managed_window(wm, $0) }
+    let targetView = target.flatMap { wm.managedView(for: $0) }
     if let container = mouseFindCon(targetView, target), container.insertDirection == nil { container.hideFeedback() }
     ms.feedback_wid = nil
     ms.feedback_dir = nil
@@ -319,8 +319,8 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
 @WM private func mouseDropNoTarget(_ sm: SpaceManager, _ wm: WindowManager, _ srcView: View, _ dstView: View, _ target: Window)
 {
     if srcView.sid == dstView.sid || dstView.layout == .float { srcView.flush(); return }
-    window_manager_unmanage_window(wm, srcView, target)
-    window_manager_manage_window(sm, wm, target, dstView.sid, nil)
+    wm.unmanageWindow(target, from: srcView)
+    wm.manageWindow(target, on: dstView.sid, inserting: nil)
 }
 
 //
@@ -355,8 +355,8 @@ private func mouseDropActionDirection(_ action: MouseDropAction) -> InsertDirect
     } else {
         dstCon.insertDirection = direction
         dstView.insertionPoint = dstWindow.id
-        window_manager_unmanage_window(wm, srcView, srcWindow)
-        window_manager_manage_window(sm!, wm, srcWindow, dstView.sid, nil)
+        wm.unmanageWindow(srcWindow, from: srcView)
+        wm.manageWindow(srcWindow, on: dstView.sid, inserting: nil)
     }
 }
 

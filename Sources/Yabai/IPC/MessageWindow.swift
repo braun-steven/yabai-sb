@@ -109,7 +109,7 @@ private func windowCommandLifecycle(_ rsp: inout Response, _ command: Token, _ m
     let context = CSelectorContext()
 
     if command.equals(WindowCommand.focus) {
-        let treeFocus = window_manager_find_tree_view(window_manager_global(), actingWindow) != nil ? parseTreeFocus(message.peek()) : nil
+        let treeFocus = WindowManager.shared.treeView(for: actingWindow) != nil ? parseTreeFocus(message.peek()) : nil
         if let treeFocus {
             _ = message.next()
 
@@ -216,7 +216,7 @@ private func windowCommandPlacement(_ rsp: inout Response, _ command: Token, _ m
             }
         }
     } else if command.equals(WindowCommand.warp) {
-        if window_manager_find_tree_view(wm, actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
+        if wm.treeView(for: actingWindow) != nil, case .direction(let direction) = parseTreeFocus(message.peek()) {
             _ = message.next()
 
             if wm.treeMove(direction: direction, for: actingWindow) != .success {

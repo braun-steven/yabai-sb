@@ -123,7 +123,7 @@ func mouseResizeDirection(_ frame: CGRect, _ point: CGPoint) -> ResizeHandle
     let point = event.location
     debug("EVENT_HANDLER_MOUSE_UP: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
 
-    guard let srcView = window_manager_find_managed_window(wm, window) else { return }
+    guard let srcView = wm.managedView(for: window) else { return }
 
     var info = MouseWindowChange()
     mouse_window_info_populate(ms, &info)
@@ -210,7 +210,7 @@ private let mouseResizeThrottleMs: Float = 67.67
         if !mouseDragResizeWindow(point) { return }
     }
 
-    if window_manager_find_managed_window(window_manager_global(), ms.window) == nil { return }
+    if WindowManager.shared.managedView(for: ms.window) == nil { return }
 
     var info = MouseWindowChange()
     mouse_window_info_populate(ms, &info)
@@ -289,7 +289,7 @@ private let mouseResizeThrottleMs: Float = 67.67
     let ms = mouse_state_global()
 
     if window.id == wm.focused_window_id { return }
-    if !window_manager_is_window_eligible(window)       { return }
+    if !window.isEligibleForManagement { return }
 
     if wm.ffm_mode == .autofocus {
         let target = ffmWindowToFocus(window)

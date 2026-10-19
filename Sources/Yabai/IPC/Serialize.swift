@@ -258,7 +258,7 @@ func windowInfo(for window: Window, _ flags: UInt64) -> WindowInfo
     }
 
     if wanted(flags, WindowProperty.splitType | WindowProperty.stackIndex | WindowProperty.hasParentZoom | WindowProperty.hasFullscreenZoom) {
-        let view = window_manager_find_managed_window(wm, window)
+        let view = wm.managedView(for: window)
         windowInfoSetTree(&info, view?.findWindow(wid))
     }
 

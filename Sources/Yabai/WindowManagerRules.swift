@@ -162,7 +162,7 @@ extension WindowManager
 
             applyManageRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
 
-            if window_manager_is_window_eligible(target) {
+            if target.isEligibleForManagement {
                 target.is_eligible = true
                 applyRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
             }
@@ -203,7 +203,7 @@ extension WindowManager
             if candidate.matches(app: target.application.name, title: target.cachedTitle, role: target.roleString, subrole: target.subroleString) {
                 applyManageRuleEffects(candidate.effects, to: target)
 
-                if window_manager_is_window_eligible(target) {
+                if target.isEligibleForManagement {
                     target.is_eligible = true
                     applyRuleEffects(candidate.effects, to: target)
                 }

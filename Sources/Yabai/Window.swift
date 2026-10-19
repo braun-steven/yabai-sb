@@ -174,6 +174,19 @@ final class Window
 
     var isStandardLevel: Bool { id.level == CGWindowLevelForKey(.normalWindow) }
 
+    var isEligibleForManagement: Bool { is_root && (isReal || isManagedByRule) }
+
+    var shouldBeManaged: Bool
+    {
+        if !is_root { return false }
+        if isFloating { return false }
+        if id.isSticky { return false }
+        if isMinimized { return false }
+        if application.isHidden { return false }
+
+        return (isStandard && isStandardLevel && canMove) || isManagedByRule
+    }
+
     var isUnknown: Bool
     {
         guard let subrole else { return false }

@@ -72,7 +72,7 @@ func window_manager_find_window_below_cursor(_ wm: WindowManager) -> Window?
 /// `window_manager_find_closest_managed_window_in_direction`
 func window_manager_find_closest_managed_window_in_direction(_ wm: WindowManager, _ target: Window, _ direction: Direction) -> Window?
 {
-    guard let owner = window_manager_find_tree_view(wm, target) else { return nil }
+    guard let owner = wm.treeView(for: target) else { return nil }
     guard let node = owner.tree?.find(target.id) else { return nil }
 
     guard let result = node.neighbor(direction, wrapping: .off, hasOutput: false).target else { return nil }
@@ -135,7 +135,7 @@ func window_manager_find_last_managed_window(_ sm: SpaceManager, _ wm: WindowMan
 func window_manager_find_recent_managed_window(_ wm: WindowManager) -> Window?
 {
     guard let lastWindowID = wm.last_window_id, let target = window_manager_find_window(wm, lastWindowID) else { return nil }
-    if window_manager_find_managed_window(wm, target) == nil { return nil }
+    if wm.managedView(for: target) == nil { return nil }
 
     return target
 }

@@ -50,44 +50,44 @@ private struct Snapshot: @unchecked Sendable
     // This side runs on the event loop: it takes a snapshot of a bar and hands it to the main queue.
     @WM init(_ bar: TabBar, _ aboveWid: WindowID, _ list: UnsafeMutablePointer<TabBarEntry>, _ count: Int)
     {
-        let wm = WindowManager.shared
+        let config = Config.current.tabBar
         frame = bar.frame
         card = bar.card
-        backdrop = wm.tabBarBackdrop
-        appearance = wm.tabBarAppearance
-        cardRadius = CGFloat(wm.tabBarWindowRadius) + (frame.minX - card.minX)
+        backdrop = config.backdrop
+        appearance = config.appearance
+        cardRadius = CGFloat(config.windowRadius) + (frame.minX - card.minX)
         sid = bar.sid
         self.aboveWid = aboveWid
         level = aboveWid.level
         subLevel = aboveWid.subLevel
-        font = wm.tabBarFont
-        let track = TabBarGlass.tint(wm.tabBarUnfocusedColor, custom: wm.tabBarUnfocusedColorIsCustom, alpha: 0.4)
+        font = WindowManager.shared.tabBarFont
+        let track = TabBarGlass.tint(config.unfocusedColor, custom: config.unfocusedColorIsCustom, alpha: 0.4)
         trackTint = track.cgColor
-        backdropTint = TabBarGlass.tint(wm.tabBarBackdropColor, custom: wm.tabBarBackdropColorIsCustom, alpha: 0.4).cgColor
+        backdropTint = TabBarGlass.tint(config.backdropColor, custom: config.backdropColorIsCustom, alpha: 0.4).cgColor
         var pill = track
         var customPill = false
         var focused = false
         var entries: [Entry] = []
         for i in 0..<count {
             let source = list[i]
-            let (background, text) = source.state.colors
-            let customText = source.state == .focused ? wm.tabBarFocusedTextColorIsCustom
-                           : source.state == .inactive ? wm.tabBarInactiveTextColorIsCustom
-                           : wm.tabBarUnfocusedTextColorIsCustom
+            let (background, text) = source.state.colors(in: config)
+            let customText = source.state == .focused ? config.focusedTextColorIsCustom
+                           : source.state == .inactive ? config.inactiveTextColorIsCustom
+                           : config.unfocusedTextColorIsCustom
             entries.append(Entry(windowID: source.focusWindowID, title: source.title, icon: source.icon, text: text.cgColor, active: source.state != .unfocused, customText: customText))
             if source.state == .focused {
-                pill = TabBarGlass.tint(background, custom: wm.tabBarFocusedColorIsCustom, alpha: 0.8)
-                customPill = wm.tabBarFocusedColorIsCustom
+                pill = TabBarGlass.tint(background, custom: config.focusedColorIsCustom, alpha: 0.8)
+                customPill = config.focusedColorIsCustom
                 focused = true
             } else if source.state == .inactive {
-                pill = TabBarGlass.tint(background, custom: wm.tabBarInactiveColorIsCustom, alpha: 0.8)
-                customPill = wm.tabBarInactiveColorIsCustom
+                pill = TabBarGlass.tint(background, custom: config.inactiveColorIsCustom, alpha: 0.8)
+                customPill = config.inactiveColorIsCustom
             }
         }
         self.entries = entries
         pillTint = pill.cgColor
-        customTrack = wm.tabBarUnfocusedColorIsCustom
-        customBackdrop = wm.tabBarBackdropColorIsCustom
+        customTrack = config.unfocusedColorIsCustom
+        customBackdrop = config.backdropColorIsCustom
         self.customPill = customPill
         self.focused = focused
     }

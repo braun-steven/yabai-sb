@@ -80,13 +80,12 @@ enum TabBarState: Sendable
 extension TabBarState
 {
     /// The background and text colors of a tab in this state.
-    @WM var colors: (background: RGBAColor, text: RGBAColor)
+    @WM func colors(in config: TabBarConfig) -> (background: RGBAColor, text: RGBAColor)
     {
-        let wm = WindowManager.shared
         switch self {
-        case .focused:   return (wm.tabBarFocusedColor, wm.tabBarFocusedTextColor)
-        case .inactive:  return (wm.tabBarInactiveColor, wm.tabBarInactiveTextColor)
-        case .unfocused: return (wm.tabBarUnfocusedColor, wm.tabBarUnfocusedTextColor)
+        case .focused:   return (config.focusedColor, config.focusedTextColor)
+        case .inactive:  return (config.inactiveColor, config.inactiveTextColor)
+        case .unfocused: return (config.unfocusedColor, config.unfocusedTextColor)
         }
     }
 }
@@ -151,14 +150,14 @@ extension TabBar
         guard let font else { return false }
         let wm = WindowManager.shared
         wm.tabBarFont = font
-        wm.tabBarFontName = name
+        Config.current.tabBar.fontName = name
         return true
     }
 
     static var isEnabled: Bool
     {
-        let wm = WindowManager.shared
-        return wm.tabBarEnabled && wm.tabBarHeight > 0
+        let config = Config.current.tabBar
+        return config.enabled && config.height > 0
     }
 
     private static func publishHits()
@@ -322,7 +321,7 @@ extension TabBar
     //
     static func icon(for wid: WindowID?) -> CGImage?
     {
-        guard WindowManager.shared.tabBarIcons, let wid,
+        guard Config.current.tabBar.icons, let wid,
               let target = WindowManager.shared.window(for: wid), let app = target.application else { return nil }
         if let icon = app.icon { return icon }
         autoreleasepool {
@@ -346,11 +345,13 @@ extension TabBar
         SLS.disableUpdate(SLS.connection)
         defer { SLS.reenableUpdate(SLS.connection) }
         guard let context else { return }
+        let config = Config.current.tabBar
+        let font = WindowManager.shared.tabBarFont
         let bounds = CGRect(origin: .zero, size: frame.size)
         context.clear(bounds)
         for i in 0..<count {
             let entry = entries[i]
-            let (background, text) = entry.state.colors
+            let (background, text) = entry.state.colors(in: config)
             let tab = TabBar.slot(in: bounds, index: i, count: count)
             context.setFillColor(red: CGFloat(background.r), green: CGFloat(background.g), blue: CGFloat(background.b), alpha: CGFloat(background.a))
             context.fill(tab)
@@ -360,18 +361,19 @@ extension TabBar
                 context.fill(CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
             }
             if entry.title != nil || entry.icon != nil {
-                TabBar.drawTitle(in: context, font: WindowManager.shared.tabBarFont, glass: false, title: entry.title, icon: entry.icon, rect: tab, color: text.cgColor)
+                TabBar.drawTitle(in: context, font: font, glass: false, title: entry.title, icon: entry.icon, rect: tab, color: text.cgColor)
             }
         }
         context.flush()
     }
 
-    private static var usesGlass: Bool { WindowManager.shared.tabBarStyle == .glass }
+    private static var usesGlass: Bool { Config.current.tabBar.style == .glass }
 
     static var cardPadding: Int
     {
-        if !usesGlass || WindowManager.shared.tabBarBackdrop == .off { return 0 }
-        return WindowManager.shared.tabBarCardPadding
+        let config = Config.current.tabBar
+        if config.style != .glass || config.backdrop == .off { return 0 }
+        return config.cardPadding
     }
 
     private var exists: Bool { id != nil || glass != nil }
@@ -475,7 +477,8 @@ extension TabBar
     var cardID: WindowID?
     {
         if hidden || glass == nil { return nil }
-        if !TabBar.usesGlass || WindowManager.shared.tabBarBackdrop == .off { return nil }
+        let config = Config.current.tabBar
+        if config.style != .glass || config.backdrop == .off { return nil }
         return glassPanelID
     }
 

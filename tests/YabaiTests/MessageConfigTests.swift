@@ -25,18 +25,17 @@ extension DaemonState
         @Test("tab_bar_appearance_config")
         func tabBarAppearanceConfig()
         {
-            let wm = WindowManager.shared
-            let appearance = wm.tabBarAppearance
-            defer { wm.tabBarAppearance = appearance }
-            wm.tabBarAppearance = .dark
+            let appearance = Config.current.tabBar.appearance
+            defer { Config.current.tabBar.appearance = appearance }
+            Config.current.tabBar.appearance = .dark
             #expect(runConfig("tab_bar_appearance\0") == "dark\n")
             #expect(runConfig("tab_bar_appearance\0system\0").isEmpty)
-            #expect(wm.tabBarAppearance == .system)
+            #expect(Config.current.tabBar.appearance == .system)
             #expect(runConfig("tab_bar_appearance\0") == "system\n")
             #expect(runConfig("tab_bar_appearance\0light\0").contains("unknown value 'light'"))
-            #expect(wm.tabBarAppearance == .system)
+            #expect(Config.current.tabBar.appearance == .system)
             #expect(runConfig("tab_bar_appearance\0dark\0").isEmpty)
-            #expect(wm.tabBarAppearance == .dark)
+            #expect(Config.current.tabBar.appearance == .dark)
         }
 
         @Test("message_config_options")

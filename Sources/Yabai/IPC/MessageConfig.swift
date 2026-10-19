@@ -10,7 +10,7 @@ import YabaiCore
 //
 
 /// The names and optional space scope accepted by config commands.
-private typealias Config = ConfigCommand.Name
+private typealias ConfigName = ConfigCommand.Name
 
 /// The layout of the workspace root of new trees (`config tree_workspace_layout`).
 private enum WorkspaceLayout: String, CaseIterable
@@ -19,31 +19,31 @@ private enum WorkspaceLayout: String, CaseIterable
     case tabbed
 }
 
-@WM private func tabBarColor(for command: Config) -> ReferenceWritableKeyPath<WindowManager, RGBAColor>?
+@WM private func tabBarColor(for command: ConfigName) -> WritableKeyPath<TabBarConfig, RGBAColor>?
 {
-    if command == .tabBarFocusedColor       { return \.tabBarFocusedColor }
-    if command == .tabBarFocusedTextColor   { return \.tabBarFocusedTextColor }
-    if command == .tabBarInactiveColor      { return \.tabBarInactiveColor }
-    if command == .tabBarInactiveTextColor  { return \.tabBarInactiveTextColor }
-    if command == .tabBarUnfocusedColor     { return \.tabBarUnfocusedColor }
-    if command == .tabBarUnfocusedTextColor { return \.tabBarUnfocusedTextColor }
-    if command == .tabBarBackdropColor      { return \.tabBarBackdropColor }
+    if command == .tabBarFocusedColor       { return \.focusedColor }
+    if command == .tabBarFocusedTextColor   { return \.focusedTextColor }
+    if command == .tabBarInactiveColor      { return \.inactiveColor }
+    if command == .tabBarInactiveTextColor  { return \.inactiveTextColor }
+    if command == .tabBarUnfocusedColor     { return \.unfocusedColor }
+    if command == .tabBarUnfocusedTextColor { return \.unfocusedTextColor }
+    if command == .tabBarBackdropColor      { return \.backdropColor }
     return nil
 }
 
-@WM private func tabBarColorCustom(for command: Config) -> ReferenceWritableKeyPath<WindowManager, Bool>?
+@WM private func tabBarColorCustom(for command: ConfigName) -> WritableKeyPath<TabBarConfig, Bool>?
 {
-    if command == .tabBarFocusedColor   { return \.tabBarFocusedColorIsCustom }
-    if command == .tabBarInactiveColor  { return \.tabBarInactiveColorIsCustom }
-    if command == .tabBarUnfocusedColor { return \.tabBarUnfocusedColorIsCustom }
-    if command == .tabBarBackdropColor  { return \.tabBarBackdropColorIsCustom }
-    if command == .tabBarFocusedTextColor   { return \.tabBarFocusedTextColorIsCustom }
-    if command == .tabBarInactiveTextColor  { return \.tabBarInactiveTextColorIsCustom }
-    if command == .tabBarUnfocusedTextColor { return \.tabBarUnfocusedTextColorIsCustom }
+    if command == .tabBarFocusedColor       { return \.focusedColorIsCustom }
+    if command == .tabBarInactiveColor      { return \.inactiveColorIsCustom }
+    if command == .tabBarUnfocusedColor     { return \.unfocusedColorIsCustom }
+    if command == .tabBarBackdropColor      { return \.backdropColorIsCustom }
+    if command == .tabBarFocusedTextColor   { return \.focusedTextColorIsCustom }
+    if command == .tabBarInactiveTextColor  { return \.inactiveTextColorIsCustom }
+    if command == .tabBarUnfocusedTextColor { return \.unfocusedTextColorIsCustom }
     return nil
 }
 
-@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ name: Config, _ message: inout some TokenSource) throws(CommandError)
+@WM private func configScratchpadGrid(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError)
 {
     let command = Token(name.rawValue)
     let wm = WindowManager.shared
@@ -246,7 +246,7 @@ private func configOpacity(_ rsp: inout Response, _ domain: Token, _ command: To
     throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
 }
 
-private func spacing(for command: Config) -> ViewSpacing?
+private func spacing(for command: ConfigName) -> ViewSpacing?
 {
     if command == .topPadding    { return .topPadding }
     if command == .bottomPadding { return .bottomPadding }
@@ -289,34 +289,37 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 // NOTE: The window_border options. Returns false when command is not one of them.
 //
 
-@WM private func configBorder(_ rsp: inout Response, _ domain: Token, _ name: Config, _ message: inout some TokenSource) throws(CommandError) -> Bool
+@WM private func configBorder(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError) -> Bool
 {
-    let wm = WindowManager.shared
+    var border = Config.current.border
     let command = Token(name.rawValue)
+    var refresh = false
 
     if name == .windowBorder {
-        if try parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderEnabled) { Border.refreshAll() }
+        refresh = try parseConfigBool(&rsp, domain, command, &message, &border.enabled)
     } else if name == .windowBorderHideSingle {
-        if try parseConfigBool(&rsp, domain, command, &message, &wm.windowBorderHideSingle) { Border.refreshAll() }
+        refresh = try parseConfigBool(&rsp, domain, command, &message, &border.hideSingle)
     } else if name == .windowBorderWidth {
         let token = message.next()
         let value = token.value
         if case .invalid = value {
-            rsp.write("\(cFormat("%.4f", Double(wm.windowBorderWidth)))\n")
+            rsp.write("\(cFormat("%.4f", Double(border.width)))\n")
         } else if let width = value.floatValue, width > 0.0 {
-            wm.windowBorderWidth = width
-            Border.refreshAll()
+            border.width = width
+            refresh = true
         } else {
             throw CommandError.unknownValue(domain, command, token)
         }
     } else if name == .activeWindowBorderColor {
-        if try configColor(&rsp, domain, command, &message, &wm.activeWindowBorderColor) { Border.refreshAll() }
+        refresh = try configColor(&rsp, domain, command, &message, &border.activeColor)
     } else if name == .normalWindowBorderColor {
-        if try configColor(&rsp, domain, command, &message, &wm.normalWindowBorderColor) { Border.refreshAll() }
+        refresh = try configColor(&rsp, domain, command, &message, &border.normalColor)
     } else {
         return false
     }
 
+    Config.current.border = border
+    if refresh { Border.refreshAll() }
     return true
 }
 
@@ -324,21 +327,23 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 // NOTE: The tab_bar options. Returns false when command is not one of them.
 //
 
-@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ name: Config, _ message: inout some TokenSource) throws(CommandError) -> Bool
+@WM private func configTabBar(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource) throws(CommandError) -> Bool
 {
-    let wm = WindowManager.shared
+    var tabBar = Config.current.tabBar
     let command = Token(name.rawValue)
+    var refresh = false
+    var redraw = false
 
     if name == .tabBar {
-        if try parseConfigBool(&rsp, domain, command, &message, &wm.tabBarEnabled) { TabBar.refreshAll() }
+        refresh = try parseConfigBool(&rsp, domain, command, &message, &tabBar.enabled)
     } else if name == .tabBarHeight {
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tabBarHeight)\n")
+            rsp.write("\(tabBar.height)\n")
         case .int(let height) where height > 0:
-            wm.tabBarHeight = height
-            TabBar.refreshAll()
+            tabBar.height = height
+            refresh = true
         default:
             throw CommandError.unknownValue(domain, command, token)
         }
@@ -346,41 +351,41 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tabBarOffset)\n")
+            rsp.write("\(tabBar.offset)\n")
         case .int(let offset):
-            wm.tabBarOffset = offset
-            TabBar.refreshAll()
+            tabBar.offset = offset
+            refresh = true
         case .float(let offset) where offset == Float(cInt(offset)):
-            wm.tabBarOffset = cInt(offset)
-            TabBar.refreshAll()
+            tabBar.offset = cInt(offset)
+            refresh = true
         default:
             throw CommandError.unknownValue(domain, command, token)
         }
     } else if name == .tabBarIcons {
-        if try parseConfigBool(&rsp, domain, command, &message, &wm.tabBarIcons) { TabBar.redrawAll() }
+        redraw = try parseConfigBool(&rsp, domain, command, &message, &tabBar.icons)
     } else if name == .tabBarStyle {
-        if let style = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarStyle) {
-            wm.tabBarStyle = style
-            TabBar.refreshAll()
+        if let style = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.style) {
+            tabBar.style = style
+            refresh = true
         }
     } else if name == .tabBarAppearance {
-        if let appearance = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarAppearance) {
-            wm.tabBarAppearance = appearance
-            TabBar.redrawAll()
+        if let appearance = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.appearance) {
+            tabBar.appearance = appearance
+            redraw = true
         }
     } else if name == .tabBarBackdrop {
-        if let backdrop = try parseConfigChoice(&rsp, domain, command, &message, current: wm.tabBarBackdrop) {
-            wm.tabBarBackdrop = backdrop
-            TabBar.refreshAll()
+        if let backdrop = try parseConfigChoice(&rsp, domain, command, &message, current: tabBar.backdrop) {
+            tabBar.backdrop = backdrop
+            refresh = true
         }
     } else if name == .tabBarCardPadding {
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tabBarCardPadding)\n")
+            rsp.write("\(tabBar.cardPadding)\n")
         case .int(let padding) where padding >= 0:
-            wm.tabBarCardPadding = padding
-            TabBar.refreshAll()
+            tabBar.cardPadding = padding
+            refresh = true
         default:
             throw CommandError.unknownValue(domain, command, token)
         }
@@ -388,31 +393,35 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
         let token = message.next()
         switch token.value {
         case .invalid:
-            rsp.write("\(wm.tabBarWindowRadius)\n")
+            rsp.write("\(tabBar.windowRadius)\n")
         case .int(let radius) where radius >= 0:
-            wm.tabBarWindowRadius = radius
-            TabBar.redrawAll()
+            tabBar.windowRadius = radius
+            redraw = true
         default:
             throw CommandError.unknownValue(domain, command, token)
         }
     } else if name == .tabBarFont {
         let value = message.next()
         if !value.isValid {
-            rsp.write("\(Token(wm.tabBarFontName))\n")
+            rsp.write("\(Token(tabBar.fontName))\n")
         } else if let name = String(validating: value.bytes, as: UTF8.self), TabBar.setFont(name) {
-            TabBar.redrawAll()
+            tabBar.fontName = name
+            redraw = true
         } else {
             throw CommandError.unknownValue(domain, command, value)
         }
     } else if let color = tabBarColor(for: name) {
-        if try configColor(&rsp, domain, command, &message, &wm[keyPath: color]) {
-            if let custom = tabBarColorCustom(for: name) { wm[keyPath: custom] = true }
-            TabBar.redrawAll()
+        if try configColor(&rsp, domain, command, &message, &tabBar[keyPath: color]) {
+            if let custom = tabBarColorCustom(for: name) { tabBar[keyPath: custom] = true }
+            redraw = true
         }
     } else {
         return false
     }
 
+    Config.current.tabBar = tabBar
+    if refresh { TabBar.refreshAll() }
+    else if redraw { TabBar.redrawAll() }
     return true
 }
 
@@ -433,7 +442,7 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
 }
 
 /// One command of the config domain.
-@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: Config, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
+@WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout some TokenSource, _ selSid: SpaceID?) throws(CommandError)
 {
     let command = Token(name.rawValue)
     let wm = WindowManager.shared

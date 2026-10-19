@@ -60,7 +60,7 @@ extension Con
 
 @WM private func treeBarHeight() -> Int
 {
-    return TabBar.isEnabled ? WindowManager.shared.tabBarHeight : 0
+    return TabBar.isEnabled ? Config.current.tabBar.height : 0
 }
 
 @WM private func treeBarInset() -> Int
@@ -92,7 +92,8 @@ extension View
     func updateTree()
     {
         guard let root = tree else { return }
-        root.layOut(area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: WindowManager.shared.tabBarOffset, barInset: treeBarInset())
+        let config = Config.current.tabBar
+        root.layOut(area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: config.offset, barInset: treeBarInset())
     }
 
     private func unmanageWindows(in node: Con)
@@ -346,7 +347,7 @@ extension Con
         TabBar.isEnabled &&
         layout == .tabbed &&
         children.count > 0 &&
-        area.h > Float(2 * WindowManager.shared.tabBarHeight) &&
+        area.h > Float(2 * Config.current.tabBar.height) &&
         isVisible &&
         !hasZoom(.none) &&
         !root.hasZoom(.fullscreen)
@@ -362,9 +363,9 @@ extension Con
             return
         }
 
-        let wm = WindowManager.shared
+        let config = Config.current.tabBar
         let entryCount = min(children.count, TabBar.maxEntryCount)
-        let hasFocus = contains(wm.focusedWindowID)
+        let hasFocus = contains(WindowManager.shared.focusedWindowID)
         let active = focusOrder[0]
 
         var entryList: [TabBarEntry] = []
@@ -384,9 +385,9 @@ extension Con
 
         let above = focusedDescendant
         let area = self.area
-        let inset = Float(Con.cardInset(area, barHeight: wm.tabBarHeight, barInset: treeBarInset()))
+        let inset = Float(Con.cardInset(area, barHeight: config.height, barInset: treeBarInset()))
         let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-        let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(wm.tabBarHeight))
+        let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(config.height))
         entryList.withUnsafeMutableBufferPointer { entries in
             render.tabBar.render(frame: frame, card: card, above: above.windowID, entries: entries.baseAddress!, count: entryCount)
         }
@@ -423,9 +424,9 @@ extension View
         borderArea = outer?.area ?? leaf.area
 
         if let outer {
-            let wm = WindowManager.shared
-            let inset = Con.cardInset(outer.area, barHeight: wm.tabBarHeight, barInset: treeBarInset())
-            if inset > 0 { radius = wm.tabBarWindowRadius + inset }
+            let config = Config.current.tabBar
+            let inset = Con.cardInset(outer.area, barHeight: config.height, barInset: treeBarInset())
+            if inset > 0 { radius = config.windowRadius + inset }
         }
 
         return (true, windowArea, borderArea, radius)

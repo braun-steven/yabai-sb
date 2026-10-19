@@ -25,16 +25,16 @@ extension DaemonState
             func set(_ name: String) -> Bool {
                 return TabBar.setFont(name)
             }
-            let wm = WindowManager.shared
             #expect(set("system:13"))
-            #expect(wm.tabBarFontName == "system:13")
+            #expect(Config.current.tabBar.fontName == "system:13")
+            let wm = WindowManager.shared
             #expect(CTFontGetSize(wm.tabBarFont!) == 13)
             #expect(set("Menlo:11"))
             #expect(CTFontGetSize(wm.tabBarFont!) == 11)
             #expect(!set("system"))
             #expect(!set("system:0"))
             #expect(!set(":12"))
-            #expect(wm.tabBarFontName == "Menlo:11")
+            #expect(Config.current.tabBar.fontName == "Menlo:11")
         }
 
         @Test("tab_bar_glass_tint_default")

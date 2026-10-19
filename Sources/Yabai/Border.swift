@@ -418,7 +418,7 @@ extension Border
     }
 
     //
-    // NOTE: The number of windows that count for windowBorderHideSingle on a space: the tiled windows, where a tabbed
+    // NOTE: The number of windows counted when BorderConfig.hideSingle is enabled: the tiled windows, where a tabbed
     // container contributes the visible windows of its active tab, and the visible floating windows. Scratchpads do not count.
     //
     @WM private static func windowCount(on sid: SpaceID?) -> Int
@@ -447,17 +447,18 @@ extension Border
         let windowArea = border.window
         let borderArea = border.border
         let containerRadius = border.radius
-        var enabled = wm.windowBorderEnabled && shouldShow(target) && border.visible
-        if enabled && wm.windowBorderHideSingle && owner != nil && target.scratchpad == nil {
+        let settings = Config.current.border
+        var enabled = settings.enabled && shouldShow(target) && border.visible
+        if enabled && settings.hideSingle && owner != nil && target.scratchpad == nil {
             let spaceCount = count ?? windowCount(on: sid ?? target.id.space)
             enabled = spaceCount > 1
         }
         let focused = wm.focusedWindowID == target.id
         borderLock.withLock { state in
-            state.settings.enabled = wm.windowBorderEnabled
-            state.settings.width = wm.windowBorderWidth
-            state.settings.activeColor = wm.activeWindowBorderColor
-            state.settings.normalColor = wm.normalWindowBorderColor
+            state.settings.enabled = settings.enabled
+            state.settings.width = settings.width
+            state.settings.activeColor = settings.activeColor
+            state.settings.normalColor = settings.normalColor
             if state.borders[target.id] == nil && enabled {
                 let border = Border(target.id)
                 border.radius = windowRadius(of: target.id)
@@ -526,16 +527,17 @@ extension Border
     @WM static func refresh(_ target: Window?) { refresh(target, space: nil, windowCount: nil) }
 
     //
-    // NOTE: Without windowBorderHideSingle a change on a space only affects the borders of its tiled windows and of
+    // NOTE: Without BorderConfig.hideSingle a change on a space only affects the borders of its tiled windows and of
     // the windows that had a border there (e.g. a window that just stopped being tiled), so only those are refreshed,
     // without asking the window server for the space of every window.
     //
     @WM static func refresh(space sid: SpaceID?)
     {
         guard let sid else { return }
+        let hideSingle = Config.current.border.hideSingle
         beginBatch()
         defer { endBatch() }
-        if WindowManager.shared.windowBorderHideSingle {
+        if hideSingle {
             let count = windowCount(on: sid)
             for target in WindowManager.shared.window.values where target.id.space == sid { refresh(target, space: sid, windowCount: count) }
             return
@@ -556,17 +558,19 @@ extension Border
     {
         guard let target, !target.isDestroyed else { return }
         let sid = target.id.space
-        if WindowManager.shared.windowBorderHideSingle, let sid { refresh(space: sid) }
+        let hideSingle = Config.current.border.hideSingle
+        if hideSingle, let sid { refresh(space: sid) }
         else { refresh(target) }
     }
 
     @WM static func refreshAll()
     {
+        let hideSingle = Config.current.border.hideSingle
         var counts: [SpaceID: Int] = [:]
         for target in WindowManager.shared.window.values {
             let sid = target.id.space
             var count: Int?
-            if WindowManager.shared.windowBorderHideSingle, let sid {
+            if hideSingle, let sid {
                 count = counts[sid]
                 if count == nil {
                     let spaceCount = windowCount(on: sid)

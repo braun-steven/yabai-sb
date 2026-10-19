@@ -74,7 +74,7 @@ extension EventHandler
         window.unobserve()
         window.destroy()
 
-        if wm.windowBorderHideSingle {
+        if Config.current.border.hideSingle {
             Border.refresh(space: SpaceManager.shared.currentSpaceID)
         }
 

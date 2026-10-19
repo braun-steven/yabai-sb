@@ -173,7 +173,7 @@ import CPrivate
         wm.centerMouse(on: focusedWindow)
     }
 
-    space_layout_schedule(1.0, true)
+    SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
     eventSignalPush(.systemWoke, nil)
 }
 
@@ -186,7 +186,7 @@ import CPrivate
     if sm.spaceLayouts.isEmpty { return }
 
     if MissionControl.shared.isActive {
-        space_layout_schedule(0.5, false)
+        sm.scheduleSpaceLayout(after: 0.5, resetPasses: false)
         return
     }
 
@@ -196,10 +196,10 @@ import CPrivate
         return
     }
 
-    let result = space_layout_reconcile(sm)
+    let result = sm.reconcileSpaceLayout()
     switch result {
-    case .performed: space_layout_schedule(0.5, false)
-    case .failed:    space_layout_schedule(1.0, false)
+    case .performed: sm.scheduleSpaceLayout(after: 0.5, resetPasses: false)
+    case .failed:    sm.scheduleSpaceLayout(after: 1.0, resetPasses: false)
     case .done:      sm.spaceLayoutPasses = 0
     }
 }

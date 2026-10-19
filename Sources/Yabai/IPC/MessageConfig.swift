@@ -206,7 +206,7 @@ private func configSpaceLayout(_ rsp: inout Response, _ domain: Token, _ command
 
     sm.spaceLayouts = layoutList
     sm.spaceLayoutSpec = String(decoding: spec, as: UTF8.self)
-    space_layout_schedule(0.0, true)
+    SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true)
     return true
 }
 
@@ -536,7 +536,7 @@ private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ comma
             dm.order = choice
         }
     } else if command.equals(Config.builtinLast) {
-        if parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { space_layout_schedule(0.0, true) }
+        if parseConfigBool(&rsp, domain, command, &message, &dm.builtinDisplayLast) { SpaceManager.shared.scheduleSpaceLayout(after: 0.0, resetPasses: true) }
     } else if command.equals(Config.windowOrigin) {
         if let choice = parseConfigChoice(&rsp, domain, command, &message, current: wm.windowOriginMode) {
             wm.windowOriginMode = choice

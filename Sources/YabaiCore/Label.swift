@@ -84,7 +84,7 @@ public struct LabelList<ID: Hashable & Sendable>: Sendable
         labels[index].id = newID
     }
 
-    /// The labels of two ids trade places: space_manager_swap_space_with_space_on_display (src/space_manager.c).
+    /// The labels of two ids trade places: `SpaceManager.swapSpaceAcrossDisplays` in the daemon.
     public mutating func swap(_ a: ID, _ b: ID)
     {
         for i in labels.indices {

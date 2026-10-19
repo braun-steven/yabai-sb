@@ -31,7 +31,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
         SpaceManager.shared.view(for: sid)
         eventSignalPush(.spaceCreated, signalContext(sid))
-        space_layout_schedule(1.0, false)
+        SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: false)
     }
 }
 
@@ -46,7 +46,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
         sm.views.removeValue(forKey: sid)
         view.destroy()
         eventSignalPush(.spaceDestroyed, signalContext(sid))
-        space_layout_schedule(1.0, false)
+        sm.scheduleSpaceLayout(after: 1.0, resetPasses: false)
     }
 }
 
@@ -138,7 +138,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
-    space_layout_schedule(1.0, true)
+    SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
     eventSignalPush(.displayAdded, signalContext(did))
 }
 
@@ -148,7 +148,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
     debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
-    space_layout_schedule(1.0, true)
+    SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
     eventSignalPush(.displayRemoved, signalContext(did))
 }
 
@@ -157,7 +157,7 @@ private func signalContext(_ id: DisplayID) -> UnsafeMutableRawPointer?
 {
     debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
     SpaceManager.shared.markSpacesInvalid()
-    space_layout_schedule(1.0, true)
+    SpaceManager.shared.scheduleSpaceLayout(after: 1.0, resetPasses: true)
     eventSignalPush(.displayMoved, signalContext(did))
 }
 

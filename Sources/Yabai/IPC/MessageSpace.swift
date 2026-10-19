@@ -188,8 +188,8 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
         let selector = parseSpaceSelector(&rsp, message.next(), acting: actingSid, optional: false, context)
         if selector.didParse, let target = selector.value {
             let result = command.equals(SpaceCommand.focus)
-                       ? space_manager_focus_space(target)
-                       : space_manager_switch_space(target)
+                       ? SpaceManager.shared.focusSpace(target)
+                       : SpaceManager.shared.switchSpace(to: target)
             if result == .sameSpace {
                 rsp.fail("cannot focus an already focused space.\n")
             } else {
@@ -204,7 +204,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
                 return .stop
             }
 
-            let result = space_manager_move_space_to_space(actingSid, target)
+            let result = SpaceManager.shared.moveSpace(actingSid, to: target)
             if result == .sameSpace {
                 rsp.fail("cannot move space to itself.\n")
             } else if result == .sameDisplay {
@@ -221,7 +221,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
                 return .stop
             }
 
-            let result = space_manager_swap_space_with_space(actingSid, target)
+            let result = SpaceManager.shared.swapSpace(actingSid, with: target)
             if result == .sameSpace {
                 rsp.fail("cannot swap space with itself.\n")
             } else {
@@ -231,7 +231,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
     } else if command.equals(SpaceCommand.display) {
         let selector = parseDisplaySelector(&rsp, message.next(), acting: DisplayID.active, optional: false, context)
         if selector.didParse, let target = selector.value {
-            let result = space_manager_move_space_to_display(SpaceManager.shared, actingSid, target)
+            let result = SpaceManager.shared.moveSpace(actingSid, toDisplay: target)
             if result == .missingSource {
                 rsp.fail("could not locate the space to act on.\n")
             } else if result == .missingDestination {
@@ -255,7 +255,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
             }
         }
 
-        let result = space_manager_add_space(actingSid)
+        let result = SpaceManager.shared.addSpace(onDisplayOf: actingSid)
         if result == .missingSource {
             rsp.fail("could not locate the space to act on.\n")
         } else {
@@ -264,7 +264,7 @@ private func spaceCommandArrange(_ rsp: inout Response, _ command: Token, _ mess
     } else if command.equals(SpaceCommand.destroy) {
         if !parseOptionalSpaceSelector(&rsp, &message, &actingSid, context) { return .stop }
 
-        let result = space_manager_destroy_space(actingSid)
+        let result = SpaceManager.shared.destroySpace(actingSid)
         if result == .missingSource {
             rsp.fail("could not locate the space to act on.\n")
         } else if result == .invalidSource {
@@ -356,9 +356,9 @@ func spaceCommandLayout(_ rsp: inout Response, _ domain: Token, _ command: Token
                 rsp.fail("cannot toggle gap for a non-managed space.\n")
             }
         } else if value.equals(SpaceCommand.toggleMC) {
-            space_manager_toggle_mission_control(actingSid)
+            SpaceManager.shared.toggleMissionControl(on: actingSid)
         } else if value.equals(SpaceCommand.toggleSD) {
-            space_manager_toggle_show_desktop(actingSid)
+            SpaceManager.shared.toggleShowDesktop(on: actingSid)
         } else {
             rsp.failUnknownValue(domain, command, value)
         }

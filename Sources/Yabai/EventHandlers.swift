@@ -400,7 +400,7 @@ func applicationLaunchCanRetry(_ attempt: Int) -> Bool
         if let psnSid, !psnSid.isVisible {
             SLSSpaceSetFrontPSN(connection_global(), psnSid.rawValue, process.psn)
             if let psnDid = psnSid.display {
-                space_manager_focus_space_using_gesture(psnDid, psnSid)
+                SpaceManager.shared.focusSpaceUsingGesture(psnSid, on: psnDid)
             }
         }
     }

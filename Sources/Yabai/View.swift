@@ -183,7 +183,7 @@ final class View
         target.isGapEnabled = true
 
         if space_is_user(target.sid) {
-            let sm = space_manager_global()
+            let sm = SpaceManager.shared
 
             target.layout         = sm.layout
             target.topPadding     = sm.top_padding

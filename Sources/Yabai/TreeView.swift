@@ -8,25 +8,27 @@ import YabaiCore
 // outlines and tree JSON. A view using the tree layout owns its root container in `tree`.
 //
 
-private func appendTitle(_ string: CFMutableString, from node: Con)
+extension Con
 {
-    if node.isLeaf {
-        if let windowID = node.windowID, let target = window_manager_find_window(window_manager_global(), windowID),
-           let application = target.application {
-            CFStringAppend(string, application.name as CFString)
+    private func appendTitle(to string: CFMutableString)
+    {
+        if isLeaf {
+            if let windowID, let target = window_manager_find_window(WindowManager.shared, windowID),
+               let application = target.application {
+                CFStringAppend(string, application.name as CFString)
+            }
+            return
         }
-        return
+
+        CFStringAppendCString(string, layout == .splitH ? "H[" : layout == .splitV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
+
+        for i in 0..<children.count {
+            if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
+            children[i].appendTitle(to: string)
+        }
+
+        CFStringAppendCString(string, "]", CFStringBuiltInEncodings.UTF8.rawValue)
     }
-
-    let layout = node.layout
-    CFStringAppendCString(string, layout == .splitH ? "H[" : layout == .splitV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
-
-    for i in 0..<node.children.count {
-        if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
-        appendTitle(string, from: node.children[i])
-    }
-
-    CFStringAppendCString(string, "]", CFStringBuiltInEncodings.UTF8.rawValue)
 }
 
 //
@@ -41,7 +43,7 @@ extension Con
         if isLeaf { return tab_bar_copy_title(windowID) }
 
         let string = CFStringCreateMutable(nil, 0)!
-        appendTitle(string, from: self)
+        appendTitle(to: string)
         return string
     }
 
@@ -58,7 +60,7 @@ extension Con
 
 private func treeBarHeight() -> Int
 {
-    return tab_bar_is_enabled() ? window_manager_global().tab_bar_height : 0
+    return tab_bar_is_enabled() ? WindowManager.shared.tab_bar_height : 0
 }
 
 private func treeBarInset() -> Int
@@ -66,21 +68,21 @@ private func treeBarInset() -> Int
     return tab_bar_is_enabled() ? tab_bar_card_padding() : 0
 }
 
-private func treeDefaultLayout(_ owner: View) -> ConLayout
-{
-    switch space_manager_global().tree_default_orientation {
-    case .horizontal: .splitH
-    case .vertical:   .splitV
-    case .auto:       owner.area.w >= owner.area.h ? .splitH : .splitV
-    }
-}
-
 extension View
 {
+    private var defaultLayout: ConLayout
+    {
+        switch SpaceManager.shared.tree_default_orientation {
+        case .horizontal: .splitH
+        case .vertical:   .splitV
+        case .auto:       area.w >= area.h ? .splitH : .splitV
+        }
+    }
+
     var root: Con
     {
         if tree == nil {
-            tree = Con(layout: treeDefaultLayout(self))
+            tree = Con(layout: defaultLayout)
             tree!.area = area
         }
 
@@ -90,13 +92,13 @@ extension View
     func updateTree()
     {
         guard let root = tree else { return }
-        root.layOut(area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: window_manager_global().tab_bar_offset, barInset: treeBarInset())
+        root.layOut(area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: WindowManager.shared.tab_bar_offset, barInset: treeBarInset())
     }
 
     private func unmanageWindows(in node: Con)
     {
         if node.isLeaf {
-            if let windowID = node.windowID { window_manager_remove_managed_window(window_manager_global(), windowID) }
+            if let windowID = node.windowID { window_manager_remove_managed_window(WindowManager.shared, windowID) }
             return
         }
 
@@ -124,24 +126,6 @@ extension View
 // A window moved here or made tiled stays behind the focused window so it is not hidden in another tab.
 //
 
-private func treeFocusNewWindow(_ root: Con, _ node: Con, _ windowID: WindowID)
-{
-    node.focus()
-
-    let focusedWindowID = window_manager_global().focused_window_id
-    if windowID != focusedWindowID, let focused = root.find(focusedWindowID) {
-        focused.focus()
-    }
-}
-
-private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
-{
-    if root.children.count != 0 { return }
-
-    root.layout = treeDefaultLayout(owner)
-    root.lastSplit = root.layout
-}
-
 //
 // NOTE: A new window opens next to the focused window, or next to
 // the selected container (focus parent). An insertion point set with 'window --insert' or by a
@@ -151,6 +135,24 @@ private func treeViewResetEmptyRoot(_ owner: View, _ root: Con)
 
 extension View
 {
+    private func focusNewWindow(_ node: Con, windowID: WindowID)
+    {
+        node.focus()
+
+        let focusedWindowID = WindowManager.shared.focused_window_id
+        if windowID != focusedWindowID, let focused = root.find(focusedWindowID) {
+            focused.focus()
+        }
+    }
+
+    private func resetEmptyRoot(_ root: Con)
+    {
+        if root.children.count != 0 { return }
+
+        root.layout = defaultLayout
+        root.lastSplit = root.layout
+    }
+
     func add(_ target: Window, insertionPoint: WindowID?)
     {
         let root = self.root
@@ -158,7 +160,7 @@ extension View
 
         let node = Con(windowID: target.id)
 
-        treeViewResetEmptyRoot(self, root)
+        resetEmptyRoot(root)
 
         if let ownerInsertionPoint = self.insertionPoint, let anchor = root.find(ownerInsertionPoint), let direction = anchor.insertDirection {
             anchor.insertDirection = nil
@@ -166,7 +168,7 @@ extension View
             self.insertionPoint = nil
 
             anchor.insert(node, toward: direction)
-            treeFocusNewWindow(root, node, target.id)
+            focusNewWindow(node, windowID: target.id)
         } else {
             var anchor = root.find(insertionPoint)
 
@@ -174,11 +176,11 @@ extension View
                 anchor = selected
             }
 
-            if anchor == nil { anchor = root.find(window_manager_global().focused_window_id) }
+            if anchor == nil { anchor = root.find(WindowManager.shared.focused_window_id) }
             if anchor == nil { anchor = root.focusedDescendant }
 
-            root.open(node, after: anchor, autotile: space_manager_global().tree_autotiling)
-            treeFocusNewWindow(root, node, target.id)
+            root.open(node, after: anchor, autotile: SpaceManager.shared.tree_autotiling)
+            focusNewWindow(node, windowID: target.id)
         }
 
         if !updateAutoPadding() { updateTree() }
@@ -193,7 +195,7 @@ extension View
     func attach(_ node: Con, from direction: Direction)
     {
         let root = self.root
-        treeViewResetEmptyRoot(self, root)
+        resetEmptyRoot(root)
         root.attach(node, from: direction)
     }
 
@@ -295,7 +297,7 @@ extension View
     private func captureWindows(in node: Con, into windowList: inout [window_capture])
     {
         if node.isLeaf {
-            if let windowID = node.windowID, let target = window_manager_find_window(window_manager_global(), windowID) {
+            if let windowID = node.windowID, let target = window_manager_find_window(WindowManager.shared, windowID) {
                 let area = frame(for: node)
                 windowList.append(window_capture(window: target, x: area.x, y: area.y, w: area.w, h: area.h))
             }
@@ -344,7 +346,7 @@ extension Con
         tab_bar_is_enabled() &&
         layout == .tabbed &&
         children.count > 0 &&
-        area.h > Float(2 * window_manager_global().tab_bar_height) &&
+        area.h > Float(2 * WindowManager.shared.tab_bar_height) &&
         isVisible &&
         !hasZoom(.none) &&
         !root.hasZoom(.fullscreen)
@@ -365,7 +367,7 @@ extension Con
             return
         }
 
-        let wm = window_manager_global()
+        let wm = WindowManager.shared
         let entryCount = min(children.count, tabBarMaxEntryCount)
         let hasFocus = contains(wm.focused_window_id)
         let active = focusOrder[0]
@@ -427,7 +429,7 @@ extension View
         borderArea = outer?.area ?? leaf.area
 
         if let outer {
-            let wm = window_manager_global()
+            let wm = WindowManager.shared
             let inset = Con.cardInset(outer.area, barHeight: wm.tab_bar_height, barInset: treeBarInset())
             if inset > 0 { radius = wm.tab_bar_window_radius + inset }
         }
@@ -613,7 +615,7 @@ extension View
 {
     static func refreshBars(forWindowID windowID: WindowID?)
     {
-        guard let windowID, let owner = window_manager_global().managed_window[windowID] else { return }
+        guard let windowID, let owner = WindowManager.shared.managed_window[windowID] else { return }
         if owner.layout != .tree || owner.tree == nil { return }
 
         if space_is_visible(owner.sid) { owner.tree!.renderBars() }
@@ -635,74 +637,74 @@ extension Con
 {
     func showFeedback(direction insertDir: InsertDirection?)
     {
-    guard let windowID = focusedDescendant.windowID else { return }
+        guard let windowID = focusedDescendant.windowID else { return }
 
-    let cid = connection_global()
-    let area = self.area
-    var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-    var region: CFTypeRef?
-    CGSNewRegionWithRect(&frame, &region)
-    let frameRegion = region!
-    frame.origin.x = 0; frame.origin.y = 0
+        let cid = connection_global()
+        let area = self.area
+        var frame = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
+        var region: CFTypeRef?
+        CGSNewRegionWithRect(&frame, &region)
+        let frameRegion = region!
+        frame.origin.x = 0; frame.origin.y = 0
 
-    if render.feedbackWindow.id == nil {
-        var tags: UInt64 = (1 << 1) | (1 << 9)
-        let emptyRegion = CGRegionCreateEmptyRegion()
-        var feedbackID: UInt32 = 0
-        SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
-        render.feedbackWindow.id = WindowID(nonzero: feedbackID)
+        if render.feedbackWindow.id == nil {
+            var tags: UInt64 = (1 << 1) | (1 << 9)
+            let emptyRegion = CGRegionCreateEmptyRegion()
+            var feedbackID: UInt32 = 0
+            SLSNewWindowWithOpaqueShapeAndContext(cid, 2, frameRegion, emptyRegion, 13, &tags, 0, 0, 64, &feedbackID, nil)
+            render.feedbackWindow.id = WindowID(nonzero: feedbackID)
 
-        sls_window_disable_shadow(feedbackID)
-        SLSSetWindowResolution(cid, feedbackID, 1.0)
-        SLSSetWindowOpacity(cid, feedbackID, false)
-        let context = SLWindowContextCreate(cid, feedbackID, nil)
-        render.feedbackWindow.context = context
-        context?.setLineWidth(insertFeedbackWidth)
-    }
+            sls_window_disable_shadow(feedbackID)
+            SLSSetWindowResolution(cid, feedbackID, 1.0)
+            SLSSetWindowOpacity(cid, feedbackID, false)
+            let context = SLWindowContextCreate(cid, feedbackID, nil)
+            render.feedbackWindow.context = context
+            context?.setLineWidth(insertFeedbackWidth)
+        }
 
-    // NOTE: A window server that did not create the outline leaves no window to draw into or order.
-    guard let feedbackWindowID = render.feedbackWindow.id else { return }
+        // NOTE: A window server that did not create the outline leaves no window to draw into or order.
+        guard let feedbackWindowID = render.feedbackWindow.id else { return }
 
-    // NOTE: Drawing calls have no effect without a context.
-    let context = render.feedbackWindow.context
-    let color = window_manager_global().insert_feedback_color
-    context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
-    context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
+        // NOTE: Drawing calls have no effect without a context.
+        let context = render.feedbackWindow.context
+        let color = WindowManager.shared.insert_feedback_color
+        context?.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
+        context?.setStrokeColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
 
-    var clipX = -0.5 * insertFeedbackWidth
-    var clipY = -0.5 * insertFeedbackWidth
-    var clipW = insertFeedbackWidth
-    var clipH = insertFeedbackWidth
-    let midx = frame.midX
-    let midy = frame.midY
+        var clipX = -0.5 * insertFeedbackWidth
+        var clipY = -0.5 * insertFeedbackWidth
+        var clipW = insertFeedbackWidth
+        var clipH = insertFeedbackWidth
+        let midx = frame.midX
+        let midy = frame.midY
 
-    switch insertDir {
-    case .north: clipY = midy - 0.5 * insertFeedbackWidth
-    case .east:  clipX = midx - 0.5 * insertFeedbackWidth
-    case .south: clipH = -midy + insertFeedbackWidth
-    case .west:  clipW = -midx + insertFeedbackWidth
-    default:        break
-    }
+        switch insertDir {
+        case .north: clipY = midy - 0.5 * insertFeedbackWidth
+        case .east:  clipX = midx - 0.5 * insertFeedbackWidth
+        case .south: clipH = -midy + insertFeedbackWidth
+        case .west:  clipW = -midx + insertFeedbackWidth
+        default:        break
+        }
 
-    let rect = CGRect(x: 0.5 * insertFeedbackWidth, y: 0.5 * insertFeedbackWidth, width: frame.size.width - insertFeedbackWidth, height: frame.size.height - insertFeedbackWidth)
-    let fill = rect.insetBy(dx: 0.5 * insertFeedbackWidth, dy: 0.5 * insertFeedbackWidth)
-    let clip = CGRect(x: rect.origin.x + clipX, y: rect.origin.y + clipY, width: rect.size.width + clipW, height: rect.size.height + clipH)
-    let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(cgrect_clamp_x_radius(rect, insertFeedbackRadius)), cornerHeight: CGFloat(cgrect_clamp_y_radius(rect, insertFeedbackRadius)), transform: nil)
+        let rect = CGRect(x: 0.5 * insertFeedbackWidth, y: 0.5 * insertFeedbackWidth, width: frame.size.width - insertFeedbackWidth, height: frame.size.height - insertFeedbackWidth)
+        let fill = rect.insetBy(dx: 0.5 * insertFeedbackWidth, dy: 0.5 * insertFeedbackWidth)
+        let clip = CGRect(x: rect.origin.x + clipX, y: rect.origin.y + clipY, width: rect.size.width + clipW, height: rect.size.height + clipH)
+        let path = CGPath(roundedRect: rect, cornerWidth: CGFloat(cgrect_clamp_x_radius(rect, insertFeedbackRadius)), cornerHeight: CGFloat(cgrect_clamp_y_radius(rect, insertFeedbackRadius)), transform: nil)
 
-    SLSDisableUpdate(cid)
-    SLSSetWindowShape(cid, feedbackWindowID.rawValue, 0.0, 0.0, frameRegion)
-    context?.clear(frame)
-    context?.clip(to: clip)
-    context?.fill(fill)
-    context?.addPath(path)
-    context?.strokePath()
-    context?.resetClip()
-    context?.flush()
-    SLSReenableUpdate(cid)
+        SLSDisableUpdate(cid)
+        SLSSetWindowShape(cid, feedbackWindowID.rawValue, 0.0, 0.0, frameRegion)
+        context?.clear(frame)
+        context?.clip(to: clip)
+        context?.fill(fill)
+        context?.addPath(path)
+        context?.strokePath()
+        context?.resetClip()
+        context?.flush()
+        SLSReenableUpdate(cid)
 
-    SLSSetWindowLevel(cid, feedbackWindowID.rawValue, window_level(windowID))
-    SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, window_sub_level(windowID))
-    SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
+        SLSSetWindowLevel(cid, feedbackWindowID.rawValue, window_level(windowID))
+        SLSSetWindowSubLevel(cid, feedbackWindowID.rawValue, window_sub_level(windowID))
+        SLSOrderWindow(cid, feedbackWindowID.rawValue, 1, windowID.rawValue)
     }
 
     func hideFeedback() { destroyFeedback() }

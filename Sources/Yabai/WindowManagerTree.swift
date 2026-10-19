@@ -33,7 +33,7 @@ extension WindowManager
     private func treeFocusDisplay(_ did: DisplayID)
     {
         let sid = display_space_id(did)
-        let owner = sid.map { space_manager_find_view(space_manager_global(), $0) }
+        let owner = sid.map { space_manager_find_view(SpaceManager.shared, $0) }
         let leaf = owner?.layout == .tree && owner?.tree != nil ? owner?.tree?.focusedDescendant : nil
 
         if let leaf, leaf.isLeaf {
@@ -160,7 +160,7 @@ extension WindowManager
         //
 
         guard let sid = display_space_id(did) else { return }
-        let dstView = space_manager_find_view(space_manager_global(), sid)
+        let dstView = space_manager_find_view(SpaceManager.shared, sid)
 
         if dstView.layout == .tree {
             let focus = node.focusedDescendant
@@ -193,7 +193,7 @@ extension WindowManager
 
         for windowID in windowList {
             if let windowID, let target = window_manager_find_window(self, windowID) {
-                window_manager_send_window_to_space(space_manager_global(), self, target, sid, false)
+                window_manager_send_window_to_space(SpaceManager.shared, self, target, sid, false)
             }
         }
 

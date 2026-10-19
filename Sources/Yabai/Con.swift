@@ -104,7 +104,7 @@ struct ConRender
 }
 
 //
-// NOTE: A container owns its children; parent is weak, like the plain pointer of the C struct that the children kept.
+// NOTE: A container owns its children; parent is weak so the tree has no retain cycle.
 //
 
 final class Con
@@ -426,7 +426,7 @@ extension Con
 
     func flatten()
     {
-        // NOTE: flattening a child can change the count, so it is read on every pass like the C loop did
+        // NOTE: Flattening a child can change the count, so it is read on every pass.
         var i = 0
         while i < children.count {
             children[i].flatten()

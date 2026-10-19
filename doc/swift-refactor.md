@@ -156,10 +156,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | cf079fd3 | |
+| **6** | **Async event loop and Observation** | [~] | 6b78b534 | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
-| 6.3 | Timers | [ ] | | |
+| 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
 | 6.4 | IPC | [ ] | | |
 | 6.5 | Observation | [ ] | | |
 | 6.6 | Animation completion | [ ] | | |
@@ -1102,3 +1102,21 @@ not here.
 - Next: 6.3 timers; 6.4 may turn the command waits (`toggleNativeFullscreen`, space moves of commands) async.
 - Notes for the next agent: an autorelease pool cannot span an `await`, so an async handler wraps its synchronous
   segments itself; add new async handlers as a case in `handle(_:)` and a `break` in `handleSynchronously(_:)`.
+
+### 2026-10-20 Subphase 6.3 [x]
+- Commits: ed790b80..(this record)
+- Done: `EventLoop.post(_:after: Duration)` replaces every `DispatchQueue.main.asyncAfter`: the event waits in a
+  `Mutex`-guarded list sorted by `ContinuousClock` deadline, and a `Task` sleeps until its deadline and then posts
+  all due events in order under the lock. Callers: focus deferral (40 ms), Mission Control exit checks (100 ms; the
+  `.now()` hop to `missionControlExit` became a direct `post`), `scheduleSpaceLayout(after: Duration)` and its
+  callers, application launch retry (`Process.launchRetryDelay` now returns a `Duration` in whole ms). Unused
+  `import Dispatch` removed; AGENTS.md event loop text updated.
+- Output changes: none (the launch retry debug line still prints seconds with `%.1f`).
+- Verification: make, make test (69 + 61) pass at 6b78b534; no live run (6.7).
+- Decisions: every delay posts an event instead of awaiting inside the handler, since the single consumer would
+  stall all events for the delay. The deadline list keeps the order the serial main queue gave: two timer tasks
+  can wake in either order, and two deferred focus activations must not swap.
+- Next: 6.4 IPC. 6.7 should check Mission Control exit, deferred focus (focus-follows-mouse autofocus within one
+  application) and space layout reconcile live.
+- Notes for the next agent: `usleep` waits left (`SpaceID.waitForWindow(s)`, `toggleNativeFullscreen`) are 6.2/6.4
+  decisions, not timers; `Service.swift`'s `usleep` is the launchd CLI.

@@ -56,10 +56,11 @@ extension EventHandler
 
         let button = event.getIntegerValueField(.mouseEventButtonNumber)
 
-        if button == Int64(CGMouseButton.left.rawValue) && ms.modifier.modifiers == modifiers {
-            ms.currentAction = ms.action1
-        } else if button == Int64(CGMouseButton.right.rawValue) && ms.modifier.modifiers == modifiers {
-            ms.currentAction = ms.action2
+        let config = Config.current.mouse
+        if button == Int64(CGMouseButton.left.rawValue) && config.modifier.modifiers == modifiers {
+            ms.currentAction = config.action1
+        } else if button == Int64(CGMouseButton.right.rawValue) && config.modifier.modifiers == modifiers {
+            ms.currentAction = config.action2
         }
 
         if ms.currentAction == .resize {

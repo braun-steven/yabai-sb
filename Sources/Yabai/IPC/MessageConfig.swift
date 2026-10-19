@@ -446,7 +446,6 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
     let wm = WindowManager.shared
     let sm = SpaceManager.shared
     let dm = DisplayManager.shared
-    let mouse = MouseState.shared
 
     if try configBorder(&rsp, domain, name, &message)  { return }
     if try configTabBar(&rsp, domain, name, &message) { return }
@@ -565,20 +564,21 @@ private func configColor(_ rsp: inout Response, _ domain: Token, _ command: Toke
             if try parseConfigBool(&rsp, domain, command, &message, &enabled) { sm.setAutoPaddingForAllSpaces(enabled) }
         }
     } else if name == .mouseModifier {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: mouse.modifier) {
-            mouse.modifier = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, current: Config.current.mouse.modifier) {
+            Config.current.mouse.modifier = choice
+            MouseState.shared.tap.modifier = choice
         }
     } else if name == .mouseAction1 {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action1) {
-            mouse.action1 = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: Config.current.mouse.action1) {
+            Config.current.mouse.action1 = choice
         }
     } else if name == .mouseAction2 {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: mouse.action2) {
-            mouse.action2 = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.move, .resize], current: Config.current.mouse.action2) {
+            Config.current.mouse.action2 = choice
         }
     } else if name == .mouseDropAction {
-        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: mouse.dropAction) {
-            mouse.dropAction = choice
+        if let choice = try parseConfigChoice(&rsp, domain, command, &message, [.swap, .stack], current: Config.current.mouse.dropAction) {
+            Config.current.mouse.dropAction = choice
         }
     } else if name == .externalBar {
         try configExternalBar(&rsp, domain, command, &message)

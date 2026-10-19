@@ -7,6 +7,7 @@ import YabaiCore
     var border = BorderConfig()
     var tabBar = TabBarConfig()
     var window = WindowConfig()
+    var mouse = MouseConfig()
     var animation = AnimationConfig()
     var scratchpad = ScratchpadConfig()
 }
@@ -24,6 +25,14 @@ struct WindowConfig
     var windowOpacityDuration: Float = 0.0
     var insertionFeedbackColor = RGBAColor(hex: 0xffd75f5f)
     var focusWrapping = FocusWrapping.on
+}
+
+struct MouseConfig
+{
+    var modifier = MouseModifierKey.fn
+    var action1 = MouseAction.none
+    var action2 = MouseAction.none
+    var dropAction = MouseAction.none
 }
 
 struct AnimationConfig

@@ -155,8 +155,6 @@ enum Daemon
         signal(SIGPIPE, SIG_IGN)
         CGSetLocalEventsSuppressionIntervalC(0.0)
         CGEnableEventStateCombiningC(false)
-        WM.sync { MouseState.shared.setDefaults() }
-
         let handle = open(lockFile, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
         if handle == -1 {
             error("yabai: could not create lock-file! abort..\n")
@@ -309,6 +307,7 @@ enum Daemon
         //
         WM.sync {
             WindowManager.shared.initialize()
+            MouseState.shared.setDefaults()
             SpaceManager.shared.begin()
             WindowManager.shared.begin()
             WindowManager.shared.updateWindowNotifications()

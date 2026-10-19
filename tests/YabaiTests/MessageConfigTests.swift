@@ -42,7 +42,8 @@ extension DaemonState
         func messageConfigOptions()
         {
             let sm = SpaceManager.shared
-            let mouse = MouseState.shared
+            let mouse = Config.current.mouse
+            let tap = MouseState.shared.tap
 
             let mff = Config.current.window.mouseFollowsFocusEnabled
             let modifier = mouse.modifier
@@ -50,14 +51,16 @@ extension DaemonState
             let topPadding = sm.topPadding
             defer {
                 Config.current.window.mouseFollowsFocusEnabled = mff
-                mouse.modifier = modifier
+                Config.current.mouse.modifier = modifier
+                tap.modifier = modifier
                 Config.current.window.focusWrapping = wrapping
                 sm.topPadding = topPadding
             }
 
             _ = runConfig("mouse_follows_focus\0on\0mouse_modifier\0ctrl\0focus_wrapping\0force\0")
             #expect(Config.current.window.mouseFollowsFocusEnabled)
-            #expect(mouse.modifier == .ctrl)
+            #expect(Config.current.mouse.modifier == .ctrl)
+            #expect(tap.modifier == .ctrl)
             #expect(Config.current.window.focusWrapping == .force)
 
             #expect(runConfig("mouse_modifier\0") == "ctrl\n")

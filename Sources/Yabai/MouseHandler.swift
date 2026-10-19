@@ -153,7 +153,7 @@ final class MouseTapState
     }
 }
 
-/// The mouse action state used by yabai.wm while a window is being dragged.
+/// The transient mouse action state used by yabai.wm while a window is being dragged.
 @WM final class MouseState
 {
     static let shared = MouseState()
@@ -162,9 +162,6 @@ final class MouseTapState
     let tap = MouseTapState()
     var runLoopSource: CFRunLoopSource?
 
-    var action1 = MouseAction.none
-    var action2 = MouseAction.none
-    var dropAction = MouseAction.none
     var currentAction = MouseAction.none
     var downLocation = CGPoint.zero
     var lastMovedTime: UInt64 = 0
@@ -174,12 +171,6 @@ final class MouseTapState
     var direction: ResizeHandle = []
     var feedbackWindowID: WindowID?
     var feedbackDirection: InsertDirection?
-
-    var modifier: MouseModifierKey
-    {
-        get { tap.modifier }
-        set { tap.modifier = newValue }
-    }
 }
 
 extension MouseModifiers
@@ -304,7 +295,7 @@ extension MouseState
         let right = [CGPoint(x: f.width, y: 0), mid, CGPoint(x: f.width, y: f.height)]
         let bottom = [CGPoint(x: f.width, y: f.height), mid, CGPoint(x: 0, y: f.height)]
         let left = [CGPoint(x: 0, y: f.height), mid, CGPoint.zero]
-        if center.contains(wp) { return dropAction == .stack ? .stack : .swap }
+        if center.contains(wp) { return Config.current.mouse.dropAction == .stack ? .stack : .swap }
         if wp.isInTriangle(top) { return .warpTop }
         if wp.isInTriangle(right) { return .warpRight }
         if wp.isInTriangle(bottom) { return .warpBottom }
@@ -394,10 +385,11 @@ extension MouseState
 
     func setDefaults()
     {
-        modifier = .fn
-        action1 = .move
-        action2 = .resize
-        dropAction = .swap
+        Config.current.mouse.modifier = .fn
+        Config.current.mouse.action1 = .move
+        Config.current.mouse.action2 = .resize
+        Config.current.mouse.dropAction = .swap
+        tap.modifier = Config.current.mouse.modifier
     }
 
     //

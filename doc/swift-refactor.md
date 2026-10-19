@@ -135,10 +135,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [~] | 4e0c6d6b | 3.1–3.2 done |
+| **3** | **Models and managers as types with methods** | [~] | bd28acbe | 3.1–3.3 done |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
 | 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
-| 3.3 | Spaces, displays, processes | [ ] | | |
+| 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
 | 3.4 | Events, signals, rendering, input, SA, startup | [ ] | | |
 | 3.5 | Platform boundary | [ ] | | |
 | 3.6 | Verification: done-when sweep, live check, benchmark | [ ] | | |
@@ -334,9 +334,9 @@ require), no `*_global()` accessors, raw SkyLight/AX calls only in `Platform/`, 
 
 ### 4 — Compiler-checked isolation
 
-The goal is to mark managers and models `@WM` and remove all `nonisolated(unsafe)` globals (`g_window_manager`,
-`g_space_manager`, `g_display_manager`, `g_process_manager`, `g_mouse_state`, `g_mission_control_mode`, `g_verbose`,
-`g_sa_socket_file`, `tabBarList`, `missionControlObserver`). Fix each compiler error by giving the state one owner,
+The goal is to mark managers and models `@WM` and remove all `nonisolated(unsafe)` globals (the `nonisolated(unsafe) static let shared` of
+`WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MissionControl`, `g_mouse_state`, `g_verbose`,
+`g_sa_socket_file`, `tabBarList`). Fix each compiler error by giving the state one owner,
 not by adding `nonisolated(unsafe)`. 4.1–4.3 give the state touched from other threads its owner first, so 4.4 can
 flip the annotations.
 
@@ -345,7 +345,7 @@ flip the annotations.
 - **4.2 Process table:** the Carbon process handler mutates the table on the main thread while `@WM` handlers read
   it: make the handler only post events and keep the table `@WM`, or give it a `Mutex`.
 - **4.3 Remaining globals:** `g_verbose` → `Atomic`; the SA socket path → immutable after startup or `@WM`;
-  `g_mission_control_mode`, `tabBarList`, `missionControlObserver` get an owner.
+  `MissionControl.shared` (mode and Dock observer), `tabBarList` get an owner.
 - **4.4 `@WM` models and managers:** mark them `@WM`, remove the remaining `nonisolated(unsafe)` globals, fix the
   compiler errors as above.
 - **4.5 Audit:** `@WM`-isolated classes are `Sendable`: remove `Handoff` wrappers for them; keep `Handoff` only for
@@ -641,3 +641,34 @@ not here.
   `Application.observe()` still logs `application_observe:` in its debug text.
 - Notes for the next agent: config keys (`"tab_bar_height"`, `runConfig("scratchpad_grid…")`) and golden records
   share spellings with old property names; restrict mass renames to member uses, not string literals.
+
+### 2026-10-19 Subphase 3.3 [x]
+- Commits: f8df0e16..bd28acbe (6 pieces, each through a Haiku agent, plus this report).
+- Done: `Process.swift` split out (`isTerminated`, `attachRunningApplication()`, KVO observation as `Process` methods in
+  `Workspace.swift`); `ProcessManager.shared` (`process(for:)`, `activeSpace(forConnection:)`, `begin()`);
+  `Workspace` (was `WorkspaceContext`, `begin()`, `dockPID`); `MissionControl.shared` (`mode`, `isActive`,
+  `observe()`/`unobserve()`), `connectionNotificationHandler`; `DisplayID.swift` (`uuid`, `init?(uuid:)`,
+  `init?(arrangement:)`, `init?(containing:)`, `currentSpace`, `spaces`, `arrangement`, `previous`/`next`, statics
+  `main/active/dock/underCursor/first/last/all/count`, `constrainedBounds`, `focus(space:)`, `focusSpace(_:)`) and
+  `DisplayManager.shared` (dock/menu bar, arrangement, `focusWindow(at:)`); `SpaceID.swift` (`display`, `windows`,
+  `isUser/isFullscreen/isVisible`, `SpaceID.all` in Mission Control order, `missionControlIndex`, `active`,
+  `underCursor`, `moveWindow(s)`, `waitForWindow(s)`, `isLastUserSpace`); `SpaceManager.shared` with Swift property
+  names (`views`, `currentSpaceID`, …) split into `SpaceManager.swift` (views), `+Layout` (layout/padding/tiling),
+  `+Operations` (focus/switch/swap/move/create/destroy), `+SpaceLayout` (reconcile, was `SpaceLayout.swift`).
+  `space_manager_can_use_known_focus` is `WindowManager.canUseKnownFocus(front:pendingFocus:)`.
+- Output changes: none (golden untouched; debug texts and config keys keep their old spellings).
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden, at every piece's commit.
+- Decisions: IDs got the stateless queries (statics for whole-set ones), managers the state-dependent ones;
+  `DisplayID.center` is non-optional (the comparator uses `?.center ?? .zero`, as CGDisplayBounds gives for an invalid
+  id); `Process.isObservable()` stays a method since it stores the policy; phase 4 text now names the `shared`
+  instances instead of the removed globals.
+- Next: for 3.4: `connection_global()`/`g_connection` (Yabai.swift), `scripting_addition_*` calls in the space files,
+  `pending_window_focus()`, `psn_equals`, `string_equals`, `mouse_drop(SpaceManager.shared, wm, …)` parameters,
+  debug texts with C names. For 3.5: raw `SLS*`/AX calls in `SpaceID.swift`, `DisplayManager.swift`
+  (`element(at:)`), `SpaceManager.swift`. Phase 5: C names in `Serialize.swift` doc comments
+  (`space_manager_query_*`, `display_manager_query_displays`) and YabaiCore doc comments (`space_layout_*`,
+  `space_manager_move_space_replacement`).
+- Notes for the next agent: Haiku agents did call-site rewrites with a balanced-paren Python script
+  (/tmp/displays/rewrite.py, /tmp/spaceids/rewrite.py, outside the repo); it skips string interpolations, so grep for
+  leftovers. A stored property and a method with the same base name (`view` vs `view(for:)`) were avoided by renaming
+  the dictionary to `views`.

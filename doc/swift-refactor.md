@@ -156,12 +156,12 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | ade2e794 | |
+| **6** | **Async event loop and Observation** | [~] | d293ffeb | |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
 | 6.4 | IPC | [x] | 537f9265 | socket thread reads, serial queue writes; commands stay synchronous |
-| 6.5 | Observation | [x] | ade2e794 | `ConfigObserver` drives borders, tab bars, opacity, shadows; model refreshes stay explicit |
+| 6.5 | Observation | [x] | d293ffeb | `ConfigObserver` re-applies each set per `ConfigGroup`; model refreshes stay explicit |
 | 6.6 | Animation completion | [ ] | | |
 | 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [ ] | | |
 

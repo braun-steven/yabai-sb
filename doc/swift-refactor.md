@@ -135,13 +135,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 2.4 | `Int32` → `Int`, sentinels → optionals | [x] | 4153f4ae | ids no longer integer literals |
 | 2.5 | Explicit orders, `Table` → `Dictionary` | [x] | e3b71ba1 | queries already in window server order |
 | 2.6 | Verification: live check, benchmark | [x] | c50e63e3 | mouse checks skipped (posting denied) |
-| **3** | **Models and managers as types with methods** | [x] | 45c4e297 | live check and bench deferred to 4.6 |
+| **3** | **Models and managers as types with methods** | [x] | 21da3d9e | live check 28/28 incl. mouse; bench within 10% (same-session baseline) |
 | 3.1 | Tree and views | [x] | 7f4762fc | methods converted; make + 112 tests pass |
 | 3.2 | Windows, applications, rules | [x] | 4e0c6d6b | `WindowManager.shared`; split into 15 extension files |
 | 3.3 | Spaces, displays, processes | [x] | bd28acbe | ID members; `SpaceManager/DisplayManager/ProcessManager/MissionControl.shared` |
 | 3.4 | Events, signals, rendering, input, SA, startup | [x] | e12b2e71 | `EventHandler`, `EventSignals`, `Border`/`TabBar` statics, `MouseState/ScriptingAddition.shared`, `SLS.connection` |
 | 3.5 | Platform boundary | [x] | 2a055797 | no raw SLS/AX calls outside `Platform/`; `SkyLight+Windows.swift`, `MachOSymbol` |
-| 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 45c4e297 | sweep clean; live check/bench deferred to 4.6 |
+| 3.6 | Verification: done-when sweep, live check, benchmark | [x] | 21da3d9e | sweep clean; capture image ownership fix |
 | **4** | **Compiler-checked isolation** | [ ] | | |
 | 4.1 | Mouse event tap state | [ ] | | |
 | 4.2 | Process table | [ ] | | |
@@ -436,13 +436,12 @@ Carried between phases; add, resolve or strike items here.
 - Live checks run in an environment where synthetic mouse posting is denied (`mouse trusted` prints false even outside
   the sandbox, 2026-10-19), so `live.py run` cannot run as is; 2.6 ran a temporary copy without the
   focus-follows-mouse and alt-drag checks (T6, T7). Those two need the user's terminal or a granted posting
-  permission.
+  permission. Posting worked in 3.6's session, where `live.py run` passed 28/28 including T6/T7; check
+  `mouse trusted` before each live check, since it depends on the session.
 - `Grid` (YabaiCore `Rule.swift`) keeps `UInt32` fields: sscanf "%d" writes into them and the grid math relies on
   unsigned wrap for negative input. Making it `Int` changes behavior for negative grids; decide in phase 5.4.
-- Phase 3's live check and benchmark were deferred by the user (2026-10-19) and folded into 4.6: its live check and
-  bench also cover the phase 3 paths that 3.5 changed (focus with/without raise, scratchpad hide, space moves without
-  SA, borders, tab bars, insertion feedback, animations; `live.py run` without T6/T7 as in 2.6). Phase 3 is `[x]`
-  without them.
+- 3.6's live check did not cover a session with the scripting addition unloaded (space moves without SA); a later
+  live check should.
 
 ## Reports
 
@@ -749,7 +748,7 @@ not here.
   `[x]` and starts phase 4.
 
 ### 2026-10-19 Subphase 3.6 [x]
-- Commits: 4db7c651..45c4e297 (made outside the workflow; reviewed here), plus this report.
+- Commits: 4db7c651..21da3d9e (made outside the workflow, partly by another agent; reviewed here), plus this report.
 - Done: reviewed 4db7c651 against handover piece 1 (`enum MessageLoop` with `begin(socketPath:)`, `handle(_:)`,
   private `run`/`read`; call sites in `Yabai.swift` and `EventLoop.swift`; C-origin comments reworded; `Darwin.read`
   where the method shadows it) and 45c4e297 against piece 2 (global `connection` alias gone, uses are
@@ -758,9 +757,23 @@ not here.
   `Platform/`; the only `*_global()` left are CPrivate libc accessors (`stdout_global`, `stderr_global`,
   `environ_global`).
 - Output changes: none.
-- Verification: at HEAD dc446a3b (includes phase 4 commits 21da3d9e..dc446a3b made outside the workflow): `make`
-  without warnings, `make test` 112 tests pass incl. golden. No live check, no bench.
-- Decisions: the user deferred the live check and bench to 4.6 (Open issues); phase 3 is `[x]` without them.
-- Next: 4.6 runs phase 3's live checks (list in the handover above) along with its own, and benches against the
-  phase 1 baseline.
-- Notes for the next agent: phase 4 rows 4.1–4.3 are not recorded here; their commits exist (21da3d9e..dc446a3b).
+- Verification: at HEAD dc446a3b (includes phase 4 commits 88c374ac..dc446a3b made outside the workflow): `make`
+  without warnings, `make test` 112 tests pass incl. golden. Live check and bench were run by another agent (Codex)
+  before the 4.x commits, one display, synthetic mouse posting available:
+  - First `live.py run` 27/28 with a yabai restart; crash reports showed the known app-quit crash and an animation
+    failure from capture image ownership, fixed in its own commit 21da3d9e (the SLS capture wrapper retains the
+    image before releasing the array; make + 112 tests pass).
+  - After the fix: `live.py run` 28/28 incl. mouse (T6/T7), animation and fullscreen checks, stable daemon PID;
+    extra 5/5 (frozen-app focus included; cross-display skipped, one display). Targeted checks passed: border
+    geometry, scratchpad hide/show, space moves, focus with and without raise, tab bar and insertion commands;
+    screenshots showed the glass tab strip and the insertion preview.
+  - Bench: against the historical baseline numbers rotate was +10.05%; a same-session run of the phase 1 baseline
+    build (isolated temp copy, bench scripts unchanged) against HEAD: baseline run 1 17.3/119.7/30.0 ms
+    (tab/rotate/split), HEAD run 1 16.2/109.9/19.0 ms; both HEAD runs within 10% of the baseline's two-run averages
+    on all three workloads.
+  - Installed binary restored, terminal focus verified. The known rapid-app-quit crash still occurred during cleanup
+    (Open issues). A session with the SA unloaded was not tested (Open issues).
+- Decisions: none.
+- Next: phase 4. Its rows 4.1–4.3 are not recorded here; their commits exist (88c374ac..dc446a3b).
+- Notes for the next agent: compare bench against a same-session run of the baseline build; the historical numbers
+  alone drift around the 10% limit.

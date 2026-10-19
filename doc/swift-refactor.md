@@ -145,7 +145,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | **4** | **Compiler-checked isolation** | [~] | 4bd853c4 | |
 | 4.1 | Mouse event tap state | [x] | 4bd853c4 | `MouseTapState`; tap no longer reads `MouseState` |
 | 4.2 | Process table | [x] | d21e375e | Carbon posts `ProcessKey`s; table and startup enumeration on yabai.wm |
-| 4.3 | Remaining globals | [ ] | | |
+| 4.3 | Remaining globals | [x] | 4f34f728 | `Log.verbose` Atomic, SA socket paths immutable, Mission Control Mutex, tab bars on `WindowManager` |
 | 4.4 | Managers and models `@WM` | [ ] | | |
 | 4.5 | `Sendable`, `Handoff` and `WM.assumeIsolated` audit | [ ] | | |
 | 4.6 | Verification: tsan live run, live check, benchmark | [ ] | | |
@@ -819,3 +819,25 @@ not here.
   writes `process.policy` on the main thread (a model field, left to 4.4/4.5).
 - Next: 4.3.
 - Notes for the next agent: `ProcessManager.shared` keeps `nonisolated(unsafe)` until 4.4.
+
+### 2026-10-19 Subphase 4.3 [x]
+- Commits: c8ff6c81, af4d0152, 8f40c508, dc446a3b (Codex, outside the workflow; reviewed here), 7c842668, 4f34f728
+  (one Haiku piece each), plus this report.
+- Done: `Log.verbose` is an `Atomic<Bool>` (relaxed). `debug_output` parses into a local and stores it only when parsing
+  succeeds, as before. The SA socket paths (`socketPath` for $USER, `sudoSocketPath` for SUDO_UID as root) are `let`s
+  resolved in `ScriptingAddition.init`. `--load-sa` keeps its root check and SUDO_UID diagnostic. `MissionControl`
+  keeps the mode and AX references in a `Mutex`. The observer, AX and CFRunLoop calls run outside the lock, and
+  unobserve takes the references out before it releases them (old order). The tab bar registry is
+  `WindowManager.tabBars` (yabai.wm only), and the tap still reads only `tabBarHits`. Review gaps: af4d0152 put
+  the daemon's `$USER` on the SA (`daemonUser`) for the lock file and message socket. 7c842668 makes `Daemon` read
+  it itself again and adds a NOTE naming the threads that read the paths. 4f34f728 rewrites the Mission Control NOTE
+  so it names the threads (main thread at startup, yabai.wm afterwards) and justifies the `@unchecked Sendable`.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 112 tests incl. golden at 4f34f728. No live check (4.6).
+- Decisions: Mission Control keeps the `Mutex` instead of waiting for `@WM`, since startup `observe()` runs on the
+  main thread while yabai.wm may already handle events. A trial build showed that both `@unchecked Sendable`s are
+  needed: `withLock` cannot hand the non-Sendable AX references out of a plain `Sendable` state (region isolation
+  error). They stay for 4.5's audit, each with a NOTE.
+- Next: 4.4. The `nonisolated(unsafe)` that remain are the `static let shared` of `WindowManager`, `SpaceManager`,
+  `DisplayManager`, `ProcessManager`, `MouseState` and `ScriptingAddition`.
+- Notes for the next agent: none.

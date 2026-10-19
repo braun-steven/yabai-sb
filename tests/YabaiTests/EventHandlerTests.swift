@@ -33,16 +33,16 @@ func mouseEventCoalescing()
 @WM func applicationLaunchRetryBackoff()
 {
     //
-    // NOTE: The delay doubles from 100ms and is capped at 5s; delays are compared in milliseconds.
+    // NOTE: The delay doubles from 100ms and is capped at 5s; delays are whole milliseconds.
     //
 
-    #expect(Int(Process.launchRetryDelay(0) * 1000 + 0.5) == 100)
-    #expect(Int(Process.launchRetryDelay(1) * 1000 + 0.5) == 200)
-    #expect(Int(Process.launchRetryDelay(5) * 1000 + 0.5) == 3200)
-    #expect(Int(Process.launchRetryDelay(6) * 1000 + 0.5) == 5000)
-    #expect(Int(Process.launchRetryDelay(40) * 1000 + 0.5) == 5000)
+    #expect(Process.launchRetryDelay(0) == .milliseconds(100))
+    #expect(Process.launchRetryDelay(1) == .milliseconds(200))
+    #expect(Process.launchRetryDelay(5) == .milliseconds(3200))
+    #expect(Process.launchRetryDelay(6) == .milliseconds(5000))
+    #expect(Process.launchRetryDelay(40) == .milliseconds(5000))
 
-    var total: Float = 0
+    var total = Duration.zero
     var attempts = 0
     while Process.canRetryLaunch(attempts) {
         total += Process.launchRetryDelay(attempts)
@@ -50,7 +50,7 @@ func mouseEventCoalescing()
     }
 
     #expect(attempts == Process.maxLaunchAttempts)
-    #expect(total > 30 && total < 40)
+    #expect(total > .seconds(30) && total < .seconds(40))
 }
 
 @Test("mouse_resize_handle")

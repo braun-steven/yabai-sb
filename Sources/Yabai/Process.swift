@@ -53,9 +53,9 @@ extension Process
 
     static let maxLaunchAttempts = 12
 
-    static func launchRetryDelay(_ attempt: Int) -> Float
+    static func launchRetryDelay(_ attempt: Int) -> Duration
     {
-        min(0.1 * Float(1 << min(attempt, 16)), 5.0)
+        .milliseconds(min(100 << min(attempt, 16), 5000))
     }
 
     static func canRetryLaunch(_ attempt: Int) -> Bool

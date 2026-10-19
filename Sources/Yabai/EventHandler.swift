@@ -1,6 +1,5 @@
 import ApplicationServices
 import Carbon
-import Dispatch
 import Foundation
 import Synchronization
 import CPrivate
@@ -199,12 +198,10 @@ extension EventHandler
 
         let delay = Process.launchRetryDelay(process.launchAttempts)
         process.launchAttempts += 1
-        debug("EventHandler.applicationLaunchRetry: retrying \(process.nameAndPID) in \(cFormat("%.1f", Double(delay)))s (attempt \(process.launchAttempts))\n")
+        debug("EventHandler.applicationLaunchRetry: retrying \(process.nameAndPID) in \(cFormat("%.1f", delay / .seconds(1)))s (attempt \(process.launchAttempts))\n")
 
         let key = ProcessKey(process.psn)
-        DispatchQueue.main.asyncAfter(deadline: .now() + .nanoseconds(Int(delay * Float(NSEC_PER_SEC)))) {
-            EventLoop.post(.applicationLaunchRetry(key))
-        }
+        EventLoop.post(.applicationLaunchRetry(key), after: delay)
     }
 
     /// The delayed retry of a launch: the process is looked up again, since it can terminate during the delay.

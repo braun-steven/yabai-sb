@@ -155,7 +155,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.3 | Typed commands: other domains | [x] | 22ab2700 | `Space/Display/Query/Rule/SignalCommand`; `Selection`, `CommandResult` gone |
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
-| 5.6 | Verification: docs, live check, benchmark, perf | [ ] | | |
+| 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
 | **6** | **Async event loop and Observation** | [ ] | | |
 | 6.1 | `AsyncStream` event loop | [ ] | | |
 | 6.2 | Async handlers where they wait | [ ] | | |
@@ -1031,3 +1031,39 @@ not here.
 - Next: 5.6. `ipc_compare.sh` diffs will differ in format against a pre-5.5 build: normalize with `jq -S .`
   (noted in doc/live-testing.md). `perf.py` query latency must be compared (JSONEncoder vs string building).
 - Notes for the next agent: `encode(_:forKey:)` of an Optional writes null; synthesized conformances skip nil.
+
+### 2026-10-20 Subphase 5.6 [x]
+- Commits: none for code; HEAD c5b8c0cc verified, plus this report.
+- Done: Done-when sweep clean: no `window_op_error`/`space_op_error`/`*OperationResult`; `Response.fail` only in
+  `runCommands`/`handleMessage` (the remaining `inout Response` parameters write output, not failures); one
+  `configOptions` table; queries, `rule --list`, `signal --list` through `JSON.encode` (JSONEncoder); golden changes of
+  phase 5 (5.1 signal failure byte, 5.4 mouse action defaults, 5.5 rule/signal list format) all explained in reports;
+  CHANGELOG has entries for 5.1, 5.2, 5.5; `doc/yabai.asciidoc`/`yabai.1` document the compact sorted-key json. No
+  `examples/`/`scripts/` query consumer parses the old pretty format.
+  Live session: one display (laptop, spaces 1–15), unlocked, `mouse trusted` false even outside the sandbox, and
+  space 4 held the user's windows, so the harness ran from temporary copies in /tmp using empty space 6 (5 and 12
+  unchanged), without T6/T7 and the posting preflight (as in 4.6). Release deploy of HEAD: `run` 23/23, `extra` 5/5
+  (cross-display and ctrl+→ skipped), same pid; signal add/fire/remove, `rule --apply` opacity, property selection,
+  config set/print/failure checked by hand; no new error-log lines or crash reports.
+  - `ipc_compare.sh` (each right after a restart, normalized with `jq -S`-style key sorting and rounded numbers, then
+    reduced to keys/types/exit codes): identical except the single failure byte of multi-problem failures (5.1, in
+    CHANGELOG). Value diffs were only fixture window ids/pids.
+  - Bench (ms, tab/rotate/split medians), installed baseline (a797d9aa) before and after: 35.1/151.8/30.0,
+    32.5/148.0/31.8, 38.9/135.1/39.4; HEAD 32.8/86.6/30.0, 31.0/85.9/30.7: all within 10% (tab −10%, rotate −41%,
+    split −10% against the baseline averages).
+  - `perf.py` (fixture config held as documented): cli query 21.78/22.68 base vs 21.08/20.88 HEAD (−5%); socket query
+    of space 6 6.40/3.29 vs 3.52/3.68; other metrics at or below baseline (rotate, send-to-space, space switches faster).
+    A direct socket bench (300–500 samples): `--windows` 7.47/6.96 → 6.49/6.31/6.21, `--spaces` 6.74/6.44 →
+    7.05/6.76/7.04, `--window` 0.91 → 0.86–0.98, `--space` 0.71/0.77 → 0.67–0.77, `--displays` 0.61/0.58 → 0.62 once
+    warmed (0.74/0.80 right after the restart). `--tree` of the flat 5-window space 0.41 → 0.48 ms (+0.07 ms; JSONEncoder
+    itself costs ~4 µs for a display-sized value, measured in a scratch program). Responses are 10–25% smaller.
+  - Installed binary restored twice (`cmp` OK, backup removed), fixture cleaned up, user config back, terminal window
+    refocused and verified.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 130 tests (69 + 61) incl. golden at c5b8c0cc.
+- Decisions: used space 6 instead of the user-occupied space 4 for this session (temporary harness copies only).
+- Next: phase 5 done-when holds; the phase agent sets the phase row. Still open: T6/T7 (posting access), SA unloaded
+  session, cross-display checks (one display).
+- Notes for the next agent: the harness spaces can be occupied by the user's windows (check `query --spaces` before
+  `setup`); `perf.py` looks for `bounds` next to itself, so a temporary copy needs the helpers linked beside it. The
+  `--tree` query compares only with the same tree shape: a restart with `tree_autotiling on` nests the fixture.

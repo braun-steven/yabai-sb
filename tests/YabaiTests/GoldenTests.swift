@@ -3,6 +3,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 //
 // NOTE: The golden IPC snapshot: a regression check of the responses, not a contract. Responses may change on purpose:
@@ -100,10 +101,7 @@ enum Golden
 
     @WM static func fixture()
     {
-        Config.current.resetToDefaults()
-        WindowManager.shared.initialize()
-        SpaceManager.shared.resetToDefaults()
-        EventSignals.shared.table = SignalTable()
+        DaemonFixture.reset()
     }
 
     static func escaped(_ bytes: [UInt8]) -> String

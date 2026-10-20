@@ -77,7 +77,8 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **`#expect` cannot capture non-copyable values** such as `Atomic`: save the operation's result to a `let` first (`mouse_event_coalescing` in `EventHandlerTests.swift`).
 - **Main-queue blocks using Swift objects** must capture them strongly; the final pending block releases on the main queue (`TabBarGlass.swift`).
 - **Executable tests:** `YabaiTests` depends on executable `Yabai` and uses `@testable import Yabai`. Swift Testing runs in parallel: tests changing global managers must use `@Suite(.serialized)` (`MessageConfigTests.swift`) and avoid window-server calls.
-- **Golden replay leaves config behind** on global managers in `DaemonState` (e.g. `tree_workspace_layout tabbed`). Later tests must set defaults explicitly; suite `init()` runs per test (`TreeTests`).
+- **Daemon state in tests:** the `.daemonFixture` trait of `DaemonState` (a `TestScoping` trait, recursive) resets the global managers before each test. A test that silently relied on config another test left behind fails then; set that value in the test (`auto_padding_split_in_tab` sets `tab_bar_style i3`).
+- **Test dependencies:** swift-property-based, swift-custom-dump and swift-snapshot-testing are test-only (`YabaiTestSupport` and the test targets); `bin/yabai` must not link them. InlineSnapshotTesting pulls in swift-syntax, which SwiftPM downloads as a prebuilt for the installed toolchain.
 - **Observation callbacks:** `withObservationTracking`'s `onChange` runs once, in `willSet`, on the mutating thread, before the new value is stored, and only names the tracked property. A set through a struct field notifies even with an equal value, while assigning a whole equal `Equatable` value does not. Post an event and read the value in its handler; give each action its own property (`ConfigGroup` in `ConfigObserver.swift`).
 
 ## Model pitfalls

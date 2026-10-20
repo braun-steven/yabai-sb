@@ -27,6 +27,7 @@ commands yourself.
 - `make`: debug build, published atomically to `bin/yabai`. `make install`: release build (no install).
   `make asan` / `make tsan`: sanitizer builds.
 - `make test` (= `swift test`); one test: `swift test --filter <name>`. `make osax-test`: payload core tests.
+  `make coverage [COVERAGE_FILTER=<re>]`: line coverage of `Sources/` per file.
 - `swift test --filter Golden`: byte-for-byte IPC regression snapshot (`tests/YabaiTests/Golden/commands.txt`).
   Only after an intended response change: `GOLDEN_RECORD=1 swift test --filter Golden`, then review every
   changed record.
@@ -56,7 +57,7 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). Ther
 
 - Swift Testing (`@Test`, `#expect`). Tests live in `tests/`, not `Tests/` (case-insensitive filesystem).
 - Tests that change global managers belong in the serialized `DaemonState` suite and must not touch the
-  window server. Golden replay leaves config behind: set the defaults a test depends on explicitly.
+  window server. Its `.daemonFixture` trait resets the managers before each test; set any non-default a test needs.
 - Deploys restart yabai and reset all layouts: tell the user beforehand and restore the installed binary
   afterward.
 

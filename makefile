@@ -13,7 +13,7 @@ BUILD_FLAGS    = --configuration debug
 # Package.swift reads it to stamp the right SDK version into the binary
 export SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path)
 
-.PHONY: all asan tsan install prepare test check-build osax-test osax-payload man icon archive publish sign clean-build clean
+.PHONY: all asan tsan install prepare test coverage check-build osax-test osax-payload man icon archive publish sign clean-build clean
 
 # Build variants publish to the same bin/yabai; do not run them concurrently with make -j.
 .NOTPARALLEL:
@@ -38,6 +38,10 @@ prepare:
 
 test:
 	$(SWIFT) test $(SWIFT_FLAGS)
+
+# Line coverage of Sources/ per file; COVERAGE_FILTER is an extended regex of the files to show.
+coverage:
+	SWIFT="$(SWIFT)" SWIFT_FLAGS="$(SWIFT_FLAGS)" bash $(SCRIPT_PATH)/coverage.sh "$(COVERAGE_FILTER)"
 
 check-build:
 	python3 $(SCRIPT_PATH)/check-build.py --swift "$(SWIFT)"

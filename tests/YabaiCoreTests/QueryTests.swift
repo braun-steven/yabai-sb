@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import Testing
 import YabaiCore
+import YabaiTestSupport
 
 // NOTE: Ported from tests/src/window_info.c.
 

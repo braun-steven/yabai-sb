@@ -1,6 +1,7 @@
 import CoreGraphics
 import Testing
 @testable import YabaiCore
+import YabaiTestSupport
 
 //
 // NOTE: Ported from tests/src/area.c. Each test's display name is the C TEST_FUNC it replaces.

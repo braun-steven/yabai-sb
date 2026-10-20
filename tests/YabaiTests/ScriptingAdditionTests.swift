@@ -2,6 +2,7 @@ import Testing
 import CPrivate
 import OSAX
 @testable import Yabai
+import YabaiTestSupport
 
 @Test func scriptingAdditionEmbeddedVersionMatchesBothBinaries() throws
 {

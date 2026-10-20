@@ -1,5 +1,6 @@
 import Testing
 import YabaiCore
+import YabaiTestSupport
 
 // NOTE: Ported from tests/src/event_signal.c.
 

@@ -1,6 +1,7 @@
 import CoreGraphics
 import Testing
 @testable import YabaiCore
+import YabaiTestSupport
 
 // NOTE: Ported from the pure parts of tests/src/auto_padding.c. The tests that build a tree stay in tests/YabaiTests.
 

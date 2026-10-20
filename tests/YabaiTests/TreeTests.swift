@@ -2,6 +2,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 //
 // NOTE: Tree layout tests share space-manager state, so they run in DaemonState.
@@ -44,13 +45,6 @@ extension DaemonState
     @Suite
     @WM struct TreeTests
     {
-        // NOTE: the golden replay of this suite sets tree_workspace_layout tabbed, which wraps every container that is
-        // attached to the workspace; the tests expect the default (Swift Testing creates the suite for each test)
-        init()
-        {
-            Config.current.space.treeWorkspaceTabbed = false
-        }
-
         @Test("tree_attach_detach")
         func treeAttachDetach()
         {

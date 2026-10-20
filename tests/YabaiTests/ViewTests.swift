@@ -2,6 +2,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 //
 // NOTE: These tests build and lay out trees, so they run in DaemonState. Pure area calculations are tested in
@@ -117,6 +118,8 @@ extension DaemonState
         @Test("auto_padding_split_in_tab")
         func autoPaddingSplitInTab()
         {
+            // NOTE: classic bars: glass cards would inset the tabs
+            Config.current.tabBar.style = .i3
             let target = autoPaddingView()
             target.tree!.layout = .tabbed
 

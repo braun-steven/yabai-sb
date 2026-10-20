@@ -1,5 +1,6 @@
 import Testing
 @testable import YabaiCore
+import YabaiTestSupport
 
 // NOTE: Ported from tests/src/space_window.c.
 

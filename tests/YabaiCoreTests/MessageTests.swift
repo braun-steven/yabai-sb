@@ -1,5 +1,6 @@
 import Testing
 @testable import YabaiCore
+import YabaiTestSupport
 
 // NOTE: Ported from tests/src/message.c. Messages are null-separated tokens, as sent by the client.
 

@@ -1,6 +1,7 @@
 import Testing
 import CPrivate
 @testable import Yabai
+import YabaiTestSupport
 
 private func knownFocusPSN(_ low: UInt32) -> ProcessSerialNumber
 {

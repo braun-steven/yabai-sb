@@ -2,6 +2,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 // NOTE: Ported from tests/src/window_info.c and tests/src/tree_view.c. The tree json reads the focused window of the
 // window manager, so these tests are part of DaemonState.

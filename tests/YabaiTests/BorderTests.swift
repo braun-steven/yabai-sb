@@ -3,6 +3,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 extension DaemonState
 {

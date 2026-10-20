@@ -30,7 +30,11 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.3", traits: ["UnstableSortedCollections"]),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1"),
         // NOTE: Without the default SubprocessFoundation trait: the commands yabai runs need no Data input or output.
-        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: [])
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: []),
+        // the test targets only: property-based tests, diffs of large values, and snapshots
+        .package(url: "https://github.com/x-sheep/swift-property-based.git", from: "2.0.1"),
+        .package(url: "https://github.com/pointfreeco/swift-custom-dump.git", from: "1.7.3"),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.6")
     ],
     targets: [
         // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
@@ -85,17 +89,45 @@ let package = Package(
         ),
         .plugin(name: "OSAXEmbed", capability: .buildTool()),
         // tests/, not Tests/: the file system is case-insensitive
+        // the helpers both test targets share: the id literals, the generators and the snapshot strategies
+        .target(
+            name: "YabaiTestSupport",
+            dependencies: [
+                "YabaiCore",
+                .product(name: "CustomDump", package: "swift-custom-dump"),
+                .product(name: "PropertyBased", package: "swift-property-based"),
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
+            path: "tests/YabaiTestSupport",
+            swiftSettings: swiftSettings
+        ),
         .testTarget(
             name: "YabaiCoreTests",
-            dependencies: ["YabaiCore"],
+            dependencies: [
+                "YabaiCore",
+                "YabaiTestSupport",
+                .product(name: "CustomDump", package: "swift-custom-dump"),
+                .product(name: "PropertyBased", package: "swift-property-based")
+            ],
             path: "tests/YabaiCoreTests",
             swiftSettings: swiftSettings
         ),
         // the code of the daemon (the IPC handlers, the managers and the golden replay), through @testable import Yabai
         .testTarget(
             name: "YabaiTests",
-            dependencies: ["CPrivate", "OSAX", "Yabai", "YabaiCore"],
+            dependencies: [
+                "CPrivate",
+                "OSAX",
+                "Yabai",
+                "YabaiCore",
+                "YabaiTestSupport",
+                .product(name: "CustomDump", package: "swift-custom-dump"),
+                .product(name: "InlineSnapshotTesting", package: "swift-snapshot-testing"),
+                .product(name: "PropertyBased", package: "swift-property-based"),
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
             path: "tests/YabaiTests",
+            exclude: ["__Snapshots__"],
             resources: [.copy("Golden")],
             swiftSettings: swiftSettings
         )

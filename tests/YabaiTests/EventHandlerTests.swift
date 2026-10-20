@@ -4,6 +4,7 @@ import Testing
 @testable import Yabai
 import CPrivate
 import YabaiCore
+import YabaiTestSupport
 
 @Test("mouse_event_coalescing")
 func mouseEventCoalescing()

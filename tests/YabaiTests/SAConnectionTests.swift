@@ -2,6 +2,7 @@ import Darwin
 import Dispatch
 import Testing
 @testable import Yabai
+import YabaiTestSupport
 
 private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
                         body: (SAConnection) throws -> Void) throws
@@ -29,7 +30,7 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
     try body(connection)
 }
 
-@Test func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws
+@Test(.timeLimit(.minutes(1))) func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws
 {
     try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
     try withSAPeer([2]) { #expect($0.command([1, 0, 1]) == .rejected(2)) }
@@ -37,7 +38,7 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
     try withSAPeer(nil) { #expect($0.command([1, 0, 1]) == .transportFailure) }
 }
 
-@Test func saConnectionReadsFragmentedHandshakeAndRejectsTruncation() throws
+@Test(.timeLimit(.minutes(1))) func saConnectionReadsFragmentedHandshakeAndRejectsTruncation() throws
 {
     let response = Array("2.1.35".utf8) + [0, 0x5f, 0, 0, 0, 10]
     try withSAPeer(response, fragment: true) { connection in
@@ -50,7 +51,7 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
     }
 }
 
-@Test func saConnectionCompletesPartialWritesAndBoundsBackpressure() throws
+@Test(.timeLimit(.minutes(1))) func saConnectionCompletesPartialWritesAndBoundsBackpressure() throws
 {
     var pair: [Int32] = [0, 0]
     try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)

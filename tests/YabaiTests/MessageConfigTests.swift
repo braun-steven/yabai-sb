@@ -2,6 +2,7 @@ import Testing
 import CPrivate
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 // NOTE: The handler changes the global managers, so the tests are part of DaemonState.
 

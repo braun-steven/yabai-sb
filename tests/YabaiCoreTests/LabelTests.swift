@@ -1,5 +1,6 @@
 import Testing
 @testable import YabaiCore
+import YabaiTestSupport
 
 @Test("label_list") func labelList()
 {

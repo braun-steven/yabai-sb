@@ -1,5 +1,6 @@
 import Testing
 @testable import Yabai
+import YabaiTestSupport
 
 // NOTE: The command line of the process (YabaiOptions.swift). Parsing touches no global state, so these run in parallel.
 

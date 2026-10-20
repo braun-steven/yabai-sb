@@ -1,6 +1,7 @@
 import Testing
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 // NOTE: A destroyed space and a removed display are described by their id alone, without the managers.
 

@@ -15,8 +15,13 @@ point below was learned the hard way; read it before running anything live.
 - The golden replay runs on a daemon state without displays, spaces or windows, but in the test process: a command
   in `tests/YabaiTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
   real one. Only add commands that fail before they act, or that only change the daemon's own state.
-- Keep manager-mutating tests in the serialized `DaemonState` suite. Golden replay leaves config
-  on those globals; explicitly set any default a test depends on. Tests must not invoke window server side effects.
+- Keep manager-mutating tests in the serialized `DaemonState` suite (`tests/YabaiTests/DaemonState.swift`). Its
+  `.daemonFixture` trait resets the config, managers, rules and signals before every test, so a test sees the
+  defaults; set any other value a test depends on in the test itself. Tests must not invoke window server side effects.
+- Shared test helpers (the id literals) live in the `YabaiTestSupport` target (`tests/YabaiTestSupport/`), which
+  cannot depend on the executable `Yabai`: daemon fixtures stay in `tests/YabaiTests/`.
+- `make coverage` (`scripts/coverage.sh`) prints the line coverage of `Sources/` per file;
+  `make coverage COVERAGE_FILTER='Con|TreeView'` limits the files shown.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.

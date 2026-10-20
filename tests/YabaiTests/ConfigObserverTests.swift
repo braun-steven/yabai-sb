@@ -3,6 +3,7 @@ import Synchronization
 import Testing
 @testable import Yabai
 import YabaiCore
+import YabaiTestSupport
 
 //
 // NOTE: The tests set Config to its current values, so they change nothing, but they are part of DaemonState. They do

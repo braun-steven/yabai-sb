@@ -1,6 +1,7 @@
 import Testing
 @testable import Yabai
 import YabaiCore
+import YabaiTestSupport
 
 //
 // NOTE: Runtime overrides change the managers' state, so the tests are part of DaemonState.

@@ -1,7 +1,16 @@
 #! /usr/bin/env bash
 
 identities="$(security find-identity -v -p codesigning | sed '$d')"
-id_count="$(echo "${identities}" | wc -l)"
+
+# A self-signed certificate that is not trusted for code signing (CSSMERR_TP_NOT_TRUSTED) is not listed by -v, but
+# codesign signs with it, and the Accessibility permission stays tied to it. Expired certificates stay excluded.
+if [ -z "${identities}" ]; then
+	identities="$(security find-identity -p codesigning \
+		| awk '/^ *[0-9]+\) [0-9A-F]+ / && !/EXPIRED/ && !seen[$2]++ { $1 = ++n ")"; print "  " $0 }')"
+	[ -n "${identities}" ] && >&2 echo "Note: no valid codesigning identity, using untrusted ones"
+fi
+
+id_count="$(echo -n "${identities}" | grep -c '^')"
 target="$(command -v "${1:-}")"
 
 function error() {

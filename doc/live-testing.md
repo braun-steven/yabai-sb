@@ -191,7 +191,9 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   unless the user takes over. The user deploys a branch for good with `update-yabai-fork` in a real terminal (it needs `sudo`).
 - Tell the user after each deploy: it restarts yabai and resets their layouts (see above).
 - `deploy.sh` signs with the `yabai-cert` identity (`3A6E8695…`), so the Accessibility permission is
-  kept. Check with `codesign -d -r- ~/.local/bin/yabai`.
+  kept. Check with `codesign -d -r- ~/.local/bin/yabai`. That certificate is self-signed and not trusted for code
+  signing (`CSSMERR_TP_NOT_TRUSTED`), so `security find-identity -v` hides it; `scripts/codesign` falls back to it
+  when no identity is valid.
 - Expected noise in `/tmp/yabai_$USER.err.log` while a test build is installed:
   `sudo: a terminal is required…` (the sudoers rule for `--load-sa` is pinned to the hash of the binary
   that `update-yabai-fork` installed) and `yabairc: line 164: 0xff285577: command not found`.

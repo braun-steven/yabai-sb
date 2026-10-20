@@ -150,13 +150,9 @@ void NotifyC(const char *subtitle, const char *text);
 void CPrivateSetResolvedFunctions(void *_Nullable get_connection_port_by_id, void *_Nullable bridged_operation);
 
 //
-// NOTE: Swift cannot call system, popen/pclose or variadic sscanf. Keep the SA installation/injection commands and
-// the exact C numeric parsing behavior through fixed-signature wrappers, without running Swift in a forked child.
+// NOTE: Swift cannot call variadic sscanf. Keep the exact C numeric parsing behavior through a fixed-signature wrapper.
 //
 
-static inline int SystemC(const char *command) { return system(command); }
-static inline FILE *_Nullable PopenC(const char *command, const char *mode) { return popen(command, mode); }
-static inline int PcloseC(FILE *handle) { return pclose(handle); }
 static inline int sscanfUIntC(const char *text, unsigned int *value) { return sscanf(text, "%u", value); }
 
 #ifdef __OBJC__

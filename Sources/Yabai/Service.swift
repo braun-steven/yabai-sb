@@ -1,5 +1,6 @@
 import Foundation
 import Logging
+import Subprocess
 
 //
 // NOTE: The launchd service of --install-service, --uninstall-service, --start-service, --restart-service and
@@ -9,7 +10,7 @@ import Logging
 /// The launchd service of the daemon: its property list and the launchctl commands that install, start and stop it.
 enum Service
 {
-    private static let launchctlPath = "/bin/launchctl"
+    private static let launchctlExecutable: Executable = .path("/bin/launchctl")
     private static let yabaiPlistName = "com.asmvik.yabai"
 
     /// The launchd property list: the executable, PATH, and the user twice.
@@ -60,42 +61,17 @@ enum Service
     //          4. Running (Start / Stop)
     //
 
-    // WIFSIGNALED, WIFSTOPPED and WEXITSTATUS of <sys/wait.h>, which Swift does not import
-    private static func waitStatus(_ status: Int32) -> Int32 { status & 0o177 }
-    private static func waitIfStopped(_ status: Int32) -> Bool { waitStatus(status) == 0o177 && (status >> 8) != 0x13 }
-    private static func waitIfSignaled(_ status: Int32) -> Bool { waitStatus(status) != 0o177 && waitStatus(status) != 0 }
-    private static func waitExitStatus(_ status: Int32) -> Int32 { (status >> 8) & 0xff }
-
-    /// Runs the command, without an environment, and waits for it.
-    private static func safeExec(_ arguments: [String], _ suppressOutput: Bool) -> Int32
+    /// Runs launchctl, without an environment, and waits for it; returns its exit status, 1 if it could not run or was
+    /// killed by a signal.
+    private static func launchctl(_ arguments: [String], suppressOutput: Bool = false) async -> Int32
     {
-        var pid: pid_t = 0
-        var actions: posix_spawn_file_actions_t?
-        posix_spawn_file_actions_init(&actions)
-        defer { posix_spawn_file_actions_destroy(&actions) }
+        let configuration = Configuration(executable: launchctlExecutable, arguments: Arguments(arguments), environment: .custom([:]))
+        let status = suppressOutput
+                   ? try? await run(configuration, output: .discarded).terminationStatus
+                   : try? await run(configuration, output: .currentStandardOutput, error: .currentStandardError).terminationStatus
 
-        if suppressOutput {
-            posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY|O_APPEND, 0)
-            posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY|O_APPEND, 0)
-        }
-
-        var argv: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) } + [nil]
-        defer { argv.forEach { free($0) } }
-
-        var status = posix_spawn(&pid, argv[0], &actions, nil, &argv, nil)
-        if status != 0 { return 1 }
-
-        while waitpid(pid, &status, 0) == -1 && errno == EINTR {
-            usleep(1000)
-        }
-
-        if waitIfSignaled(status) {
-            return 1
-        } else if waitIfStopped(status) {
-            return 1
-        } else {
-            return waitExitStatus(status)
-        }
+        guard case .exited(let code) = status else { return 1 }
+        return code
     }
 
     /// The path of the property list in the LaunchAgents directory of the user.
@@ -187,7 +163,7 @@ enum Service
     }
 
     /// Enables, bootstraps or kickstarts the service, installing the property list first if needed.
-    static func start() -> Int32
+    static func start() async -> Int32
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
@@ -206,7 +182,7 @@ enum Service
         // NOTE(asmvik): Check if service is bootstrapped
         //
 
-        let isBootstrapped = safeExec([launchctlPath, "print", serviceTarget], true)
+        let isBootstrapped = await launchctl(["print", serviceTarget], suppressOutput: true)
 
         if isBootstrapped != 0 {
 
@@ -217,14 +193,14 @@ enum Service
             // a no-op if the service is already enabled.
             //
 
-            _ = safeExec([launchctlPath, "enable", serviceTarget], false)
+            _ = await launchctl(["enable", serviceTarget])
 
             //
             // NOTE(asmvik): Bootstrap service into the target domain.
             // This will also start the program **iff* RunAtLoad is set to true.
             //
 
-            return safeExec([launchctlPath, "bootstrap", domainTarget, yabaiPlistPath], false)
+            return await launchctl(["bootstrap", domainTarget, yabaiPlistPath])
         } else {
 
             //
@@ -233,12 +209,12 @@ enum Service
             // error to bootstrap a service that has already been bootstrapped.
             //
 
-            return safeExec([launchctlPath, "kickstart", serviceTarget], false)
+            return await launchctl(["kickstart", serviceTarget])
         }
     }
 
     /// Restarts the bootstrapped service instance.
-    static func restart() -> Int32
+    static func restart() async -> Int32
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
@@ -247,11 +223,11 @@ enum Service
 
         let serviceTarget = "gui/\(getuid())/\(yabaiPlistName)"
 
-        return safeExec([launchctlPath, "kickstart", "-k", serviceTarget], false)
+        return await launchctl(["kickstart", "-k", serviceTarget])
     }
 
     /// Stops the running instance and unloads the service.
-    static func stop() -> Int32
+    static func stop() async -> Int32
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
@@ -265,7 +241,7 @@ enum Service
         // NOTE(asmvik): Check if service is bootstrapped
         //
 
-        let isBootstrapped = safeExec([launchctlPath, "print", serviceTarget], true)
+        let isBootstrapped = await launchctl(["print", serviceTarget], suppressOutput: true)
 
         if isBootstrapped != 0 {
 
@@ -275,7 +251,7 @@ enum Service
             // was bootstrapped**, so we tell it to stop said service.
             //
 
-            return safeExec([launchctlPath, "kill", "SIGTERM", serviceTarget], false)
+            return await launchctl(["kill", "SIGTERM", serviceTarget])
         } else {
 
             //
@@ -288,9 +264,9 @@ enum Service
             // it first).
             //
 
-            _ = safeExec([launchctlPath, "bootout", domainTarget, yabaiPlistPath], false)
+            _ = await launchctl(["bootout", domainTarget, yabaiPlistPath])
 
-            return safeExec([launchctlPath, "disable", serviceTarget], false)
+            return await launchctl(["disable", serviceTarget])
         }
     }
 }

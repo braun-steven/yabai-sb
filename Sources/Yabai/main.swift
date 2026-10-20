@@ -18,4 +18,15 @@ if !options.message.isEmpty {
 }
 
 Log.bootstrap()
+
+//
+// NOTE: The actions wait for their commands through swift-subprocess, which is async only. A task on the main actor runs
+// the action while dispatchMain serves the main queue; the daemon stays synchronous and never runs in an async context.
+//
+
+if let action = options.action {
+    Task { exit(await action.run()) }
+    dispatchMain()
+}
+
 exit(Daemon.run(options))

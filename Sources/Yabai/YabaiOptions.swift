@@ -51,16 +51,16 @@ struct YabaiOptions: ParsableCommand
         }
 
         /// Does the work of the action; returns the exit status.
-        func run() -> Int32
+        func run() async -> Int32
         {
             switch self {
-            case .loadSA:           ScriptingAddition.shared.load()
+            case .loadSA:           await ScriptingAddition.shared.load()
             case .uninstallSA:      ScriptingAddition.shared.uninstall()
             case .installService:   Service.install()
             case .uninstallService: Service.uninstall()
-            case .startService:     Service.start()
-            case .restartService:   Service.restart()
-            case .stopService:      Service.stop()
+            case .startService:     await Service.start()
+            case .restartService:   await Service.restart()
+            case .stopService:      await Service.stop()
             }
         }
     }

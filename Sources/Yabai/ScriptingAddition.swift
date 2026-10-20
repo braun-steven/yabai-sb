@@ -3,6 +3,8 @@ import AppKit
 import Darwin
 import CPrivate
 import OSAX
+import Subprocess
+import System
 import YabaiCore
 
 private let saVersion = String(cString: sa_payload_version())
@@ -147,10 +149,13 @@ final class ScriptingAddition: Sendable
         text.withCString { writeFile($0, text.utf8.count, path, "w") }
     }
 
-    private func prepareBinaries() -> Bool
+    private func prepareBinaries() async -> Bool
     {
         for path in [SAPath.loaderBinary, SAPath.payloadBinary] {
-            guard chmod(path, 0o755) == 0, SystemC("/usr/bin/codesign -f -s - \(path)") == 0 else { return false }
+            guard chmod(path, 0o755) == 0 else { return false }
+            let status = try? await run(.path("/usr/bin/codesign"), arguments: ["-f", "-s", "-", path],
+                                        output: .currentStandardOutput, error: .currentStandardError).terminationStatus
+            guard status?.isSuccess == true else { return false }
         }
         return true
     }
@@ -162,7 +167,9 @@ final class ScriptingAddition: Sendable
 
     private func restartDock()
     {
-        for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") { dock.terminate() }
+        autoreleasepool {
+            for dock in NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock") { dock.terminate() }
+        }
     }
 
     private var isInstalled: Bool
@@ -183,10 +190,10 @@ final class ScriptingAddition: Sendable
 
     @discardableResult private func remove() -> Bool
     {
-        SystemC("rm -rf \(SAPath.base) 2>/dev/null") == 0
+        (try? FileManager.default.removeItem(atPath: SAPath.base)) != nil
     }
 
-    private func install() -> Int32
+    private func install() async -> Int32
     {
         let previousMask = umask(mode_t(S_IWGRP | S_IWOTH))
         defer { umask(previousMask) }
@@ -196,7 +203,7 @@ final class ScriptingAddition: Sendable
               writeFile(saBundlePlist, SAPath.payloadInfo),
               writeFile(sa_loader_bytes(), Int(sa_loader_size()), SAPath.loaderBinary, "wb"),
               writeFile(sa_payload_bytes(), Int(sa_payload_size()), SAPath.payloadBinary, "wb"),
-              prepareBinaries() else {
+              await prepareBinaries() else {
             remove()
             return 2
         }
@@ -213,7 +220,7 @@ final class ScriptingAddition: Sendable
         return connection.handshake()
     }
 
-    private func performValidation(socketPath: String) -> Int32
+    private func performValidation(socketPath: String) async -> Int32
     {
         let isLatestInstalled = check() == 0
         guard let handshake = requestHandshake(socketPath: socketPath) else { report("connection failed!"); return 1 }
@@ -229,7 +236,7 @@ final class ScriptingAddition: Sendable
         }
         if !isLatestInstalled {
             report("payload is outdated, updating..")
-            return install()
+            return await install()
         }
         report("payload is outdated, restarting Dock.app..")
         restartDock()
@@ -250,12 +257,10 @@ final class ScriptingAddition: Sendable
         return sysctlbyname("kern.bootargs", &args, &length, nil, 0) == 0 && strnstr(args, "-arm64e_preview_abi", length) != nil
     }
 
-    private func injectPayload() -> Bool
+    private func injectPayload() async -> Bool
     {
-        guard let handle = PopenC(SAPath.loaderBinary, "r") else { return false }
-        let result = PcloseC(handle)
-        // WIFEXITED and WEXITSTATUS are function-like macros, unavailable to Swift.
-        return result & 0x7f == 0 && (result >> 8) & 0xff == 0
+        let status = try? await run(.path(FilePath(SAPath.loaderBinary)), output: .discarded, error: .currentStandardError).terminationStatus
+        return status?.isSuccess == true
     }
 
     func uninstall() -> Int32
@@ -274,36 +279,34 @@ final class ScriptingAddition: Sendable
         return remove() ? 0 : -1
     }
 
-    func load() -> Int32
+    func load() async -> Int32
     {
-        autoreleasepool {
-            if !Daemon.isRoot {
-                Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be loaded as root!\n".utf8)
-                report("must be loaded as root!")
-                return 1
-            }
-            if !isSIPFriendly {
-                Client.writeAll(STDERR_FILENO, "yabai: System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!\n".utf8)
-                report("System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!")
-                return 1
-            }
-            if check() != 0 { return install() }
-            if !isArm64eEnabled {
-                Client.writeAll(STDERR_FILENO, "yabai: missing required nvram boot-arg '-arm64e_preview_abi'!\n".utf8)
-                report("missing required nvram boot-arg '-arm64e_preview_abi'!")
-                return 1
-            }
-            guard let sudoSocketPath else {
-                Client.writeAll(STDERR_FILENO, "yabai: cannot determine the scripting-addition user from SUDO_UID!\n".utf8)
-                return 1
-            }
-            if !injectPayload() {
-                Client.writeAll(STDERR_FILENO, "yabai: scripting-addition failed to inject payload into Dock.app!\n".utf8)
-                report("failed to inject payload into Dock.app!")
-                return 1
-            }
-            return performValidation(socketPath: sudoSocketPath)
+        if !Daemon.isRoot {
+            Client.writeAll(STDERR_FILENO, "yabai: scripting-addition must be loaded as root!\n".utf8)
+            report("must be loaded as root!")
+            return 1
         }
+        if !isSIPFriendly {
+            Client.writeAll(STDERR_FILENO, "yabai: System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!\n".utf8)
+            report("System Integrity Protection: Filesystem Protections and Debugging Restrictions must be disabled!")
+            return 1
+        }
+        if check() != 0 { return await install() }
+        if !isArm64eEnabled {
+            Client.writeAll(STDERR_FILENO, "yabai: missing required nvram boot-arg '-arm64e_preview_abi'!\n".utf8)
+            report("missing required nvram boot-arg '-arm64e_preview_abi'!")
+            return 1
+        }
+        guard let sudoSocketPath else {
+            Client.writeAll(STDERR_FILENO, "yabai: cannot determine the scripting-addition user from SUDO_UID!\n".utf8)
+            return 1
+        }
+        if !(await injectPayload()) {
+            Client.writeAll(STDERR_FILENO, "yabai: scripting-addition failed to inject payload into Dock.app!\n".utf8)
+            report("failed to inject payload into Dock.app!")
+            return 1
+        }
+        return await performValidation(socketPath: sudoSocketPath)
     }
 
     func send(_ bytes: [UInt8]) -> Bool

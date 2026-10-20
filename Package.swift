@@ -28,7 +28,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         // NOTE: SortedCollections is behind an unstable trait whose API can break in any release, so the version is exact.
         .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.3", traits: ["UnstableSortedCollections"]),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1")
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1"),
+        // NOTE: Without the default SubprocessFoundation trait: the commands yabai runs need no Data input or output.
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: [])
     ],
     targets: [
         // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
@@ -70,7 +72,8 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SortedCollections", package: "swift-collections")
+                .product(name: "SortedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess")
             ],
             swiftSettings: swiftSettings,
             linkerSettings: [

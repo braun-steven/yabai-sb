@@ -150,16 +150,12 @@ enum Daemon
         return fcntl(handle, F_SETLK, &lockfd) != -1
     }
 
-    /// Runs the daemon, or the option given on the command line.
+    /// Runs the daemon, or prints the version.
     @MainActor static func run(_ options: YabaiOptions) -> Int32
     {
         if options.version {
             fputs("yabai-v\(major).\(minor).\(patch)\n", stdout_global())
             return EXIT_SUCCESS
-        }
-
-        if let action = options.action {
-            return action.run()
         }
 
         if options.verbose {

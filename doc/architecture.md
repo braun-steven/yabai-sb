@@ -45,7 +45,7 @@ Each `View` owns a container tree. `Con` has a weak parent and ordered children/
 
 ### Rules and signals
 
-`Rule.swift` matches rules and builds the `RuleInfo` of `rule --list`; `WindowManager+Rules.swift` applies effects. YabaiCore's `EventSignal.swift` holds signal filters and `SignalInfo`; the executable's `EventSignal.swift` queues and flushes commands with `posix_spawn` through `env`. Config scripts also use `posix_spawn`; Swift must never execute in a forked child.
+`Rule.swift` matches rules and builds the `RuleInfo` of `rule --list`; `WindowManager+Rules.swift` applies effects. YabaiCore's `EventSignal.swift` holds signal filters and `SignalInfo`; the executable's `EventSignal.swift` queues and flushes commands with `posix_spawn` through `env`. Config scripts also use `posix_spawn`; Swift must never execute in a forked child. The CLI actions that wait for a command (`Service`'s launchctl calls, `ScriptingAddition`'s codesign and loader) run it through swift-subprocess; `main.swift` runs those actions in a main-actor task under `dispatchMain`.
 
 ### Logging
 

@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - While a menu is open, *config focus_follows_mouse* prints the configured mode instead of *off*, and a mode set while the menu is open stays after it closes; focus follows mouse is still off while the menu is open
 - An invalid stack window selector (e.g. *stack.foo*) is always reported as an invalid *WINDOW_SEL*, also when there is no window to act on, instead of "could not locate the selected window."
 - A failure that lists several problems (every invalid key of a *rule --add* or *signal --add*, every unknown property of a query) starts with a single failure byte, instead of one before each line
@@ -66,15 +67,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.25] - 2026-05-08
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Functionality for moving windows between spaces works with SIP enabled again [#2788](https://github.com/asmvik/yabai/issues/2788)
 
 ## [7.1.24] - 2026-04-24
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Properly reset *focus follows mouse* window id upon window close [#2217](https://github.com/asmvik/yabai/issues/2217)
 - Fix scripting addition for macOS 26.4 Intel x64 [#2708](https://github.com/asmvik/yabai/issues/2708)
 
 ## [7.1.23] - 2026-04-20
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Further improvements to implementation for removing native window focus space animation (`skip_window_focus_animation`), with SIP enabled [#2781](https://github.com/asmvik/yabai/issues/2781)
 - Prevent *focus follows mouse* from triggering while inside a space switching gesture [#2781](https://github.com/asmvik/yabai/issues/2781)
 - Attempt to resolve *focus follows mouse* incorrectly getting disabled by stale context menu events [#2217](https://github.com/asmvik/yabai/issues/2217)
@@ -83,77 +87,93 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.22] - 2026-04-19
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Improved implementation to remove native window focus space animation, with SIP enabled. Gated behind config option (`skip_window_focus_animation`) [#2781](https://github.com/asmvik/yabai/issues/2781)
 
 ## [7.1.21] - 2026-04-19
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Remove the space switch animation when using cmd+tab, and clicking on an item in the Dock, with SIP enabled [#2781](https://github.com/asmvik/yabai/issues/2781)
 
 ## [7.1.20] - 2026-04-19
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Minor performance improvement of `space --focus` command with SIP enabled [#2780](https://github.com/asmvik/yabai/issues/2780)
 
 ## [7.1.19] - 2026-04-18
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - `space --focus` command now works with SIP enabled [#2780](https://github.com/asmvik/yabai/issues/2780)
 - Lockfile descriptor should not be kept alive by the signal system [#2775](https://github.com/asmvik/yabai/issues/2775)
 
 ## [7.1.18] - 2026-03-29
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Validate scripting-addition socket message length to prevent possbility of stack corruption [#2751](https://github.com/asmvik/yabai/issues/2751)
 - Update scripting addition for 26.4 Apple Silicon [#2764](https://github.com/asmvik/yabai/issues/2764)
 
 ## [7.1.17] - 2026-02-21
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS 26.2 and 26.3 Apple Silicon [#2693](https://github.com/asmvik/yabai/issues/2693)
 - Fix window sub-level query for macOS 26 [#2726](https://github.com/asmvik/yabai/issues/2726)
 
 ## [7.1.16] - 2025-10-07
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Preliminary support for macOS Tahoe (mostly for Apple Silicon) [#2634](https://github.com/asmvik/yabai/issues/2634) [#2680](https://github.com/asmvik/yabai/issues/2680)
 
 ## [7.1.15] - 2025-05-18
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fetching NSRunningApplication for some processes will fail randomly; delay and retry when this happens [#2595](https://github.com/asmvik/yabai/issues/2595)
 - Fixed crash when sequence of window commands initiated while focused window is untracked [#2606](https://github.com/asmvik/yabai/issues/2606)
 - Change when window_unobserve is called [#2605](https://github.com/asmvik/yabai/issues/2605)
 
 ## [7.1.14] - 2025-04-05
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS 15.4 Intel x86-64 [#2589](https://github.com/asmvik/yabai/issues/2589)
 
 ## [7.1.13] - 2025-03-23
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Implement different method of focusing displays without synthesizing mouse-events [#2452](https://github.com/asmvik/yabai/issues/2452) [#2289](https://github.com/asmvik/yabai/issues/2289)
 - Display --focus command should return an error if the target display already has focus [#2574](https://github.com/asmvik/yabai/issues/2574)
 
 ## [7.1.12] - 2025-03-22
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Ignore applications that are being debugged [#599](https://github.com/asmvik/yabai/issues/599)
 - Fixed query output for `config auto_balance`; regression after [#190](https://github.com/asmvik/yabai/issues/190) in v7.1.6 [#2579](https://github.com/asmvik/yabai/issues/2579)
 - Workaround to acquire AX-References for windows on inactive spaces should only run at startup [#2575](https://github.com/asmvik/yabai/issues/2575)
 
 ## [7.1.11] - 2025-03-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS Sequoia 15.4 Beta 2 [#2558](https://github.com/asmvik/yabai/issues/2558)
 - Implement cached values for window query system to fix responsiveness issues for slow/frozen applications [#2377](https://github.com/asmvik/yabai/issues/2377)
 - Properly escape control characters U+0000 - U+001f in queries [#2517](https://github.com/asmvik/yabai/issues/2517)
 
 ## [7.1.10] - 2025-02-14
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Adjust to macOS API change in Sequoia 15.3 altering the behaviour of SPACE_CREATED and SPACE_DESTROYED event notifications [#2548](https://github.com/asmvik/yabai/issues/2548)
 - Resolved weird issues after making assumptions in changes made for v7.1.7 [#2551](https://github.com/asmvik/yabai/issues/2551)
 
 ## [7.1.9] - 2025-02-12
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Resolved issue with window query partially including non-windows, causing malformed json output (comma separators) [#2533](https://github.com/asmvik/yabai/issues/2533)
 
 ## [7.1.8] - 2025-02-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Resolved window query flag serialization issue introduced in v7.1.7.... [#2532](https://github.com/asmvik/yabai/issues/2532)
 
 ## [7.1.7] - 2025-02-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Implemented workaround to acquire AX-References for windows on inactive spaces [#2320](https://github.com/asmvik/yabai/issues/2320) [#2480](https://github.com/asmvik/yabai/issues/2480)
 
 ### Removed
@@ -164,6 +184,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - New config option `window_insertion_point` to specify where new windows are inserted [#2510](https://github.com/asmvik/yabai/issues/2510)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS Sonoma 14.7.2 and Sequoia 15.3 [#2497](https://github.com/asmvik/yabai/issues/2497)
 - Fix issue with patching macOS space switching animation on macOS 14.7 Intel x86-64 [#2440](https://github.com/asmvik/yabai/issues/2440)
 - Config *global setting* `split_type` is now categorized as a *space setting* instead [#2479](https://github.com/asmvik/yabai/issues/2479)
@@ -173,14 +194,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.5] - 2024-11-01
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS Sequoia 15.1 [#2441](https://github.com/asmvik/yabai/issues/2441)
 
 ## [7.1.4] - 2024-09-26
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Implement fallback method for macOS Sequoia to detect when a window is destroyed, because of weird system problems when other third-party software is in use [#2431](https://github.com/asmvik/yabai/issues/2431)
 
 ## [7.1.3] - 2024-09-17
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix issue causing sticky scratchpad windows to not work as expected [#2394](https://github.com/asmvik/yabai/issues/2394)
 - Fix window query scratchpad property flag [#2391](https://github.com/asmvik/yabai/issues/2391)
 - When a new window is added to a stack it is placed after the currently focused window (instead of the end) [#2387](https://github.com/asmvik/yabai/issues/2387)
@@ -188,6 +212,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.2] - 2024-08-10
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Allow *window_animation_duration* to be set to `0.0` without requesting *Screen Capture* permissions [#2378](https://github.com/asmvik/yabai/issues/2378)
 - Add new *window --toggle* option `windowed-fullscreen` to fullscreen a window, ignoring all configured padding for both managed and unmanaged windows [#2221](https://github.com/asmvik/yabai/issues/2221)
 - Moving windows to other spaces requires SIP to be disabled on macOS Sequoia [#2324](https://github.com/asmvik/yabai/issues/2324) [#2331](https://github.com/asmvik/yabai/issues/2331)
@@ -196,6 +221,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.1.1] - 2024-05-18
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Assigning a window to scratchpad using rules would incorrectly hide that window immediately [#2203](https://github.com/asmvik/yabai/issues/2203)
 - Moving windows to other spaces should once again work on macOS Sonoma 14.5 (and newer) [#2240](https://github.com/asmvik/yabai/issues/2240)
 - Update scripting addition for macOS Sonoma 14.5 Intel (Apple Silicon is already supported in v7.1.0) [#2277](https://github.com/asmvik/yabai/issues/2277)
@@ -208,6 +234,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added window and rule query property `scratchpad` [#2203](https://github.com/asmvik/yabai/issues/2203)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Config *global setting* `auto_balance` is now categorized as a *space setting* instead [#2200](https://github.com/asmvik/yabai/issues/2200)
 - Rule property space should have higher precedence than display [#2206](https://github.com/asmvik/yabai/issues/2206)
 - Properly escape app and title, role and subrole, regex when listing rules [#2205](https://github.com/asmvik/yabai/issues/2205)
@@ -217,12 +244,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.0.4] - 2024-03-30
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Consecutive window resize operations would not work correctly because it used a cached value for the window frame [#2182](https://github.com/asmvik/yabai/issues/2182)
 - Fix weird delay caused by interaction between macOS System APIs on Sonoma when using `--insert` in combination with other commands in rapid succession [#2188](https://github.com/asmvik/yabai/issues/2188)
 - Change how background processes are detected and handled [#2190](https://github.com/asmvik/yabai/issues/2190) [#2168](https://github.com/asmvik/yabai/issues/2168) [#2194](https://github.com/asmvik/yabai/issues/2194)
 
 ## [7.0.3] - 2024-03-22
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Whitelist zathura process for management because it incorrectly identifies as a background-only process [#2168](https://github.com/asmvik/yabai/issues/2168)
 - Config should be executed if the exec-bit is set, but interpreted if it is not [#2169](https://github.com/asmvik/yabai/issues/2169)
 - Window query property is-sticky would sometimes show the wrong value [#2175](https://github.com/asmvik/yabai/issues/2175)
@@ -230,10 +259,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [7.0.2] - 2024-03-13
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Decouple/normalize timer used for mouse_action resize throttling because event timestep varies between macOS versions [#2160](https://github.com/asmvik/yabai/issues/2160)
 
 ## [7.0.1] - 2024-03-13
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix mouse_action resize throttling issue caused by friggin Apple event timestep garbage [#2160](https://github.com/asmvik/yabai/issues/2160)
 
 ## [7.0.0] - 2024-03-13
@@ -254,6 +285,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Added display query property `has-focus` [#1616](https://github.com/asmvik/yabai/issues/1616)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Preserve relative space ordering when moving spaces to other displays [#2114](https://github.com/asmvik/yabai/issues/2114)
 - Make window animations compatible with window opacity fade effect [#2116](https://github.com/asmvik/yabai/issues/2116)
 - Better filter for background processes [#2118](https://github.com/asmvik/yabai/issues/2118)
@@ -285,16 +317,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [6.0.15] - 2024-02-22
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix weird segfault with consumed mouse-event [#1801](https://github.com/asmvik/yabai/issues/1801)
 - Implement visual feedback for mouse_drag actions, controlled by `insert_feedback_color` [#2109](https://github.com/asmvik/yabai/issues/2109)
 
 ## [6.0.14] - 2024-02-21
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Mouse actions could stop working if the acting window was destroyed while a mouse action was in progress [#2038](https://github.com/asmvik/yabai/issues/2038)
 - Replicate consumed mouse-click when no mouse-drag action is initiated [#1801](https://github.com/asmvik/yabai/issues/1801)
 
 ## [6.0.13] - 2024-02-19
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Lock assigned handle while mouse_action resize is in progress [#2102](https://github.com/asmvik/yabai/issues/2102)
 - Modify "no click-zone" when using focus_follows_mouse to activate an empty display [#1892](https://github.com/asmvik/yabai/issues/1892) [#863](https://github.com/asmvik/yabai/issues/863)
 
@@ -303,14 +338,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - New config option `menubar_opacity` to make the menubar transparent (or even completely hidden, ignoring mouse-events) [#2091](https://github.com/asmvik/yabai/issues/2091)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Using `--toggle native-fullscreen` to exit native-fullscreen mode could sometimes leave the window unmanaged/untiled [#2090](https://github.com/asmvik/yabai/issues/2090)
 
 ## [6.0.11] - 2024-02-11
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Adjustments to mission control integration on Ventura and Sonoma due to subtle issues with window operations that cross monitor boundaries [#2088](https://github.com/asmvik/yabai/issues/2088)
 
 ## [6.0.10] - 2024-02-10
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed caching issue when using focus_follows_mouse to switch focus between monitors with no windows [#2075](https://github.com/asmvik/yabai/issues/2075)
 - Attempt to resolve issue where some applications do not incorrectly pass along NSRunningApplication isObservable and isFinishedLaunching properties [#1367](https://github.com/asmvik/yabai/issues/1367)
 - Add compatibility between window animations and JankyBorders [#2087](https://github.com/asmvik/yabai/issues/2087)
@@ -320,15 +358,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [6.0.9] - 2024-02-04
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix detection of windows that are minimized before yabai is launched [#1833](https://github.com/asmvik/yabai/issues/1833)
 
 ## [6.0.8] - 2024-02-04
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - All windows that report a non-standard window_level should be treated as floating (permanently), unless otherwise specified through manage=on rules [#2055](https://github.com/asmvik/yabai/issues/2055)
 - Fix detection of windows that are minimized before yabai is launched [#1833](https://github.com/asmvik/yabai/issues/1833)
 
 ## [6.0.7] - 2024-01-25
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS Sonoma 14.3 Intel (Apple Silicon is already supported in v6.0.6) [#2065](https://github.com/asmvik/yabai/issues/2065)
 - Fix regression causing window_destroyed signal to not trigger [#2048](https://github.com/asmvik/yabai/issues/2048)
 - Improved snappiness of window animations (time from trigger to start of animation) [#2060](https://github.com/asmvik/yabai/issues/2060)
@@ -336,18 +377,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [6.0.6] - 2024-01-08
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Cleanup handling of root-windows, child-windows, and window belonging to roles that are considered eligible for management [#2044](https://github.com/asmvik/yabai/issues/2044) [#2036](https://github.com/asmvik/yabai/issues/2036)
 
 ## [6.0.5] - 2024-01-07
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Attempt to separate root-windows from child/sub-windows to improve window detection and management logic [#2044](https://github.com/asmvik/yabai/issues/2044)
 
 ## [6.0.4] - 2024-01-03
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Changes to window detection logic [#2036](https://github.com/asmvik/yabai/issues/2036)
 
 ## [6.0.3] - 2024-01-03
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Changing window layer using rules or `window --layer` commands will exempt that window from automatic layer changes [#1929](https://github.com/asmvik/yabai/issues/1929)
 - Running `yabai --stop-service` should properly prevent yabai from starting after a reboot [#1921](https://github.com/asmvik/yabai/issues/1921)
 - `mission_control_enter/exit` signals include an environment variable to identify which mode was activated/deactivated [#2026](https://github.com/asmvik/yabai/issues/2026)
@@ -356,12 +401,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [6.0.2] - 2023-12-23
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS Sonoma 14.2 and 14.2.1 [#2007](https://github.com/asmvik/yabai/issues/2007)
 - Spaces in stack layout should no longer incorrectly trigger a layout refresh on mouse down [#1493](https://github.com/asmvik/yabai/issues/1493)
 - Fix frame rounding issues causing small window displacement [#1680](https://github.com/asmvik/yabai/issues/1680)
 
 ## [6.0.1] - 2023-11-12
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS 14.1.1 (and probably 14.1) [#1936](https://github.com/asmvik/yabai/issues/1936)
 - Fix issue with focusing stacked windows due to layer changes [#1918](https://github.com/asmvik/yabai/issues/1918)
 - Allow window swap command to work on windows that are in the same space (with layout: stack), using the stack window selectors [#1952](https://github.com/asmvik/yabai/issues/1952)
@@ -372,6 +419,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Window query property `layer` has been added [#1887](https://github.com/asmvik/yabai/issues/1887)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix issue causing window animations to flicker on macOS Ventura and Sonoma [#1879](https://github.com/asmvik/yabai/issues/1879)
 - All managed (read: tiled) windows are now automatically placed in the *below* layer. All unmanaged (read: floating) windows will use the default macOS *normal* layer and appear above the tiled layer, replicating the `window_topmost` functionality in a robust way [#1887](https://github.com/asmvik/yabai/issues/1887)
 - Automatic window opacity changes will now only apply to focus switches within the same space [#1887](https://github.com/asmvik/yabai/issues/1887)
@@ -386,6 +434,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [5.0.9] - 2023-10-01
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Updated scripting-addition to support macOS Sonoma 14.0 [#1772](https://github.com/asmvik/yabai/issues/1772)
 - Fix window focusing (autofocus, and autoraise across multiple monitors [#109](https://github.com/asmvik/yabai/issues/109)) for macOS Sonoma [#1772](https://github.com/asmvik/yabai/issues/1772)
 - Fix scripting-addition functionality that uses Dock.app connection to the WindowServer for macOS Sonoma [#1772](https://github.com/asmvik/yabai/issues/1772)
@@ -394,6 +443,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [5.0.8] - 2023-09-12
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Workaround for macOS Ventura reporting bad window levels when running yabai as a service, causing issues with window topmost [#1704](https://github.com/asmvik/yabai/issues/1704)
 
 ## [5.0.7] - 2023-08-27
@@ -401,16 +451,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Add launch argument `--help, -h` to print available options. [#1825](https://github.com/asmvik/yabai/issues/1825)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Allow window swap commands to work on windows that are in the same stack, using the stack window selectors [#960](https://github.com/asmvik/yabai/issues/960)
 - Properly remove assigned label when a space is destroyed [#1678](https://github.com/asmvik/yabai/issues/1678)
 - Add signals for `space_created` and `space_destroyed` [#1365](https://github.com/asmvik/yabai/issues/1365)
 
 ## [5.0.6] - 2023-05-27
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Change launchd service to only restart automatically upon crashes. You will need to run `yabai --uninstall-service` and `yabai --install-service`. [#1755](https://github.com/asmvik/yabai/issues/1755)
 
 ## [5.0.5] - 2023-05-21
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Create `LaunchAgents` folder in `~/Library` when installing service file, if the directory does not already exist [#1728](https://github.com/asmvik/yabai/issues/1728)
 - Changed how the users home directory is determined when managing service file [#1742](https://github.com/asmvik/yabai/issues/1742)
 - Calculate memory requirement of service file path and contents instead of using static storage [#1749](https://github.com/asmvik/yabai/issues/1749)
@@ -424,6 +477,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [5.0.3] - 2023-03-28
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Updated scripting-addition to support macOS Ventura 13.3 [#1297](https://github.com/asmvik/yabai/issues/1297)
 - Fixed issue with window focusing caused by incorrectly intercepting a synthesized mouse event [#1551](https://github.com/asmvik/yabai/issues/1551)
 - Fixed issue with window warping across displays with only a single window tiled at both displays [#1577](https://github.com/asmvik/yabai/issues/1577)
@@ -433,6 +487,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [5.0.2] - 2022-12-16
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Updated scripting-addition to support macOS Ventura 13.0.0-13.1.0 [#1297](https://github.com/asmvik/yabai/issues/1297)
 - Properly escape application name when returned in window queries [#1489](https://github.com/asmvik/yabai/issues/1489)
 - Remove window tags used for debugging purposes from result of window query because it could cause a crash under certain conditions when a window closes [#1475](https://github.com/asmvik/yabai/issues/1475)
@@ -440,6 +495,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [5.0.1] - 2022-09-26
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Only allow *window_animation_duration* to be set if System Integrity Protection is partially disabled [#148](https://github.com/asmvik/yabai/issues/148)
 - Output useless dummy .plist file for scripting addition to silence weird AppleScript warning [#1449](https://github.com/asmvik/yabai/issues/1449)
 
@@ -451,6 +507,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Add *split-child* to output of window query and introduce new options for WINDOW_SEL: *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin*, *second_cousin* [#192](https://github.com/asmvik/yabai/issues/192)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Implemented a workaround to support *window_opacity_duration*, bypassing the Apple bug [#1406](https://github.com/asmvik/yabai/issues/1406)
 - Fix regression causing a window to be moved to the active space of an inactive display when sent to an inactive space of an inactive display [#1053](https://github.com/asmvik/yabai/issues/1053)
 - Fix regression causing hidden windows to not show in window queries [#1421](https://github.com/asmvik/yabai/issues/1421)
@@ -470,22 +527,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [4.0.4] - 2022-09-08
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix null-deref when an application is spawned with a non-standard window [#1399](https://github.com/asmvik/yabai/issues/1399)
 
 ## [4.0.3] - 2022-09-07
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Allow combining commands for *config*, *space*, and *window* domains [#1371](https://github.com/asmvik/yabai/issues/1371)
 - Fallback to using the AX API for *mouse_action move* if the scripting-addition is not available [#1376](https://github.com/asmvik/yabai/issues/1376)
 - Add *role* and *subrole* filter to window rules [#1398](https://github.com/asmvik/yabai/issues/1398)
 
 ## [4.0.2] - 2022-08-24
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed an issue that in rare occasions caused yabai to freeze when focusing an inactve space on an inactive display [#1309](https://github.com/asmvik/yabai/issues/1309).
 - Fixed an issue that caused a window to incorrectly become focused when assigned to a space through rules [#1370](https://github.com/asmvik/yabai/issues/1370)
 - Fixed an issue that caused windows to snap back to its original position when moved between displays (to an inactive space) using mission-control [#820](https://github.com/asmvik/yabai/issues/820)
 
 ## [4.0.1] - 2022-05-17
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - The scripting-addition will now also remove the space switch animation when using cmd+tab, clicking on an item in the Dock, and using the numeric macOS mission-control keyboard shortcuts [#1235](https://github.com/asmvik/yabai/issues/1235)
 - Improved logic used to determine the target window in a given direction [#1220](https://github.com/asmvik/yabai/issues/1220)
 - Improve behaviour of *focus_follows_mouse autoraise*, preventing a window from being raised if it would occlude some other **floating window** [#1246](https://github.com/asmvik/yabai/issues/1246)
@@ -497,6 +558,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - New config *window_origin_display* to specify which display a window should become managed at upon creation [#951](https://github.com/asmvik/yabai/issues/951)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Window borders no longer require SIP to be disabled [#1054](https://github.com/asmvik/yabai/issues/1054)
 - WINDOW_SEL *prev* should correctly identify the correct window in a nested tree [#1114](https://github.com/asmvik/yabai/issues/1114)
 - Fixed an issue with the way unix sockets were handled that would cause an incoming connection to drop in rare occasions [#1107](https://github.com/asmvik/yabai/issues/1107)
@@ -521,28 +583,34 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [3.3.10] - 2021-05-26
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition to support macOS 10.15.7 Supplemental Update
 
 ## [3.3.9] - 2021-05-25
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition to support macOS 11.4
 
 ## [3.3.8] - 2021-04-28
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition to support macOS 11.3
 
 ## [3.3.7] - 2021-02-02
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition to support macOS 11.2 [#823](https://github.com/asmvik/yabai/issues/823)
 
 ## [3.3.6] - 2020-12-18
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition to support macOS 11.1 [#762](https://github.com/asmvik/yabai/issues/762)
 - Try to workaround resizing issues in some applications due to weird undocumented accessibility properties [#109](https://github.com/asmvik/yabai/issues/109)
 - A sticky window will implicitly be treated as floating, but should not actually set the floating property [#760](https://github.com/asmvik/yabai/issues/760)
 
 ## [3.3.5] - 2020-12-03
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Improved SIP detection logic [#716](https://github.com/asmvik/yabai/issues/716)
 - Windows that do not report a title at all should be treated as having the empty string as its title [#707](https://github.com/asmvik/yabai/issues/707)
 - Allow *SPACE_SEL* to be used instead of *mission-control index* when specifying config options for a specific space [#705](https://github.com/asmvik/yabai/issues/705)
@@ -555,18 +623,22 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [3.3.4] - 2020-11-14
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed an issue (exposed on Big Sur, maybe didn't exist on prior macOS versions ??) that caused yabai' message receiver to block in *read* [#714](https://github.com/asmvik/yabai/issues/714)
 
 ## [3.3.3] - 2020-11-13
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Prevent *window_opacity_duration* from being used on Big Sur, because of an Apple bug [#277](https://github.com/asmvik/yabai/issues/277)
 
 ## [3.3.2] - 2020-11-13
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Focusing a space incorrectly returned a non-zero exit code even when the operation succeeded [#181](https://github.com/asmvik/yabai/issues/181)
 
 ## [3.3.1] - 2020-11-13
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - New self-signed certificate used to sign the released binaries. You will have to re-enable accessibility permissions after this install.
 - Update scripting-addition to support macOS Big Sur 11.0.1 [#589](https://github.com/asmvik/yabai/issues/589)
 - Return a non-zero exit code when focusing a space fails due to an issue with the scripting-addition [#181](https://github.com/asmvik/yabai/issues/181)
@@ -577,6 +649,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - Implemented a fullscreen layout, using stacking as its backing mechanism [#337](https://github.com/asmvik/yabai/issues/337)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed an issue that caused a window to not become unmanaged when a space with a single window changed to float [#586](https://github.com/asmvik/yabai/issues/586)
 - Restore opacity back to full if *window_opacity* is disabled [#585](https://github.com/asmvik/yabai/issues/585)
 - Prevent *window_opacity_duration* from being used on Catalina, because of an Apple bug [#277](https://github.com/asmvik/yabai/issues/277)
@@ -588,6 +661,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [3.2.1] - 2020-06-17
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed a race condition upon receiving window destroy notifications from macOS because their API is garbage and reports duplicate notifications for the same window [#580](https://github.com/asmvik/yabai/issues/580)
 - focus-follows-mouse *autofocus* needs to perform some validation in order to see if the window is focusable [#578](https://github.com/asmvik/yabai/issues/578)
 - Properly set mouse location for synthesized events used by ffm autofocus [#545](https://github.com/asmvik/yabai/issues/545)
@@ -598,6 +672,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - New command *window --opacity* to explicitly set the opacity of a window [#503](https://github.com/asmvik/yabai/issues/503)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Re-construct application switched and window created events in the correct order when the window is moved through a rule upon creation [#564](https://github.com/asmvik/yabai/issues/564)
 - Improve interaction between *window_topmost* and windows that enter native-fullscreen mode [#566](https://github.com/asmvik/yabai/issues/566)
 - Properly set focused window id cache upon window detection at first space activation [#567](https://github.com/asmvik/yabai/issues/567)
@@ -610,10 +685,12 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [3.1.2] - 2020-06-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Revert changes because they can trigger a loop, causing slow window move/resize [#16](https://github.com/asmvik/yabai/issues/16)
 
 ## [3.1.1] - 2020-06-08
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - If *focus follows mouse* is enabled, moving the cursor to a different display will now focus that display even if it is empty [#459](https://github.com/asmvik/yabai/issues/459)
 - Extend definition of *DISPLAY_SEL* to include *DIR_SEL* so that displays can be targetted using cardinal directions [#225](https://github.com/asmvik/yabai/issues/225)
 - When an application is launched or a window is created; tile the window on the space that has focus, rather than the display it spawned at [#467](https://github.com/asmvik/yabai/issues/467)
@@ -626,6 +703,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - New command to output list of registered signals and remove by index [#458](https://github.com/asmvik/yabai/issues/458)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Blacklist loginwindow and ScreenSaverEngine processes [#537](https://github.com/asmvik/yabai/issues/537)
 - Resolve some issues with the lifetime of NSRunningApplication [#543](https://github.com/asmvik/yabai/issues/543)
 - Resolve some obscure issue that would in some cases lead to a double-free upon process termination [#543](https://github.com/asmvik/yabai/issues/543)
@@ -634,12 +712,14 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [3.0.2] - 2020-05-22
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Properly clear focus-follows-mouse cache upon space change [#528](https://github.com/asmvik/yabai/issues/528)
 - Revised process type restrictions and observation requirements to correctly track some applications that don't identify correctly [#529](https://github.com/asmvik/yabai/issues/529)
 - Translate newline (0x0a) and carriage return (0x0d) when outputting window titles through the query system [#533](https://github.com/asmvik/yabai/issues/533)
 
 ## [3.0.1] - 2020-05-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Update scripting addition for macOS 10.15.5 Beta (19F72f) [#501](https://github.com/asmvik/yabai/issues/501)
 - Allow calling `space --label` without an argument to intentionally remove a previously assigned label [#514](https://github.com/asmvik/yabai/issues/514)
 - Fixed an issue where a window moved across displays using *mouse action move* would be invisible [#506](https://github.com/asmvik/yabai/issues/506)
@@ -656,6 +736,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - New config option `external_bar` to specify special padding compatible with the `space --toggle padding` option [#454](https://github.com/asmvik/yabai/issues/454)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - New self-signed certificate used to sign the released binaries because the previous one expired at april 21th, 2020. You will have to re-enable accessibility permissions after this install. Sorry about that.
 - Window commands using cardinal directions use euclidean distance to identify best target window [#301](https://github.com/asmvik/yabai/issues/301)
 - Config option `insert_window_border_color` changed to `insert_feedback_color` [#487](https://github.com/asmvik/yabai/issues/487)
@@ -663,17 +744,20 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [2.4.3] - 2020-04-14
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Changed how *mouse down* events are handled to reduce cycles spent in macOS event tap callback [#376](https://github.com/asmvik/yabai/issues/376)
 - Fixed an issue that would cause a border to persist on fullscreen videos playing in Safari [#360](https://github.com/asmvik/yabai/issues/360)
 
 ## [2.4.2] - 2020-04-12
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix memory leak that would occur if realloc failed when reading from a socket [#436](https://github.com/asmvik/yabai/issues/436)
 - Increase number of window and space commands that return a non-zero exit code upon failure [#187](https://github.com/asmvik/yabai/issues/187)
 - Fixed a repositioning issue that would occur when a managed window was moved through click & drag through macOS native titlebar [#473](https://github.com/asmvik/yabai/issues/473)
 
 ## [2.4.1] - 2020-03-01
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed a crash that could occur when reading from a socket (EBADF) or writing to a socket (SIGPIPE) [#430](https://github.com/asmvik/yabai/issues/430)
 
 ## [2.4.0] - 2020-03-01
@@ -682,6 +766,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - Add ability to specify window layers; below (desktop), normal, and above (topmost) [#429](https://github.com/asmvik/yabai/issues/429)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Properly return focus to the active window on the current space when a window is moved through a rule [#418](https://github.com/asmvik/yabai/issues/418)
 - Prevent space operations (create, destroy, focus, swap, move and send to display) from applying while mission-control is active or the display is animating [#417](https://github.com/asmvik/yabai/issues/417)
 
@@ -690,12 +775,14 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - New command *space --swap SPACE_SEL* command to swap the selected space with a given space. The selected and given space must belong to the same display [#127](https://github.com/asmvik/yabai/issues/127)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Allow use of *DISPLAY_SEL* and *SPACE_SEL* for specifying display and space in rules [#378](https://github.com/asmvik/yabai/issues/378)
 - Extend *space --move* command to operate on *SPACE_SEL* instead of prev/next. However, the selected and given space must belong to the same display [#127](https://github.com/asmvik/yabai/issues/127)
 - Fixed issue where some window event would trigger a signal with an invalid window causing an invalid memory access [#412](https://github.com/asmvik/yabai/issues/412)
 
 ## [2.2.3] - 2020-02-12
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Ignore minimized windows when an application is unhidden (required by some applications like Chrome..) [#300](https://github.com/asmvik/yabai/issues/300)
 - Don't add window to the window tree when moved to a different space when the window is minimized (required by some applications like Chrome..) [#382](https://github.com/asmvik/yabai/issues/382)
 - Config file is no longer required for yabai to start [#393](https://github.com/asmvik/yabai/issues/393)
@@ -707,10 +794,12 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [2.2.2] - 2020-01-20
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix use after free.. [#375](https://github.com/asmvik/yabai/issues/375)
 
 ## [2.2.1] - 2020-01-19
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Specify minimum macOS target version 10.13 when compiling [#371](https://github.com/asmvik/yabai/issues/371)
 
 ## [2.2.0] - 2020-01-19
@@ -718,6 +807,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - Ability to do real picture-in-picture of any arbitrary window [#286](https://github.com/asmvik/yabai/issues/286)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Disable live-resizing of bsp-layout when using mouse-drag so that we are consistent with other mouse-interactions [#341](https://github.com/asmvik/yabai/issues/341)
 - Improved spin-lock while waiting for native-fullscreen enter/exit animation to end [#339](https://github.com/asmvik/yabai/issues/339)
 - New attribute uuid returned through display queries [#346](https://github.com/asmvik/yabai/issues/346)
@@ -731,6 +821,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [2.1.3] - 2019-11-29
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix regression causing window_destroyed signal to not be triggered (after adding app and title filter) [#308](https://github.com/asmvik/yabai/issues/308)
 - Fixed an invalid memory access when using mouse-drag to warp a window to another display when both displays contain only a single window [#309](https://github.com/asmvik/yabai/issues/309)
 - Reset zoom of all nodes in the subtree of the node that got removed [#289](https://github.com/asmvik/yabai/issues/289)
@@ -742,10 +833,12 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [2.1.2] - 2019-11-10
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix regression causing windows to be added more than once in some circumstances [#297](https://github.com/asmvik/yabai/issues/297)
 
 ## [2.1.1] - 2019-11-10
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Remove buffer-size restriction when reading data from socket [#221](https://github.com/asmvik/yabai/issues/221)
 - Replace strtok with custom function to parse key-value arguments in rules and signals [#307](https://github.com/asmvik/yabai/issues/307)
 
@@ -758,6 +851,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - New command to adjust the split percentage of a window [#184](https://github.com/asmvik/yabai/issues/184)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Don't draw borders for minimized or hidden windows when a display is (dis)connected [#250](https://github.com/asmvik/yabai/issues/250)
 - Sticky windows are no longer automatically topmost. New option to toggle window always on top through command or rule. New attribute topmost returned in window queries. [#255](https://github.com/asmvik/yabai/issues/255)
 - Prevent the last user-space from being destroyed or moved to another display, because macOS does not actually support this [#182](https://github.com/asmvik/yabai/issues/182)
@@ -771,6 +865,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [2.0.1] - 2019-09-04
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - *window_opacity_duration* was a *copy-pasta* job [#208](https://github.com/asmvik/yabai/issues/208)
 
 ## [2.0.0] - 2019-09-03
@@ -781,6 +876,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 - Config option to set the duration of the transition between active / normal window opacity [#208](https://github.com/asmvik/yabai/issues/208)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Automatically restart Dock.app after installing the scripting-addition, and tweak messages shown when a payload gets loaded, is already loaded or does not support the version of macOS it's running on [#135](https://github.com/asmvik/yabai/issues/135)
 - Work around macOS craziness so that we can properly tile a window after it leaves native fullscreen mode [#36](https://github.com/asmvik/yabai/issues/36)
 - Return an error for queries with invalid, named selectors [#158](https://github.com/asmvik/yabai/issues/158)
@@ -807,12 +903,14 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [1.1.2] - 2019-07-15
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Float native macOS fullscreen spaces [#130](https://github.com/asmvik/yabai/issues/130)
 - Write error messsages returned to the client through *stderr* [#131](https://github.com/asmvik/yabai/issues/131)
 - Allow window focus command to work without the existence of a focused window [#133](https://github.com/asmvik/yabai/issues/133)
 
 ## [1.1.1] - 2019-07-14
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - The status bar should be disabled by default, if setting is missing from the config [#126](https://github.com/asmvik/yabai/issues/126)
 
 ## [1.1.0] - 2019-07-14
@@ -822,6 +920,7 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
   as well as allowing commands to specify both a *selected* and a *given entity* of its type [#112](https://github.com/asmvik/yabai/issues/112)
 
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Dragging a tiled window to another display using the mouse will cause the window to be warped to that display upon release [#103](https://github.com/asmvik/yabai/issues/103)
 - Escape quotes in window titles returned through query commands [#114](https://github.com/asmvik/yabai/issues/114)
 - Extend window, space and display properties exposed through *query* commands [#116](https://github.com/asmvik/yabai/issues/116)
@@ -833,27 +932,32 @@ The *window_destroyed* signal is now triggered for windows that are implicitly d
 
 ## [1.0.6] - 2019-07-09
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - No longer necessary to depend on the scripting-addition to focus a window [#102](https://github.com/asmvik/yabai/issues/102)
 - Extend definition of *WINDOW_SEL* to include *smallest* and *largest* [#105](https://github.com/asmvik/yabai/issues/105)
 
 ## [1.0.5] - 2019-07-07
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fix missing quotation of string value outputted through *window query* commands [#90](https://github.com/asmvik/yabai/issues/90)
 
 ## [1.0.4] - 2019-07-06
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Fixed an issue that prevented *yabai* from running under multiple users simultaneously [#95](https://github.com/asmvik/yabai/issues/95)
 - Extend window properties exposed through *query* commands [#90](https://github.com/asmvik/yabai/issues/90)
 - Extend definition of *WINDOW_SEL*, *SPACE_SEL* and *DISPLAY_SEL* to include *first*, *last*, and *recent* [#85](https://github.com/asmvik/yabai/issues/85)
 
 ## [1.0.3] - 2019-06-30
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Prevent *status_bar* and *window borders* from displaying in native fullscreen spaces [#71](https://github.com/asmvik/yabai/issues/71)
 - Fixed an issue with the *status_bar* where *has_battery* and *charging* would not be default initialized when macOS report that there are zero power sources [#60](https://github.com/asmvik/yabai/issues/60)
 - Properly destroy the underlaying *view* when a *space* changes layout [#81](https://github.com/asmvik/yabai/issues/81)
 
 ## [1.0.2] - 2019-06-25
 ### Changed
+- The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - Hide power indicator from the status-bar if a battery could not be found [#60](https://github.com/asmvik/yabai/issues/60)
 - Disable focus follows mouse while the *mouse_modifier* key is held down [#62](https://github.com/asmvik/yabai/issues/62)
 - Silence meaningless warning reported by the scripting-bridge framework [#55](https://github.com/asmvik/yabai/issues/55)

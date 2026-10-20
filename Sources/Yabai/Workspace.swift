@@ -1,6 +1,7 @@
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The NSWorkspace, distributed and local notifications that yabai follows, and the key-value observations of the
@@ -93,7 +94,7 @@ final class Workspace: NSObject, Sendable
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.activationPolicy, context)
 
                 process.policy.store(result, ordering: .relaxed)
-                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: activation policy changed for \(process.nameAndPID)\n")
+                Logger.processes.debug("activation policy changed for \(process.nameAndPID)")
                 EventLoop.post(.applicationLaunched(process))
             }
         }
@@ -115,7 +116,7 @@ final class Workspace: NSObject, Sendable
 
                 NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.finishedLaunching, context)
 
-                debug("-[workspace_context observeValueForKeyPath:ofObject:change:context:]: \(process.nameAndPID) finished launching\n")
+                Logger.processes.debug("\(process.nameAndPID) finished launching")
                 EventLoop.post(.applicationLaunched(process))
             }
         }
@@ -256,7 +257,7 @@ extension Process
         if let application = runningApplication {
             application.addObserver(Workspace.shared, forKeyPath: keyPath, options: [.initial, .new], context: observationContext)
         } else {
-            debug("Process.addObserver: could not subscribe to \(keyPath) changes for \(self.nameAndPID)\n")
+            Logger.processes.debug("could not subscribe to \(keyPath) changes for \(self.nameAndPID)")
         }
     }
 

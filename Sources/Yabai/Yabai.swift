@@ -1,5 +1,6 @@
 import AppKit
 import CPrivate
+import Logging
 
 //
 // NOTE: The options of the daemon and its startup. `--message` / `-m` never gets here: main.swift runs the client
@@ -99,13 +100,13 @@ enum Daemon
     private static func execConfigFile(_ configFile: String?)
     {
         guard let configFile = configFile.flatMap({ $0.isEmpty ? nil : $0 }) ?? getConfigFile("yabairc") else {
-            warn("yabai: could not locate config file..\n")
+            Logger.daemon.warning("could not locate config file")
             notify("configuration", "could not locate config file..")
             return
         }
 
         if !fileExists(configFile) {
-            warn("yabai: configuration file '\(configFile)' does not exist..\n")
+            Logger.daemon.warning("configuration file '\(configFile)' does not exist")
             notify("configuration", "file '\(configFile)' does not exist..")
             return
         }
@@ -118,7 +119,7 @@ enum Daemon
 
         var pid: pid_t = 0
         if posix_spawn(&pid, argv[0], nil, nil, &argv, environ_global()) != 0 {
-            warn("yabai: failed to load config file '\(configFile)'\n")
+            Logger.daemon.warning("failed to load config file '\(configFile)'")
             notify("configuration", "failed to load file '\(configFile)'")
         }
     }
@@ -140,7 +141,7 @@ enum Daemon
     @MainActor private static func configureSettingsAndAcquireLock() -> Bool
     {
         guard let user = getenv("USER").map({ String(cString: $0) }) else {
-            error("yabai: 'env USER' not set! abort..\n")
+            Logger.daemon.fatal("'env USER' not set")
         }
 
         let lockFile = "/tmp/yabai_\(user).lock"
@@ -157,7 +158,7 @@ enum Daemon
         CGEnableEventStateCombiningC(false)
         let handle = open(lockFile, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
         if handle == -1 {
-            error("yabai: could not create lock-file! abort..\n")
+            Logger.daemon.fatal("could not create lock-file")
         }
 
         var lockfd = flock(l_start: 0, l_len: 0, l_pid: pid, l_type: Int16(F_WRLCK), l_whence: Int16(SEEK_SET))
@@ -229,11 +230,11 @@ enum Daemon
             if opt == debugVerboseOptionLong || opt == debugVerboseOptionShort {
                 Log.verbose.store(true, ordering: .relaxed)
             } else if opt == configOptionLong || opt == configOptionShort {
-                guard i < arguments.count - 1 else { error("yabai: option '\(configOptionLong)|\(configOptionShort)' requires an argument!\n") }
+                guard i < arguments.count - 1 else { Logger.daemon.fatal("option '\(configOptionLong)|\(configOptionShort)' requires an argument") }
                 i += 1
                 configFile = arguments[i]
             } else {
-                error("yabai: '\(opt)' is not a valid option!\n")
+                Logger.daemon.fatal("'\(opt)' is not a valid option")
             }
 
             i += 1
@@ -252,37 +253,37 @@ enum Daemon
         }
 
         if isRoot {
-            require("yabai: running as root is not allowed! abort..\n")
+            Logger.daemon.fatal("running as root is not allowed", exitCode: EXIT_SUCCESS)
         }
 
         if !axPrivilege() {
-            require("yabai: could not access accessibility features! abort..\n")
+            Logger.daemon.fatal("could not access accessibility features", exitCode: EXIT_SUCCESS)
         }
 
         if SLS.spaceManagementMode(SLS.connection) != 1 {
-            require("yabai: 'display has separate spaces' is disabled! abort..\n")
+            Logger.daemon.fatal("'display has separate spaces' is disabled", exitCode: EXIT_SUCCESS)
         }
 
         if !configureSettingsAndAcquireLock() {
-            error("yabai: could not acquire lock-file! abort..\n")
+            Logger.daemon.fatal("could not acquire lock-file")
         }
 
         EventLoop.start()
 
         if !Workspace.begin() {
-            error("yabai: could not start workspace context! abort..\n")
+            Logger.daemon.fatal("could not start workspace context")
         }
 
         if !ProcessManager.shared.begin() {
-            error("yabai: could not start process manager! abort..\n")
+            Logger.daemon.fatal("could not start process manager")
         }
 
         if !DisplayManager.shared.begin() {
-            error("yabai: could not start display manager! abort..\n")
+            Logger.daemon.fatal("could not start display manager")
         }
 
         if !WM.sync({ MouseState.shared.beginEventTap(mask: mouseEventMask) }) {
-            error("yabai: could not start mouse handler! abort..\n")
+            Logger.daemon.fatal("could not start mouse handler")
         }
 
         MissionControl.shared.observe()
@@ -316,11 +317,11 @@ enum Daemon
         }
 
         guard let user = getenv("USER").map({ String(cString: $0) }) else {
-            error("yabai: 'env USER' not set! abort..\n")
+            Logger.daemon.fatal("'env USER' not set")
         }
         let socketFile = "/tmp/yabai_\(user).socket"
         if !MessageLoop.begin(socketPath: socketFile) {
-            error("yabai: could not start message loop! abort..\n")
+            Logger.daemon.fatal("could not start message loop")
         }
 
         execConfigFile(configFile)

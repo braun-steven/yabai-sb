@@ -1,60 +1,105 @@
 import CPrivate
 import Darwin
+import Logging
 import Synchronization
+import YabaiCore
 
 //
-// NOTE: The logging and the exits of the daemon. Swift cannot call the variadic C logging functions, so the text is
-// written with fputs to the stdout_global and stderr_global streams. debug writes to the stdout of C (stdout_global)
-// so it stays ordered with C output.
+// NOTE: The daemon logs through swift-log. Each component has its own Logger (Logger.events, Logger.windows, …), and
+// LoggingSystem.bootstrap in main.swift gives them all a StandardLogHandler. Levels up to notice go to stdout,
+// warning and above to stderr: the launchd service writes them to /tmp/yabai_$USER.out.log and .err.log.
+//
+// The level is global: info, or debug while --verbose or debug_output is on. Messages are autoclosures, so a debug line
+// costs one atomic load while verbose is off.
 //
 
 enum Log
 {
     /// Set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
     static let verbose = Atomic<Bool>(false)
+
+    /// Sends every Logger to the StandardLogHandler; called once, before the first message.
+    static func bootstrap()
+    {
+        LoggingSystem.bootstrap { StandardLogHandler(label: $0) }
+    }
 }
 
-/// Writes the text to stdout when the daemon runs with --verbose (or debug_output on).
-func debug(_ text: @autoclosure () -> String)
+extension Logger
 {
-    guard Log.verbose.load(ordering: .relaxed) else { return }
-    fputs(text(), stdout_global())
+    /// Startup, configuration, the launchd service and the scripting addition.
+    static let daemon = Logger(label: "yabai")
+    /// The handlers of the event loop.
+    static let events = Logger(label: "yabai.event")
+    /// Window discovery, observation and frame changes.
+    static let windows = Logger(label: "yabai.window")
+    /// Spaces and the space layout.
+    static let spaces = Logger(label: "yabai.space")
+    /// Processes and applications.
+    static let processes = Logger(label: "yabai.process")
+    /// Messages received on the socket.
+    static let ipc = Logger(label: "yabai.ipc")
+    /// Signals sent to their subscribers.
+    static let signals = Logger(label: "yabai.signal")
+
+    /// Logs the message as critical and exits. launchd restarts the service after EXIT_FAILURE, not after EXIT_SUCCESS.
+    func fatal(_ message: @autoclosure () -> Logger.Message, exitCode: Int32 = EXIT_FAILURE,
+               file: String = #fileID, function: String = #function, line: UInt = #line) -> Never
+    {
+        critical(message(), file: file, function: function, line: line)
+        exit(exitCode)
+    }
 }
 
-/// The prefix and the null-separated tokens of a message, up to the empty token that ends it.
-func debugMessage(_ prefix: String, _ message: UnsafeMutablePointer<CChar>?)
+/// Writes one line per message, e.g. `2026-10-20 14:03:12.345 debug yabai.event: window moved: Safari 1234`.
+struct StandardLogHandler: LogHandler
 {
-    guard Log.verbose.load(ordering: .relaxed), var message else { return }
+    let label: String
+    var metadata: Logger.Metadata = [:]
 
-    fputs("\(prefix):", stdout_global())
-
-    while message.pointee != 0 {
-        fputs(" ", stdout_global())
-        fputs(message, stdout_global())
-        message += strlen(message) + 1
+    /// The global level of Log.verbose; a Logger cannot change it.
+    var logLevel: Logger.Level
+    {
+        get { Log.verbose.load(ordering: .relaxed) ? .debug : .info }
+        set {}
     }
 
-    putc(0x0a, stdout_global())
-    fflush(stdout_global())
-}
+    subscript(metadataKey key: String) -> Logger.Metadata.Value?
+    {
+        get { metadata[key] }
+        set { metadata[key] = newValue }
+    }
 
-func warn(_ text: String)
-{
-    fputs(text, stderr_global())
-}
+    func log(event: LogEvent)
+    {
+        var line = "\(Self.timestamp()) \(event.level) \(label): \(event.message)"
 
-/// Exits with EXIT_FAILURE.
-func error(_ text: String) -> Never
-{
-    fputs(text, stderr_global())
-    exit(EXIT_FAILURE)
-}
+        let merged = event.metadata.map { metadata.merging($0) { $1 } } ?? metadata
+        for (key, value) in merged.sorted(by: { $0.key < $1.key }) {
+            line += " \(key)=\(value)"
+        }
+        line += "\n"
 
-/// Exits with EXIT_SUCCESS.
-func require(_ text: String) -> Never
-{
-    fputs(text, stderr_global())
-    exit(EXIT_SUCCESS)
+        // one fputs per line, so the lines of concurrent threads do not interleave
+        let stream = event.level >= .warning ? stderr_global() : stdout_global()
+        fputs(line, stream)
+        fflush(stream)
+    }
+
+    /// The local time with milliseconds.
+    private static func timestamp() -> String
+    {
+        var now = timespec()
+        clock_gettime(CLOCK_REALTIME, &now)
+
+        var local = tm()
+        localtime_r(&now.tv_sec, &local)
+
+        var buffer = [CChar](repeating: 0, count: 32)
+        let length = strftime(&buffer, buffer.count, "%Y-%m-%d %H:%M:%S", &local)
+        let date = String(decoding: buffer[..<length].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        return date + cFormat(".%03d", Int32(now.tv_nsec / 1_000_000))
+    }
 }
 
 /// A user notification titled yabai (NotifyC in Sources/CPrivate/Notify.m).

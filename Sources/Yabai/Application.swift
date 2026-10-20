@@ -2,6 +2,7 @@ import ApplicationServices
 import CPrivate
 import AppKit
 import YabaiCore
+import Logging
 
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and observer.
 @WM final class Application
@@ -42,7 +43,7 @@ import YabaiCore
                 if result == .success || result == .notificationAlreadyRegistered {
                     notifications.insert(notification.notification)
                 } else {
-                    debug("Application.observe: error '\(result.name)' for application '\(name)' and notification '\(notification.text)'\n")
+                    Logger.processes.debug("\(name): observing \(notification.text) failed with \(result.name)")
 
                     // NOTE: Once an application times out, each remaining AX notification would wait for the same timeout.
                     if result == .cannotComplete {

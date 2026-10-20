@@ -2,6 +2,7 @@ import CoreGraphics
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The space layout keeps a number of user spaces per display, chosen by the number of displays. When the
@@ -51,7 +52,7 @@ extension SpaceManager
         if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
         guard let layout = Config.current.space.spaceLayouts.first(where: { $0.count == displayCount }) else {
-            debug("SpaceManager.reconcileSpaceLayout: no space_layout for \(displayCount) display(s)\n")
+            Logger.spaces.debug("no space_layout for \(displayCount) display(s)")
             return .done
         }
 
@@ -83,18 +84,18 @@ extension SpaceManager
             let user = spaces.map { $0.isUser }
             let sid = SpaceLayout.moveCandidate(spaces: spaces, user: user, visible: didList[surplus].currentSpace, fromEnd: deficit > surplus)
 
-            debug("SpaceManager.reconcileSpaceLayout: move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)\n")
+            Logger.spaces.debug("move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)")
             do { try moveSpace(sid, toDisplay: didList[deficit]) } catch { return .failed }
         case (nil, let deficit?):
-            debug("SpaceManager.reconcileSpaceLayout: create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))\n")
+            Logger.spaces.debug("create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))")
             do { try addSpace(onDisplayOf: didList[deficit].currentSpace) } catch { return .failed }
         case (let surplus?, nil):
             guard let sid = destroyCandidate(on: didList[surplus]) else {
-                debug("SpaceManager.reconcileSpaceLayout: display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed\n")
+                Logger.spaces.debug("display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed")
                 return .done
             }
 
-            debug("SpaceManager.reconcileSpaceLayout: destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))\n")
+            Logger.spaces.debug("destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(surplus + 1) (\(actual[surplus])/\(target[surplus]))")
             do { try destroySpace(sid) } catch { return .failed }
         case (nil, nil):
             return .done

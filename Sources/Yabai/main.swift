@@ -11,4 +11,5 @@ if CommandLine.argc > 1, let option = argv[1], strcmp(option, "--message") == 0 
     exit(Client.send(arguments))
 }
 
+Log.bootstrap()
 exit(Daemon.run(CommandLine.arguments))

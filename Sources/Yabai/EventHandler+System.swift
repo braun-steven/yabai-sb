@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import AppKit
 import CPrivate
+import Logging
 
 //
 // NOTE: The handlers of system events: Mission Control, the Dock, menus, the menu bar, waking from sleep,
@@ -19,25 +20,25 @@ extension EventHandler
 
     func missionControlShowAllWindows()
     {
-        debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_ALL_WINDOWS:\n")
+        Logger.events.debug("mission control show all windows")
         missionControlShow(.showAllWindows)
     }
 
     func missionControlShowFrontWindows()
     {
-        debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_FRONT_WINDOWS:\n")
+        Logger.events.debug("mission control show front windows")
         missionControlShow(.showFrontWindows)
     }
 
     func missionControlShowDesktop()
     {
-        debug("EVENT_HANDLER_MISSION_CONTROL_SHOW_DESKTOP:\n")
+        Logger.events.debug("mission control show desktop")
         missionControlShow(.showDesktop)
     }
 
     func missionControlEnter()
     {
-        debug("EVENT_HANDLER_MISSION_CONTROL_ENTER:\n")
+        Logger.events.debug("mission control enter")
         MissionControl.shared.mode = .show
 
         EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100))
@@ -74,7 +75,7 @@ extension EventHandler
 
     func missionControlExit()
     {
-        debug("EVENT_HANDLER_MISSION_CONTROL_EXIT:\n")
+        Logger.events.debug("mission control exit")
 
         let wm = WindowManager.shared
         let sm = SpaceManager.shared
@@ -94,7 +95,7 @@ extension EventHandler
 
     func dockDidRestart()
     {
-        debug("EVENT_HANDLER_DOCK_DID_RESTART:\n")
+        Logger.events.debug("dock did restart")
 
         ScriptingAddition.shared.payloadChanged()
 
@@ -106,13 +107,13 @@ extension EventHandler
 
     func menuOpened()
     {
-        debug("EVENT_HANDLER_MENU_OPENED\n")
+        Logger.events.debug("menu opened")
         openMenuCount += 1
     }
 
     func menuClosed()
     {
-        debug("EVENT_HANDLER_MENU_CLOSED\n")
+        Logger.events.debug("menu closed")
         openMenuCount -= 1
 
         if openMenuCount < 0 {
@@ -122,21 +123,21 @@ extension EventHandler
 
     func menuBarHiddenChanged()
     {
-        debug("EVENT_HANDLER_MENU_BAR_HIDDEN_CHANGED:\n")
+        Logger.events.debug("menu bar hidden changed")
         SpaceManager.shared.markSpacesInvalid()
         EventSignals.shared.push(.menuBarHiddenChanged)
     }
 
     func dockDidChangePref()
     {
-        debug("EVENT_HANDLER_DOCK_DID_CHANGE_PREF:\n")
+        Logger.events.debug("dock preferences changed")
         SpaceManager.shared.markSpacesInvalid()
         EventSignals.shared.push(.dockDidChangePref)
     }
 
     func systemWoke()
     {
-        debug("EVENT_HANDLER_SYSTEM_WOKE:\n")
+        Logger.events.debug("system woke")
 
         let wm = WindowManager.shared
         if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
@@ -150,7 +151,7 @@ extension EventHandler
 
     func configChanged(_ group: ConfigGroup)
     {
-        debug("EVENT_HANDLER_CONFIG_CHANGED\n")
+        Logger.events.debug("config changed")
         ConfigObserver.shared.apply(group)
     }
 
@@ -168,7 +169,7 @@ extension EventHandler
 
         sm.spaceLayoutPasses += 1
         if sm.spaceLayoutPasses > 40 {
-            debug("EVENT_HANDLER_SPACE_LAYOUT_RECONCILE: giving up, layout did not converge\n")
+            Logger.spaces.notice("giving up on the space layout: it did not converge")
             return
         }
 

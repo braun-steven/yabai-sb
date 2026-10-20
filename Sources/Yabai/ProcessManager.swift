@@ -3,6 +3,7 @@ import Foundation
 import CPrivate
 import Synchronization
 import YabaiCore
+import Logging
 
 //
 // NOTE: Carbon's process callback runs on the main thread and only posts ProcessKey values. The event loop owns and
@@ -79,7 +80,7 @@ import YabaiCore
         let psn = ProcessSerialNumber(key)
         let pid = ProcessGetPIDC(psn)
         if ProcessManager.isBeingDebugged(pid) {
-            debug("ProcessManager.processLaunched: process with pid \(pid) is running under a debugger! ignoring..\n")
+            Logger.processes.debug("process with pid \(pid) is running under a debugger, ignoring")
             return nil
         }
 
@@ -112,19 +113,19 @@ import YabaiCore
         let processType = ProcessGetTypeC(psn)
 
         guard let processNameRef = ProcessCopyNameC(psn) else {
-            debug("ProcessManager.createProcess: could not retrieve process name! ignoring..\n")
+            Logger.processes.debug("could not retrieve process name, ignoring")
             return nil
         }
 
         let processName = processNameRef as String
 
         if processType == processTypeXPC {
-            debug("ProcessManager.createProcess: xpc service '\(processName)' detected! ignoring..\n")
+            Logger.processes.debug("xpc service '\(processName)' detected, ignoring")
             return nil
         }
 
         for blacklisted in processNameBlacklist where processName.bytesEqual(blacklisted) {
-            debug("ProcessManager.createProcess: \(processName) is blacklisted! ignoring..\n")
+            Logger.processes.debug("\(processName) is blacklisted, ignoring")
             return nil
         }
 
@@ -152,14 +153,14 @@ import YabaiCore
         while ProcessGetNextC(&psn) == noErr {
             let pid = ProcessGetPIDC(psn)
             if ProcessManager.isBeingDebugged(pid) {
-                debug("ProcessManager.addRunningProcesses: process with pid \(pid) is running under a debugger! ignoring..\n")
+                Logger.processes.debug("process with pid \(pid) is running under a debugger, ignoring")
                 continue
             }
 
             guard let process = createProcess(psn, pid) else { continue }
 
             if process.name.bytesEqual("Finder") {
-                debug("ProcessManager.addRunningProcesses: \(process.nameAndPID) was found! caching psn..\n")
+                Logger.processes.debug("\(process.nameAndPID) was found, caching its psn")
                 finderPSN = psn
             }
 

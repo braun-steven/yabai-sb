@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The spaces of yabai: the views of every space (a table from the space id to its view), their invalidation and
@@ -104,7 +105,7 @@ enum SpaceOperationError: Error, Sendable
         var i = 0
         while i < refreshCount {
             let application = wm.applicationRefresh(at: i)
-            debug("SpaceManager.refreshApplicationWindows: \(application.name) has windows that are not yet resolved\n")
+            Logger.spaces.debug("\(application.name) has windows that are not yet resolved")
 
             if wm.addExistingApplicationWindows(application, refreshIndex: i) {
                 refreshCount -= 1

@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-19
+.\"      Date: 2026-10-20
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-19" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-20" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -105,6 +105,10 @@ Interpreted using \f(CR/usr/bin/env sh <config_file>\fP if the exec\-bit is unse
 \fB\-\-verbose\fP, \fB\-V\fP
 .RS 4
 Output debug information to stdout.
+.br
+Each line has a timestamp, a level and a component, e.g. \f(CR2026\-10\-20 14:03:12.345 debug yabai.event: window moved: Safari 1234\fP.
+.br
+Levels up to \fInotice\fP go to stdout, \fIwarning\fP and above to stderr.
 .RE
 .sp
 \fB\-\-version\fP, \fB\-v\fP

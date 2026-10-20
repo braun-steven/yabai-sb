@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 //
 // NOTE: The launchd service of --install-service, --uninstall-service, --start-service, --restart-service and
@@ -101,7 +102,7 @@ enum Service
     private static func populatePlistPath() -> String
     {
         guard let home = NSHomeDirectoryForUser(nil) else {
-            error("yabai: unable to retrieve home directory! abort..\n")
+            Logger.daemon.fatal("unable to retrieve home directory")
         }
 
         return "\(home)/Library/LaunchAgents/\(yabaiPlistName).plist"
@@ -111,17 +112,17 @@ enum Service
     private static func populatePlist() -> String
     {
         guard let user = getenv("USER") else {
-            error("yabai: 'env USER' not set! abort..\n")
+            Logger.daemon.fatal("'env USER' not set")
         }
 
         guard let pathEnv = getenv("PATH") else {
-            error("yabai: 'env PATH' not set! abort..\n")
+            Logger.daemon.fatal("'env PATH' not set")
         }
 
         var exePath = [CChar](repeating: 0, count: 4096)
         var exePathSize = UInt32(exePath.count)
         if _NSGetExecutablePath(&exePath, &exePathSize) < 0 {
-            error("yabai: unable to retrieve path of executable! abort..\n")
+            Logger.daemon.fatal("unable to retrieve path of executable")
         }
 
         let exe = exePath.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
@@ -167,7 +168,7 @@ enum Service
         let yabaiPlistPath = populatePlistPath()
 
         if fileExists(yabaiPlistPath) {
-            error("yabai: service file '\(yabaiPlistPath)' is already installed! abort..\n")
+            Logger.daemon.fatal("service file '\(yabaiPlistPath)' is already installed")
         }
 
         return installPlist(yabaiPlistPath)
@@ -179,7 +180,7 @@ enum Service
         let yabaiPlistPath = populatePlistPath()
 
         if !fileExists(yabaiPlistPath) {
-            error("yabai: service file '\(yabaiPlistPath)' is not installed! abort..\n")
+            Logger.daemon.fatal("service file '\(yabaiPlistPath)' is not installed")
         }
 
         return unlink(yabaiPlistPath) == 0 ? 0 : 1
@@ -190,11 +191,11 @@ enum Service
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
-            warn("yabai: service file '\(yabaiPlistPath)' is not installed! attempting installation..\n")
+            Logger.daemon.warning("service file '\(yabaiPlistPath)' is not installed, attempting installation")
 
             let result = installPlist(yabaiPlistPath)
             if result != 0 {
-                error("yabai: service file '\(yabaiPlistPath)' could not be installed! abort..\n")
+                Logger.daemon.fatal("service file '\(yabaiPlistPath)' could not be installed")
             }
         }
 
@@ -241,7 +242,7 @@ enum Service
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
-            error("yabai: service file '\(yabaiPlistPath)' is not installed! abort..\n")
+            Logger.daemon.fatal("service file '\(yabaiPlistPath)' is not installed")
         }
 
         let serviceTarget = "gui/\(getuid())/\(yabaiPlistName)"
@@ -254,7 +255,7 @@ enum Service
     {
         let yabaiPlistPath = populatePlistPath()
         if !fileExists(yabaiPlistPath) {
-            error("yabai: service file '\(yabaiPlistPath)' is not installed! abort..\n")
+            Logger.daemon.fatal("service file '\(yabaiPlistPath)' is not installed")
         }
 
         let serviceTarget = "gui/\(getuid())/\(yabaiPlistName)"

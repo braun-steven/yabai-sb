@@ -2,6 +2,7 @@ import ApplicationServices
 import CPrivate
 import Synchronization
 import YabaiCore
+import Logging
 
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
 @WM final class Window
@@ -243,7 +244,7 @@ import YabaiCore
             if result == .success || result == .notificationAlreadyRegistered {
                 notifications.insert(notification.notification)
             } else {
-                debug("Window.observe: \(notification.text) failed with error \(result.name)\n")
+                Logger.windows.debug("\(id): observing \(notification.text) failed with \(result.name)")
             }
         }
         return notifications.isSuperset(of: .all)

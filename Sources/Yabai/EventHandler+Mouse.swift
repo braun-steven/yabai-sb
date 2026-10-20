@@ -3,6 +3,7 @@ import Foundation
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The handlers of mouse events: moving and resizing windows with the mouse modifier, dropping them on
@@ -45,7 +46,7 @@ extension EventHandler
         if ms.currentAction != .none { return }
 
         let point = event.location
-        debug("EVENT_HANDLER_MOUSE_DOWN: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
+        Logger.events.debug("mouse down: \(cFormat("%.2f, %.2f", point.x, point.y))")
 
         guard let window = WindowManager.shared.window(at: point), !window.isFullscreen else { return }
 
@@ -70,7 +71,7 @@ extension EventHandler
 
     func tabBarClicked(_ wid: WindowID)
     {
-        debug("EVENT_HANDLER_TAB_BAR_CLICKED: \(wid)\n")
+        Logger.events.debug("tab bar clicked: \(wid)")
 
         guard let window = WindowManager.shared.window(for: wid) else { return }
 
@@ -79,7 +80,7 @@ extension EventHandler
 
     func tabCardOrdered(_ wid: WindowID)
     {
-        debug("EVENT_HANDLER_TAB_CARD_ORDERED: \(wid)\n")
+        Logger.events.debug("tab card ordered: \(wid)")
         WindowManager.shared.cardDidOrder(wid)
     }
 
@@ -119,17 +120,17 @@ extension EventHandler
         }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_MOUSE_UP: \(window.id) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("mouse up: \(window.id) has been marked invalid by the system, ignoring event")
             return
         }
 
         if window.isFullscreen {
-            debug("EVENT_HANDLER_MOUSE_UP: \(window.id) is transitioning into native-fullscreen mode, ignoring event..\n")
+            Logger.events.debug("mouse up: \(window.id) is transitioning into native-fullscreen mode, ignoring event")
             return
         }
 
         let point = event.location
-        debug("EVENT_HANDLER_MOUSE_UP: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
+        Logger.events.debug("mouse up: \(cFormat("%.2f, %.2f", point.x, point.y))")
 
         guard let srcView = wm.managedView(for: window) else { return }
 
@@ -194,14 +195,14 @@ extension EventHandler
         guard let window = ms.window else { return }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_MOUSE_DRAGGED: \(window.id) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("mouse dragged: \(window.id) has been marked invalid by the system, ignoring event")
             ms.window = nil
             ms.currentAction = .none
             return
         }
 
         let point = event.location
-        debug("EVENT_HANDLER_MOUSE_DRAGGED: \(cFormat("%.2f, %.2f", point.x, point.y))\n")
+        Logger.events.debug("mouse dragged: \(cFormat("%.2f, %.2f", point.x, point.y))")
 
         if ms.currentAction == .move {
             mouseDragMoveWindow(point)

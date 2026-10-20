@@ -70,7 +70,9 @@ Options
     Interpreted using `/usr/bin/env sh <config_file>` if the exec-bit is unset.
 
 *--verbose*, *-V*::
-    Output debug information to stdout.
+    Output debug information to stdout. +
+    Each line has a timestamp, a level and a component, e.g. `2026-10-20 14:03:12.345 debug yabai.event: window moved: Safari 1234`. +
+    Levels up to 'notice' go to stdout, 'warning' and above to stderr.
 
 *--version*, *-v*::
     Print version to stdout and exit.

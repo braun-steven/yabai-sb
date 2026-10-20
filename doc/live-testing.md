@@ -136,8 +136,9 @@ Rules for the user's machine:
   to a window at the root. `window <a> --stack <b>` builds a tabbed container; `window --focus parent`
   then `window --warp east` moves the whole container to the display on the right.
 - Debug output (`yabai -m config debug_output on`) goes to stdout, i.e.
-  `/tmp/yabai_$USER.out.log`, not the error log. It is flushed when the daemon logs the next message,
-  so send a `yabai -m query ...` before reading it. Turn it off again afterwards.
+  `/tmp/yabai_$USER.out.log`, not the error log; warnings and fatal errors go to the error log. Each line is
+  flushed when it is written. `live.py`'s launch check matches the lines "retrying", "giving up" and
+  "could not observe" (once per attempt) of `Logger.events`/`Logger.processes`. Turn it off again afterwards.
 - To test a display removal and re-add (`space_layout` reconcile, `SpaceManager.handleDisplayAdd`) without the
   user unplugging a cable, mirror display 2 onto display 1: `./mirror 2 3 <stop file>` in the background (the
   arguments are the `id`s of `query --displays`, mirrored first), wait until `query --displays` lists one display,

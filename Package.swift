@@ -23,6 +23,9 @@ let package = Package(
     products: [
         .executable(name: "yabai", targets: ["Yabai"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1")
+    ],
     targets: [
         // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
         // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
@@ -54,7 +57,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "Yabai",
-            dependencies: ["CPrivate", "OSAX", "YabaiCore"],
+            dependencies: ["CPrivate", "OSAX", "YabaiCore", .product(name: "Logging", package: "swift-log")],
             swiftSettings: swiftSettings,
             linkerSettings: [
                 .linkedFramework("Carbon"),

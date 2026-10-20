@@ -2,6 +2,7 @@ import ApplicationServices
 import Foundation
 import CPrivate
 import YabaiCore
+import Logging
 
 extension WindowManager
 {
@@ -36,7 +37,7 @@ extension WindowManager
                         created.destroy()
                     }
                 } else {
-                    debug("WindowManager.begin: \(candidate.nameAndPID) is not observable, subscribing to activationPolicy changes\n")
+                    Logger.processes.debug("\(candidate.nameAndPID) is not observable, subscribing to activationPolicy changes")
                     candidate.observeActivationPolicy()
                 }
             }

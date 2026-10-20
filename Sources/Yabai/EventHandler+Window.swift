@@ -2,6 +2,7 @@ import ApplicationServices
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The handlers of window events: windows created, destroyed, focused, moved, resized, minimized
@@ -46,14 +47,14 @@ extension EventHandler
     func windowDestroyed(_ window: Window?)
     {
         guard let window, !window.isDestroyed else {
-            debug("EVENT_HANDLER_WINDOW_DESTROYED: window has already been destroyed, ignoring event..\n")
+            Logger.events.debug("window destroyed: window has already been destroyed, ignoring event")
             return
         }
 
         let wm = WindowManager.shared
         let ms = MouseState.shared
 
-        debug("EVENT_HANDLER_WINDOW_DESTROYED: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)\n")
+        Logger.events.debug("window destroyed: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)")
 
         if let view = wm.managedView(for: window) {
             let nextFocus = wm.treeFocusCandidate(in: view, for: window)
@@ -84,7 +85,7 @@ extension EventHandler
     func windowFocusDeferred(_ windowID: WindowID)
     {
         guard let window = WindowManager.shared.window(for: windowID), window.application != nil else {
-            debug("EVENT_HANDLER_WINDOW_FOCUS_DEFERRED: \(windowID) no longer exists, ignoring event..\n")
+            Logger.events.debug("window focus deferred: \(windowID) no longer exists, ignoring event")
             return
         }
 
@@ -105,7 +106,7 @@ extension EventHandler
         }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_FOCUSED: \(windowID) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window focused: \(windowID) has been marked invalid by the system, ignoring event")
             return
         }
 
@@ -118,7 +119,7 @@ extension EventHandler
             return
         }
 
-        debug("EVENT_HANDLER_WINDOW_FOCUSED: \(window.application.name) \(window.id)\n")
+        Logger.events.debug("window focused: \(window.application.name) \(window.id)")
 
         if Config.current.space.skipWindowFocusAnimation {
             if let sid = window.id.space, !sid.isVisible {
@@ -141,22 +142,22 @@ extension EventHandler
         guard let window = wm.window(for: windowID) else { return }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window moved: \(windowID) has been marked invalid by the system, ignoring event")
             return
         }
 
         if window.application.isHidden {
-            debug("EVENT_HANDLER_WINDOW_MOVED: \(windowID) was moved while the application is hidden, ignoring event..\n")
+            Logger.events.debug("window moved: \(windowID) was moved while the application is hidden, ignoring event")
             return
         }
 
         let newOrigin = window.axOrigin
         if newOrigin.equalTo(window.frame.origin) {
-            debug("EVENT_HANDLER_WINDOW_MOVED:DEBOUNCED \(window.application.name) \(window.id)\n")
+            Logger.events.debug("window moved (debounced): \(window.application.name) \(window.id)")
             return
         }
 
-        debug("EVENT_HANDLER_WINDOW_MOVED: \(window.application.name) \(window.id)\n")
+        Logger.events.debug("window moved: \(window.application.name) \(window.id)")
         EventSignals.shared.push(.windowMoved, .window(window))
         let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
         window.frame.origin = newOrigin
@@ -190,22 +191,22 @@ extension EventHandler
         guard let window = wm.window(for: windowID) else { return nil }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window resized: \(windowID) has been marked invalid by the system, ignoring event")
             return nil
         }
 
         if window.application.isHidden {
-            debug("EVENT_HANDLER_WINDOW_RESIZED: \(windowID) was resized while the application is hidden, ignoring event..\n")
+            Logger.events.debug("window resized: \(windowID) was resized while the application is hidden, ignoring event")
             return nil
         }
 
         let newFrame = window.axFrame
         if newFrame.equalTo(window.frame) {
-            debug("EVENT_HANDLER_WINDOW_RESIZED:DEBOUNCED \(window.application.name) \(window.id)\n")
+            Logger.events.debug("window resized (debounced): \(window.application.name) \(window.id)")
             return nil
         }
 
-        debug("EVENT_HANDLER_WINDOW_RESIZED: \(window.application.name) \(window.id)\n")
+        Logger.events.debug("window resized: \(window.application.name) \(window.id)")
         EventSignals.shared.push(.windowResized, .window(window))
 
         let wasFullscreen = window.isFullscreen
@@ -267,11 +268,11 @@ extension EventHandler
         let wm = WindowManager.shared
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window minimized: \(window.id) has been marked invalid by the system, ignoring event")
             return
         }
 
-        debug("EVENT_HANDLER_WINDOW_MINIMIZED: \(window.application.name) \(window.id)\n")
+        Logger.events.debug("window minimized: \(window.application.name) \(window.id)")
         window.isMinimized = true
 
         window.refreshAXProperties()
@@ -297,7 +298,7 @@ extension EventHandler
         let wm = WindowManager.shared
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: \(window.id) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window deminimized: \(window.id) has been marked invalid by the system, ignoring event")
             wm.removeLostFocusedEvent(for: window.id)
             return
         }
@@ -308,14 +309,14 @@ extension EventHandler
 
         let sid = SpaceID.active
         if let sid, window.id.spaces.contains(sid) {
-            debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on active space\n")
+            Logger.events.debug("window deminimized: window \(window.application.name) \(window.id) is deminimized on active space")
             if window.shouldBeManaged && wm.managedView(for: window) == nil {
                 let lastWindow = wm.lastWindowID.flatMap { wm.window(for: $0) }
                 let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
                 wm.manageWindow(window, on: sid, inserting: insertionPoint)
             }
         } else {
-            debug("EVENT_HANDLER_WINDOW_DEMINIMIZED: window \(window.application.name) \(window.id) is deminimized on inactive space\n")
+            Logger.events.debug("window deminimized: window \(window.application.name) \(window.id) is deminimized on inactive space")
         }
 
         if wm.hasLostFocusedEvent(for: window.id) {
@@ -332,11 +333,11 @@ extension EventHandler
         guard let window = WindowManager.shared.window(for: windowID) else { return }
 
         if !window.isValid {
-            debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(windowID) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("window title changed: \(windowID) has been marked invalid by the system, ignoring event")
             return
         }
 
-        debug("EVENT_HANDLER_WINDOW_TITLE_CHANGED: \(window.application.name) \(window.id)\n")
+        Logger.events.debug("window title changed: \(window.application.name) \(window.id)")
 
         window.title = window.currentTitle()
         TabBar.refresh(for: window.id)
@@ -346,13 +347,13 @@ extension EventHandler
 
     func slsWindowOrdered(_ wid: WindowID)
     {
-        debug("EVENT_HANDLER_SLS_WINDOW_ORDERED: \(wid)\n")
+        Logger.events.debug("SkyLight window ordered: \(wid)")
         TabBar.orderBars(above: wid)
     }
 
     func slsWindowDestroyed(_ wid: WindowID)
     {
-        debug("EVENT_HANDLER_SLS_WINDOW_DESTROYED: \(wid)\n")
+        Logger.events.debug("SkyLight window destroyed: \(wid)")
 
         guard let window = WindowManager.shared.window(for: wid) else { return }
 
@@ -363,7 +364,7 @@ extension EventHandler
         //
 
         if !window.invalidate() {
-            debug("EVENT_HANDLER_SLS_WINDOW_DESTROYED: \(wid) has been marked invalid by the system, ignoring event..\n")
+            Logger.events.debug("SkyLight window destroyed: \(wid) has been marked invalid by the system, ignoring event")
             return
         }
 

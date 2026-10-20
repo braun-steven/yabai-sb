@@ -4,6 +4,7 @@ import Foundation
 import Synchronization
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The handlers of the cases of Event, run one at a time on the queue of the @WM actor (see EventLoop.swift).
@@ -207,13 +208,13 @@ extension EventHandler
     {
         if !Process.canRetryLaunch(process.launchAttempts) {
             process.launchGivenUp = true
-            debug("EventHandler.applicationLaunchRetry: giving up on \(process.nameAndPID) after \(process.launchAttempts) attempts\n")
+            Logger.processes.notice("giving up on launching \(process.nameAndPID) after \(process.launchAttempts) attempts")
             return
         }
 
         let delay = Process.launchRetryDelay(process.launchAttempts)
         process.launchAttempts += 1
-        debug("EventHandler.applicationLaunchRetry: retrying \(process.nameAndPID) in \(cFormat("%.1f", delay / .seconds(1)))s (attempt \(process.launchAttempts))\n")
+        Logger.events.debug("retrying the launch of \(process.nameAndPID) in \(cFormat("%.1f", delay / .seconds(1)))s (attempt \(process.launchAttempts))")
 
         let key = ProcessKey(process.psn)
         EventLoop.post(.applicationLaunchRetry(key), after: delay)
@@ -231,24 +232,24 @@ extension EventHandler
         let wm = WindowManager.shared
 
         if process.isTerminated {
-            debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID) terminated during launch\n")
+            Logger.events.debug("application launched: \(process.nameAndPID) terminated during launch")
             wm.removeLostFrontSwitchedEvent(for: process.pid)
             return
         }
 
         if !process.hasRunningApplication {
-            debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID) missing ns_application. fetching..\n")
+            Logger.events.debug("application launched: \(process.nameAndPID) has no NSRunningApplication yet, fetching it")
             process.attachRunningApplication()
 
             if !process.hasRunningApplication {
-                debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID) unable to fetch ns_application..\n")
+                Logger.events.debug("application launched: \(process.nameAndPID) could not fetch its NSRunningApplication")
                 applicationLaunchRetry(process)
                 return
             }
         }
 
         if !process.isFinishedLaunching {
-            debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID) is not finished launching, subscribing to finishedLaunching changes\n")
+            Logger.events.debug("application launched: \(process.nameAndPID) is not finished launching, subscribing to finishedLaunching changes")
             process.observeFinishedLaunching()
 
             //
@@ -261,7 +262,7 @@ extension EventHandler
         }
 
         if !process.isObservable() {
-            debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID) is not observable, subscribing to activationPolicy changes\n")
+            Logger.events.debug("application launched: \(process.nameAndPID) is not observable, subscribing to activationPolicy changes")
             process.observeActivationPolicy()
 
             //
@@ -286,7 +287,7 @@ extension EventHandler
 
             application.unobserve()
             application.destroy()
-            debug("EVENT_HANDLER_APPLICATION_LAUNCHED: could not observe notifications for \(process.nameAndPID) (\(axRetry ? 1 : 0))\n")
+            Logger.events.debug("application launched: could not observe notifications for \(process.nameAndPID) (\(axRetry ? 1 : 0))")
 
             if axRetry { applicationLaunchRetry(process) }
             return
@@ -297,7 +298,7 @@ extension EventHandler
             wm.removeLostFrontSwitchedEvent(for: process.pid)
         }
 
-        debug("EVENT_HANDLER_APPLICATION_LAUNCHED: \(process.nameAndPID)\n")
+        Logger.events.debug("application launched: \(process.nameAndPID)")
         wm.addApplication(application)
         EventSignals.shared.push(.applicationLaunched, .application(application))
         process.launchAttempts = 0
@@ -320,11 +321,11 @@ extension EventHandler
         let ms = MouseState.shared
 
         guard let application = wm.application(for: process.pid) else {
-            debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(process.nameAndPID) (not observed)\n")
+            Logger.events.debug("application terminated: \(process.nameAndPID) (not observed)")
             return
         }
 
-        debug("EVENT_HANDLER_APPLICATION_TERMINATED: \(process.nameAndPID)\n")
+        Logger.events.debug("application terminated: \(process.nameAndPID)")
         EventSignals.shared.push(.applicationTerminated, .application(application))
         wm.removeApplication(pid: application.pid)
 
@@ -433,7 +434,7 @@ extension EventHandler
             wm.addLostFrontSwitchedEvent(for: process.pid)
 
             if process.launchGivenUp {
-                debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(process.nameAndPID) was activated, trying to observe it again\n")
+                Logger.events.debug("application front switched: \(process.nameAndPID) was activated, trying to observe it again")
                 process.launchAttempts = 0
                 process.launchGivenUp = false
                 EventLoop.post(.applicationLaunched(process))
@@ -450,7 +451,7 @@ extension EventHandler
             EventSignals.shared.push(.applicationDeactivated, .application(deactivatedApplication))
         }
 
-        debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(process.nameAndPID)\n")
+        Logger.events.debug("application front switched: \(process.nameAndPID)")
         EventSignals.shared.push(.applicationActivated, .application(application))
         pm.switchEventTime = GetCurrentEventTime()
         pm.lastFrontPID = pm.frontPID
@@ -459,7 +460,7 @@ extension EventHandler
 
         let refreshIndex = wm.applicationRefreshIndex(of: application)
         if let refreshIndex {
-            debug("EVENT_HANDLER_APPLICATION_FRONT_SWITCHED: \(application.name) has windows that are not yet resolved\n")
+            Logger.events.debug("application front switched: \(application.name) has windows that are not yet resolved")
             _ = wm.addExistingApplicationWindows(application, refreshIndex: refreshIndex)
         }
 
@@ -484,7 +485,7 @@ extension EventHandler
         let wm = WindowManager.shared
         guard let application = wm.application(for: pid) else { return }
 
-        debug("EVENT_HANDLER_APPLICATION_VISIBLE: \(application.name)\n")
+        Logger.events.debug("application visible: \(application.name)")
         application.isHidden = false
 
         let windows = wm.windows(for: application)
@@ -502,7 +503,7 @@ extension EventHandler
         let wm = WindowManager.shared
         guard let application = wm.application(for: pid) else { return }
 
-        debug("EVENT_HANDLER_APPLICATION_HIDDEN: \(application.name)\n")
+        Logger.events.debug("application hidden: \(application.name)")
         application.isHidden = true
 
         let windows = wm.windows(for: application)

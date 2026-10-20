@@ -2,6 +2,7 @@ import CoreGraphics
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays
@@ -15,7 +16,7 @@ extension EventHandler
         let type = SLS.spaceType(SLS.connection, sid)
 
         if type == 0 || type == 4 {
-            debug("EVENT_HANDLER_SLS_SPACE_CREATED: \(Int64(bitPattern: sid.rawValue)), \(type)\n")
+            Logger.events.debug("space created: \(Int64(bitPattern: sid.rawValue)), \(type)")
             SpaceManager.shared.view(for: sid)
             EventSignals.shared.push(.spaceCreated, .space(sid))
             SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
@@ -27,7 +28,7 @@ extension EventHandler
         let sm = SpaceManager.shared
 
         if let view = sm.views[sid] {
-            debug("EVENT_HANDLER_SLS_SPACE_DESTROYED: \(Int64(bitPattern: sid.rawValue))\n")
+            Logger.events.debug("space destroyed: \(Int64(bitPattern: sid.rawValue))")
             _ = sm.labels.remove(id: sid)
             sm.views.removeValue(forKey: sid)
             view.destroy()
@@ -81,7 +82,7 @@ extension EventHandler
         sm.lastSpaceID = sm.currentSpaceID
         sm.currentSpaceID = SpaceID.active
 
-        debug("EVENT_HANDLER_SPACE_CHANGED: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
+        Logger.events.debug("space changed: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))")
         refreshCurrentSpace()
 
         EventSignals.shared.push(.spaceChanged)
@@ -94,7 +95,7 @@ extension EventHandler
 
         let newDid = DisplayID.active
         if dm.currentDisplayID == newDid {
-            debug("EVENT_HANDLER_DISPLAY_CHANGED: newly activated display \(dm.currentDisplayID?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0))! ignoring event..\n")
+            Logger.events.debug("display changed: newly activated display \(dm.currentDisplayID?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0)), ignoring event")
             return
         }
 
@@ -106,11 +107,11 @@ extension EventHandler
 
         let expectedDisplayID = sm.currentSpaceID.flatMap { $0.display }
         if dm.currentDisplayID != expectedDisplayID {
-            debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0)! ignoring event..\n")
+            Logger.events.debug("display changed: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0), ignoring event")
             return
         }
 
-        debug("EVENT_HANDLER_DISPLAY_CHANGED: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))\n")
+        Logger.events.debug("display changed: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))")
         refreshCurrentSpace()
 
         EventSignals.shared.push(.displayChanged)
@@ -118,7 +119,7 @@ extension EventHandler
 
     func displayAdded(_ did: DisplayID)
     {
-        debug("EVENT_HANDLER_DISPLAY_ADDED: \(did)\n")
+        Logger.events.debug("display added: \(did)")
         SpaceManager.shared.handleDisplayAdd(did)
         WindowManager.shared.handleDisplayAddAndRemove(did)
         SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
@@ -127,7 +128,7 @@ extension EventHandler
 
     func displayRemoved(_ did: DisplayID)
     {
-        debug("EVENT_HANDLER_DISPLAY_REMOVED: \(did)\n")
+        Logger.events.debug("display removed: \(did)")
         _ = DisplayManager.shared.labels.remove(id: did)
         WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
         SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
@@ -136,7 +137,7 @@ extension EventHandler
 
     func displayMoved(_ did: DisplayID)
     {
-        debug("EVENT_HANDLER_DISPLAY_MOVED: \(did)\n")
+        Logger.events.debug("display moved: \(did)")
         SpaceManager.shared.markSpacesInvalid()
         SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
         EventSignals.shared.push(.displayMoved, .display(did))
@@ -144,7 +145,7 @@ extension EventHandler
 
     func displayResized(_ did: DisplayID)
     {
-        debug("EVENT_HANDLER_DISPLAY_RESIZED: \(did)\n")
+        Logger.events.debug("display resized: \(did)")
         SpaceManager.shared.markSpacesInvalid(on: did)
         EventSignals.shared.push(.displayResized, .display(did))
     }

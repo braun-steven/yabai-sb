@@ -3,6 +3,7 @@ import Darwin
 import AppKit
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The signals of the daemon and the signals pushed while the current event is handled. The event handlers
@@ -101,7 +102,7 @@ enum SignalSubject
 
         for es in batch {
             let subscribers = table.subscribers(es.type)
-            debug("EventSignals.flush: transmitting \(es.type.name) to \(subscribers.count) subscriber(s)\n")
+            Logger.signals.debug("transmitting \(es.type.name) to \(subscribers.count) subscriber(s)")
 
             for signal in subscribers where !es.filters(signal) {
                 spawn(signal.command ?? "", es.arguments)

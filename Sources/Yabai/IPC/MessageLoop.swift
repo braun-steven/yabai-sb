@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import CPrivate
+import Logging
 import YabaiCore
 
 //
@@ -14,6 +15,13 @@ struct DaemonMessage: Sendable
 {
     let sockfd: Int32
     let bytes: [UInt8]
+
+    /// The null-separated tokens, up to the empty token that ends them, joined by spaces.
+    var text: String
+    {
+        let tokens = bytes.split(separator: 0, omittingEmptySubsequences: false).prefix { !$0.isEmpty }
+        return tokens.map { String(decoding: $0, as: UTF8.self) }.joined(separator: " ")
+    }
 }
 
 enum MessageLoop
@@ -124,10 +132,7 @@ enum MessageLoop
     /// Runs the commands of a message and hands its response to the queue of the responses.
     @WM static func handle(_ message: DaemonMessage)
     {
-        var text = message.bytes
-        text.withUnsafeMutableBufferPointer { buffer in
-            buffer.withMemoryRebound(to: CChar.self) { debugMessage("EVENT_HANDLER_DAEMON_MESSAGE", $0.baseAddress) }
-        }
+        Logger.ipc.debug("message: \(message.text)")
 
         var response = Response()
         var tokens = Message(message.bytes)

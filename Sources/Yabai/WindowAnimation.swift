@@ -4,6 +4,7 @@ import QuartzCore
 import Synchronization
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: Moving and resizing windows: frame requests that are grouped per application and skipped when
@@ -503,7 +504,7 @@ extension WindowManager
             DispatchQueue.concurrentPerform(iterations: groups.count) { groups[$0].apply() }
         }
         for group in groups where group.error == .cannotComplete {
-            debug("WindowManager.setWindowFrames: \(group.name) did not respond, \(group.list.count) window(s) may not have been moved\n")
+            Logger.windows.notice("\(group.name) did not respond, \(group.list.count) window(s) may not have been moved")
         }
     }
 }

@@ -3,6 +3,7 @@ import Foundation
 import CPrivate
 import AppKit
 import YabaiCore
+import Logging
 
 // NOTE: Discovering the windows of an application: creating a window applies the rules and decides whether
 // it floats. Windows on other spaces are missing from the accessibility list of an application; they are
@@ -22,10 +23,10 @@ extension WindowManager
         let windowTitle = target.cachedTitle
         let windowRole = target.roleString
         let windowSubrole = target.subroleString
-        debug("WindowManager.createAndAddWindow:\(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))\n")
+        Logger.windows.debug("adding window \(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))")
 
         if target.isUnknown {
-            debug("WindowManager.createAndAddWindow: ignoring AXUnknown window \(owner.name) \(target.id)\n")
+            Logger.windows.debug("ignoring AXUnknown window \(owner.name) \(target.id)")
             removeLostFocusedEvent(for: target.id)
             target.destroy()
             return nil
@@ -33,7 +34,7 @@ extension WindowManager
 
         // NOTE: Attempt to track all windows.
         if !target.observe() {
-            debug("WindowManager.createAndAddWindow: could not observe \(owner.name) \(target.id)\n")
+            Logger.windows.debug("could not observe \(owner.name) \(target.id)")
             removeLostFocusedEvent(for: target.id)
             target.unobserve()
             target.destroy()
@@ -78,12 +79,12 @@ extension WindowManager
                     target.isFloating = true
                 }
             } else {
-                debug("WindowManager.createAndAddWindow ignoring incorrectly marked window \(owner.name) \(target.id)\n")
+                Logger.windows.debug("ignoring incorrectly marked window \(owner.name) \(target.id)")
                 target.isFloating = true
                 debugWindowInfo(target)
             }
         } else {
-            debug("WindowManager.createAndAddWindow ignoring child window \(owner.name) \(target.id)\n")
+            Logger.windows.debug("ignoring child window \(owner.name) \(target.id)")
             target.isFloating = true
             debugWindowInfo(target)
         }
@@ -198,14 +199,14 @@ extension WindowManager
             resolved = unresolved.isEmpty
 
             if !resolved && refreshIndex == nil {
-                debug("WindowManager.addExistingApplicationWindows: \(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround\n")
+                Logger.windows.debug("\(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround")
                 addWindowsByElementID(for: owner, unresolved: &unresolved)
 
                 if !unresolved.isEmpty {
-                    debug("WindowManager.addExistingApplicationWindows: workaround failed to resolve all windows for \(owner.name)\n")
+                    Logger.windows.debug("workaround failed to resolve all windows for \(owner.name)")
                     addApplicationToRefresh(owner)
                 } else {
-                    debug("WindowManager.addExistingApplicationWindows: workaround resolved all windows for \(owner.name)\n")
+                    Logger.windows.debug("workaround resolved all windows for \(owner.name)")
                 }
 
                 return false
@@ -214,7 +215,7 @@ extension WindowManager
 
         guard resolved, let refreshIndex else { return false }
 
-        debug("WindowManager.addExistingApplicationWindows: all windows for \(owner.name) are now resolved\n")
+        Logger.windows.debug("all windows for \(owner.name) are now resolved")
         removeApplicationRefresh(at: refreshIndex)
         return true
     }
@@ -226,10 +227,6 @@ extension WindowManager
 
     private func debugWindowInfo(_ target: Window)
     {
-        guard Log.verbose.load(ordering: .relaxed) else { return }
-
-        fputs("window info: \n", stdout_global())
-        fputs(String(decoding: JSON.encode(target.info(Set(WindowInfo.Key.allCases))), as: UTF8.self), stdout_global())
-        fputs("\n", stdout_global())
+        Logger.windows.debug("window info: \(String(decoding: JSON.encode(target.info(Set(WindowInfo.Key.allCases))), as: UTF8.self))")
     }
 }

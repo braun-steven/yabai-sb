@@ -5,8 +5,8 @@ import YabaiCore
 @testable import Yabai
 
 //
-// NOTE: The golden IPC snapshot: a regression check of the responses, not a contract. Responses may change on purpose
-// (doc/swift-refactor.md, Rules): re-record and explain every changed record. The replay sends every command of
+// NOTE: The golden IPC snapshot: a regression check of the responses, not a contract. Responses may change on purpose:
+// re-record and explain every changed record. The replay sends every command of
 // Golden/commands.txt through handleMessage, in order, on one fixture state of the daemon, and compares each response
 // byte for byte with Golden/responses.txt. With GOLDEN_RECORD=1 in the environment it writes responses.txt instead
 // (in the source tree), e.g. `GOLDEN_RECORD=1 swift test --filter Golden`; review the diff before committing it.

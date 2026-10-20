@@ -6,7 +6,7 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- `make test` wraps `swift test` (112 tests when the refactor of `doc/swift-refactor.md` started). SwiftPM's OSAXEmbed plugin generates the
+- `make test` wraps `swift test`. SwiftPM's OSAXEmbed plugin generates the
   embedded arrays automatically, including on a fresh checkout; no preparation command is needed.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
   Run a single test with `swift test --filter <name>`, or the golden IPC replay with
@@ -49,7 +49,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
-Builds from before and after the JSONEncoder queries (refactor phase 5.5) format query json differently; normalize both outputs with `jq -S .` per response before diffing.
+Builds from before and after the JSONEncoder queries format query json differently; normalize both outputs with `jq -S .` per response before diffing.
 
 ### Comparing performance builds
 
@@ -148,7 +148,7 @@ Rules for the user's machine:
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.
-- Since refactor phase 6.5 a `config` command returns before the renderers apply it: borders, tab bars, opacity, the
+- A `config` command returns before the renderers apply it: borders, tab bars, opacity, the
   menu bar alpha and shadows change in the event after the message. A check that reads the window server right after a
   `config` set must wait for it (a following `query` returns once it is applied). `window_border on` with ~20 windows
   takes about 1.5 s in both builds; the old build only blocked the `config` command instead.

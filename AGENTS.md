@@ -4,8 +4,6 @@
 
 Read the Swift conventions below before writing or reviewing Swift, C/Swift bridges, `Package.swift` or `CPrivate` changes, and keep new pitfalls there.
 
-The daemon is being refactored into idiomatic Swift: `doc/swift-refactor.md` holds the phased plan, its status board and the session reports. Before working on it, read its **How to use this file** (a phase runs as one subagent per subphase), **Rules** and **Target conventions**; code a phase touches follows the Target conventions, even where older code nearby does not. Its progress is tracked in the Claude Code Task list as its **Progress tracking** section describes: the phase agent keeps the list, and subphase agents report to it with `SendMessage`, since subagents do not get the Task tools.
-
 For Codex: translate Claude's `Edit` tool to `apply_patch`, and `Bash` to the shell execution tool: use patch-based edits rather than shell scripts to change source files. The named `output-summarizer` is a role for a subagent that runs long-output commands and returns concise results; no definition for it exists in this checkout. When delegation is available, give it the exact command, working directory, question and desired result format. Otherwise capture logs and inspect the relevant failures and warnings. Run state-changing commands yourself.
 
 yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6. It talks to private macOS frameworks (SkyLight, etc.) through CPrivate. The scripting addition injected into Dock uses a Swift core with an Objective-C native adapter and loader (manual retain/release).
@@ -21,7 +19,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 - `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
 - `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. `Plugins/OSAXEmbed/` invokes `scripts/build-osax.sh` to build arm64e binaries and generate `payload_bin.c` / `loader_bin.c` in its work directory; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
 - `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC snapshot in `Golden/`. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
-- `doc/`: Asciidoc, generated manpage, refactor plan, payload and live-testing notes.
+- `doc/`: Asciidoc, generated manpage, payload and live-testing notes.
 - `examples/`, `assets/`: sample configuration, icons, banner and plist.
 - `scripts/`: signing, installation, payload history and the live harness in `scripts/live-tests/`.
 
@@ -44,7 +42,7 @@ This is a personal fork. Whenever a new feature is added, update the "Fork chang
 There is no linter or `make analyze` target. Keep builds warning-free. CPrivate's warnings are configured in `Package.swift`; the separately built payload/loader use `scripts/build-osax.sh`. Sanitizer daemon builds use separate `.build/asan` and `.build/tsan` scratch directories; they do not instrument the embedded payload.
 
 ## Coding Style & Naming
-- Swift 6, Swift Testing, four-space indentation, and the surrounding file's brace style. Names, file layout, models and errors follow the Target conventions in `doc/swift-refactor.md` (Swift API Design Guidelines, methods on the type they act on, code ordered by responsibility).
+- Swift 6, Swift Testing, four-space indentation, and the surrounding file's brace style. Names, file layout, models and errors follow the Target conventions below (Swift API Design Guidelines, methods on the type they act on, code ordered by responsibility).
 - Prefer final classes for reference models and structs/arrays for values. Keep `YabaiCore` independent of CPrivate and window server access.
 - Remaining C/ObjC is C11 + manual retain/release (`-fno-objc-arc`) in CPrivate and OSAX. Add wrappers to CPrivate only when Swift cannot call the underlying API.
 
@@ -100,7 +98,12 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 
 ### Conventions
 
-- **Target shape:** see Target conventions in `doc/swift-refactor.md`.
+- **Naming:** Swift API Design Guidelines. No C names in identifiers or doc comments, no "Ported from" headers, no `*_global()` accessors. Managers are reached as `WindowManager.shared`; large managers split into `Type+Area.swift` files. Order code by responsibility, not by the C order it came from.
+- **Comments:** keep every `// NOTE:` that records macOS, WindowServer or AX behavior, reworded to name the Swift symbols. Drop comments that only explain the C origin.
+- **Values:** `Int` for counts, indices and arithmetic; fixed-width integers only for C/ABI and wire formats. "None" is an optional, never `0`, `-1` or `NULL`. Flags are `OptionSet`s or `Bool`s.
+- **Platform calls:** SkyLight, AX and CoreDock calls go through the `Sources/Yabai/Platform/` wrappers, which take and return Swift types.
+- **Protocols:** no protocols or existentials for dependency injection; use concrete `final class`es and structs, or generics when abstraction is needed. No Combine: Observation and `AsyncStream` cover its uses.
+- **Blocking calls:** do not run AX or SkyLight calls in bulk on the Swift concurrency thread pool; they can block about 1 s on a frozen application. They stay synchronous on `@WM`, or on the dispatch workers of the animations.
 - **Performance:** prefer `final class` and structs on hot paths (mouse drag, animations, tree updates). Avoid existentials (`any P`) and closures capturing state in loops there.
 - **Isolation:** `@MainActor` only for AppKit; window manager state is `@WM`. Plain value types are `Sendable` without annotations.
 - **Errors:** command code `throws(CommandError)` (`throw CommandError("…\n")`, `.unknownValue(domain, command, value)`); typed selectors throw from `required(_:)` (no selector) and `resolve(acting:_:)` (found nothing; `nil` only for display/space 'recent'). Platform wrappers return optionals or `Bool`; do not invent AX/SkyLight error types.
@@ -149,6 +152,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **Global CF `let`s** (`let x = "AXFullScreen" as CFString`) are not concurrency-safe in Swift 6. Keep a `String` and bridge at the call (`Window.fullscreenAttribute`).
 - **Names matching types** (`rule`, `token`) shadow the type in parameters and locals: `let rule = …assumingMemoryBound(to: rule.self)` fails as use before declaration. Use `result`, `first`, `target`, etc.
 - **Methods shadow globals of the same base name** inside their type, whatever the arguments: call `Darwin.connect`/`Darwin.close` in `UnixSocket` (`Helpers.swift`), and avoid a method `notify(_:)` next to the global `notify(_:_:)` (`ScriptingAddition.report(_:)`).
+- **Exhaustive switches:** once a `switch` lists every case of an enum, its `default:` is an error ("will never be executed"); delete it when a switch becomes exhaustive.
 - **Typed throws inference:** a closure passed as `() throws(CommandError) -> T` infers `any Error` unless written `{ () throws(CommandError) in … }`, and a `do` block containing a bare `throw` catches `any Error`. Spell the closure type (`runCommands` callers, `MessageTests.swift`) and keep direct throws out of a `do` whose `catch` needs `CommandError` (`handleDomain` in `MessageLoop.swift`).
 - **Custom global actors lack static `assumeIsolated`.** `WM.shared.assumeIsolated` cannot call `@WM` functions. `WM.assumeIsolated` (`EventLoop.swift`) uses `preconditionIsolated` and `unsafeBitCast`, like MainActor, and traps off `yabai.wm`. Its closure cannot capture non-Sendable values: `@WM` models are Sendable, retained CF objects travel in `Handoff`. Test actor code with `@Test @WM func` (`goldenReplay`).
 - **Typed ids** (`WindowID`, `SpaceID`, `DisplayID` in `Sources/YabaiCore/Identifiers.swift`): `.map(WindowID.init)` is ambiguous between `init(_:)` and `init(rawValue:)`; write `.map { WindowID($0) }`. C out-parameters (`&wid` for `SLSNewWindow`, `_AXUIElementGetWindow`) need a raw `UInt32` local, wrapped afterwards inside the Platform wrapper (`SLS.newWindow`, `AXUIElement.windowID`). The SA payload packs ids through `SAPayload.pack(_: WindowID)`, which writes the raw value. No id is an Optional, never 0: the ids are not integer literals outside tests (`tests/*/IdentifierLiterals.swift`), raw window server values enter through `WindowID(nonzero:)`, and printed output keeps 0 with `x?.rawValue ?? 0` (`Serialize.swift`).

@@ -156,7 +156,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 5.4 | `Config` values and option table | [x] | 80c613f4 | `Config.current` sub-structs; one `configOptions` table (name/print/parse) |
 | 5.5 | Queries with `JSONEncoder` | [x] | 3ae65fef | compact json, `.sortedKeys`; typed `Key` sets select properties; `JSONWriter` gone |
 | 5.6 | Verification: docs, live check, benchmark, perf | [x] | c5b8c0cc | no code changes; IPC schemas identical; bench within 10%; query latency within 10% except `--tree` +0.07 ms (sub-ms) |
-| **6** | **Async event loop and Observation** | [~] | e6466adc | |
+| **6** | **Async event loop and Observation** | [x] | 06ff7beb | tsan live run clean; live check 28/28 incl. mouse; bench within 10%; same-app focus +1.5 ms accepted |
 | 6.1 | `AsyncStream` event loop | [x] | 7b05bba5 | `EventLoop.start()` in `Daemon.run`; one `@WM` task, pool per event |
 | 6.2 | Async handlers where they wait | [x] | cf079fd3 | `windowResized` awaits the fullscreen exit; SA replies and space-move polls stay synchronous |
 | 6.3 | Timers | [x] | 6b78b534 | `EventLoop.post(_:after:)`; no `asyncAfter` left |
@@ -457,7 +457,8 @@ Carried between phases; add, resolve or strike items here.
   after 7.0–7.1 ms vs 5.3–5.6 ms (cross-application focus unchanged, ~64 ms). `perf.py` shows it as
   `focus-same-app-observed` 63.5/63.6 vs 45.6–48.1 ms, one more 22 ms CLI poll. `floating-resize-command-pair`
   70.3/72.7 vs 53.5/64.3/68.9 ms (+15% on the average, noisy). The cause is not located; candidates are the
-  AsyncStream hop (6.1, consumer at `.medium` priority) and the IPC response queue (6.4).
+  AsyncStream hop (6.1, consumer at `.medium` priority) and the IPC response queue (6.4). Accepted by the user
+  (2026-10-20) without investigation; phase 6 closed with it.
 - 6.7 could not check Mission Control enter/exit (it cannot be opened from an agent shell, see `doc/live-testing.md`),
   cross-display moves (one display) or a session with the scripting addition unloaded.
 - ~~An animated window lost its border for good: `Border.setSuspended(true)` in `animateWindowsAsync` had no

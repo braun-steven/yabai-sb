@@ -1,6 +1,7 @@
 import ApplicationServices
 import Carbon
 import Foundation
+import OrderedCollections
 import Synchronization
 import CPrivate
 import YabaiCore
@@ -329,8 +330,7 @@ extension EventHandler
         EventSignals.shared.push(.applicationTerminated, .application(application))
         wm.removeApplication(pid: application.pid)
 
-        let refreshIndex = wm.applicationRefreshIndex(of: application)
-        if let refreshIndex { wm.removeApplicationRefresh(at: refreshIndex) }
+        wm.applicationsToRefresh.remove(application)
 
         let windows = wm.windows(for: application)
         var viewList: [View] = []
@@ -458,10 +458,9 @@ extension EventHandler
         pm.frontPID = process.pid
         EventSignals.shared.push(.applicationFrontSwitched)
 
-        let refreshIndex = wm.applicationRefreshIndex(of: application)
-        if let refreshIndex {
+        if wm.applicationsToRefresh.contains(application) {
             Logger.events.debug("application front switched: \(application.name) has windows that are not yet resolved")
-            _ = wm.addExistingApplicationWindows(application, refreshIndex: refreshIndex)
+            wm.addExistingApplicationWindows(application, isRefreshing: true)
         }
 
         guard let applicationFocusedWindowID = application.focusedWindowID else {

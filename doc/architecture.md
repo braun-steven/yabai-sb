@@ -25,7 +25,7 @@ SwiftPM builds the executable `Yabai`, pure library `YabaiCore`, and C targets `
 
 ### Models and managers
 
-`WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MouseState` own Swift state. Their globals/accessors live with the managers. `Window`, `Application`, `Process`, `View`, `Con` and `TabBar` are reference models with identity equality and ARC lifetimes. Managers keep models in Dictionaries and Sets; loops whose order a user can observe sort explicitly (windows by id, processes by pid, views by space id). Labels use `LabelList`, lists use arrays.
+`WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MouseState` own Swift state. Their globals/accessors live with the managers. `Window`, `Application`, `Process`, `View`, `Con` and `TabBar` are reference models with identity equality and ARC lifetimes. Managers keep models in Dictionaries and Sets. Where a user can observe the order of a loop, the collection keeps it: windows and views are `SortedDictionary`s by id (`WindowManager.window`, `SpaceManager.views`); processes, keyed by serial number, still sort by pid. Unique lists in insertion order are `OrderedSet`s (`tabBars`, `applicationsToRefresh`). Labels use `LabelList`, other lists use arrays.
 
 ### Window, space and process logic
 

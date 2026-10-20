@@ -73,7 +73,7 @@ extension SpaceManager
     {
         Config.current.space.layout = layout
 
-        for target in views.values.sorted(by: { $0.sid < $1.sid }) {
+        for target in views.values {
             if !target.overrides.contains(.layout) {
                 if target.sid.isUser {
                     target.layout = layout
@@ -91,7 +91,7 @@ extension SpaceManager
     {
         Config.current.space[keyPath: spacing.spaceDefault] = value
 
-        for target in views.values.sorted(by: { $0.sid < $1.sid }) {
+        for target in views.values {
             if !target.overrides.contains(spacing.override) {
                 target[keyPath: spacing.view] = value
                 target.updateAndFlush()
@@ -113,7 +113,7 @@ extension SpaceManager
     {
         Config.current.space.autoPadding = autoPadding
 
-        for target in views.values.sorted(by: { $0.sid < $1.sid }) {
+        for target in views.values {
             if !target.overrides.contains(.autoPadding) {
                 applyAutoPadding(autoPadding, to: target)
             }

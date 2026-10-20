@@ -111,4 +111,9 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
     #expect(table.remove(label: "c") == false)
     #expect(table.remove(label: "") == false)
     #expect(table.subscribers(.windowFocused).isEmpty)
+
+    // NOTE: labels compare by canonical equivalence
+    table.add(signal("\u{e9}", "echo e"), .windowFocused)
+    #expect(table.remove(label: "e\u{301}") == true)
+    #expect(table.subscribers(.windowFocused).isEmpty)
 }

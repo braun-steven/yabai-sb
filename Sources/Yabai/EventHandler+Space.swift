@@ -30,7 +30,7 @@ extension EventHandler
         if let view = sm.views[sid] {
             Logger.events.debug("space destroyed: \(Int64(bitPattern: sid.rawValue))")
             _ = sm.labels.remove(id: sid)
-            sm.views.removeValue(forKey: sid)
+            sm.views[sid] = nil
             view.destroy()
             EventSignals.shared.push(.spaceDestroyed, .space(sid))
             sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)

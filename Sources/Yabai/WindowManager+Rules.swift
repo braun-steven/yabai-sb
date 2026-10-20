@@ -148,7 +148,7 @@ extension WindowManager
     func reapplyAllRules()
     {
         // Windows in id order, so rules apply in the same order every time.
-        for target in window.values.sorted(by: { $0.id < $1.id }) where target.isRoot {
+        for target in window.values where target.isRoot {
             let title = target.cachedTitle
             let role = target.roleString
             let subrole = target.subroleString
@@ -173,7 +173,7 @@ extension WindowManager
         return true
     }
 
-    func reapplyRule(label: some Collection<UInt8>) -> Bool
+    func reapplyRule(label: String) -> Bool
     {
         guard let index = ruleIndex(label: label) else { return false }
 
@@ -184,15 +184,15 @@ extension WindowManager
         return true
     }
 
-    private func ruleIndex(label: some Collection<UInt8>) -> Int?
+    private func ruleIndex(label: String) -> Int?
     {
-        rules.firstIndex { $0.label?.utf8.elementsEqual(label) ?? false }
+        rules.firstIndex { $0.label == label }
     }
 
     func applyRule(_ candidate: Rule)
     {
         // Windows in id order, so rules apply in the same order every time.
-        for target in window.values.sorted(by: { $0.id < $1.id }) where target.isRoot {
+        for target in window.values where target.isRoot {
             if candidate.matches(app: target.application.name, title: target.cachedTitle, role: target.roleString, subrole: target.subroleString) {
                 applyManageRuleEffects(candidate.effects, to: target)
 
@@ -207,7 +207,7 @@ extension WindowManager
     /// Replaces any rule with the same label, then appends the new rule.
     func addRule(_ candidate: Rule)
     {
-        if let label = candidate.label { _ = removeRule(label: label.utf8) }
+        if let label = candidate.label { _ = removeRule(label: label) }
         rules.append(candidate)
     }
 
@@ -219,7 +219,7 @@ extension WindowManager
         return true
     }
 
-    func removeRule(label: some Collection<UInt8>) -> Bool
+    func removeRule(label: String) -> Bool
     {
         guard let index = ruleIndex(label: label) else { return false }
 

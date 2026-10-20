@@ -1,6 +1,8 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import OrderedCollections
+import SortedCollections
 import CPrivate
 import YabaiCore
 import Logging
@@ -30,7 +32,7 @@ enum SpaceOperationError: Error, Sendable
     /// See the NOTE of `DisplayManager.shared`.
     static let shared = SpaceManager()
 
-    var views: [SpaceID: View] = [:]
+    var views: SortedDictionary<SpaceID, View> = [:]
     var currentSpaceID: SpaceID?
     var lastSpaceID: SpaceID?
     var didBegin = false
@@ -98,21 +100,13 @@ enum SpaceOperationError: Error, Sendable
     {
         let wm = WindowManager.shared
 
-        var refreshCount = wm.applicationRefreshCount
-        if refreshCount == 0 { return false }
+        if wm.applicationsToRefresh.isEmpty { return false }
 
         let windowCount = wm.window.count
-        var i = 0
-        while i < refreshCount {
-            let application = wm.applicationRefresh(at: i)
+        // NOTE: Iterates a copy: a resolved application leaves the list.
+        for application in wm.applicationsToRefresh {
             Logger.spaces.debug("\(application.name) has windows that are not yet resolved")
-
-            if wm.addExistingApplicationWindows(application, refreshIndex: i) {
-                refreshCount -= 1
-                i -= 1
-            }
-
-            i += 1
+            wm.addExistingApplicationWindows(application, isRefreshing: true)
         }
 
         return windowCount != wm.window.count
@@ -123,7 +117,7 @@ enum SpaceOperationError: Error, Sendable
     {
         guard let spaceList = did.spaces else { return }
 
-        var viewList: [View?] = views.values.sorted(by: { $0.sid < $1.sid }).map { Optional($0) }
+        var viewList: [View?] = views.values.map { Optional($0) }
         var uuidList: [CFString?] = viewList.map { $0?.uuid }
 
         for sid in spaceList {
@@ -136,7 +130,7 @@ enum SpaceOperationError: Error, Sendable
                 uuidList[j] = nil
                 viewList[j] = nil
 
-                views.removeValue(forKey: target.sid)
+                views[target.sid] = nil
 
                 labels.replace(id: target.sid, with: sid)
 

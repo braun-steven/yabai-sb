@@ -139,21 +139,21 @@ private enum WorkspaceLayout: String, CaseIterable
 
         func isLayout(_ value: Token) -> Bool
         {
-            guard let first = value.bytes.first else { return false }
+            guard let first = value.utf8.first else { return false }
             return first >= UInt8(ascii: "0") && first <= UInt8(ascii: "9")
         }
 
         var layouts: [SpaceLayout] = []
         var spec: [UInt8] = []
         while isLayout(token) {
-            guard layouts.count < SpaceLayout.max, let layout = SpaceLayout(parsing: token.bytes) else {
+            guard layouts.count < SpaceLayout.max, let layout = SpaceLayout(parsing: token.utf8) else {
                 throw CommandError("invalid value '\(token)' given to command '\(command)' for domain '\(domain)'\n", stopsMessage: true)
             }
             if let repeated = layouts.first(where: { $0.count == layout.count }) {
                 throw CommandError("value '\(token)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n", stopsMessage: true)
             }
             if !layouts.isEmpty { spec.append(UInt8(ascii: " ")) }
-            spec += token.bytes
+            spec += token.utf8
             if spec.count >= 256 {
                 throw CommandError("value given to command '\(command)' for domain '\(domain)' is too long\n", stopsMessage: true)
             }
@@ -201,9 +201,8 @@ private enum WorkspaceLayout: String, CaseIterable
     ConfigOption(name: .tabBarFont, print: { rsp, _ in rsp.write("\(Token(Config.current.tabBar.fontName))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let fontName = String(validating: token.bytes, as: UTF8.self) else { throw CommandError.unknownValue(domain, command, token) }
         return { () throws(CommandError) in
-            guard TabBar.setFont(fontName) else { throw CommandError.unknownValue(domain, command, token) }
+            guard TabBar.setFont(token.string) else { throw CommandError.unknownValue(domain, command, token) }
         }
     })
 }

@@ -31,7 +31,7 @@ extension WindowManager
 
                     if created.observe() {
                         addApplication(created)
-                        _ = addExistingApplicationWindows(created, refreshIndex: nil)
+                        addExistingApplicationWindows(created, isRefreshing: false)
                     } else {
                         created.unobserve()
                         created.destroy()

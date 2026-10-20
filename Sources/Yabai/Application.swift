@@ -101,9 +101,10 @@ import Logging
     }
 }
 
-extension Application: Equatable
+extension Application: Hashable
 {
     nonisolated static func == (a: Application, b: Application) -> Bool { a === b }
+    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
 }
 
 /// The AX notifications that an application can observe.

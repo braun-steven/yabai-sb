@@ -116,7 +116,7 @@ extension DisplayID
 
         var result: [SpaceID]?
         for display in SLS.managedDisplaySpaces(SLS.connection) {
-            guard let identifier = display["Display Identifier"] as? String, identifier.utf8.elementsEqual(uuid.utf8) else { continue }
+            guard let identifier = display["Display Identifier"] as? String, identifier == uuid else { continue }
 
             let spaceList = display["Spaces"] as? [NSDictionary] ?? []
             result = spaceList.compactMap { space in (space["id64"] as? NSNumber).flatMap { SpaceID(nonzero: $0.uint64Value) } }
@@ -130,7 +130,7 @@ extension DisplayID
     {
         guard let uuid = self.uuid else { return 0 }
         guard let displays = DisplayManager.shared.arrangedDisplays else { return 0 }
-        guard let index = displays.firstIndex(where: { $0.utf8.elementsEqual(uuid.utf8) }) else { return 0 }
+        guard let index = displays.firstIndex(of: uuid) else { return 0 }
 
         return index + 1
     }

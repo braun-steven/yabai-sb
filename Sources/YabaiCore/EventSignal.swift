@@ -234,7 +234,7 @@ public struct SignalTable
     public mutating func remove(label: String) -> Bool
     {
         for type in SignalType.allCases {
-            if let j = signals[type.rawValue].firstIndex(where: { $0.label?.utf8.elementsEqual(label.utf8) ?? false }) {
+            if let j = signals[type.rawValue].firstIndex(where: { $0.label == label }) {
                 signals[type.rawValue].remove(at: j)
                 return true
             }

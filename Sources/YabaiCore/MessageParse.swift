@@ -81,7 +81,7 @@ public struct KeyValue: Sendable
 /// `parse_key_value_pair`
 public func parseKeyValuePair(_ token: Token) -> KeyValue?
 {
-    let bytes = token.bytes
+    let bytes = Array(token.utf8)
     var at = bytes.startIndex
 
     while at < bytes.endIndex {
@@ -257,7 +257,7 @@ public func parseProperties<Key: CaseIterable & RawRepresentable<String> & Hasha
     }
 
     var failures: [CommandError] = []
-    let bytes = token.bytes
+    let bytes = Array(token.utf8)
     var cursor = bytes.startIndex
 
     for i in bytes.indices {

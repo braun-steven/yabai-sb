@@ -138,15 +138,6 @@ enum UnixSocket
     }
 }
 
-extension String
-{
-    /// Compares byte by byte like strcmp, not by canonical equivalence.
-    func bytesEqual(_ other: String) -> Bool
-    {
-        return utf8.elementsEqual(other.utf8)
-    }
-}
-
 extension ProcessSerialNumber
 {
     /// Whether both serial numbers name the same process.

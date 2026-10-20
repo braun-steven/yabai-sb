@@ -2,52 +2,49 @@ import Darwin
 
 //
 // NOTE: The tokens of a client message and the response the daemon writes. A message is a list of null-separated tokens
-// that ends with an empty token (client_encode_message in src/yabai.c). Tokens and responses are bytes, so that a failure
-// response echoes a token byte for byte, like the "%.*s" of the C version. Ported from src/message_parse.c.
+// that ends with an empty token. Each token is decoded once into a String, so tokens compare like Swift strings; bytes
+// that are not UTF-8 become U+FFFD, also where a failure response echoes the token.
 //
 
-/// `struct token`: one argument of a message. Invalid when empty (`token_is_valid`).
+/// One argument of a message. Invalid when empty.
 public struct Token: Equatable, Sendable
 {
-    public var bytes: ArraySlice<UInt8>
+    public var string: String
 
-    public init(_ bytes: ArraySlice<UInt8>)
+    public init(_ string: String)
     {
-        self.bytes = bytes
+        self.string = string
+    }
+
+    public init(_ string: Substring)
+    {
+        self.string = String(string)
     }
 
     public init(_ bytes: some Collection<UInt8>)
     {
-        self.bytes = ArraySlice(bytes)
+        self.string = String(decoding: bytes, as: UTF8.self)
     }
 
-    public init(_ text: String)
-    {
-        self.bytes = ArraySlice(text.utf8)
-    }
+    public var isValid: Bool { !string.isEmpty }
 
-    /// `token_is_valid`
-    public var isValid: Bool { !bytes.isEmpty }
+    /// The UTF-8 bytes, for the parsers that split at ASCII separators.
+    public var utf8: String.UTF8View { string.utf8 }
 
-    /// The token as a string; bytes that are not UTF-8 become U+FFFD.
-    public var string: String { String(decoding: bytes, as: UTF8.self) }
-
-    /// `token_equals`: byte for byte, not by canonical equivalence like String ==.
     public func equals(_ match: String) -> Bool
     {
-        bytes.elementsEqual(match.utf8)
+        string == match
     }
 
-    /// `token_prefix`
     public func hasPrefix(_ match: String) -> Bool
     {
-        bytes.starts(with: match.utf8)
+        string.hasPrefix(match)
     }
 
-    /// The token without its first count bytes.
+    /// The token without its first count characters.
     public func dropFirst(_ count: Int) -> Token
     {
-        Token(bytes.dropFirst(count))
+        Token(string.dropFirst(count))
     }
 
     //
@@ -59,7 +56,7 @@ public struct Token: Equatable, Sendable
     public var positiveInteger: Int?
     {
         var value: Int32 = 0
-        for byte in bytes {
+        for byte in utf8 {
             guard byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") else { return nil }
             value = value &* 10 &+ Int32(byte - UInt8(ascii: "0"))
         }
@@ -69,10 +66,9 @@ public struct Token: Equatable, Sendable
     /// `token_is_hexadecimal`: 0x or 0X followed by at least one hexadecimal digit.
     public var hexadecimal: UInt32?
     {
+        let bytes = Array(utf8)
         guard bytes.count > 2 else { return nil }
-
-        let start = bytes.startIndex
-        guard bytes[start] == UInt8(ascii: "0") && (bytes[start + 1] == UInt8(ascii: "x") || bytes[start + 1] == UInt8(ascii: "X")) else { return nil }
+        guard bytes[0] == UInt8(ascii: "0") && (bytes[1] == UInt8(ascii: "x") || bytes[1] == UInt8(ascii: "X")) else { return nil }
 
         var value: UInt32 = 0
         for byte in bytes.dropFirst(2) {
@@ -102,9 +98,7 @@ public struct Token: Equatable, Sendable
     /// Calls body with the token as a null-terminated C string. A token never contains a null byte.
     public func withCString<R>(_ body: (UnsafePointer<CChar>) -> R) -> R
     {
-        var text = bytes.map { CChar(bitPattern: $0) }
-        text.append(0)
-        return text.withUnsafeBufferPointer { body($0.baseAddress!) }
+        string.withCString(body)
     }
 
     /// sscanf on the token, e.g. `token.scan("%d:%d", &a, &b)`; returns the number of assigned conversions.
@@ -142,12 +136,7 @@ extension Token
     /// The token of a buffer that sscanf filled.
     public init(cString: UnsafePointer<CChar>?)
     {
-        guard let cString else {
-            self.init(ArraySlice<UInt8>())
-            return
-        }
-
-        self.init(UnsafeRawBufferPointer(start: cString, count: strlen(cString)))
+        self.init(cString.map { String(cString: $0) } ?? "")
     }
 }
 
@@ -253,7 +242,7 @@ public func cFormat(_ format: String, _ arguments: CVarArg...) -> String
     return String(decoding: buffer[0..<max(length, 0)].map { UInt8(bitPattern: $0) }, as: UTF8.self)
 }
 
-/// The text of a response, built with string interpolation. A token is written as its bytes, a number as "%d" would.
+/// The text of a response, built with string interpolation. A number is written as "%d" would.
 public struct ResponseText: ExpressibleByStringInterpolation, Sendable
 {
     public var bytes: [UInt8] = []
@@ -278,7 +267,7 @@ public struct ResponseText: ExpressibleByStringInterpolation, Sendable
         }
 
         public mutating func appendLiteral(_ literal: String)   { bytes += literal.utf8 }
-        public mutating func appendInterpolation(_ token: Token) { bytes += token.bytes }
+        public mutating func appendInterpolation(_ token: Token) { bytes += token.utf8 }
         public mutating func appendInterpolation(_ text: String) { bytes += text.utf8 }
         public mutating func appendInterpolation(_ value: Int32) { bytes += String(value).utf8 }
         public mutating func appendInterpolation(_ value: Int)   { bytes += String(value).utf8 }

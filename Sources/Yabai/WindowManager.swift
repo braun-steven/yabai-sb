@@ -1,6 +1,8 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import OrderedCollections
+import SortedCollections
 import CPrivate
 import AppKit
 import YabaiCore
@@ -66,13 +68,6 @@ extension WindowLayer
     }
 }
 
-/// A window assigned to a scratchpad label.
-struct Scratchpad
-{
-    var label: String
-    var window: Window
-}
-
 /// The windows and applications yabai tracks, and the window settings.
 @WM final class WindowManager
 {
@@ -81,22 +76,23 @@ struct Scratchpad
 
     var systemElement: AXUIElement?
     var application: [pid_t: Application] = [:]
-    var window: [WindowID: Window] = [:]
+    var window: SortedDictionary<WindowID, Window> = [:]
     var managedWindows: [WindowID: View] = [:]
     // NOTE: The tab bar registry is owned and accessed only by the event loop thread. The mouse event tap reads the
     // separate `tabBarHits` snapshot in `TabBar.swift`; bars are embedded in their owner, which redraws them on changes.
-    var tabBars: [TabBar] = []
+    var tabBars: OrderedSet<TabBar> = []
     var windowLostFocusedEvents = Set<WindowID>()
     var applicationLostFrontSwitchedEvents = Set<pid_t>()
     var rules: [Rule] = []
-    var applicationsToRefresh: [Application] = []
+    var applicationsToRefresh: OrderedSet<Application> = []
     var focusedWindowID: WindowID?
     var focusedWindowPSN = ProcessSerialNumber()
     var pendingFocusWindowID: WindowID?
     var pendingFocusTime: UInt64 = 0
     var lastWindowID: WindowID?
     var tabBarFont: CTFont?
-    var scratchpads: [Scratchpad] = []
+    /// The scratchpad windows by label, in the order they were assigned.
+    var scratchpads: OrderedDictionary<String, Window> = [:]
     /// Set while an operation moves windows without animating them; see withoutAnimations(_:).
     var animationsSuppressed = false
 }

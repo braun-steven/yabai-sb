@@ -223,7 +223,7 @@ public enum WindowSelector: Equatable, Sendable
             else if token.equals(Argument.last)         { self = .last }
             else if token.equals(Argument.recent)       { self = .recent }
             else if token.hasPrefix(Argument.stackPrefix),
-                    let stack = StackSelector(token.dropFirst(Argument.stackPrefix.utf8.count)) { self = .stack(stack) }
+                    let stack = StackSelector(token.dropFirst(Argument.stackPrefix.count)) { self = .stack(stack) }
             else { return nil }
         default:
             return nil

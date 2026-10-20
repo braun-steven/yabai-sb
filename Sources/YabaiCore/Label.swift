@@ -1,98 +1,67 @@
-/// A label names a display or a space (id). Ported from `struct label` (src/misc/label.h).
-public struct Label<ID: Hashable & Sendable>: Equatable, Sendable
-{
-    public var id: ID
-    public var name: String
-
-    public init(id: ID, name: String)
-    {
-        self.id = id
-        self.name = name
-    }
-}
-
 //
-// NOTE: A list holds each id and each name at most once. Names compare byte for byte, like strcmp,
-// not by Swift's canonical equivalence: "é" precomposed and decomposed are two names.
+// NOTE: The labels of displays or spaces. A list holds each id and each name at most once, and a name that labels
+// another id moves to the new id. Names compare as Swift strings, by canonical equivalence: "é" precomposed and
+// decomposed are one name.
 //
 
 public struct LabelList<ID: Hashable & Sendable>: Sendable
 {
-    public private(set) var labels: [Label<ID>] = []
+    private var names: [ID: String] = [:]
+    private var ids: [String: ID] = [:]
 
     public init() {}
 
-    private func index(id: ID) -> Int?
+    public var count: Int { names.count }
+
+    /// The label of an id.
+    public func name(of id: ID) -> String?
     {
-        labels.firstIndex { $0.id == id }
+        names[id]
     }
 
-    private func index(name: String) -> Int?
+    /// The id that a name labels.
+    public func id(named name: String) -> ID?
     {
-        labels.firstIndex { $0.name.utf8.elementsEqual(name.utf8) }
+        ids[name]
     }
 
-    /// `label_find_id`
-    public func find(id: ID) -> Label<ID>?
-    {
-        index(id: id).map { labels[$0] }
-    }
-
-    /// `label_find_name`
-    public func find(name: String) -> Label<ID>?
-    {
-        index(name: name).map { labels[$0] }
-    }
-
-    /// `label_remove_at`: moves the last label into the gap, like buf_del.
-    private mutating func remove(at index: Int)
-    {
-        labels.swapAt(index, labels.count - 1)
-        labels.removeLast()
-    }
-
-    /// `label_remove_id`
     @discardableResult
     public mutating func remove(id: ID) -> Bool
     {
-        guard let index = index(id: id) else { return false }
+        guard let name = names.removeValue(forKey: id) else { return false }
 
-        remove(at: index)
+        ids[name] = nil
         return true
     }
 
-    //
-    // NOTE: A name that labels another id moves to this id.
-    //
-
-    /// `label_set`
     public mutating func set(id: ID, name: String)
     {
         remove(id: id)
 
-        if let index = index(name: name) {
-            remove(at: index)
-        }
+        if let previous = ids[name] { names[previous] = nil }
 
-        labels.append(Label(id: id, name: name))
+        names[id] = name
+        ids[name] = id
     }
 
     /// The label of id moves to newID: `SpaceManager.handleDisplayAdd(_:)` keeps the label of a space whose id changed.
     public mutating func replace(id: ID, with newID: ID)
     {
-        guard let index = index(id: id) else { return }
-        labels[index].id = newID
+        guard let name = names.removeValue(forKey: id) else { return }
+
+        remove(id: newID)
+        names[newID] = name
+        ids[name] = newID
     }
 
     /// The labels of two ids trade places: `SpaceManager.swapSpaceAcrossDisplays` in the daemon.
     public mutating func swap(_ a: ID, _ b: ID)
     {
-        for i in labels.indices {
-            if labels[i].id == a {
-                labels[i].id = b
-            } else if labels[i].id == b {
-                labels[i].id = a
-            }
-        }
+        let nameA = names[a], nameB = names[b]
+
+        names[a] = nameB
+        names[b] = nameA
+        if let nameA { ids[nameA] = b }
+        if let nameB { ids[nameB] = a }
     }
 }

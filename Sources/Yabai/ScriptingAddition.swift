@@ -1,3 +1,4 @@
+import Algorithms
 import AppKit
 import Darwin
 import CPrivate
@@ -436,8 +437,7 @@ final class ScriptingAddition: Sendable
             return result
         }
         var result = true
-        for offset in stride(from: 0, to: list.count, by: 256) { // SA_WINDOW_ORDER_CHUNK
-            let chunk = list[offset..<min(offset + 256, list.count)]
+        for chunk in list.chunks(ofCount: 256) { // SA_WINDOW_ORDER_CHUNK
             var payload = SAPayload(); payload.pack(Int32(chunk.count))
             for entry in chunk { payload.pack(entry.window); payload.pack(entry.order); payload.pack(entry.relativeTo?.rawValue ?? 0) }
             result = payload.send(SA_OPCODE_WINDOW_ORDER_LIST) && result

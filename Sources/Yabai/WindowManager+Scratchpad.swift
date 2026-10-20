@@ -1,4 +1,5 @@
 import Foundation
+import OrderedCollections
 import CPrivate
 import YabaiCore
 
@@ -9,30 +10,22 @@ import YabaiCore
 
 extension WindowManager
 {
-    private func scratchpadWindow(withLabel label: String) -> Window?
-    {
-        scratchpads.first { $0.label.bytesEqual(label) }?.window
-    }
-
     func toggleScratchpad(withLabel label: String) -> Bool
     {
-        guard let target = scratchpadWindow(withLabel: label) else { return false }
+        guard let target = scratchpads[label] else { return false }
         return toggleScratchpad(target)
     }
 
     func setScratchpadLayers()
     {
-        for entry in scratchpads {
-            entry.window.adjustLayer(to: Config.current.scratchpad.below ? .below : .normal)
+        for target in scratchpads.values {
+            target.adjustLayer(to: Config.current.scratchpad.below ? .below : .normal)
         }
     }
 
     private func hideOtherScratchpadWindows(except target: Window)
     {
-        for entry in scratchpads {
-            let other = entry.window
-            if other == target { continue }
-
+        for other in scratchpads.values where other != target {
             if SLS.windowIsOrderedIn(SLS.connection, other.id) { ScriptingAddition.shared.orderWindow(other.id, 0, relativeTo: nil) }
         }
     }
@@ -111,10 +104,10 @@ extension WindowManager
 
     func setScratchpad(for target: Window, label: String) -> Bool
     {
-        if scratchpadWindow(withLabel: label) != nil { return false }
+        if scratchpads[label] != nil { return false }
 
         _ = removeScratchpad(from: target, unfloat: false)
-        addScratchpad(label: label, window: target)
+        scratchpads[label] = target
         target.scratchpad = label
         makeWindowFloating(target, shouldFloat: true, force: false)
 
@@ -147,17 +140,14 @@ extension WindowManager
     @discardableResult
     func removeScratchpad(from target: Window, unfloat: Bool) -> Bool
     {
-        for index in 0..<scratchpadCount where scratchpads[index].window == target {
-            target.scratchpad = nil
+        guard let label = target.scratchpad, scratchpads[label] == target else { return false }
 
-            removeScratchpad(at: index)
+        target.scratchpad = nil
+        scratchpads[label] = nil
 
-            if unfloat { releaseScratchpad(target) }
+        if unfloat { releaseScratchpad(target) }
 
-            return true
-        }
-
-        return false
+        return true
     }
 
     func recoverScratchpadWindows()

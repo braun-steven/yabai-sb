@@ -10,12 +10,10 @@ extension WindowManager
 
     private func validateWindows(on owner: View, against windowList: [WindowID])
     {
-        let viewWindowList = owner.windowIDs
+        let onSpace = Set(windowList)
 
-        for i in 0..<viewWindowList.count {
-            if windowList.contains(viewWindowList[i]) { continue }
-
-            guard let target = window(for: viewWindowList[i]) else { continue }
+        for windowID in owner.windowIDs where !onSpace.contains(windowID) {
+            guard let target = window(for: windowID) else { continue }
 
             //
             // @cleanup

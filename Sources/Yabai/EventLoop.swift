@@ -1,5 +1,7 @@
+import Algorithms
 import ApplicationServices
 import Dispatch
+import DequeModule
 import Synchronization
 import YabaiCore
 
@@ -144,7 +146,7 @@ enum EventLoop
     // event, in deadline order and in posting order for equal deadlines: two sleeping tasks can wake in either
     // order, but the delayed events keep the order of their deadlines (two deferred focus activations must not
     // swap). The tasks only sleep and post, they never run a handler. Posting under the lock keeps two waking tasks
-    // from interleaving their events.
+    // from interleaving their events. The queue stays sorted: an event goes in after the events with its deadline.
     //
 
     private struct DelayedEvent: Sendable
@@ -153,14 +155,14 @@ enum EventLoop
         let event: Event
     }
 
-    private static let delayedEvents = Mutex<[DelayedEvent]>([])
+    private static let delayedEvents = Mutex<Deque<DelayedEvent>>([])
 
     /// Posts an event after a delay. Callable from any thread.
     static func post(_ event: Event, after delay: Duration)
     {
         let deadline = ContinuousClock.now + delay
         delayedEvents.withLock { pending in
-            let index = pending.firstIndex { $0.deadline > deadline } ?? pending.endIndex
+            let index = pending.partitioningIndex { $0.deadline > deadline }
             pending.insert(DelayedEvent(deadline: deadline, event: event), at: index)
         }
 
@@ -175,7 +177,7 @@ enum EventLoop
     {
         let now = ContinuousClock.now
         delayedEvents.withLock { pending in
-            let count = pending.prefix { $0.deadline <= now }.count
+            let count = pending.partitioningIndex { $0.deadline > now }
             for delayed in pending.prefix(count) { post(delayed.event) }
             pending.removeFirst(count)
         }

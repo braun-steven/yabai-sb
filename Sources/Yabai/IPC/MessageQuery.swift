@@ -124,7 +124,7 @@ private enum ResolvedQueryTarget
         case .index(let index):
             if !WindowManager.shared.reapplyRule(at: index) { throw CommandError("rule with index '\(index)' not found.\n") }
         case .labelOrInline(let label, let inline):
-            if !WindowManager.shared.reapplyRule(label: label.bytes) {
+            if !WindowManager.shared.reapplyRule(label: label.string) {
                 switch inline {
                 case .success(let rule):
                     if let rule { WindowManager.shared.applyRule(rule) }
@@ -137,7 +137,7 @@ private enum ResolvedQueryTarget
         case .index(let index):
             if !WindowManager.shared.removeRule(at: index) { throw CommandError("rule with index '\(index)' not found.\n") }
         case .label(let label):
-            if !WindowManager.shared.removeRule(label: label.bytes) { throw CommandError("rule with label '\(label)' not found.\n") }
+            if !WindowManager.shared.removeRule(label: label.string) { throw CommandError("rule with label '\(label)' not found.\n") }
         }
     case .list:
         WindowManager.shared.queryWindowRules(into: &rsp)

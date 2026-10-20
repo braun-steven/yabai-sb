@@ -42,7 +42,7 @@ extension WindowManager
     func removeWindow(_ id: WindowID)
     {
         Border.remove(id)
-        window.removeValue(forKey: id)
+        window[id] = nil
     }
 
     func addWindow(_ target: Window)
@@ -68,6 +68,6 @@ extension WindowManager
     /// The windows owned by an application, in window id order.
     func windows(for owner: Application) -> [Window]
     {
-        window.values.filter { $0.application == owner }.sorted { $0.id < $1.id }
+        window.values.filter { $0.application == owner }
     }
 }

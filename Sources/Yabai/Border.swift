@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import OrderedCollections
 import Synchronization
 import CPrivate
 import AppKit
@@ -546,14 +547,10 @@ extension Border
             for target in WindowManager.shared.window.values where target.id.space == sid { refresh(target, space: sid, windowCount: count) }
             return
         }
-        var windows: [WindowID] = []
         let owner = SpaceManager.shared.view(for: sid)
-        if owner.layout == .tree { windows = owner.windowIDs }
-        let capacity = windows.count + WindowManager.shared.window.count
+        var windows: OrderedSet<WindowID> = owner.layout == .tree ? OrderedSet(owner.windowIDs) : []
         borderLock.withLock { state in
-            for border in state.borders.values where border.sid == sid {
-                if !windows.contains(border.wid) && windows.count < capacity { windows.append(border.wid) }
-            }
+            for border in state.borders.values where border.sid == sid { windows.append(border.wid) }
         }
         for wid in windows { refresh(WindowManager.shared.window(for: wid), space: sid, windowCount: 0) }
     }

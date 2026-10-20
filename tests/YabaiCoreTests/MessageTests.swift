@@ -100,14 +100,16 @@ private func failureText(_ failure: CommandError?) -> String
 
     #expect(TokenValue.int(3).floatValue == 3)
     #expect(TokenValue.string(Token("x")).floatValue == nil)
-    #expect(Token("é").equals("e\u{301}") == false)
+    #expect(Token("é").equals("e\u{301}"))
+    #expect(Token("e\u{301}") == Token("é"))
 }
 
-@Test func responseEchoesTokenBytes()
+// NOTE: a byte that is not UTF-8 is decoded once, as U+FFFD, also where the response echoes the token
+@Test func responseEchoesInvalidUTF8AsReplacement()
 {
     var rsp = Response()
-    rsp.fail(.unknownValue(domain, command, Token([0x66, 0xff])))
-    #expect(rsp.bytes == [0x07] + Array("unknown value 'f".utf8) + [0xff] + Array("' given to command 'test' for domain 'config'\n".utf8))
+    rsp.fail(.unknownValue(domain, command, Token([0x66, 0xff] as [UInt8])))
+    #expect(rsp.bytes == [0x07] + Array("unknown value 'f\u{fffd}' given to command 'test' for domain 'config'\n".utf8))
 }
 
 @Test("Config command names cover the daemon options and preserve their CLI spellings")
@@ -135,17 +137,17 @@ func configCommandScope() throws
     #expect(unscoped.next().equals("unused"))
 }
 
-@Test("Unknown config command errors retain the original token bytes")
+@Test("Unknown config command errors echo the token")
 func configCommandUnknownName()
 {
-    let token = Token([0x78, 0xff])
+    let token = Token([0x78, 0xff] as [UInt8])
     var rsp = Response()
     do {
         _ = try ConfigCommand.parseName(token)
     } catch {
         rsp.fail(error)
     }
-    #expect(rsp.bytes == [0x07] + Array("unknown command 'x".utf8) + [0xff] + Array("' for domain 'config'\n".utf8))
+    #expect(rsp.bytes == [0x07] + Array("unknown command 'x\u{fffd}' for domain 'config'\n".utf8))
 }
 
 @Test("Config names parse one at a time without consuming the next command")

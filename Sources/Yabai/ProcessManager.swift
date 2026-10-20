@@ -124,7 +124,7 @@ import Logging
             return nil
         }
 
-        for blacklisted in processNameBlacklist where processName.bytesEqual(blacklisted) {
+        if processNameBlacklist.contains(processName) {
             Logger.processes.debug("\(processName) is blacklisted, ignoring")
             return nil
         }
@@ -159,7 +159,7 @@ import Logging
 
             guard let process = createProcess(psn, pid) else { continue }
 
-            if process.name.bytesEqual("Finder") {
+            if process.name == "Finder" {
                 Logger.processes.debug("\(process.nameAndPID) was found, caching its psn")
                 finderPSN = psn
             }

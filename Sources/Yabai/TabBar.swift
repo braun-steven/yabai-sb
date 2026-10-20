@@ -1,5 +1,7 @@
+import Algorithms
 import AppKit
 import CoreText
+import OrderedCollections
 import Synchronization
 import CPrivate
 import YabaiCore
@@ -42,9 +44,10 @@ import YabaiCore
     }
 }
 
-extension TabBar: Equatable
+extension TabBar: Hashable
 {
     nonisolated static func == (a: TabBar, b: TabBar) -> Bool { a === b }
+    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(ObjectIdentifier(self)) }
 }
 
 /// How tab bars are drawn (`config tab_bar_style`).
@@ -144,7 +147,7 @@ extension TabBar
         let sizeText = Token(utf8[utf8.index(after: separator)...])
         guard withUnsafeMutablePointer(to: &size, { sizeText.scan("%f", $0) }) == 1, !(size <= 0) else { return false }
         let family = String(decoding: utf8[..<separator], as: UTF8.self)
-        let font: CTFont? = family.bytesEqual("system")
+        let font: CTFont? = family == "system"
             ? CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)
             : CTFontCreateWithName(family as CFString, CGFloat(size), nil)
         guard let font else { return false }
@@ -206,10 +209,8 @@ extension TabBar
     {
         guard count > 0, frame.width > 0, frame.contains(point) else { return nil }
         let slots = glass ? TabBarGlass.innerRect(frame) : frame
-        for index in 0..<count - 1 {
-            if point.x < slot(in: slots, index: index, count: count).maxX { return index }
-        }
-        return count - 1
+        // NOTE: The slots run from left to right, so the first slot ending right of the point is found by bisection.
+        return (0..<count - 1).partitioningIndex { point.x < slot(in: slots, index: $0, count: count).maxX }
     }
 
 }
@@ -460,7 +461,7 @@ extension TabBar
     {
         if !exists { return }
         let wm = WindowManager.shared
-        if let i = wm.tabBars.firstIndex(of: self) { wm.tabBars.remove(at: i) }
+        wm.tabBars.remove(self)
         if let id {
             SLS.order(SLS.connection, id, .out)
             context = nil
@@ -494,7 +495,7 @@ extension TabBar
 
     // NOTE: Ordering each card below the same window puts the last card in front. Creation order changes when
     // layouts or styles are rebuilt, so nested cards must explicitly be ordered from the outermost inward.
-    static func outerFirst(_ bars: [TabBar]) -> [TabBar]
+    static func outerFirst(_ bars: some Sequence<TabBar>) -> [TabBar]
     {
         bars.sorted { $0.card.width * $0.card.height > $1.card.width * $1.card.height }
     }
@@ -522,7 +523,7 @@ extension TabBar
     //
     static func refreshAll()
     {
-        for owner in SpaceManager.shared.views.values.sorted(by: { $0.sid < $1.sid }) where owner.layout == .tree {
+        for owner in SpaceManager.shared.views.values where owner.layout == .tree {
             owner.tree?.releaseBars()
             owner.updateAndFlush()
         }

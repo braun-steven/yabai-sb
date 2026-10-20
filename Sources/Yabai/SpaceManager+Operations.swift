@@ -32,8 +32,8 @@ extension SpaceManager
             let aView = views[aSid]!
             let bView = views[bSid]!
 
-            views.removeValue(forKey: aSid)
-            views.removeValue(forKey: bSid)
+            views[aSid] = nil
+            views[bSid] = nil
 
             aView.sid = bSid
             bView.sid = aSid

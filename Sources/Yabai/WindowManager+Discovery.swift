@@ -1,5 +1,6 @@
 import ApplicationServices
 import Foundation
+import OrderedCollections
 import CPrivate
 import AppKit
 import YabaiCore
@@ -131,16 +132,16 @@ extension WindowManager
     }
 
     /// The windows in the list that the window manager does not know.
-    func unresolvedWindows(in windowList: [WindowID]) -> [WindowID]
+    func unresolvedWindows(in windowList: [WindowID]) -> Set<WindowID>
     {
-        return windowList.filter { window(for: $0) == nil }
+        return Set(windowList.filter { window(for: $0) == nil })
     }
 
     // NOTE: macOS does not return AXUIElementRefs for windows on inactive spaces. Brute-force the element ids
-    // to create the AXUIElementRefs ourselves. Every found window is removed from the unresolved list.
+    // to create the AXUIElementRefs ourselves. Every found window is removed from the unresolved set.
     // Attribution: https://github.com/decodism
     // https://github.com/lwouis/alt-tab-macos/issues/1324#issuecomment-2631035482
-    private func addWindowsByElementID(for owner: Application, unresolved: inout [WindowID])
+    private func addWindowsByElementID(for owner: Application, unresolved: inout Set<WindowID>)
     {
         var data = Data(count: 0x14)
         data.withUnsafeMutableBytes { bytes in
@@ -162,20 +163,18 @@ extension WindowManager
             if let role {
                 let elementWid = CFEqual(role, kAXWindowRole as CFString) ? element.windowID : nil
 
-                if let elementWid, let i = unresolved.firstIndex(of: elementWid) {
-                    unresolved[i] = unresolved[unresolved.count - 1]
-                    unresolved.removeLast()
+                if let elementWid, unresolved.remove(elementWid) != nil {
                     createAndAddWindow(owner, reference: element, id: elementWid, includingOneShotRules: false)
                 }
             }
         }
     }
 
-    /// True when an application's windows in applicationsToRefresh (at refreshIndex) are all resolved; it is then
-    /// removed from the list. With refreshIndex nil (a new application), the application is added when windows are missing.
-    func addExistingApplicationWindows(_ owner: Application, refreshIndex: Int?) -> Bool
+    /// Adds the windows of an application. An application in applicationsToRefresh (isRefreshing) leaves the list once
+    /// all its windows are resolved; a new application joins it when windows are missing.
+    func addExistingApplicationWindows(_ owner: Application, isRefreshing: Bool)
     {
-        guard let globalWindowList = existingApplicationWindowList(for: owner) else { return false }
+        guard let globalWindowList = existingApplicationWindowList(for: owner) else { return }
 
         let windowList = owner.windowList.map { accessibilityElements(in: $0) } ?? []
 
@@ -198,26 +197,25 @@ extension WindowManager
             var unresolved = unresolvedWindows(in: globalWindowList)
             resolved = unresolved.isEmpty
 
-            if !resolved && refreshIndex == nil {
+            if !resolved && !isRefreshing {
                 Logger.windows.debug("\(owner.name) has \(unresolved.count) windows that are not yet resolved, attempting workaround")
                 addWindowsByElementID(for: owner, unresolved: &unresolved)
 
                 if !unresolved.isEmpty {
                     Logger.windows.debug("workaround failed to resolve all windows for \(owner.name)")
-                    addApplicationToRefresh(owner)
+                    applicationsToRefresh.append(owner)
                 } else {
                     Logger.windows.debug("workaround resolved all windows for \(owner.name)")
                 }
 
-                return false
+                return
             }
         }
 
-        guard resolved, let refreshIndex else { return false }
+        guard resolved, isRefreshing else { return }
 
         Logger.windows.debug("all windows for \(owner.name) are now resolved")
-        removeApplicationRefresh(at: refreshIndex)
-        return true
+        applicationsToRefresh.remove(owner)
     }
 
     private func accessibilityElements(in list: CFArray) -> [AXUIElement]

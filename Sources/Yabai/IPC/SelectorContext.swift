@@ -31,7 +31,7 @@ import YabaiCore
 
     func displayLabel(_ label: Token) -> DisplayID?
     {
-        DisplayManager.shared.labels.find(name: label.string)?.id
+        DisplayManager.shared.labels.id(named: label.string)
     }
 
     func space(_ query: SpaceQuery) -> SpaceID?
@@ -49,7 +49,7 @@ import YabaiCore
 
     func spaceLabel(_ label: Token) -> SpaceID?
     {
-        SpaceManager.shared.labels.find(name: label.string)?.id
+        SpaceManager.shared.labels.id(named: label.string)
     }
 
     func window(_ query: WindowQuery<Window>) -> Window?

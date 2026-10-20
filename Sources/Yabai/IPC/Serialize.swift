@@ -21,7 +21,7 @@ extension DisplayID
 
         if properties.contains(.uuid)     { info.uuid     = uuid ?? "<unknown>" }
         if properties.contains(.index)    { info.index    = arrangement }
-        if properties.contains(.label)    { info.label    = dm.labels.find(id: self)?.name ?? "" }
+        if properties.contains(.label)    { info.label    = dm.labels.name(of: self) ?? "" }
         if properties.contains(.frame)    { info.frame    = QueryFrame(CGDisplayBounds(rawValue)) }
         if properties.contains(.spaces)   { info.spaces   = spaceIndices }
         if properties.contains(.hasFocus) { info.hasFocus = self == dm.currentDisplayID }
@@ -49,7 +49,7 @@ extension View
 
         if properties.contains(.uuid)         { info.uuid         = uuid.map { $0 as String } ?? "<unknown>" }
         if properties.contains(.index)        { info.index        = sid.missionControlIndex }
-        if properties.contains(.label)        { info.label        = sm.labels.find(id: sid)?.name ?? "" }
+        if properties.contains(.label)        { info.label        = sm.labels.name(of: sid) ?? "" }
         if properties.contains(.type)         { info.type         = layout.rawValue }
         if properties.contains(.display)      { info.display      = sid.display.map { $0.arrangement } ?? 0 }
         if properties.contains(.windows)      { info.windows      = sid.windows(includingMinimized: true) ?? [] }

@@ -320,7 +320,7 @@ private func parseRuleProp(_ value: Token, _ prop: inout Bool?) -> Bool
 /// `parse_rule_follow_prefix`
 private func parseRuleFollowPrefix(_ effects: inout RuleEffects, _ value: Token) -> Token
 {
-    guard value.bytes.first == UInt8(ascii: "^") else { return value }
+    guard value.hasPrefix("^") else { return value }
 
     effects.flags.insert(.followSpace)
     return value.dropFirst(1)

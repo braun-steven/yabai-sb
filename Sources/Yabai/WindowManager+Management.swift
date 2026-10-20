@@ -5,44 +5,6 @@ import YabaiCore
 
 extension WindowManager
 {
-    // NOTE: Refresh, rule and scratchpad lists remove an item by moving the last element into its slot.
-
-    func applicationRefreshIndex(of application: Application) -> Int?
-    {
-        applicationsToRefresh.firstIndex(of: application)
-    }
-
-    func removeApplicationRefresh(at index: Int)
-    {
-        applicationsToRefresh.swapAt(index, applicationsToRefresh.count - 1)
-        applicationsToRefresh.removeLast()
-    }
-
-    var applicationRefreshCount: Int { applicationsToRefresh.count }
-
-    func applicationRefresh(at index: Int) -> Application
-    {
-        applicationsToRefresh[index]
-    }
-
-    func addApplicationToRefresh(_ application: Application)
-    {
-        applicationsToRefresh.append(application)
-    }
-
-    var scratchpadCount: Int { scratchpads.count }
-
-    func addScratchpad(label: String, window: Window)
-    {
-        scratchpads.append(Scratchpad(label: label, window: window))
-    }
-
-    func removeScratchpad(at index: Int)
-    {
-        scratchpads.swapAt(index, scratchpads.count - 1)
-        scratchpads.removeLast()
-    }
-
     func setFocusFollowsMouse(_ mode: FocusFollowsMouse)
     {
         MouseState.shared.endEventTap()

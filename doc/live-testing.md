@@ -148,6 +148,18 @@ Rules for the user's machine:
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.
+- Since refactor phase 6.5 a `config` command returns before the renderers apply it: borders, tab bars, opacity, the
+  menu bar alpha and shadows change in the event after the message. A check that reads the window server right after a
+  `config` set must wait for it (a following `query` returns once it is applied). `window_border on` with ~20 windows
+  takes about 1.5 s in both builds; the old build only blocked the `config` command instead.
+- The menu bar alpha set by `menubar_opacity` does not show in `CGWindowListCopyWindowInfo` (the `Menubar` window
+  keeps alpha 1), so that setting cannot be checked from the window list.
+- Script Editor can leave an invisible window without an AX reference (`Untitled.scpt`) on the fixture space:
+  `query --windows --space` lists it as tiled, `query --windows --window <id>` cannot find it and it is not in the
+  tree. Take the tiled windows from the leaves of `query --tree`, or a bench cycles focus through it.
+- Mission Control could not be opened from an agent shell (2026-10-20: `open -a "Mission Control"`, the CoreDock
+  `com.apple.expose.awake` notification and System Events key codes all left it closed), so its enter/exit handling
+  needs the user's gesture or keyboard.
 
 Always run a baseline on the installed binary before changing anything, so before/after numbers
 come from the same session. Reference numbers from the `fix-left-out-findings` session (release builds):

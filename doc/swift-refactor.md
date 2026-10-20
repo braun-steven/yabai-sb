@@ -163,7 +163,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done. A phase is `[x]` o
 | 6.4 | IPC | [x] | 537f9265 | socket thread reads, serial queue writes; commands stay synchronous |
 | 6.5 | Observation | [x] | d293ffeb | `ConfigObserver` re-applies each set per `ConfigGroup`; model refreshes stay explicit |
 | 6.6 | Animation completion | [x] | e6466adc | completion stays on the display link, not awaited; fix: borders come back after an animation |
-| 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [ ] | | |
+| 6.7 | Verification: tsan, freeze check, live check, benchmark, perf | [x] | 74bfdd26 | tsan clean; run 28/28 incl. mouse; bench within 10%; same-app focus observed +1.5 ms (Open issues) |
 
 Phases run in order: 2 builds on 1's types, 4 is cheap once functions are methods on `@WM` classes (3), 5 rewrites
 the IPC handlers against the final model, and 6 needs the compiler-checked isolation of 4 and the config of 5.
@@ -450,7 +450,16 @@ Carried between phases; add, resolve or strike items here.
 - 3.6's live check did not cover a session with the scripting addition unloaded (space moves without SA); a later
   live check should.
 - 5.6: `query --tree` over the socket took 0.41 → 0.48 ms (+0.07 ms) on a flat 5-window space; the `perf.py` metrics
-  the rule names stayed within 10%. Accepted by the phase agent as sub-millisecond; 6.7 measures it again.
+  the rule names stayed within 10%. Accepted by the phase agent as sub-millisecond; 6.7 measures it again. 6.7 (same
+  session, 300 samples, flat 5-window space 6): installed 0.107/0.105 ms, HEAD 0.121/0.123 ms (+0.016 ms).
+- 6.7 latency deltas for the phase agent to accept or chase (same fixture, both builds benched twice or three times):
+  a same-application `window --focus` over the socket returns 4.5 ms vs 3.8 ms, and the daemon reports the new focus
+  after 7.0–7.1 ms vs 5.3–5.6 ms (cross-application focus unchanged, ~64 ms). `perf.py` shows it as
+  `focus-same-app-observed` 63.5/63.6 vs 45.6–48.1 ms, one more 22 ms CLI poll. `floating-resize-command-pair`
+  70.3/72.7 vs 53.5/64.3/68.9 ms (+15% on the average, noisy). The cause is not located; candidates are the
+  AsyncStream hop (6.1, consumer at `.medium` priority) and the IPC response queue (6.4).
+- 6.7 could not check Mission Control enter/exit (it cannot be opened from an agent shell, see `doc/live-testing.md`),
+  cross-display moves (one display) or a session with the scripting addition unloaded.
 - ~~An animated window lost its border for good: `Border.setSuspended(true)` in `animateWindowsAsync` had no
   counterpart (also in the fork's C code, 669c888d); unseen because the user's yabairc sets
   `window_animation_duration 0`.~~ Fixed in 6.6 (5563888e, `WindowAnimationDisplayLink.finish` un-suspends under
@@ -1189,3 +1198,38 @@ not here.
 - Next: 6.7 should check live with `window_animation_duration` > 0 and borders on: the border returns after the
   animation, and a re-animation mid-flight (takeover) keeps it hidden until the last animation ends.
 - Notes for the next agent: the history has a revert/reapply pair (d4f0cf19, e6466adc) from the user decision.
+
+### 2026-10-20 Subphase 6.7 [x]
+- Commits: none for code; HEAD 74bfdd26 verified, plus live-testing notes and this report.
+- Done: Done-when sweep holds: `EventLoop` is the `AsyncStream` loop, no `asyncAfter` in `Sources/Yabai`, renderers
+  follow `Config` through `ConfigObserver`. Session: one display, unlocked; posting granted midway (`mouse trusted`
+  true), so T6/T7 ran. Space 4 held user windows: temporary harness copies in /tmp on space 6 (bench/perf/checks).
+  - `make tsan` deploy (runtime confirmed): `run` 28/28 (T6 same-app autofocus = the 40 ms deferred focus; T8 idle
+    client), `extra` 5/5, `launch` 3/3 (frozen TextEdit: 13 attempts, gave up; queries median 69 ms, max 1 s), plus
+    the checks below. Same pid, no Sanitizer report, no crash report.
+  - Release deploy: `run` 28/28, `extra` 5/5, same pid. Extra checks (tsan and release): border width/on/off and an
+    equal re-set, tab_bar off/on, i3 style height +16 with an equal re-set, window opacity on/0.5/equal/0.7/off,
+    window_shadow on/off/off (`has-shadow`) all apply; animated border back after one animation and, with a re-animation
+    mid-flight, hidden until 0.93–0.98 s after the second (0.6 s) rotate, then back (installed build: border stays
+    gone); a `nc -U` client sending nothing: a window_created signal still fires 326–393 ms after the osascript start;
+    `space --create` → reconcile destroys it after 1.0–1.2 s; ffm autofocus has no effect while a TextEdit menu is
+    open (MENU_OPENED/CLOSED handled, `config` prints autofocus) and works after it closes. Signals spawn concurrently,
+    so their append order does not show event order; final focus after 20 socket focus commands was right in both
+    builds. Not checkable: menubar alpha (not in the window list), Mission Control (see Open issues).
+  - Bench (ms, tab/rotate/split medians), installed before: 31.9/149.3/31.0, 32.5/149.4/29.2; HEAD 33.9/151.8/29.2.
+    With a stray invisible Script Editor window in the fixture: HEAD 50.5/150.0/40.8, 50.9/147.9/40.1, installed
+    after 50.5/150.3/40.1, 48.6/148.5/39.6. All within 10%.
+  - `perf.py` (HEAD ×2 vs installed ×3, same fixture for the last two of each): cli query 21.9/24.4 vs 21.2/20.6/22.7,
+    socket query 4.7/4.0 vs 3.9/4.3/4.0, focus/rotate/send/move commands within noise; two deltas in Open issues.
+    Socket queries (300 samples): `--window` 0.31 vs 0.38, `--spaces` 1.94 vs 1.86, `--windows` 3.55 vs 3.29,
+    `--tree` 0.12 vs 0.11 ms.
+  - Installed binary restored (`cmp` OK, backup removed), fixture cleaned up, yabai restarted for the user's config,
+    15 spaces, no leftover signals, terminal window refocused and verified.
+- Output changes: none.
+- Verification: `make` (no warnings), `make test` 136 tests (75 + 61) at 74bfdd26; release and tsan builds warning-free.
+- Decisions: used space 6 (as 5.6); accepted the border delay after `window_border on` (~1.5 s for 20 windows) as
+  unchanged work, since the installed build blocks the `config` command for 1.9–2.9 s doing the same.
+- Next: phase agent decides on the same-app focus latency delta (Open issues); still open: Mission Control,
+  cross-display and SA-unloaded live checks.
+- Notes for the next agent: new live-testing notes (config applies after the response, menubar alpha, Script Editor
+  stray window, Mission Control); take bench windows from `query --tree` leaves.

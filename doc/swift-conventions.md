@@ -1,0 +1,85 @@
+# Swift conventions and pitfalls
+
+Read before writing or reviewing Swift, C/Swift bridges, `Package.swift` or `CPrivate` changes.
+Keep entries brief and point to an example. When something costs real time, add it here in the same commit.
+
+## Toolchain
+
+Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent features (SwiftPM concurrency defaults, `isolated deinit`, `Mutex`/`Atomic`, custom executors), trust `swift --version`, compiler diagnostics and SDK interfaces over memory. When unsure, try a scratch file first.
+
+## Conventions
+
+- **Style:** four-space indentation and the surrounding file's brace style. Prefer final classes for reference models and structs/arrays for values. Older tests carry their C names as display names (`@Test("label_list")`); renaming them is fine.
+- **Naming:** Swift API Design Guidelines. No C names in identifiers or doc comments, no "Ported from" headers, no `*_global()` accessors. Managers are reached as `WindowManager.shared`; large managers split into `Type+Area.swift` files. Order code by responsibility, not by the C order it came from.
+- **Comments:** keep every `// NOTE:` that records macOS, WindowServer or AX behavior, reworded to name the Swift symbols. Drop comments that only explain the C origin.
+- **Values:** `Int` for counts, indices and arithmetic; fixed-width integers only for C/ABI and wire formats. "None" is an optional, never `0`, `-1` or `NULL`. Flags are `OptionSet`s or `Bool`s.
+- **Platform calls:** SkyLight, AX and CoreDock calls go through the `Sources/Yabai/Platform/` wrappers, which take and return Swift types.
+- **Protocols:** no protocols or existentials for dependency injection; use concrete `final class`es and structs, or generics when abstraction is needed. No Combine: Observation and `AsyncStream` cover its uses.
+- **Blocking calls:** do not run AX or SkyLight calls in bulk on the Swift concurrency thread pool; they can block about 1 s on a frozen application. They stay synchronous on `@WM`, or on the dispatch workers of the animations.
+- **Performance:** prefer `final class` and structs on hot paths (mouse drag, animations, tree updates). Avoid existentials (`any P`) and closures capturing state in loops there.
+- **Isolation:** `@MainActor` only for AppKit; window manager state is `@WM`. Plain value types are `Sendable` without annotations.
+- **Errors:** command code `throws(CommandError)` (`throw CommandError("…\n")`, `.unknownValue(domain, command, value)`); typed selectors throw from `required(_:)` (no selector) and `resolve(acting:_:)` (found nothing; `nil` only for display/space 'recent'). Platform wrappers return optionals or `Bool`; do not invent AX/SkyLight error types.
+
+## Build and toolchain pitfalls
+
+- **Plugin-generated C:** SwiftPM requires `// swift-tools-version: 6.4;(experimentalCGen)` in the root manifest. Without the experimental opt-in it warns and omits generated C. Preserve the suffix when updating the tools version; `OSAXEmbed` must declare every native input.
+- **Native toolchain selection:** `SWIFT`/`SWIFT_FLAGS` select only outer SwiftPM behavior. `osax-toolchain.sh` resolves native tools/SDK through `xcrun` with `DEVELOPER_DIR`, `TOOLCHAINS`, and `SDKROOT`; both the per-build identity header and native commands use it. Toolchain identity changes invalidate native generation automatically.
+- **Swift dylib output paths:** the default install name contains the output path. `build-osax.sh` sets the historical `.build/osax/swift/payload` install name explicitly so arbitrary plugin work directories preserve the live-tested bytes.
+- **Optimized Swift C exports:** an internal `@_cdecl` can become local during SwiftPM release prelinking, even when debug tests link. Mark cross-target exports `public` and build a release consumer (`osax/core/swift/Core.swift`).
+- **`@_cdecl` functions** accept only C-representable types (raw/typed C pointers, integers, `Bool`), and CF objects they return are autoreleased (+0) regardless of the C prototype (`osax/core/swift`).
+- **Payload tests:** daemon ASan/TSan do not instrument the separately compiled payload. Use the standalone `osax` package; test signal interruptions on a disposable pthread with its signal explicitly unblocked, because Swift Testing/sanitizers can inherit a blocked mask.
+- **Dock signatures and ownership:** pattern matches are candidates, not identities (Spaces and HotCorners both match `dock_spaces` on 26A434). Validate decoded targets and record Dock hash/UUID. Resolve private-call ownership from the callee and Dock's callers before changing retain/release (`doc/osax-prototypes.md`).
+- **Swift Build prelinks C targets** with `ld -r` into one object, making hidden symbols local. Do not use `-fvisibility=hidden` on CPrivate: Swift then cannot link its functions.
+- **A C target without sources** does not link: Swift Build expects `<Target>.o`. `CPrivate.c` holds the runtime-resolved function pointers.
+- **Swift Build adds Xcode's default warnings** (e.g. `-Wshorten-64-to-32`). `Package.swift` disables them to keep the original warning set. After a toolchain update, disable new defaults there unless they reveal real bugs.
+- **SDK version of the binary:** Swift Build's `--sysroot` does not tell clang the SDK version, so the binary can claim the deployment target as its SDK and AppKit treats it as old. `Package.swift` passes `-isysroot $SDKROOT` (set by xcrun's Swift shim and the makefile). `vtool -show-build bin/yabai | grep sdk` must show the SDK, e.g. 27.0.
+- **Inline header functions reading `NDR_record`** (or other non-static header bodies) link in debug but produce a release duplicate symbol: Swift's copy brings its own definition. Move bodies to `Sources/CPrivate/CPrivate.c`, with header declarations (`SLSGetWindowSubLevelBounded`). Run `make install` after CPrivate changes.
+- **All type errors at once:** `swift build` (even with `-continue-building-after-errors`) stops after the first failing compile batch. For a mass edit, build YabaiCore, then run `xcrun swiftc -typecheck -wmo -continue-building-after-errors -swift-version 6 -target arm64-apple-macos27.0 -I .build/out/Products/Debug -Xcc -fmodule-map-file=Sources/CPrivate/include/module.modulemap -Xcc -ISources/CPrivate/include -Xcc -fmodule-map-file=.build/out/Intermediates.noindex/GeneratedModuleMaps/OSAX.modulemap -module-name Yabai $(find Sources/Yabai -name '*.swift')`.
+- **Case-insensitive filesystem:** `Tests/` and `tests/` are the same. Swift tests use `tests/YabaiCoreTests` via `path:` in `Package.swift`.
+- **Autolinking:** `import AppKit` autolinks many `libswift*` overlays. They are in the OS; do not trim them.
+
+## C interop pitfalls
+
+- **Swift imports C headers with ARC.** Manual retain/release bodies belong in `.m` files (`Notify.m`), with only declarations in `CPrivate.h`. The importer also makes structs with ObjC pointer fields ARC structs.
+- **Nullability is per file:** after one annotation, clang requires all pointers annotated (`-Wnullability-completeness`), including macro expansions; the `connection_callback` typedef carries qualifiers. Spell both levels of multi-level pointers inside `CF_ASSUME_NONNULL`, e.g. `CFTypeRef _Nullable *_Nonnull`.
+- **Imported C types:** `Boolean` imports as `Bool`, `CGError` as an enum (`== .success`), CF out-parameters as `UnsafeMutablePointer<Unmanaged<T>?>` (use `takeRetainedValue()` for Copy/Create functions). See `Sources/Yabai/Platform/SkyLight.swift`.
+- **C enums:** anonymous `enum { kX = 1 }` imports as `Int` without `.rawValue`; `CF_ENUM` types like `CGEventField` import as structs with failable `init(rawValue:)`.
+- **Macros naming constants** do not import (`LAYER_BELOW kCGBackstopMenuLevelKey`), while literals (`LAYER_AUTO 0`) do. Use the imported constant (`CGWindowLevelKey.backstopMenu.rawValue`, `WindowLayer.level` in `WindowManager.swift`). **Macros composed from macros** do not import either: spell the value in Swift (`ApplicationNotifications.required` in `Application.swift` for `AX_APPLICATION_ALL`).
+- **`&x` in `CVarArg...`** does not compile: inout-to-pointer conversion requires pointer parameters. Use `withUnsafeMutablePointer(to:)` or a buffer.
+- **Fixed-size C arrays import as tuples:** use `withUnsafe(Mutable)Bytes(of:)`.
+- **Swift honors `CF_CONSUMED`:** it retains before the call. Pass owned objects normally (`takeRetainedValue()` then the consuming call); do not add `retain()`.
+- **APIs unavailable to Swift** (`CGPostMouseEvent`, `CGEventCreate`, `CGEventPost`, `CGEventSetIntegerValueField`) can be called through inline CPrivate wrappers with deprecated warnings suppressed. Clang ignores Swift-only unavailability. Prefer Swift event methods where available (`CGEvent(source:)`, `post(tap:)`, `setIntegerValueField(_:value:)`).
+- **APIs deprecated in macOS 10.9 or earlier** are unavailable to Swift, including Process Manager (`GetProcessPID`, `GetNextProcess`, `CopyProcessName`, `IsProcessVisible`, `SameProcess`). Use `Process*C` wrappers in `CPrivate.h`. Carbon Events (`InstallEventHandler`, `GetEventParameter`) work directly (`ProcessManager.swift`).
+- **Swift cannot catch NSException:** unwinding through Swift terminates the process. Keep ObjC `@try/@catch` in an inline wrapper under `#ifdef __OBJC__` in `CPrivate.h` (`NSObjectRemoveObserverC`, used by `Workspace.swift`).
+- **`fork()`, `environ`, `_NSGetEnviron` are unavailable in Swift.** Use `posix_spawn` with `environ_global()` from `CPrivate.h` (`EventSignals.spawn`). Never run Swift in a forked child: only async-signal-safe code is safe before exec.
+- **C function-pointer variables** are rejected as Swift 6 globals: access them through a CPrivate accessor (`SLSHasBridgedWindowOperation`).
+- **C function typedefs** (`typedef void connection_callback(...)`) do not work as Swift parameter types for a function pointer: spell the `@convention(c)` type in the wrapper (`SLS.registerNotification`).
+- **`sel_registerName` returns `Selector`:** use `unsafeBitCast(sel, to: UnsafeMutableRawPointer.self)` for objc_msgSend casts (`SLS.bridgedMoveWindows`).
+- **C callbacks** such as `CFComparatorFunction` get optional pointers; unwrap before `Unmanaged<T>.fromOpaque`.
+
+## Swift pitfalls
+
+- **`String ==` is not `strcmp`:** Swift compares canonical equivalence (precomposed é equals e + U+0301). For byte comparisons, use `a.utf8.elementsEqual(b.utf8)` (`LabelList` in `Sources/YabaiCore/Label.swift`).
+- **JSONEncoder key order:** it does not keep the order in which `encode(to:)` writes keys; the order follows hashing and differs between encodings of the same value in one process. Query json therefore uses `.sortedKeys` (`JSON.encode` in `Sources/YabaiCore/JSON.swift`). `encode(_:forKey:)` of an Optional writes null, while synthesized conformances skip nil values (`RuleInfo`, `TreeNode`).
+- **Global CF `let`s** (`let x = "AXFullScreen" as CFString`) are not concurrency-safe in Swift 6. Keep a `String` and bridge at the call (`Window.fullscreenAttribute`).
+- **Names matching types** (`rule`, `token`) shadow the type in parameters and locals: `let rule = …assumingMemoryBound(to: rule.self)` fails as use before declaration. Use `result`, `first`, `target`, etc.
+- **Methods shadow globals of the same base name** inside their type, whatever the arguments: call `Darwin.connect`/`Darwin.close` in `UnixSocket` (`Helpers.swift`), and avoid a method `notify(_:)` next to the global `notify(_:_:)` (`ScriptingAddition.report(_:)`).
+- **Exhaustive switches:** once a `switch` lists every case of an enum, its `default:` is an error ("will never be executed"); delete it when a switch becomes exhaustive.
+- **Typed throws inference:** a closure passed as `() throws(CommandError) -> T` infers `any Error` unless written `{ () throws(CommandError) in … }`, and a `do` block containing a bare `throw` catches `any Error`. Spell the closure type (`runCommands` callers, `MessageTests.swift`) and keep direct throws out of a `do` whose `catch` needs `CommandError` (`handleDomain` in `MessageLoop.swift`).
+- **Custom global actors lack static `assumeIsolated`.** `WM.shared.assumeIsolated` cannot call `@WM` functions. `WM.assumeIsolated` (`EventLoop.swift`) uses `preconditionIsolated` and `unsafeBitCast`, like MainActor, and traps off `yabai.wm`. Its closure cannot capture non-Sendable values: `@WM` models are Sendable, retained CF objects travel in `Handoff`. Test actor code with `@Test @WM func` (`goldenReplay`).
+- **Typed ids** (`WindowID`, `SpaceID`, `DisplayID` in `Sources/YabaiCore/Identifiers.swift`): `.map(WindowID.init)` is ambiguous between `init(_:)` and `init(rawValue:)`; write `.map { WindowID($0) }`. C out-parameters (`&wid` for `SLSNewWindow`, `_AXUIElementGetWindow`) need a raw `UInt32` local, wrapped afterwards inside the Platform wrapper (`SLS.newWindow`, `AXUIElement.windowID`). The SA payload packs ids through `SAPayload.pack(_: WindowID)`, which writes the raw value. No id is an Optional, never 0: the ids are not integer literals outside tests (`tests/*/IdentifierLiterals.swift`), raw window server values enter through `WindowID(nonzero:)`, and printed output keeps 0 with `x?.rawValue ?? 0` (`Serialize.swift`).
+- **`@WM` models:** identity `==` is `nonisolated` (`Window`, `Con`); a struct whose default value creates a `@WM` object must be `@WM` itself (`ConRender`); a nonisolated YabaiCore protocol gets an isolated conformance (`CSelectorContext: @WM SelectorContext`); key paths to `@WM` properties form only in `@WM` code (`ViewSpacing.view`). Startup on the main thread uses `WM.sync`, never on yabai.wm itself (deadlock).
+- **Atomics:** `Synchronization.Atomic` owns its storage; Swift-owned flags use global `let Atomic` values (`pendingWindowFocus`). Where code mirrors C `__atomic_sub_fetch`, use `wrappingSubtract`/`wrappingAdd`, not trapping `subtract`/`add`.
+- **`Mutex` with non-Sendable state:** a class holding a `Mutex` is plain `Sendable` whatever its state, but storing non-Sendable references (AX objects, `Border`) into the state fails region checking, so the state struct stays `@unchecked Sendable` with a NOTE (`MissionControlState`, `BorderState`). Main-only AppKit state in a `Sendable` class is a `@MainActor var`, which needs an explicit `init() {}` (`TabBarGlass`).
+- **`#expect` cannot capture non-copyable values** such as `Atomic`: save the operation's result to a `let` first (`mouse_event_coalescing` in `EventHandlerTests.swift`).
+- **Main-queue blocks using Swift objects** must capture them strongly; the final pending block releases on the main queue (`TabBarGlass.swift`).
+- **Executable tests:** `YabaiTests` depends on executable `Yabai` and uses `@testable import Yabai`. Swift Testing runs in parallel: tests changing global managers must use `@Suite(.serialized)` (`MessageConfigTests.swift`) and avoid window-server calls.
+- **Golden replay leaves config behind** on global managers in `DaemonState` (e.g. `tree_workspace_layout tabbed`). Later tests must set defaults explicitly; suite `init()` runs per test (`TreeTests`).
+- **Observation callbacks:** `withObservationTracking`'s `onChange` runs once, in `willSet`, on the mutating thread, before the new value is stored, and only names the tracked property. A set through a struct field notifies even with an equal value, while assigning a whole equal `Equatable` value does not. Post an event and read the value in its handler; give each action its own property (`ConfigGroup` in `ConfigObserver.swift`).
+
+## Model pitfalls
+
+- Enum tags can collide with functions (`ConOrientation` versus `con_orientation`); a property named like a lowercase type needs a module qualifier. Swift raw-value initializers use `rawValue:` explicitly.
+- Enums with a `none` case (`ConZoom`, `TreeResult`, `MouseAction`): on an Optional of such an enum `.none` means `nil`, so keep them non-optional or spell `ConZoom.none`. Config values named `default` need backticks in the declaration (`ViewType`).
+- Former pointer fields may remain IUOs to preserve nil behavior. Files must import `AppKit` / `CPrivate` explicitly; nothing re-exports them.
+- Type byte fixtures as `[UInt8]` when mixing typed bytes and integer literals; inferred `[Any]` gives raw-pointer APIs the wrong storage (`WindowAnimationTests.swift`).

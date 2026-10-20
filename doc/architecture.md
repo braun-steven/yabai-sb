@@ -1,0 +1,73 @@
+# Architecture
+
+Read before changing the event loop, isolation, managers, the tree, IPC, rules/signals, rendering or
+the scripting addition.
+
+## Project structure
+
+- `Package.swift`: complete SwiftPM build, with `OSAXEmbed` generating embedded C sources. The makefile wraps SwiftPM and publishes to `bin/yabai`.
+- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `Daemon.run` in `Yabai.swift`. `Service.swift` handles launchd; `Helpers.swift` contains shared helpers.
+- `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus the query response values in `Serialize.swift`.
+- `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
+- `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, query response types and `JSON.encode`, message tokens, values, selectors and rule/signal parsing.
+- `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
+- `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. `Plugins/OSAXEmbed/` invokes `scripts/build-osax.sh` to build arm64e binaries and generate `payload_bin.c` / `loader_bin.c` in its work directory; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
+- `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC snapshot in `Golden/`. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
+- `doc/`: Asciidoc, generated manpage, payload and live-testing notes.
+- `examples/`, `assets/`: sample configuration, icons, banner and plist.
+- `scripts/`: signing, installation, payload history and the live harness in `scripts/live-tests/`.
+
+## Components
+
+### Targets and startup
+
+SwiftPM builds the executable `Yabai`, pure library `YabaiCore`, and C targets `CPrivate` and `OSAX`. `Yabai.swift` holds the startup sequence and `Service.swift` the launchd commands. Enums live with the type or manager that uses them (`ConLayout` in `Con.swift`, `FocusFollowsMouse` in `WindowManager.swift`), shared math and string helpers in `Helpers.swift`. Config values are parsed and printed through their String raw values (`parseConfigChoice`). `Config.current` is an `@Observable` class of value sub-structs holding only user configuration; runtime overrides live with their owner (`EventHandler.focusFollowsMouse` while a menu is open, `WindowManager.withoutAnimations`). CPrivate wrappers preserve unavailable or deprecated calls and ObjC exception handling. Private +1 CF functions need `CF_RETURNS_RETAINED` even when their names lack Copy/Create.
+
+### Models and managers
+
+`WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MouseState` own Swift state. Their globals/accessors live with the managers. `Window`, `Application`, `Process`, `View`, `Con` and `TabBar` are reference models with identity equality and ARC lifetimes. Managers keep models in Dictionaries and Sets; loops whose order a user can observe sort explicitly (windows by id, processes by pid, views by space id). Labels use `LabelList`, lists use arrays.
+
+### Window, space and process logic
+
+`WindowManager*.swift` covers discovery, lookup, focus, rules, scratchpads and tree commands. `Display*.swift`, `Space*.swift` and `View.swift` manage displays, spaces and layouts; `SpaceManager+SpaceLayout.swift` reconciles configured space counts. `ProcessManager.swift` receives Carbon application events; `Workspace.swift` observes NSWorkspace and NSRunningApplication. `Window.swift` and `Application.swift` wrap individual AX/SkyLight objects and AX notifications.
+
+### Tree layout
+
+Each `View` owns a container tree. `Con` has a weak parent and ordered children/focus arrays; `Con.swift` implements the i3 operations. `TreeView.swift` applies frames, tab bars and stacking; `WindowManager+Tree.swift` implements navigation and cross-display moves. `ViewArea` in YabaiCore handles pure geometry.
+
+### Event loop and isolation
+
+`EventLoop.swift` serializes handlers on the `yabai.wm` dispatch executor of `@WM`: producers (AX, Carbon, SkyLight, NSWorkspace/KVO, the mouse event tap, the IPC thread) `EventLoop.post` an `Event` with associated values into one unbounded `AsyncStream`, and the single `@WM` task started by `EventLoop.start()` handles them in order, one autorelease pool per event. Never use a `Task {}` per event: it can reorder them. Handlers are `EventHandler` methods in `EventHandler*.swift` (`EventHandler.shared`), then signals flush. A handler is synchronous unless it waits for a delay: an async handler (`windowResized`, leaving native fullscreen) uses `Task.sleep`; the loop awaits it before the next event, but other `@WM` code can run at the `await`, so it re-checks its window afterwards and drains its own autorelease pools around its synchronous parts (a pool cannot span an `await`; `EventHandler.handle`). Waits in the middle of a model change (SA replies, `SpaceID.waitForWindow`) stay synchronous. Delayed work (launch retries, space layout passes, Mission Control exit checks, deferred focus) posts its event with `EventLoop.post(_:after:)`, which posts due events in deadline order; never `DispatchQueue.asyncAfter` or a handler awaiting the delay. To add an event, add its enum case, dispatch case and handler method. `MissionControl.swift` owns the Dock observer and connection callback. Cross-thread flags use Swift Atomics. Managers and models are `@WM` (compiler-checked); code on other threads uses only their atomics, `let` ids and `nonisolated` identity, and the main-thread startup reaches them through `WM.sync`.
+
+### IPC / CLI
+
+`Client.swift` sends argument bytes over `/tmp/yabai_$USER.socket`. `MessageLoop.swift` accepts connections, reads each message on its socket thread and posts it as a daemon-message event; the commands run synchronously on the event loop (no `await`), and a serial queue writes the response. Handlers parse `Message`, write output to `Response`, throw `CommandError` and call Swift managers. Chained commands run through `runCommands`, which writes a command's failure and continues with the next one unless the error `stopsMessage`; `handleMessage` writes that one. YabaiCore holds parsers, selectors, labels and rule/signal logic; `CSelectorContext` in `IPC/SelectorContext.swift` connects selectors to models. YabaiCore parses each domain into a typed command (`WindowCommand`, `SpaceCommand`, `DisplayCommand`, `QueryCommand`, `RuleCommand`, `SignalCommand`, `ConfigCommand`; chained domains one command at a time) whose `Display/Space/WindowSelector`s (`Selector.swift`) resolve when the daemon runs it (`run(acting:)` in `MessageWindow.swift` and `MessageSpace.swift`, the handlers in `MessageQuery.swift`). Queries build `Encodable` values (YabaiCore `Query.swift`: `DisplayInfo`, `SpaceInfo`, `WindowInfo`, `TreeNode`; `RuleInfo`, `SignalInfo`) in `Serialize.swift` and `Rule.swift`, and `Response.write(json:)` encodes them with `JSON.encode`. A response type's `Key` enum is both the property name `query` selects and the json key; `encode(to:)` writes only the selected keys, and the daemon only queries their values. New commands need handler parsing, `doc/yabai.asciidoc` documentation (`make man`), and usually a CHANGELOG entry.
+
+### Rules and signals
+
+`Rule.swift` matches rules and builds the `RuleInfo` of `rule --list`; `WindowManager+Rules.swift` applies effects. YabaiCore's `EventSignal.swift` holds signal filters and `SignalInfo`; the executable's `EventSignal.swift` queues and flushes commands with `posix_spawn` through `env`. Config scripts also use `posix_spawn`; Swift must never execute in a forked child.
+
+### Logging
+
+`Log.swift` bootstraps swift-log with `StandardLogHandler` (debug–notice to stdout, warning+ to stderr). Use the component loggers (`Logger.events`, `.windows`, `.spaces`, `.processes`, `.ipc`, `.signals`, `.daemon`), not `print`/`fputs`; `Logger.daemon.fatal(_:)` logs and exits (`exitCode: EXIT_SUCCESS` keeps launchd from restarting). The level is global (`Log.verbose`). Use `debug` for traces, `notice` for rare actionable events, `warning` for user-facing problems. `--help`/`--version` output is not logging.
+
+### Rendering and input
+
+`Border.swift` owns four edge windows per border under a Mutex; SkyLight callbacks move them without reading the tree. Borders, tab bars, opacity and shadows follow config sets through `ConfigObserver` (Observation posts one `configChanged` event per `ConfigGroup`, also for an equal value, and its handler applies the group); model changes (focus, frames, tree flush) still refresh them explicitly, in the same event. `TabBar.swift` draws classic bars and publishes immutable hit-test snapshots under a Mutex. `TabBarGlass.swift` snapshots on the event loop and renders with AppKit on the main queue. `WindowAnimation.swift` retains AX references and copied app names for concurrent frame workers, stores window ids for animations, and protects proxy/takeover state with a Mutex; its display link finishes an animation on the main queue, and the event loop never awaits it. `MouseHandler.swift` owns the event tap and drag/drop decisions. Main-queue blocks retain their render owners until the last pending block completes.
+
+### Scripting addition
+
+`osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
+
+### Platform gating
+
+The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.
+
+## Window server behavior
+
+- **No focused window:** some focus commands run without a focused window. Lookups such as `window_manager_find_tree_view(wm, nil)` return nil and callers fail cleanly (`window_manager_tree_focus_*`, `window_manager_set_window_layout`, `window_manager_tree_split`); keep those parameters optional.
+- **Hide-single in split tabs:** count the visible leaves of the active tab, independently of auto-padding's container count. Switching between single-window and split tabs must refresh all space borders so every affected window updates (`treeVisibleWindowCount`, `Border.refreshSpace(of:)`).
+- **Subscribe before initial tiling:** AX frame setters can return before WindowServer publishes the final frame. Register SkyLight notifications for new windows before tiling (`windowCreated`, `applicationLaunched`); otherwise the border can retain its creation frame until another move. Check intermediate window counts with `scripts/live-tests/border_geometry.swift`, since the next relayout can hide the bug.
+- **Card ordering in split tabs:** the card is ordered right below the focused window on the main queue, after `tree_raise_tabs`, and applications raise their focused window above its split siblings. Re-order the rest of the active tab above the focused window after every card order (`tabCardOrdered`, `tree_card_did_order`); the tab-order cache otherwise skips it. Check the real stack with `CGWindowListCopyWindowInfo` after focusing the window from another application.
+- **Nested glass panels:** keep AppKit ordering synchronized with SkyLight even for visible panels, and order/redraw cards outermost first. Creation order changes during layout/style rebuilds; otherwise an outer backdrop can hide an inner tab strip while its click tests still pass (`TabBarGlass.swift`, `TabBar.outerFirst`). Verify screenshots as well as clicks.
+- **Glass pointer feedback:** nonactivating panels ignore mouse events to preserve application focus. The tap must receive mouse moves even with focus-follows-mouse off, while an atomic flag gates focus events. Draw feedback in its own view because NSButton can replace its backing-layer background during drawing (`MouseHandler.swift`, `TabBarGlass.swift`).

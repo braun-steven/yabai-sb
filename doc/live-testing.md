@@ -100,6 +100,9 @@ Rules for the user's machine:
 
 - Two 2560×1440 displays. Display 1 has spaces 1–10, display 2 has 11–15. Spaces 1–3, 9–11 and 15
   hold the user's windows: use only 4–8 and 12–14. The harness uses 4, 5 and 12.
+- Recheck the connected displays before every live run: the two-display setup can become laptop-only.
+  Use the current geometry, restore the spaces that were actually visible, and explicitly skip
+  cross-display checks when display 2 is missing.
 - Before `setup`, check `pgrep -lx TextEdit`, `"Script Editor"`, `Calculator`; if one runs, ask the
   user. `setup` records the focused window in `.focused-window` and `cleanup` focuses it again;
   `launch` needs the test apps closed, so it runs after a `cleanup`.

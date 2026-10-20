@@ -11,7 +11,9 @@ import YabaiCore
 @Suite(.serialized, .daemonFixture)
 struct DaemonState {}
 
-/// Resets the global managers to the state of a daemon without displays, spaces or windows before each test.
+/// Resets the global managers to the state of a daemon without displays, spaces or windows before each test, and turns
+/// on headless mode (never off again), so that flushes and payload messages are recorded instead of reaching the
+/// window server or Dock.
 struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
 {
     var isRecursive: Bool { true }
@@ -24,6 +26,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
 
     @WM static func reset()
     {
+        Headless.enable()
         Config.current.resetToDefaults()
         WindowManager.shared.initialize()
         WindowManager.shared.rules = []

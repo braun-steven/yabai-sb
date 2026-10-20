@@ -30,7 +30,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | Phase | Topic | Status |
 |---|---|---|
 | 0 | Infrastructure: fixture trait, dependencies, coverage | done (`56c21609`) |
-| 1 | Headless mode | in progress (see the Phase 1 notes) |
+| 1 | Headless mode | done (see the Phase 1 handover) |
 | 2 | Tree model properties | open |
 | 3 | Opening and closing windows | open |
 | 4 | Layout geometry | open |
@@ -281,3 +281,28 @@ Template:
   - swift-syntax comes as a prebuilt for the installed toolchain, so a cold test build takes about 20 s.
 - **Next phase should know:** the plan put generators and a text snapshot strategy in `YabaiTestSupport` during
   Phase 0. They are deferred to the first phase that needs them (2 and 4), so the target has no unused code.
+
+### Phase 1: Headless mode
+- **Did:**
+  - `Sources/Yabai/Headless.swift` (reviewed, unchanged) and the gates: `View.flush()` → `flushHeadless()`
+    (`TreeView.swift`, next to `flushTree`), `animateWindows`/`animateWindow`, `ScriptingAddition.send`
+    (records the bytes, returns `true`) and `payloadIsCurrent` (returns `true`).
+  - `DaemonFixture.reset()` calls `Headless.enable()`.
+  - `tests/YabaiTests/HeadlessTests.swift` (in DaemonState): a flush records the placements once, and `setLayer`
+    records one `SA_OPCODE_WINDOW_LAYER` message.
+  - `doc/live-testing.md` "Unit tests": headless mode and the fake-id hazard.
+- **Coverage:** `Headless.swift` 97%; `View.swift` 28% → 32%, `TreeView.swift` 37% → 40%. Total 29.5% → 29.9%.
+  146 tests.
+- **Issues / pitfalls:**
+  - The SA opcodes (`SA_OPCODE_*`) come from `import OSAX`, not `CPrivate`.
+  - `View.update()` / `updateWithAutoPadding` ask SkyLight for `sid.display`. Lay out a seeded view with
+    `view.area = …` and `updateTree()`, then `flush()`.
+- **Next phase should know:**
+  - Once any DaemonState test has run, headless mode is on for the whole process, also for parallel tests outside
+    the suite. That is harmless today, because none of them flushes or sends.
+  - `ScriptingAddition.orderIn` calls `SLS.windowIsOrderedIn` before `send`, so the gate does not cover it. Avoid
+    it, or gate it in a later phase.
+  - `ViewTests` still uses `View(sid: 1)`. It never reaches the window server today; Phase 3/4 should move it to a
+    large id.
+  - `flushHeadless` skips `renderBars`, `raiseTabs` and `showSelection`, so tab order messages (`orderWindows`) are
+    not recorded by a flush.

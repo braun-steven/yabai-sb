@@ -366,6 +366,7 @@ extension WindowManager
 
     func animateWindows(_ list: [WindowPlacement])
     {
+        if Headless.isEnabled { Headless.apply(list); return }
         let list = list.filter { $0.window.frameNeedsUpdate(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
         if list.isEmpty { return }
         if animationDuration != 0 {
@@ -377,6 +378,7 @@ extension WindowManager
 
     func animateWindow(_ placement: WindowPlacement)
     {
+        if Headless.isEnabled { Headless.apply([placement]); return }
         if !placement.window.frameNeedsUpdate(x: placement.x, y: placement.y, w: placement.w, h: placement.h) { return }
         if animationDuration != 0 {
             animateWindowsAsync([placement])

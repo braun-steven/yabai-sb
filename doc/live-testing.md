@@ -18,6 +18,17 @@ point below was learned the hard way; read it before running anything live.
 - Keep manager-mutating tests in the serialized `DaemonState` suite (`tests/YabaiTests/DaemonState.swift`). Its
   `.daemonFixture` trait resets the config, managers, rules and signals before every test, so a test sees the
   defaults; set any other value a test depends on in the test itself. Tests must not invoke window server side effects.
+- Headless mode (`Sources/Yabai/Headless.swift`): `DaemonFixture.reset()` turns it on, and it stays on for the rest
+  of the test process; the daemon never enables it. `View.flush()` then applies the tree's frames to the window
+  models (`flushHeadless`: no AX, tab bars, feedback windows or borders), `animateWindows`/`animateWindow` do the
+  same without reading `SLS.windowBounds`, and `ScriptingAddition.send` records the message bytes instead of
+  reaching Dock (`payloadIsCurrent` is true). `Headless.drain()` returns and clears the recorded placements and
+  messages (`tests/YabaiTests/HeadlessTests.swift`). Lay out a seeded view with `view.area = …` and `updateTree()`:
+  `View.update()` asks SkyLight for the display. Gaps: `ScriptingAddition.orderIn` still queries
+  `SLS.windowIsOrderedIn` before it sends.
+- Fake ids are real ids in the test process: windows, spaces and displays of the user's session have small ids, so
+  a call that reaches the window server with `1` or `2` can act on a real one. Use large fake ids
+  (`0xFFFF_0000` and up) and keep headless mode in the path.
 - Shared test helpers (the id literals) live in the `YabaiTestSupport` target (`tests/YabaiTestSupport/`), which
   cannot depend on the executable `Yabai`: daemon fixtures stay in `tests/YabaiTests/`.
 - `make coverage` (`scripts/coverage.sh`) prints the line coverage of `Sources/` per file;

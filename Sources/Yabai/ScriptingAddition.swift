@@ -311,6 +311,7 @@ final class ScriptingAddition: Sendable
 
     func send(_ bytes: [UInt8]) -> Bool
     {
+        if Headless.isEnabled { Headless.record(message: bytes); return true }
         var sockfd: Int32 = 0
         guard UnixSocket.open(&sockfd) else { return false }
         defer { UnixSocket.close(sockfd) }
@@ -418,6 +419,7 @@ final class ScriptingAddition: Sendable
 
     @WM private func payloadIsCurrent() -> Bool
     {
+        if Headless.isEnabled { return true }
         if payloadIsCurrentCache == nil,
            let socketPath,
            let handshake = requestHandshake(socketPath: socketPath) {

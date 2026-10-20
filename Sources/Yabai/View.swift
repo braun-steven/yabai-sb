@@ -99,7 +99,9 @@ enum ViewSpacing: CaseIterable, Sendable
 
     func flush()
     {
-        if sid.isVisible {
+        if Headless.isEnabled {
+            flushHeadless()
+        } else if sid.isVisible {
             flushTree()
             isDirty = false
         } else {

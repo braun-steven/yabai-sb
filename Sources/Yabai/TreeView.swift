@@ -590,6 +590,17 @@ extension View
         Border.refresh(space: sid)
     }
 
+    /// The flush of headless mode: applies the frames of the tree, without tab bars, feedback windows or borders.
+    func flushHeadless()
+    {
+        isDirty = false
+        guard let root = tree else { return }
+
+        var windowList: [WindowPlacement] = []
+        captureWindows(in: root, into: &windowList)
+        Headless.apply(windowList)
+    }
+
     func focusWindow(_ windowID: WindowID)
     {
         guard let node = findWindow(windowID) else { return }

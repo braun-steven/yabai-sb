@@ -31,11 +31,14 @@
 yabai \- window manager
 .SH "SYNOPSIS"
 .sp
-\fByabai\fP [\fB\-\-load\-sa\fP|\fB\-\-uninstall\-sa\fP|\fB\-\-install\-service\fP|\fB\-\-uninstall\-service\fP|\fB\-\-start\-service\fP|\fB\-\-restart\-service\fP|\fB\-\-stop\-service\fP|\fB\-\-message\fP,\fB\-m\fP \fImsg\fP|\fB\-\-config\fP,\fB\-c\fP \fIconfig_file\fP|\fB\-\-verbose\fP,\fB\-V\fP|\fB\-\-version\fP,\fB\-v\fP|\fB\-\-help\fP,\fB\-h\fP]
+\fByabai\fP [\fB\-\-load\-sa\fP|\fB\-\-uninstall\-sa\fP|\fB\-\-install\-service\fP|\fB\-\-uninstall\-service\fP|\fB\-\-start\-service\fP|\fB\-\-restart\-service\fP|\fB\-\-stop\-service\fP|\fB\-\-message\fP,\fB\-m\fP \fImsg\fP|\fB\-\-version\fP,\fB\-v\fP|\fB\-\-help\fP,\fB\-h\fP|\fB\-\-generate\-completion\-script\fP \fIshell\fP|[\fB\-\-config\fP,\fB\-c\fP \fIconfig_file\fP] [\fB\-\-verbose\fP,\fB\-V\fP]]
 .SH "DESCRIPTION"
 .sp
 \fByabai\fP is a tiling window manager for macOS based on binary space partitioning.
 .SH "OPTIONS"
+.sp
+The actions (\fB\-\-load\-sa\fP through \fB\-\-stop\-service\fP), \fB\-\-message\fP, \fB\-\-version\fP, \fB\-\-help\fP and \fB\-\-generate\-completion\-script\fP
+must be given alone. Option values may also be attached, e.g. \fB\-\-config=\fP\fI<config_file>\fP.
 .sp
 \fB\-\-load\-sa\fP
 .RS 4
@@ -119,6 +122,13 @@ Print version to stdout and exit.
 \fB\-\-help\fP, \fB\-h\fP
 .RS 4
 Print options to stdout and exit.
+.RE
+.sp
+\fB\-\-generate\-completion\-script\fP \fI<shell>\fP
+.RS 4
+Print a completion script for \fIzsh\fP, \fIbash\fP or \fIfish\fP to stdout and exit, e.g.
+.br
+\f(CRyabai \-\-generate\-completion\-script zsh > "${fpath[1]}/_yabai"\fP.
 .RE
 .SH "DEFINITIONS"
 .sp

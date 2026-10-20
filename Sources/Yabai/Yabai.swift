@@ -3,8 +3,8 @@ import CPrivate
 import Logging
 
 //
-// NOTE: The options of the daemon and its startup. `--message` / `-m` never gets here: main.swift runs the client
-// (Sources/Yabai/IPC/Client.swift).
+// NOTE: The daemon and its startup, run with the options of YabaiOptions.swift. `--message` / `-m` never gets here:
+// main.swift runs the client (Sources/Yabai/IPC/Client.swift).
 //
 
 /// False for a directory.
@@ -37,22 +37,6 @@ func directoryExists(_ filename: String) -> Bool
 /// The daemon and its startup, and the options that run instead of it.
 enum Daemon
 {
-    private static let scriptingAdditionLoadOption      = "--load-sa"
-    private static let scriptingAdditionUninstallOption = "--uninstall-sa"
-    private static let serviceInstallOption             = "--install-service"
-    private static let serviceUninstallOption           = "--uninstall-service"
-    private static let serviceStartOption               = "--start-service"
-    private static let serviceRestartOption             = "--restart-service"
-    private static let serviceStopOption                = "--stop-service"
-    private static let configOptionLong                 = "--config"
-    private static let configOptionShort                = "-c"
-    private static let debugVerboseOptionLong           = "--verbose"
-    private static let debugVerboseOptionShort          = "-V"
-    private static let versionOptionLong                = "--version"
-    private static let versionOptionShort               = "-v"
-    private static let helpOptionLong                   = "--help"
-    private static let helpOptionShort                  = "-h"
-
     private static let major = 7
     private static let minor = 1
     private static let patch = 25
@@ -166,90 +150,20 @@ enum Daemon
         return fcntl(handle, F_SETLK, &lockfd) != -1
     }
 
-    /// Runs the options that do something and exit; returns the config file of --config.
-    private static func parseArguments(_ arguments: [String]) -> String?
-    {
-        if arguments[1] == helpOptionLong || arguments[1] == helpOptionShort {
-            fputs("Usage: yabai [option]\n" +
-                  "Options:\n" +
-                  "    --load-sa              Install and load the scripting-addition.\n" +
-                  "    --uninstall-sa         Uninstall the scripting-addition.\n" +
-                  "    --install-service      Write launchd service file to disk.\n" +
-                  "    --uninstall-service    Remove launchd service file from disk.\n" +
-                  "    --start-service        Enable, load, and start the launchd service.\n" +
-                  "    --restart-service      Attempts to restart the service instance.\n" +
-                  "    --stop-service         Stops a running instance of the service.\n" +
-                  "    --message, -m <msg>    Send message to a running instance of yabai.\n" +
-                  "    --config, -c <config>  Use the specified configuration file.\n" +
-                  "    --verbose, -V          Output debug information to stdout.\n" +
-                  "    --version, -v          Print version to stdout and exit.\n" +
-                  "    --help, -h             Print options to stdout and exit.\n" +
-                  "Type `man yabai` for more information, or visit: " +
-                  "https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc\n", stdout_global())
-            exit(EXIT_SUCCESS)
-        }
-
-        if arguments[1] == versionOptionLong || arguments[1] == versionOptionShort {
-            fputs("yabai-v\(major).\(minor).\(patch)\n", stdout_global())
-            exit(EXIT_SUCCESS)
-        }
-
-        if arguments[1] == scriptingAdditionUninstallOption {
-            exit(ScriptingAddition.shared.uninstall())
-        }
-
-        if arguments[1] == scriptingAdditionLoadOption {
-            exit(ScriptingAddition.shared.load())
-        }
-
-        if arguments[1] == serviceInstallOption {
-            exit(Service.install())
-        }
-
-        if arguments[1] == serviceUninstallOption {
-            exit(Service.uninstall())
-        }
-
-        if arguments[1] == serviceStartOption {
-            exit(Service.start())
-        }
-
-        if arguments[1] == serviceRestartOption {
-            exit(Service.restart())
-        }
-
-        if arguments[1] == serviceStopOption {
-            exit(Service.stop())
-        }
-
-        var configFile: String?
-        var i = 1
-        while i < arguments.count {
-            let opt = arguments[i]
-
-            if opt == debugVerboseOptionLong || opt == debugVerboseOptionShort {
-                Log.verbose.store(true, ordering: .relaxed)
-            } else if opt == configOptionLong || opt == configOptionShort {
-                guard i < arguments.count - 1 else { Logger.daemon.fatal("option '\(configOptionLong)|\(configOptionShort)' requires an argument") }
-                i += 1
-                configFile = arguments[i]
-            } else {
-                Logger.daemon.fatal("'\(opt)' is not a valid option")
-            }
-
-            i += 1
-        }
-
-        return configFile
-    }
-
     /// Runs the daemon, or the option given on the command line.
-    @MainActor static func run(_ arguments: [String]) -> Int32
+    @MainActor static func run(_ options: YabaiOptions) -> Int32
     {
-        var configFile: String?
+        if options.version {
+            fputs("yabai-v\(major).\(minor).\(patch)\n", stdout_global())
+            return EXIT_SUCCESS
+        }
 
-        if arguments.count > 1 {
-            configFile = parseArguments(arguments)
+        if let action = options.action {
+            return action.run()
+        }
+
+        if options.verbose {
+            Log.verbose.store(true, ordering: .relaxed)
         }
 
         if isRoot {
@@ -324,7 +238,7 @@ enum Daemon
             Logger.daemon.fatal("could not start message loop")
         }
 
-        execConfigFile(configFile)
+        execConfigFile(options.config)
 
         NSApp.run()
 

@@ -23,7 +23,7 @@ yabai - window manager
 Synopsis
 --------
 
-*yabai* [*--load-sa*|*--uninstall-sa*|*--install-service*|*--uninstall-service*|*--start-service*|*--restart-service*|*--stop-service*|*--message*,*-m* 'msg'|*--config*,*-c* 'config_file'|*--verbose*,*-V*|*--version*,*-v*|*--help*,*-h*]
+*yabai* [*--load-sa*|*--uninstall-sa*|*--install-service*|*--uninstall-service*|*--start-service*|*--restart-service*|*--stop-service*|*--message*,*-m* 'msg'|*--version*,*-v*|*--help*,*-h*|*--generate-completion-script* 'shell'|[*--config*,*-c* 'config_file'] [*--verbose*,*-V*]]
 
 Description
 -----------
@@ -32,6 +32,9 @@ Description
 
 Options
 -------
+The actions (*--load-sa* through *--stop-service*), *--message*, *--version*, *--help* and *--generate-completion-script*
+must be given alone. Option values may also be attached, e.g. *--config=*'<config_file>'.
+
 *--load-sa*::
     Load the scripting-addition into Dock.app. +
     Installs and updates the scripting-addition when necessary. +
@@ -79,6 +82,10 @@ Options
 
 *--help*, *-h*::
     Print options to stdout and exit.
+
+*--generate-completion-script* '<shell>'::
+    Print a completion script for 'zsh', 'bash' or 'fish' to stdout and exit, e.g. +
+    `yabai --generate-completion-script zsh > "${fpath[1]}/_yabai"`.
 
 Definitions
 -----------

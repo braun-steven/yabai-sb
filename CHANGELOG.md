@@ -24,9 +24,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *tab_bar_style* draws tab bars in the Liquid Glass material of macOS 26 (`glass`, default), tinted with the *tab_bar_\*_color* colors, or as flat i3 tabs (`i3`). *tab_bar_font* accepts `system:<size>`, which is the new default
 - Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
 - Command *query --tree* prints the container tree of a space, and *query --windows* reports *split-type*, *stack-index* and the zoom state from the tree
+- Option *--generate-completion-script zsh|bash|fish* prints a shell completion script for the options of *yabai*
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 
 ### Changed
+- The options of the *yabai* process are parsed by swift-argument-parser: option values may be attached (*--config=file*, *-Vc file*), and an action, *--message* or *--version* combined with other options, an unknown option or a missing value prints the usage and exits with status 64. Messages after *-m* are parsed as before
 - Space, display, rule, signal and scratchpad labels compare as Unicode text: a label spelled with a precomposed character (*é*) and one with a combining accent (*e* + U+0301) are the same label. Every argument is read as UTF-8 text, so a failure that echoes an argument shows invalid bytes as U+FFFD
 - The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr
 - While a menu is open, *config focus_follows_mouse* prints the configured mode instead of *off*, and a mode set while the menu is open stays after it closes; focus follows mouse is still off while the menu is open

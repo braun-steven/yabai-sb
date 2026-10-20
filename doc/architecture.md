@@ -6,7 +6,7 @@ the scripting addition.
 ## Project structure
 
 - `Package.swift`: complete SwiftPM build, with `OSAXEmbed` generating embedded C sources. The makefile wraps SwiftPM and publishes to `bin/yabai`.
-- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m`, otherwise calls `Daemon.run` in `Yabai.swift`. `Service.swift` handles launchd; `Helpers.swift` contains shared helpers.
+- `Sources/Yabai/`: daemon and CLI. `main.swift` runs the client for `-m` as the first argument, otherwise parses `YabaiOptions` (swift-argument-parser) and calls `Daemon.run` in `Yabai.swift`. `Service.swift` handles launchd; `Helpers.swift` contains shared helpers.
 - `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus the query response values in `Serialize.swift`.
 - `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, query response types and `JSON.encode`, message tokens, values, selectors and rule/signal parsing.

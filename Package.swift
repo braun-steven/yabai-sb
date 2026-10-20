@@ -25,6 +25,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.2.1"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         // NOTE: SortedCollections is behind an unstable trait whose API can break in any release, so the version is exact.
         .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.3", traits: ["UnstableSortedCollections"]),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1")
@@ -65,6 +66,7 @@ let package = Package(
                 "OSAX",
                 "YabaiCore",
                 .product(name: "Algorithms", package: "swift-algorithms"),
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "OrderedCollections", package: "swift-collections"),

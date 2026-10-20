@@ -1,7 +1,7 @@
 # Building yabai
 
-Use Xcode with the macOS 27 SDK and Swift 6.4 on Apple Silicon. There are no external package
-dependencies. SwiftPM owns the complete executable build, including the scripting addition,
+Use Xcode with the macOS 27 SDK and Swift 6.4 on Apple Silicon. The package dependencies are
+Apple's swift-algorithms, swift-argument-parser, swift-collections and swift-log. SwiftPM owns the complete executable build, including the scripting addition,
 compilation, linking, test discovery and debug/release optimization. Make provides convenience
 commands for publishing to `bin/yabai`, documentation, signing and release archives.
 

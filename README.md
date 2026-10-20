@@ -14,6 +14,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
+- [Shell completions](#shell-completions)
 
 Configuration examples can go in your `yabairc`; window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
@@ -263,6 +264,17 @@ Window gaps, the menu bar, Dock and `external_bar` reservations are still respec
 ### macOS 27 support
 
 This fork targets macOS 27 on Apple Silicon. Window notifications and window sub-level queries use the Tahoe-compatible paths rather than falling back to pre-Sequoia behavior. The daemon and client build for arm64, and the injected scripting addition builds for arm64e. There is no configuration switch for older macOS releases or Intel Macs.
+
+### Shell completions
+
+The options of `yabai` are parsed by [swift-argument-parser](https://github.com/apple/swift-argument-parser), which generates completion scripts for zsh, bash and fish:
+
+```sh
+yabai --generate-completion-script zsh > "${fpath[1]}/_yabai"
+yabai --generate-completion-script fish > ~/.config/fish/completions/yabai.fish
+```
+
+They complete the options of the process (`--start-service`, `--config <file>`, …), not the messages after `-m`.
 
 ---
 

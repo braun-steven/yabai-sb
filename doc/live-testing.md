@@ -36,6 +36,9 @@ point below was learned the hard way; read it before running anything live.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
+- Tree property tests (`tests/YabaiTests/TreePropertyTests.swift`) apply random operations to a tree and check its
+  invariants after every step. Compare trees with `treeDump` and `expectNoDifference`. A failure prints a seed: add
+  `@Test(.fixedSeed("…"))` to replay it. Generators of the YabaiCore enums are in `tests/YabaiTestSupport/Generators.swift`.
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
   `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar

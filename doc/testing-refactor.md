@@ -30,8 +30,8 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | Phase | Topic | Status |
 |---|---|---|
 | 0 | Infrastructure: fixture trait, dependencies, coverage | done (`56c21609`) |
-| 1 | Headless mode | done (see the Phase 1 handover) |
-| 2 | Tree model properties | open |
+| 1 | Headless mode | done (`65772e64`) |
+| 2 | Tree model properties | done (see the Phase 2 handover) |
 | 3 | Opening and closing windows | open |
 | 4 | Layout geometry | open |
 | 5 | Window commands end to end | open |
@@ -282,7 +282,7 @@ Template:
 - **Next phase should know:** the plan put generators and a text snapshot strategy in `YabaiTestSupport` during
   Phase 0. They are deferred to the first phase that needs them (2 and 4), so the target has no unused code.
 
-### Phase 1: Headless mode
+### Phase 1: Headless mode (`65772e64`)
 - **Did:**
   - `Sources/Yabai/Headless.swift` (reviewed, unchanged) and the gates: `View.flush()` → `flushHeadless()`
     (`TreeView.swift`, next to `flushTree`), `animateWindows`/`animateWindow`, `ScriptingAddition.send`
@@ -306,3 +306,39 @@ Template:
     large id.
   - `flushHeadless` skips `renderBars`, `raiseTabs` and `showSelection`, so tab order messages (`orderWindows`) are
     not recorded by a flush.
+
+### Phase 2: Tree model properties
+- **Did:**
+  - `tests/YabaiTestSupport/Generators.swift`: `Gen<Direction>.direction`, `Gen<InsertDirection>.insertDirection`,
+    `Gen<ConOrientation>.orientation`. They pick a case by an `Int` index, so failures shrink towards the first case.
+  - `tests/YabaiTests/TreeFixtures.swift`: `treeDump(_:)` (layout, last split of tabbed containers, share, focus
+    order when it differs from the child order, `*` for the selection) and `treeTestWindowBase` (`0xFFFF_0000`;
+    windows print as `w<n>` above it).
+  - `tests/YabaiTests/TreePropertyTests.swift` (in DaemonState):
+    - `TreeOperation` (16 operations, with its generator) and `TreeModel`, which applies them like the window
+      manager: `open` like `View.add`, `close` like `View.remove` (detach, destroy, flatten), the acting container
+      is the selection or a window like `treeActingCon`, `focusParent` selects the parent.
+    - `operationsKeepInvariants`: 300 random runs of 1–12 windows and 1–40 operations, with
+      `tree_workspace_layout` split and tabbed (`treeWorkspaceTabbed`).
+    - `roundTripsRestoreTree`: 200 runs; rotate 90 ×4, 90 then 270, 180 ×2, mirror ×2 per orientation, swap ×2.
+    - `TreeExampleTests`: `forceOrientation`, `descend`, first/last/next/previous leaf, `windowCount`,
+      `focusCandidate`, `tabbedAncestor`, a 42-row `neighbor` table (3 wrapping modes × with/without a display),
+      `place` for both positions (new window and window of the tree), a target in another tree, and the
+      workspace-tabbed layout through `place`, `attach(_:from:)` and `insert(_:toward:)`.
+- **Coverage:** `Con.swift` 87% → 100%. Total 29.9% → 30.7%. 158 tests (62 YabaiCore, 96 Yabai).
+- **Issues / pitfalls:**
+  - No bugs found. As a check that the property can fail, `resize` was run once without its `fixPercent`: the
+    property caught it and shrank the input to 3 steps.
+  - Deviation: the plan's invariant "`findSelected()` is a live leaf" does not hold by design: the selection is a
+    container after `window --focus parent`, and the window manager clears it on most operations. The model checks
+    instead that at most one container is selected and that `root.focusedDescendant` is a window. It also checks
+    that the focus order is a permutation of the children, that every share is positive, and that no last split is
+    tabbed.
+  - `rotate` sets `lastSplit` of splits, so rotation round trips do not restore it. The dump therefore shows
+    `lastSplit` only for tabbed containers, where it matters.
+  - `expectNoDifference(a, b)` marks the first argument with `−` and the second with `+`. Pass the actual dump first.
+- **Next phase should know:**
+  - Reuse `treeDump` for the inline snapshots of Phase 3, and `TreeModel` if a random tree is useful. Its
+    `apply(.open…)` mirrors `View.add`'s anchor choice without the insertion point.
+  - To reproduce a property failure, copy the seed from the failure message into `@Test(.fixedSeed("…"))`.
+  - The older `TreeTests` still use small ids (`treeTestLeaf(root, 1)`). They never reach the window server.

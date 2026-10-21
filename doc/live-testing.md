@@ -321,6 +321,15 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 
 ## Sanitizers
 
+- The unit tests run under both: `swift test --sanitize=thread` and `swift test --sanitize=address` (about four
+  times slower). A test process that dies with "unexpected signal code 13" got a SIGPIPE: the test process does not
+  ignore it as the daemon does. Set `SO_NOSIGPIPE` on a test socket right after creating it, because `setsockopt`
+  fails with EINVAL once the peer has closed. Do not let a test's outcome depend on a short deadline either: ASan
+  and parallel tests stretch the timing (`withSAPeer` in `SAConnectionTests.swift`). To find the test, run the
+  helper under lldb with `process handle SIGPIPE -s true` (with `DYLD_FRAMEWORK_PATH`/`DYLD_LIBRARY_PATH` set to the
+  platform's `Developer/Library/Frameworks` and `Developer/usr/lib`, and the ASan runtime in
+  `DYLD_INSERT_LIBRARIES`). The signal reaches the process, not the writing thread, so the backtraces only show
+  what was running; skipping groups of tests (`--skip`) narrows it down faster.
 - Confirm the runtime is loaded: `vmmap $(pgrep -x yabai) | grep -m1 -o "libclang_rt[^ ]*"`.
 - Before a run, note the size of the error log (`wc -c < /tmp/yabai_$USER.err.log`) and afterwards scan
   only the new part: `tail -c +<size+1> /tmp/yabai_$USER.err.log | grep -E "Sanitizer|runtime error|SUMMARY"`.

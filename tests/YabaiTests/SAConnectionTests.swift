@@ -4,22 +4,27 @@ import Testing
 @testable import Yabai
 import YabaiTestSupport
 
-private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
+/// A peer that reads one request and replies with response, or never replies when it is nil (it waits for the client
+/// to close then).
+private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false, timeoutMS: Int = 2000,
                         body: (SAConnection) throws -> Void) throws
 {
     var pair: [Int32] = [0, 0]
     try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
     let client = pair[0], server = pair[1]
-    let connection = try #require(SAConnection(fd: client, timeoutMS: 150))
+    // NOTE: setsockopt fails with EINVAL once the peer has closed, and the client may time out before the server
+    // replies (slow under ASan): a later send would then raise SIGPIPE in the test process
+    var one: Int32 = 1
+    try #require(setsockopt(server, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0)
+    let connection = try #require(SAConnection(fd: client, timeoutMS: timeoutMS))
     let group = DispatchGroup()
     group.enter()
     DispatchQueue.global().async {
         defer { close(server); group.leave() }
         var buffer = [UInt8](repeating: 0, count: 4096)
-        _ = buffer.withUnsafeMutableBytes { recv(server, $0.baseAddress, $0.count, 0) }
-        guard let response else { usleep(250_000); return }
-        var one: Int32 = 1
-        setsockopt(server, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
+        func receive() -> Int { buffer.withUnsafeMutableBytes { recv(server, $0.baseAddress, $0.count, 0) } }
+        _ = receive()
+        guard let response else { while receive() > 0 {}; return }
         if fragment {
             for var byte in response { if send(server, &byte, 1, 0) <= 0 { break }; usleep(100) }
         } else {
@@ -35,7 +40,7 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false,
     try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
     try withSAPeer([2]) { #expect($0.command([1, 0, 1]) == .rejected(2)) }
     try withSAPeer([]) { #expect($0.command([1, 0, 1]) == .legacyUnconfirmed) }
-    try withSAPeer(nil) { #expect($0.command([1, 0, 1]) == .transportFailure) }
+    try withSAPeer(nil, timeoutMS: 150) { #expect($0.command([1, 0, 1]) == .transportFailure) }
 }
 
 @Test(.timeLimit(.minutes(1))) func saConnectionReadsFragmentedHandshakeAndRejectsTruncation() throws

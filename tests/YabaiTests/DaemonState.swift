@@ -30,6 +30,8 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
         Headless.displayFrame = Headless.defaultDisplayFrame
         Headless.activeSpace = nil
         Config.current.resetToDefaults()
+        Log.verbose.store(false, ordering: .relaxed)
+        MouseState.shared.tap.modifier = Config.current.mouse.modifier
         WindowManager.shared.initialize()
         WindowManager.shared.rules = []
         WindowManager.shared.scratchpads = [:]

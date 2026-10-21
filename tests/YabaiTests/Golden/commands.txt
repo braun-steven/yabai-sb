@@ -108,6 +108,64 @@ config tab_bar_backdrop
 config tab_bar_focused_color
 config tab_bar_font
 
+# config: the remaining setters (no view exists, so they only change the defaults), then read back
+config left_padding 5 right_padding 6
+config left_padding
+config right_padding
+config window_opacity on
+config active_window_opacity 0.9
+config normal_window_opacity 0.5
+config menubar_opacity 0
+config window_opacity
+config active_window_opacity
+config normal_window_opacity
+config menubar_opacity
+config window_border on
+config window_border_width 2
+config active_window_border_color 0xff00ff00
+config normal_window_border_color 0x00000000
+config window_border
+config window_border_width
+config active_window_border_color
+config normal_window_border_color
+config external_bar main:24:0
+config external_bar
+config space_layout 15 10:5 1b:9:3
+config space_layout
+config space_layout off
+config space_layout
+config scratchpad_grid 3:3:1:1:1:1
+config scratchpad_grid
+config scratchpad_grid off
+config scratchpad_grid
+config layout float
+config layout
+config layout tree
+config auto_padding on
+config auto_padding
+config auto_padding off
+config mouse_action2 move
+config mouse_action2
+
+# config: edge tokens
+config external_bar main
+config external_bar main:1:2:3
+config external_bar
+config space_layout 1 1
+config space_layout 0
+config space_layout 1001
+config window_gap -1
+config window_gap 1.5
+config window_gap ''
+config window_border_width -0
+config tab_bar_offset 1e3
+config tab_bar_offset
+config tab_bar_height 99999999999
+config tab_bar_height
+config insert_feedback_color 0x
+config mouse_modifier é
+config ''
+
 # config: errors (a getter takes the next option as its value)
 config window_gap top_padding
 config nonexistent_option
@@ -133,6 +191,13 @@ rule --remove 5
 rule --remove nolabel
 rule --list
 rule --apply 7
+rule --apply app=^NoSuchApp$ manage=off
+rule --apply nolabel
+rule --apply
+rule --add label=üml app=x
+rule --add label= app=y
+rule --remove üml
+rule --list
 rule --foo
 
 # signal

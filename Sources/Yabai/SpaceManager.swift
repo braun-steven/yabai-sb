@@ -91,6 +91,15 @@ enum SpaceOperationError: Error, Sendable
 
     func markSpacesInvalid()
     {
+        // NOTE: In headless mode only the seeded views are marked, not the spaces of the user's displays; the view of
+        // Headless.activeSpace is refreshed like the current space of a display.
+        if Headless.isEnabled {
+            for sid in views.keys {
+                if sid == Headless.activeSpace { refreshView(for: sid) } else { markViewInvalid(for: sid) }
+            }
+            return
+        }
+
         for did in DisplayID.all {
             markSpacesInvalid(on: did)
         }

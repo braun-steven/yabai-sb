@@ -35,7 +35,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 3 | Opening and closing windows | done (see the Phase 3 handover) |
 | 4 | Layout geometry | done (see the Phase 4 handover) |
 | 5 | Window commands end to end | done (see the Phase 5 handover; coverage goal not reached) |
-| 6 | Rules, signals, config | open |
+| 6 | Rules, signals, config | done (see the Phase 6 handover) |
 | 7 | Parser robustness, pure helpers, extractions | open |
 | 8 | Tidy-up and docs | open |
 
@@ -477,3 +477,59 @@ Template:
   - Static argument tables in a `@WM` suite must be `nonisolated static let`, or `@Test(arguments:)` fails to compile.
   - Commands that end in `focusWithRaise` (`--focus <window>`, a direction focus that finds a leaf) trap on a fake
     window's nil `ref`; check with `Con.neighbor` first, as `focusInADirectionWithoutANeighborFails` does.
+
+### Phase 6: Rules, signals, config
+- **Did:**
+  - Headless gates: `WindowManager.setFocusFollowsMouse` only stores the mode (it installed a real HID event tap in the
+    test process), and `SpaceManager.markSpacesInvalid` (`config external_bar`) marks only the seeded views and
+    refreshes the view of `Headless.activeSpace` (it walked the user's displays and created views of their spaces).
+  - `DaemonFixture.reset()` also resets `Log.verbose` and the event tap's mouse modifier.
+  - `tests/YabaiTests/RuleTests.swift`: the rule tests of `WindowManagerTests` (moved), a 7-row table of
+    `removeOneShotRules` (the swapped-in rule is checked again), and in DaemonState:
+    - The rule list through `rule` messages: `--add` replacing a label (swap-remove, then append), `--remove` by index
+      and label (the order shows in `--list`), labels comparing canonically (é), the `--list` json and its flags, 11
+      failure rows.
+    - `combineMatchingRuleEffects` with rules parsed from messages: a 23-row table (later rules override, exclusions,
+      unanchored and case-sensitive extended regexes, title, role/subrole limits to standard windows, a window managed
+      by a rule, the manage round, one-shot rules and their `matched` mark).
+    - `rule --apply` on `Workspace` windows (`openForRules`): by label, index, all, inline, an inline rule that a label
+      shadows, no match, non-root windows; manage=off/on, sticky, sub-layer, opacity (with and without a fade),
+      mouse_follows_focus, scratchpad (taken label, `scratchpad_below`), one-shot rules not applied again. The tree
+      and the payload messages (`drainPayloadCalls`) are checked.
+    - `signal` messages: list order by event, label replacement across events, removal by index and label, failures.
+  - `tests/YabaiTests/MessageQueryTests.swift` (DaemonState): `query --windows --window` (by id, acting window, a tab,
+    unknown id), `--spaces --window`, `--tree --space` (tree, float layout), `--spaces`/`--windows --space` of a
+    labeled seeded view, a label without a view, and six `recent` selectors that print nothing.
+  - `MessageConfigTests.swift`: a 65-row round trip over all 59 options (a non-default value prints normalized, an
+    invalid one fails and keeps the value), a check that the rows cover every option, `external_bar`'s three-field
+    scan, `--space` spacing overrides with the headless placements, `layout` keeping a view's override, `external_bar`
+    marking the seeded views.
+  - Golden: 61 new records: the remaining setters (padding, opacity, border, external_bar, space_layout,
+    scratchpad_grid, layout, auto_padding, mouse_action2), edge tokens (empty value, `config ''`, 1e3, `-0`, 0x, é,
+    out of range integers), `rule --apply` with no match, without a selector and with a bare word, a Unicode and an
+    empty label. Every record was reviewed.
+  - `doc/live-testing.md` "Unit tests": the two gates, the rule/query/config tests and their limits, the
+    `View(sid:)` gap pitfall.
+- **Coverage:** `WindowManager+Rules` 31% → 89%, `IPC/MessageQuery` 48% → 82%, `IPC/MessageConfig` 80% → 98%,
+  `YabaiCore/RuleCommand` 96% → 100%. Total 35.3% → 40.0%. 259 tests (62 YabaiCore, 197 Yabai), 11 known issues.
+- **Issues / pitfalls:**
+  - Bug found: integer tokens wrap at 32 bits (`Token.positiveInteger`): `config window_gap 2147483648` sets
+    −2147483648, `tab_bar_height 99999999999` sets 1215752191 (`ISSUES.md` 7, `integerValuesOutOfRangeFail` with
+    `withKnownIssue`; the golden replay records the wrapped height). Fix in its own commit.
+  - Quirks pinned as they are (not bugs by the manual, but surprising): `external_bar` with fewer than three fields
+    or a mode longer than five bytes prints the value instead of failing, and ignores text after the third field
+    (`main:1:2:3`); colors print without zero padding (`0x0`); an empty value prints the option; `config ''` returns
+    nothing; `scratchpad=` implies `manage=off`, so a rule whose scratchpad label is taken still floats the window; an
+    invalid regex fails the rule at parse time (`RulePattern.admits` only lets an invalid pattern through for rules
+    built in code); `-1` is no index (`value '-1' is not a valid option for RULE_SEL`).
+  - `View(sid:)` leaves gaps and padding off: a `--space ws window_gap` test recorded no placements until the
+    fixture set `isGapEnabled`/`isPaddingEnabled` (recorded in `doc/live-testing.md`).
+  - SkyLight answers display queries for fake windows and spaces with the user's display, and `query` prints the
+    fake window ids as negative Int32 values. The query tests avoid the session-dependent fields.
+- **Next phase should know:**
+  - Phase 7's parser properties should include long digit runs (ISSUES.md 7) and non-finite floats (ISSUES.md 6).
+  - Left uncovered in `WindowManager+Rules`: the space/display, native-fullscreen and grid effects of
+    `applyRuleEffects` (AX of a fake window). In `MessageQuery`: the queries of all displays/spaces/windows and the
+    display queries of a space or window (live session).
+  - `EventSignal.swift` (14%) is the signal runner (`posix_spawn` of the actions); it was not in this phase's scope.
+

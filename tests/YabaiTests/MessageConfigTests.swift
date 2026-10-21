@@ -18,11 +18,216 @@ import YabaiTestSupport
     return response.text
 }
 
+/// A row of the config round trip: a valid value, how the option prints it, and an invalid value with its failure (the
+/// unknown-value failure when nil).
+struct ConfigCase: CustomTestStringConvertible, Sendable
+{
+    var option: String
+    var value: String
+    var printed: String
+    var invalid: String
+    var failure: String? = nil
+    /// Whether value is the default (the other rows set a value other than the default).
+    var isDefault = false
+
+    var expectedFailure: String { failure ?? "unknown value '\(invalid)' given to command '\(option)' for domain 'config'\n" }
+
+    var testDescription: String { "\(option) \(value)" }
+}
+
+/// A config message from words separated by spaces.
+@WM private func runConfigLine(_ words: String) -> String
+{
+    runConfig(words.split(separator: " ").map { "\($0)\0" }.joined())
+}
+
 extension DaemonState
 {
     @Suite
     @WM struct MessageConfigTests
     {
+        //
+        // NOTE: Every option takes a value other than its default and prints it normalized; an invalid value fails and
+        // leaves the option as it was. window_animation_duration only takes 0 here: other values check the SIP
+        // configuration and ask for Screen Recording permission. In headless mode focus_follows_mouse installs no event
+        // tap and external_bar only marks the seeded views.
+        //
+
+        nonisolated static let configCases: [ConfigCase] = [
+            ConfigCase(option: "debug_output", value: "on", printed: "on", invalid: "1"),
+            ConfigCase(option: "mouse_follows_focus", value: "on", printed: "on", invalid: "yes"),
+            ConfigCase(option: "focus_follows_mouse", value: "autoraise", printed: "autoraise", invalid: "on"),
+            ConfigCase(option: "focus_follows_mouse", value: "off", printed: "disabled", invalid: "disabled", isDefault: true),
+            ConfigCase(option: "display_arrangement_order", value: "vertical", printed: "vertical", invalid: "diagonal"),
+            ConfigCase(option: "builtin_display_last", value: "on", printed: "on", invalid: "true"),
+            ConfigCase(option: "window_origin_display", value: "cursor", printed: "cursor", invalid: "mouse"),
+            ConfigCase(option: "window_opacity", value: "on", printed: "on", invalid: "ON"),
+            ConfigCase(option: "window_opacity_duration", value: "0.5", printed: "0.500000", invalid: "fast"),
+            ConfigCase(option: "window_animation_duration", value: "0.0", printed: "0.000000", invalid: "0.5s", isDefault: true),
+            ConfigCase(option: "window_animation_easing", value: "ease_in_out_quad", printed: "ease_in_out_quad", invalid: "linear"),
+            ConfigCase(option: "window_shadow", value: "float", printed: "float", invalid: "managed"),
+            ConfigCase(option: "menubar_opacity", value: "0", printed: "0.0000", invalid: "1.5"),
+            ConfigCase(option: "active_window_opacity", value: "0.5", printed: "0.5000", invalid: "0"),
+            ConfigCase(option: "normal_window_opacity", value: "0.25", printed: "0.2500", invalid: "1.01"),
+            ConfigCase(option: "insert_feedback_color", value: "0xff123456", printed: "0xff123456", invalid: "0"),
+            ConfigCase(option: "window_border", value: "on", printed: "on", invalid: "enabled"),
+            ConfigCase(option: "window_border_width", value: "2.5", printed: "2.5000", invalid: "0"),
+            ConfigCase(option: "window_border_hide_single", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "active_window_border_color", value: "0x0", printed: "0x0", invalid: "red"),
+            ConfigCase(option: "normal_window_border_color", value: "0x80FFFFFF", printed: "0x80ffffff", invalid: "#ffffff"),
+            ConfigCase(option: "tab_bar", value: "off", printed: "off", invalid: "hidden"),
+            ConfigCase(option: "tab_bar_height", value: "30", printed: "30", invalid: "0"),
+            ConfigCase(option: "tab_bar_offset", value: "-8", printed: "-8", invalid: "1.5"),
+            ConfigCase(option: "tab_bar_offset", value: "4.0", printed: "4", invalid: "four"),
+            ConfigCase(option: "tab_bar_font", value: "Menlo:14", printed: "Menlo:14", invalid: "Menlo"),
+            ConfigCase(option: "tab_bar_font", value: "system:9.5", printed: "system:9.5", invalid: "system:0"),
+            ConfigCase(option: "tab_bar_icons", value: "off", printed: "off", invalid: "none"),
+            ConfigCase(option: "tab_bar_style", value: "i3", printed: "i3", invalid: "flat"),
+            ConfigCase(option: "tab_bar_appearance", value: "system", printed: "system", invalid: "light"),
+            ConfigCase(option: "tab_bar_backdrop", value: "glass", printed: "glass", invalid: "frosted"),
+            ConfigCase(option: "tab_bar_card_padding", value: "0", printed: "0", invalid: "-1"),
+            ConfigCase(option: "tab_bar_window_radius", value: "8", printed: "8", invalid: "8px"),
+            ConfigCase(option: "tab_bar_focused_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_focused_text_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_inactive_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_inactive_text_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_unfocused_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_unfocused_text_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "tab_bar_backdrop_color", value: "0xff010203", printed: "0xff010203", invalid: "blue"),
+            ConfigCase(option: "top_padding", value: "10", printed: "10", invalid: "-1"),
+            ConfigCase(option: "bottom_padding", value: "11", printed: "11", invalid: "1.5"),
+            ConfigCase(option: "left_padding", value: "12", printed: "12", invalid: "x"),
+            ConfigCase(option: "right_padding", value: "13", printed: "13", invalid: "0x10"),
+            ConfigCase(option: "window_gap", value: "8", printed: "8", invalid: "abc"),
+            ConfigCase(option: "layout", value: "float", printed: "float", invalid: "bsp"),
+            ConfigCase(option: "auto_padding", value: "on", printed: "on", invalid: "auto"),
+            ConfigCase(option: "tree_default_orientation", value: "horizontal", printed: "horizontal", invalid: "diagonal"),
+            ConfigCase(option: "tree_workspace_layout", value: "tabbed", printed: "tabbed", invalid: "stacked"),
+            ConfigCase(option: "tree_autotiling", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "focus_wrapping", value: "off", printed: "off", invalid: "wrap"),
+            ConfigCase(option: "mouse_modifier", value: "cmd", printed: "cmd", invalid: "hyper"),
+            ConfigCase(option: "mouse_action1", value: "resize", printed: "resize", invalid: "swap"),
+            ConfigCase(option: "mouse_action2", value: "move", printed: "move", invalid: "stack"),
+            ConfigCase(option: "mouse_drop_action", value: "stack", printed: "stack", invalid: "warp_top"),
+            ConfigCase(option: "external_bar", value: "main:20:0", printed: "main:20:0", invalid: "some:1:2",
+                       failure: "unknown mode 'some' specified in value 'some:1:2' given to command 'external_bar' for domain 'config'\n"),
+            ConfigCase(option: "external_bar", value: "all:-4:30", printed: "all:-4:30", invalid: "top:0:0",
+                       failure: "unknown mode 'top' specified in value 'top:0:0' given to command 'external_bar' for domain 'config'\n"),
+            ConfigCase(option: "skip_window_focus_animation", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "space_layout", value: "15 10:5 1b:9:3", printed: "15 10:5 1b:9:3", invalid: "x"),
+            ConfigCase(option: "space_layout", value: "2", printed: "2", invalid: "2 3:1 2",
+                       failure: "value '2' given to command 'space_layout' for domain 'config' repeats a layout for 1 display(s)\n"),
+            ConfigCase(option: "space_layout", value: "1", printed: "1", invalid: "0",
+                       failure: "invalid value '0' given to command 'space_layout' for domain 'config'\n"),
+            ConfigCase(option: "scratchpad_exclusive", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "scratchpad_raise", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "scratchpad_below", value: "on", printed: "on", invalid: "x"),
+            ConfigCase(option: "scratchpad_grid", value: "4:4:1:1:2:2", printed: "4:4:1:1:2:2", invalid: "0:4:1:1:2:2"),
+        ]
+
+        @Test func externalBarScansThreeFields()
+        {
+            // NOTE: fewer than three fields (or a mode longer than 5 bytes) print the value, using up the token; text after the
+            // third field is ignored
+            #expect(runConfigLine("external_bar main") == "off:0:0\n")
+            #expect(runConfigLine("external_bar main:10:x") == "off:0:0\n")
+            #expect(runConfigLine("external_bar mainbar:10:0") == "off:0:0\n")
+            #expect(runConfigLine("external_bar main:10:5px") == "")
+            #expect(runConfigLine("external_bar") == "main:10:5\n")
+            #expect(runConfigLine("external_bar main:1:2:3") == "")
+            #expect(runConfigLine("external_bar") == "main:1:2\n")
+        }
+
+        @Test func spacingOfASpaceOverridesTheDefault()
+        {
+            let space = Workspace()
+            space.open(1, focus: true)
+            space.open(2)
+            // NOTE: View(sid:) leaves gaps and padding off; View.create turns them on
+            space.view.isGapEnabled = true
+            space.view.isPaddingEnabled = true
+            space.view.updateAndFlush()
+            _ = Headless.drain()
+            SpaceManager.shared.labels.set(id: Workspace.sid, name: "ws")
+
+            #expect(runConfigLine("--space ws window_gap 10") == "")
+            #expect(runConfigLine("--space ws window_gap") == "10\n")
+            #expect(drainPlacements().map(\.description) == ["w1: 0,0 715x900", "w2: 725,0 715x900"])
+
+            // NOTE: the default reaches the views without an override of their own
+            #expect(runConfigLine("window_gap 20 top_padding 30") == "")
+            #expect(runConfigLine("--space ws window_gap") == "10\n")
+            #expect(runConfigLine("--space ws top_padding") == "30\n")
+            #expect(runConfigLine("window_gap") == "20\n")
+            #expect(drainPlacements().map(\.description) == ["w1: 0,30 715x870", "w2: 725,30 715x870"])
+
+            #expect(runConfigLine("--space ws auto_padding on") == "")
+            #expect(runConfigLine("--space ws auto_padding") == "on\n")
+            #expect(runConfigLine("auto_padding") == "off\n")
+            #expect(runConfigLine("--space ws layout") == "tree\n")
+            #expect(runConfigLine("--space ws space_layout 1") == "\u{07}command 'space_layout' for domain 'config' does not support the '--space' selector\n")
+            #expect(runConfigLine("--space nolabel window_gap") == "\u{07}value 'nolabel' is not a valid option for SPACE_SEL\n")
+        }
+
+        @Test func layoutOfAllSpacesKeepsTheOverride()
+        {
+            let space = Workspace()
+            space.open(1, focus: true)
+            space.view.overrides.insert(.layout)
+
+            #expect(runConfigLine("layout float") == "")
+            #expect(space.view.layout == .tree)
+            #expect(Config.current.space.layout == .float)
+        }
+
+        @Test func externalBarMarksTheSeededViews()
+        {
+            let space = Workspace()
+            space.open(1, focus: true)
+            space.view.isValid = true
+
+            #expect(runConfigLine("external_bar main:20:0") == "")
+            #expect(!space.view.isValid)
+
+            Headless.activeSpace = Workspace.sid
+            _ = Headless.drain()
+            #expect(runConfigLine("external_bar all:20:0") == "")
+            #expect(!drainPlacements().isEmpty)
+        }
+
+        @Test(arguments: [
+            ("window_gap 2147483648", "window_gap"),
+            ("window_gap 4294967306", "window_gap"),
+            ("tab_bar_height 99999999999", "tab_bar_height"),
+        ])
+        func integerValuesOutOfRangeFail(_ command: String, _ option: String)
+        {
+            let before = runConfigLine(option)
+            let response = runConfigLine(command)
+
+            withKnownIssue("ISSUES.md 7: integer tokens wrap at 32 bits") {
+                #expect(response.hasPrefix("\u{07}unknown value"))
+                #expect(runConfigLine(option) == before)
+            }
+        }
+
+        @Test func configCasesCoverEveryOption()
+        {
+            #expect(Set(Self.configCases.map(\.option)) == Set(configOptionNames.map(\.rawValue)))
+        }
+
+        @Test(arguments: configCases)
+        func valueRoundTrip(_ row: ConfigCase)
+        {
+            #expect((runConfigLine(row.option) == "\(row.printed)\n") == row.isDefault)
+
+            #expect(runConfigLine("\(row.option) \(row.value)") == "")
+            #expect(runConfigLine(row.option) == "\(row.printed)\n")
+
+            #expect(runConfigLine("\(row.option) \(row.invalid)") == "\u{07}\(row.expectedFailure)")
+            #expect(runConfigLine(row.option) == "\(row.printed)\n")
+        }
+
         @Test("config_option_table_is_complete")
         func optionTableCoversNames()
         {

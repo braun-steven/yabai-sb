@@ -7,6 +7,12 @@ extension WindowManager
 {
     func setFocusFollowsMouse(_ mode: FocusFollowsMouse)
     {
+        // NOTE: In headless mode the test process must not install an event tap on the user's mouse.
+        if Headless.isEnabled {
+            Config.current.window.focusFollowsMouse = mode
+            return
+        }
+
         MouseState.shared.endEventTap()
 
         if mode == .disabled {

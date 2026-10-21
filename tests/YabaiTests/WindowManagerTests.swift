@@ -5,8 +5,8 @@ import YabaiCore
 @testable import Yabai
 import YabaiTestSupport
 
-// NOTE: Ported from tests/src/window_frame.c and tests/src/window_rules.c. The window managers of these tests are local,
-// so they do not touch the state of the daemon.
+// NOTE: Ported from tests/src/window_frame.c; the rule tests are in RuleTests.swift. The window managers of these tests
+// are local, so they do not touch the state of the daemon.
 
 /// A window manager with the defaults of its fields, released by windowManagerFree.
 @WM private func windowManagerCreate() -> WindowManager
@@ -25,14 +25,6 @@ import YabaiTestSupport
 {
     let result = Window(id: id)
     result.application = owner
-    return result
-}
-
-/// An application with a malloc'ed name, which the test frees.
-@WM private func applicationCreate(_ name: String) -> Application
-{
-    let result = Application()
-    result.name = name
     return result
 }
 
@@ -90,27 +82,6 @@ import YabaiTestSupport
     #expect(target.invalidate() == false)
 }
 
-private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
-{
-    var result = Rule()
-    result.oneShot = matched
-    result.matched = matched
-    result.label = label
-    return result
-}
-
-@Test("window_one_shot_rules") @WM func windowOneShotRules()
-{
-    let wm = windowManagerCreate()
-    defer { windowManagerFree(wm) }
-
-    wm.rules = [oneShotTestRule(matched: true, "a"), oneShotTestRule(matched: false, "b"),
-                oneShotTestRule(matched: true, "c"), oneShotTestRule(matched: true, "d")]
-
-    wm.removeOneShotRules()
-    #expect(wm.rules.map(\.label) == ["b"])
-}
-
 //
 // NOTE: 1 has the children 2 and 3, 3 has the child 4, and 9 belongs to another window. The direct relations
 // make every window a direct child, which needs as many entries as there are relations.
@@ -130,106 +101,4 @@ private func oneShotTestRule(matched: Bool, _ label: String) -> Rule
 
     var emptyParent: [WindowID?] = []
     #expect(WindowManager.collectChildWindows(1, parents: &emptyParent, children: []).isEmpty)
-}
-
-private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Bool = false) -> Rule
-{
-    var result = Rule()
-    result.oneShot = oneShot
-    result.app = RulePattern(Token(app), exclude: false)
-    result.subrole = subrole.map { RulePattern(Token($0), exclude: false) }
-    return result
-}
-
-/// The window properties used when combining matching rule effects.
-private struct WindowStrings
-{
-    let title = ""
-    let role = "AXWindow"
-    let dialog = "AXDialog"
-    let standard = "AXStandardWindow"
-
-}
-
-@Test("window_rules_combine_matching") @WM func windowRulesCombineMatching()
-{
-    let owner = applicationCreate("Safari")
-    let target = windowCreate(1, owner)
-    let wm = windowManagerCreate()
-    let strings = WindowStrings()
-    defer { windowManagerFree(wm) }
-
-    // NOTE: without a subrole pattern a rule does not match a dialog
-    var any = windowRulesTestRule("^Safari$", nil)
-    any.effects.sid = 4
-    wm.rules.append(any)
-
-    var dialog = windowRulesTestRule("^Safari$", "^AXDialog$")
-    dialog.effects.sticky = true
-    dialog.effects.scratchpad = "notes"
-    wm.rules.append(dialog)
-
-    var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$")
-    otherApp.effects.mouseFollowsFocus = true
-    wm.rules.append(otherApp)
-
-    var oneShot = windowRulesTestRule("^Safari$", "^AXDialog$", oneShot: true)
-    oneShot.effects.layer = .above
-    oneShot.effects.flags.insert(.layer)
-    wm.rules.append(oneShot)
-
-    var effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: false, into: &effects) == true)
-    #expect(effects.sid == nil)
-    #expect(effects.sticky == true)
-    #expect(effects.mouseFollowsFocus == nil)
-    #expect(effects.flags.contains(.layer) == false)
-    #expect(effects.scratchpad == "notes")
-    #expect(wm.rules[3].matched == false)
-
-    // NOTE: one-shot rules only apply to new windows, and are then marked for removal
-    effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: true, manageRound: false, into: &effects) == true)
-    #expect(effects.flags.contains(.layer) == true)
-    #expect(wm.rules[3].matched == true)
-
-    wm.removeOneShotRules()
-    #expect(wm.rules.count == 3)
-
-    // NOTE: a window managed by a rule matches rules without a subrole pattern
-    target.isManagedByRule = true
-    effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: false, into: &effects) == true)
-    #expect(effects.sid == 4)
-}
-
-@Test("window_rules_manage_round") @WM func windowRulesManageRound()
-{
-    let owner = applicationCreate("Safari")
-    let target = windowCreate(1, owner)
-    let wm = windowManagerCreate()
-    let strings = WindowStrings()
-    defer { windowManagerFree(wm) }
-
-    // NOTE: in the manage round only rules that make a window managed are limited to standard windows
-    var manage = windowRulesTestRule("^Safari$", nil)
-    manage.effects.manage = true
-    wm.rules.append(manage)
-
-    var effectsOnly = windowRulesTestRule("^Safari$", nil)
-    effectsOnly.effects.sticky = true
-    wm.rules.append(effectsOnly)
-
-    var effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.dialog, includingOneShotRules: false, manageRound: true, into: &effects) == true)
-    #expect(effects.manage == nil)
-    #expect(effects.sticky == true)
-
-    effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.standard, includingOneShotRules: false, manageRound: true, into: &effects) == true)
-    #expect(effects.manage == true)
-
-    owner.name = "Mail"
-    effects = RuleEffects()
-    #expect(wm.combineMatchingRuleEffects(for: target, title: strings.title, role: strings.role, subrole: strings.standard, includingOneShotRules: false, manageRound: true, into: &effects) == false)
 }

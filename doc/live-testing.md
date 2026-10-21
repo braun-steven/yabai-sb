@@ -28,7 +28,9 @@ point below was learned the hard way; read it before running anything live.
   lay out a seeded view with `view.area = …` and `updateTree()`. The window selectors that look in the active space's tree
   (`first`, `last`, `prev`, `next`, `largest`, `smallest`, `stack.*`) use `Headless.activeSpace` (nil unless a test
   sets it) instead of `SpaceID.active`, so they find a seeded view instead of the user's space. `SpaceID.active`
-  itself still asks SkyLight: the golden replay's `space` failures depend on the user's session having an active space. Gaps: `ScriptingAddition.orderIn` still queries
+  itself still asks SkyLight: the golden replay's `space` failures depend on the user's session having an active space.
+  `config focus_follows_mouse` only stores the mode (no event tap on the user's mouse), and `config external_bar`
+  (`SpaceManager.markSpacesInvalid`) only marks the seeded views, refreshing the view of `Headless.activeSpace`. Gaps: `ScriptingAddition.orderIn` still queries
   `SLS.windowIsOrderedIn` before it sends, and `View.create` asks SkyLight for the space's uuid.
 - Fake ids are real ids in the test process: windows, spaces and displays of the user's session have small ids, so
   a call that reaches the window server with `1` or `2` can act on a real one. Use large fake ids
@@ -56,6 +58,17 @@ point below was learned the hard way; read it before running anything live.
   server up to the flush belong there: not `--focus <window>`, `--space`, `--display`, `--stack`, `--insert`,
   `--toggle split`, the `mouse` selector, or `--move`/`--grid`/relative `--resize` of unmanaged windows (they ask
   SkyLight for the window's space, focus windows or reach AX).
+- Rule, query and config tests (`tests/YabaiTests/RuleTests.swift`, `MessageQueryTests.swift`, `MessageConfigTests.swift`)
+  send messages through `Golden.run` too. Rules are applied to `Workspace` windows made real by hand (`role`, `subrole`,
+  `isRoot`, `isMovable`; `Workspace.openForRules`), and the payload messages they send are checked from
+  `Headless.drain()`. Leave out `space=`, `display=`, `native-fullscreen=` and `grid=` (AX of a fake window traps), and
+  apply `manage=on`/`sticky=off` only to windows that are still managed: an unmanaged window is tiled on
+  `SpaceID.active`, the user's space. `scratchpad=` also sets `manage=off`. SkyLight reports the user's display for a
+  fake window or space, so leave out `query --displays` of them and the display/space/visibility properties. `query`
+  prints window ids as 32-bit signed values, so the fake ids are negative there. Config values other than 0 for
+  `window_animation_duration` check SIP and request Screen Recording permission: never send them.
+- `View(sid:)` leaves `isGapEnabled` and `isPaddingEnabled` off (`View.create` turns them on): set both before testing
+  gaps or padding of a fixture view, or the spacing silently has no effect.
 - Layout property tests (`tests/YabaiTests/LayoutTests.swift`) lay out random `TreeModel` trees with random areas,
   gaps and tab bar settings and check the areas (`layoutViolations`). Set `tab_bar_style` and the other bar values
   explicitly: the default glass card insets tabbed containers.

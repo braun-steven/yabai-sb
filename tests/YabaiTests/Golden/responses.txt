@@ -276,6 +276,145 @@ blur
 ### 9 config tab_bar_font
 Menlo:14
 
+### 0 config left_padding 5 right_padding 6
+
+### 2 config left_padding
+5
+
+### 2 config right_padding
+6
+
+### 0 config window_opacity on
+
+### 0 config active_window_opacity 0.9
+
+### 0 config normal_window_opacity 0.5
+
+### 0 config menubar_opacity 0
+
+### 3 config window_opacity
+on
+
+### 7 config active_window_opacity
+0.9000
+
+### 7 config normal_window_opacity
+0.5000
+
+### 7 config menubar_opacity
+0.0000
+
+### 0 config window_border on
+
+### 0 config window_border_width 2
+
+### 0 config active_window_border_color 0xff00ff00
+
+### 0 config normal_window_border_color 0x00000000
+
+### 3 config window_border
+on
+
+### 7 config window_border_width
+2.0000
+
+### 11 config active_window_border_color
+0xff00ff00
+
+### 4 config normal_window_border_color
+0x0
+
+### 0 config external_bar main:24:0
+
+### 10 config external_bar
+main:24:0
+
+### 0 config space_layout 15 10:5 1b:9:3
+
+### 15 config space_layout
+15 10:5 1b:9:3
+
+### 0 config space_layout off
+
+### 4 config space_layout
+off
+
+### 0 config scratchpad_grid 3:3:1:1:1:1
+
+### 12 config scratchpad_grid
+3:3:1:1:1:1
+
+### 0 config scratchpad_grid off
+
+### 4 config scratchpad_grid
+off
+
+### 0 config layout float
+
+### 6 config layout
+float
+
+### 0 config layout tree
+
+### 0 config auto_padding on
+
+### 3 config auto_padding
+on
+
+### 0 config auto_padding off
+
+### 0 config mouse_action2 move
+
+### 5 config mouse_action2
+move
+
+### 10 config external_bar main
+main:24:0
+
+### 0 config external_bar main:1:2:3
+
+### 9 config external_bar
+main:1:2
+
+### 97 config space_layout 1 1
+value '1' given to command 'space_layout' for domain 'config' repeats a layout for 1 display(s)
+
+### 71 config space_layout 0
+invalid value '0' given to command 'space_layout' for domain 'config'
+
+### 74 config space_layout 1001
+invalid value '1001' given to command 'space_layout' for domain 'config'
+
+### 70 config window_gap -1
+unknown value '-1' given to command 'window_gap' for domain 'config'
+
+### 71 config window_gap 1.5
+unknown value '1.5' given to command 'window_gap' for domain 'config'
+
+### 2 config window_gap ''
+8
+
+### 79 config window_border_width -0
+unknown value '-0' given to command 'window_border_width' for domain 'config'
+
+### 0 config tab_bar_offset 1e3
+
+### 5 config tab_bar_offset
+1000
+
+### 0 config tab_bar_height 99999999999
+
+### 11 config tab_bar_height
+1215752191
+
+### 81 config insert_feedback_color 0x
+unknown value '0x' given to command 'insert_feedback_color' for domain 'config'
+
+### 74 config mouse_modifier é
+unknown value 'é' given to command 'mouse_modifier' for domain 'config'
+
+### 0 config ''
+
 ### 79 config window_gap top_padding
 unknown value 'top_padding' given to command 'window_gap' for domain 'config'
 
@@ -336,6 +475,24 @@ Menlo:14
 
 ### 32 rule --apply 7
 rule with index '7' not found.
+
+### 0 rule --apply app=^NoSuchApp$ manage=off
+
+### 95 rule --apply nolabel
+invalid key-value pair 'nolabel'
+missing required key-value pair 'app[!]=..' or 'title[!]=..'
+
+### 0 rule --apply
+
+### 0 rule --add label=üml app=x
+
+### 33 rule --add label= app=y
+invalid key-value pair 'label='
+
+### 0 rule --remove üml
+
+### 905 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
 
 ### 43 rule --foo
 unknown command '--foo' for domain 'rule'

@@ -67,6 +67,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - An integer argument beyond 2147483647, or a hexadecimal one beyond 0xFFFFFFFF, fails with an unknown value instead of wrapping around, e.g. *config window_gap 4294967306* set a gap of 10
 - *window --move*, *--resize* and *--ratio* fail with an unknown value for a non-finite value (*nan*, *inf*); before, e.g. *--ratio abs:nan* changed the share of every window in the split, and *--ratio abs:inf* acted like *abs:0.95*
 - The float config options (*window_opacity_duration*, *window_animation_duration*, *window_border_width*, the opacities) fail with an unknown value for *nan* and *inf*, like *window --opacity*; before, e.g. *window_border_width inf* was accepted
+- In the tree layout, a gap between the windows of a split is at most as long as an average window, so the gaps of a split only a few gaps long shrink instead of giving its windows a negative size; e.g. a 22 pixel high split of three windows with *window_gap 12* was laid out at heights 0, 0 and -2, and is now 5, 5 and 4 with 4 pixel gaps
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

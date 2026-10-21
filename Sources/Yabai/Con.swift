@@ -1219,7 +1219,9 @@ extension Con
 
     //
     // NOTE: Computes the area of every container. Splits divide the area along their orientation by
-    // the share of each child, with the window gap in between. The children of a tabbed container
+    // the share of each child, with the window gap in between; a gap is never longer than the average
+    // child, so the gaps of a split only a few gaps long shrink instead of leaving its children a
+    // negative length, and a child that rounding leaves no room for gets none. The children of a tabbed container
     // share its area below the tab bar, moved down by the bar offset (a negative offset lets them
     // reach under the bar). They always keep at least the height of the bar. With a backdrop card
     // the bar and the windows are additionally inset from every edge of the container by bar_inset.
@@ -1259,12 +1261,15 @@ extension Con
         }
 
         let horizontal = layout == .splitH
-        let total = (horizontal ? area.w : area.h) - Float(gap * (children.count - 1))
+        let length = horizontal ? area.w : area.h
+        let splitGap = Con.splitGap(gap, length: length, count: children.count)
+        let total = length - Float(splitGap * (children.count - 1))
         var offset = horizontal ? area.x : area.y
         let end = horizontal ? area.x + area.w : area.y + area.h
 
         for (i, next) in children.enumerated() {
-            let size = i == children.count - 1 ? end - offset : Float(Int(total * next.percent + 0.5))
+            let room = end - offset - Float(splitGap * (children.count - 1 - i))
+            let size = i == children.count - 1 ? room : min(room, Float(Int(total * next.percent + 0.5)))
 
             var childArea = area
             if horizontal {
@@ -1276,7 +1281,13 @@ extension Con
             }
 
             next.layOut(childArea, gap: gap, barHeight: barHeight, barOffset: barOffset, barInset: barInset)
-            offset += size + Float(gap)
+            offset += size + Float(splitGap)
         }
+    }
+
+    /// The gap between the count children of a split of the given length: at most the length of an average child.
+    static func splitGap(_ gap: Int, length: Float, count: Int) -> Int
+    {
+        min(gap, max(0, Int(length) / (2 * count - 1)))
     }
 }

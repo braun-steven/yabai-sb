@@ -110,25 +110,31 @@ struct LayoutArea: Sendable, CustomStringConvertible
         func size(_ a: Area) -> Float { horizontal ? a.w : a.h }
         func cross(_ a: Area) -> (Float, Float) { horizontal ? (a.y, a.h) : (a.x, a.w) }
 
-        // NOTE: A split shorter than its gaps gives its last child a negative length (ISSUES.md 5), so the rules only
-        // hold for splits with at least a pixel per child (negativeLengthInASplitShorterThanItsGaps).
-        let total = size(area) - gap * Float(node.children.count - 1)
-        if total < Float(node.children.count) { return }
+        // a gap is at most as long as an average child: a split only a few gaps long shrinks its gaps
+        let count = node.children.count
+        let splitGap = min(gap, max(0, (size(area) / Float(2 * count - 1)).rounded(.down)))
+        if splitGap < gap && size(area) >= gap * Float(2 * count - 1) {
+            result.append("\(area) shrinks its gap to \(splitGap) although it is long enough")
+        }
+        let total = size(area) - splitGap * Float(count - 1)
 
         var offset = start(area)
         for (i, child) in node.children.enumerated() {
             let childArea = child.area
+            if size(childArea) < 0 { result.append("child \(i) of \(area) has a negative length \(size(childArea))") }
             if start(childArea) != offset { result.append("child \(i) of \(area) starts at \(start(childArea)), not \(offset)") }
             if cross(childArea) != cross(area) { result.append("child \(i) \(childArea) leaves the cross axis of \(area)") }
-            if i < node.children.count - 1 {
+            if i < count - 1 {
+                // a child gets its rounded share, or all the room left when rounding gave the children before more
                 let share = total * child.percent
-                if size(childArea) != size(childArea).rounded() || abs(size(childArea) - share) > 0.5 {
+                let room = start(area) + size(area) - offset - splitGap * Float(count - 1 - i)
+                if size(childArea) != size(childArea).rounded() || (abs(size(childArea) - share) > 0.5 && size(childArea) != room) {
                     result.append("child \(i) of \(area) is \(size(childArea)) long for a share of \(share)")
                 }
             } else if start(childArea) + size(childArea) != start(area) + size(area) {
                 result.append("the last child \(childArea) does not end with \(area)")
             }
-            offset = start(childArea) + size(childArea) + gap
+            offset = start(childArea) + size(childArea) + splitGap
         }
     }
 
@@ -199,9 +205,6 @@ extension DaemonState
                 let bar = BarSettings(enabled: true, height: 24, offset: 0, style: .glass, backdrop: .blur, cardPadding: 6)
                 let (view, model) = layOutRandomTree(count, operations, geometry, bar)
                 let all = leaves(model.root)
-
-                // NOTE: A negative length (ISSUES.md 5) is placed again on every flush: CGRect standardizes it.
-                if all.contains(where: { $0.area.w < 0 || $0.area.h < 0 }) { return }
 
                 for windowID in model.windows { WindowManager.shared.window[windowID] = Window(id: windowID) }
 
@@ -280,11 +283,48 @@ extension DaemonState
             let root = Con(layout: .splitV)
             for n: UInt32 in 1...3 { treeTestLeaf(root, wid(n)) }
 
+            // the gaps shrink to 22 / 5 = 4 pixels, which leaves each window its share of 14
             root.layOut(Area(x: 0, y: 0, w: 300, h: 22), gap: 12, barHeight: 0, barOffset: 0, barInset: 0)
-            #expect(root.children.map(\.area.y) == [0, 12, 24])
+            #expect(root.children.map(\.area.y) == [0, 9, 18])
+            #expect(root.children.map(\.area.h) == [5, 5, 4])
+        }
 
-            withKnownIssue("ISSUES.md 5: the last child of a split shorter than its gaps gets a negative length") {
-                #expect(root.children.allSatisfy { $0.area.h >= 0 }, "\(root.children.map(\.area.h))")
+        @Test(arguments: [
+            // length, gap, children: the gap stays as long as an average child is at least as long
+            (100, 10, 3, 10),
+            (50, 10, 3, 10),
+            (49, 10, 3, 9),
+            (4, 10, 3, 0),
+            (0, 10, 3, 0),
+            (10, 10, 1, 10),
+            (100, -5, 3, -5),
+        ])
+        func splitGapIsAtMostAnAverageChild(length: Int, gap: Int, count: Int, expected: Int)
+        {
+            #expect(Con.splitGap(gap, length: Float(length), count: count) == expected)
+        }
+
+        @Test func roundingLeavesTheLastChildsNoNegativeLength()
+        {
+            // four quarters of 2 pixels round up to 1, 1 and 0 left for the last two
+            let root = Con(layout: .splitH)
+            for n: UInt32 in 1...4 { treeTestLeaf(root, wid(n)) }
+
+            root.layOut(Area(x: 0, y: 0, w: 2, h: 100), gap: 0, barHeight: 0, barOffset: 0, barInset: 0)
+            #expect(root.children.map(\.area.w) == [1, 1, 0, 0])
+            #expect(root.children.map(\.area.x) == [0, 1, 2, 2])
+        }
+
+        @Test func tinySplitsStayInsideTheirArea() async
+        {
+            let tiny = zip(Gen.int(in: 0...200), Gen.int(in: 0...200), Gen.int(in: 0...60))
+                .map { w, h, gap in LayoutArea(area: Area(x: 0, y: 0, w: Float(w), h: Float(h)), gap: gap) }
+            await propertyCheck(count: 300, input: Gen.int(in: 1...12), TreeOperation.generator.array(of: 0...30), tiny, BarSettings.generator) { count, operations, geometry, bar in
+                let (view, model) = layOutRandomTree(count, operations, geometry, bar)
+
+                let violations = layoutViolations(model.root, gap: geometry.gap, bar: bar)
+                try #require(violations.isEmpty, "\(violations)\n\(treeDump(model.root))")
+                view.tree = nil
             }
         }
 

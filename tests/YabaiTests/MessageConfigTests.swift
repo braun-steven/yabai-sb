@@ -205,10 +205,8 @@ extension DaemonState
             let before = runConfigLine(option)
             let response = runConfigLine(command)
 
-            withKnownIssue("ISSUES.md 7: integer tokens wrap at 32 bits") {
-                #expect(response.hasPrefix("\u{07}unknown value"))
-                #expect(runConfigLine(option) == before)
-            }
+            #expect(response.hasPrefix("\u{07}unknown value"))
+            #expect(runConfigLine(option) == before)
         }
 
         @Test func configCasesCoverEveryOption()

@@ -67,17 +67,3 @@ The full text is in git: `git show edf74650:doc/swift-refactor.md`.
 - **Test:** `nonFiniteValuesLeaveTheTree` (`tests/YabaiTests/WindowCommandTests.swift`, `withKnownIssue`).
 - **Next step:** reject non-finite values in the parser (a failure like other unknown values) and make `Con.resize`
   ignore a non-finite delta; then drop `withKnownIssue`.
-
-## 7. Integer tokens wrap at 32 bits
-
-- **Status:** open, minor. Found by the config tests in Phase 6 of `doc/testing-refactor.md`.
-- **Where:** `Token.positiveInteger` (`Sources/YabaiCore/Message.swift`) accumulates the digits in an `Int32` with
-  wrapping arithmetic (`&*`, `&+`), so a long run of digits wraps instead of being rejected.
-- **Symptom:** `config window_gap 2147483648` sets a gap of −2147483648, `config window_gap 4294967306` a gap of 10,
-  and `config tab_bar_height 99999999999` a height of 1215752191. Every argument read as `TokenValue.int` is
-  affected, e.g. the integer config options and the `rule`/`signal` indices; a negative result passes the options
-  that accept any `.int` (`window_gap`, the paddings, `tab_bar_offset`).
-- **Test:** `integerValuesOutOfRangeFail` (`tests/YabaiTests/MessageConfigTests.swift`, `withKnownIssue`). The golden
-  replay records `config tab_bar_height 99999999999`; its record changes with the fix.
-- **Next step:** return nil on overflow (`multipliedReportingOverflow`), so that the token is a string and the option
-  fails with an unknown value; then drop `withKnownIssue` and re-record the golden replay.

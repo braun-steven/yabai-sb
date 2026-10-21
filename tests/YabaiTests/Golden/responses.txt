@@ -402,10 +402,11 @@ main:1:2
 ### 5 config tab_bar_offset
 1000
 
-### 0 config tab_bar_height 99999999999
+### 83 config tab_bar_height 99999999999
+unknown value '99999999999' given to command 'tab_bar_height' for domain 'config'
 
-### 11 config tab_bar_height
-1215752191
+### 3 config tab_bar_height
+30
 
 ### 81 config insert_feedback_color 0x
 unknown value '0x' given to command 'insert_feedback_color' for domain 'config'

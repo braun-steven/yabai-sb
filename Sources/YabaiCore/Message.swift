@@ -48,19 +48,34 @@ public struct Token: Equatable, Sendable
     }
 
     //
-    // NOTE: Like C, the digits are summed in an int that wraps around on overflow (two's complement), and a hexadecimal
-    // value in a uint32_t.
+    // NOTE: A decimal value beyond Int32.max, or a hexadecimal one beyond UInt32.max, is not an integer: `value` then
+    // reads the token as a float, which the integer and color options reject as an unknown value, instead of taking
+    // a wrapped value.
     //
 
     /// `token_is_positive_integer`: true for an empty token.
     public var positiveInteger: Int?
     {
-        var value: Int32 = 0
+        decimal(as: Int32.self).map(Int.init)
+    }
+
+    /// The digits of a window id, which is a uint32_t; nil for an empty token.
+    public var unsignedInteger: UInt32?
+    {
+        isValid ? decimal(as: UInt32.self) : nil
+    }
+
+    private func decimal<T: FixedWidthInteger>(as type: T.Type) -> T?
+    {
+        var value: T = 0
         for byte in utf8 {
             guard byte >= UInt8(ascii: "0") && byte <= UInt8(ascii: "9") else { return nil }
-            value = value &* 10 &+ Int32(byte - UInt8(ascii: "0"))
+            let shifted = value.multipliedReportingOverflow(by: 10)
+            let sum = shifted.partialValue.addingReportingOverflow(T(byte - UInt8(ascii: "0")))
+            guard !shifted.overflow && !sum.overflow else { return nil }
+            value = sum.partialValue
         }
-        return Int(value)
+        return value
     }
 
     /// `token_is_hexadecimal`: 0x or 0X followed by at least one hexadecimal digit.
@@ -79,7 +94,10 @@ public struct Token: Equatable, Sendable
             case UInt8(ascii: "A")...UInt8(ascii: "F"): digit = byte - UInt8(ascii: "A") + 10
             default: return nil
             }
-            value = value &* 16 &+ UInt32(digit)
+            let shifted = value.multipliedReportingOverflow(by: 16)
+            let sum = shifted.partialValue.addingReportingOverflow(UInt32(digit))
+            guard !shifted.overflow && !sum.overflow else { return nil }
+            value = sum.partialValue
         }
         return value
     }

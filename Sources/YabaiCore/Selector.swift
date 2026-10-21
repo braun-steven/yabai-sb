@@ -209,9 +209,13 @@ public enum WindowSelector: Equatable, Sendable
     /// nil when the token is no window selector.
     public init?(_ token: Token)
     {
+        // NOTE: a window id is read as a uint32_t: ids beyond Int32.max are no integer token.
+        if let id = token.unsignedInteger {
+            self = .id(WindowID(id))
+            return
+        }
+
         switch token.value {
-        case .int(let id):
-            self = .id(WindowID(UInt32(truncatingIfNeeded: id)))
         case .string:
             if let direction = parseDirection(token)    { self = .direction(direction) }
             else if token.equals(Argument.mouse)        { self = .mouse }

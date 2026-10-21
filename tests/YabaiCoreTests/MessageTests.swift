@@ -52,6 +52,8 @@ private func valueText(_ value: TokenValue) -> String
 private let tokenValueRows: [(String, String)] = [
     ("42", "int(42)"),
     ("0xFF", "u32(255)"),
+    ("2147483648", "float(2.1474836e+09)"),
+    ("0x100000000", "float(4.2949673e+09)"),
     ("0.5", "float(0.5)"),
     ("1e2", "float(100.0)"),
     ("0x", "string"),
@@ -67,9 +69,16 @@ func tokenValue(_ text: String, _ value: String)
 
 @Test func tokenConversions()
 {
-    // NOTE: like the int of the C version, a long number wraps around
-    #expect(Token("4294967297").positiveInteger == 1)
-    #expect(Token("0x100000001").hexadecimal == 1)
+    // NOTE: a number beyond 32 bits is not a number, not a wrapped value
+    #expect(Token("2147483647").positiveInteger == 2147483647)
+    #expect(Token("2147483648").positiveInteger == nil)
+    #expect(Token("4294967297").positiveInteger == nil)
+    #expect(Token("0xFFFFFFFF").hexadecimal == 0xFFFF_FFFF)
+    #expect(Token("0x100000000").hexadecimal == nil)
+    #expect(Token("0x100000001").hexadecimal == nil)
+    #expect(Token("4294967295").unsignedInteger == 0xFFFF_FFFF)
+    #expect(Token("4294967296").unsignedInteger == nil)
+    #expect(Token("").unsignedInteger == nil)
 
     #expect(TokenValue.int(3).floatValue == 3)
     #expect(TokenValue.string(Token("x")).floatValue == nil)
@@ -271,6 +280,9 @@ private enum TestProperty: String, CaseIterable, Sendable
 
 private let windowSelectorRows: [(String, WindowSelector?)] = [
     ("8", .id(8)),
+    ("4294901769", .id(0xFFFF_0009)),
+    ("4294967295", .id(0xFFFF_FFFF)),
+    ("4294967297", nil),
     ("east", .direction(.east)),
     ("stack.2", .stack(.position(2))),
     ("stack.recent", .stack(.recent)),

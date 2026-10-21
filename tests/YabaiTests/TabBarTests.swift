@@ -38,18 +38,6 @@ extension DaemonState
             #expect(Config.current.tabBar.fontName == "Menlo:11")
         }
 
-        @Test("tab_bar_glass_tint_default")
-        func glassTintDefault()
-        {
-            let color = RGBAColor(hex: 0xff285577)
-            let tint = TabBarGlass.tint(color, custom: false, alpha: 0.4)
-            #expect(Int(tint.a * 100 + 0.5) == 40)
-            #expect(tint.r == color.r && tint.g == color.g && tint.b == color.b)
-            let custom = TabBarGlass.tint(color, custom: true, alpha: 0.4)
-            #expect(custom.a == color.a)
-            #expect(custom.argb == color.argb)
-        }
-
         @Test("tab_bar_title_fits")
         func titleFits()
         {
@@ -108,6 +96,43 @@ extension DaemonState
             deepest.card = CGRect(x: 12, y: 64, width: 976, height: 724)
             #expect(TabBar.outerFirst([inner, deepest, outer]) == [outer, inner, deepest])
             #expect(TabBar.outerFirst([outer, inner, deepest]) == [outer, inner, deepest])
+        }
+
+        @Test(arguments: [UInt32(0xFFFF_FFFF), 0x80FF_8000, 0x0000_0000, 0x0C12_3456])
+        func separatorIsTheTextAtAQuarterOfItsAlpha(_ hex: UInt32)
+        {
+            let text = RGBAColor(hex: hex)
+            let separator = TabBar.separatorColor(for: text)
+            #expect(separator.a == text.a * 0.25)
+            #expect([separator.r, separator.g, separator.b] == [text.r, text.g, text.b])
+            #expect(separator.argb == text.argb)
+        }
+
+        nonisolated static let cardPaddingRows: [(TabBarStyle, TabBarBackdrop, Int)] = [
+            (.glass, .glass, 6),
+            (.glass, .blur, 6),
+            (.glass, .off, 0),
+            (.i3, .glass, 0),
+            (.i3, .blur, 0),
+            (.i3, .off, 0),
+        ]
+
+        @Test(arguments: cardPaddingRows)
+        func cardPaddingOnlyWithAGlassBackdrop(_ style: TabBarStyle, _ backdrop: TabBarBackdrop, _ padding: Int)
+        {
+            Config.current.tabBar.style = style
+            Config.current.tabBar.backdrop = backdrop
+            Config.current.tabBar.cardPadding = 6
+            #expect(TabBar.cardPadding == padding)
+        }
+
+        @Test(arguments: [true, false], [Float(0), 0.4, 1])
+        func glassTint(_ custom: Bool, _ alpha: Float)
+        {
+            let color = RGBAColor(hex: 0x80_28_55_77)
+            let tint = TabBarGlass.tint(color, custom: custom, alpha: alpha)
+            #expect([tint.r, tint.g, tint.b, tint.argb] == [color.r, color.g, color.b, color.argb] as [AnyHashable])
+            #expect(tint.a == (custom ? color.a : alpha))
         }
     }
 }

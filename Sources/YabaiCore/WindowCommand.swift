@@ -195,17 +195,17 @@ public enum WindowCommand: Equatable, Sendable
         case .move:
             var type: [CChar] = []
             var point: [Float] = [0, 0]
-            guard value.scan("%255[^:]:%f:%f", &type, &point) == 3 else { throw unknownValue(name, value) }
+            guard value.scan("%255[^:]:%f:%f", &type, &point) == 3, point.allSatisfy(\.isFinite) else { throw unknownValue(name, value) }
             return .move(parseValueType(Token(cString: type)), dx: point[0], dy: point[1])
         case .resize:
             var handle: [CChar] = []
             var size: [Float] = [0, 0]
-            guard value.scan("%255[^:]:%f:%f", &handle, &size) == 3 else { throw unknownValue(name, value) }
+            guard value.scan("%255[^:]:%f:%f", &handle, &size) == 3, size.allSatisfy(\.isFinite) else { throw unknownValue(name, value) }
             return .resize(parseResizeHandle(Token(cString: handle)), dx: size[0], dy: size[1])
         case .ratio:
             var type: [CChar] = []
             var ratio: [Float] = [0]
-            guard value.scan("%255[^:]:%f", &type, &ratio) == 2 else { throw unknownValue(name, value) }
+            guard value.scan("%255[^:]:%f", &type, &ratio) == 2, ratio[0].isFinite else { throw unknownValue(name, value) }
             return .ratio(parseValueType(Token(cString: type)), ratio[0])
         case .subLayer:
             guard let layer = parseLayer(value) else { throw unknownValue(name, value) }

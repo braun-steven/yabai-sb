@@ -853,7 +853,7 @@ extension DaemonState
             #expect(result.response == "\u{07}could not locate the window to act on!\n")
         }
 
-        @Test(arguments: ["--ratio abs:nan", "--ratio rel:nan", "--resize right:nan:0", "--resize right:inf:0"])
+        @Test(arguments: ["--ratio abs:nan", "--ratio rel:nan", "--ratio abs:inf", "--resize right:nan:0", "--resize right:inf:0"])
         func nonFiniteValuesLeaveTheTree(_ command: String)
         {
             let space = row()
@@ -861,21 +861,18 @@ extension DaemonState
 
             let result = run(command, in: space)
 
-            withKnownIssue("ISSUES.md 6: a non-finite ratio or resize value changes the shares of every window") {
-                expectNoDifference(result.tree, before)
-            }
+            #expect(result.response.hasPrefix("\u{07}unknown value"))
+            expectNoDifference(result.tree, before)
         }
 
-        @Test func infiniteRatioIsClamped()
+        @Test(arguments: [Float.nan, .infinity, -.infinity])
+        func nonFiniteResizeLeavesTheShares(_ delta: Float)
         {
             let space = row()
+            let before = space.dump
 
-            let result = run("--ratio abs:inf", in: space)
-
-            // NOTE: like abs:0.95, which the right neighbor can only give down to its smallest share
-            #expect(result.response.isEmpty)
-            #expect(abs(space.node(2).percent - (1 - 1 / 3 - 0.05)) < 1e-4)
-            #expect(abs(space.node(3).percent - 0.05) < 1e-4)
+            #expect(!space.node(2).resize(.east, by: delta))
+            expectNoDifference(space.dump, before)
         }
 
         // MARK: - Ratio arithmetic

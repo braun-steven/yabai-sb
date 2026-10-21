@@ -1119,7 +1119,7 @@ extension Con
 
         let parent = first.parent!
         let size = orientation == .horizontal ? parent.area.w : parent.area.h
-        if size <= 0.0 { return false }
+        if size <= 0.0 || !delta.isFinite { return false }
 
         let change = (backward ? -delta : delta) / size
         var firstPercent = first.percent + change

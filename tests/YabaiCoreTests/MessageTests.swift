@@ -419,6 +419,12 @@ private let windowCommandFailureRows: [(String, String, Bool)] = [
     ("--split\0diagonal\0", "unknown value 'diagonal' given to command '--split' for domain 'window'\n", true),
     ("--opacity\01.5\0", "unknown value '1.5' given to command '--opacity' for domain 'window'\n", false),
     ("--grid\0a\0", "unknown value 'a' given to command '--grid' for domain 'window'\n", false),
+    ("--move\0rel:nan:0\0", "unknown value 'rel:nan:0' given to command '--move' for domain 'window'\n", false),
+    ("--move\0abs:0:-inf\0", "unknown value 'abs:0:-inf' given to command '--move' for domain 'window'\n", false),
+    ("--resize\0right:nan:0\0", "unknown value 'right:nan:0' given to command '--resize' for domain 'window'\n", false),
+    ("--resize\0right:inf:0\0", "unknown value 'right:inf:0' given to command '--resize' for domain 'window'\n", false),
+    ("--ratio\0abs:nan\0", "unknown value 'abs:nan' given to command '--ratio' for domain 'window'\n", false),
+    ("--ratio\0rel:-inf\0", "unknown value 'rel:-inf' given to command '--ratio' for domain 'window'\n", false),
     ("--scratchpad\0float\0", "'float' is a reserved keyword and cannot be used as a scratchpad.\n", false),
     ("--space\0", "value '' is not a valid option for SPACE_SEL\n", false),
 ]

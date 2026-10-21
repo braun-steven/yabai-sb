@@ -578,9 +578,10 @@ Template:
     showed it; rule and signal messages now draw pairs from their own keys, and half start with valid pairs.
   - Type-checker timeouts, optional `Gen.element(of:)`, `do throws(CommandError)` in property closures and the lost
     invalid UTF-8 of re-encoded tokens cost time; all are in `doc/live-testing.md`.
-  - Quirk pinned, not filed: with a gap, the cells of a grid of three or more columns are not equally wide and the
-    gaps between them differ (`middleCellOfThreeColumns`): the bounds shrink by the gap before they are divided. It
-    is the arithmetic of the C code; ask the user whether it should change.
+  - Bug found and fixed (in its own commit, at the user's request): with a gap, the cells of a grid of three or more
+    columns or rows were not equally wide and the gaps between them differed, because the bounds shrank by the gap
+    before they were divided (the C arithmetic). `Grid.frame` now takes the gaps out once and divides the rest evenly
+    (`cellsAreEqualAndOneGapApart`, `cellsOfThreeColumns`); CHANGELOG entry under Changed.
   - The optional deploy smoke test was skipped: the user asked not to replace the live binary. The extractions are
     covered by unit tests only; `make install` built `bin/yabai` (no test libraries in `otool -L`).
 - **Next phase should know:**

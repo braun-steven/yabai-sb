@@ -54,16 +54,33 @@ private let display = CGRect(x: 0, y: 0, width: 1000, height: 500)
         #expect(Grid(1, 1, 0, 0, 1, 1).frame(in: display, padding: (top: 5, bottom: 5, left: 5, right: 5), gap: 20) == Area(x: 5, y: 5, w: 990, h: 490))
     }
 
-    // NOTE: The cells shrink by the gap before the bounds are divided, so a middle cell is narrower than an outer one
-    // and the gaps between cells of three or more columns are not all the same.
-    @Test func middleCellOfThreeColumns()
+    // NOTE: The cells of a grid are the same size and one gap apart, also with three or more columns.
+    @Test(arguments: [nil, 0, 20, 7])
+    func cellsAreEqualAndOneGapApart(_ gap: Int?)
     {
-        let first = Grid(1, 3, 0, 0, 1, 1).frame(in: display, padding: nil, gap: 20)
-        let middle = Grid(1, 3, 1, 0, 1, 1).frame(in: display, padding: nil, gap: 20)
-        let last = Grid(1, 3, 2, 0, 1, 1).frame(in: display, padding: nil, gap: 20)
-        #expect(middle == Area(x: 340, y: 0, w: 320, h: 500))
-        #expect(abs(first.w - 980.0 / 3) < 1e-3 && abs(first.x) < 1e-3)
-        #expect(abs(last.x - (1000 - 980.0 / 3)) < 1e-3 && abs(last.w - 980.0 / 3) < 1e-3)
+        let padding: Padding = (top: 10, bottom: 20, left: 30, right: 40)
+        for columns in UInt32(1)...6 {
+            let cells = (0..<columns).map { Grid(2, columns, $0, 1, 1, 1).frame(in: display, padding: padding, gap: gap) }
+            let width = cells[0].w
+            for (index, cell) in cells.enumerated() {
+                #expect(abs(cell.w - width) < 1e-3, "\(columns) columns, cell \(index)")
+                #expect(cell.y == cells[0].y && cell.h == cells[0].h)
+            }
+            for (left, right) in zip(cells, cells.dropFirst()) {
+                #expect(abs(right.x - (left.x + left.w) - Float(gap ?? 0)) < 1e-3, "\(columns) columns")
+            }
+            #expect(cells[0].x == 30)
+            #expect(abs(cells.last!.x + cells.last!.w - 960) < 1e-3)
+        }
+    }
+
+    @Test func cellsOfThreeColumns()
+    {
+        #expect(Grid(1, 3, 0, 0, 1, 1).frame(in: display, padding: nil, gap: 20) == Area(x: 0, y: 0, w: 320, h: 500))
+        #expect(Grid(1, 3, 1, 0, 1, 1).frame(in: display, padding: nil, gap: 20) == Area(x: 340, y: 0, w: 320, h: 500))
+        #expect(Grid(1, 3, 2, 0, 1, 1).frame(in: display, padding: nil, gap: 20) == Area(x: 680, y: 0, w: 320, h: 500))
+        // a cell of two columns covers the gap between them
+        #expect(Grid(1, 3, 1, 0, 2, 1).frame(in: display, padding: nil, gap: 20) == Area(x: 340, y: 0, w: 660, h: 500))
     }
 
     @Test func gridWithoutRowsOrColumnsIsNotFinite()

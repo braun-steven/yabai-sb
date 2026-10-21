@@ -63,6 +63,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Fixed a crash of the process that runs signal commands, which left a crash report each time signals were sent
 - Query responses (*query*, *rule --list*, *signal --list*) are compact JSON with alphabetically sorted keys and numbers in their shortest form (`0`, `1512.5`, `0.9` instead of `0.0000`, `1512.5000`, `0.9000`); non-finite numbers are the strings "nan", "inf" and "-inf". Keys, values and types are unchanged; pipe the output through `jq` for indented JSON
 - *query --windows* reports *is-visible* false for a window that is on no space, where it was true before; a shown sticky window still reports visible. *query --tree* and *query --displays --space* without an active space now fail with an error
+- With a window gap, the cells of *window --grid*, the *grid=* rule effect and *scratchpad_grid* are all the same size and one gap apart; before, the middle cells of a grid with three or more columns or rows were narrower than the outer ones and the gaps between them differed
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

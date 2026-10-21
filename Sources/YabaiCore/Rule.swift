@@ -105,9 +105,9 @@ extension Grid
 {
     //
     // NOTE: The cell is clamped into the grid: x and y to the last column and row, width and height to at least one
-    // cell and at most the rest of the grid. The arithmetic wraps like the unsigned C math, so a grid of 0 rows or
-    // columns gives a frame that is not finite instead of trapping. The gap separates the cell from the neighboring
-    // cells, not from the edges of bounds.
+    // cell and at most the rest of the grid. The clamping wraps like the unsigned C math, so a grid of 0 rows or
+    // columns gives a frame that is not finite instead of trapping. The gap lies between every two neighboring cells,
+    // not at the edges of bounds, and all cells are the same size.
     //
 
     /// The frame of the cell in bounds, inside padding (top, bottom, left, right) and the gap; nil leaves either out.
@@ -130,29 +130,13 @@ extension Grid
             bounds.size.height -= CGFloat(padding.top + padding.bottom)
         }
 
-        if let gap {
-            let gap = CGFloat(gap)
-
-            if x > 0 {
-                bounds.origin.x   += gap
-                bounds.size.width -= gap
-            }
-
-            if y > 0 {
-                bounds.origin.y    += gap
-                bounds.size.height -= gap
-            }
-
-            if columns > x &+ width { bounds.size.width  -= gap }
-            if rows > y &+ height { bounds.size.height -= gap }
-        }
-
-        let cellWidth = Float(bounds.size.width / CGFloat(columns))
-        let cellHeight = Float(bounds.size.height / CGFloat(rows))
-        return Area(x: Float(bounds.origin.x + bounds.size.width - CGFloat(cellWidth * Float(columns &- x))),
-                    y: Float(bounds.origin.y + bounds.size.height - CGFloat(cellHeight * Float(rows &- y))),
-                    w: cellWidth * Float(width),
-                    h: cellHeight * Float(height))
+        let gap = CGFloat(gap ?? 0)
+        let cellWidth = (bounds.size.width - gap * (CGFloat(columns) - 1)) / CGFloat(columns)
+        let cellHeight = (bounds.size.height - gap * (CGFloat(rows) - 1)) / CGFloat(rows)
+        return Area(x: Float(bounds.origin.x + CGFloat(x) * (cellWidth + gap)),
+                    y: Float(bounds.origin.y + CGFloat(y) * (cellHeight + gap)),
+                    w: Float(CGFloat(width) * cellWidth + CGFloat(width - 1) * gap),
+                    h: Float(CGFloat(height) * cellHeight + CGFloat(height - 1) * gap))
     }
 }
 

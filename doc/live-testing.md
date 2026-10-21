@@ -36,6 +36,12 @@ point below was learned the hard way; read it before running anything live.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
+- View tests (`tests/YabaiTests/ViewInsertionTests.swift`) seed a tree view into `SpaceManager.shared.views` and its
+  windows into `WindowManager.shared.window` / `managedWindows` (never `addManagedWindow`, which reaches the window
+  server and Dock), then call `View.add` / `View.remove` and compare `treeDump` text with `assertInlineSnapshot(of:as:
+  .lines)`. A snapshot without a trailing closure is recorded into the test source on the first run (which fails
+  once); review every recorded tree before committing. Keep `autoPadding` off there: a change of the auto padding
+  re-layouts through `View.update`, which asks SkyLight for the display of the space.
 - Tree property tests (`tests/YabaiTests/TreePropertyTests.swift`) apply random operations to a tree and check its
   invariants after every step. Compare trees with `treeDump` and `expectNoDifference`. A failure prints a seed: add
   `@Test(.fixedSeed("…"))` to replay it. Generators of the YabaiCore enums are in `tests/YabaiTestSupport/Generators.swift`.

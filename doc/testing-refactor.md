@@ -32,7 +32,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 0 | Infrastructure: fixture trait, dependencies, coverage | done (`56c21609`) |
 | 1 | Headless mode | done (`65772e64`) |
 | 2 | Tree model properties | done (see the Phase 2 handover) |
-| 3 | Opening and closing windows | open |
+| 3 | Opening and closing windows | done (see the Phase 3 handover) |
 | 4 | Layout geometry | open |
 | 5 | Window commands end to end | open |
 | 6 | Rules, signals, config | open |
@@ -342,3 +342,41 @@ Template:
     `apply(.open…)` mirrors `View.add`'s anchor choice without the insertion point.
   - To reproduce a property failure, copy the seed from the failure message into `@Test(.fixedSeed("…"))`.
   - The older `TreeTests` still use small ids (`treeTestLeaf(root, 1)`). They never reach the window server.
+
+### Phase 3: Opening and closing windows
+- **Did:**
+  - `tests/YabaiTests/ViewInsertionTests.swift` (in DaemonState): a `Workspace` fixture (a tree view at space
+    `0xFFFF_0100`, area 1200×800, windows `w<n>` with an `Application()` registered in `window` and `managedWindows`).
+    30 tests, trees as inline `treeDump` snapshots:
+    - `View.add`: empty view, after the focused window, an unfocused window staying behind the focus, a duplicate, no
+      focused window, a focused window of another space, a selected container (focus parent) versus a selected leaf,
+      the passed insertion point (in and outside the tree), the view's insertion point for all four directions
+      (parameterized) and stack (new tab, existing tab), an insertion point without a direction, a tab of a tabbed
+      container, autotiling (split along the longer side, tabs left alone), `tree_default_orientation` (5 rows) and
+      `tree_workspace_layout` tabbed.
+    - `View.attach(_:from:)` for a container from another display, `View.destroy` unmanaging the windows, and
+      `Con.title` (`H[Safari V[iTerm2 T[Safari iTerm2]]]`, window title, application name).
+    - `View.remove`: a window not in the tree, shares going to the siblings, flattening, the last tab closing its
+      container, the insertion point, `treeFocusCandidate` before closing, and the last window resetting the root.
+  - `ViewTests` uses space `0xFFFF_0000` instead of `1`.
+  - `doc/live-testing.md` "Unit tests": the view test fixture and inline snapshot recording.
+- **Coverage:** `View.add` and `View.remove` fully covered. `TreeView.swift` 53% → 62% (from the Phase 2 state),
+  `View.swift` 32% → 39%, `Con.swift` 100%. Total 30.7% → 31.6%. 188 tests (62 YabaiCore, 126 Yabai).
+- **Issues / pitfalls:**
+  - No bugs found.
+  - Layouts print by raw value in the dump (`splith`, `splitv`, `tabbed(splith)`).
+  - `assertInlineSnapshot` without a closure records into the source on the first run and fails once. Review the
+    recorded trees: one test first recorded a tree that did not test what its name said (a workspace-level tabbed
+    container never empties); it now uses a stack insertion point.
+  - The `updateAutoPadding() == true` branch of `add`/`remove` is not exercised: it goes through
+    `updateWithAutoPadding`, which reads `sid.display` from SkyLight and keeps the old area when that is nil. Line
+    coverage counts the line as covered.
+- **Next phase should know:**
+  - Reuse the `Workspace` fixture shape for Phase 4/5 (it is `private` to the file; move it to `TreeFixtures.swift`
+    when a second file needs it).
+  - Auto padding on and off (Phase 4 snapshots) needs a display frame without SkyLight: either a headless gate in
+    `updateWithAutoPadding` (e.g. a fixed headless display frame) or set `isUnpadded`/`area` by hand as
+    `ViewTests` does. Decide in Phase 4.
+  - The rest of `TreeView.swift` that is still uncovered: `needsFlush`/`frame(for:)` zoom (Phase 4), and bars,
+    tab ordering, feedback and `flushTree`, which reach SkyLight or the payload (`collectTabOrder`/`raiseTabs` are
+    pure up to `ScriptingAddition.orderWindows` and could be tested headless).

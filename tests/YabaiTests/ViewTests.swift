@@ -17,7 +17,7 @@ extension DaemonState
         /// A tree view with padding, a gap and auto padding enabled.
         private func autoPaddingView() -> View
         {
-            let target = View(sid: 1)
+            let target = View(sid: 0xFFFF_0000)
 
             target.tree = Con(layout: .splitH)
             target.layout = .tree

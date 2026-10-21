@@ -77,6 +77,28 @@ point below was learned the hard way; read it before running anything live.
   `@Test(.fixedSeed("…"))` to replay it. Each run draws a new seed, so a rare failure can pass the first runs: run a
   new property ten times or so (`swift test --filter DaemonState` in a loop) before committing. Generators of the
   YabaiCore enums are in `tests/YabaiTestSupport/Generators.swift`.
+- Parser property tests (`tests/YabaiCoreTests/ParserPropertyTests.swift`) send random messages (keywords, key-value
+  pairs, long digit runs, non-finite and hexadecimal floats, invalid UTF-8) through the YabaiCore parsers and
+  selectors, with `FixtureContext` (`tests/YabaiCoreTests/FixtureContext.swift`) for the lookups; each must parse or
+  throw a response line. Never send random messages through `handleMessage`: they could run real space or display
+  commands. Build random tokens as bytes: a `Token` decodes into a `String`, so re-encoding it loses invalid UTF-8.
+  Mostly random tokens rarely form a valid rule or signal: give each domain its own keys and values, and check that the
+  success paths are reached (count them once by hand) when changing a generator.
+- PropertyBased generators: `Gen.element(of:)` yields an Optional; pick by index (`Gen<Int>.int(in:).map { choices[$0] }`,
+  which also shrinks towards the first choice). `Gen.oneOf`/`frequency` of several mapped generators and inline tuple
+  tables in `@Test(arguments:)` can exceed the type checker's time limit: declare the parts as typed `let`s,
+  `.eraseToAny()` them, and put argument rows in a typed `static let`. A `propertyCheck` closure throws `any Error`,
+  so a `do`/`catch` of typed errors inside it needs `do throws(CommandError)`.
+- Pure helpers are tested with parameterized rows (`HelperTests.swift`, `MouseValueTests`, `BorderDecisionTests`,
+  `WindowAnimationTickTests`, `DisplayManagerTests`; `GridTests.swift` and `AreaTests.swift` in YabaiCore). Keep the
+  decisions of window-server code in such helpers (`Grid.frame`, `Area.closest`, `Border.isEnabled`/`BorderShape`,
+  `WindowAnimation.interpolate`/`proxyTransform`, `DisplayManager.orderedBuiltinLast`).
+- Image snapshots (`TabBarTests.titlesDrawnIntoTabs`) are PNGs in `tests/YabaiTests/__Snapshots__/<test file>/`,
+  compared with `perceptualPrecision: 0.98`. The first run records and fails; look at the image before committing.
+  Text rendering depends on the OS build: when an update changes it, disable that test and record it again
+  (`SNAPSHOT_TESTING_RECORD=all`).
+- Exit tests (`#expect(processExitsWith: .failure)`, `WMIsolationTests`) run their body in a child test process, only
+  where a trap is the contract (`WM.assumeIsolated` off yabai.wm).
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
   `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar

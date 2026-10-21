@@ -36,7 +36,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 4 | Layout geometry | done (see the Phase 4 handover) |
 | 5 | Window commands end to end | done (see the Phase 5 handover; coverage goal not reached) |
 | 6 | Rules, signals, config | done (see the Phase 6 handover) |
-| 7 | Parser robustness, pure helpers, extractions | open |
+| 7 | Parser robustness, pure helpers, extractions | done (see the Phase 7 handover) |
 | 8 | Tidy-up and docs | open |
 
 ## Background (as of Phase 0)
@@ -533,3 +533,58 @@ Template:
     display queries of a space or window (live session).
   - `EventSignal.swift` (14%) is the signal runner (`posix_spawn` of the actions); it was not in this phase's scope.
 
+### Phase 7: Parser robustness, pure helpers, extractions (`f2946bf8`, `024d430d`)
+- **Did:**
+  - `tests/YabaiCoreTests/ParserPropertyTests.swift`: 7 properties of 3000 random messages each through `WindowCommand`,
+    `SpaceCommand`, `DisplayCommand`, `ConfigCommand.parseScope`/`parseName`, `QueryCommand`, `RuleCommand` and
+    `parseRule`, `SignalCommand` (and so `parseSignal`), and the window/space/display/insert selectors resolved through
+    `FixtureContext`. Commands are parsed in a loop like `runCommands`. Tokens are bytes: keywords of every domain,
+    key-value pairs with the keys of rules or signals, long digit runs, `nan`/`inf`/hexadecimal floats, Unicode, and
+    random bytes with invalid UTF-8. Each message must parse or throw a failure that ends in a newline.
+  - `FixtureContext` moved from `MessageTests.swift` to `tests/YabaiCoreTests/FixtureContext.swift`; its
+    `stackPosition` lookup no longer traps on a position below 1.
+  - Parameterized tests: `AnimationEasing` over `allCases` (endpoints, monotonic within 0...1, in-out curves point
+    symmetric, sample values), `RGBAColor(hex:)`, `clampedX/YRadius`, `containsIncludingEdges`, `isInTriangle` (both
+    orientations, edges and corners outside, degenerate triangles), `Float.clamped`, `OSTimer.milliseconds` (wrap,
+    large timestamps), `ProcessSerialNumber.isSame`, `UnixSocket` against a listening socket in `/tmp`
+    (`HelperTests.swift`); `MouseDropAction.insertDirection`, `MouseModifiers(flags)`, `MouseModifierKey`
+    (`MouseValueTests`); `TabBar.separatorColor`, `TabBar.cardPadding`, `TabBarGlass.tint` (replaces
+    `tab_bar_glass_tint_default`).
+  - Extractions, each with tests:
+    - `Grid.frame(in:padding:gap:)` in YabaiCore (`Rule.swift`, next to `Grid`); `applyGrid` passes the display
+      bounds and the view's padding and gap. `GridTests.swift`: a table, padding, gaps, clamping, a grid of zero
+      rows, and a property that a cell spans the one-cell frames it covers.
+    - `Area.closest(in:among:)` in YabaiCore; `DisplayID.closestDisplay` maps it over `DisplayID.all`. `AreaTests`
+      now tests it instead of its own copy of the loop, plus all four directions and ties.
+    - `WindowAnimation.progress(at:since:duration:)`, `interpolate(from:to:at:)` and `proxyTransform(of:at:)` from the
+      display link tick (`WindowAnimationTickTests`).
+    - `Border.isEnabled(_:shows:visible:tiled:scratchpad:windowCount:)` (autoclosures, so the window and the window
+      server are only asked when they decide, as before) and `BorderShape` (insets, radius, area; `Border.shape`)
+      from `Border.refresh` (`BorderDecisionTests`, which also checks when the autoclosures run).
+    - `DisplayManager.orderedBuiltinLast(_:enabled:isBuiltin:)`, nonisolated (`DisplayManagerTests`).
+  - Image snapshot `TabBarTests.titlesDrawnIntoTabs` (Menlo 12, i3 and glass, an icon, a truncated title, icon only,
+    title only; `__Snapshots__/TabBarTests/titlesDrawnIntoTabs.1.png`, reviewed) and `nothingIsDrawnIntoATabWithoutRoom`.
+  - Exit test `WMIsolationTests.assumeIsolatedTrapsOffTheQueue`, plus the passing cases on the queue.
+  - `doc/live-testing.md` "Unit tests": parser properties, PropertyBased pitfalls, the helper tests, image snapshots,
+    exit tests.
+- **Coverage:** `Helpers.swift` 28% → 100%. YabaiCore parsers: `Selector`, `MessageParse`, `Rule`, `RuleCommand`,
+  `Area` 100%, `Message` 99%, `WindowCommand` 99%, `SpaceCommand` 99%, `QueryCommand` 99%, `SignalCommand` 97% (the
+  `preconditionFailure` that `parseSignal` rules out). Total 40.0% → 42.1%. 306 tests (77 YabaiCore, 229 Yabai), 11
+  known issues; the suite passed eight runs in a row.
+- **Issues / pitfalls:**
+  - No crash found: every random message parsed or failed with a response line, including the inputs of ISSUES.md 6
+    and 7 (they succeed with wrong values, which the properties do not judge).
+  - The first generator was too shallow: 4 of 2000 rules and no signal parsed. Counting the successes once by hand
+    showed it; rule and signal messages now draw pairs from their own keys, and half start with valid pairs.
+  - Type-checker timeouts, optional `Gen.element(of:)`, `do throws(CommandError)` in property closures and the lost
+    invalid UTF-8 of re-encoded tokens cost time; all are in `doc/live-testing.md`.
+  - Quirk pinned, not filed: with a gap, the cells of a grid of three or more columns are not equally wide and the
+    gaps between them differ (`middleCellOfThreeColumns`): the bounds shrink by the gap before they are divided. It
+    is the arithmetic of the C code; ask the user whether it should change.
+  - The optional deploy smoke test was skipped: the user asked not to replace the live binary. The extractions are
+    covered by unit tests only; `make install` built `bin/yabai` (no test libraries in `otool -L`).
+- **Next phase should know:**
+  - Phase 8's `@Test(arguments:)` conversions: inline tuple tables can time out the type checker; use typed static
+    tables, and `nonisolated static let` in `@WM` suites.
+  - The image snapshot depends on the OS's text rendering; it is the only file snapshot so far.
+  - `TabBar.drawTitle` is `@WM` (the class is), so its test lives in the DaemonState `TabBarTests`.

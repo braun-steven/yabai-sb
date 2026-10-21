@@ -37,16 +37,36 @@ private func failureText(_ failure: CommandError?) -> String
     #expect(!unterminated.next().isValid)
 }
 
-@Test func tokenValues()
+/// A token value as text, without the token of a string.
+private func valueText(_ value: TokenValue) -> String
 {
-    guard case .int(42) = Token("42").value else { Issue.record("42"); return }
-    guard case .u32(0xff) = Token("0xFF").value else { Issue.record("0xFF"); return }
-    guard case .float(0.5) = Token("0.5").value else { Issue.record("0.5"); return }
-    guard case .float(100) = Token("1e2").value else { Issue.record("1e2"); return }
-    guard case .string = Token("0x").value else { Issue.record("0x"); return }
-    guard case .string = Token("-1x").value else { Issue.record("-1x"); return }
-    guard case .invalid = Token("").value else { Issue.record("empty"); return }
+    switch value {
+    case .invalid:          return "invalid"
+    case .int(let value):   return "int(\(value))"
+    case .u32(let value):   return "u32(\(value))"
+    case .float(let value): return "float(\(value))"
+    case .string:           return "string"
+    }
+}
 
+private let tokenValueRows: [(String, String)] = [
+    ("42", "int(42)"),
+    ("0xFF", "u32(255)"),
+    ("0.5", "float(0.5)"),
+    ("1e2", "float(100.0)"),
+    ("0x", "string"),
+    ("-1x", "string"),
+    ("", "invalid"),
+]
+
+@Test(arguments: tokenValueRows)
+func tokenValue(_ text: String, _ value: String)
+{
+    #expect(valueText(Token(text).value) == value)
+}
+
+@Test func tokenConversions()
+{
     // NOTE: like the int of the C version, a long number wraps around
     #expect(Token("4294967297").positiveInteger == 1)
     #expect(Token("0x100000001").hexadecimal == 1)
@@ -249,22 +269,39 @@ private enum TestProperty: String, CaseIterable, Sendable
 // NOTE: The typed selectors and commands of the window domain.
 //
 
-@Test func typedSelectorsParseWithoutLookups()
-{
-    #expect(WindowSelector(Token("8")) == .id(8))
-    #expect(WindowSelector(Token("east")) == .direction(.east))
-    #expect(WindowSelector(Token("stack.2")) == .stack(.position(2)))
-    #expect(WindowSelector(Token("stack.recent")) == .stack(.recent))
-    #expect(WindowSelector(Token("stack.0")) == nil)
-    #expect(WindowSelector(Token("0x10")) == nil)
-    #expect(WindowSelector(Token("")) == nil)
+private let windowSelectorRows: [(String, WindowSelector?)] = [
+    ("8", .id(8)),
+    ("east", .direction(.east)),
+    ("stack.2", .stack(.position(2))),
+    ("stack.recent", .stack(.recent)),
+    ("stack.0", nil),
+    ("0x10", nil),
+    ("", nil),
+]
 
+@Test(arguments: windowSelectorRows)
+func windowSelectorParsesWithoutLookups(_ text: String, _ selector: WindowSelector?)
+{
+    #expect(WindowSelector(Token(text)) == selector)
+}
+
+private let spaceSelectorRows: [(String, SpaceSelector?)] = [
+    ("3", .missionControl(3)),
+    ("recent", .recent),
+    ("1.5", nil),
+    ("0x10", nil),
+]
+
+@Test(arguments: spaceSelectorRows)
+func spaceSelectorParsesWithoutLookups(_ text: String, _ selector: SpaceSelector?)
+{
+    #expect(SpaceSelector(Token(text)) == selector)
+}
+
+@Test func displaySelectorsParseWithoutLookups()
+{
     #expect(DisplaySelector(Token("west")) == .direction(.west))
     #expect(DisplaySelector(Token("main")) == .label(Token("main")))
-    #expect(SpaceSelector(Token("3")) == .missionControl(3))
-    #expect(SpaceSelector(Token("recent")) == .recent)
-    #expect(SpaceSelector(Token("1.5")) == nil)
-    #expect(SpaceSelector(Token("0x10")) == nil)
 }
 
 @Test func typedSelectorsResolveThroughTheContext() throws
@@ -332,55 +369,55 @@ private func parseWindowCommand(_ text: String) -> (WindowCommand?, String, Bool
     #expect(WindowCommand.Name.swap.needsWindow)
 }
 
-@Test func windowCommandValues()
+private let windowCommandRows: [(String, WindowCommand)] = [
+    ("--swap\0east\0", .swap(.direction(.east))),
+    ("--focus\0parent\0", .focus(.container(.parent))),
+    ("--focus\0", .focus(.window(nil))),
+    ("--focus\0recent\0", .focus(.window(.recent))),
+    ("--display\0main\0", .display(.label(Token("main")))),
+    ("--move\0rel:10:-5\0", .move(.rel, dx: 10, dy: -5)),
+    ("--move\0sideways:1:2\0", .move(nil, dx: 1, dy: 2)),
+    ("--resize\0top_left:1:2\0", .resize([.top, .left], dx: 1, dy: 2)),
+    ("--ratio\0abs:0.3\0", .ratio(.abs, 0.3)),
+    ("--grid\04:4:1:1:2:2\0", .grid(Grid(4, 4, 1, 1, 2, 2))),
+    ("--opacity\01\0", .opacity(1)),
+    ("--toggle\0float\0", .toggle(.float)),
+    ("--toggle\0notes\0", .toggleScratchpad(Token("notes"))),
+    ("--scratchpad\0recover\0", .scratchpad(.recover)),
+    ("--scratchpad\0term\0", .scratchpad(.assign(label: "term"))),
+    ("--scratchpad\0", .scratchpad(.remove)),
+    ("--layout\0toggle-split\0", .layout(.toggleSplit)),
+    ("--split\0vertical\0", .split(.fixed(.vertical))),
+    ("--insert\0stack\0", .insert(.stack)),
+]
+
+@Test(arguments: windowCommandRows)
+func windowCommandValue(_ text: String, _ command: WindowCommand)
 {
-    #expect(parseWindowCommand("--swap\0east\0").0 == .swap(.direction(.east)))
-    #expect(parseWindowCommand("--focus\0parent\0").0 == .focus(.container(.parent)))
-    #expect(parseWindowCommand("--focus\0").0 == .focus(.window(nil)))
-    #expect(parseWindowCommand("--focus\0recent\0").0 == .focus(.window(.recent)))
-    #expect(parseWindowCommand("--display\0main\0").0 == .display(.label(Token("main"))))
-    #expect(parseWindowCommand("--move\0rel:10:-5\0").0 == .move(.rel, dx: 10, dy: -5))
-    #expect(parseWindowCommand("--move\0sideways:1:2\0").0 == .move(nil, dx: 1, dy: 2))
-    #expect(parseWindowCommand("--resize\0top_left:1:2\0").0 == .resize([.top, .left], dx: 1, dy: 2))
-    #expect(parseWindowCommand("--ratio\0abs:0.3\0").0 == .ratio(.abs, 0.3))
-    #expect(parseWindowCommand("--grid\04:4:1:1:2:2\0").0 == .grid(Grid(4, 4, 1, 1, 2, 2)))
-    #expect(parseWindowCommand("--opacity\01\0").0 == .opacity(1))
-    #expect(parseWindowCommand("--toggle\0float\0").0 == .toggle(.float))
-    #expect(parseWindowCommand("--toggle\0notes\0").0 == .toggleScratchpad(Token("notes")))
-    #expect(parseWindowCommand("--scratchpad\0recover\0").0 == .scratchpad(.recover))
-    #expect(parseWindowCommand("--scratchpad\0term\0").0 == .scratchpad(.assign(label: "term")))
-    #expect(parseWindowCommand("--scratchpad\0").0 == .scratchpad(.remove))
-    #expect(parseWindowCommand("--layout\0toggle-split\0").0 == .layout(.toggleSplit))
-    #expect(parseWindowCommand("--split\0vertical\0").0 == .split(.fixed(.vertical)))
-    #expect(parseWindowCommand("--insert\0stack\0").0 == .insert(.stack))
+    let (parsed, failure, _) = parseWindowCommand(text)
+    #expect(failure == "")
+    #expect(parsed == command)
 }
 
-@Test func windowCommandFailures()
+// NOTE: an invalid optional selector stops the message, an invalid required one does not
+private let windowCommandFailureRows: [(String, String, Bool)] = [
+    ("--focus\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", true),
+    ("--swap\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", false),
+    ("--layout\0stacked\0", "unknown value 'stacked' given to command '--layout' for domain 'window'\n", true),
+    ("--split\0diagonal\0", "unknown value 'diagonal' given to command '--split' for domain 'window'\n", true),
+    ("--opacity\01.5\0", "unknown value '1.5' given to command '--opacity' for domain 'window'\n", false),
+    ("--grid\0a\0", "unknown value 'a' given to command '--grid' for domain 'window'\n", false),
+    ("--scratchpad\0float\0", "'float' is a reserved keyword and cannot be used as a scratchpad.\n", false),
+    ("--space\0", "value '' is not a valid option for SPACE_SEL\n", false),
+]
+
+@Test(arguments: windowCommandFailureRows)
+func windowCommandFailure(_ text: String, _ failure: String, _ stopsMessage: Bool)
 {
-    // NOTE: an invalid optional selector stops the message, an invalid required one does not
-    let focus = parseWindowCommand("--focus\0bogus\0")
-    #expect(focus.1 == "value 'bogus' is not a valid option for WINDOW_SEL\n")
-    #expect(focus.2)
-
-    let swap = parseWindowCommand("--swap\0bogus\0")
-    #expect(swap.1 == "value 'bogus' is not a valid option for WINDOW_SEL\n")
-    #expect(!swap.2)
-
-    let layout = parseWindowCommand("--layout\0stacked\0")
-    #expect(layout.1 == "unknown value 'stacked' given to command '--layout' for domain 'window'\n")
-    #expect(layout.2)
-
-    let split = parseWindowCommand("--split\0diagonal\0")
-    #expect(split.1 == "unknown value 'diagonal' given to command '--split' for domain 'window'\n")
-    #expect(split.2)
-
-    let opacity = parseWindowCommand("--opacity\01.5\0")
-    #expect(opacity.1 == "unknown value '1.5' given to command '--opacity' for domain 'window'\n")
-    #expect(!opacity.2)
-
-    #expect(parseWindowCommand("--grid\0a\0").1 == "unknown value 'a' given to command '--grid' for domain 'window'\n")
-    #expect(parseWindowCommand("--scratchpad\0float\0").1 == "'float' is a reserved keyword and cannot be used as a scratchpad.\n")
-    #expect(parseWindowCommand("--space\0").1 == "value '' is not a valid option for SPACE_SEL\n")
+    let (parsed, response, stops) = parseWindowCommand(text)
+    #expect(parsed == nil)
+    #expect(response == failure)
+    #expect(stops == stopsMessage)
 }
 
 @Test func windowFocusTargetWithoutTree() throws
@@ -411,43 +448,60 @@ private func parseSpaceCommand(_ text: String) -> (SpaceCommand?, String, Bool)
     catch { return (nil, error.description, error.stopsMessage) }
 }
 
-@Test func typedSpaceAndDisplayCommands() throws
-{
-    #expect(parseSpaceCommand("--focus\0next\0").0 == .focus(.next))
-    #expect(parseSpaceCommand("--create\0west\0").0 == .create(.direction(.west)))
-    #expect(parseSpaceCommand("--destroy\0").0 == .destroy(nil))
-    #expect(parseSpaceCommand("--mirror\0x-axis\0").0 == .mirror(.xAxis))
-    #expect(parseSpaceCommand("--rotate\0180\0").0 == .rotate(180))
-    #expect(parseSpaceCommand("--padding\0abs:1:2:3:4\0").0 == .padding(.abs, top: 1, bottom: 2, left: 3, right: 4))
-    #expect(parseSpaceCommand("--gap\0rel:5\0").0 == .gap(.rel, 5))
-    #expect(parseSpaceCommand("--toggle\0mission-control\0").0 == .toggle(.missionControl))
-    #expect(parseSpaceCommand("--layout\0tree\0").0 == .layout(.tree))
+private let spaceCommandRows: [(String, SpaceCommand)] = [
+    ("--focus\0next\0", .focus(.next)),
+    ("--create\0west\0", .create(.direction(.west))),
+    ("--destroy\0", .destroy(nil)),
+    ("--mirror\0x-axis\0", .mirror(.xAxis)),
+    ("--rotate\0" + "180\0", .rotate(180)),
+    ("--padding\0abs:1:2:3:4\0", .padding(.abs, top: 1, bottom: 2, left: 3, right: 4)),
+    ("--gap\0rel:5\0", .gap(.rel, 5)),
+    ("--toggle\0mission-control\0", .toggle(.missionControl)),
+    ("--layout\0tree\0", .layout(.tree)),
+]
 
+@Test(arguments: spaceCommandRows)
+func spaceCommandValue(_ text: String, _ command: SpaceCommand)
+{
+    let (parsed, failure, _) = parseSpaceCommand(text)
+    #expect(failure == "")
+    #expect(parsed == command)
+}
+
+@Test func typedDisplayCommands() throws
+{
     var message = Message("main\0")
     #expect(try DisplayCommand.parse(.focus, &message) == .focus(.label(Token("main"))))
     message = Message("3\0")
     #expect(try DisplayCommand.parse(.space, &message) == .space(.missionControl(3)))
 }
 
-@Test func typedSpaceCommandFailures()
-{
-    let malformed = parseSpaceCommand("--rotate\0" + "45" + "\0")
-    #expect(malformed.1 == "unknown value '45' given to command '--rotate' for domain 'space'\n")
-    #expect(!malformed.2)
+private let spaceCommandFailureRows: [(String, String, Bool)] = [
+    ("--rotate\0" + "45\0", "unknown value '45' given to command '--rotate' for domain 'space'\n", false),
+    ("--destroy\01.2\0", "value '1.2' is not a valid option for SPACE_SEL\n", true),
+]
 
-    let invalidOptional = parseSpaceCommand("--destroy\01.2\0")
-    #expect(invalidOptional.1 == "value '1.2' is not a valid option for SPACE_SEL\n")
-    #expect(invalidOptional.2)
+@Test(arguments: spaceCommandFailureRows)
+func spaceCommandFailure(_ text: String, _ failure: String, _ stopsMessage: Bool)
+{
+    let (parsed, response, stops) = parseSpaceCommand(text)
+    #expect(parsed == nil)
+    #expect(response == failure)
+    #expect(stops == stopsMessage)
 }
 
-@Test func spaceCommandsThatNeedAnActingSpace()
+@Test(arguments: SpaceCommand.Name.allCases)
+func spaceCommandNeedsAnActingSpace(_ name: SpaceCommand.Name)
 {
-    for name in SpaceCommand.Name.allCases {
-        switch name {
-        case .focus, .switch, .create, .destroy, .move, .swap, .display: #expect(!name.needsActingSpace)
-        default: #expect(name.needsActingSpace)
-        }
+    switch name {
+    case .focus, .switch, .create, .destroy, .move, .swap, .display: #expect(!name.needsActingSpace)
+    default: #expect(name.needsActingSpace)
     }
+}
+
+@Test func spaceCommandNames()
+{
+    #expect(SpaceCommand.Name(Token("--rotate")) == .rotate)
     #expect(SpaceCommand.Name(Token("--bogus")) == nil)
 }
 
@@ -480,18 +534,6 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     #expect(rule.app?.text == "^Safari$")
     #expect(response == "")
 
-    (result, _, response) = parseRuleText("app=x\0manage=maybe\0")
-    #expect(result == false)
-    #expect(response.contains("invalid value 'maybe' for key 'manage'"))
-
-    (result, _, response) = parseRuleText("app=(\0")
-    #expect(result == false)
-    #expect(response.contains("invalid regex pattern '(' for key 'app'"))
-
-    (result, _, response) = parseRuleText("app=x\0label!=y\0")
-    #expect(result == false)
-    #expect(response.contains("unsupported token '!' (exclusion) given for key 'label'"))
-
     // NOTE: a repeated key replaces the earlier value, including its exclusion
     (result, rule, _) = parseRuleText("app!=a\0app=^b$\0label=x\0label=y\0")
     #expect(result == true)
@@ -508,11 +550,23 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
     (result, rule, _) = parseRuleText("app=x\0app=(\0")
     #expect(result == false)
     #expect(rule.app?.regex == nil)
+}
 
-    (result, _, response) = parseRuleText("manage=on\0colour=red\0")
+private let ruleFailureRows: [(String, [String])] = [
+    ("app=x\0manage=maybe\0", ["invalid value 'maybe' for key 'manage'"]),
+    ("app=(\0", ["invalid regex pattern '(' for key 'app'"]),
+    ("app=x\0label!=y\0", ["unsupported token '!' (exclusion) given for key 'label'"]),
+    ("manage=on\0colour=red\0", ["unknown key 'colour'", "missing required key-value pair"]),
+]
+
+@Test(arguments: ruleFailureRows)
+func ruleParseFailure(_ text: String, _ failures: [String])
+{
+    let (result, _, response) = parseRuleText(text)
     #expect(result == false)
-    #expect(response.contains("unknown key 'colour'"))
-    #expect(response.contains("missing required key-value pair"))
+    for failure in failures {
+        #expect(response.contains(failure))
+    }
 }
 
 @Test func ruleMatchingAndListFlags()

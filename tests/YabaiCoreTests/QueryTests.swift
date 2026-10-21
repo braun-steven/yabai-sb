@@ -16,43 +16,34 @@ private func windowInfoFixture() -> WindowInfo
     return info
 }
 
-@Test func queryCommandPropertiesAndTargets() throws
+private let queryCommandRows: [(String, QueryCommand)] = [
+    ("--windows\0id,frame\0--space\0recent\0", .windows(properties: [.id, .frame], target: .space(.recent))),
+    ("--displays\0--display\0west\0", .displays(properties: Set(DisplayInfo.Key.allCases), target: .display(.direction(.west)))),
+    ("--spaces\0--window\0", .spaces(properties: Set(SpaceInfo.Key.allCases), target: .window(nil))),
+    ("--windows\0id\0", .windows(properties: [.id], target: .all)),
+    ("--tree\0--space\0recent\0", .tree(space: .recent)),
+    ("--tree\0", .tree(space: nil)),
+]
+
+@Test(arguments: queryCommandRows)
+func queryCommandPropertiesAndTargets(_ text: String, _ command: QueryCommand) throws
 {
-    var message = Message("--windows\0id,frame\0--space\0recent\0")
-    #expect(try QueryCommand.parse(&message) == .windows(properties: [.id, .frame], target: .space(.recent)))
-
-    message = Message("--displays\0--display\0west\0")
-    #expect(try QueryCommand.parse(&message) == .displays(properties: Set(DisplayInfo.Key.allCases), target: .display(.direction(.west))))
-
-    message = Message("--spaces\0--window\0")
-    #expect(try QueryCommand.parse(&message) == .spaces(properties: Set(SpaceInfo.Key.allCases), target: .window(nil)))
-
-    message = Message("--windows\0id\0")
-    #expect(try QueryCommand.parse(&message) == .windows(properties: [.id], target: .all))
+    var message = Message(text)
+    #expect(try QueryCommand.parse(&message) == command)
 }
 
-@Test func queryCommandTreeSpaceSelector() throws
+private let queryCommandFailureRows: [(String, String)] = [
+    ("--unknown\0", "unknown command '--unknown' for domain 'query'\n"),
+    ("--windows\0bogus\0", "'bogus' is not a valid property.\n"),
+    ("--windows\0--other\0", "unknown option '--other' given to command '--windows' for domain 'query'\n"),
+    ("--tree\0--window\0", "unknown option '--window' given to command '--tree' for domain 'query'\n"),
+]
+
+@Test(arguments: queryCommandFailureRows)
+func queryCommandFailure(_ text: String, _ failure: String)
 {
-    var message = Message("--tree\0--space\0recent\0")
-    #expect(try QueryCommand.parse(&message) == .tree(space: .recent))
-
-    message = Message("--tree\0")
-    #expect(try QueryCommand.parse(&message) == .tree(space: nil))
-}
-
-@Test func queryCommandErrors()
-{
-    var message = Message("--unknown\0")
-    #expect(queryThrownText { () throws(CommandError) in _ = try QueryCommand.parse(&message) } == "unknown command '--unknown' for domain 'query'\n")
-
-    message = Message("--windows\0bogus\0")
-    #expect(queryThrownText { () throws(CommandError) in _ = try QueryCommand.parse(&message) } == "'bogus' is not a valid property.\n")
-
-    message = Message("--windows\0--other\0")
-    #expect(queryThrownText { () throws(CommandError) in _ = try QueryCommand.parse(&message) } == "unknown option '--other' given to command '--windows' for domain 'query'\n")
-
-    message = Message("--tree\0--window\0")
-    #expect(queryThrownText { () throws(CommandError) in _ = try QueryCommand.parse(&message) } == "unknown option '--window' given to command '--tree' for domain 'query'\n")
+    var message = Message(text)
+    #expect(queryThrownText { () throws(CommandError) in _ = try QueryCommand.parse(&message) } == failure)
 }
 
 private func json(_ value: some Encodable) -> String

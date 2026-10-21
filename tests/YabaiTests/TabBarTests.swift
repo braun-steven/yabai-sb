@@ -74,17 +74,28 @@ extension DaemonState
         @Test("tab_bar_glass_hit_slots")
         func glassHitSlots()
         {
-            let frame = CGRect(x: 10, y: 20, width: 103, height: 24)
+            let frame = Self.hitFrame
             let inner = TabBarGlass.innerRect(frame)
             let boundary = TabBar.slot(in: inner, index: 0, count: 3).maxX
             #expect(TabBar.hitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, count: 3, glass: true) == 0)
             #expect(TabBar.hitIndex(CGPoint(x: boundary, y: 21), frame: frame, count: 3, glass: true) == 1)
-            #expect(TabBar.hitIndex(CGPoint(x: 10, y: 21), frame: frame, count: 3, glass: true) == 0)
-            #expect(TabBar.hitIndex(CGPoint(x: 112.9, y: 21), frame: frame, count: 3, glass: true) == 2)
-            #expect(TabBar.hitIndex(CGPoint(x: 9, y: 21), frame: frame, count: 3, glass: true) == nil)
-            #expect(TabBar.hitIndex(CGPoint(x: 12, y: 21), frame: frame, count: 0, glass: true) == nil)
             #expect(TabBarGlass.innerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
-            #expect(TabBar.hitIndex(CGPoint(x: 44, y: 21), frame: frame, count: 3, glass: false) == 1)
+        }
+
+        nonisolated static let hitFrame = CGRect(x: 10, y: 20, width: 103, height: 24)
+
+        nonisolated static let hitRows: [(CGFloat, Int, Bool, Int?)] = [
+            (10, 3, true, 0),
+            (112.9, 3, true, 2),
+            (9, 3, true, nil),
+            (12, 0, true, nil),
+            (44, 3, false, 1),
+        ]
+
+        @Test(arguments: hitRows)
+        func hitIndex(_ x: CGFloat, _ count: Int, _ glass: Bool, _ index: Int?)
+        {
+            #expect(TabBar.hitIndex(CGPoint(x: x, y: 21), frame: Self.hitFrame, count: count, glass: glass) == index)
         }
 
         @Test("tab_bar_nested_card_order")

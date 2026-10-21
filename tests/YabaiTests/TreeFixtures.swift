@@ -2,6 +2,7 @@ import CPrivate
 import Foundation
 import YabaiCore
 @testable import Yabai
+import YabaiTestSupport
 
 // NOTE: The tree fixtures of the former C tests (tree_test_leaf and tree_test_split of tests/src/tree.c), shared
 // with the border tests. The calls name the Swift functions, which the C prototypes do not shadow here.
@@ -56,4 +57,58 @@ let treeTestWindowBase: UInt32 = 0xFFFF_0000
     lines.append(line)
 
     for child in node.children { treeDump(child, depth: depth + 1, into: &lines) }
+}
+
+func wid(_ n: UInt32) -> WindowID { WindowID(rawValue: treeTestWindowBase + n) }
+
+/// A tree view of a fake space with fake windows w<n>, registered in the window manager like managed windows (without
+/// addManagedWindow, which reaches the window server and the scripting addition).
+@WM final class Workspace
+{
+    static let sid: SpaceID = 0xFFFF_0100
+
+    let view = View(sid: Workspace.sid)
+    let application = Application()
+
+    init(area: Area = Area(x: 0, y: 0, w: 1200, h: 800))
+    {
+        view.layout = .tree
+        view.area = area
+        SpaceManager.shared.views[Workspace.sid] = view
+    }
+
+    var dump: String { treeDump(view.root) }
+
+    func node(_ n: UInt32) -> Con { view.findWindow(wid(n))! }
+
+    /// Opens window n; it gets focus when focus is true, as when the application focuses its new window.
+    @discardableResult
+    func open(_ n: UInt32, insertionPoint: UInt32? = nil, focus: Bool = false) -> Window
+    {
+        let target = Window(id: wid(n))
+        target.application = application
+        WindowManager.shared.window[target.id] = target
+        WindowManager.shared.managedWindows[target.id] = view
+        if focus { WindowManager.shared.focusedWindowID = target.id }
+
+        view.add(target, insertionPoint: insertionPoint.map(wid))
+        return target
+    }
+
+    func focus(_ n: UInt32)
+    {
+        WindowManager.shared.focusedWindowID = wid(n)
+        view.tree?.select(nil)
+        node(n).focus()
+    }
+
+    @discardableResult
+    func close(_ n: UInt32) -> Bool
+    {
+        let target = WindowManager.shared.window[wid(n)]!
+        let result = view.remove(target)
+        WindowManager.shared.managedWindows[target.id] = nil
+        WindowManager.shared.window[target.id] = nil
+        return result
+    }
 }

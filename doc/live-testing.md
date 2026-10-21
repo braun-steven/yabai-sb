@@ -23,9 +23,10 @@ point below was learned the hard way; read it before running anything live.
   models (`flushHeadless`: no AX, tab bars, feedback windows or borders), `animateWindows`/`animateWindow` do the
   same without reading `SLS.windowBounds`, and `ScriptingAddition.send` records the message bytes instead of
   reaching Dock (`payloadIsCurrent` is true). `Headless.drain()` returns and clears the recorded placements and
-  messages (`tests/YabaiTests/HeadlessTests.swift`). Lay out a seeded view with `view.area = …` and `updateTree()`:
-  `View.update()` asks SkyLight for the display. Gaps: `ScriptingAddition.orderIn` still queries
-  `SLS.windowIsOrderedIn` before it sends.
+  messages (`tests/YabaiTests/HeadlessTests.swift`). `View.update()` (and auto padding) lays a view out in
+  `Headless.displayFrame` (1440×900 at the origin, reset per test) instead of asking SkyLight for the display; or
+  lay out a seeded view with `view.area = …` and `updateTree()`. Gaps: `ScriptingAddition.orderIn` still queries
+  `SLS.windowIsOrderedIn` before it sends, and `View.create` asks SkyLight for the space's uuid.
 - Fake ids are real ids in the test process: windows, spaces and displays of the user's session have small ids, so
   a call that reaches the window server with `1` or `2` can act on a real one. Use large fake ids
   (`0xFFFF_0000` and up) and keep headless mode in the path.
@@ -36,15 +37,22 @@ point below was learned the hard way; read it before running anything live.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
-- View tests (`tests/YabaiTests/ViewInsertionTests.swift`) seed a tree view into `SpaceManager.shared.views` and its
-  windows into `WindowManager.shared.window` / `managedWindows` (never `addManagedWindow`, which reaches the window
-  server and Dock), then call `View.add` / `View.remove` and compare `treeDump` text with `assertInlineSnapshot(of:as:
-  .lines)`. A snapshot without a trailing closure is recorded into the test source on the first run (which fails
-  once); review every recorded tree before committing. Keep `autoPadding` off there: a change of the auto padding
-  re-layouts through `View.update`, which asks SkyLight for the display of the space.
+- View tests (`tests/YabaiTests/ViewInsertionTests.swift`, `LayoutTests.swift`) use the `Workspace` fixture
+  (`TreeFixtures.swift`): a tree view seeded into `SpaceManager.shared.views` and its windows into
+  `WindowManager.shared.window` / `managedWindows` (never `addManagedWindow`, which reaches the window server and
+  Dock). They call `View.add` / `View.remove` / `flush` and compare `treeDump` text with `assertInlineSnapshot(of:as:
+  .lines)`, or the placements of a headless flush with `.descriptionLines` (`tests/YabaiTestSupport/Snapshotting.swift`).
+  A snapshot without a trailing closure is recorded into the test source on the first run (which fails once); check
+  every recorded tree and frame by hand before committing. With `autoPadding` on, a view lays itself out again in
+  the headless display frame, replacing the area the fixture set.
+- Layout property tests (`tests/YabaiTests/LayoutTests.swift`) lay out random `TreeModel` trees with random areas,
+  gaps and tab bar settings and check the areas (`layoutViolations`). Set `tab_bar_style` and the other bar values
+  explicitly: the default glass card insets tabbed containers.
 - Tree property tests (`tests/YabaiTests/TreePropertyTests.swift`) apply random operations to a tree and check its
   invariants after every step. Compare trees with `treeDump` and `expectNoDifference`. A failure prints a seed: add
-  `@Test(.fixedSeed("…"))` to replay it. Generators of the YabaiCore enums are in `tests/YabaiTestSupport/Generators.swift`.
+  `@Test(.fixedSeed("…"))` to replay it. Each run draws a new seed, so a rare failure can pass the first runs: run a
+  new property ten times or so (`swift test --filter DaemonState` in a loop) before committing. Generators of the
+  YabaiCore enums are in `tests/YabaiTestSupport/Generators.swift`.
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
   `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
   `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar

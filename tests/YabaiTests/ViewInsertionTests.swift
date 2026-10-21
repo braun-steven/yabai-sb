@@ -6,64 +6,10 @@ import YabaiCore
 import YabaiTestSupport
 
 //
-// NOTE: Opening and closing windows in a view: View.add and View.remove on a view seeded into the space manager, with
-// its windows registered in the window manager like managed windows (without addManagedWindow, which reaches the
-// window server and the scripting addition). The view keeps the area set here: View.update asks SkyLight for the
-// display, so these views have no auto padding, which would re-layout through it. The trees print with treeDump.
+// NOTE: Opening and closing windows in a view: View.add and View.remove on a Workspace view (TreeFixtures.swift). The
+// view keeps the area set here, as auto padding stays off: it would lay the view out again in the headless display
+// frame. The trees print with treeDump.
 //
-
-private func wid(_ n: UInt32) -> WindowID { WindowID(rawValue: treeTestWindowBase + n) }
-
-/// A tree view of a fake space with fake windows w<n>.
-@WM private final class Workspace
-{
-    static let sid: SpaceID = 0xFFFF_0100
-
-    let view = View(sid: Workspace.sid)
-    let application = Application()
-
-    init(area: Area = Area(x: 0, y: 0, w: 1200, h: 800))
-    {
-        view.layout = .tree
-        view.area = area
-        SpaceManager.shared.views[Workspace.sid] = view
-    }
-
-    var dump: String { treeDump(view.root) }
-
-    func node(_ n: UInt32) -> Con { view.findWindow(wid(n))! }
-
-    /// Opens window n; it gets focus when focus is true, as when the application focuses its new window.
-    @discardableResult
-    func open(_ n: UInt32, insertionPoint: UInt32? = nil, focus: Bool = false) -> Window
-    {
-        let target = Window(id: wid(n))
-        target.application = application
-        WindowManager.shared.window[target.id] = target
-        WindowManager.shared.managedWindows[target.id] = view
-        if focus { WindowManager.shared.focusedWindowID = target.id }
-
-        view.add(target, insertionPoint: insertionPoint.map(wid))
-        return target
-    }
-
-    func focus(_ n: UInt32)
-    {
-        WindowManager.shared.focusedWindowID = wid(n)
-        view.tree?.select(nil)
-        node(n).focus()
-    }
-
-    @discardableResult
-    func close(_ n: UInt32) -> Bool
-    {
-        let target = WindowManager.shared.window[wid(n)]!
-        let result = view.remove(target)
-        WindowManager.shared.managedWindows[target.id] = nil
-        WindowManager.shared.window[target.id] = nil
-        return result
-    }
-}
 
 extension DaemonState
 {

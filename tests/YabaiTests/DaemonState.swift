@@ -27,6 +27,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
     @WM static func reset()
     {
         Headless.enable()
+        Headless.displayFrame = Headless.defaultDisplayFrame
         Config.current.resetToDefaults()
         WindowManager.shared.initialize()
         WindowManager.shared.rules = []

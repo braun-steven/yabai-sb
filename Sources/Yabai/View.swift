@@ -162,8 +162,13 @@ enum ViewSpacing: CaseIterable, Sendable
     {
         isUnpadded = unpadded
 
-        guard let did = sid.display else { return }
-        let frame = did.constrainedBounds(ignoringExternalBar: false)
+        let frame: CGRect
+        if Headless.isEnabled {
+            frame = Headless.displayFrame
+        } else {
+            guard let did = sid.display else { return }
+            frame = did.constrainedBounds(ignoringExternalBar: false)
+        }
         area = rootArea(in: frame)
 
         updateTree()

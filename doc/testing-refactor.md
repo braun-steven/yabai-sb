@@ -33,7 +33,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 1 | Headless mode | done (`65772e64`) |
 | 2 | Tree model properties | done (see the Phase 2 handover) |
 | 3 | Opening and closing windows | done (see the Phase 3 handover) |
-| 4 | Layout geometry | open |
+| 4 | Layout geometry | done (see the Phase 4 handover) |
 | 5 | Window commands end to end | open |
 | 6 | Rules, signals, config | open |
 | 7 | Parser robustness, pure helpers, extractions | open |
@@ -380,3 +380,47 @@ Template:
   - The rest of `TreeView.swift` that is still uncovered: `needsFlush`/`frame(for:)` zoom (Phase 4), and bars,
     tab ordering, feedback and `flushTree`, which reach SkyLight or the payload (`collectTabOrder`/`raiseTabs` are
     pure up to `ScriptingAddition.orderWindows` and could be tested headless).
+
+### Phase 4: Layout geometry
+- **Did:**
+  - Headless display frame: `Headless.displayFrame` (1440×900 at the origin; `DaemonFixture.reset()` restores it).
+    `View.updateWithAutoPadding` lays out in it instead of asking SkyLight for the display, so `View.update`,
+    `updateAndFlush`, `clear` and auto padding work in tests. `WindowOrder` is `Equatable`.
+  - `tests/YabaiTestSupport/Snapshotting.swift`: `.descriptionLines`, one line per element's description.
+  - The `Workspace` fixture and `wid(_:)` moved from `ViewInsertionTests.swift` to `TreeFixtures.swift`.
+  - `tests/YabaiTests/LayoutTests.swift` (in DaemonState):
+    - Properties over `TreeModel` trees, random root areas (integral, 600–3000 × 400–2000), gaps 0–20 and random tab
+      bar settings (`BarSettings`: on/off, height, offset −40…20, glass/i3, backdrop, card padding), laid out through
+      `View.updateTree`: `layoutFillsTheRootArea` (300 runs; `layoutViolations`: within the root, splits filled one
+      gap apart, each child within 0.5 of its share and integral, the last child ends with the split, tabs share the
+      card frame below the bar and keep the bar's height), `zoomedWindowsGetTheFrameOfTheirParentOrTheRoot` (100) and
+      `flushPlacesEveryWindowAtItsFrame` (100: the headless placements equal `frame(for:)` with a zoomed window,
+      `needsFlush` is false afterwards, and a second flush records nothing).
+    - Examples: tabbed card frames and offsets, `Con.cardInset`, the remainder of the last child, `needsFlush` at
+      1.5 px (parameterized) and with zoom, `ViewSpacing`, `View.clear`, `borderArea` (active tab, hidden tab, split,
+      unknown window, no backdrop, zoom), `collectTabOrder` / `collectCardOrder` / `raiseTabs` (one payload message).
+    - Placement snapshots (`.descriptionLines` of the headless flush; trees as `.lines`): halves, three ways with
+      gaps, nested splits with padding, tabbed with a glass card, stacked with i3 bars and padding. Auto padding on
+      and off (parameterized) checks the placements of one, two and again one window with `#expect`.
+  - `doc/live-testing.md` "Unit tests": the headless display frame, the `Workspace` fixture, `.descriptionLines`,
+    the layout properties.
+- **Coverage:** `TreeView.swift` 62% → 66%: every line that stays off the window server is covered except the
+  card-id branch of `collectTabOrder` (2 lines, needs a glass panel). The 178 other uncovered lines are tab bar
+  rendering, feedback windows, `flushTree`, `focusWindow`, `cardDidOrder` and `refreshBars`, which reach SkyLight.
+  `View.swift` 39% → 75% (left: `View.create` and the SkyLight branch of `updateWithAutoPadding`). `Con.swift`
+  100%. Total 31.6% → 32.1%. 206 tests (62 YabaiCore, 144 Yabai), one known issue.
+- **Issues / pitfalls:**
+  - Bug found: a split shorter than its gaps (or whose rounded shares leave nothing) gives its last child a
+    negative length, which a flush then re-places every time (`CGRect` standardizes the size). `ISSUES.md` 5,
+    `negativeLengthInASplitShorterThanItsGaps` with `withKnownIssue`. The layout property skips splits with less
+    than a pixel per child, the flush property skips trees with a negative length. Fix in its own commit.
+  - Property failures depend on the random seed: the flush property passed the first full run and failed in a later
+    one. Run new properties ten times or so (`swift test --filter DaemonState` in a loop) before committing.
+  - `TabBarStyle.glass` with a backdrop insets tabbed containers by `cardPadding`; every layout test sets the bar
+    explicitly.
+- **Next phase should know:**
+  - `View.update()` now works headless, so Phase 5 commands that end in `updateAndFlush` lay out in the 1440×900
+    display frame; set `Headless.displayFrame` when a test needs another one. `View.create` still calls SkyLight.
+  - Use `Workspace` (`TreeFixtures.swift`) and `.descriptionLines` with `PlacementLine` (in `LayoutTests.swift`;
+    move it to `TreeFixtures.swift` if Phase 5 needs it) for the headless placements.
+  - `focusWindow` and `cardDidOrder` read `sid.isVisible` (SkyLight); window commands that focus may reach them.

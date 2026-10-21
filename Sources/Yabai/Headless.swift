@@ -33,6 +33,11 @@ enum Headless
 
     static var isEnabled: Bool { enabled.load(ordering: .relaxed) }
 
+    static let defaultDisplayFrame = CGRect(x: 0, y: 0, width: 1440, height: 900)
+
+    /// The display frame of every space in headless mode, which `View.update` lays out in instead of asking SkyLight.
+    @WM static var displayFrame = defaultDisplayFrame
+
     /// Turns headless mode on for the rest of the process and clears the log.
     static func enable()
     {

@@ -13,7 +13,7 @@ private let saVersion = String(cString: sa_payload_version())
 // an optional status byte, and legacy payload EOF remains an explicitly unconfirmed success.
 
 /// A window ordered relative to another one; the payload gets the fields one by one.
-struct WindowOrder
+struct WindowOrder: Equatable
 {
     var window: WindowID
     var order: Int32

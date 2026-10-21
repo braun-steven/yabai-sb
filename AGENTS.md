@@ -57,7 +57,16 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). Ther
 
 - Swift Testing (`@Test`, `#expect`). Tests live in `tests/`, not `Tests/` (case-insensitive filesystem).
 - Tests that change global managers belong in the serialized `DaemonState` suite and must not touch the
-  window server. Its `.daemonFixture` trait resets the managers before each test; set any non-default a test needs.
+  window server. Its `.daemonFixture` trait resets the managers before each test and turns on headless mode
+  (`Sources/Yabai/Headless.swift`: flushes, animations and payload messages are recorded, not sent); set any
+  non-default a test needs. Use large fake ids (`0xFFFF_0000` and up) and the `Workspace` fixture
+  (`TreeFixtures.swift`) for views and windows.
+- Property tests (PropertyBased) print a seed on failure: replay it with `@Test(.fixedSeed("…"))`. Run a new
+  property about ten times before committing. Inline and image snapshots re-record with `SNAPSHOT_TESTING_RECORD=all`;
+  review every recorded value.
+- Independent cases are `@Test(arguments:)` rows. `make coverage` shows line coverage. Run
+  `swift test --sanitize=thread` and `--sanitize=address` after test changes that involve sockets, threads or timeouts.
+- `doc/live-testing.md` "Unit tests" lists the fixtures, gates and pitfalls; read it before writing tests.
 - Deploys restart yabai and reset all layouts: tell the user beforehand and restore the installed binary
   afterward.
 

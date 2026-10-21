@@ -37,7 +37,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 5 | Window commands end to end | done (see the Phase 5 handover; coverage goal not reached) |
 | 6 | Rules, signals, config | done (see the Phase 6 handover) |
 | 7 | Parser robustness, pure helpers, extractions | done (see the Phase 7 handover) |
-| 8 | Tidy-up and docs | open |
+| 8 | Tidy-up and docs | done (see the Phase 8 handover) |
 
 ## Background (as of Phase 0)
 
@@ -589,3 +589,39 @@ Template:
     tables, and `nonisolated static let` in `@WM` suites.
   - The image snapshot depends on the OS's text rendering; it is the only file snapshot so far.
   - `TabBar.drawTitle` is `@WM` (the class is), so its test lives in the DaemonState `TabBarTests`.
+
+### Phase 8: Tidy-up and docs (`2b6269bf`, `b0b0333a`, and the docs commit)
+- **Did:**
+  - Parameterized tests: `MessageTests.swift` (token values, window/space selectors, window and space commands and
+    their failures, `needsActingSpace` over every space command, rule parse failures), `QueryTests.swift` (query
+    commands and failures) and `TabBarTests.hitIndex`. The cases were sequences of `#expect`s or `guard … return`
+    chains, where the first failing guard hid the rest; each row now runs and reports on its own. The tests that
+    check one sequence of state (`fontParse`, `messageRuleParse`'s replacement cases, the image snapshot) stay as
+    they are.
+  - Sanitizers: `swift test --sanitize=thread` passes with no reports. `--sanitize=address` killed the test process
+    with SIGPIPE (signal code 13) in about half the runs; fixed in `SAConnectionTests.swift` (see the issues).
+  - Docs: `doc/live-testing.md` "Unit tests" (re-recording inline snapshots, parameterized rows, the sanitizer
+    runs; the stale tree test bullet that named C functions is replaced) and "Sanitizers" (the SIGPIPE pitfall and
+    how to find it); `AGENTS.md` Tests (headless mode, fake ids, `Workspace`, property seeds, snapshots,
+    parameterized rows, coverage, sanitizers).
+- **Coverage:** unchanged by this phase (no production code changed). Final against the Phase 0 baseline: total
+  29.5% → 42.0%. YabaiCore about 95% → 98%. `Con.swift` 87% → 100%, `TreeView.swift` 37% → 66%, `View.swift`
+  28% → 76%, `IPC/MessageWindow.swift` 20% → 62%, `WindowManager+Layout/Tree/Geometry` 0% → 48/50/75%,
+  `WindowManager+Rules` 31% → 89%, `Helpers.swift` 28% → 100%. 313 tests (83 YabaiCore, 230 Yabai; parameterized
+  tests count once), 11 known issues, plus the golden replay (unchanged); the 9 osax payload tests were not run in this phase.
+- **Issues / pitfalls:**
+  - Test bug found by ASan: `withSAPeer` set `SO_NOSIGPIPE` on its server socket only after `recv`. Under ASan the
+    client's 150 ms deadline could expire first; macOS `setsockopt` then fails with EINVAL on a socket whose peer
+    has closed, and the next `send` raised SIGPIPE in the test process, which, unlike the daemon, does not ignore
+    it. The option is now set right after `socketpair`. With the crash gone, the same timing made
+    `.accepted`/handshake cases fail: the peer now uses a 2 s deadline, and the no-reply case waits for the client
+    to close instead of sleeping 250 ms, so only that case uses the short deadline.
+  - Finding the writer took time: SIGPIPE goes to the process, so lldb shows it on the main thread. Skipping groups
+    of tests narrowed it down; recorded in `doc/live-testing.md` "Sanitizers".
+  - `SNAPSHOT_TESTING_RECORD=all` re-records inline snapshots as well (checked on `ViewInsertionTests`: 22
+    recorded, no source change).
+- **Next phase should know:** this was the last phase. Open ends from earlier phases: ISSUES.md 5 (negative length
+  in a split shorter than its gaps), 6 (non-finite `--ratio`/`--resize` values) and 7 (32-bit wrap of integer
+  tokens) are pinned with `withKnownIssue` and wait for their fixes. The window server paths listed in the Phase 5
+  and 6 handovers (`--insert`, cross-space `--swap`/`--warp`, focus onto a leaf, rule space/display effects) need
+  more headless gates if they are to be covered.

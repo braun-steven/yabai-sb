@@ -49,7 +49,9 @@ point below was learned the hard way; read it before running anything live.
   Dock). They call `View.add` / `View.remove` / `flush` and compare `treeDump` text with `assertInlineSnapshot(of:as:
   .lines)`, or the placements of a headless flush with `.descriptionLines` (`tests/YabaiTestSupport/Snapshotting.swift`).
   A snapshot without a trailing closure is recorded into the test source on the first run (which fails once); check
-  every recorded tree and frame by hand before committing. With `autoPadding` on, a view lays itself out again in
+  every recorded tree and frame by hand before committing. After an intended change, re-record with
+  `SNAPSHOT_TESTING_RECORD=all swift test --filter <suite>` (inline and image snapshots; each recorded one fails),
+  run again without it, and review the diff. With `autoPadding` on, a view lays itself out again in
   the headless display frame, replacing the area the fixture set.
 - Window command tests (`tests/YabaiTests/WindowCommandTests.swift`) send `window …` messages through
   `handleMessage` (`Golden.run`) to a `Workspace` view, with the acting window set by `Workspace.act` (focus and
@@ -99,11 +101,14 @@ point below was learned the hard way; read it before running anything live.
   (`SNAPSHOT_TESTING_RECORD=all`).
 - Exit tests (`#expect(processExitsWith: .failure)`, `WMIsolationTests`) run their body in a child test process, only
   where a trap is the contract (`WM.assumeIsolated` off yabai.wm).
-- Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Yabai.con_create`,
-  `treeTestLeaf` and `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`) and set focus with
-  `Yabai.tree_focus`; the border tests use these fixtures too. In tests a tab bar
-  has no glass panel, so `tab_bar_card_id` returns 0; `tree_con_is_visible` works. Containers and views
-  are Swift classes; list helpers return arrays. Temporary storage and C-callable model shims are gone.
+- Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Con(layout:)`, `treeTestLeaf` and
+  `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`); the border tests use these fixtures too. In tests a tab
+  bar has no glass panel, so its `cardID` is nil.
+- Independent cases are parameterized: `@Test(arguments:)` over a typed table of rows (`windowCommandRows` in
+  `MessageTests.swift`), so each failing row shows its arguments and the others still run. In a `@WM` suite the
+  table is a `nonisolated static let`.
+- The suite also runs under the sanitizers (`swift test --sanitize=thread|address`, see "Sanitizers"); run both
+  after changing tests with sockets, threads or timeouts.
 
 ## The live harness
 

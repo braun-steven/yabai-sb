@@ -53,3 +53,17 @@ The full text is in git: `git show edf74650:doc/swift-refactor.md`.
 - **Test:** `negativeLengthInASplitShorterThanItsGaps` (`tests/YabaiTests/LayoutTests.swift`, `withKnownIssue`). The
   layout property skips such splits, and the flush property skips trees with a negative length.
 - **Next step:** decide the wanted layout (clamp lengths at 0, or shrink the gaps), then fix and drop `withKnownIssue`.
+
+## 6. A non-finite ratio or resize value changes every share
+
+- **Status:** open, minor. Found by the window command tests in Phase 5 of `doc/testing-refactor.md`.
+- **Where:** `WindowCommand.parse` (`Sources/YabaiCore/WindowCommand.swift`) reads `--ratio` and `--resize` values with
+  `%f`, which accepts `nan` and `inf`. `Float.clamped` (`Sources/Yabai/Helpers.swift`) passes NaN through, so
+  `WindowManager.ratioDelta` returns NaN, and `Con.resize` (`Sources/Yabai/Con.swift`) turns an infinite delta into
+  NaN (`inf - inf`) when it clamps the second share.
+- **Symptom:** on `w1 | w2 | w3`, `window --ratio abs:nan`, `--ratio rel:nan` and `--resize right:nan:0` (w2 acting)
+  succeed and lay the windows out at 25%, 25% and 50%; `--resize right:inf:0` grows w1 to 58%. `--ratio abs:inf` is
+  clamped and works.
+- **Test:** `nonFiniteValuesLeaveTheTree` (`tests/YabaiTests/WindowCommandTests.swift`, `withKnownIssue`).
+- **Next step:** reject non-finite values in the parser (a failure like other unknown values) and make `Con.resize`
+  ignore a non-finite delta; then drop `withKnownIssue`.

@@ -25,7 +25,10 @@ point below was learned the hard way; read it before running anything live.
   reaching Dock (`payloadIsCurrent` is true). `Headless.drain()` returns and clears the recorded placements and
   messages (`tests/YabaiTests/HeadlessTests.swift`). `View.update()` (and auto padding) lays a view out in
   `Headless.displayFrame` (1440×900 at the origin, reset per test) instead of asking SkyLight for the display; or
-  lay out a seeded view with `view.area = …` and `updateTree()`. Gaps: `ScriptingAddition.orderIn` still queries
+  lay out a seeded view with `view.area = …` and `updateTree()`. The window selectors that look in the active space's tree
+  (`first`, `last`, `prev`, `next`, `largest`, `smallest`, `stack.*`) use `Headless.activeSpace` (nil unless a test
+  sets it) instead of `SpaceID.active`, so they find a seeded view instead of the user's space. `SpaceID.active`
+  itself still asks SkyLight: the golden replay's `space` failures depend on the user's session having an active space. Gaps: `ScriptingAddition.orderIn` still queries
   `SLS.windowIsOrderedIn` before it sends, and `View.create` asks SkyLight for the space's uuid.
 - Fake ids are real ids in the test process: windows, spaces and displays of the user's session have small ids, so
   a call that reaches the window server with `1` or `2` can act on a real one. Use large fake ids
@@ -33,7 +36,8 @@ point below was learned the hard way; read it before running anything live.
 - Shared test helpers (the id literals) live in the `YabaiTestSupport` target (`tests/YabaiTestSupport/`), which
   cannot depend on the executable `Yabai`: daemon fixtures stay in `tests/YabaiTests/`.
 - `make coverage` (`scripts/coverage.sh`) prints the line coverage of `Sources/` per file;
-  `make coverage COVERAGE_FILTER='Con|TreeView'` limits the files shown.
+  `make coverage COVERAGE_FILTER='Con|TreeView'` limits the files shown. Write `+` in a file name as `.`
+  (`WindowManager.Tree`): make drops the backslash of `\+`, and the files silently disappear from the table.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
@@ -45,6 +49,13 @@ point below was learned the hard way; read it before running anything live.
   A snapshot without a trailing closure is recorded into the test source on the first run (which fails once); check
   every recorded tree and frame by hand before committing. With `autoPadding` on, a view lays itself out again in
   the headless display frame, replacing the area the fixture set.
+- Window command tests (`tests/YabaiTests/WindowCommandTests.swift`) send `window …` messages through
+  `handleMessage` (`Golden.run`) to a `Workspace` view, with the acting window set by `Workspace.act` (focus and
+  `setPendingFocus`); `windowCommand` replaces `w<n>` tokens with the fake ids. Rows of (command, failure, tree) check
+  the response, the `treeDump` and that the command flushed what it changed. Only commands that stay off the window
+  server up to the flush belong there: not `--focus <window>`, `--space`, `--display`, `--stack`, `--insert`,
+  `--toggle split`, the `mouse` selector, or `--move`/`--grid`/relative `--resize` of unmanaged windows (they ask
+  SkyLight for the window's space, focus windows or reach AX).
 - Layout property tests (`tests/YabaiTests/LayoutTests.swift`) lay out random `TreeModel` trees with random areas,
   gaps and tab bar settings and check the areas (`layoutViolations`). Set `tab_bar_style` and the other bar values
   explicitly: the default glass card insets tabbed containers.

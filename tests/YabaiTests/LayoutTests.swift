@@ -135,23 +135,6 @@ struct LayoutArea: Sendable, CustomStringConvertible
     for child in node.children { layoutViolations(child, in: bounds, gap: gap, bar: bar, into: &result) }
 }
 
-/// A placement of a headless flush, with the window named like treeDump does.
-struct PlacementLine: CustomStringConvertible
-{
-    var placement: RecordedPlacement
-
-    var description: String
-    {
-        let p = placement
-        return "w\(p.windowID.rawValue - treeTestWindowBase): \(Int(p.x)),\(Int(p.y)) \(Int(p.w))x\(Int(p.h))"
-    }
-}
-
-@WM private func drainPlacements() -> [PlacementLine]
-{
-    Headless.drain().placements.map { PlacementLine(placement: $0) }
-}
-
 @WM private func leaves(_ root: Con) -> [Con]
 {
     root.windowIDs.map { root.find($0)! }

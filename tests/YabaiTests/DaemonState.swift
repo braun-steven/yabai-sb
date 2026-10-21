@@ -28,6 +28,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
     {
         Headless.enable()
         Headless.displayFrame = Headless.defaultDisplayFrame
+        Headless.activeSpace = nil
         Config.current.resetToDefaults()
         WindowManager.shared.initialize()
         WindowManager.shared.rules = []

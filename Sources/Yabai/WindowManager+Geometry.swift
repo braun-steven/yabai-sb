@@ -3,6 +3,14 @@ import YabaiCore
 
 extension WindowManager
 {
+    /// The change of length (in points, along a parent of `size`) that gives a container of share `percent` its new
+    /// share: `ratio` added to it (rel) or `ratio` itself (abs, or no type), clamped to 0.05…0.95.
+    static func ratioDelta(from percent: Float, type: ValueType?, ratio: Float, size: Float) -> Float
+    {
+        let target = type == .rel ? percent + ratio : ratio
+        return (target.clamped(min: 0.05, max: 0.95) - percent) * size
+    }
+
     func adjustWindowRatio(for target: Window, type: ValueType?, ratio: Float) throws(WindowOperationError)
     {
         guard let owner = treeView(for: target) else { throw .invalidSourceView }
@@ -14,8 +22,7 @@ extension WindowManager
 
         let horizontal = parent.layout == .splitH
         let size = horizontal ? parent.area.w : parent.area.h
-        let percent = type == .rel ? node.percent + ratio : ratio
-        let delta = (percent.clamped(min: 0.05, max: 0.95) - node.percent) * size
+        let delta = Self.ratioDelta(from: node.percent, type: type, ratio: ratio, size: size)
 
         if !node.resize(horizontal ? .east : .south, by: delta) &&
            !node.resize(horizontal ? .west : .north, by: -delta) {

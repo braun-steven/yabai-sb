@@ -69,7 +69,7 @@ extension WindowManager
 
     private func activeTreeView() -> View?
     {
-        guard let sid = SpaceID.active else { return nil }
+        guard let sid = Headless.isEnabled ? Headless.activeSpace : SpaceID.active else { return nil }
         let owner = SpaceManager.shared.view(for: sid)
         return owner.tree != nil ? owner : nil
     }

@@ -34,7 +34,7 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
 | 2 | Tree model properties | done (see the Phase 2 handover) |
 | 3 | Opening and closing windows | done (see the Phase 3 handover) |
 | 4 | Layout geometry | done (see the Phase 4 handover) |
-| 5 | Window commands end to end | open |
+| 5 | Window commands end to end | done (see the Phase 5 handover; coverage goal not reached) |
 | 6 | Rules, signals, config | open |
 | 7 | Parser robustness, pure helpers, extractions | open |
 | 8 | Tidy-up and docs | open |
@@ -424,3 +424,56 @@ Template:
   - Use `Workspace` (`TreeFixtures.swift`) and `.descriptionLines` with `PlacementLine` (in `LayoutTests.swift`;
     move it to `TreeFixtures.swift` if Phase 5 needs it) for the headless placements.
   - `focusWindow` and `cardDidOrder` read `sid.isVisible` (SkyLight); window commands that focus may reach them.
+
+### Phase 5: Window commands end to end
+- **Did:**
+  - Headless gate: `Headless.activeSpace` (nil by default; `DaemonFixture.reset()` clears it). The window selectors
+    that look in the active space's tree (`first`, `last`, `prev`, `next`, `largest`, `smallest`, `stack.*`) use it
+    instead of `SpaceID.active` (`WindowManager.activeTreeView`). `SpaceID.active` itself is unchanged: see the issues.
+  - Extraction: `WindowManager.ratioDelta(from:type:ratio:size:)` (`WindowManager+Geometry.swift`), the ratio→delta
+    arithmetic of `adjustWindowRatio`.
+  - `PlacementLine` and `drainPlacements()` moved from `LayoutTests.swift` to `TreeFixtures.swift`.
+  - `tests/YabaiTests/WindowCommandTests.swift` (in DaemonState), 20 tests (about 130 cases). Messages go through
+    `Golden.run`; `windowCommand` turns `w<n>` into fake ids, `Workspace.act` sets focus and `setPendingFocus`,
+    `Workspace.settle` flushes before the command. Rows of `CommandCase` (command, failure, `treeDump`), each also
+    checking that every window is placed at its frame afterwards (`expectPlaced`):
+    - On `w1 | w2 | w3` (36 rows): `--ratio rel:/abs:` (clamping, unknown type = abs, last child, parse failure),
+      `--resize` (managed edges, a failing edge, `abs`), `--split`, `--layout` (all six values), `--swap`/`--warp`
+      by direction and by id, `--focus parent` with `--layout`/`--ratio`, chained commands and a leading selector.
+    - On `w1 | T[w2 w3 w4] | w5` (20 rows): the same commands from a tab, `--focus parent|child` chains, `--stack`
+      onto itself.
+    - Selectors (29 rows, `--swap <sel>`, the tree order checked): directions, `prev/next/first/last`,
+      `largest/smallest`, `recent`, `stack.prev/next/first/last/recent/<n>`, ids, an unknown id, a missing value, a
+      leading selector; plus the failures without an active space or a managed recent window.
+    - The only window (9 rows), an unmanaged acting window (10 rows), no acting window.
+    - Placements (inline snapshots): `--ratio`, zoom-parent on the space (= fullscreen) and of a tab, zoom-fullscreen.
+    - `treeFocusCandidate`, `treeFocusAfterClose`, `--focus north` without a neighbor, `ratioDelta` (12 rows).
+  - Docs: `doc/live-testing.md` "Unit tests" (the window command tests, `Headless.activeSpace`, the coverage filter).
+- **Coverage:** `WindowManager+Geometry` 0% → 75%, `+Layout` 0% → 48%, `+Tree` 8% → 50% (the three together 4%
+  → 54%), `+Lookup` 0% → 78%, `IPC/MessageWindow` 20% → 62%. Total 32.1% → 35.3%. 226 tests (62 YabaiCore, 164
+  Yabai), 5 known issues.
+- **Issues / pitfalls:**
+  - **Done criterion not met:** Layout/Tree/Geometry reach 54%, not 60%. What is left reaches the window server:
+    `setWindowInsertion` (`--insert`) asks SkyLight for `target.id.space`, which is nil for a fake window, so it only
+    fails with "the acting window is not managed."; `stackWindow` of two windows and `--swap`/`--warp` across views
+    move windows between spaces (`SpaceID.moveWindow(s)`, `SLS.hasBridgedWindowOperation`); `treeMove` to another
+    display, `treeFocusDisplay`; a successful `treeFocus`/`treeFocusChild` onto a leaf calls `focusWithRaise`, which
+    traps on the nil `ref` of a fake window; `moveWindow`/relative `resizeWindow` of unmanaged windows use AX.
+    Covering these needs more headless gates (e.g. for `Window.space` and `SpaceID.moveWindows`); decide whether
+    that is worth it.
+  - Bug found: `--ratio abs:nan`, `--ratio rel:nan`, `--resize right:nan:0` and `--resize right:inf:0` succeed and
+    redistribute every share (`ISSUES.md` 6, `nonFiniteValuesLeaveTheTree` with `withKnownIssue`). The parser's `%f`
+    accepts `nan`/`inf`. Fix in its own commit; Phase 7's parser properties should include non-finite floats.
+  - A first gate in `SpaceID.active` broke the golden replay: `space --foo` then failed with "could not locate the
+    space to act on!" instead of the unknown command. The `space` records of the golden replay depend on the user's
+    session having an active space; the gate was narrowed to `activeTreeView`.
+  - `make coverage COVERAGE_FILTER='WindowManager\+Tree'` silently shows nothing: write `.` for `+`.
+  - Behavior worth knowing, matching the manual: `--swap` acts on windows even with a selected container, `--warp`
+    and `--layout` act on the selection; `--layout` of a selected container changes its parent (i3); zoom-parent of a
+    window directly on the space becomes zoom-fullscreen; `smallest` picks the visible tab (the glass card is smaller).
+- **Next phase should know:**
+  - The rule tests of Phase 6 can reuse `Golden.run` and `Workspace`; `windowCommand` and `CommandCase` are internal
+    to the test target.
+  - Static argument tables in a `@WM` suite must be `nonisolated static let`, or `@Test(arguments:)` fails to compile.
+  - Commands that end in `focusWithRaise` (`--focus <window>`, a direction focus that finds a leaf) trap on a fake
+    window's nil `ref`; check with `Con.neighbor` first, as `focusInADirectionWithoutANeighborFails` does.

@@ -38,6 +38,10 @@ enum Headless
     /// The display frame of every space in headless mode, which `View.update` lays out in instead of asking SkyLight.
     @WM static var displayFrame = defaultDisplayFrame
 
+    /// The active space of the window selectors that look in its tree (`first`, `stack.next`, …) in headless mode,
+    /// instead of asking SkyLight; nil when no test sets it.
+    @WM static var activeSpace: SpaceID?
+
     /// Turns headless mode on for the rest of the process and clears the log.
     static func enable()
     {

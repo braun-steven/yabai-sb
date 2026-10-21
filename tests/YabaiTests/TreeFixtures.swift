@@ -61,6 +61,24 @@ let treeTestWindowBase: UInt32 = 0xFFFF_0000
 
 func wid(_ n: UInt32) -> WindowID { WindowID(rawValue: treeTestWindowBase + n) }
 
+/// A placement of a headless flush, with the window named like treeDump does.
+struct PlacementLine: CustomStringConvertible
+{
+    var placement: RecordedPlacement
+
+    var description: String
+    {
+        let p = placement
+        return "w\(p.windowID.rawValue - treeTestWindowBase): \(Int(p.x)),\(Int(p.y)) \(Int(p.w))x\(Int(p.h))"
+    }
+}
+
+/// The placements recorded since the last drain.
+@WM func drainPlacements() -> [PlacementLine]
+{
+    Headless.drain().placements.map { PlacementLine(placement: $0) }
+}
+
 /// A tree view of a fake space with fake windows w<n>, registered in the window manager like managed windows (without
 /// addManagedWindow, which reaches the window server and the scripting addition).
 @WM final class Workspace

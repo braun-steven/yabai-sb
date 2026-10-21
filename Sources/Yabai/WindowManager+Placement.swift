@@ -36,56 +36,17 @@ extension WindowManager
 
     func applyGrid(_ grid: Grid, to target: Window) throws(WindowOperationError)
     {
-        let rows = grid.rows, columns = grid.columns
         if managedView(for: target) != nil { throw .invalidSourceView }
 
         guard let displayID = target.id.displayID else { throw .invalidSourceView }
 
-        var x = grid.x, y = grid.y, width = grid.width, height = grid.height
-        if x >= columns { x = columns &- 1 }
-        if y >= rows { y = rows &- 1 }
-        if width <= 0 { width = 1 }
-        if height <= 0 { height = 1 }
-        if width > columns &- x { width = columns &- x }
-        if height > rows &- y { height = rows &- y }
-
-        var bounds = displayID.constrainedBounds(ignoringExternalBar: false)
-
         // NOTE: A display without a space applies the grid without padding and gaps because its view has none.
         let displayView = displayID.currentSpace.map { SpaceManager.shared.view(for: $0) }
+        let padding = displayView.flatMap { $0.isPaddingEnabled ? (top: $0.topPadding, bottom: $0.bottomPadding, left: $0.leftPadding, right: $0.rightPadding) : nil }
+        let gap = displayView.flatMap { $0.isGapEnabled ? $0.windowGap : nil }
 
-        if let displayView, displayView.isPaddingEnabled {
-            bounds.origin.x    += CGFloat(displayView.leftPadding)
-            bounds.size.width  -= CGFloat(displayView.leftPadding + displayView.rightPadding)
-            bounds.origin.y    += CGFloat(displayView.topPadding)
-            bounds.size.height -= CGFloat(displayView.topPadding + displayView.bottomPadding)
-        }
-
-        if let displayView, displayView.isGapEnabled {
-            let gap = CGFloat(displayView.windowGap)
-
-            if x > 0 {
-                bounds.origin.x   += gap
-                bounds.size.width -= gap
-            }
-
-            if y > 0 {
-                bounds.origin.y    += gap
-                bounds.size.height -= gap
-            }
-
-            if columns > x &+ width { bounds.size.width  -= gap }
-            if rows > y &+ height { bounds.size.height -= gap }
-        }
-
-        let cellWidth = Float(bounds.size.width / CGFloat(columns))
-        let cellHeight = Float(bounds.size.height / CGFloat(rows))
-        let frameX = Float(bounds.origin.x + bounds.size.width - CGFloat(cellWidth * Float(columns &- x)))
-        let frameY = Float(bounds.origin.y + bounds.size.height - CGFloat(cellHeight * Float(rows &- y)))
-        let frameWidth = cellWidth * Float(width)
-        let frameHeight = cellHeight * Float(height)
-
-        animateWindow(WindowPlacement(window: target, x: frameX, y: frameY, w: frameWidth, h: frameHeight))
+        let frame = grid.frame(in: displayID.constrainedBounds(ignoringExternalBar: false), padding: padding, gap: gap)
+        animateWindow(WindowPlacement(window: target, x: frame.x, y: frame.y, w: frame.w, h: frame.h))
     }
 
     func makeWindowFloating(_ target: Window, shouldFloat: Bool, force: Bool)

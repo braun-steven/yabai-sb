@@ -83,7 +83,9 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     /// The display spaces of the window server, with builtin_display_last applied.
     var managedDisplaySpaces: [NSDictionary]
     {
-        return orderedBuiltinLast(SLS.managedDisplaySpaces(SLS.connection), displaySpaces: true)
+        return DisplayManager.orderedBuiltinLast(SLS.managedDisplaySpaces(SLS.connection), enabled: Config.current.display.builtinDisplayLast) {
+            DisplayManager.isBuiltin(uuid: $0["Display Identifier"])
+        }
     }
 
     //
@@ -106,7 +108,9 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
             sorted = mutable as CFArray
         }
 
-        return orderedBuiltinLast((sorted as NSArray as? [String]) ?? [], displaySpaces: false)
+        return DisplayManager.orderedBuiltinLast((sorted as NSArray as? [String]) ?? [], enabled: Config.current.display.builtinDisplayLast) {
+            DisplayManager.isBuiltin(uuid: $0)
+        }
     }
 
     /// The uuid of the display at an arrangement index (1-based).
@@ -120,20 +124,15 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
         return displays[index]
     }
 
-    /// Moves the first builtin display of a list to its end, when builtin_display_last is set. displaySpaces reads the uuid
-    /// from the "Display Identifier" of each dictionary of the list.
-    private func orderedBuiltinLast<T>(_ list: [T], displaySpaces: Bool) -> [T]
+    /// Moves the first builtin display of a list to its end when enabled (builtin_display_last); isBuiltin tells
+    /// whether an item of the list is a builtin display.
+    nonisolated static func orderedBuiltinLast<T>(_ list: [T], enabled: Bool, isBuiltin: (T) -> Bool) -> [T]
     {
-        if !Config.current.display.builtinDisplayLast { return list }
+        if !enabled { return list }
 
-        for i in 0..<max(list.count - 1, 0) {
-            let item = list[i]
-            let uuid: Any? = displaySpaces ? (item as? NSDictionary)?["Display Identifier"] : (item as Any)
-            if !DisplayManager.isBuiltin(uuid: uuid) { continue }
-
+        for i in 0..<max(list.count - 1, 0) where isBuiltin(list[i]) {
             var result = list
-            result.remove(at: i)
-            result.append(item)
+            result.append(result.remove(at: i))
             return result
         }
 

@@ -38,22 +38,11 @@ private func isInDirection(_ a: Int, _ b: Int, _ direction: Direction) -> Bool
     #expect(isInDirection(0, 2, .east) == true)
 }
 
+/// The index of the display of displayList closest to source in a direction, -1 when there is none.
 private func closestDisplayInDirection(_ source: Int, _ direction: Direction) -> Int
 {
-    var bestIndex = -1
-    var bestDistance = Int(Int32.max)
-
-    for i in displayList.indices where i != source {
-        if isInDirection(source, i, direction) {
-            let distance = Area.distanceInDirection(displayList[source].area, displayList[source].max, displayList[i].area, displayList[i].max, direction)
-            if distance < bestDistance {
-                bestIndex = i
-                bestDistance = distance
-            }
-        }
-    }
-
-    return bestIndex
+    let others = displayList.indices.filter { $0 != source }
+    return displayList[source].area.closest(in: direction, among: others.map { displayList[$0].area }).map { others[$0] } ?? -1
 }
 
 @Test("closest_display_in_direction") func closestDisplayInDirection()
@@ -64,4 +53,35 @@ private func closestDisplayInDirection(_ source: Int, _ direction: Direction) ->
     #expect(closestDisplayInDirection(0, .east) == 2)
     #expect(closestDisplayInDirection(1, .east) == 0)
     #expect(closestDisplayInDirection(2, .east) == -1)
+}
+
+@Test func closestAreaInEveryDirection()
+{
+    // candidates 0 to 3 touch the center at its north, east, west and south side; 4 lies far below 3
+    let center = Area(x: 0, y: 0, w: 100, h: 100)
+    let candidates = [
+        Area(x: 0, y: -100, w: 100, h: 100),
+        Area(x: 100, y: 0, w: 100, h: 100),
+        Area(x: -100, y: 0, w: 100, h: 100),
+        Area(x: 0, y: 100, w: 100, h: 100),
+        Area(x: 20, y: 500, w: 50, h: 50),
+    ]
+    #expect(center.closest(in: .north, among: candidates) == 0)
+    #expect(center.closest(in: .east, among: candidates) == 1)
+    #expect(center.closest(in: .west, among: candidates) == 2)
+    #expect(center.closest(in: .south, among: candidates) == 3)
+    #expect(center.closest(in: .south, among: [candidates[4], candidates[3]]) == 1)
+    #expect(center.closest(in: .north, among: [candidates[3], candidates[4]]) == nil)
+    #expect(center.closest(in: .east, among: []) == nil)
+}
+
+@Test func closestAreaPrefersTheFirstOfEqualDistances()
+{
+    let center = Area(x: 0, y: 0, w: 100, h: 100)
+    let upper = Area(x: 100, y: -50, w: 100, h: 100)
+    let lower = Area(x: 100, y: 50, w: 100, h: 100)
+    #expect(center.closest(in: .east, among: [upper, lower]) == 0)
+    #expect(center.closest(in: .east, among: [lower, upper]) == 0)
+    // an area that only touches the edge of the source does not lie in its direction
+    #expect(center.closest(in: .east, among: [Area(x: 100, y: 100, w: 100, h: 100)]) == nil)
 }

@@ -3,6 +3,7 @@ import Foundation
 import Testing
 import CPrivate
 @testable import Yabai
+import YabaiCore
 import YabaiTestSupport
 
 @Test("frame closeness")
@@ -83,4 +84,44 @@ import YabaiTestSupport
     let data = try #require(CFDataGetBytePtr(bytes))
     let expectedPixel: [UInt8] = [128, 64, 32, 255]
     #expect(Array(UnsafeBufferPointer(start: data, count: 20)) == Array(repeating: expectedPixel, count: 5).flatMap { $0 })
+}
+
+@Suite struct WindowAnimationTickTests
+{
+    static let progressRows: [(CFTimeInterval, CFTimeInterval, Float, Double)] = [
+        (10, 10, 0.25, 0),
+        (9.9, 10, 0.25, 0),
+        (10.125, 10, 0.25, 0.5),
+        (10.25, 10, 0.25, 1),
+        (11, 10, 0.25, 1),
+        (10.5, 10, 2, 0.25),
+    ]
+
+    @Test(arguments: progressRows)
+    func progressIsTheElapsedShareOfTheDuration(_ timestamp: CFTimeInterval, _ start: CFTimeInterval, _ duration: Float, _ expected: Double)
+    {
+        #expect(WindowAnimation.progress(at: timestamp, since: start, duration: duration) == expected)
+    }
+
+    @Test func proxyMovesFromItsFrameToTheTarget()
+    {
+        let frame = CGRect(x: -200, y: 100, width: 400, height: 300)
+        let target = Area(x: 600, y: 300, w: 800, h: 500)
+        #expect(WindowAnimation.interpolate(from: frame, to: target, at: 0) == Area(frame))
+        #expect(WindowAnimation.interpolate(from: frame, to: target, at: 1) == target)
+        #expect(WindowAnimation.interpolate(from: frame, to: target, at: 0.5) == Area(x: 200, y: 200, w: 600, h: 400))
+        #expect(WindowAnimation.interpolate(from: frame, to: target, at: 0.25) == Area(x: 0, y: 150, w: 500, h: 350))
+        // an easing curve that overshoots would move past the target
+        #expect(WindowAnimation.interpolate(from: frame, to: target, at: 1.5) == Area(x: 1000, y: 400, w: 1000, h: 600))
+    }
+
+    @Test func proxyTransformMapsTheAreaOntoTheCapturedFrame()
+    {
+        let frame = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let transform = WindowAnimation.proxyTransform(of: frame, at: Area(x: 50, y: 20, w: 100, h: 50))
+        #expect(transform == CGAffineTransform(a: 2, b: 0, c: 0, d: 2, tx: -100, ty: -40))
+        #expect(CGPoint(x: 50, y: 20).applying(transform) == .zero)
+        #expect(CGPoint(x: 150, y: 70).applying(transform) == CGPoint(x: 200, y: 100))
+        #expect(WindowAnimation.proxyTransform(of: frame, at: Area(frame)) == .identity)
+    }
 }

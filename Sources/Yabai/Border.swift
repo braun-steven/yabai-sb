@@ -406,8 +406,62 @@ extension Border
     }
 }
 
+/// Where a border lies around its window: the insets of the border area from the window area, the corner radius of
+/// its container, and the border area itself.
+struct BorderShape: Equatable
+{
+    var top: Float = 0
+    var left: Float = 0
+    var bottom: Float = 0
+    var right: Float = 0
+    var radius: Float = 0
+    var area = CGRect.zero
+
+    /// The shape of a border at border around a window at window, in a container with the radius.
+    init(window: Area, border: Area, radius: Int)
+    {
+        top = window.y - border.y
+        left = window.x - border.x
+        bottom = (border.y + border.h) - (window.y + window.h)
+        right = (border.x + border.w) - (window.x + window.w)
+        self.radius = Float(radius)
+        area = CGRect(x: CGFloat(border.x), y: CGFloat(border.y), width: CGFloat(border.w), height: CGFloat(border.h))
+    }
+
+    init(top: Float, left: Float, bottom: Float, right: Float, radius: Float, area: CGRect)
+    {
+        (self.top, self.left, self.bottom, self.right, self.radius, self.area) = (top, left, bottom, right, radius, area)
+    }
+
+    /// Whether the insets and the radius are the same; a border redraws only when they change, not for its area alone.
+    func hasSameInsets(as other: BorderShape) -> Bool
+    {
+        top == other.top && left == other.left && bottom == other.bottom && right == other.right && radius == other.radius
+    }
+}
+
 extension Border
 {
+    var shape: BorderShape
+    {
+        get { BorderShape(top: insetTop, left: insetLeft, bottom: insetBottom, right: insetRight, radius: containerRadius, area: area) }
+        set { (insetTop, insetLeft, insetBottom, insetRight, containerRadius, area) = (newValue.top, newValue.left, newValue.bottom, newValue.right, newValue.radius, newValue.area) }
+    }
+
+    //
+    // NOTE: shows and windowCount are asked only when they decide: they read the window and ask the window server.
+    //
+
+    /// Whether a window has a border: borders are on, the window shows one, and its container is visible. With
+    /// BorderConfig.hideSingle, a tiled window that is no scratchpad needs another window on its space.
+    static func isEnabled(_ settings: BorderConfig, shows: @autoclosure () -> Bool, visible: Bool, tiled: Bool, scratchpad: Bool,
+                          windowCount: @autoclosure () -> Int) -> Bool
+    {
+        guard settings.enabled && shows() && visible else { return false }
+        if settings.hideSingle && tiled && !scratchpad { return windowCount() > 1 }
+        return true
+    }
+
     @WM private static func shouldShow(_ target: Window) -> Bool
     {
         if !target.isEligible { return false }
@@ -449,11 +503,8 @@ extension Border
         let borderArea = border.border
         let containerRadius = border.radius
         let settings = Config.current.border
-        var enabled = settings.enabled && shouldShow(target) && border.visible
-        if enabled && settings.hideSingle && owner != nil && target.scratchpad == nil {
-            let spaceCount = count ?? windowCount(on: sid ?? target.id.space)
-            enabled = spaceCount > 1
-        }
+        let enabled = isEnabled(settings, shows: shouldShow(target), visible: border.visible, tiled: owner != nil,
+                                scratchpad: target.scratchpad != nil, windowCount: count ?? windowCount(on: sid ?? target.id.space))
         let focused = wm.focusedWindowID == target.id
         borderLock.withLock { state in
             state.settings.enabled = settings.enabled
@@ -466,27 +517,17 @@ extension Border
                 state.borders[border.wid] = border
             }
             guard let border = state.borders[target.id] else { return }
-            let top = enabled ? windowArea.y - borderArea.y : border.insetTop
-            let left = enabled ? windowArea.x - borderArea.x : border.insetLeft
-            let bottom = enabled ? (borderArea.y + borderArea.h) - (windowArea.y + windowArea.h) : border.insetBottom
-            let right = enabled ? (borderArea.x + borderArea.w) - (windowArea.x + windowArea.w) : border.insetRight
-            let radius = enabled ? Float(containerRadius) : border.containerRadius
-            let area = enabled ? CGRect(x: CGFloat(borderArea.x), y: CGFloat(borderArea.y), width: CGFloat(borderArea.w), height: CGFloat(borderArea.h)) : border.area
+            let shape = enabled ? BorderShape(window: windowArea, border: borderArea, radius: containerRadius) : border.shape
             //
             // NOTE: Nothing to do when the state of the border is unchanged; moves and resizes of the window reach the
             // border through its own notifications. A border that only changes its color is just redrawn.
             //
             let color = focused ? state.settings.activeColor : state.settings.normalColor
             let recolored = border.color != color.argb
-            let changed = border.enabled != enabled || border.insetTop != top || border.insetLeft != left || border.insetBottom != bottom || border.insetRight != right || border.containerRadius != radius || border.width != state.settings.width || border.shown != enabled
+            let changed = border.enabled != enabled || !border.shape.hasSameInsets(as: shape) || border.width != state.settings.width || border.shown != enabled
             border.enabled = enabled
             border.focused = focused
-            border.insetTop = top
-            border.insetLeft = left
-            border.insetBottom = bottom
-            border.insetRight = right
-            border.containerRadius = radius
-            border.area = area
+            border.shape = shape
             if changed && !enabled && border.shown && state.batchDepth > 0 && state.hide.count < 64 { state.hide.append(border.wid) }
             else if changed && enabled && !border.shown && state.batchDepth > 0 && state.show.count < 64 { state.show.append(border.wid) }
             else if changed { border.updateLocked(.frameAndOrder, state.settings) }

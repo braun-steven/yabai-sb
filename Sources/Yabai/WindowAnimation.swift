@@ -86,6 +86,35 @@ extension WindowAnimation
 
 extension WindowAnimation
 {
+    /// The linear progress (0...1) of an animation that started at start, at timestamp.
+    static func progress(at timestamp: CFTimeInterval, since start: CFTimeInterval, duration: Float) -> Double
+    {
+        min(1, max(0, (timestamp - start) / Double(duration)))
+    }
+
+    //
+    // NOTE: The proxy moves in Double and stores its frame in Float, like the frames of the placements.
+    //
+
+    /// The frame of a proxy between its start frame and target at the eased progress.
+    static func interpolate(from frame: CGRect, to target: Area, at progress: Float) -> Area
+    {
+        let remaining = 1 - Double(progress)
+        return Area(x: Float(remaining * frame.origin.x + Double(progress * target.x)),
+                    y: Float(remaining * frame.origin.y + Double(progress * target.y)),
+                    w: Float(remaining * frame.width + Double(progress * target.w)),
+                    h: Float(remaining * frame.height + Double(progress * target.h)))
+    }
+
+    /// The transform that shows the proxy of a window captured at frame in area: the window server applies it to the
+    /// screen, so it moves by the negated origin and scales by the inverse of the size.
+    static func proxyTransform(of frame: CGRect, at area: Area) -> CGAffineTransform
+    {
+        let translation = CGAffineTransform(translationX: -CGFloat(area.x), y: -CGFloat(area.y))
+        let scale = CGAffineTransform(scaleX: frame.width / CGFloat(area.w), y: frame.height / CGFloat(area.h))
+        return translation.concatenating(scale)
+    }
+
     /// Process the tail as well when the image has fewer than four pixels left.
     static func restoreAlpha(_ image: CGImage) -> CGImage?
     {
@@ -179,7 +208,7 @@ private final class WindowAnimationDisplayLink: NSObject
     @objc private func tick(_ link: CADisplayLink)
     {
         if clock == nil { clock = link.timestamp }
-        let t = min(1, max(0, (link.targetTimestamp - clock!) / Double(duration)))
+        let t = WindowAnimation.progress(at: link.targetTimestamp, since: clock!, duration: duration)
         let mt = easing.value(at: Float(t))
 
         //
@@ -190,14 +219,10 @@ private final class WindowAnimationDisplayLink: NSObject
         windowAnimations.withLock { _ in
             if let transaction = SLS.Transaction(connection) {
                 for animation in animations where !animation.skip {
-                    animation.proxy.tx = Float((1 - Double(mt)) * animation.proxy.frame.origin.x + Double(mt * animation.x))
-                    animation.proxy.ty = Float((1 - Double(mt)) * animation.proxy.frame.origin.y + Double(mt * animation.y))
-                    animation.proxy.tw = Float((1 - Double(mt)) * animation.proxy.frame.width + Double(mt * animation.w))
-                    animation.proxy.th = Float((1 - Double(mt)) * animation.proxy.frame.height + Double(mt * animation.h))
-                    let transform = CGAffineTransform(translationX: -CGFloat(animation.proxy.tx), y: -CGFloat(animation.proxy.ty))
-                    let scale = CGAffineTransform(scaleX: animation.proxy.frame.width / CGFloat(animation.proxy.tw),
-                                                  y: animation.proxy.frame.height / CGFloat(animation.proxy.th))
-                    transaction.setTransform(WindowID(animation.proxy.id), transform.concatenating(scale))
+                    let frame = animation.proxy.frame
+                    let area = WindowAnimation.interpolate(from: frame, to: Area(x: animation.x, y: animation.y, w: animation.w, h: animation.h), at: mt)
+                    (animation.proxy.tx, animation.proxy.ty, animation.proxy.tw, animation.proxy.th) = (area.x, area.y, area.w, area.h)
+                    transaction.setTransform(WindowID(animation.proxy.id), WindowAnimation.proxyTransform(of: frame, at: area))
                     let alpha = SLS.windowAlpha(connection, animation.wid) ?? 0
                     if alpha != 0 { transaction.setAlpha(WindowID(animation.proxy.id), alpha) }
                 }

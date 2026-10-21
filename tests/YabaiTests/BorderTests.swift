@@ -108,3 +108,52 @@ extension DaemonState
         }
     }
 }
+
+@Suite struct BorderDecisionTests
+{
+    /// (borders on, window shows one, container visible, hide single, tiled, scratchpad, window count, enabled)
+    static let rows: [(Bool, Bool, Bool, Bool, Bool, Bool, Int, Bool)] = [
+        (true, true, true, false, true, false, 1, true),
+        (false, true, true, false, true, false, 1, false),
+        (true, false, true, false, true, false, 1, false),
+        (true, true, false, false, true, false, 1, false),
+        // hide single: a tiled window needs another window on its space
+        (true, true, true, true, true, false, 1, false),
+        (true, true, true, true, true, false, 0, false),
+        (true, true, true, true, true, false, 2, true),
+        (true, true, true, true, false, false, 1, true),
+        (true, true, true, true, true, true, 1, true),
+        (false, true, true, true, true, false, 2, false),
+    ]
+
+    @Test(arguments: rows)
+    func borderIsEnabled(_ on: Bool, _ shows: Bool, _ visible: Bool, _ hideSingle: Bool, _ tiled: Bool, _ scratchpad: Bool, _ count: Int, _ expected: Bool)
+    {
+        let settings = BorderConfig(enabled: on, hideSingle: hideSingle)
+        var askedShows = false
+        var askedCount = false
+        let enabled = Border.isEnabled(settings, shows: { askedShows = true; return shows }(), visible: visible, tiled: tiled,
+                                       scratchpad: scratchpad, windowCount: { askedCount = true; return count }())
+        #expect(enabled == expected)
+        // the window is only read with borders on, and the window server only asked for a tiled window with hide single
+        #expect(askedShows == on)
+        #expect(askedCount == (on && shows && visible && hideSingle && tiled && !scratchpad))
+    }
+
+    @Test func shapeOfABorderAroundItsWindow()
+    {
+        // a tab below a bar of 24 in a container with a radius
+        let shape = BorderShape(window: Area(x: 10, y: 34, w: 500, h: 400), border: Area(x: 10, y: 10, w: 500, h: 424), radius: 12)
+        #expect(shape == BorderShape(top: 24, left: 0, bottom: 0, right: 0, radius: 12, area: CGRect(x: 10, y: 10, width: 500, height: 424)))
+
+        let inset = BorderShape(window: Area(x: 16, y: 16, w: 100, h: 100), border: Area(x: 10, y: 12, w: 112, h: 110), radius: 0)
+        #expect([inset.top, inset.left, inset.bottom, inset.right] == [4, 6, 6, 6])
+
+        var moved = shape
+        moved.area.origin.x += 100
+        #expect(moved.hasSameInsets(as: shape))
+        moved.radius = 0
+        #expect(!moved.hasSameInsets(as: shape))
+        #expect(!inset.hasSameInsets(as: shape))
+    }
+}

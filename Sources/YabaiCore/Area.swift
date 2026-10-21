@@ -80,4 +80,26 @@ public struct Area: Equatable, Sendable, Encodable
         case .west:  return Int(r2Max.x > r1x ? r2Max.x - r1x : r1x - r2Max.x)
         }
     }
+
+    /// The index of the area in candidates that is nearest in a direction, nil if none lies in it. Of areas at the same
+    /// distance, the first one wins.
+    public func closest(in direction: Direction, among candidates: [Area]) -> Int?
+    {
+        var best: Int? = nil
+        var bestDistance = Int.max
+        let max = maxPoint
+
+        for (index, candidate) in candidates.enumerated() {
+            let candidateMax = candidate.maxPoint
+            guard Area.isInDirection(self, max, candidate, candidateMax, direction) else { continue }
+
+            let distance = Area.distanceInDirection(self, max, candidate, candidateMax, direction)
+            if distance < bestDistance {
+                best = index
+                bestDistance = distance
+            }
+        }
+
+        return best
+    }
 }

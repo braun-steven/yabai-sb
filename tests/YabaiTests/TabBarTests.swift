@@ -1,5 +1,7 @@
+import AppKit
 import CoreText
 import Foundation
+import SnapshotTesting
 import Testing
 import CPrivate
 @testable import Yabai
@@ -133,6 +135,62 @@ extension DaemonState
             let tint = TabBarGlass.tint(color, custom: custom, alpha: alpha)
             #expect([tint.r, tint.g, tint.b, tint.argb] == [color.r, color.g, color.b, color.argb] as [AnyHashable])
             #expect(tint.a == (custom ? color.a : alpha))
+        }
+
+        /// A 16 pixel icon: a blue square with a white diagonal, so that its placement and scale show.
+        private static func icon() -> CGImage
+        {
+            let context = CGContext(data: nil, width: 16, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(CGColor(srgbRed: 0.1, green: 0.3, blue: 0.9, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 16, height: 16))
+            context.setStrokeColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
+            context.setLineWidth(2)
+            context.strokeLineSegments(between: [CGPoint(x: 0, y: 0), CGPoint(x: 16, y: 16)])
+            return context.makeImage()!
+        }
+
+        //
+        // NOTE: The text rendering depends on the OS build; disable this test (not the others) when an update changes
+        // it, then record it again.
+        //
+        @Test func titlesDrawnIntoTabs()
+        {
+            let width = 320, height = 30 * 5
+            let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(CGColor(srgbRed: 0.16, green: 0.33, blue: 0.47, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            let font = CTFontCreateWithName("Menlo" as CFString, 12, nil)
+            let white = CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+            let icon = Self.icon()
+
+            // from the top: i3 with an icon, glass with an icon, a truncated title, only an icon, only a title
+            let rows: [(glass: Bool, title: String?, icon: CGImage?, width: CGFloat)] = [
+                (false, "Terminal", icon, 320),
+                (true, "Terminal", icon, 320),
+                (false, "A title much longer than its tab", icon, 160),
+                (true, nil, icon, 320),
+                (false, "Untitled", nil, 320),
+            ]
+            for (index, row) in rows.enumerated() {
+                let rect = CGRect(x: 0, y: CGFloat(height - 30 * (index + 1)), width: row.width, height: 30)
+                TabBar.drawTitle(in: context, font: font, glass: row.glass, title: row.title.map { $0 as CFString }, icon: row.icon, rect: rect, color: white)
+            }
+
+            let image = NSImage(cgImage: context.makeImage()!, size: NSSize(width: width, height: height))
+            assertSnapshot(of: image, as: .image(perceptualPrecision: 0.98))
+        }
+
+        @Test func nothingIsDrawnIntoATabWithoutRoom()
+        {
+            let context = CGContext(data: nil, width: 16, height: 30, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            let font = CTFontCreateWithName("Menlo" as CFString, 12, nil)
+            TabBar.drawTitle(in: context, font: font, glass: false, title: "Terminal" as CFString, icon: Self.icon(),
+                             rect: CGRect(x: 0, y: 0, width: 16, height: 30), color: CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
+            let pixels = context.data!.assumingMemoryBound(to: UInt8.self)
+            #expect((0..<(context.bytesPerRow * 30)).allSatisfy { pixels[$0] == 0 })
         }
     }
 }

@@ -169,28 +169,9 @@ extension DisplayID
     /// The nearest display in a direction, nil if there is none.
     func closestDisplay(in direction: Direction) -> DisplayID?
     {
-        var bestDid: DisplayID? = nil
-        var bestDistance = Int.max
-
-        let sourceArea = Area(CGDisplayBounds(rawValue))
-        let sourceAreaMax = sourceArea.maxPoint
-
-        for did in DisplayID.all {
-            if did == self { continue }
-
-            let targetArea = Area(CGDisplayBounds(did.rawValue))
-            let targetAreaMax = targetArea.maxPoint
-
-            if Area.isInDirection(sourceArea, sourceAreaMax, targetArea, targetAreaMax, direction) {
-                let distance = Area.distanceInDirection(sourceArea, sourceAreaMax, targetArea, targetAreaMax, direction)
-                if distance < bestDistance {
-                    bestDid = did
-                    bestDistance = distance
-                }
-            }
-        }
-
-        return bestDid
+        let others = DisplayID.all.filter { $0 != self }
+        let areas = others.map { Area(CGDisplayBounds($0.rawValue)) }
+        return Area(CGDisplayBounds(rawValue)).closest(in: direction, among: areas).map { others[$0] }
     }
 
     /// The menu bar of the display: its bounds with the height of the menu bar.

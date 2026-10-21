@@ -66,6 +66,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - With a window gap, the cells of *window --grid*, the *grid=* rule effect and *scratchpad_grid* are all the same size and one gap apart; before, the middle cells of a grid with three or more columns or rows were narrower than the outer ones and the gaps between them differed
 - An integer argument beyond 2147483647, or a hexadecimal one beyond 0xFFFFFFFF, fails with an unknown value instead of wrapping around, e.g. *config window_gap 4294967306* set a gap of 10
 - *window --move*, *--resize* and *--ratio* fail with an unknown value for a non-finite value (*nan*, *inf*); before, e.g. *--ratio abs:nan* changed the share of every window in the split, and *--ratio abs:inf* acted like *abs:0.95*
+- The float config options (*window_opacity_duration*, *window_animation_duration*, *window_border_width*, the opacities) fail with an unknown value for *nan* and *inf*, like *window --opacity*; before, e.g. *window_border_width inf* was accepted
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

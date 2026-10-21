@@ -209,6 +209,22 @@ extension DaemonState
             #expect(runConfigLine(option) == before)
         }
 
+        // NOTE: window_animation_duration is left out: a value it accepted would check SIP and request Screen Recording
+        @Test(arguments: [
+            ("window_opacity_duration nan", "window_opacity_duration"),
+            ("window_opacity_duration inf", "window_opacity_duration"),
+            ("window_border_width inf", "window_border_width"),
+            ("active_window_opacity nan", "active_window_opacity"),
+        ])
+        func nonFiniteFloatValuesFail(_ command: String, _ option: String)
+        {
+            let before = runConfigLine(option)
+            let response = runConfigLine(command)
+
+            #expect(response.hasPrefix("\u{07}unknown value"))
+            #expect(runConfigLine(option) == before)
+        }
+
         @Test func configCasesCoverEveryOption()
         {
             #expect(Set(Self.configCases.map(\.option)) == Set(configOptionNames.map(\.rawValue)))

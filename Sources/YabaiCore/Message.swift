@@ -168,14 +168,15 @@ public enum TokenValue: Sendable
     case string(Token)
 
     //
-    // NOTE: Float options also accept integers, which token_to_value reports as TOKEN_TYPE_INT.
+    // NOTE: Float options also accept integers, which token_to_value reports as TOKEN_TYPE_INT. They reject nan and
+    // inf, which strtof accepts.
     //
 
     /// `token_value_float`
     public var floatValue: Float?
     {
         switch self {
-        case .float(let value): return value
+        case .float(let value): return value.isFinite ? value : nil
         case .int(let value):   return Float(value)
         default:                return nil
         }

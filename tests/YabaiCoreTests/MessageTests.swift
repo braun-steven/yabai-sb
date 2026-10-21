@@ -82,6 +82,8 @@ func tokenValue(_ text: String, _ value: String)
 
     #expect(TokenValue.int(3).floatValue == 3)
     #expect(TokenValue.string(Token("x")).floatValue == nil)
+    #expect(Token("nan").value.floatValue == nil)
+    #expect(Token("-inf").value.floatValue == nil)
     #expect(Token("é").equals("e\u{301}"))
     #expect(Token("e\u{301}") == Token("é"))
 }

@@ -1,10 +1,10 @@
 //
 // NOTE: The values, labels, properties and selectors of the messages of the client, and the responses they fail with.
 // The selectors find displays, spaces and windows through a SelectorContext, which the daemon implements over its
-// managers. Ported from src/message_parse.c.
+// managers.
 //
 
-/// The common values of the arguments (`ARGUMENT_COMMON_*`).
+/// The common values of the arguments.
 public enum Argument
 {
     public static let on          = "on"
@@ -28,7 +28,7 @@ public enum Argument
     public static let recover     = "recover"
 }
 
-/// `bool_str` (src/misc/helpers.h)
+/// The `on` or `off` spelling of a boolean.
 public func boolString(_ value: Bool) -> String
 {
     value ? Argument.on : Argument.off
@@ -78,7 +78,7 @@ public struct KeyValue: Sendable
 // key-value pair. The key may be empty.
 //
 
-/// `parse_key_value_pair`
+/// The key-value pair of a token; nil when it has no `=` or `!=`, or no value after it.
 public func parseKeyValuePair(_ token: Token) -> KeyValue?
 {
     let bytes = Array(token.utf8)
@@ -99,7 +99,7 @@ public func parseKeyValuePair(_ token: Token) -> KeyValue?
     return KeyValue(key: Token(bytes[bytes.startIndex..<at]), value: Token(bytes[valueStart...]), exclusion: exclusion)
 }
 
-/// The sub-layers of a window (`LAYER_*`, src/misc/macros.h), named as in `layer_str`.
+/// The sub-layers of a window, named as in `window --layer`.
 public enum WindowLayer: String, CaseIterable, Sendable
 {
     case auto
@@ -108,20 +108,20 @@ public enum WindowLayer: String, CaseIterable, Sendable
     case above
 }
 
-/// `parse_layer`
+/// The window layer named by a token, nil for an unknown layer.
 public func parseLayer(_ value: Token) -> WindowLayer?
 {
     WindowLayer.allCases.first { value.equals($0.rawValue) }
 }
 
-/// The types of a move or resize value, with the values of `TYPE_ABS` and `TYPE_REL` (src/misc/macros.h).
+/// The types of a move or resize value: absolute or relative.
 public enum ValueType: UInt8, Sendable
 {
     case abs = 0x1
     case rel = 0x2
 }
 
-/// `parse_value_type`
+/// The value type named by a token, nil for an unknown one.
 public func parseValueType(_ type: Token) -> ValueType?
 {
     if type.equals("abs") { return .abs }
@@ -129,7 +129,7 @@ public func parseValueType(_ type: Token) -> ValueType?
     return nil
 }
 
-/// The handles of a resize, with the values of `HANDLE_*` (src/misc/macros.h).
+/// The handles of a resize, as bit flags.
 public struct ResizeHandle: OptionSet, Sendable
 {
     public let rawValue: UInt8
@@ -142,7 +142,7 @@ public struct ResizeHandle: OptionSet, Sendable
     public static let abs    = ResizeHandle(rawValue: 0x10)
 }
 
-/// `parse_resize_handle`: empty for an unknown handle.
+/// The resize handles named by a token; empty for an unknown handle.
 public func parseResizeHandle(_ handle: Token) -> ResizeHandle
 {
     if handle.equals("top")          { return .top }
@@ -157,8 +157,7 @@ public func parseResizeHandle(_ handle: Token) -> ResizeHandle
     return []
 }
 
-/// The values of `window --toggle` that are window properties (`window_toggle_list` in src/message_window.c, which
-/// keeps its functions in this order). Any other value is a scratchpad label.
+/// The values of `window --toggle` that are window properties. Any other value is a scratchpad label.
 public enum WindowToggle: String, CaseIterable, Sendable
 {
     case float
@@ -172,7 +171,7 @@ public enum WindowToggle: String, CaseIterable, Sendable
     case expose
     case pip
 
-    /// `window_toggle_for_value`
+    /// The toggle named by a token, nil for any other value.
     public init?(_ value: Token)
     {
         guard let toggle = WindowToggle.allCases.first(where: { value.equals($0.rawValue) }) else { return nil }
@@ -180,14 +179,14 @@ public enum WindowToggle: String, CaseIterable, Sendable
     }
 }
 
-/// `enum label_type`: what a label names.
+/// What a label names.
 public enum LabelKind: Sendable
 {
     case display
     case space
     case window
 
-    /// `label_reserved`: the selector values that cannot be labels.
+    /// The selector values that cannot be labels.
     public var reserved: [String]
     {
         switch self {
@@ -202,14 +201,14 @@ public enum LabelKind: Sendable
         self == .window ? "scratchpad" : "label"
     }
 
-    /// `label_is_reserved`
+    /// Whether a token is one of the reserved values.
     public func isReserved(_ token: Token) -> Bool
     {
         reserved.contains { token.equals($0) }
     }
 }
 
-/// `parse_label`: nil when the token is missing (to remove a label), the token when it is a valid label, and throws
+/// The label of a token: nil when the token is missing (to remove a label), the token when it is a valid label, and throws
 /// the failure of an invalid one.
 public func parseLabel(_ token: Token, _ kind: LabelKind) throws(CommandError) -> Token?
 {
@@ -226,7 +225,7 @@ public func parseLabel(_ token: Token, _ kind: LabelKind) throws(CommandError) -
     }
 }
 
-/// `struct properties`: the properties a query selects, e.g. "id,frame".
+/// The properties a query selects, e.g. "id,frame".
 public struct Properties<Key: Hashable & Sendable>: Sendable
 {
     public var token: Token
@@ -246,8 +245,8 @@ public struct Properties<Key: Hashable & Sendable>: Sendable
 // even when it is a comma.
 //
 
-/// `parse_properties`: the keys named by a comma-separated token, by their raw values; every key when it names none. A
-/// token that starts with "--" is the next option, not properties. Every invalid property is reported in one failure.
+/// The keys named by a comma-separated token, by their raw values; every key when it names none. A token that starts
+/// with "--" is the next option, not properties. Every invalid property is reported in one failure.
 public func parseProperties<Key: CaseIterable & RawRepresentable<String> & Hashable & Sendable>(_ token: Token, as _: Key.Type) throws(CommandError) -> Properties<Key>
 {
     var result = Properties<Key>(token: token, didParse: token.isValid && !token.hasPrefix("--"))
@@ -285,7 +284,7 @@ public func parseProperties<Key: CaseIterable & RawRepresentable<String> & Hasha
     return result
 }
 
-/// `parse_direction`
+/// The direction named by a token, nil when it is no direction.
 public func parseDirection(_ token: Token) -> Direction?
 {
     if token.equals(Argument.north) { return .north }
@@ -295,7 +294,7 @@ public func parseDirection(_ token: Token) -> Direction?
     return nil
 }
 
-/// `direction_str`
+/// The words that describe a direction in a message, e.g. "a northward".
 public func directionDescription(_ direction: Direction) -> String
 {
     switch direction {
@@ -363,7 +362,7 @@ public protocol SelectorContext
     var actingWindow: Window? { get }
 
     func display(_ query: DisplayQuery) -> DisplayID?
-    /// The id of a display label (`label_find_name` on the labels of the display manager).
+    /// The id of a display label, looked up among the labels of the display manager.
     func displayLabel(_ label: Token) -> DisplayID?
     func space(_ query: SpaceQuery) -> SpaceID?
     /// The id of a space label.
@@ -389,7 +388,7 @@ public enum InsertDirection: Int, Sendable
     public var direction: Direction? { Direction(rawValue: rawValue) }
 }
 
-/// `parse_insert_selector`: throws when the token is neither a direction nor stack.
+/// The insertion side named by a token; throws when the token is neither a direction nor stack.
 public func parseInsertSelector(_ token: Token) throws(CommandError) -> InsertDirection
 {
     if let direction = parseDirection(token) { return InsertDirection(direction) }

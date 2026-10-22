@@ -20,7 +20,7 @@ phase: in-progress · mode: nested
 | P1.1 | `scripts/ci.sh`, `make ci-quick` and `make ci` | done | `scripts/ci.sh quick\|full` with per-step logs in `.build/ci/`. Tree has 0 compiler warnings, so the allowlist is empty. Gates: `make ci` passed (build 4s, test 6s, install 32s, osax-test 9s, check-build 97s). Broken-file check failed as expected and was reverted. No live checks. |
 | P1.2 | OSAXEmbed enumerates its inputs | done | Inputs are the 10 `osax/` native files plus the 2 scripts, enumerated from `osax/` (same set as the old list, no new files). Gates: `make ci` passed (build 5s, test 14s, install 32s, osax-test 7s, check-build 92s). Touching `Core.swift` rebuilds the payload; a no-op build keeps its mtime; a new file in `osax/` triggers a rebuild. Default `make` output shows only `[n / m] OSAX`; the "Build and embed" step name appears with `swift build -v`. No live checks. |
 | P1.3 | Baseline measurements | done | Numbers in "Baseline (P1.3)" at the end of this file, measured at `e3047f40`. No source changes. Gates: `make ci` passed. No live checks. |
-| P1.4 | Fix documentation drift and add the refactor plan to AGENTS.md | todo | |
+| P1.4 | Fix documentation drift and add the refactor plan to AGENTS.md | done | `doc/architecture.md` names the Swift symbols that replaced the C ones (`WindowManager.treeView(for:)`, `treeFocus(direction:for:)`, `setWindowLayout(_:_:)`, `treeSplit(_:for:)`, `Con.visibleWindowCount()`, `Con.raiseTabs(force:)`, `WindowManager.cardDidOrder(_:)`). `doc/testing-refactor.md` open ends: ISSUES.md 5 to 7 are fixed, no `withKnownIssue` remains. Stale "C" comments reworded in `YabaiCore` `ViewArea`, `Area`, `SpaceList`, `MessageParse`, `Message.swift:186` and `CPrivate.h:57`. `AGENTS.md` row added. Diff checked: only comments and docs changed. Gates: `make ci-quick` passed (0 warnings), `make install` passed (CPrivate header touched). No live checks. |
 
 ## Phase 2: Crash and robustness fixes
 
@@ -184,10 +184,14 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 13:45 · subphase agent · P1.2 · done · P1.3 (baseline measurements) is next; it depends on P1.1 and can start now
 - 2026-10-22 13:38 · subphase agent · P1.3 · start · measure baseline (make ci, sanitizers, coverage, binary size, grep counts); no source changes
 - 2026-10-22 13:44 · subphase agent · P1.3 · done · P1.4 (documentation drift) is next; it has no dependencies and can start now
+- 2026-10-22 13:50 · subphase agent · P1.4 · start · fix doc drift (architecture.md, testing-refactor.md, C comments), AGENTS.md row; gates
+- 2026-10-22 13:50 · subphase agent · P1.4 · done · make ci-quick and make install passed; the phase agent runs the phase close (make ci) for P1
 
 ## Discovered
 
 Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.
+
+- P1.4: C-style names remain in doc comments outside the four files P1.4 named: `YabaiCore/Query.swift`, `Client.swift`, `Message.swift` (e.g. `:56`, `:238`), `EventSignal.swift`, `SpaceLayout.swift`, `SpaceWindow.swift`, `Rule.swift` (e.g. `Rule.swift:360`, `:373`, `:505`, `:518`). Plus "Ported from src/..." provenance lines (`Rule.swift:6`, `SpaceWindow.swift:7`, `Sources/Yabai/IPC/Client.swift:8`, `Sources/YabaiCore/Client.swift:4`).
 
 ## Baseline (P1.3)
 

@@ -27,7 +27,7 @@ public struct Area: Equatable, Sendable, Encodable
         self.h = h
     }
 
-    /// `area_from_cgrect`
+    /// The area of a CGRect, converted to float precision.
     public init(_ rect: CGRect)
     {
         self.init(x: Float(rect.origin.x), y: Float(rect.origin.y), w: Float(rect.size.width), h: Float(rect.size.height))
@@ -38,13 +38,13 @@ public struct Area: Equatable, Sendable, Encodable
     // pixel inside an area.
     //
 
-    /// `area_max_point`
+    /// The last pixel inside the area.
     public var maxPoint: CGPoint
     {
         CGPoint(x: CGFloat(x + w - 1), y: CGFloat(y + h - 1))
     }
 
-    /// `area_is_in_direction`: whether r2 lies in the direction of r1.
+    /// Whether r2 lies in the direction of r1.
     public static func isInDirection(_ r1: Area, _ r1Max: CGPoint, _ r2: Area, _ r2Max: CGPoint, _ direction: Direction) -> Bool
     {
         let r1x = CGFloat(r1.x), r1y = CGFloat(r1.y)
@@ -67,7 +67,7 @@ public struct Area: Equatable, Sendable, Encodable
         }
     }
 
-    /// `area_distance_in_direction`: the distance from r1 to r2 in a direction, truncated like the C conversion to int.
+    /// The distance from r1 to r2 in a direction, truncated toward zero as `Int(_:)` does.
     public static func distanceInDirection(_ r1: Area, _ r1Max: CGPoint, _ r2: Area, _ r2Max: CGPoint, _ direction: Direction) -> Int
     {
         let r1x = CGFloat(r1.x), r1y = CGFloat(r1.y)

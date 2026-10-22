@@ -13,6 +13,7 @@ frameworks (SkyLight, AX, CoreDock) through the `CPrivate` C target, and injects
 | run live tests, deploy, sanitizers or analyze crashes | `doc/live-testing.md` |
 | change build scripts, the makefile or toolchain handling | `doc/building.md` |
 | touch the scripting addition or reload a payload | `doc/payload-updates.md`, `doc/osax-prototypes.md` |
+| work on the refactor plan | `doc/refactor/overview.md`, `doc/refactor/status.md` |
 
 When something costs real time, record the pitfall in the matching doc in the same commit.
 

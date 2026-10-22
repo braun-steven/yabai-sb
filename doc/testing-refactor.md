@@ -620,8 +620,9 @@ Template:
     of tests narrowed it down; recorded in `doc/live-testing.md` "Sanitizers".
   - `SNAPSHOT_TESTING_RECORD=all` re-records inline snapshots as well (checked on `ViewInsertionTests`: 22
     recorded, no source change).
-- **Next phase should know:** this was the last phase. Open ends from earlier phases: ISSUES.md 5 (negative length
-  in a split shorter than its gaps), 6 (non-finite `--ratio`/`--resize` values) and 7 (32-bit wrap of integer
-  tokens) are pinned with `withKnownIssue` and wait for their fixes. The window server paths listed in the Phase 5
-  and 6 handovers (`--insert`, cross-space `--swap`/`--warp`, focus onto a leaf, rule space/display effects) need
+- **Next phase should know:** this was the last phase. Earlier known issues are fixed and no `withKnownIssue` case remains
+  (`grep -rn withKnownIssue tests` is empty): ISSUES.md 5 (negative length in a split shorter than its gaps,
+  `99d15fa6`), 6 (non-finite `--ratio`/`--resize` values, `9ff0e7f6`) and 7 (32-bit wrap of integer tokens,
+  `06b6ab2d`). The open end is the window server paths listed in the Phase 5
+  and 6 handovers (`--insert`, cross-space `--swap`/`--warp`, focus onto a leaf, rule space/display effects), which need
   more headless gates if they are to be covered.

@@ -1,7 +1,7 @@
-/// Pure functions over the space list of a display (the Mission Control order), from src/space_manager.c.
+/// Pure functions over the space list of a display (the Mission Control order).
 public enum SpaceList
 {
-    /// `space_list_index_of`: the position of sid in the list, nil when it is not there.
+    /// The position of sid in the list, nil when it is not there.
     public static func indexOf(spaces: [SpaceID], sid: SpaceID) -> Int?
     {
         spaces.firstIndex(of: sid)
@@ -12,7 +12,7 @@ public enum SpaceList
     // the position is outside of it.
     //
 
-    /// `space_list_neighbour`
+    /// The space that is `offset` positions from sid in the list.
     public static func neighbour(spaces: [SpaceID], sid: SpaceID, offset: Int) -> SpaceID?
     {
         guard let index = indexOf(spaces: spaces, sid: sid) else { return nil }
@@ -21,7 +21,7 @@ public enum SpaceList
         return spaces.indices.contains(target) ? spaces[target] : nil
     }
 
-    /// `space_manager_move_space_replacement`: the user space that the scripting addition shows on the source
+    /// The user space that the scripting addition shows on the source
     /// display when sid moves to another display. Only a visible space needs one; it is the previous user space,
     /// else the next one, else nil.
     public static func moveReplacement(spaces: [SpaceID], user: [Bool], sid: SpaceID, visible: SpaceID) -> SpaceID?

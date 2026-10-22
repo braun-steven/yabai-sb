@@ -183,7 +183,7 @@ public enum TokenValue: Sendable
     }
 }
 
-/// Where the parsers take the next token from: a `Message`, or the C cursor of a message while the handlers are C.
+/// Where the parsers take the next token from: a `Message`.
 public protocol TokenSource
 {
     mutating func next() -> Token

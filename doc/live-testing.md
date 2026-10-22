@@ -367,3 +367,15 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   With all of them resolved, it logs one `debug` line, `all private symbols resolved`, which needs `--verbose`. The
   features that go quiet without their symbol are the window sub-level query and the bridged window move. A notice
   line in `/tmp/yabai_$USER.out.log` on a new macOS means the symbol moved; check it before debugging the feature.
+
+## Signpost intervals
+
+- `Sources/Yabai/Signposts.swift` holds the signposters (subsystem `com.asmvik.yabai`, categories `events` and
+  `animation`). The event loop wraps each event that `EventHandler.handle` runs in an interval named after its `Event`
+  case (`windowFocused`, `spaceChanged`, ...). An animation run is an interval `animation run`, from the proxy request
+  until the display link finishes it, and each display-link frame is an interval `animation frame`.
+- Record 20 s with the Logging template: `xcrun xctrace record --template 'Logging' --attach yabai --time-limit 20s
+  --output <file>.trace`. Open the trace in Instruments and filter the os_signpost data by subsystem `com.asmvik.yabai`.
+  `--attach` takes the process name, and `xcrun xctrace list templates` shows the templates.
+- Nothing is recorded unless a recording is running. A disabled interval costs one check, so the signposts stay in
+  release builds.

@@ -5,6 +5,7 @@ import Synchronization
 import CPrivate
 import YabaiCore
 import Logging
+import os
 
 //
 // NOTE: Moving and resizing windows: frame requests that are grouped per application and skipped when
@@ -184,14 +185,18 @@ private final class WindowAnimationDisplayLink: NSObject
     let animations: [WindowAnimation]
     let duration: Float
     let easing: AnimationEasing
+    /// The signpost interval of the whole run, begun when the proxies are requested and ended in finish().
+    let runInterval: OSSignpostIntervalState
     private var clock: CFTimeInterval?
 
-    init(connection: Int32, animations: [WindowAnimation], duration: Float, easing: AnimationEasing)
+    init(connection: Int32, animations: [WindowAnimation], duration: Float, easing: AnimationEasing,
+         runInterval: OSSignpostIntervalState)
     {
         self.connection = connection
         self.animations = animations
         self.duration = duration
         self.easing = easing
+        self.runInterval = runInterval
     }
 
     func start()
@@ -207,6 +212,10 @@ private final class WindowAnimationDisplayLink: NSObject
 
     @objc private func tick(_ link: CADisplayLink)
     {
+        // NOTE: Frames run one after another on the main run loop, so the interval id is .exclusive.
+        let frame = Signposts.animation.beginInterval("animation frame", id: .exclusive)
+        defer { Signposts.animation.endInterval("animation frame", frame) }
+
         if clock == nil { clock = link.timestamp }
         let t = WindowAnimation.progress(at: link.targetTimestamp, since: clock!, duration: duration)
         let mt = easing.value(at: Float(t))
@@ -253,6 +262,7 @@ private final class WindowAnimationDisplayLink: NSObject
             SLS.reenableUpdate(connection)
         }
         SLS.releaseConnection(connection)
+        Signposts.animation.endInterval("animation run", runInterval)
     }
 }
 
@@ -297,6 +307,13 @@ extension WindowManager
 {
     private func animateWindowsAsync(_ list: [WindowPlacement])
     {
+        //
+        // NOTE: The run interval starts here and ends when the display link finishes the animation. Runs can overlap
+        // (each has its own display link), so each gets a signpost id of its own; the id is only made while recording.
+        //
+        let signposter = Signposts.animation
+        let runID = signposter.isEnabled ? signposter.makeSignpostID() : OSSignpostID.exclusive
+        let runInterval = signposter.beginInterval("animation run", id: runID)
         let connection = SLS.newConnection()
         let duration = animationDuration
         let easing = Config.current.animation.easing
@@ -320,7 +337,8 @@ extension WindowManager
         setWindowFrames(list, nonEssential: true)
         SLS.reenableUpdate(connection)
         DispatchQueue.main.async {
-            WindowAnimationDisplayLink(connection: connection, animations: animations, duration: duration, easing: easing).start()
+            WindowAnimationDisplayLink(connection: connection, animations: animations, duration: duration, easing: easing,
+                                       runInterval: runInterval).start()
         }
     }
 }

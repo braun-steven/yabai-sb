@@ -2,6 +2,7 @@ import Algorithms
 import ApplicationServices
 import Dispatch
 import DequeModule
+import os
 import Synchronization
 import YabaiCore
 
@@ -260,6 +261,15 @@ extension EventHandler
     /// Runs the handler of an event.
     func handle(_ event: Event) async
     {
+        //
+        // NOTE: The loop takes the next event only after this handler returns, even when the handler awaits, so the
+        // intervals of the events never overlap and their id is .exclusive.
+        //
+        let signposter = Signposts.events
+        let name = event.signpostName
+        let interval = signposter.beginInterval(name, id: .exclusive)
+        defer { signposter.endInterval(name, interval) }
+
         switch event {
         case .windowResized(let wid):                    await windowResized(wid)
         default:                                         autoreleasepool { handleSynchronously(event) }

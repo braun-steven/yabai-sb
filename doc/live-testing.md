@@ -358,3 +358,11 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   thread has `"triggered": true`.
 - Reports from release builds with the same stack as a sanitizer report show that a bug is not caused by
   the sanitizer, and their dates show whether it predates the branch.
+
+## Startup diagnostics
+
+- At startup, `Daemon.configureSettingsAndAcquireLock` (`Sources/Yabai/Yabai.swift`) logs the private SkyLight symbols
+  that did not resolve, each with its feature, as one `notice` line: `unresolved private symbols: <name> (<feature>)`.
+  With all of them resolved, it logs one `debug` line, `all private symbols resolved`, which needs `--verbose`. The
+  features that go quiet without their symbol are the window sub-level query and the bridged window move. A notice
+  line in `/tmp/yabai_$USER.out.log` on a new macOS means the symbol moved; check it before debugging the feature.

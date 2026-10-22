@@ -122,6 +122,20 @@ enum Daemon
         return MachOSymbol.address(of: name, inImage: "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight")
     }
 
+    /// Logs the private symbols that did not resolve, each with the feature that needs it, as one notice line.
+    /// When all of them resolved, logs one debug line.
+    private static func logSymbolAvailability(_ symbols: [(name: String, feature: String, address: UnsafeMutableRawPointer?)])
+    {
+        let missing = symbols.filter { $0.address == nil }
+        guard !missing.isEmpty else {
+            Logger.daemon.debug("all private symbols resolved")
+            return
+        }
+
+        let list = missing.map { "\($0.name) (\($0.feature))" }.joined(separator: ", ")
+        Logger.daemon.notice("unresolved private symbols: \(list)")
+    }
+
     @MainActor private static func configureSettingsAndAcquireLock() -> Bool
     {
         guard let user = getenv("USER").map({ String(cString: $0) }) else {
@@ -133,8 +147,15 @@ enum Daemon
         NSApplicationLoadC()
         let pid = getpid()
         _ = SLS.connection
-        CPrivateSetResolvedFunctions(skyLightSymbol("_CGSGetConnectionPortById"),
-                                     skyLightSymbol("__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"))
+        let connectionPortName = "_CGSGetConnectionPortById"
+        let bridgedOperationName = "__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"
+        let connectionPort = skyLightSymbol(connectionPortName)
+        let bridgedOperation = skyLightSymbol(bridgedOperationName)
+        CPrivateSetResolvedFunctions(connectionPort, bridgedOperation)
+        logSymbolAvailability([
+            (name: connectionPortName, feature: "window sub-level query", address: connectionPort),
+            (name: bridgedOperationName, feature: "bridged window move", address: bridgedOperation),
+        ])
 
         signal(SIGCHLD, SIG_IGN)
         signal(SIGPIPE, SIG_IGN)

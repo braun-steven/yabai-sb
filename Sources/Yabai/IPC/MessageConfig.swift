@@ -416,16 +416,55 @@ private func cInt(_ value: Float) -> Int
     }
 }
 
+/// The option of a command name. Every name has exactly one option (configOptionTableIsComplete).
+@WM private func configOption(_ domain: Token, _ name: ConfigName) throws(CommandError) -> ConfigOption
+{
+    guard let option = configOptions.first(where: { $0.name == name }) else {
+        throw CommandError.unknownCommand(domain, Token(name.rawValue))
+    }
+    return option
+}
+
 /// One command of the config domain.
 @WM private func handleConfigCommand(_ rsp: inout Response, _ domain: Token, _ name: ConfigName, _ message: inout Message, _ selSid: SpaceID?) throws(CommandError)
 {
     let command = Token(name.rawValue)
-    guard let option = configOptions.first(where: { $0.name == name }) else {
-        throw CommandError.unknownCommand(domain, command)
-    }
+    let option = try configOption(domain, name)
     if let change = try option.parse(domain, command, &message, selSid) {
         try change()
     } else {
         option.print(&rsp, selSid)
     }
+}
+
+//
+// NOTE: The check of a config message (checkMessage) parses what handleDomainConfig parses and drops every Change, so
+// nothing is applied. Two differences, both from what applying needs: a --space selector is parsed but not resolved, so
+// a placeholder space stands in for it (the spaceLayout option fails on any space, as it does for a real one) and the
+// commands run even where the selector would find nothing; and the failures that only a Change can throw are not
+// found: tab_bar_font (TabBar.setFont), window_animation_duration (SIP and Screen Recording) and the other Change
+// closures. Those stay for handleMessage.
+//
+
+/// Checks a config message: the failures of its commands, parsed as handleDomainConfig parses them, with the Change of
+/// each option dropped. Failures are written to `rsp`, like the commands of handleDomainConfig write them.
+@WM func checkConfigMessage(_ rsp: inout Response, _ domain: Token, _ message: inout Message) throws(CommandError)
+{
+    var selSid: SpaceID?
+    let (spaceSelector, command) = try ConfigCommand.parseScope(message.next(), &message)
+    if spaceSelector != nil {
+        selSid = CheckSelectorContext.placeholderSpace
+    }
+
+    try runCommands(&rsp, &message, from: command) { (rsp, source, command) throws(CommandError) -> Bool in
+        try checkConfigCommand(domain, try ConfigCommand.parseName(command), &source, selSid)
+        return true
+    }
+}
+
+/// One command of the config domain, parsed as handleConfigCommand parses it, without its Change or print.
+@WM private func checkConfigCommand(_ domain: Token, _ name: ConfigName, _ message: inout Message, _ selSid: SpaceID?) throws(CommandError)
+{
+    let option = try configOption(domain, name)
+    _ = try option.parse(domain, Token(name.rawValue), &message, selSid)
 }

@@ -125,12 +125,12 @@ extension DisplayID
         return result
     }
 
-    /// The arrangement index of the display (1-based); 0 when the window server does not arrange it.
-    @WM var arrangement: Int
+    /// The arrangement index of the display (1-based); nil when the window server does not arrange it.
+    @WM var arrangement: Int?
     {
-        guard let uuid = self.uuid else { return 0 }
-        guard let displays = DisplayManager.shared.arrangedDisplays else { return 0 }
-        guard let index = displays.firstIndex(of: uuid) else { return 0 }
+        guard let uuid = self.uuid else { return nil }
+        guard let displays = DisplayManager.shared.arrangedDisplays else { return nil }
+        guard let index = displays.firstIndex(of: uuid) else { return nil }
 
         return index + 1
     }
@@ -138,19 +138,17 @@ extension DisplayID
     /// The display before this one in the arrangement.
     @WM var previous: DisplayID?
     {
-        let arrangement = self.arrangement
-        if arrangement <= 1 { return nil }
+        guard let index = self.arrangement, index > 1 else { return nil }
 
-        return DisplayID(arrangement: arrangement - 1)
+        return DisplayID(arrangement: index - 1)
     }
 
     /// The display after this one in the arrangement.
     @WM var next: DisplayID?
     {
-        let arrangement = self.arrangement
-        if arrangement >= DisplayID.count { return nil }
+        guard let index = self.arrangement, index < DisplayID.count else { return nil }
 
-        return DisplayID(arrangement: arrangement + 1)
+        return DisplayID(arrangement: index + 1)
     }
 
     /// The first display in the arrangement.

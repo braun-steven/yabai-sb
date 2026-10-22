@@ -17,16 +17,16 @@ extension SpaceID
         return DisplayID(uuid: uuid)
     }
 
-    /// Every window the window server lists on the spaces (of the connection, or of every connection for 0), including
+    /// Every window the window server lists on the spaces (of the connection, or of every connection for nil), including
     /// the ones that are not user windows; nil when the window server fails.
-    static func windowCandidates(on spaces: [SpaceID], connection cid: Int32, includingMinimized: Bool) -> [WindowID]?
+    static func windowCandidates(on spaces: [SpaceID], connection cid: Int32?, includingMinimized: Bool) -> [WindowID]?
     {
         let options: UInt32 = includingMinimized ? 0x7 : 0x2
-        return SLS.windows(SLS.connection, owner: UInt32(bitPattern: cid), spaces: spaces, options: options)
+        return SLS.windows(SLS.connection, owner: cid, spaces: spaces, options: options)
     }
 
     /// The windows on the spaces; nil when the window server fails.
-    @WM static func windows(on spaces: [SpaceID], connection cid: Int32, includingMinimized: Bool) -> [WindowID]?
+    @WM static func windows(on spaces: [SpaceID], connection cid: Int32?, includingMinimized: Bool) -> [WindowID]?
     {
         return windowCandidates(on: spaces, connection: cid, includingMinimized: includingMinimized).map { candidates in
             userWindows(among: candidates, includingMinimized: includingMinimized)
@@ -58,7 +58,7 @@ extension SpaceID
     /// The windows on the space; nil when the window server fails.
     @WM func windows(includingMinimized: Bool) -> [WindowID]?
     {
-        return SpaceID.windows(on: [self], connection: 0, includingMinimized: includingMinimized)
+        return SpaceID.windows(on: [self], connection: nil, includingMinimized: includingMinimized)
     }
 
     var isUser: Bool
@@ -84,10 +84,10 @@ extension SpaceID
         return DisplayManager.shared.managedDisplaySpaces.flatMap { $0 }
     }
 
-    /// The Mission Control number of the space, or 0.
-    @WM var missionControlIndex: Int
+    /// The Mission Control number of the space; nil when the space is not in the list.
+    @WM var missionControlIndex: Int?
     {
-        return (SpaceList.indexOf(spaces: SpaceID.all, sid: self) ?? -1) + 1
+        return SpaceList.indexOf(spaces: SpaceID.all, sid: self).map { $0 + 1 }
     }
 
     /// The space with the Mission Control number, or nil.

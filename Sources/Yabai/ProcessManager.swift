@@ -48,13 +48,15 @@ import Logging
         processes[key]
     }
 
-    /// The space of the first user window of the connection, or nil.
-    func activeSpace(forConnection connection: Int32) -> SpaceID?
+    /// The space of the first user window of the connection, or nil (also when the connection is unknown).
+    func activeSpace(forConnection connection: Int32?) -> SpaceID?
     {
+        guard let connection else { return nil }
+
         let spaces = SpaceID.all
         if spaces.isEmpty { return nil }
 
-        guard let windows = SLS.windows(SLS.connection, owner: UInt32(bitPattern: connection), spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }
+        guard let windows = SLS.windows(SLS.connection, owner: connection, spaces: spaces, options: 0x2), !windows.isEmpty else { return nil }
 
         for window in SLS.queryWindows(SLS.connection, windows) {
             if SpaceWindow.isUserWindow(parentID: window.parent, level: window.level, tags: window.tags, attributes: window.attributes) {

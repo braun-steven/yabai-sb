@@ -152,15 +152,20 @@ final class Workspace: NSObject, Sendable
         EventLoop.post(.spaceChanged)
     }
 
+    //
+    // NOTE: A notification without an application has no pid to act on, so nothing is posted (the handlers ignore an
+    // unknown pid anyway).
+    //
+
     @objc func didHideApplication(_ notification: Notification)
     {
-        let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier ?? 0
+        guard let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier else { return }
         EventLoop.post(.applicationHidden(pid: pid))
     }
 
     @objc func didUnhideApplication(_ notification: Notification)
     {
-        let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier ?? 0
+        guard let pid = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier else { return }
         EventLoop.post(.applicationVisible(pid: pid))
     }
 
@@ -188,8 +193,8 @@ final class Workspace: NSObject, Sendable
 }
 
 //
-// NOTE: runningApplicationPointer holds the NSRunningApplication at +1 (passRetained), from attachRunningApplication()
-// until releaseRunningApplication(). The context of the key-value observations is the process, unretained: its
+// NOTE: runningApplicationBox holds the NSRunningApplication from attachRunningApplication() until
+// releaseRunningApplication(), which drops it. The context of the key-value observations is the process, unretained: its
 // observations are removed when the process terminates (unobserve()), before the handler of APPLICATION_TERMINATED
 // releases it.
 //
@@ -201,15 +206,16 @@ extension Process
         return Unmanaged.passUnretained(self).toOpaque()
     }
 
-    /// Stores the retained NSRunningApplication of the process, or nil.
+    /// Stores the NSRunningApplication of the process, or nil when AppKit does not know the pid.
     func attachRunningApplication()
     {
-        runningApplicationPointer.store(NSRunningApplication(processIdentifier: pid).map { Unmanaged.passRetained($0).toOpaque() }, ordering: .releasing)
+        let box = NSRunningApplication(processIdentifier: pid).map(RunningApplicationBox.init)
+        runningApplicationBox.withLock { $0 = box }
     }
 
     var runningApplication: NSRunningApplication?
     {
-        return runningApplicationPointer.load(ordering: .relaxed).map { Unmanaged<NSRunningApplication>.fromOpaque($0).takeUnretainedValue() }
+        return runningApplicationBox.withLock { $0 }?.application
     }
 
     //
@@ -224,10 +230,9 @@ extension Process
 
     func releaseRunningApplication()
     {
-        guard let pointer = runningApplicationPointer.load(ordering: .relaxed) else { return }
-        let application = Unmanaged<NSRunningApplication>.fromOpaque(pointer)
+        guard let application = runningApplication else { return }
 
-        if application.takeUnretainedValue().observationInfo != nil {
+        if application.observationInfo != nil {
 
             //
             // :WorstApiEverMade
@@ -245,11 +250,11 @@ extension Process
             // to remove a non-existing observation when it just called us back.
             //
 
-            removeObserver(from: application.takeUnretainedValue(), KeyPath.activationPolicy)
-            removeObserver(from: application.takeUnretainedValue(), KeyPath.finishedLaunching)
+            removeObserver(from: application, KeyPath.activationPolicy)
+            removeObserver(from: application, KeyPath.finishedLaunching)
         }
 
-        application.release()
+        runningApplicationBox.withLock { $0 = nil }
     }
 
     private func addObserver(_ keyPath: String)

@@ -1,3 +1,4 @@
+import AppKit
 import Carbon
 import Foundation
 import CPrivate
@@ -11,13 +12,13 @@ import YabaiCore
     let name: String
 
     //
-    // NOTE: terminated and runningApplicationPointer (the NSRunningApplication at +1) are written on the event loop; the
-    // key-value observer on the main thread reads terminated with acquire ordering (Workspace.swift). policy (the
-    // activation policy) is stored by isObservable on the event loop and compared and stored by the key-value observer
-    // on the main thread, relaxed (Workspace.swift).
+    // NOTE: terminated is written on the event loop and read with acquire ordering by the key-value observer on the main
+    // thread (Workspace.swift). policy (the activation policy) is stored by isObservable on the event loop and compared and
+    // stored by the key-value observer on the main thread, relaxed (Workspace.swift). runningApplicationBox is a Mutex,
+    // so the NSRunningApplication it holds needs no manual retain or release (Workspace.swift).
     //
 
-    let runningApplicationPointer = Atomic<UnsafeMutableRawPointer?>(nil)
+    let runningApplicationBox = Mutex<RunningApplicationBox?>(nil)
     let policy = Atomic<Int>(0)
     var launchAttempts = 0
     var launchGivenUp = false
@@ -37,7 +38,7 @@ import YabaiCore
         set { terminated.store(newValue, ordering: .releasing) }
     }
 
-    var hasRunningApplication: Bool { runningApplicationPointer.load(ordering: .relaxed) != nil }
+    var hasRunningApplication: Bool { runningApplicationBox.withLock { $0 != nil } }
 
     /// The name and pid of the process, as the debug output prints them.
     nonisolated var nameAndPID: String { "\(name) (\(pid))" }
@@ -61,6 +62,22 @@ extension Process
     static func canRetryLaunch(_ attempt: Int) -> Bool
     {
         attempt < maxLaunchAttempts
+    }
+}
+
+//
+// NOTE: The NSRunningApplication of a process, boxed so that a Mutex can hand it out. The box is Sendable because AppKit
+// documents NSRunningApplication as thread safe: its properties are returned atomically, though the time-varying ones only
+// change when the main run loop runs. yabai reads it on the event loop only.
+//
+
+final class RunningApplicationBox: @unchecked Sendable
+{
+    let application: NSRunningApplication
+
+    init(_ application: NSRunningApplication)
+    {
+        self.application = application
     }
 }
 

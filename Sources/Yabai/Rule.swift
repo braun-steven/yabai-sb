@@ -15,6 +15,6 @@ extension Rule
     /// The rule for `rule --list`, at index in the rule list.
     @WM func info(index: Int) -> RuleInfo
     {
-        info(index: index, display: effects.did.map { $0.arrangement } ?? 0, space: effects.sid.map { $0.missionControlIndex } ?? 0)
+        info(index: index, display: effects.did.flatMap { $0.arrangement } ?? 0, space: effects.sid.flatMap { $0.missionControlIndex } ?? 0)
     }
 }

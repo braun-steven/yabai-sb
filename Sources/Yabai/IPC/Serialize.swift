@@ -20,7 +20,7 @@ extension DisplayID
         var info = DisplayInfo(id: self, properties: properties)
 
         if properties.contains(.uuid)     { info.uuid     = uuid ?? "<unknown>" }
-        if properties.contains(.index)    { info.index    = arrangement }
+        if properties.contains(.index)    { info.index    = arrangement ?? 0 }
         if properties.contains(.label)    { info.label    = dm.labels.name(of: self) ?? "" }
         if properties.contains(.frame)    { info.frame    = QueryFrame(CGDisplayBounds(rawValue)) }
         if properties.contains(.spaces)   { info.spaces   = spaceIndices }
@@ -48,10 +48,10 @@ extension View
         var info = SpaceInfo(id: sid, properties: properties)
 
         if properties.contains(.uuid)         { info.uuid         = uuid.map { $0 as String } ?? "<unknown>" }
-        if properties.contains(.index)        { info.index        = sid.missionControlIndex }
+        if properties.contains(.index)        { info.index        = sid.missionControlIndex ?? 0 }
         if properties.contains(.label)        { info.label        = sm.labels.name(of: sid) ?? "" }
         if properties.contains(.type)         { info.type         = layout.rawValue }
-        if properties.contains(.display)      { info.display      = sid.display.map { $0.arrangement } ?? 0 }
+        if properties.contains(.display)      { info.display      = sid.display.flatMap { $0.arrangement } ?? 0 }
         if properties.contains(.windows)      { info.windows      = sid.windows(includingMinimized: true) ?? [] }
         if properties.contains(.firstWindow)  { info.firstWindow  = tree?.firstLeaf?.focusedDescendant.windowID }
         if properties.contains(.lastWindow)   { info.lastWindow   = tree?.lastLeaf?.windowID }
@@ -94,8 +94,8 @@ extension WindowInfo
     // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
     @WM fileprivate mutating func setSpace(_ sid: SpaceID?)
     {
-        if wants([.display]) { display = sid.flatMap { $0.display }.map { $0.arrangement } ?? 0 }
-        if wants([.space])   { space   = sid.map { $0.missionControlIndex } ?? 0 }
+        if wants([.display]) { display = sid.flatMap { $0.display }.flatMap { $0.arrangement } ?? 0 }
+        if wants([.space])   { space   = sid.flatMap { $0.missionControlIndex } ?? 0 }
     }
 
     fileprivate mutating func setLevels(_ wid: WindowID)
@@ -221,7 +221,7 @@ extension WindowManager
     /// The windows of the spaces for `query --windows`, tracked or not.
     func windowInfos(on spaceList: [SpaceID], _ properties: Set<WindowInfo.Key>) -> [WindowInfo]
     {
-        let windowList = SpaceID.windows(on: spaceList, connection: 0, includingMinimized: true) ?? []
+        let windowList = SpaceID.windows(on: spaceList, connection: nil, includingMinimized: true) ?? []
         return windowList.map { wid in window(for: wid)?.info(properties) ?? wid.info(properties) }
     }
 }

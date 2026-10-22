@@ -8,7 +8,8 @@ import Logging
 @WM final class Application
 {
     var ref: AXUIElement!
-    var connection: Int32 = 0
+    /// The window server connection of the process; nil until the window server knows it.
+    var connection: Int32?
     var psn = ProcessSerialNumber()
     var pid: pid_t = 0
     var name = ""
@@ -32,7 +33,7 @@ import Logging
         name = process.name
         isHidden = !ProcessIsVisibleC(psn)
 
-        connection = SLS.connectionID(SLS.connection, forProcess: psn) ?? 0
+        connection = SLS.connectionID(SLS.connection, forProcess: psn)
     }
 
     /// The AX notifications that `observe()` registered for this application.

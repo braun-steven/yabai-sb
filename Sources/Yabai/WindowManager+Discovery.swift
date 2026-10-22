@@ -127,7 +127,7 @@ extension WindowManager
         let spaceList = SpaceID.all
         if spaceList.isEmpty { return nil }
 
-        guard let candidates = SpaceID.windowCandidates(on: spaceList, connection: owner?.connection ?? 0, includingMinimized: true), !candidates.isEmpty else { return nil }
+        guard let candidates = SpaceID.windowCandidates(on: spaceList, connection: owner?.connection, includingMinimized: true), !candidates.isEmpty else { return nil }
         return SpaceID.userWindows(among: candidates, includingMinimized: true)
     }
 

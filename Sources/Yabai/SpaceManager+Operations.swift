@@ -98,9 +98,9 @@ extension SpaceManager
         //
         // NOTE: A prev space is nil only where the sid is first, so the branches that move past it bind it.
         //
-        if actingSidIsFirst && !selectorSidIsFirst && selectorMCI - actingMCI == 1 {
+        if actingSidIsFirst && !selectorSidIsFirst && follows(selectorMCI, actingMCI) {
             success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
-        } else if !actingSidIsFirst && selectorSidIsFirst && actingMCI - selectorMCI == 1 {
+        } else if !actingSidIsFirst && selectorSidIsFirst && follows(actingMCI, selectorMCI) {
             success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: selectorSid == SpaceID.active)
         } else if actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
             success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
@@ -111,7 +111,7 @@ extension SpaceManager
             let second = ScriptingAddition.shared.moveSpace(selectorSid, after: actingPrevSid, focus: false)
             success = success && second
         } else if !actingSidIsFirst && !selectorSidIsFirst, let actingPrevSid, let selectorPrevSid {
-            if actingMCI > selectorMCI {
+            if isAfter(actingMCI, selectorMCI) {
                 success = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
                 let second = ScriptingAddition.shared.moveSpace(actingSid, after: selectorPrevSid, focus: actingSid == SpaceID.active)
                 success = success && second
@@ -153,7 +153,7 @@ extension SpaceManager
             let second = ScriptingAddition.shared.moveSpace(selectorSid, after: actingSid, focus: false)
             success = success && second
         } else if !actingSidIsFirst && !selectorSidIsFirst, let selectorPrevSid {
-            if actingSid.missionControlIndex > selectorSid.missionControlIndex {
+            if isAfter(actingSid.missionControlIndex, selectorSid.missionControlIndex) {
                 success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorPrevSid, focus: actingSid == SpaceID.active)
             } else {
                 success = ScriptingAddition.shared.moveSpace(actingSid, after: selectorSid, focus: actingSid == SpaceID.active)
@@ -209,8 +209,8 @@ extension SpaceManager
     func focusSpaceUsingGesture(_ newSid: SpaceID, on newDid: DisplayID) -> Bool
     {
         defer { DisplayManager.shared.invalidateSpaceCaches() }
-        let curIndex = newDid.currentSpace.map { $0.missionControlIndex } ?? 0
-        let newIndex = newSid.missionControlIndex
+        guard let curIndex = newDid.currentSpace.flatMap({ $0.missionControlIndex }),
+              let newIndex = newSid.missionControlIndex else { return false }
 
         let count = abs(newIndex - curIndex)
         if count == 0 {
@@ -329,5 +329,22 @@ extension SpaceManager
         guard let sid else { throw .missingSource }
 
         if !ScriptingAddition.shared.createSpace(sid) { throw .scriptingAdditionFailed }
+    }
+}
+
+/// Whether `next` is the Mission Control index right after `previous`; false when either index is unknown.
+private func follows(_ next: Int?, _ previous: Int?) -> Bool
+{
+    guard let next, let previous else { return false }
+    return next - previous == 1
+}
+
+/// Whether an index is after another. An unknown index sorts before every known one.
+private func isAfter(_ index: Int?, _ other: Int?) -> Bool
+{
+    switch (index, other) {
+    case let (index?, other?): return index > other
+    case (_?, nil): return true
+    case (nil, _): return false
     }
 }

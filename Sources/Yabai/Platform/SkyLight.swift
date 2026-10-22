@@ -115,12 +115,14 @@ enum SLS
     }
 
     /// `SLSCopyWindowsWithOptionsAndTags` without tag filters, as `SpaceID.windows(on:connection:includingMinimized:)`
-    /// calls it. nil when the call fails, which the caller must tell apart from an empty list.
-    static func windows(_ cid: Int32, owner: UInt32, spaces: [SpaceID], options: UInt32) -> [WindowID]?
+    /// calls it. A nil owner lists the windows of every connection, which the call expresses as owner 0. nil when the call
+    /// fails, which the caller must tell apart from an empty list.
+    static func windows(_ cid: Int32, owner: Int32?, spaces: [SpaceID], options: UInt32) -> [WindowID]?
     {
         var setTags: UInt64 = 0
         var clearTags: UInt64 = 0
-        guard let windows = SLSCopyWindowsWithOptionsAndTags(cid, owner, cfArray(spaces: spaces), options, &setTags, &clearTags) else { return nil }
+        let ownerID = owner.map { UInt32(bitPattern: $0) } ?? 0
+        guard let windows = SLSCopyWindowsWithOptionsAndTags(cid, ownerID, cfArray(spaces: spaces), options, &setTags, &clearTags) else { return nil }
         return ids(windows, as: UInt32.self).map { WindowID($0) }
     }
 

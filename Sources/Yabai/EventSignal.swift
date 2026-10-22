@@ -212,7 +212,7 @@ extension PendingSignal
         switch type {
         case .spaceCreated:
             let sid = subject.space!
-            let index = sid.missionControlIndex
+            let index = sid.missionControlIndex ?? 0
 
             addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
             addArgument("YABAI_SPACE_INDEX", "\(index)")
@@ -225,8 +225,8 @@ extension PendingSignal
             let sid = sm.currentSpaceID
             let recentSid = sm.lastSpaceID
 
-            let index = sid.map { $0.missionControlIndex } ?? 0
-            let recentIndex = recentSid.map { $0.missionControlIndex } ?? 0
+            let index = sid.flatMap { $0.missionControlIndex } ?? 0
+            let recentIndex = recentSid.flatMap { $0.missionControlIndex } ?? 0
 
             addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid?.rawValue ?? 0))")
             addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid?.rawValue ?? 0))")
@@ -244,7 +244,7 @@ extension PendingSignal
         switch type {
         case .displayAdded, .displayMoved, .displayResized:
             let did = subject.display!
-            let index = did.arrangement
+            let index = did.arrangement ?? 0
 
             addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
             addArgument("YABAI_DISPLAY_INDEX", "\(index)")
@@ -257,8 +257,8 @@ extension PendingSignal
             let did = dm.currentDisplayID
             let recentDid = dm.lastDisplayID
 
-            let index = did.map { $0.arrangement } ?? 0
-            let recentIndex = recentDid.map { $0.arrangement } ?? 0
+            let index = did.flatMap { $0.arrangement } ?? 0
+            let recentIndex = recentDid.flatMap { $0.arrangement } ?? 0
 
             addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did?.rawValue ?? 0))")
             addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid?.rawValue ?? 0))")

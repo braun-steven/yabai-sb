@@ -81,18 +81,7 @@ extension SpaceID
     /// Every space in the order Mission Control numbers them, display by display.
     @WM static var all: [SpaceID]
     {
-        var result: [SpaceID] = []
-
-        for display in DisplayManager.shared.managedDisplaySpaces {
-            guard let spaces = display["Spaces"] as? [NSDictionary] else { continue }
-
-            for space in spaces {
-                guard let sid = (space["id64"] as? NSNumber).flatMap({ SpaceID(nonzero: $0.uint64Value) }) else { continue }
-                result.append(sid)
-            }
-        }
-
-        return result
+        return DisplayManager.shared.managedDisplaySpaces.flatMap { $0 }
     }
 
     /// The Mission Control number of the space, or 0.

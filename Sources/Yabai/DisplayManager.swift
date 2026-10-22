@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import CPrivate
 import YabaiCore
+import Logging
 
 //
 // NOTE: The displays of yabai: their arrangement (display_arrangement_order and builtin_display_last), the menu bar and
@@ -60,6 +61,15 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     var labels = LabelList<DisplayID>()
 
     //
+    // NOTE: The space and display lists are read often (SpaceID.all for every Mission Control index, and every display
+    // arrangement index), and each read is a window server call. They are cached on the event loop: the handlers of the
+    // space and display events, the Mission Control exit, every space operation and each space layout pass invalidate
+    // them (`invalidateSpaceCaches`), and the lifetime bounds a change that was not reported.
+    //
+    private var managedDisplaySpacesCache = Cached<[[SpaceID]]>(lifetime: .seconds(2))
+    private var arrangedDisplaysCache = Cached<[String]>(lifetime: .seconds(2))
+
+    //
     // NOTE: The managers are @WM: the event loop owns their state, and producers on other threads read only what the
     // NOTEs at their reads name (atomics, immutable ids). shared of DisplayManager and ProcessManager is nonisolated so
     // that Daemon.run can call their nonisolated begin() on the main thread; begin() still changes the state through
@@ -80,12 +90,44 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
         return CGDisplayRegisterReconfigurationCallback(displayReconfigured, nil) == .success
     }
 
-    /// The display spaces of the window server, with builtin_display_last applied.
-    var managedDisplaySpaces: [NSDictionary]
+    //
+    // NOTE: The spaces of each display, in the order of the window server with builtin_display_last applied. The cache
+    // keeps the space ids rather than the window server's dictionaries, because the cached values must be Sendable: the
+    // default values of the stored properties are checked as nonisolated (DisplayManager.shared is nonisolated), and a
+    // non-Sendable default fails to compile.
+    //
+
+    /// The spaces of each display (cached, see `invalidateSpaceCaches`). A display without spaces, or with an id that is
+    /// not a space, contributes nothing.
+    var managedDisplaySpaces: [[SpaceID]]
     {
-        return DisplayManager.orderedBuiltinLast(SLS.managedDisplaySpaces(SLS.connection), enabled: Config.current.display.builtinDisplayLast) {
+        let now = ContinuousClock.now
+        if let cached = managedDisplaySpacesCache.value(at: now) { return cached }
+
+        Logger.spaces.debug("managed display spaces: cache miss")
+        let displays = DisplayManager.orderedBuiltinLast(SLS.managedDisplaySpaces(SLS.connection), enabled: Config.current.display.builtinDisplayLast) {
             DisplayManager.isBuiltin(uuid: $0["Display Identifier"])
         }
+
+        let fresh = displays.map { display -> [SpaceID] in
+            guard let spaces = display["Spaces"] as? [NSDictionary] else { return [] }
+
+            return spaces.compactMap { space in
+                (space["id64"] as? NSNumber).flatMap { SpaceID(nonzero: $0.uint64Value) }
+            }
+        }
+
+        managedDisplaySpacesCache.store(fresh, at: now)
+        return fresh
+    }
+
+    /// Drops the cached space and display lists, so that the next read asks the window server. Called by the handlers of
+    /// the space and display events and of the Mission Control exit, after the operations that change spaces or displays,
+    /// before each space layout pass, and when a display config option that orders the lists changes.
+    func invalidateSpaceCaches()
+    {
+        managedDisplaySpacesCache.invalidate()
+        arrangedDisplaysCache.invalidate()
     }
 
     //
@@ -93,22 +135,38 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     // then builtin_display_last).
     //
 
-    /// The uuids of all displays in arrangement order; nil when the window server does not list the displays.
+    /// The uuids of all displays in arrangement order; nil when the window server does not list the displays (cached, see
+    /// `invalidateSpaceCaches`; a failed read is not cached).
     var arrangedDisplays: [String]?
+    {
+        let now = ContinuousClock.now
+        if let cached = arrangedDisplaysCache.value(at: now) { return cached }
+
+        guard let fresh = DisplayManager.queryArrangedDisplays() else { return nil }
+
+        Logger.spaces.debug("arranged displays: cache miss, \(fresh.count) display(s)")
+        arrangedDisplaysCache.store(fresh, at: now)
+        return fresh
+    }
+
+    /// The uuids of all displays from the window server, sorted by display_arrangement_order and then moved by
+    /// builtin_display_last.
+    private static func queryArrangedDisplays() -> [String]?
     {
         guard let displays = SLS.managedDisplays(SLS.connection) else { return nil }
 
-        let count = CFArrayGetCount(displays)
+        let uuids = (displays as NSArray as? [String]) ?? []
         let order = Config.current.display.order
 
-        var sorted = displays
-        if count > 0 && order != .default {
-            let mutable = CFArrayCreateMutableCopy(nil, count, displays)!
-            CFArraySortValues(mutable, CFRangeMake(0, count), displayCoordinateComparator, UnsafeMutableRawPointer(bitPattern: order == .vertical ? 1 : 0))
-            sorted = mutable as CFArray
+        var sorted = uuids
+        if order != .default {
+            let placements = uuids.map { uuid in
+                DisplayArrangement.Placement(uuid: uuid, center: DisplayID(uuid: uuid)?.center ?? .zero)
+            }
+            sorted = DisplayArrangement.sorted(placements, vertical: order == .vertical)
         }
 
-        return DisplayManager.orderedBuiltinLast((sorted as NSArray as? [String]) ?? [], enabled: Config.current.display.builtinDisplayLast) {
+        return DisplayManager.orderedBuiltinLast(sorted, enabled: Config.current.display.builtinDisplayLast) {
             DisplayManager.isBuiltin(uuid: $0)
         }
     }
@@ -192,30 +250,4 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
 
         return elementRef.elementAttribute(kAXWindowAttribute)
     }
-}
-
-//
-// NOTE: The order of display_arrangement_order compares the centers of two displays on the axis of the order, then on the
-// other axis. The context of the comparator is 1 for the vertical order and 0 for the horizontal one.
-//
-
-private let displayCoordinateComparator: CFComparatorFunction = { a, b, context in
-    let byY = context != nil
-
-    let aCenter = DisplayID(uuid: Unmanaged<CFString>.fromOpaque(a!).takeUnretainedValue() as String)?.center ?? .zero
-    let bCenter = DisplayID(uuid: Unmanaged<CFString>.fromOpaque(b!).takeUnretainedValue() as String)?.center ?? .zero
-
-    var aCoord = Float(byY ? aCenter.y : aCenter.x)
-    var bCoord = Float(byY ? bCenter.y : bCenter.x)
-
-    if aCoord < bCoord { return .compareLessThan }
-    if aCoord > bCoord { return .compareGreaterThan }
-
-    aCoord = Float(byY ? aCenter.x : aCenter.y)
-    bCoord = Float(byY ? bCenter.x : bCenter.y)
-
-    if aCoord < bCoord { return .compareLessThan }
-    if aCoord > bCoord { return .compareGreaterThan }
-
-    return .compareEqualTo
 }

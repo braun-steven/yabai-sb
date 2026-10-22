@@ -25,6 +25,11 @@ extension SpaceManager
     /// Swaps two spaces that are on different displays.
     private func swapSpaceAcrossDisplays(_ aSid: SpaceID, with bSid: SpaceID)
     {
+        //
+        // NOTE: Every operation may change the space or display lists (or the display that shows a space), so the cache is
+        // dropped when it returns, whether or not the scripting addition succeeded.
+        //
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         WindowManager.shared.withoutAnimations {
             let aWindows = aSid.windows(includingMinimized: true) ?? []
             let bWindows = bSid.windows(includingMinimized: true) ?? []
@@ -65,6 +70,7 @@ extension SpaceManager
 
     func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
 
         let actingDid = actingSid.display
@@ -121,6 +127,7 @@ extension SpaceManager
 
     func moveSpace(_ actingSid: SpaceID, to selectorSid: SpaceID) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
 
         let actingDid = actingSid.display
@@ -158,6 +165,7 @@ extension SpaceManager
 
     func moveSpace(_ sid: SpaceID?, toDisplay did: DisplayID) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
         guard let sid else { throw .missingSource }
 
@@ -200,6 +208,7 @@ extension SpaceManager
     @discardableResult
     func focusSpaceUsingGesture(_ newSid: SpaceID, on newDid: DisplayID) -> Bool
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         let curIndex = newDid.currentSpace.map { $0.missionControlIndex } ?? 0
         let newIndex = newSid.missionControlIndex
 
@@ -255,6 +264,7 @@ extension SpaceManager
 
     func focusSpace(_ sid: SpaceID) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
 
         let curSid = SpaceID.active
@@ -275,6 +285,7 @@ extension SpaceManager
 
     func switchSpace(to sid: SpaceID) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
 
         guard let curSid = SpaceID.active else { throw .missingSource }
@@ -294,6 +305,7 @@ extension SpaceManager
 
     func destroySpace(_ sid: SpaceID?) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
 
         guard let sid else { throw .missingSource }
@@ -313,6 +325,7 @@ extension SpaceManager
     /// Creates a space on the display of sid.
     func addSpace(onDisplayOf sid: SpaceID?) throws(SpaceOperationError)
     {
+        defer { DisplayManager.shared.invalidateSpaceCaches() }
         if MissionControl.shared.isActive { throw .inMissionControl }
         guard let sid else { throw .missingSource }
 

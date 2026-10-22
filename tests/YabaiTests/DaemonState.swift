@@ -30,6 +30,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
         Headless.displayFrame = Headless.defaultDisplayFrame
         Headless.activeSpace = nil
         Config.current.resetToDefaults()
+        DisplayManager.shared.invalidateSpaceCaches()
         Log.verbose.store(false, ordering: .relaxed)
         MouseState.shared.tap.modifier = Config.current.mouse.modifier
         WindowManager.shared.initialize()

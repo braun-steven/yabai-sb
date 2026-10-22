@@ -48,6 +48,11 @@ extension SpaceManager
     /// Performs one step that moves the user spaces towards the layout of the displays.
     func reconcileSpaceLayout() -> SpaceLayoutResult
     {
+        //
+        // NOTE: Each pass reads the lists again: the previous pass may have changed them, and the next one decides on them.
+        //
+        DisplayManager.shared.invalidateSpaceCaches()
+
         let displayCount = DisplayID.count
         if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 

@@ -253,6 +253,8 @@ extension DisplayID
     /// Focuses the display, through its frontmost window on the space, or its cursor.
     @WM func focus(space: SpaceID?)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
+
         let wm = WindowManager.shared
 
         if let sid = space, let window = wm.window(on: sid, byRank: 1, excluding: nil) {

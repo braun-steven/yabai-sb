@@ -59,6 +59,8 @@ of reading it again.
 
 `WindowManager*.swift` covers discovery, lookup, focus, rules, scratchpads and tree commands. `Display*.swift`, `Space*.swift` and `View.swift` manage displays, spaces and layouts; `SpaceManager+SpaceLayout.swift` reconciles configured space counts. `ProcessManager.swift` receives Carbon application events; `Workspace.swift` observes NSWorkspace and NSRunningApplication. `Window.swift` and `Application.swift` wrap individual AX/SkyLight objects and AX notifications.
 
+`DisplayManager.managedDisplaySpaces` and `arrangedDisplays` (so `SpaceID.all`, `missionControlIndex`, `previous`/`next` and `DisplayID.arrangement`) are cached for 2 s on the event loop (`Cached`, YabaiCore). Any change of spaces or displays must call `DisplayManager.shared.invalidateSpaceCaches()`: the space and display event handlers, the Mission Control exit, each space operation (`SpaceManager+Operations`, with `defer`), `DisplayID.focus(space:)`, the display config setters and each space layout pass do. A new command that creates, destroys, moves or reorders spaces or displays needs the same call, or its own later reads see the old lists. Readers that poll the lists for a change must invalidate in each iteration. `DisplayID.spaces`, `SpaceID.display` and `DisplayID.currentSpace` are not cached: they ask the window server each time.
+
 ### Tree layout
 
 Each `View` owns a container tree. `Con` has a weak parent and ordered children/focus arrays; `Con.swift` implements the i3 operations. `TreeView.swift` applies frames, tab bars and stacking; `WindowManager+Tree.swift` implements navigation and cross-display moves. `ViewArea` in YabaiCore handles pure geometry.

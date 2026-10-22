@@ -89,6 +89,7 @@ extension EventHandler
     func missionControlExit()
     {
         EventLoop.cancel(key: .missionControlCheck)
+        DisplayManager.shared.invalidateSpaceCaches()
 
         Logger.events.debug("mission control exit")
 

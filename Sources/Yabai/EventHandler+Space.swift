@@ -13,6 +13,7 @@ extension EventHandler
 {
     func slsSpaceCreated(_ sid: SpaceID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         let type = SLS.spaceType(SLS.connection, sid)
 
         if type == 0 || type == 4 {
@@ -25,6 +26,7 @@ extension EventHandler
 
     func slsSpaceDestroyed(_ sid: SpaceID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         let sm = SpaceManager.shared
 
         if let view = sm.views[sid] {
@@ -77,6 +79,7 @@ extension EventHandler
 
     func spaceChanged()
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         let sm = SpaceManager.shared
 
         sm.lastSpaceID = sm.currentSpaceID
@@ -90,6 +93,7 @@ extension EventHandler
 
     func displayChanged()
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         let dm = DisplayManager.shared
         let sm = SpaceManager.shared
 
@@ -119,6 +123,7 @@ extension EventHandler
 
     func displayAdded(_ did: DisplayID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         Logger.events.debug("display added: \(did)")
         SpaceManager.shared.handleDisplayAdd(did)
         WindowManager.shared.handleDisplayAddAndRemove(did)
@@ -128,6 +133,7 @@ extension EventHandler
 
     func displayRemoved(_ did: DisplayID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         Logger.events.debug("display removed: \(did)")
         _ = DisplayManager.shared.labels.remove(id: did)
         WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
@@ -137,6 +143,7 @@ extension EventHandler
 
     func displayMoved(_ did: DisplayID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         Logger.events.debug("display moved: \(did)")
         SpaceManager.shared.markSpacesInvalid()
         SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
@@ -145,6 +152,7 @@ extension EventHandler
 
     func displayResized(_ did: DisplayID)
     {
+        DisplayManager.shared.invalidateSpaceCaches()
         Logger.events.debug("display resized: \(did)")
         SpaceManager.shared.markSpacesInvalid(on: did)
         EventSignals.shared.push(.displayResized, .display(did))

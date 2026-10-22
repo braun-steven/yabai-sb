@@ -16,6 +16,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [macOS 27 support](#macos-27-support)
 - [Shell completions](#shell-completions)
 - [Config check and reload](#config-check-and-reload)
+- [IPC batch](#ipc-batch)
 
 Configuration examples can go in your `yabairc`; window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
@@ -294,6 +295,20 @@ checked 14 commands, 1 failures, 1 skipped
 Without a file, the check reads the file the daemon loads. Lines that the shell computes when it runs them are not checked, and neither are the messages of *space*, *display*, *window* and *query*, which act on the session. Nothing is applied, and the exit status is 1 when there is a failure.
 
 `yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the file first, as above, and changes nothing when the check fails. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
+
+### IPC batch
+
+`yabai -m batch` runs many commands in one message, one round trip instead of one process per command. Its commands come from stdin, one per line, with the words that follow `yabai -m`:
+
+```sh
+yabai -m batch <<'EOF'
+config window_gap 6
+config top_padding 12
+window --focus east
+EOF
+```
+
+The commands run in order, each as it would on its own. A failing command is reported with its number in the batch, and the others still run; the response fails if any of them failed. Lines are not run by a shell, so variables and command substitutions are errors. The command reference describes the rules under *Batch*.
 
 ---
 

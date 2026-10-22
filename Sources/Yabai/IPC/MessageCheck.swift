@@ -69,6 +69,10 @@ struct MessageCheck
         try checkRuleMessage(&message)
     } else if domain.equals(Domain.signal) {
         try checkSignalMessage(&message)
+    } else if domain.equals(BatchMessage.domain) {
+        // NOTE: The commands of a batch are read from their own tokens when the batch runs (handleDomainBatch), which
+        // the check does not do, so it reports them as not checked. A malformed batch is still reported when it runs.
+        check.notes.append("not checked: batch commands are checked when they run")
     } else if domain.equals(Domain.display) || domain.equals(Domain.space) || domain.equals(Domain.window) || domain.equals(Domain.query) {
         check.notes.append("not checked: \(domain.string) commands act on the current session")
     } else {

@@ -161,17 +161,34 @@ public protocol TokenSource
 public struct Message: TokenSource, Sendable
 {
     private let bytes: [UInt8]
+    /// The tokens of one batch command, read as they are (`init(commandTokens:)`). Nil for a client message.
+    private let tokens: [Token]?
     private var position = 0
 
     public init(_ bytes: [UInt8])
     {
         self.bytes = bytes
+        self.tokens = nil
     }
 
     /// A message from text with the null separators written out, e.g. "--focus\0east\0".
     public init(_ text: String)
     {
         self.bytes = Array(text.utf8)
+        self.tokens = nil
+    }
+
+    //
+    // NOTE: A batch command is read from its own tokens, so an empty token is an argument of it. A client message cannot
+    // carry one (`next` ends at it), so the tokens of a batch are split by BatchMessage.terminated and read here instead.
+    //
+
+    /// The tokens of one command of a batch, each read as it is: an empty token is an argument, and the tokens end the
+    /// message after the last one.
+    public init(commandTokens tokens: [Token])
+    {
+        self.bytes = []
+        self.tokens = tokens
     }
 
     //
@@ -182,6 +199,12 @@ public struct Message: TokenSource, Sendable
     /// `get_token`
     public mutating func next() -> Token
     {
+        if let tokens {
+            guard position < tokens.count else { return Token("") }
+            position += 1
+            return tokens[position - 1]
+        }
+
         let start = position
         var end = start
         while end < bytes.count && bytes[end] != 0 { end += 1 }
@@ -197,6 +220,16 @@ public struct Message: TokenSource, Sendable
     {
         var message = self
         return message.next()
+    }
+
+    /// The bytes from the cursor to the end, split at each null byte with the empty pieces kept. A batch reads its tokens
+    /// from these (`BatchMessage.terminated`), since `next` ends at an empty token.
+    public func rawPieces() -> [[UInt8]]
+    {
+        if let tokens {
+            return tokens.dropFirst(position).map { Array($0.utf8) }
+        }
+        return bytes[position...].split(separator: 0, omittingEmptySubsequences: false).map { Array($0) }
     }
 }
 

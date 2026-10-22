@@ -28,6 +28,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *window --split horizontal|vertical|toggle* and *window --layout splith|splitv|tabbed|split|toggle|toggle-split* change containers, and *--insert*, *--stack*, *--resize*, *--ratio*, zoom, *space --balance|--rotate|--mirror* and mouse drops work on the tree
 - Command *config --check [<file>]* parses the `yabai -m` messages of a yabairc without running them and prints each failure as `<file>:<line>: <message>`, with a summary; without a file it checks the file the daemon loads, and it exits with status 1 when there is a failure
 - Command *config --reload [<file>]* runs the yabairc again without restarting the daemon: it checks the file as *config --check* does and, when there is no failure, resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup; windows and spaces stay as they are
+- Command *batch* (`yabai -m batch`) runs many commands in one message: their words are read from stdin, one command per line, without `yabai -m`; the commands run in order, a failing one is reported with its index in the batch, and the response fails if any command failed
 
 ### Changed
 - The options of the *yabai* process are parsed by swift-argument-parser: option values may be attached (*--config=file*, *-Vc file*), and an action, *--message* or *--version* combined with other options, an unknown option or a missing value prints the usage and exits with status 64. Messages after *-m* are parsed as before

@@ -47,6 +47,36 @@ enum Client
         return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
+    /// The tokens of `yabai -m batch`, read from stdin. Nothing is sent when a line of stdin cannot be read.
+    static func batchTokens(_ arguments: [[UInt8]]) -> [[UInt8]]
+    {
+        guard arguments.count == 1 else {
+            fail("yabai-msg: batch reads its commands from stdin and takes no arguments..\n")
+        }
+
+        var input: [UInt8] = []
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = buffer.withUnsafeMutableBytes { read(STDIN_FILENO, $0.baseAddress, $0.count) }
+            if count < 0 && errno == EINTR { continue }
+            if count <= 0 { break }
+            input += buffer[0..<count]
+        }
+
+        let commands: [[String]]
+        do {
+            commands = try parseBatchInput(String(decoding: input, as: UTF8.self))
+        } catch {
+            fail("yabai-msg: batch: line \(error.line): \(error.reason), nothing sent..\n")
+        }
+
+        let tokens = BatchMessage.encode(commands)
+        if ClientMessage.encode(tokens).count - MemoryLayout<Int32>.size > MessageLoop.maxMessageLength {
+            fail("yabai-msg: batch is longer than 1 MiB, nothing sent..\n")
+        }
+        return tokens
+    }
+
     /// `client_send_message`: arguments are the arguments after `-m`.
     static func send(_ arguments: [[UInt8]]) -> Int32
     {
@@ -54,9 +84,12 @@ enum Client
             fail("yabai-msg: no arguments given! abort..\n")
         }
 
+        // NOTE: `batch` with no further argument reads its commands from stdin (batchTokens); the daemon gets them as a batch.
+        let tokens = arguments.first == Array(BatchMessage.domain.utf8) ? batchTokens(arguments) : arguments
+
         // NOTE: `config --check <file>` and `config --reload <file>` send the file as an absolute path: the daemon resolves
         // a relative one in its own directory.
-        let arguments = workingDirectory().map { ConfigFileSearch.resolvingConfigFile(arguments, workingDirectory: $0) } ?? arguments
+        let arguments = workingDirectory().map { ConfigFileSearch.resolvingConfigFile(tokens, workingDirectory: $0) } ?? tokens
 
         guard let user = ProcessEnvironment.currentUser() else {
             fail("yabai-msg: 'env USER' not set! abort..\n")

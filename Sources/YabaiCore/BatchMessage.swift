@@ -56,6 +56,36 @@ public enum BatchMessage
         return commands
     }
 
+    //
+    // NOTE: The tokens of a batch end where a count is due and the piece is empty: a count is never empty, so that empty
+    // piece is the end of the message (the client's terminator). An empty piece inside a command is one of its arguments,
+    // because the count is read first. The two padding nulls that readMessage adds come after the terminator. A count that
+    // is larger than the tokens a client sent can be filled by that padding, so such a message is not always refused; the
+    // client never sends one.
+    //
+
+    /// The tokens of a batch, from the pieces after its domain token (`Message.rawPieces`, empty pieces kept): the pieces
+    /// up to the empty piece where a count is due. A malformed count ends the tokens at that count, so `decode` reports
+    /// it. A count larger than the pieces left gives all the pieces but their trailing empty ones, which are the end and
+    /// the padding, so `decode` reports how many tokens follow.
+    public static func terminated(_ pieces: [[UInt8]]) -> [[UInt8]]
+    {
+        var index = 0
+        while index < pieces.count {
+            if pieces[index].isEmpty { break }
+            guard let count = decimalCount(pieces[index]) else { return Array(pieces[...index]) }
+
+            let next = index + 1 + count
+            if next > pieces.count {
+                var end = pieces.count
+                while end > index + 1 && pieces[end - 1].isEmpty { end -= 1 }
+                return Array(pieces[..<end])
+            }
+            index = next
+        }
+        return Array(pieces[..<index])
+    }
+
     /// The value of a count token, or nil when it is empty or has a byte that is not a decimal digit or is beyond Int.
     private static func decimalCount(_ bytes: [UInt8]) -> Int?
     {

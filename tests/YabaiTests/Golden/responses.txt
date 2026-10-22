@@ -571,3 +571,21 @@ missing required key-value pair 'action=..'
 ### 48 display nolabel --foo
 unknown command 'nolabel' for domain 'display'
 
+### 206 batch 3 config window_gap x 3 config layout bogus
+1: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
+2: unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree
+
+### 150 batch 2 config debug_output 3 config window_gap x 2 batch 0
+off
+2: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
+3: batch: a batch cannot contain a batch
+
+### 63 batch x
+batch: command 1 has the count 'x', expected a decimal number
+
+### 26 batch
+batch: no commands given
+
+### 2 batch 3 config window_gap ''
+8
+

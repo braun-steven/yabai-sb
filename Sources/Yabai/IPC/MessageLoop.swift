@@ -259,7 +259,74 @@ enum MessageLoop
         try handleDomainRule(&response, domain, &message)
     } else if domain.equals(Domain.signal) {
         try handleDomainSignal(&response, domain, &message)
+    } else if domain.equals(BatchMessage.domain) {
+        try handleDomainBatch(&response, &message)
     } else {
         throw CommandError("unknown domain '\(domain)'\n")
     }
+}
+
+//
+// NOTE: `batch` runs the commands of one message in order, each through handleMessage: the same domains, the same
+// failures, and the space caches invalidated before each command. Each command is read from its own tokens
+// (Message(commandTokens:)), so an empty argument is an argument. A failing command does not stop the batch. Its failure
+// lines are prefixed with its 1-based index in the batch, not a stdin line: blank and comment lines of the stdin are not
+// counted, and the client does not map the index back. The response has one failure byte, in front, when any command
+// failed, and no other: the client prints a failing response on stderr from its first byte, so the output of a failing
+// batch goes to stderr too. Output keeps the order of the commands.
+//
+
+/// Runs the commands of a batch message (`yabai -m batch`).
+@WM private func handleDomainBatch(_ response: inout Response, _ message: inout Message) throws(CommandError)
+{
+    let commands: [[Token]]
+    do {
+        commands = try BatchMessage.decode(BatchMessage.terminated(message.rawPieces()))
+    } catch {
+        throw CommandError(ResponseText(stringLiteral: "\(error.message)\n"))
+    }
+
+    var output: [UInt8] = []
+    var failed = false
+
+    for (index, command) in commands.enumerated() {
+        var commandResponse = Response()
+        if command.first?.equals(BatchMessage.domain) == true {
+            commandResponse.fail(CommandError("batch: a batch cannot contain a batch\n"))
+        } else {
+            var commandMessage = Message(commandTokens: command)
+            handleMessage(&commandResponse, &commandMessage)
+        }
+
+        let bytes = commandResponse.bytes
+        guard let failure = bytes.firstIndex(of: Response.failureByte) else {
+            output += bytes
+            continue
+        }
+
+        // NOTE: Output before the failure byte is kept as it is. From the failure byte on, the chained commands of this
+        // command may write more failure bytes; they are dropped, and their texts are prefixed like the first one.
+        failed = true
+        output += bytes[..<failure]
+        let prefix = Array("\(index + 1): ".utf8)
+        for line in batchFailureLines(bytes[failure...].filter { $0 != Response.failureByte }) {
+            output += prefix + line + [UInt8(ascii: "\n")]
+        }
+    }
+
+    if failed {
+        response.bytes.append(Response.failureByte)
+    }
+    response.bytes += output
+}
+
+/// The lines of a failure text, without the newline that ends each one. A text ends with a newline, so it has no empty
+/// last line; an empty text is one empty line, so that its command still gets a prefixed line.
+private func batchFailureLines(_ text: [UInt8]) -> [[UInt8]]
+{
+    var lines = text.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false).map { Array($0) }
+    if lines.count > 1, lines.last?.isEmpty == true {
+        lines.removeLast()
+    }
+    return lines
 }

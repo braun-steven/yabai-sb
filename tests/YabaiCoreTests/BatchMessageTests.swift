@@ -1,3 +1,4 @@
+import Foundation
 import PropertyBased
 import Testing
 @testable import YabaiCore
@@ -108,5 +109,168 @@ private func bytes(_ strings: [String]) -> [[UInt8]]
             let decoded = try? BatchMessage.decode(Array(tokens.dropFirst()))
             #expect(decoded == commands.map { $0.map { Token($0) } })
         }
+    }
+}
+
+//
+// NOTE: The daemon reads a batch from the pieces after its domain token (Message.rawPieces, empty pieces kept): the
+// tokens end at the empty piece where a count is due (BatchMessage.terminated), and each command is read from its own
+// tokens (Message(commandTokens:)). The client parses stdin with parseBatchInput, so a script's line reaches the
+// daemon as the same tokens. The message is built as the daemon reads it: the payload with the two padding nulls.
+//
+
+/// A message as the daemon reads it from a client, for the batch commands.
+private func daemonMessage(_ commands: [[String]]) -> Message
+{
+    let payload = Array(ClientMessage.encode(BatchMessage.encode(commands)).dropFirst(MemoryLayout<Int32>.size))
+    return Message(payload + [0, 0])
+}
+
+/// The pieces of a batch as the daemon reads them, with the domain token already read.
+private func batchTokens(_ message: inout Message) -> [[UInt8]]
+{
+    #expect(message.next().equals(BatchMessage.domain))
+    return BatchMessage.terminated(message.rawPieces())
+}
+
+/// The output of parseBatchInput, or the error it throws.
+private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError>
+{
+    do throws(BatchInputError) {
+        return .success(try parseBatchInput(text))
+    } catch {
+        return .failure(error)
+    }
+}
+
+@Suite struct BatchReadingTests
+{
+    @Test(arguments: [
+        ([String](), []),
+        (["", ""], []),
+        (["1", "a", "", ""], ["1", "a"]),
+        (["2", "a", "", "", ""], ["2", "a", ""]),
+        (["1", "a", "1", ""], ["1", "a", "1", ""]),
+        (["1", "a", "2", "b"], ["1", "a", "2", "b"]),
+        (["3", "a", "b", "", ""], ["3", "a", "b", ""]),
+        (["x", "a"], ["x"]),
+        (["1", "a", "", "x"], ["1", "a"]),
+    ] as [([String], [String])])
+    func terminatedEndsAtTheEmptyCount(_ row: ([String], [String]))
+    {
+        #expect(BatchMessage.terminated(bytes(row.0)) == bytes(row.1))
+    }
+
+    @Test func commandsOfAClientMessageAreReadWithTheirEmptyArguments() throws
+    {
+        var message = daemonMessage([["window", "--focus", "", "west"], ["space"]])
+        let decoded = try BatchMessage.decode(batchTokens(&message))
+        #expect(decoded == [
+            [Token("window"), Token("--focus"), Token(""), Token("west")],
+            [Token("space")],
+        ])
+    }
+
+    @Test func aBatchWithNoCommandsHasNoTokens()
+    {
+        var message = daemonMessage([])
+        #expect(batchTokens(&message).isEmpty)
+    }
+
+    @Test func aCommandMessageReadsEveryTokenIncludingEmptyOnes()
+    {
+        var command = Message(commandTokens: [Token("window"), Token("--focus"), Token(""), Token("west")])
+        #expect(command.next() == Token("window"))
+        #expect(command.next() == Token("--focus"))
+        #expect(command.next() == Token(""))
+        #expect(command.next() == Token("west"))
+        #expect(command.next() == Token(""))
+        #expect(command.next() == Token(""))
+        #expect(command.peek() == Token(""))
+    }
+
+    @Test func aCommandMessageEndsAfterItsLastToken()
+    {
+        var command = Message(commandTokens: [Token("space")])
+        #expect(command.peek() == Token("space"))
+        #expect(command.next() == Token("space"))
+        #expect(!command.next().isValid)
+    }
+
+    @Test func rawPiecesKeepEmptyPiecesFromTheCursor()
+    {
+        var message = Message(bytes(["batch", "2", "a", "", ""]).reduce(into: [UInt8]()) { $0 += $1 + [0] })
+        #expect(message.next() == Token("batch"))
+        #expect(message.rawPieces() == bytes(["2", "a", "", "", ""]))
+    }
+
+    @Test func stdinReachesTheDaemonAsTheSameCommands() throws
+    {
+        let commands = try parseBatchInput("window --focus '' west\nspace --focus 1\n")
+        var message = daemonMessage(commands)
+        let decoded = try BatchMessage.decode(batchTokens(&message))
+        #expect(decoded == [
+            [Token("window"), Token("--focus"), Token(""), Token("west")],
+            [Token("space"), Token("--focus"), Token("1")],
+        ])
+    }
+}
+
+@Suite struct BatchInputTests
+{
+    @Test(arguments: [
+        ("window --focus east\n", [["window", "--focus", "east"]]),
+        ("yabai -m space --focus 1\nyabai --message space --focus 2\n", [["space", "--focus", "1"], ["space", "--focus", "2"]]),
+        ("# a comment\n\n   \n  space --focus 1 # tail\n", [["space", "--focus", "1"]]),
+        ("window --label ''\n", [["window", "--label", ""]]),
+        ("window --label a\\ b 'c d' \"e\"\n", [["window", "--label", "a b", "c d", "e"]]),
+        ("config \\\n    layout bsp\n", [["config", "layout", "bsp"]]),
+        ("space --focus 1\r\nspace --focus 2", [["space", "--focus", "1"], ["space", "--focus", "2"]]),
+        ("rule --add app='^Safari$' title=\"a \\\"b\\\"\"\n", [["rule", "--add", "app=^Safari$", "title=a \"b\""]]),
+        ("", [[String]]()),
+    ] as [(String, [[String]])])
+    func linesBecomeCommands(_ row: (String, [[String]]))
+    {
+        #expect(parsedInput(row.0) == .success(row.1))
+    }
+
+    @Test(arguments: [
+        ("space --focus $ID\n", 1, "dynamic shell"),
+        ("space --focus 1\n\nspace --focus `id`\n", 3, "dynamic shell"),
+        ("space --focus 1; space --focus 2\n", 1, "dynamic shell"),
+        ("window --label *\n", 1, "dynamic shell"),
+        ("space --focus 1 > /dev/null\n", 1, "dynamic shell"),
+        ("window --label 'x\n", 1, "unterminated quote"),
+        ("window --label a\nwindow --label \"b\n", 2, "unterminated quote"),
+        ("yabai -m\n", 1, "no command"),
+        ("# note\n\nyabai --message\n", 3, "no command"),
+        ("space --focus 1\nspace --focus $1\nspace --focus 3\n", 2, "dynamic shell"),
+    ] as [(String, Int, String)])
+    func aLineTheShellWouldComputeIsAnErrorNamingIt(_ row: (String, Int, String))
+    {
+        #expect(parsedInput(row.0) == .failure(BatchInputError(line: row.1, reason: row.2)))
+    }
+}
+
+@Suite struct BatchExampleTests
+{
+    /// The heredoc of examples/yabairc, which is commented out there, is a batch: its lines parse as commands.
+    @Test func exampleHeredocParsesAsBatchInput() throws
+    {
+        let url = URL(filePath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appending(path: "examples/yabairc")
+        let lines = try String(contentsOf: url, encoding: .utf8).split(separator: "\n", omittingEmptySubsequences: false)
+
+        let start = try #require(lines.firstIndex(of: "# yabai -m batch <<'EOF'"))
+        let end = try #require(lines[start...].firstIndex(of: "# EOF"))
+        let body = lines[(start + 1)..<end].map { String($0.dropFirst(2)) }.joined(separator: "\n")
+        #expect(try parseBatchInput(body) == [
+            ["config", "window_gap", "6"],
+            ["config", "top_padding", "12"],
+            ["config", "bottom_padding", "12"],
+        ])
     }
 }

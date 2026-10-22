@@ -234,3 +234,8 @@ space --foo
 space nolabel --foo
 display --foo
 display nolabel --foo
+batch 3 config window_gap x 3 config layout bogus
+batch 2 config debug_output 3 config window_gap x 2 batch 0
+batch x
+batch
+batch 3 config window_gap ''

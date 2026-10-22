@@ -98,6 +98,7 @@ Send message to a running instance of yabai.
 The response is awaited for 30 seconds by default; set \fBYABAI_CLIENT_TIMEOUT\fP to a positive number of seconds to change it, other values are ignored.
 .br
 A message longer than 1 MiB, or one that does not arrive complete, is answered with \f(CRinvalid message\fP.
+\f(CRyabai \-m batch\fP runs several commands from stdin in one message; see \fBBatch\fP under Domains.
 .RE
 .sp
 \fB\-\-config\fP, \fB\-c\fP \fI<config_file>\fP
@@ -1583,6 +1584,33 @@ Arbitrary command executed through \fB/usr/bin/env sh \-c\fP
 .fam
 .fi
 .if n .RE
+.SS "Batch"
+.sp
+yabai \-m batch
+.RS 4
+Run several commands in one message, with one round trip to the daemon. The commands are read from stdin, one per line, and each line holds the words that follow \f(CRyabai \-m\fP, e.g. \f(CRwindow \-\-focus east\fP. A line that starts with \f(CRyabai \-m\fP (or \f(CRyabai \-\-message\fP) has that prefix removed.
+.br
+Words follow the quoting of sh: single and double quotes and backslash escapes, and \f(CR\*(Aq\*(Aq\fP is an empty argument. Blank lines and lines that start with \f(CR#\fP are skipped. A line is not run by a shell, so a line that a shell would compute is an error and nothing is sent: \f(CR$VARIABLE\fP, \f(CR$(...)\fP, backticks, \f(CR;\fP, \f(CR&\fP, \f(CR|\fP, \f(CR<\fP, \f(CR>\fP, parentheses, globs (\f(CR*\fP, \f(CR?\fP, \f(CR[\fP) and a leading \f(CR~\fP. An unterminated quote and a line with no command are errors too. Each error names its line, e.g. \f(CRyabai\-msg: batch: line 3: dynamic shell, nothing sent\fP.
+.br
+The commands run in order, each as a message of its own: a command that fails does not stop the others, and a batch cannot contain a batch. \fBconfig \-\-check\fP does not check the commands of a batch; they are checked when the batch runs.
+.br
+.sp
+.if n .RS 4
+.nf
+.fam C
+yabai \-m batch <<\*(AqEOF\*(Aq
+config window_gap 6
+config top_padding 12
+window \-\-focus east
+EOF
+.fam
+.fi
+.if n .RE
+.sp
+The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and \fByabai \-m\fP exits with status 1, when any command failed. A failing response is printed on stderr in full, so the output of the commands that succeeded goes to stderr too.
+.br
+A batch with no command, e.g. stdin with only blank lines, fails with \f(CRbatch: no commands given\fP. \f(CRyabai \-m batch\fP takes no arguments: with any, it fails and sends nothing. A batch is one message, so it is limited to 1 MiB like any message.
+.RE
 .SH "TREE LAYOUT"
 .sp
 \fItree\fP is the tiling layout of every space that does not use \fIfloat\fP. It arranges windows like i3 and sway do. Every window is a leaf in a tree of containers, and the space itself is the root container.

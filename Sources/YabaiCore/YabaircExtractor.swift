@@ -110,10 +110,12 @@ private struct ScriptSegment
     let words: [ScriptWord]
 }
 
-/// A logical line: the text up to an unquoted newline, with backslash continuations joined. `reason` names the first
-/// construct that the shell would compute on this line, and it applies to every segment of the line.
+/// A logical line: the text up to an unquoted newline, with backslash continuations joined. `line` is the line where it
+/// starts. `reason` names the first construct that the shell would compute on this line, and it applies to every
+/// segment of the line.
 private struct ScriptLine
 {
+    let line: Int
     let segments: [ScriptSegment]
     let reason: String?
 }
@@ -139,6 +141,7 @@ private struct ScriptLexer
     private var segments: [ScriptSegment] = []
     private var words: [ScriptWord] = []
     private var segmentLine = 1
+    private var lineStart = 1
     private var word: ScriptWord?
     private var reason: String?
 
@@ -213,7 +216,8 @@ private struct ScriptLexer
     private mutating func endLine()
     {
         endSegment()
-        lines.append(ScriptLine(segments: segments, reason: reason))
+        lines.append(ScriptLine(line: lineStart, segments: segments, reason: reason))
+        lineStart = line
         segments = []
         reason = nil
     }
@@ -375,4 +379,50 @@ private struct ScriptLexer
             add(byte, quoted: true)
         }
     }
+}
+
+/// Why the stdin of `yabai -m batch` could not be read: the 1-based line where the command starts, and the reason, which
+/// is one of the skip reasons of `extractYabaiCommands` (`dynamic shell`, `unterminated quote`) or `no command`.
+public struct BatchInputError: Error, Equatable, Sendable
+{
+    public let line: Int
+    public let reason: String
+
+    public init(line: Int, reason: String)
+    {
+        self.line = line
+        self.reason = reason
+    }
+}
+
+/// The commands on the stdin of `yabai -m batch`, in order, each as its words after `-m`. One command per line, read
+/// with the sh quoting of `extractYabaiCommands`. Blank lines and comments (`#` at the start of a word) are skipped, and
+/// a leading `yabai -m` (or `--message`) is stripped. Nothing is run by a shell, so a line that the shell would compute
+/// (variables, substitutions, lists, pipes, redirections, globs, compound commands) is an error naming its line, and so
+/// is a line with no command after `-m`.
+public func parseBatchInput(_ input: String) throws(BatchInputError) -> [[String]]
+{
+    var commands: [[String]] = []
+    var lexer = ScriptLexer(input)
+
+    for scriptLine in lexer.lex()
+    {
+        if let reason = scriptLine.reason
+        {
+            throw BatchInputError(line: scriptLine.line, reason: reason)
+        }
+
+        guard let segment = scriptLine.segments.first else { continue }
+
+        var words = segment.words.map(\.string)
+        if words.count >= 2, isYabai(words[0]), words[1] == "-m" || words[1] == "--message"
+        {
+            words.removeFirst(2)
+        }
+
+        guard !words.isEmpty else { throw BatchInputError(line: scriptLine.line, reason: "no command") }
+        commands.append(words)
+    }
+
+    return commands
 }

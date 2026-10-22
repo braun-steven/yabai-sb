@@ -68,6 +68,7 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
     Send message to a running instance of yabai. +
     The response is awaited for 30 seconds by default; set *YABAI_CLIENT_TIMEOUT* to a positive number of seconds to change it, other values are ignored. +
     A message longer than 1 MiB, or one that does not arrive complete, is answered with `invalid message`.
+    `yabai -m batch` runs several commands from stdin in one message; see *Batch* under Domains.
 
 *--config*, *-c* '<config_file>'::
     Use the specified configuration file. +
@@ -1059,6 +1060,25 @@ DATAFORMAT
     "action": string
 }
 ----
+
+Batch
+~~~~~
+
+yabai -m batch::
+    Run several commands in one message, with one round trip to the daemon. The commands are read from stdin, one per line, and each line holds the words that follow `yabai -m`, e.g. `window --focus east`. A line that starts with `yabai -m` (or `yabai --message`) has that prefix removed. +
+    Words follow the quoting of sh: single and double quotes and backslash escapes, and `''` is an empty argument. Blank lines and lines that start with `#` are skipped. A line is not run by a shell, so a line that a shell would compute is an error and nothing is sent: `$VARIABLE`, `$(...)`, backticks, `;`, `&`, `|`, `<`, `>`, parentheses, globs (`*`, `?`, `[`) and a leading `~`. An unterminated quote and a line with no command are errors too. Each error names its line, e.g. `yabai-msg: batch: line 3: dynamic shell, nothing sent`. +
+    The commands run in order, each as a message of its own: a command that fails does not stop the others, and a batch cannot contain a batch. *config --check* does not check the commands of a batch; they are checked when the batch runs. +
++
+----
+yabai -m batch <<'EOF'
+config window_gap 6
+config top_padding 12
+window --focus east
+EOF
+----
++
+The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and *yabai -m* exits with status 1, when any command failed. A failing response is printed on stderr in full, so the output of the commands that succeeded goes to stderr too. +
+A batch with no command, e.g. stdin with only blank lines, fails with `batch: no commands given`. `yabai -m batch` takes no arguments: with any, it fails and sends nothing. A batch is one message, so it is limited to 1 MiB like any message.
 
 Tree Layout
 -----------

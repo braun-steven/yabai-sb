@@ -227,6 +227,55 @@ import Testing
         #expect(queue.claim(key: "k2") == true)
     }
 
+    // MARK: Cancelling a key
+
+    @Test func cancelRemovesThePendingEventOfTheKeyOnly()
+    {
+        var queue = DelayedQueue<String, String>()
+        queue.insert("k", at: at(100), key: "k")
+        queue.insert("other", at: at(150), key: "j")
+        queue.insert("plain", at: at(200))
+
+        queue.cancel(key: "k")
+        #expect(elements(queue.removeDue(at: at(300))) == ["other", "plain"])
+        #expect(queue.nextDeadline == nil)
+    }
+
+    @Test func cancelMakesTheDeliveredEventStale()
+    {
+        var queue = DelayedQueue<String, String>()
+        queue.insert("a", at: at(100), key: "k")
+        #expect(elements(queue.removeDue(at: at(100))) == ["a"])
+
+        queue.cancel(key: "k")
+        #expect(queue.claim(key: "k") == false)
+        #expect(queue.claim(key: "k") == true)
+    }
+
+    @Test func cancelWithNothingPendingIsHarmless()
+    {
+        var queue = DelayedQueue<String, String>()
+        queue.cancel(key: "k")
+        #expect(queue.claim(key: "k") == true)
+
+        queue.insert("b", at: at(100), key: "k")
+        #expect(elements(queue.removeDue(at: at(100))) == ["b"])
+        #expect(queue.claim(key: "k") == true)
+    }
+
+    @Test func scheduleAfterCancelDeliversTheNewEvent()
+    {
+        var queue = DelayedQueue<String, String>()
+        queue.insert("a", at: at(100), key: "k")
+        #expect(elements(queue.removeDue(at: at(100))) == ["a"])
+        queue.cancel(key: "k")
+
+        queue.insert("b", at: at(200), key: "k")
+        #expect(elements(queue.removeDue(at: at(200))) == ["b"])
+        #expect(queue.claim(key: "k") == false)
+        #expect(queue.claim(key: "k") == true)
+    }
+
     @Test func claimWithNothingInFlightIsTrue()
     {
         var queue = DelayedQueue<String, String>()

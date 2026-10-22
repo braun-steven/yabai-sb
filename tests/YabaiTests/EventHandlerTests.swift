@@ -401,3 +401,26 @@ extension DaemonState
         }
     }
 }
+
+extension DaemonState
+{
+    @Test("mission_control_exit_runs_once") @WM func missionControlExitRunsOnce()
+    {
+        //
+        // NOTE: The AX exit and the fallback check can both end a Mission Control session. The first exit ends it and
+        // pushes one signal; the second one finds no session and does nothing.
+        //
+
+        var signal = EventSignal()
+        signal.command = "true"
+        EventSignals.shared.table.add(signal, .missionControlExit)
+
+        MissionControl.shared.mode = .showDesktop
+        let first = EventSignals.shared.pending.count
+        EventHandler.shared.missionControlExit()
+        EventHandler.shared.missionControlExit()
+
+        #expect(MissionControl.shared.mode == .inactive)
+        #expect(EventSignals.shared.pending.dropFirst(first).map { $0.type.name } == ["mission_control_exit"])
+    }
+}

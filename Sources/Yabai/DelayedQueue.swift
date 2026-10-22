@@ -9,7 +9,7 @@ import DequeModule
 // NOTE: A keyed event that is delivered (removeDue) but not yet handled is in flight until claim(key:) runs on the
 // handler. The event stream is FIFO, so the handler sees the in-flight events in delivery order. An insert with a
 // key marks every event of that key in flight as stale, and the stale ones are dropped when they are claimed: a
-// schedule supersedes an event that is already in the stream too.
+// schedule supersedes an event that is already in the stream too. cancel(key:) does the same without a new element.
 //
 
 struct DelayedQueue<Element: Sendable, Key: Hashable & Sendable>: Sendable
@@ -49,6 +49,14 @@ struct DelayedQueue<Element: Sendable, Key: Hashable & Sendable>: Sendable
 
         let index = entries.partitioningIndex { $0.deadline > deadline }
         entries.insert(Entry(deadline: deadline, key: key, element: element), at: index)
+    }
+
+    /// Removes the pending element with this key and marks the in-flight elements with that key as stale, as an insert
+    /// with the key does, but adds no element.
+    mutating func cancel(key: Key)
+    {
+        entries.removeAll { $0.key == key }
+        stale[key] = inFlight[key]
     }
 
     /// Removes and returns the elements whose deadline is not after `now`, in deadline order, each with its key. A

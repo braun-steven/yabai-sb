@@ -153,7 +153,8 @@ enum EventLoop
     //
     // NOTE: An event with a DelayedEventKey supersedes the pending event with that key: the insert removes it. A
     // keyed event that is already due and posted (waiting in the event stream) is superseded too: the insert marks it
-    // stale, and claimDelivery drops it when the handler takes it. The unkeyed events are never superseded.
+    // stale, and claimDelivery drops it when the handler takes it. The unkeyed events are never superseded. cancel(key:)
+    // removes the pending event of a key and marks the delivered ones stale, without a replacement.
     //
 
     /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
@@ -194,6 +195,14 @@ enum EventLoop
                 arm(&state, for: next)
             }
         }
+    }
+
+    /// Cancels the pending delayed event with this key, and drops a delivered one that is not yet handled, without a
+    /// replacement. Callable from any thread. The armed timer may fire once more for the cancelled deadline; it posts
+    /// nothing then and re-arms for the next one.
+    static func cancel(key: DelayedEventKey)
+    {
+        delayed.withLock { state in state.queue.cancel(key: key) }
     }
 
     /// Called on @WM when a keyed delayed event is handled. Returns false when the event was superseded after its

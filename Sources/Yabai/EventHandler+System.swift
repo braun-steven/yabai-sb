@@ -36,12 +36,19 @@ extension EventHandler
         missionControlShow(.showDesktop)
     }
 
+    //
+    // NOTE: The fallback check for the exit. The AX notification AXExposeExit is the primary exit signal; the check
+    // only covers an exit that AX does not report. Nothing posts missionControlEnter now (the window server's enter
+    // notification is no longer registered), so no check is armed; the AX exit ends the session. The check runs every
+    // 500 ms, is keyed (one pending at a time), and missionControlExit cancels it.
+    //
+
     func missionControlEnter()
     {
         Logger.events.debug("mission control enter")
         MissionControl.shared.mode = .show
 
-        EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
+        EventLoop.post(.missionControlCheckForExit, after: .milliseconds(500), key: .missionControlCheck)
 
         EventSignals.shared.push(.missionControlEnter, .missionControl(.show))
     }
@@ -67,14 +74,24 @@ extension EventHandler
         }
 
         if found {
-            EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
+            EventLoop.post(.missionControlCheckForExit, after: .milliseconds(500), key: .missionControlCheck)
         } else {
             EventLoop.post(.missionControlExit)
         }
     }
 
+    //
+    // NOTE: The AX exit and the fallback check can both end the session, in either order. The first one that runs ends
+    // it, and the exit of the other one is a no-op: it is guarded by the mode, and the cancel drops a check that is
+    // still pending or in flight. An exit without an active session does nothing (before, it restored the menu bar
+    // alpha and pushed a mission_control_exit signal with mode inactive).
+    //
+
     func missionControlExit()
     {
+        guard MissionControl.shared.isActive else { return }
+        EventLoop.cancel(key: .missionControlCheck)
+
         Logger.events.debug("mission control exit")
 
         let wm = WindowManager.shared

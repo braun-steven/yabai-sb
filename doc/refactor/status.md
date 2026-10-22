@@ -24,7 +24,7 @@ phase: done · mode: nested
 
 ## Phase 2: Crash and robustness fixes
 
-phase: in-progress · mode: nested
+phase: done · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
@@ -201,6 +201,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 14:20 · subphase agent · P2.5 · done · `make ci-quick` (256 tests, 0 warnings), Golden unchanged, TSan and ASan clean. One live check added (P2.5). The live check needs a deployed daemon: the client timeout expiry is only unit-tested for the value parsing. P2.6 (traps in JSON and signal parsing) is next; it has no dependency on P2.5 and can start now.
 - 2026-10-22 14:22 · subphase agent · P2.6 · start · JSON.encode and Response.write(json:) throw CommandError; SignalCommand throws instead of trapping; the Query.swift encode helper typed; gates quick
 - 2026-10-22 14:24 · subphase agent · P2.6 · done · `make ci-quick` (256 tests, 0 warnings), Golden unchanged, acceptance grep empty. No live checks. Phase 2 has no subphase left: the phase agent runs the phase close (`make ci`).
+- 2026-10-22 14:27 · phase agent · P2 · close · Phase 2 done; each subphase reviewed and its gate re-run by the phase agent, no fix commits needed; `make ci` passed (256 + 83 tests, osax-test 9, install and check-build PASS). Changes: AX pid through `AXUIElementGetPid` (`pid_t?`) and `castAttribute` checks CF type ids; `SLSNotification` enum with length-checked `payload`; `@try` around private KVC in Notify.m, `OSTimer.now` on `CLOCK_UPTIME_RAW` (`ReadOSTimerC` removed), Mach-O string-table bounds; one startup notice for unresolved private symbols; IPC 1 MiB cap, `invalid message` reply, client `SO_RCVTIMEO` (`YABAI_CLIENT_TIMEOUT`, 30 s); `JSON.encode`/`Response.write(json:)` are `throws(CommandError)` and YabaiCore has no traps. Deviations: raw SLS ids still enter through `WindowID(_:)` (Discovered); no README entry for `YABAI_CLIENT_TIMEOUT` (hardening, CHANGELOG + man page only). For the next phase: `Response.write(json:)` now needs `try`; 5 phase-2 live checks are pending in live-checks.md; `bin/yabai` holds an unsigned release build. · orchestrator starts phase 3
 
 ## Discovered
 

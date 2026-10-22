@@ -28,6 +28,17 @@ enum Client
         }
     }
 
+    /// The seconds `send` waits for a response when YABAI_CLIENT_TIMEOUT is not set or not a positive integer. The
+    /// default is long enough for commands that wait, such as native fullscreen toggles.
+    static let defaultResponseTimeout = 30
+
+    /// The receive timeout in seconds for a value of YABAI_CLIENT_TIMEOUT; invalid values give the default.
+    static func responseTimeout(_ value: String?) -> Int
+    {
+        guard let value, let seconds = Int(value), seconds > 0 else { return defaultResponseTimeout }
+        return seconds
+    }
+
     /// `client_send_message`: arguments are the arguments after `-m`.
     static func send(_ arguments: [[UInt8]]) -> Int32
     {
@@ -50,6 +61,9 @@ enum Client
             fail("yabai-msg: failed to connect to socket..\n")
         }
 
+        var timeout = timeval(tv_sec: responseTimeout(getenv("YABAI_CLIENT_TIMEOUT").map { String(cString: $0) }), tv_usec: 0)
+        setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+
         var sent = 0
         while sent < message.count {
             let bytes = message.withUnsafeBytes { Darwin.send(sockfd, $0.baseAddress! + sent, message.count - sent, 0) }
@@ -65,6 +79,10 @@ enum Client
 
         while true {
             let bytesRead = response.withUnsafeMutableBytes { read(sockfd, $0.baseAddress, Int(BUFSIZ) - 1) }
+            if bytesRead == -1 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                fail("yabai-msg: timed out waiting for a response..\n")
+            }
+
             if bytesRead <= 0 { break }
 
             var chunk = response[0..<bytesRead]

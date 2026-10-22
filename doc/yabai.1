@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-20
+.\"      Date: 2026-10-22
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-20" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-22" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -94,6 +94,10 @@ Stops a running instance of the service and unloads it.
 \fB\-\-message\fP, \fB\-m\fP \fI<msg>\fP
 .RS 4
 Send message to a running instance of yabai.
+.br
+The response is awaited for 30 seconds by default; set \fBYABAI_CLIENT_TIMEOUT\fP to a positive number of seconds to change it, other values are ignored.
+.br
+A message longer than 1 MiB, or one that does not arrive complete, is answered with \f(CRinvalid message\fP.
 .RE
 .sp
 \fB\-\-config\fP, \fB\-c\fP \fI<config_file>\fP

@@ -82,8 +82,12 @@ enum MessageLoop
             setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
             setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
-            guard let bytes = readMessage(sockfd) else {
-                UnixSocket.close(sockfd)
+            let bytes: [UInt8]
+            do {
+                bytes = try readMessage(sockfd)
+            } catch {
+                Logger.ipc.warning("message rejected: \(error)")
+                reject(sockfd)
                 continue
             }
 
@@ -93,15 +97,32 @@ enum MessageLoop
 
     //
     // NOTE: The message is a native-endian int with its length, then the null-separated tokens (ClientMessage.encode). Two
-    // null bytes after the message end it even when a client left out its empty last token.
+    // null bytes after the message end it even when a client left out its empty last token. A longer length is refused
+    // before any byte of the message is read, so a client cannot make the daemon allocate more than maxMessageLength.
     //
 
-    /// Reads the message of a client; nil when the client sent no complete message.
-    private static func readMessage(_ sockfd: Int32) -> [UInt8]?
+    /// The largest message a client may send (1 MiB).
+    static let maxMessageLength = 1 << 20
+
+    /// Why a message could not be read.
+    enum MessageReadError: Error
+    {
+        /// The length is negative or above maxMessageLength.
+        case invalidLength
+        /// The client sent no complete length, or closed or timed out before the end of the message.
+        case incomplete
+    }
+
+    /// Reads the message of a client: its length, then that many bytes.
+    static func readMessage(_ sockfd: Int32) throws(MessageReadError) -> [UInt8]
     {
         var bytesToRead: Int32 = 0
-        guard Darwin.read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size, bytesToRead >= 0 else {
-            return nil
+        guard Darwin.read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size else {
+            throw .incomplete
+        }
+
+        guard bytesToRead >= 0, Int(bytesToRead) <= maxMessageLength else {
+            throw .invalidLength
         }
 
         var message = [UInt8](repeating: 0, count: Int(bytesToRead) + 2)
@@ -115,10 +136,24 @@ enum MessageLoop
         } while bytesRead < bytesToRead
 
         guard bytesRead == bytesToRead else {
-            return nil
+            throw .incomplete
         }
 
         return message
+    }
+
+    /// The response to a message that could not be read: the failure byte, then "invalid message".
+    static func rejection() -> Response
+    {
+        var response = Response()
+        response.fail(CommandError("invalid message\n"))
+        return response
+    }
+
+    /// Answers a message that could not be read, then closes the socket.
+    private static func reject(_ sockfd: Int32)
+    {
+        send(rejection(), to: sockfd)
     }
 
     //

@@ -65,7 +65,9 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
     Stops a running instance of the service and unloads it.
 
 *--message*, *-m* '<msg>'::
-    Send message to a running instance of yabai.
+    Send message to a running instance of yabai. +
+    The response is awaited for 30 seconds by default; set *YABAI_CLIENT_TIMEOUT* to a positive number of seconds to change it, other values are ignored. +
+    A message longer than 1 MiB, or one that does not arrive complete, is answered with `invalid message`.
 
 *--config*, *-c* '<config_file>'::
     Use the specified configuration file. +

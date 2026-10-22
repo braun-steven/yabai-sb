@@ -36,6 +36,11 @@ Switching between build variants cannot publish a cached sanitizer executable. T
 own `osax/.build/` cache. `SWIFT` overrides the Swift command (default `xcrun swift`); `SWIFT_FLAGS`
 passes additional SwiftPM options to builds and tests through `SWIFT_FLAGS`, for example
 `SWIFT_FLAGS='--filter Golden' just test`.
+These environment overrides are whitespace-separated words, not shell expressions: dollar signs,
+backticks and wildcard characters stay literal, and embedded quotes do not group words. Use recipe
+arguments for values containing spaces, for example `just test --filter 'test name'`. Exporting the
+overrides avoids parsing their contents as shell source during Just interpolation. The SDK default
+uses a shell conditional so `xcrun` is not evaluated when `SDKROOT` is already set (even to an empty value).
 Coverage filters are extended regular expressions, passed as a recipe argument such as
 `just coverage 'WindowManager\+Tree'`. `scripts/coverage.sh` passes them to `awk` through `ENVIRON`
 because macOS `awk -v` consumes backslashes, which can change a literal `+` in a filename filter.

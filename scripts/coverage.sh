@@ -5,7 +5,8 @@
 # e.g. `scripts/coverage.sh 'Con|TreeView'`. SWIFT and SWIFT_FLAGS select the driver like the justfile.
 #
 
-set -euo pipefail
+# SWIFT/SWIFT_FLAGS are whitespace-separated words, not shell code or glob patterns.
+set -efuo pipefail
 
 SWIFT=${SWIFT:-xcrun swift}
 filter=${1:-.}

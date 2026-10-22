@@ -41,6 +41,8 @@ extension Logger
     static let ipc = Logger(label: "yabai.ipc")
     /// Signals sent to their subscribers.
     static let signals = Logger(label: "yabai.signal")
+    /// The container trees of the views: an invariant that a tree operation finds broken.
+    static let tree = Logger(label: "yabai.tree")
 
     /// Logs the message as critical and exits. launchd restarts the service after EXIT_FAILURE, not after EXIT_SUCCESS.
     func fatal(_ message: @autoclosure () -> Logger.Message, exitCode: Int32 = EXIT_FAILURE,

@@ -134,7 +134,7 @@ extension WindowManager
         guard let aCon else { throw .invalidSourceNode }
         guard let bCon else { throw .invalidDestinationNode }
 
-        aCon.swap(with: bCon)
+        guard aCon.swap(with: bCon) else { throw .invalidDestinationNode }
 
         if aView != bView {
             let aMoved = treeSetView(aCon, to: bView)

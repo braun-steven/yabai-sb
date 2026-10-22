@@ -63,7 +63,7 @@ of reading it again.
 
 ### Tree layout
 
-Each `View` owns a container tree. `Con` has a weak parent and ordered children/focus arrays; `Con.swift` implements the i3 operations. `TreeView.swift` applies frames, tab bars and stacking; `WindowManager+Tree.swift` implements navigation and cross-display moves. `ViewArea` in YabaiCore handles pure geometry.
+Each `View` owns a container tree. `Con` has a weak parent and ordered children/focus arrays; `Con.swift` implements the i3 operations. `TreeView.swift` applies frames, tab bars and stacking; `WindowManager+Tree.swift` implements navigation and cross-display moves. `ViewArea` in YabaiCore handles pure geometry. A tree operation never traps on a container that its parent does not list: it logs an error on `Logger.tree` and does nothing (or returns `false`, `.none`), so the command reports an error instead of crashing.
 
 ### Event loop and isolation
 
@@ -79,7 +79,7 @@ Each `View` owns a container tree. `Con` has a weak parent and ordered children/
 
 ### Logging
 
-`Log.swift` bootstraps swift-log with `StandardLogHandler` (debug–notice to stdout, warning+ to stderr). Use the component loggers (`Logger.events`, `.windows`, `.spaces`, `.processes`, `.ipc`, `.signals`, `.daemon`), not `print`/`fputs`; `Logger.daemon.fatal(_:)` logs and exits (`exitCode: EXIT_SUCCESS` keeps launchd from restarting). The level is global (`Log.verbose`). Use `debug` for traces, `notice` for rare actionable events, `warning` for user-facing problems. `--help`/`--version` output is not logging.
+`Log.swift` bootstraps swift-log with `StandardLogHandler` (debug–notice to stdout, warning+ to stderr). Use the component loggers (`Logger.events`, `.windows`, `.spaces`, `.processes`, `.ipc`, `.signals`, `.tree`, `.daemon`), not `print`/`fputs`; `Logger.daemon.fatal(_:)` logs and exits (`exitCode: EXIT_SUCCESS` keeps launchd from restarting). The level is global (`Log.verbose`). Use `debug` for traces, `notice` for rare actionable events, `warning` for user-facing problems. `--help`/`--version` output is not logging.
 
 ### Rendering and input
 

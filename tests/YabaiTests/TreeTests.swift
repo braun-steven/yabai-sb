@@ -832,5 +832,44 @@ extension DaemonState
 
             root.destroy()
         }
+
+        //
+        // NOTE: A container that is not listed by its parent (a broken tree, or one that is not in a tree at all) is
+        // refused by the operation, which changes nothing, instead of trapping.
+        //
+
+        @Test("tree_swap_container_outside_tree_refused")
+        func treeSwapContainerOutsideTreeRefused()
+        {
+            let root = Con(layout: .splitH)
+            let a = treeTestLeaf(root, 1)
+            let detached = treeTestCon(2)
+
+            #expect(a.swap(with: detached) == false)
+            #expect(detached.swap(with: a) == false)
+            #expect(root.children == [a])
+            #expect(a.parent == root)
+            #expect(detached.parent == nil)
+
+            root.destroy()
+        }
+
+        @Test("tree_move_container_missing_from_parent_refused")
+        func treeMoveContainerMissingFromParentRefused()
+        {
+            // a still names root as its parent, but root no longer lists it among its children
+            let root = Con(layout: .splitH)
+            let a = treeTestLeaf(root, 1)
+            treeTestLeaf(root, 2)
+            treeTestLeaf(root, 3)
+            root.children.removeAll { $0 == a }
+
+            #expect(a.move(.east, in: root, hasOutput: false) == .none)
+            #expect(a.move(.west, in: root, hasOutput: true) == .none)
+            #expect(a.parent == root)
+            #expect(root.children.count == 2)
+
+            root.destroy()
+        }
     }
 }

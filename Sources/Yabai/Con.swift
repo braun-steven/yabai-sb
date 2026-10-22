@@ -1,5 +1,6 @@
 import CPrivate
 import Foundation
+import Logging
 import YabaiCore
 
 //
@@ -81,7 +82,7 @@ struct FeedbackWindow
 
 @WM struct ConRender
 {
-    weak var raised: Con!
+    weak var raised: Con?
     var raisedAnchor: WindowID?
     var raisedCard: WindowID?
     var feedbackWindow = FeedbackWindow()
@@ -189,6 +190,17 @@ extension Con
     }
 
     //
+    // NOTE: The parent with the index of the container among its children, or nil when the container has no parent.
+    // Tree operations read it again after they change the tree, since a wrap moves the container under a new parent.
+    //
+
+    private var placement: (parent: Con, index: Int)?
+    {
+        guard let parent = self.parent, let index = self.index else { return nil }
+        return (parent, index)
+    }
+
+    //
     // NOTE: i3 con_fix_percent. Children without a share get the average share of the others,
     // then the shares are normalised so that they add up to 1.
     //
@@ -258,9 +270,13 @@ extension Con
     private func unlink()
     {
         guard let parent = self.parent else { return }
+        guard let index = self.index, let focusIndex = self.focusIndex else {
+            Logger.tree.error("container is missing from the lists of its parent")
+            return
+        }
 
-        parent.children.remove(at: index!)
-        parent.focusOrder.remove(at: focusIndex!)
+        parent.children.remove(at: index)
+        parent.focusOrder.remove(at: focusIndex)
 
         if parent.render.raised == self { parent.render.raised = nil }
         self.parent = nil
@@ -273,10 +289,13 @@ extension Con
 
     private func replace(with replacement: Con)
     {
-        let parent = self.parent!
+        guard let parent = self.parent, let index = self.index, let focusIndex = self.focusIndex else {
+            Logger.tree.error("container to replace is missing from the lists of its parent")
+            return
+        }
 
-        parent.children[index!] = replacement
-        parent.focusOrder[focusIndex!] = replacement
+        parent.children[index] = replacement
+        parent.focusOrder[focusIndex] = replacement
         if parent.render.raised == self { parent.render.raised = nil }
 
         replacement.parent = parent
@@ -440,12 +459,14 @@ extension Con
         if orientation == only.orientation { return }
         if only.orientation != parent.orientation { return }
 
+        guard let index = self.index, let focusIndex = self.focusIndex else {
+            Logger.tree.error("container to flatten is missing from the lists of its parent")
+            return
+        }
+
         for child in only.children {
             child.percent *= percent
         }
-
-        let index = self.index!
-        let focusIndex = self.focusIndex!
 
         unlink()
         only.reparentChildren(to: parent, at: index, focusIndex: focusIndex)
@@ -563,7 +584,10 @@ extension Con
     {
         var node = self
         while let parent = node.parent {
-            let index = node.index!
+            guard let index = node.index else {
+                Logger.tree.error("container is missing from the children of its parent")
+                return nil
+            }
             if index + 1 < parent.children.count {
                 return parent.children[index + 1].firstLeaf
             }
@@ -578,7 +602,10 @@ extension Con
     {
         var node = self
         while let parent = node.parent {
-            let index = node.index!
+            guard let index = node.index else {
+                Logger.tree.error("container is missing from the children of its parent")
+                return nil
+            }
             if index > 0 {
                 return parent.children[index - 1].lastLeaf
             }
@@ -619,7 +646,10 @@ extension Con
     {
         var node = self
         while let parent = node.parent {
-            let focusIndex = node.focusIndex!
+            guard let focusIndex = node.focusIndex else {
+                Logger.tree.error("container is missing from the focus order of its parent")
+                break
+            }
 
             parent.focusOrder.remove(at: focusIndex)
             parent.focusOrder.insert(node, at: 0)
@@ -675,7 +705,11 @@ extension Con
             defer { node = parent }
             if parent.children.count < 2 || parent.orientation != orientation { continue }
 
-            let index = node.index! + (backward ? -1 : 1)
+            guard let position = node.index else {
+                Logger.tree.error("container is missing from the children of its parent")
+                continue
+            }
+            let index = position + (backward ? -1 : 1)
             if index >= 0 && index < parent.children.count {
                 return .focus(parent.children[index].focusedDescendant)
             }
@@ -723,10 +757,14 @@ extension Con
         return nil
     }
 
-    private func child(containing node: Con) -> Con
+    /// The child of this container on the way to node; nil when node is not a descendant.
+    private func child(containing node: Con) -> Con?
     {
         var node = node
-        while node.parent != self { node = node.parent! }
+        while node.parent != self {
+            guard let parent = node.parent else { return nil }
+            node = parent
+        }
         return node
     }
 
@@ -734,7 +772,7 @@ extension Con
     {
         var node = self
         while node != ancestor {
-            let parent = node.parent!
+            guard let parent = node.parent else { return false }
             if parent.focusOrder[0] != node { return false }
             node = parent
         }
@@ -752,23 +790,35 @@ extension Con
 
     func place(_ position: TreePosition, of target: Con)
     {
-        let parent = target.parent!
+        //
+        // NOTE: The target must be listed by its parent, and it is not this container. unlink() below removes only this
+        // container from its parent, so the target keeps its place in both lists.
+        //
+
+        guard target != self, let parent = target.parent, target.index != nil, target.focusIndex != nil else {
+            Logger.tree.error("place target is missing from the lists of its parent")
+            return
+        }
+
         let oldParent = self.parent
         var focusBefore = true
         var lca: Con?
 
         if oldParent != nil {
-            lca = lowestCommonAncestor(with: parent)
-            guard let lca, lca != self else { return }
+            guard let common = lowestCommonAncestor(with: parent), common != self else { return }
+            lca = common
 
-            let conAncestor = lca.child(containing: self)
-            let targetAncestor = lca.child(containing: target)
+            guard let conAncestor = common.child(containing: self), let targetAncestor = common.child(containing: target),
+                  let conFocus = conAncestor.focusIndex, let targetFocus = targetAncestor.focusIndex else {
+                Logger.tree.error("place container is not under the lowest common ancestor")
+                return
+            }
             let movesFocus = isFocusedDescendant(of: conAncestor)
 
             if conAncestor == targetAncestor {
                 focusBefore = movesFocus
             } else {
-                focusBefore = conAncestor.focusIndex! < targetAncestor.focusIndex!
+                focusBefore = conFocus < targetFocus
 
                 //
                 // NOTE: The focused container takes the focus with it to the ancestor it moves into,
@@ -776,25 +826,32 @@ extension Con
                 //
 
                 if movesFocus && focusBefore {
-                    let conFocus = conAncestor.focusIndex!
-                    let targetFocus = targetAncestor.focusIndex!
-                    lca.focusOrder.remove(at: targetFocus)
-                    lca.focusOrder.insert(targetAncestor, at: conFocus)
+                    common.focusOrder.remove(at: targetFocus)
+                    common.focusOrder.insert(targetAncestor, at: conFocus)
                 }
             }
 
             unlink()
         }
 
+        //
+        // NOTE: The target is read again after unlink(), which can only have changed the position of this container.
+        //
+
+        guard let targetIndex = target.index, let targetFocusIndex = target.focusIndex else {
+            Logger.tree.error("place target is missing from the lists of its parent")
+            return
+        }
+
         let focusIndex: Int?
         if parent == lca {
-            focusIndex = target.focusIndex! + (focusBefore ? 0 : 1)
+            focusIndex = targetFocusIndex + (focusBefore ? 0 : 1)
         } else {
             focusIndex = focusBefore ? Con.focusHead : Con.focusTail
         }
 
         percent = 0.0
-        parent.insert(self, at: target.index! + (position == .after ? 1 : 0), focusIndex: focusIndex)
+        parent.insert(self, at: targetIndex + (position == .after ? 1 : 0), focusIndex: focusIndex)
         parent.fixPercent()
         applyWorkspaceLayout()
 
@@ -814,12 +871,17 @@ extension Con
 
         if !next.isLeaf {
             let target = next.descend(direction)
-            let after = target.parent!.orientation != direction.orientation || backward
+            guard let targetParent = target.parent else {
+                Logger.tree.error("container to enter is missing from the tree")
+                return
+            }
+            let after = targetParent.orientation != direction.orientation || backward
             place(after ? .after : .before, of: target)
         } else if above == self {
-            let parent = self.parent!
-            let index = self.index!
-            let nextIndex = next.index!
+            guard let parent = self.parent, let index = self.index, let nextIndex = next.index else {
+                Logger.tree.error("container to swap is missing from the lists of its parent")
+                return
+            }
             parent.children[index] = next
             parent.children[nextIndex] = self
         } else {
@@ -864,7 +926,11 @@ extension Con
                 continue
             }
 
-            let index = current.index! + offset
+            guard let position = current.index else {
+                Logger.tree.error("container is missing from the children of its parent")
+                return .none
+            }
+            let index = position + offset
             next = index >= 0 && index < parent.children.count ? parent.children[index] : nil
             if current != self { break }
 
@@ -880,7 +946,7 @@ extension Con
 
         if let next {
             move(toward: next, from: current, direction)
-        } else if !wrapped && self.parent!.parent == root && self.parent!.children.count == 1 {
+        } else if !wrapped, let outer = self.parent, outer.parent == root, outer.children.count == 1 {
             //
             // NOTE: The lone child of a container at the edge of the workspace is treated as if the
             // workspace was its parent, like i3 does.
@@ -904,20 +970,29 @@ extension Con
     func insert(_ node: Con, toward insertion: InsertDirection)
     {
         guard let direction = insertion.direction else {
-            if parent!.layout != .tabbed {
-                let lastSplit = parent!.layout
+            guard let current = placement else {
+                Logger.tree.error("insert target is missing from the lists of its parent")
+                return
+            }
+            if current.parent.layout != .tabbed {
+                let lastSplit = current.parent.layout
                 wrap(.tabbed).lastSplit = lastSplit
             }
 
-            parent!.attach(node, at: index! + 1)
+            guard let target = placement else { return }
+            target.parent.attach(node, at: target.index + 1)
             return
         }
 
         let orientation = direction.orientation
-        let matches = parent!.isSplit && parent!.orientation == orientation
+        guard let current = placement else {
+            Logger.tree.error("insert target is missing from the lists of its parent")
+            return
+        }
+        let matches = current.parent.isSplit && current.parent.orientation == orientation
 
         if !matches {
-            let parent: Con = self.parent!
+            let parent: Con = current.parent
             if parent.parent != nil && parent.children.count == 1 && parent.isSplit {
                 parent.layout = orientation.splitLayout
             } else if parent.parent == nil && parent.children.count == 1 {
@@ -928,7 +1003,8 @@ extension Con
             }
         }
 
-        parent!.attach(node, at: index! + (direction.isBackward ? 0 : 1))
+        guard let target = placement else { return }
+        target.parent.attach(node, at: target.index + (direction.isBackward ? 0 : 1))
         node.applyWorkspaceLayout()
     }
 
@@ -951,7 +1027,10 @@ extension Con
             node = wrapChildren()
         }
 
-        let parent = node.parent!
+        guard let parent = node.parent else {
+            Logger.tree.error("container to split has no parent")
+            return
+        }
         if parent.children.count == 1 && parent.isSplit {
             parent.layout = orientation.splitLayout
             return
@@ -984,9 +1063,14 @@ extension Con
     {
         if let target, target != self {
             if autotile && target.isLeaf { target.autotile() }
-            target.parent!.attach(node, at: target.index! + 1)
+            if let parent = target.parent, let index = target.index {
+                parent.attach(node, at: index + 1)
+            } else {
+                Logger.tree.error("open target is missing from the lists of its parent")
+            }
         } else {
-            attach(node, at: children.count != 0 ? focusOrder[0].index! + 1 : nil)
+            let focused = focusOrder.first.flatMap { $0.index }
+            attach(node, at: focused.map { $0 + 1 })
         }
 
         node.applyWorkspaceLayout()
@@ -1010,7 +1094,11 @@ extension Con
         }
 
         let target = descend(direction)
-        let after = target.parent!.orientation != direction.orientation || direction.isBackward
+        guard let targetParent = target.parent else {
+            Logger.tree.error("container to enter is missing from the tree")
+            return
+        }
+        let after = targetParent.orientation != direction.orientation || direction.isBackward
         node.place(after ? .after : .before, of: target)
     }
 
@@ -1099,7 +1187,11 @@ extension Con
                 continue
             }
 
-            let index = first.index! + (backward ? -1 : 1)
+            guard let position = first.index else {
+                Logger.tree.error("container is missing from the children of its parent")
+                return false
+            }
+            let index = position + (backward ? -1 : 1)
             if index >= 0 && index < parent.children.count {
                 second = parent.children[index]
             } else {
@@ -1107,9 +1199,8 @@ extension Con
             }
         }
 
-        guard let second else { return false }
+        guard let second, let parent = first.parent else { return false }
 
-        let parent = first.parent!
         let size = orientation == .horizontal ? parent.area.w : parent.area.h
         if size <= 0.0 || !delta.isFinite { return false }
 
@@ -1182,16 +1273,24 @@ extension Con
     // NOTE: Swaps two containers in place. They keep the share of space of the position they move to.
     //
 
-    func swap(with b: Con)
-    {
-        if self == b { return }
+    //
+    // NOTE: Returns false, and changes nothing, when either container is not listed by its parent (a container
+    // that is not part of a tree). The window command turns that into its invalid-node error.
+    //
 
-        let aParent = parent!
-        let bParent = b.parent!
-        let aIndex = index!
-        let bIndex = b.index!
-        let aFocusIndex = focusIndex!
-        let bFocusIndex = b.focusIndex!
+    @discardableResult
+    func swap(with b: Con) -> Bool
+    {
+        if self == b { return true }
+
+        guard let aParent = parent, let aIndex = index, let aFocusIndex = focusIndex else {
+            Logger.tree.error("container to swap is missing from the lists of its parent")
+            return false
+        }
+        guard let bParent = b.parent, let bIndex = b.index, let bFocusIndex = b.focusIndex else {
+            Logger.tree.error("container to swap with is missing from the lists of its parent")
+            return false
+        }
 
         aParent.children[aIndex] = b
         aParent.focusOrder[aFocusIndex] = b
@@ -1207,6 +1306,7 @@ extension Con
 
         if aParent.render.raised == self { aParent.render.raised = nil }
         if bParent.render.raised == b { bParent.render.raised = nil }
+        return true
     }
 
     //

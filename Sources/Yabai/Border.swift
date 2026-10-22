@@ -505,7 +505,7 @@ extension Border
         let settings = Config.current.border
         let enabled = isEnabled(settings, shows: shouldShow(target), visible: border.visible, tiled: owner != nil,
                                 scratchpad: target.scratchpad != nil, windowCount: count ?? windowCount(on: sid ?? target.id.space))
-        let focused = wm.focusedWindowID == target.id
+        let focused = wm.focus.focused == target.id
         borderLock.withLock { state in
             state.settings.enabled = settings.enabled
             state.settings.width = settings.width

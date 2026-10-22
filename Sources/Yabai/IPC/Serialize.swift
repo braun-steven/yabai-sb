@@ -141,7 +141,7 @@ extension Window
         info.scratchpad       = scratchpad ?? ""
         info.frame            = frame
         info.isRoot           = isRoot
-        info.hasFocus         = id == wm.focusedWindowID
+        info.hasFocus         = id == wm.focus.focused
         info.hasAXReference   = true
         info.isFullscreen     = isFullscreen
         info.isMinimized      = isMinimized
@@ -253,7 +253,7 @@ extension View
             percent: parent != nil ? node.percent : 1.0,
             window: node.windowID,
             frame: leaf ? frame(for: node) : node.area,
-            focused: leaf && node.windowID == WindowManager.shared.focusedWindowID,
+            focused: leaf && node.windowID == WindowManager.shared.focus.focused,
             selected: node.isSelected,
             visible: node.isVisible,
             nodes: node.children.map { treeNode(for: $0) })

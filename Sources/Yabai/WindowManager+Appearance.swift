@@ -20,7 +20,7 @@ extension WindowManager
     {
         let config = Config.current.windowOpacity
         if let target = focusedWindow { setWindowOpacity(target, to: config.active) }
-        for target in window.values where target.id != focusedWindowID && target.isEligibleForManagement {
+        for target in window.values where target.id != focus.focused && target.isEligibleForManagement {
             setWindowOpacity(target, to: config.normal)
         }
     }
@@ -40,7 +40,7 @@ extension WindowManager
         if value == 0.0 {
             if Config.current.opacity.enabled {
                 let config = Config.current.windowOpacity
-                value = target.id == focusedWindowID ? config.active : config.normal
+                value = target.id == focus.focused ? config.active : config.normal
             } else {
                 value = 1.0
             }

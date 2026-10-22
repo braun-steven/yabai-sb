@@ -90,7 +90,7 @@ extension DaemonState
             space.open(2, focus: true)
             space.open(3, focus: true)
             space.focus(1)
-            WindowManager.shared.focusedWindowID = nil
+            WindowManager.shared.focus.focusChanged(to: nil)
 
             space.open(4)
 
@@ -111,7 +111,7 @@ extension DaemonState
             space.open(1, focus: true)
             space.open(2, focus: true)
             space.focus(1)
-            WindowManager.shared.focusedWindowID = wid(99)
+            WindowManager.shared.focus.focusChanged(to: wid(99))
 
             space.open(3)
 

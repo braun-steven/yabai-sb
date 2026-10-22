@@ -139,7 +139,7 @@ Add `tests/YabaiTests/ViewInsertionTests.swift`.
 
 - **Fixture:** `Window(id:)` with an `Application()`, a `View(sid:)` seeded into `SpaceManager.shared.views`,
   `WindowManager.shared.window[id]` and `managedWindows[id] = view`. Don't use `addManagedWindow`. Set focus with
-  `focusedWindowID` or `setPendingFocus`.
+  `WindowManager.shared.focus.focusChanged(to:)` or `setPendingFocus`.
 - **`View.add(_:insertionPoint:)` cases:**
   - Into an empty view.
   - Next to the focused window.

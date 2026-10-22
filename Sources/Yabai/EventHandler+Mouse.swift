@@ -284,7 +284,7 @@ extension EventHandler
         let wm = WindowManager.shared
         let ms = MouseState.shared
 
-        if window.id == wm.focusedWindowID { return }
+        if window.id == wm.focus.focused { return }
         if !window.isEligibleForManagement { return }
 
         if focusFollowsMouse == .autofocus {

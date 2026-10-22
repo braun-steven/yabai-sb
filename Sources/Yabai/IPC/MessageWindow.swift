@@ -358,7 +358,7 @@ extension WindowCommand
 
 @WM func handleDomainWindow(_ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource) throws(CommandError)
 {
-    var actingWindow: Window? = WindowManager.shared.actingWindow
+    var actingWindow: Window? = WindowManager.shared.actingWindow()
     var first = message.next()
 
     if let selector = WindowSelector(first) {

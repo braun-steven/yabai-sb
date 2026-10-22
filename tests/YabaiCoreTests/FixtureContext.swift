@@ -5,7 +5,7 @@ struct FixtureContext: SelectorContext
 {
     var activeDisplay: DisplayID? = nil
     var activeSpace: SpaceID? = nil
-    var actingWindow: WindowID? = nil
+    var acting: WindowID? = nil
     var displays: [DisplayID] = []
     var spaces: [SpaceID] = []
     var recentSpace: SpaceID? = nil
@@ -13,6 +13,8 @@ struct FixtureContext: SelectorContext
     var spaceLabels: [String: SpaceID] = [:]
     var windows: [WindowID] = []
     var stack: [WindowID] = []
+
+    func actingWindow() -> WindowID? { acting }
 
     func display(_ query: DisplayQuery) -> DisplayID?
     {

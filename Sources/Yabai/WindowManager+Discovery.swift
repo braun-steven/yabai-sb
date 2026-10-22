@@ -28,7 +28,7 @@ extension WindowManager
 
         if target.isUnknown {
             Logger.windows.debug("ignoring AXUnknown window \(owner.name) \(target.id)")
-            removeLostFocusedEvent(for: target.id)
+            focus.removeLostFocusedEvent(for: target.id)
             target.destroy()
             return nil
         }
@@ -36,15 +36,15 @@ extension WindowManager
         // NOTE: Attempt to track all windows.
         if !target.observe() {
             Logger.windows.debug("could not observe \(owner.name) \(target.id)")
-            removeLostFocusedEvent(for: target.id)
+            focus.removeLostFocusedEvent(for: target.id)
             target.unobserve()
             target.destroy()
             return nil
         }
 
-        if hasLostFocusedEvent(for: target.id) {
+        if focus.hasLostFocusedEvent(for: target.id) {
             EventLoop.post(.windowFocused(windowID: target.id))
-            removeLostFocusedEvent(for: target.id)
+            focus.removeLostFocusedEvent(for: target.id)
         }
 
         addWindow(target)

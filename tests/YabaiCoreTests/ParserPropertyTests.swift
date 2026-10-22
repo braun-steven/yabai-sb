@@ -123,7 +123,7 @@ private func describe(_ tokens: [[UInt8]]) -> String
 }
 
 private let context = FixtureContext(
-    activeDisplay: 1, activeSpace: 1, actingWindow: 10, displays: [1, 2], spaces: [1, 2, 3], recentSpace: 2,
+    activeDisplay: 1, activeSpace: 1, acting: 10, displays: [1, 2], spaces: [1, 2, 3], recentSpace: 2,
     displayLabels: ["main": 1], spaceLabels: ["code": 3], windows: [10, 11, 12], stack: [10, 11]
 )
 
@@ -240,7 +240,7 @@ private func parseCommands(_ tokens: [[UInt8]], _ parse: (Token, inout Message) 
         await propertyCheck(count: 3000, input: tokenGenerator) { bytes in
             let token = Token(bytes)
             do throws(CommandError) {
-                if let selector = WindowSelector(token) { _ = try selector.resolve(acting: context.actingWindow, context) }
+                if let selector = WindowSelector(token) { _ = try selector.resolve(acting: context.actingWindow(), context) }
                 _ = try WindowSelector.optional(token)
             } catch {
                 expectResponse(error, [bytes])

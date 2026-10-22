@@ -135,7 +135,7 @@ extension SpaceID
         let pendingFocus = pendingWindowFocus.load(ordering: .acquiring)
 
         if wm.canUseKnownFocus(front: front, pendingFocus: pendingFocus) {
-            if let focusedID = wm.focusedWindowID, let target = wm.window(for: focusedID) { return target }
+            if let focusedID = wm.focus.focused, let target = wm.window(for: focusedID) { return target }
         }
 
         return wm.focusedWindow

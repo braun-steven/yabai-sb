@@ -140,7 +140,7 @@ extension EventHandler
         Logger.events.debug("system woke")
 
         let wm = WindowManager.shared
-        if let focusedWindowID = wm.focusedWindowID, let focusedWindow = wm.window(for: focusedWindowID) {
+        if let focusedWindowID = wm.focus.focused, let focusedWindow = wm.window(for: focusedWindowID) {
             wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.active)
             wm.centerMouse(on: focusedWindow)
         }

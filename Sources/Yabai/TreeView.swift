@@ -140,7 +140,7 @@ extension View
     {
         node.focus()
 
-        let focusedWindowID = WindowManager.shared.focusedWindowID
+        let focusedWindowID = WindowManager.shared.focus.focused
         if windowID != focusedWindowID, let focused = root.find(focusedWindowID) {
             focused.focus()
         }
@@ -177,7 +177,7 @@ extension View
                 anchor = selected
             }
 
-            if anchor == nil { anchor = root.find(WindowManager.shared.focusedWindowID) }
+            if anchor == nil { anchor = root.find(WindowManager.shared.focus.focused) }
             if anchor == nil { anchor = root.focusedDescendant }
 
             root.open(node, after: anchor, autotile: Config.current.space.treeAutotiling)
@@ -365,7 +365,7 @@ extension Con
 
         let config = Config.current.tabBar
         let entryCount = min(children.count, TabBar.maxEntryCount)
-        let hasFocus = contains(WindowManager.shared.focusedWindowID)
+        let hasFocus = contains(WindowManager.shared.focus.focused)
         let active = focusOrder[0]
 
         var entryList: [TabBarEntry] = []

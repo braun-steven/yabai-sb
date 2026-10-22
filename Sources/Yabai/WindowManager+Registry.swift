@@ -4,36 +4,6 @@ import YabaiCore
 
 extension WindowManager
 {
-    func hasLostFrontSwitchedEvent(for pid: pid_t) -> Bool
-    {
-        applicationLostFrontSwitchedEvents.contains(pid)
-    }
-
-    func removeLostFrontSwitchedEvent(for pid: pid_t)
-    {
-        applicationLostFrontSwitchedEvents.remove(pid)
-    }
-
-    func addLostFrontSwitchedEvent(for pid: pid_t)
-    {
-        applicationLostFrontSwitchedEvents.insert(pid)
-    }
-
-    func hasLostFocusedEvent(for windowID: WindowID) -> Bool
-    {
-        windowLostFocusedEvents.contains(windowID)
-    }
-
-    func removeLostFocusedEvent(for windowID: WindowID)
-    {
-        windowLostFocusedEvents.remove(windowID)
-    }
-
-    func addLostFocusedEvent(for windowID: WindowID)
-    {
-        windowLostFocusedEvents.insert(windowID)
-    }
-
     func window(for id: WindowID) -> Window?
     {
         window[id]
@@ -53,8 +23,8 @@ extension WindowManager
     //   proxy and change that hand-over.
     // - tabBarHits (TabBar.swift): a snapshot that publishHits rebuilds on every bar update.
     // - tabBarPointer (TabBar.swift): a change cache for the event tap, refreshed by the next pointer move.
-    // - focusedWindowID, lastWindowID, pendingFocusWindowID (here): the focus hand-over reads them after the removal.
-    //   FocusState (phase 4.6) owns them.
+    // - focused, last and pending: FocusState owns them (FocusState.swift). The focus hand-over reads them after the
+    //   removal, so they are left alone here. The lost focus event of the id is cleared below.
     // - Application.focusedWindowID: per application, read by its front-switch handler.
     // - Border.show and Border.hide (Border.swift): batch lists, emptied by endBatch, which skips an id without a border.
     // Cleared here: the AX destroyed mark of the id (axDestroyedWindowIDs, Window.swift). Its destroyed event, queued
@@ -64,7 +34,7 @@ extension WindowManager
     {
         unmarkAXDestroyed(id)
         Border.remove(id)
-        removeLostFocusedEvent(for: id)
+        focus.removeLostFocusedEvent(for: id)
         removeManagedWindow(id)
 
         // NOTE: teardown clears the mouse state before it removes the window; clearing it here too keeps removeWindow

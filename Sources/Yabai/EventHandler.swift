@@ -208,24 +208,23 @@ extension EventHandler
         let wm = WindowManager.shared
         let ms = MouseState.shared
 
-        let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
+        let focusedWindow = wm.focus.focused.flatMap { wm.window(for: $0) }
         if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
             wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.normal)
         }
 
         wm.setWindowOpacity(window, to: Config.current.windowOpacity.active)
 
-        if wm.focusedWindowID != window.id {
+        if wm.focus.focused != window.id {
             if ms.ffmWindowID != window.id {
                 wm.centerMouse(on: window)
             }
 
-            wm.lastWindowID = wm.focusedWindowID
+            wm.focus.markFocusedAsLast()
         }
 
-        let prevFocusedWindowID = wm.focusedWindowID
-        wm.focusedWindowID = window.id
-        wm.focusedWindowPSN = window.application.psn
+        let prevFocusedWindowID = wm.focus.focused
+        wm.focus.focusChanged(to: window.id, psn: window.application.psn)
         ms.ffmWindowID = nil
 
         //
@@ -233,7 +232,7 @@ extension EventHandler
         // cleared when the window that was asked to be focused reports it.
         //
 
-        if wm.pendingFocusWindowID == window.id { wm.pendingFocusWindowID = nil }
+        wm.focus.clearPending(ifFor: window.id)
 
         if let view = WindowManager.shared.managedView(for: window), view.layout == .tree {
             view.focusWindow(window.id)
@@ -285,7 +284,7 @@ extension EventHandler
 
         if process.isTerminated {
             Logger.events.debug("application launched: \(process.nameAndPID) terminated during launch")
-            wm.removeLostFrontSwitchedEvent(for: process.pid)
+            wm.focus.removeLostFrontSwitchedEvent(for: process.pid)
             return
         }
 
@@ -345,9 +344,9 @@ extension EventHandler
             return
         }
 
-        if wm.hasLostFrontSwitchedEvent(for: process.pid) {
+        if wm.focus.hasLostFrontSwitchedEvent(for: process.pid) {
             EventLoop.post(.applicationFrontSwitched(process))
-            wm.removeLostFrontSwitchedEvent(for: process.pid)
+            wm.focus.removeLostFrontSwitchedEvent(for: process.pid)
         }
 
         Logger.events.debug("application launched: \(process.nameAndPID)")
@@ -358,7 +357,7 @@ extension EventHandler
 
         let windows = wm.addApplicationWindows(application)
         WindowManager.shared.updateWindowNotifications()
-        tileWindowsBatched(windows, wm.focusedWindowID, true)
+        tileWindowsBatched(windows, wm.focus.focused, true)
 
         for window in windows where window.isEligibleForManagement {
             EventSignals.shared.push(.windowCreated, .window(window))
@@ -441,7 +440,7 @@ extension EventHandler
     {
         let wm = WindowManager.shared
 
-        let focusedWindow = wm.focusedWindowID.flatMap { wm.window(for: $0) }
+        let focusedWindow = wm.focus.focused.flatMap { wm.window(for: $0) }
         if let focusedWindow {
             wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.normal)
         }
@@ -459,10 +458,9 @@ extension EventHandler
         let wm = WindowManager.shared
         let focusedWindow = dimFocusedWindow()
 
-        let prevFocusedWindowID = wm.focusedWindowID
-        wm.lastWindowID = prevFocusedWindowID
-        wm.focusedWindowID = nil
-        wm.focusedWindowPSN = application.psn
+        let prevFocusedWindowID = wm.focus.focused
+        wm.focus.markFocusedAsLast()
+        wm.focus.focusChanged(to: nil, psn: application.psn)
         MouseState.shared.ffmWindowID = nil
 
         if let prevFocusedWindowID {
@@ -477,7 +475,7 @@ extension EventHandler
         let pm = ProcessManager.shared
 
         guard let application = wm.application(for: process.pid) else {
-            wm.addLostFrontSwitchedEvent(for: process.pid)
+            wm.focus.addLostFrontSwitchedEvent(for: process.pid)
 
             if process.launchGivenUp {
                 Logger.events.debug("application front switched: \(process.nameAndPID) was activated, trying to observe it again")
@@ -516,7 +514,7 @@ extension EventHandler
 
         guard let window = wm.window(for: applicationFocusedWindowID) else {
             dimFocusedWindow()
-            wm.addLostFocusedEvent(for: applicationFocusedWindowID)
+            wm.focus.addLostFocusedEvent(for: applicationFocusedWindowID)
             return
         }
 
@@ -534,7 +532,7 @@ extension EventHandler
         application.isHidden = false
 
         let windows = wm.windows(for: application)
-        tileWindowsBatched(windows, wm.lastWindowID, false)
+        tileWindowsBatched(windows, wm.focus.last, false)
 
         for window in windows {
             Border.refreshSpace(of: window)

@@ -275,7 +275,7 @@ extension DaemonState
             let before = EventSignals.shared.pending.count
             let dump = workspace.dump
             let unknown = wid(99)
-            WindowManager.shared.addLostFocusedEvent(for: unknown)
+            WindowManager.shared.focus.addLostFocusedEvent(for: unknown)
 
             await EventHandler.shared.handle(.windowDestroyed(windowID: unknown))
             await EventHandler.shared.handle(.windowMinimized(windowID: unknown))
@@ -286,7 +286,7 @@ extension DaemonState
             #expect(WindowManager.shared.window[wid(1)] != nil)
             #expect(WindowManager.shared.window[wid(3)] != nil)
             // NOTE: a deminimized event drops the lost focus event of the id, as for an invalid window
-            #expect(!WindowManager.shared.hasLostFocusedEvent(for: unknown))
+            #expect(!WindowManager.shared.focus.hasLostFocusedEvent(for: unknown))
         }
 
         @Test func notificationContextCarriesTheWindowId()
@@ -362,8 +362,8 @@ extension DaemonState
 
             Border.trackForTest(target.id)
             Border.trackForTest(other.id)
-            wm.addLostFocusedEvent(for: target.id)
-            wm.addLostFocusedEvent(for: other.id)
+            wm.focus.addLostFocusedEvent(for: target.id)
+            wm.focus.addLostFocusedEvent(for: other.id)
             MouseState.shared.window = target
             MouseState.shared.ffmWindowID = target.id
             MouseState.shared.feedbackWindowID = target.id
@@ -374,7 +374,7 @@ extension DaemonState
             #expect(wm.window[target.id] == nil)
             #expect(wm.managedWindows[target.id] == nil)
             #expect(!Border.isTracked(target.id))
-            #expect(!wm.hasLostFocusedEvent(for: target.id))
+            #expect(!wm.focus.hasLostFocusedEvent(for: target.id))
             #expect(MouseState.shared.window == nil)
             #expect(MouseState.shared.ffmWindowID == nil)
             #expect(MouseState.shared.feedbackWindowID == nil)
@@ -383,7 +383,7 @@ extension DaemonState
             #expect(wm.window[other.id] === other)
             #expect(wm.managedWindows[other.id] != nil)
             #expect(Border.isTracked(other.id))
-            #expect(wm.hasLostFocusedEvent(for: other.id))
+            #expect(wm.focus.hasLostFocusedEvent(for: other.id))
 
             // NOTE: the feedback of another window is left alone when a window is removed
             MouseState.shared.feedbackWindowID = other.id
@@ -393,7 +393,7 @@ extension DaemonState
             #expect(MouseState.shared.feedbackDirection == .east)
 
             Border.remove(other.id)
-            wm.removeLostFocusedEvent(for: other.id)
+            wm.focus.removeLostFocusedEvent(for: other.id)
             MouseState.shared.window = nil
             MouseState.shared.ffmWindowID = nil
             MouseState.shared.feedbackWindowID = nil

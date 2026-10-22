@@ -70,8 +70,8 @@ extension WindowManager
 
     func focusWithoutRaise(_ target: Window)
     {
-        if target.application.psn.isSame(as: focusedWindowPSN) {
-            Self.postFocusRecord(to: focusedWindowPSN, windowID: focusedWindowID, state: 0x02)
+        if target.application.psn.isSame(as: focus.focusedPSN) {
+            Self.postFocusRecord(to: focus.focusedPSN, windowID: focus.focused, state: 0x02)
 
             //
             // @hack
@@ -132,27 +132,28 @@ extension WindowManager
     // acts on the window that was asked to be focused, instead of the one the application still reports.
     //
 
-    /// How long a pending focus stays valid, in milliseconds.
-    private var pendingFocusTimeoutMs: Float { 500.0 }
-
     func setPendingFocus(_ windowID: WindowID)
     {
-        pendingFocusWindowID = windowID
-        pendingFocusTime = OSTimer.now
+        focus.setPending(windowID, at: OSTimer.now)
     }
 
-    var pendingFocusWindow: Window?
+    /// The window of the pending focus, when it has not expired and its window exists. Consuming it drops an expired
+    /// pending focus, and one whose window is gone.
+    func consumePendingFocusWindow(now: UInt64) -> Window?
     {
-        guard let pendingID = pendingFocusWindowID else { return nil }
+        guard let pendingID = focus.consumePending(now: now) else { return nil }
 
-        let dt = OSTimer.milliseconds(from: pendingFocusTime, to: OSTimer.now)
-        let target = dt < pendingFocusTimeoutMs ? window(for: pendingID) : nil
-        if target == nil { pendingFocusWindowID = nil }
+        let target = window(for: pendingID)
+        if target == nil { focus.clearPending() }
 
         return target
     }
 
-    var actingWindow: Window? { pendingFocusWindow ?? focusedWindow }
+    /// The window that commands act on: the pending focus, or else the focused window.
+    func actingWindow() -> Window?
+    {
+        consumePendingFocusWindow(now: OSTimer.now) ?? focusedWindow
+    }
 
     //
     // NOTE: Asking the frontmost application for its focused window is an accessibility round trip, which
@@ -165,8 +166,8 @@ extension WindowManager
     func canUseKnownFocus(front: ProcessSerialNumber, pendingFocus: Bool) -> Bool
     {
         if pendingFocus { return false }
-        if focusedWindowID == nil { return false }
+        if focus.focused == nil { return false }
 
-        return front.isSame(as: focusedWindowPSN)
+        return front.isSame(as: focus.focusedPSN)
     }
 }

@@ -13,7 +13,7 @@ import YabaiCore
 
     var activeDisplay: DisplayID? { DisplayID.active }
     var activeSpace: SpaceID? { SpaceID.active }
-    var actingWindow: Window? { WindowManager.shared.actingWindow }
+    func actingWindow() -> Window? { WindowManager.shared.actingWindow() }
 
     func display(_ query: DisplayQuery) -> DisplayID?
     {

@@ -182,7 +182,7 @@ extension PendingSignal
     @WM fileprivate mutating func describeWindow(_ subject: SignalSubject)
     {
         let target = subject.window!
-        let focusedWindowID = WindowManager.shared.focusedWindowID
+        let focusedWindowID = WindowManager.shared.focus.focused
 
         switch type {
         case .windowCreated, .windowFocused, .windowDeminimized:

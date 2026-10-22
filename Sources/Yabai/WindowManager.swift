@@ -81,15 +81,11 @@ extension WindowLayer
     // NOTE: The tab bar registry is owned and accessed only by the event loop thread. The mouse event tap reads the
     // separate `tabBarHits` snapshot in `TabBar.swift`; bars are embedded in their owner, which redraws them on changes.
     var tabBars: OrderedSet<TabBar> = []
-    var windowLostFocusedEvents = Set<WindowID>()
-    var applicationLostFrontSwitchedEvents = Set<pid_t>()
+    // NOTE: The focused window, the window before it, a pending focus request and the lost focus events live in
+    // FocusState (FocusState.swift).
+    var focus = FocusState()
     var rules: [Rule] = []
     var applicationsToRefresh: OrderedSet<Application> = []
-    var focusedWindowID: WindowID?
-    var focusedWindowPSN = ProcessSerialNumber()
-    var pendingFocusWindowID: WindowID?
-    var pendingFocusTime: UInt64 = 0
-    var lastWindowID: WindowID?
     var tabBarFont: CTFont?
     /// The scratchpad windows by label, in the order they were assigned.
     var scratchpads: OrderedDictionary<String, Window> = [:]

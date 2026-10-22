@@ -35,9 +35,9 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
         WindowManager.shared.initialize()
         WindowManager.shared.rules = []
         WindowManager.shared.scratchpads = [:]
-        WindowManager.shared.focusedWindowID = nil
-        WindowManager.shared.pendingFocusWindowID = nil
-        WindowManager.shared.lastWindowID = nil
+        WindowManager.shared.focus.focusChanged(to: nil)
+        WindowManager.shared.focus.clearPending()
+        WindowManager.shared.focus.setLast(nil)
         WindowManager.shared.animationsSuppressed = false
         SpaceManager.shared.resetToDefaults()
         EventSignals.shared.table = SignalTable()

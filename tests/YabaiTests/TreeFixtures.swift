@@ -107,7 +107,7 @@ struct PlacementLine: CustomStringConvertible
         target.application = application
         WindowManager.shared.window[target.id] = target
         WindowManager.shared.managedWindows[target.id] = view
-        if focus { WindowManager.shared.focusedWindowID = target.id }
+        if focus { WindowManager.shared.focus.focusChanged(to: target.id) }
 
         view.add(target, insertionPoint: insertionPoint.map(wid))
         return target
@@ -115,7 +115,7 @@ struct PlacementLine: CustomStringConvertible
 
     func focus(_ n: UInt32)
     {
-        WindowManager.shared.focusedWindowID = wid(n)
+        WindowManager.shared.focus.focusChanged(to: wid(n))
         view.tree?.select(nil)
         node(n).focus()
     }

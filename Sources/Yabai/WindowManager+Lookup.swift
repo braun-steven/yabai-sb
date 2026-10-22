@@ -113,7 +113,7 @@ extension WindowManager
 
     func recentManagedWindow() -> Window?
     {
-        guard let lastWindowID = lastWindowID, let target = window(for: lastWindowID) else { return nil }
+        guard let lastWindowID = focus.last, let target = window(for: lastWindowID) else { return nil }
         if managedView(for: target) == nil { return nil }
 
         return target

@@ -17,8 +17,7 @@ extension WindowManager
         application = [:]
         window = [:]
         managedWindows = [:]
-        windowLostFocusedEvents = []
-        applicationLostFrontSwitchedEvents = []
+        focus.clearLostEvents()
     }
 
     func begin()
@@ -44,9 +43,7 @@ extension WindowManager
         }
 
         if let target = focusedWindow {
-            lastWindowID = target.id
-            focusedWindowID = target.id
-            focusedWindowPSN = target.application.psn
+            focus.focusRestored(to: target.id, psn: target.application.psn)
             setWindowOpacity(target, to: Config.current.windowOpacity.active)
         }
     }

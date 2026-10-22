@@ -320,7 +320,7 @@ func spaceSelectorParsesWithoutLookups(_ text: String, _ selector: SpaceSelector
 
 @Test func typedSelectorsResolveThroughTheContext() throws
 {
-    let context = FixtureContext(activeDisplay: 1, actingWindow: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2], spaceLabels: ["code": 11], windows: [7, 8], stack: [7, 9])
+    let context = FixtureContext(activeDisplay: 1, acting: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2], spaceLabels: ["code": 11], windows: [7, 8], stack: [7, 9])
 
     #expect(try WindowSelector.first.resolve(acting: nil, context) == 7)
     #expect(try WindowSelector.stack(.position(2)).resolve(acting: 7, context) == 9)

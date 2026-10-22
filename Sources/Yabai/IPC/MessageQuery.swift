@@ -105,9 +105,9 @@ private enum ResolvedQueryTarget
         return .space(sid)
     case .window(let selector):
         if let selector {
-            return .window(try selector.resolve(acting: context.actingWindow, context))
+            return .window(try selector.resolve(acting: context.actingWindow(), context))
         }
-        return .window(context.actingWindow)
+        return .window(context.actingWindow())
     }
 }
 

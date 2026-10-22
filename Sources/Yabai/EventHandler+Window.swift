@@ -104,7 +104,7 @@ extension EventHandler
         guard let windowID else { return }
 
         guard let window = wm.window(for: windowID) else {
-            wm.addLostFocusedEvent(for: windowID)
+            wm.focus.addLostFocusedEvent(for: windowID)
             return
         }
 
@@ -114,7 +114,7 @@ extension EventHandler
         }
 
         if window.isMinimized {
-            wm.addLostFocusedEvent(for: window.id)
+            wm.focus.addLostFocusedEvent(for: window.id)
             return
         }
 
@@ -294,8 +294,8 @@ extension EventHandler
         let view = wm.managedView(for: window)
         let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
 
-        if window.id == wm.lastWindowID {
-            wm.lastWindowID = wm.focusedWindowID
+        if window.id == wm.focus.last {
+            wm.focus.markFocusedAsLast()
         }
 
         if let view {
@@ -313,7 +313,7 @@ extension EventHandler
     {
         guard let window = WindowManager.shared.window(for: windowID) else {
             Logger.events.debug("window deminimized: \(windowID) has already been removed, ignoring event")
-            WindowManager.shared.removeLostFocusedEvent(for: windowID)
+            WindowManager.shared.focus.removeLostFocusedEvent(for: windowID)
             return
         }
 
@@ -326,7 +326,7 @@ extension EventHandler
 
         if !window.isValid {
             Logger.events.debug("window deminimized: \(window.id) has been marked invalid by the system, ignoring event")
-            wm.removeLostFocusedEvent(for: window.id)
+            wm.focus.removeLostFocusedEvent(for: window.id)
             return
         }
 
@@ -338,7 +338,7 @@ extension EventHandler
         if let sid, window.id.spaces.contains(sid) {
             Logger.events.debug("window deminimized: window \(window.application.name) \(window.id) is deminimized on active space")
             if window.shouldBeManaged && wm.managedView(for: window) == nil {
-                let lastWindow = wm.lastWindowID.flatMap { wm.window(for: $0) }
+                let lastWindow = wm.focus.last.flatMap { wm.window(for: $0) }
                 let insertionPoint: WindowID? = if let lastWindow, lastWindow.application.pid != window.application.pid { lastWindow.id } else { nil }
                 wm.manageWindow(window, on: sid, inserting: insertionPoint)
             }
@@ -346,9 +346,9 @@ extension EventHandler
             Logger.events.debug("window deminimized: window \(window.application.name) \(window.id) is deminimized on inactive space")
         }
 
-        if wm.hasLostFocusedEvent(for: window.id) {
+        if wm.focus.hasLostFocusedEvent(for: window.id) {
             EventLoop.post(.windowFocused(windowID: window.id))
-            wm.removeLostFocusedEvent(for: window.id)
+            wm.focus.removeLostFocusedEvent(for: window.id)
         }
 
         Border.refreshSpace(of: window)

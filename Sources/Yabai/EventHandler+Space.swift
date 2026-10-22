@@ -56,9 +56,9 @@ extension EventHandler
         let view = sm.currentSpaceID.map { sm.view(for: $0) }
 
         if sm.refreshApplicationWindows() {
-            if let focusedWindow = wm.focusedWindow, wm.hasLostFocusedEvent(for: focusedWindow.id) {
+            if let focusedWindow = wm.focusedWindow, wm.focus.hasLostFocusedEvent(for: focusedWindow.id) {
                 windowDidReceiveFocus(focusedWindow)
-                wm.removeLostFocusedEvent(for: focusedWindow.id)
+                wm.focus.removeLostFocusedEvent(for: focusedWindow.id)
             }
         }
 

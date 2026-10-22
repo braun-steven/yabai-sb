@@ -83,7 +83,7 @@ extension WindowManager
         var shown = true
 
         if visibleSpace && orderedIn {
-            if Config.current.scratchpad.raise && focusedWindowID != target.id && !target.isMinimized && !target.application.isHidden {
+            if Config.current.scratchpad.raise && focus.focused != target.id && !target.isMinimized && !target.application.isHidden {
                 focusWithRaise(target)
             } else {
                 hideScratchpad(target, on: spaceID)

@@ -359,7 +359,7 @@ public protocol SelectorContext
     var activeDisplay: DisplayID? { get }
     var activeSpace: SpaceID? { get }
     /// The window that commands act on, including a pending focus request.
-    var actingWindow: Window? { get }
+    func actingWindow() -> Window?
 
     func display(_ query: DisplayQuery) -> DisplayID?
     /// The id of a display label, looked up among the labels of the display manager.

@@ -614,7 +614,7 @@ extension DaemonState
         {
             let space = stack()
             Headless.activeSpace = Workspace.sid
-            WindowManager.shared.lastWindowID = wid(5)
+            WindowManager.shared.focus.setLast(wid(5))
 
             let result = run(test.command, in: space)
 
@@ -648,7 +648,7 @@ extension DaemonState
             let space = stack()
             let other = Window(id: wid(9))
             WindowManager.shared.window[other.id] = other
-            WindowManager.shared.lastWindowID = other.id
+            WindowManager.shared.focus.setLast(other.id)
 
             let result = run("--swap recent", in: space)
 
@@ -820,7 +820,7 @@ extension DaemonState
 
             // NOTE: macOS can focus another window of the application before it reports the window destroyed; the
             // candidate is then the window focused before w2, which is now w1
-            wm.lastWindowID = wid(2)
+            wm.focus.setLast(wid(2))
             #expect(wm.treeFocusCandidate(in: space.view, for: closing) == wid(1))
             wm.window[wid(1)]!.application = Application()
             #expect(wm.treeFocusCandidate(in: space.view, for: closing) == wid(1), "w1 is in the same view")
@@ -835,18 +835,18 @@ extension DaemonState
         @Test func focusAfterCloseOfAHiddenSpaceDoesNothing()
         {
             let space = row()
-            WindowManager.shared.pendingFocusWindowID = nil
+            WindowManager.shared.focus.clearPending()
 
             WindowManager.shared.treeFocusAfterClose(in: space.view, windowID: nil)
             WindowManager.shared.treeFocusAfterClose(in: space.view, windowID: wid(1))
 
-            #expect(WindowManager.shared.pendingFocusWindowID == nil)
+            #expect(WindowManager.shared.focus.pending == nil)
         }
 
         @Test func commandWithoutAnActingWindow()
         {
             let space = row()
-            WindowManager.shared.pendingFocusWindowID = nil
+            WindowManager.shared.focus.clearPending()
 
             let result = run("--ratio abs:0.5", in: space)
 

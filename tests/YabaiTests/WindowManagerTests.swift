@@ -36,23 +36,58 @@ import YabaiTestSupport
 
     wm.addWindow(target)
 
-    #expect(wm.pendingFocusWindow == nil)
+    #expect(wm.consumePendingFocusWindow(now: OSTimer.now) == nil)
 
     wm.setPendingFocus(42)
-    #expect(wm.pendingFocusWindow == target)
-    #expect(wm.pendingFocusWindowID == 42)
+    #expect(wm.consumePendingFocusWindow(now: OSTimer.now) == target)
+    #expect(wm.focus.pending?.windowID == 42)
 
     //
     // NOTE: A pending focus expires, and is dropped for windows that no longer exist.
     //
 
-    wm.pendingFocusTime = OSTimer.now - UInt64(Double(OSTimer.frequency) * 0.6)
-    #expect(wm.pendingFocusWindow == nil)
-    #expect(wm.pendingFocusWindowID == nil)
+    wm.focus.setPending(42, at: OSTimer.now - UInt64(Double(OSTimer.frequency) * 0.6))
+    #expect(wm.consumePendingFocusWindow(now: OSTimer.now) == nil)
+    #expect(wm.focus.pending == nil)
 
     wm.setPendingFocus(7)
-    #expect(wm.pendingFocusWindow == nil)
-    #expect(wm.pendingFocusWindowID == nil)
+    #expect(wm.consumePendingFocusWindow(now: OSTimer.now) == nil)
+    #expect(wm.focus.pending == nil)
+}
+
+@Test("window_pending_focus_within_timeout") @WM func windowPendingFocusWithinTimeout()
+{
+    let wm = windowManagerCreate()
+    let target = windowCreate(43)
+    defer { windowManagerFree(wm) }
+
+    wm.addWindow(target)
+
+    //
+    // NOTE: A pending focus that has not expired is the acting window, and it stays pending until its window reports focus.
+    //
+
+    wm.focus.setPending(43, at: OSTimer.now - UInt64(Double(OSTimer.frequency) * 0.2))
+    #expect(wm.actingWindow() == target)
+    #expect(wm.focus.pending?.windowID == 43)
+    #expect(wm.consumePendingFocusWindow(now: OSTimer.now) == target)
+    #expect(wm.focus.pending?.windowID == 43)
+}
+
+@Test("window_lost_front_switched_events") @WM func windowLostFrontSwitchedEvents()
+{
+    let wm = windowManagerCreate()
+    defer { windowManagerFree(wm) }
+
+    #expect(!wm.focus.hasLostFrontSwitchedEvent(for: 77))
+
+    wm.focus.addLostFrontSwitchedEvent(for: 77)
+    wm.focus.addLostFrontSwitchedEvent(for: 78)
+    #expect(wm.focus.hasLostFrontSwitchedEvent(for: 77))
+
+    wm.focus.removeLostFrontSwitchedEvent(for: 77)
+    #expect(!wm.focus.hasLostFrontSwitchedEvent(for: 77))
+    #expect(wm.focus.hasLostFrontSwitchedEvent(for: 78))
 }
 
 @Test("window_unresolved_list") @WM func windowUnresolvedList()

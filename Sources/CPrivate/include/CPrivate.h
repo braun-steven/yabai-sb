@@ -115,14 +115,6 @@ static inline bool ProcessSameC(ProcessSerialNumber *a, ProcessSerialNumber *b)
     return result == 1;
 }
 
-// OSTimer.now (Helpers.swift): the time since boot in nanoseconds; AbsoluteToNanoseconds is deprecated since macOS 10.8
-static inline uint64_t ReadOSTimerC(void)
-{
-    uint64_t result = mach_absolute_time();
-    Nanoseconds nano = AbsoluteToNanoseconds(*(AbsoluteTime *) &result);
-    return *(uint64_t *) &nano;
-}
-
 // the event settings of the daemon at startup (Sources/Yabai/Yabai.swift); both functions are deprecated since macOS 10.6
 static inline void CGSetLocalEventsSuppressionIntervalC(CFTimeInterval seconds)
 {

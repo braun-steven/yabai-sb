@@ -21,7 +21,14 @@ enum MachOSymbol
         return symbol.withCString { target -> UnsafeMutableRawPointer? in
             for i in 0..<Int(symtab.nsyms) {
                 let list = symbolSym.load(fromByteOffset: i * MemoryLayout<nlist_64>.size, as: nlist_64.self)
-                let symbolName = (symbolStr + Int(list.n_un.n_strx)).assumingMemoryBound(to: CChar.self)
+
+                // NOTE: n_strx comes from the file. Skip an entry that points past the string table, and one whose name
+                // has no NUL before the end of the table, so strcmp never reads outside the table.
+                let offset = Int(list.n_un.n_strx)
+                let remaining = Int(symtab.strsize) - offset
+                guard offset < Int(symtab.strsize), memchr(symbolStr + offset, 0, remaining) != nil else { continue }
+
+                let symbolName = (symbolStr + offset).assumingMemoryBound(to: CChar.self)
                 if strcmp(symbolName, target) == 0 {
                     return UnsafeMutableRawPointer(bitPattern: UInt(list.n_value) &+ image.slide)
                 }

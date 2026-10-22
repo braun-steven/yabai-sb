@@ -70,8 +70,8 @@ enum AnimationEasing: String, CaseIterable, Sendable
 /// The clock of the event timers.
 enum OSTimer
 {
-    /// Nanoseconds since boot.
-    static var now: UInt64 { ReadOSTimerC() }
+    /// Nanoseconds since boot, on the uptime clock that matches `mach_absolute_time` (it does not advance during sleep).
+    static var now: UInt64 { clock_gettime_nsec_np(CLOCK_UPTIME_RAW) }
 
     static let frequency: UInt64 = 1_000_000_000
 

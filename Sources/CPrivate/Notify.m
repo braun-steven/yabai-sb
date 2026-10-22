@@ -41,8 +41,15 @@ void NotifyC(const char *subtitle, const char *text)
     notification.title = @"yabai";
     notification.subtitle = [NSString stringWithUTF8String:subtitle];
     notification.informativeText = [NSString stringWithUTF8String:text];
-    [notification setValue:g_notify_img forKey:@"_identityImage"];
-    [notification setValue:@(false) forKey:@"_identityImageHasBorder"];
+    //
+    // NOTE: _identityImage and _identityImageHasBorder are private keys. An unknown key on a future macOS raises
+    // NSUnknownKeyException, which Swift cannot catch, so the calls are guarded here: a failure costs only the icon.
+    //
+    @try {
+        [notification setValue:g_notify_img forKey:@"_identityImage"];
+        [notification setValue:@(false) forKey:@"_identityImageHasBorder"];
+    } @catch (NSException *exception) {
+    }
     [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
     [notification release];
 

@@ -22,6 +22,7 @@ extension SLS
     static func region(_ rect: CGRect) -> CFTypeRef?
     {
         var rect = rect
+        // NOTE: The +1 region is imported as a managed `CFTypeRef?` out-parameter: `region` owns it and ARC releases it.
         var region: CFTypeRef?
         CGSNewRegionWithRect(&rect, &region)
         return region

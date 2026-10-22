@@ -44,6 +44,19 @@ import LoaderFixture
         #expect(!core.valid([10] + packed(UInt32(7)) + [2]))
     }
 
+    // Every fixed-size opcode: lengths 0 to expected-1 are rejected, and so is one byte too many.
+    @Test(arguments: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 19] as [UInt8])
+    func fixedLengthOpcodesRejectEveryTruncation(opcode: UInt8) throws
+    {
+        let expectedLengths: [UInt8: Int] = [1: 0, 2: 8, 3: 8, 4: 8, 5: 25, 6: 12, 7: 12, 8: 12, 9: 8,
+                                             10: 5, 11: 5, 12: 4, 13: 20, 16: 12, 19: 12]
+        let message = [opcode] + [UInt8](repeating: 0, count: try #require(expectedLengths[opcode]))
+        let core = Core()
+        #expect(core.valid(message))
+        for count in 0..<message.count { #expect(!core.valid(Array(message.prefix(count)))) }
+        #expect(!core.valid(message + [0]))
+    }
+
     @Test func boundedFuzzRejectsBeforeDispatch() throws
     {
         let core = Core()

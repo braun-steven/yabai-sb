@@ -1,5 +1,4 @@
 import Darwin
-import Foundation
 import Synchronization
 import OSAXCoreAPI
 
@@ -24,7 +23,7 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
 {
     guard let message, length > 0, length <= Int(SA_SOCKET_BUFF_LEN) - 2 else { return false }
     var cursor = Cursor(bytes: UnsafeRawBufferPointer(start: message, count: length))
-    let opcode = cursor.take(UInt8.self)!
+    guard let opcode = cursor.take(UInt8.self) else { return false }
     let expected: Int
     switch opcode {
     case 1: expected = 0
@@ -51,18 +50,24 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
     default: return false
     }
     guard cursor.remaining == expected else { return false }
-    if opcode == 5 && message[25] > 1 { return false }
-    if (opcode == 10 || opcode == 11) && message[5] > 1 { return false }
+    // The flag byte is the last byte of these fixed-size messages; read it through the cursor, not a raw subscript.
+    if opcode == 5 {
+        cursor.offset = 25
+        guard let flag = cursor.take(UInt8.self), flag <= 1 else { return false }
+    }
+    if opcode == 10 || opcode == 11 {
+        cursor.offset = 5
+        guard let flag = cursor.take(UInt8.self), flag <= 1 else { return false }
+    }
     if opcode == 7 || opcode == 8 {
         cursor.offset = 5
-        let alpha = cursor.take(Float.self)!
-        let duration = cursor.take(Float.self)!
+        guard let alpha = cursor.take(Float.self), let duration = cursor.take(Float.self) else { return false }
         if !alpha.isFinite || alpha < 0 || alpha > 1 || !duration.isFinite || duration < 0 { return false }
     }
     if opcode == 13 {
         cursor.offset = 5
         for _ in 0..<4 {
-            if !cursor.take(Float.self)!.isFinite { return false }
+            guard let value = cursor.take(Float.self), value.isFinite else { return false }
         }
     }
     return true
@@ -77,6 +82,8 @@ private func nowNS() -> UInt64
 
 private func transfer(_ fd: Int32, _ bytes: UnsafeMutableRawBufferPointer, writing: Bool, deadline: UInt64) -> Bool
 {
+    // An empty buffer has no base address and nothing to transfer.
+    guard let base = bytes.baseAddress else { return bytes.isEmpty }
     var offset = 0
     while offset < bytes.count {
         let now = nowNS()
@@ -86,8 +93,8 @@ private func transfer(_ fd: Int32, _ bytes: UnsafeMutableRawBufferPointer, writi
         let wait = poll(&descriptor, 1, Int32(min(UInt64(Int32.max), (deadline - now + 999_999) / 1_000_000)))
         if wait < 0 && errno == EINTR { continue }
         guard wait > 0, descriptor.revents & (events | Int16(POLLHUP)) != 0 else { return false }
-        let count = writing ? send(fd, bytes.baseAddress! + offset, bytes.count - offset, 0)
-                            : recv(fd, bytes.baseAddress! + offset, bytes.count - offset, 0)
+        let count = writing ? send(fd, base + offset, bytes.count - offset, 0)
+                            : recv(fd, base + offset, bytes.count - offset, 0)
         if count < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) { continue }
         guard count > 0 else { return false }
         offset += count
@@ -156,7 +163,7 @@ public func swiftTick(_ now: UInt64) -> Bool
     fades.withLock { state in
         // Snapshot keys so removing completed fades does not mutate a live iterator.
         for wid in Array(state.keys) {
-            let fade = state[wid]!
+            guard let fade = state[wid] else { continue }
             let elapsed = now >= fade.start ? Double(now - fade.start) / 1e9 : 0
             let t = min(1, elapsed / Double(fade.duration))
             let alpha = Float((1 - t) * Double(fade.startAlpha) + t * Double(fade.alpha))

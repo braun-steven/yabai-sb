@@ -60,7 +60,7 @@ run_step() {
         echo "PASS $name ${seconds}s $log"
         case $name in
             test|osax-test)
-                grep 'Test run with' "$log" | tail -n 1 | sed 's/^/  /' || true
+                grep 'Test run with' "$log" | sed 's/^/  /' || true
                 ;;
         esac
         return 0

@@ -19,7 +19,7 @@ phase: in-progress · mode: nested
 |---|---|---|---|
 | P1.1 | `scripts/ci.sh`, `make ci-quick` and `make ci` | done | `scripts/ci.sh quick\|full` with per-step logs in `.build/ci/`. Tree has 0 compiler warnings, so the allowlist is empty. Gates: `make ci` passed (build 4s, test 6s, install 32s, osax-test 9s, check-build 97s). Broken-file check failed as expected and was reverted. No live checks. |
 | P1.2 | OSAXEmbed enumerates its inputs | done | Inputs are the 10 `osax/` native files plus the 2 scripts, enumerated from `osax/` (same set as the old list, no new files). Gates: `make ci` passed (build 5s, test 14s, install 32s, osax-test 7s, check-build 92s). Touching `Core.swift` rebuilds the payload; a no-op build keeps its mtime; a new file in `osax/` triggers a rebuild. Default `make` output shows only `[n / m] OSAX`; the "Build and embed" step name appears with `swift build -v`. No live checks. |
-| P1.3 | Baseline measurements | todo | |
+| P1.3 | Baseline measurements | done | Numbers in "Baseline (P1.3)" at the end of this file, measured at `e3047f40`. No source changes. Gates: `make ci` passed. No live checks. |
 | P1.4 | Fix documentation drift and add the refactor plan to AGENTS.md | todo | |
 
 ## Phase 2: Crash and robustness fixes
@@ -182,7 +182,37 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 13:40 · subphase agent · P1.1 · done · P1.2 (OSAXEmbed inputs) is next; it depends on P1.1 and can start now
 - 2026-10-22 13:30 · subphase agent · P1.2 · start · enumerate osax/ in OSAXEmbed; verify rebuild and no-op; run gates
 - 2026-10-22 13:45 · subphase agent · P1.2 · done · P1.3 (baseline measurements) is next; it depends on P1.1 and can start now
+- 2026-10-22 13:38 · subphase agent · P1.3 · start · measure baseline (make ci, sanitizers, coverage, binary size, grep counts); no source changes
+- 2026-10-22 13:44 · subphase agent · P1.3 · done · P1.4 (documentation drift) is next; it has no dependencies and can start now
 
 ## Discovered
 
 Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.
+
+## Baseline (P1.3)
+
+Measured on the tree at `e3047f40` (P1.2 done), before any Phase 1 source change. The commit that records these numbers
+is the P1.3 commit itself. Full logs are in `.build/ci/` (`p1.3-*.log` for the commands run by hand).
+
+- `make ci` (`scripts/ci.sh full`, all steps PASS, about 2 min 28 s wall; log `.build/ci/p1.3-make-ci.log`): build 8 s,
+  test 14 s, install 32 s, osax-test 2 s, check-build 92 s.
+- Tests from `make ci` (`grep 'Test run with' .build/ci/test.log`): 236 tests in 28 suites passed in 1.195 s, then
+  83 tests in 2 suites passed in 0.556 s. osax-test (`.build/ci/osax-test.log`): 9 tests in 1 suite passed in 1.450 s.
+- `xcrun swift test --sanitize=thread` (`.build/ci/p1.3-tsan.log`): pass, 44 s wall. 236 tests passed in 5.501 s and
+  83 tests in 1.746 s. 0 ThreadSanitizer reports.
+- `xcrun swift test --sanitize=address` (`.build/ci/p1.3-asan.log`): pass, 32 s wall. 236 tests passed in 3.353 s and
+  83 tests in 5.033 s. 0 AddressSanitizer reports.
+- `make coverage` (`.build/ci/p1.3-coverage.log`, 44 s): TOTAL 15535 lines, 8926 missed, 42.54% line coverage. 17 of the
+  94 `Sources/` files are at 0.00%. The 10 with the most missed lines (all 0.00%): `Yabai/SpaceManager+Operations.swift`
+  (352 missed), `Yabai/Workspace.swift` (240), `Yabai/Yabai.swift` (229), `Yabai/Service.swift` (227),
+  `Yabai/ProcessManager.swift` (177), `Yabai/EventHandler+Space.swift` (150),
+  `Yabai/WindowManager+Reconciliation.swift` (149), `Yabai/Platform/SkyLight+Windows.swift` (109),
+  `Yabai/MissionControl.swift` (106), `Yabai/Platform/MachO.swift` (94). The other 7 at 0.00% are `IPC/Client.swift`
+  (67), `CPrivate/include/CPrivate.h` (61), `Yabai/Log.swift` (49), `CPrivate/CPrivate.c` (30), `CPrivate/Notify.m`
+  (20), `Yabai/main.swift` (19) and `Yabai/Platform/CoreDock.swift` (12).
+- Release binary (`stat -f %z bin/yabai`, after `make install` in `make ci`): 8889912 bytes.
+- Counts over `grep -rn ... --include=*.swift Sources`:
+  - `grep -rn '!' --include=*.swift Sources | grep -v '!=' | wc -l` (rough force-unwrap count): 443
+  - `grep -rn 'unsafeBitCast' --include=*.swift Sources | wc -l`: 7
+  - `grep -rn 'Unmanaged' --include=*.swift Sources | wc -l`: 33
+  - `grep -rnE 'preconditionFailure|fatalError|fatal\(' --include=*.swift Sources | wc -l`: 25

@@ -28,6 +28,8 @@ commands yourself.
   `make asan` / `make tsan`: sanitizer builds.
 - `make test` (= `swift test`); one test: `swift test --filter <name>`. `make osax-test`: payload core tests.
   `make coverage [COVERAGE_FILTER=<re>]`: line coverage of `Sources/` per file.
+- `make ci-quick`: debug build and `make test` with one line per step; full logs in `.build/ci/`.
+- `make ci`: `ci-quick` plus release build, `make osax-test` and `make check-build` (the phase gate).
 - `swift test --filter Golden`: byte-for-byte IPC regression snapshot (`tests/YabaiTests/Golden/commands.txt`).
   Only after an intended response change: `GOLDEN_RECORD=1 swift test --filter Golden`, then review every
   changed record.

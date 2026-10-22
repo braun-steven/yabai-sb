@@ -13,11 +13,11 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped`. Find a subph
 
 ## Phase 1: Gates and tooling
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P1.1 | `scripts/ci.sh`, `make ci-quick` and `make ci` | todo | |
+| P1.1 | `scripts/ci.sh`, `make ci-quick` and `make ci` | done | `scripts/ci.sh quick\|full` with per-step logs in `.build/ci/`. Tree has 0 compiler warnings, so the allowlist is empty. Gates: `make ci` passed (build 4s, test 6s, install 32s, osax-test 9s, check-build 97s). Broken-file check failed as expected and was reverted. No live checks. |
 | P1.2 | OSAXEmbed enumerates its inputs | todo | |
 | P1.3 | Baseline measurements | todo | |
 | P1.4 | Fix documentation drift and add the refactor plan to AGENTS.md | todo | |
@@ -177,6 +177,9 @@ phase: todo · mode: —
 Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 
 - 2026-10-22 · planner · — · plan written · orchestrator starts phase 1
+- 2026-10-22 13:23 · phase agent · P1 · start (nested) · start P1.1 subphase agent
+- 2026-10-22 13:23 · subphase agent · P1.1 · start · add scripts/ci.sh, makefile targets, docs; run gates
+- 2026-10-22 13:40 · subphase agent · P1.1 · done · P1.2 (OSAXEmbed inputs) is next; it depends on P1.1 and can start now
 
 ## Discovered
 

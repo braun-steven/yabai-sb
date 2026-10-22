@@ -1,0 +1,4 @@
+# Compiler and linker warnings that the CI gates (scripts/ci.sh) ignore.
+# One fixed string per line; a warning line containing it is ignored. Blank lines and lines starting with # are skipped.
+# Every entry needs a reason on the comment line above it, and the warning must come from outside this repository
+# (for example SwiftPM resolution chatter). Warnings from yabai's own sources are fixed, not listed.

@@ -32,6 +32,14 @@ Switching back to `make` cannot publish a cached sanitizer executable. The isola
 own `osax/.build/` cache. `SWIFT` overrides the Swift command (default `xcrun swift`); `SWIFT_FLAGS`
 passes additional SwiftPM options to builds and tests, for example `make test SWIFT_FLAGS='--filter Golden'`.
 
+## CI gates
+
+`make ci-quick` (debug build, then `make test`) and `make ci` (adds `make install`, `make osax-test` and
+`make check-build`) run `scripts/ci.sh`. Each step prints one `PASS|FAIL <step> <seconds>s <log>` line; the full
+output goes to `.build/ci/<step>.log`. The first failing step stops the run and prints its `error:` lines, its
+unlisted warning lines and the last 40 log lines. A compiler or linker warning fails a step too, unless its text is
+in `scripts/ci-warning-allowlist.txt` (one fixed string per line; each entry needs a reason comment above it).
+
 ## Compiler and SDK selection
 
 `SWIFT` and `SWIFT_FLAGS` affect the outer SwiftPM invocation only. They do not select the payload

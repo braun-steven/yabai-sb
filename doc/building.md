@@ -32,6 +32,9 @@ Debug/release use the normal `.build/` cache; sanitizer builds use `.build/asan`
 Switching back to `make` cannot publish a cached sanitizer executable. The isolated package has its
 own `osax/.build/` cache. `SWIFT` overrides the Swift command (default `xcrun swift`); `SWIFT_FLAGS`
 passes additional SwiftPM options to builds and tests, for example `make test SWIFT_FLAGS='--filter Golden'`.
+Coverage filters are extended regular expressions. `scripts/coverage.sh` passes them to `awk` through `ENVIRON`
+because `awk -v` consumes backslashes, which can change a literal `+` in a filename filter such as
+`WindowManager\+Tree`.
 
 ## CI gates
 

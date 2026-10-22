@@ -21,7 +21,8 @@ report=$(xcrun llvm-cov report \
     -ignore-filename-regex='(\.build|tests)/')
 
 # columns: file, regions, missed regions, cover, functions, missed functions, executed, lines, missed lines, cover, ...
-echo "$report" | awk -v filter="$filter" -v root="$PWD/" '
+echo "$report" | YABAI_COVERAGE_FILTER="$filter" awk -v root="$PWD/" '
+    BEGIN { filter = ENVIRON["YABAI_COVERAGE_FILTER"] }
     $1 ~ /^(Sources|osax)\// || index($1, root) == 1 {
         file = $1; sub(root, "", file)
         if (file ~ filter) printf "%-52s %7s %7s %8s\n", file, $8, $9, $10

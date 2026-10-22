@@ -174,11 +174,11 @@ phase: todo · mode: —
 
 ## Phase 14: Replace make with just
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P14.1 | Install just and add a `justfile` with every make target | todo | |
+| P14.1 | Install just and add a `justfile` with every make target | done | Added all make recipes as just recipes; `just` 1.59.0 installed with Homebrew. Golden args and `SWIFT_FLAGS` each ran only 2 tests; escaped-plus coverage selected `WindowManager+Tree.swift`; list/format checks, make/just version builds (`yabai-v7.1.25`), archive/publish dry-run comparison, `make ci` and `just ci` passed. Deviation: fixed `scripts/coverage.sh` to pass its regex via `ENVIRON` because macOS awk `-v` stripped `\+`; documented the pitfall in `doc/building.md`. |
 | P14.2 | Scripts and `update-yabai-fork` call just | todo | |
 | P14.3 | Delete the makefile and move the docs to just | todo | |
 
@@ -187,6 +187,9 @@ phase: todo · mode: —
 Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 
 - 2026-10-22 · planner · — · plan written · orchestrator starts phase 1
+- 2026-10-22 22:51 · phase agent · P14 · start (nested; user-authorized prerequisite override) · start P14.1 with just 1.59.0; user requested Sol 6.1/Luna model substitution
+- 2026-10-22 23:02 · subphase agent · P14.1 · start · add justfile and verify make-target parity; coverage acceptance requires fixing awk backslash loss
+- 2026-10-22 23:02 · subphase agent · P14.1 · done · just 1.59.0 installed; justfile, coverage ENVIRON fix and building pitfall note committed after acceptance gates; parent phase agent reviews commit and starts P14.2
 - 2026-10-22 13:23 · phase agent · P1 · start (nested) · start P1.1 subphase agent
 - 2026-10-22 13:23 · subphase agent · P1.1 · start · add scripts/ci.sh, makefile targets, docs; run gates
 - 2026-10-22 13:40 · subphase agent · P1.1 · done · P1.2 (OSAXEmbed inputs) is next; it depends on P1.1 and can start now

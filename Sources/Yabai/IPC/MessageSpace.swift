@@ -81,7 +81,7 @@ extension DisplayCommand
         throw CommandError("could not locate the display to act on!\n")
     }
 
-    guard let name = DisplayCommand.Name(command) else { throw CommandError.unknownCommand(domain, command) }
+    guard let name = DisplayCommand.Name(token: command) else { throw CommandError.unknownCommand(domain, command) }
     try DisplayCommand.parse(name, &message).run(acting: did)
 }
 
@@ -283,7 +283,7 @@ extension SpaceCommand
     }
 
     try runCommands(&rsp, &message, from: command) { (_, source, token) throws(CommandError) -> Bool in
-        let name = SpaceCommand.Name(token)
+        let name = SpaceCommand.Name(token: token)
         if actingSid == nil && name?.needsActingSpace != false {
             throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
         }

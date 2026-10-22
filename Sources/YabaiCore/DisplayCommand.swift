@@ -8,12 +8,6 @@ public enum DisplayCommand: Equatable, Sendable
     public enum Name: String, CaseIterable, Sendable
     {
         case focus = "--focus", space = "--space", label = "--label"
-
-        public init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
     }
 
     public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError) -> DisplayCommand

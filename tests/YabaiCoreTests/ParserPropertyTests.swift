@@ -155,7 +155,7 @@ private func parseCommands(_ tokens: [[UInt8]], _ parse: (Token, inout Message) 
     {
         await propertyCheck(count: 3000, input: tokensGenerator) { tokens in
             parseCommands(tokens) { (token, source) throws(CommandError) in
-                guard let name = WindowCommand.Name(token) else { return }
+                guard let name = WindowCommand.Name(token: token) else { return }
                 _ = try WindowCommand.parse(name, &source)
             }
         }
@@ -165,12 +165,12 @@ private func parseCommands(_ tokens: [[UInt8]], _ parse: (Token, inout Message) 
     {
         await propertyCheck(count: 3000, input: tokensGenerator) { tokens in
             parseCommands(tokens) { (token, source) throws(CommandError) in
-                guard let name = SpaceCommand.Name(token) else { return }
+                guard let name = SpaceCommand.Name(token: token) else { return }
                 _ = try SpaceCommand.parse(name, &source)
             }
 
             parseCommands(tokens) { (token, source) throws(CommandError) in
-                guard let name = DisplayCommand.Name(token) else { return }
+                guard let name = DisplayCommand.Name(token: token) else { return }
                 _ = try DisplayCommand.parse(name, &source)
             }
         }

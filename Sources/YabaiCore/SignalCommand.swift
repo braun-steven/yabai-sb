@@ -17,19 +17,13 @@ public enum SignalCommand
         case add = "--add"
         case remove = "--remove"
         case list = "--list"
-
-        init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
     }
 
     /// Parses one signal command.
     public static func parse(_ message: inout some TokenSource) throws(CommandError) -> SignalCommand
     {
         let command = message.next()
-        guard let name = Name(command) else { throw CommandError.unknownCommand(Token(Domain.signal), command) }
+        guard let name = Name(token: command) else { throw CommandError.unknownCommand(Token(Domain.signal), command) }
 
         switch name {
         case .add:

@@ -31,12 +31,6 @@ public enum RuleCommand
         case apply = "--apply"
         case list = "--list"
         case oneShot = "--one-shot"
-
-        init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
     }
 
     /// Parses one rule command. Display and space effects keep the behavior of `parseRule`, including its current
@@ -44,13 +38,13 @@ public enum RuleCommand
     public static func parse<C: SelectorContext>(_ message: inout some TokenSource, _ context: C) throws(CommandError) -> RuleCommand
     {
         let command = message.next()
-        guard let name = Name(command) else { throw CommandError.unknownCommand(Token(Domain.rule), command) }
+        guard let name = Name(token: command) else { throw CommandError.unknownCommand(Token(Domain.rule), command) }
 
         switch name {
         case .add:
             var rule = Rule()
             var first = message.next()
-            if Name(first) == .oneShot {
+            if Name(token: first) == .oneShot {
                 rule.oneShot = true
                 first = message.next()
             }

@@ -22,12 +22,6 @@ public enum WindowLayout: String, CaseIterable, Sendable
     case splitH      = "splith"
     case splitV      = "splitv"
     case toggleSplit = "toggle-split"
-
-    public init?(_ token: Token)
-    {
-        guard let layout = WindowLayout.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-        self = layout
-    }
 }
 
 /// The orientation of `window --split`: a fixed one, or across the orientation of the parent container (`toggle`).
@@ -132,12 +126,6 @@ public enum WindowCommand: Equatable, Sendable
         case layout     = "--layout"
         case split      = "--split"
 
-        public init?(_ token: Token)
-        {
-            guard let name = Name.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
-
         /// Whether the command needs an acting window. The others select their window, or need none (a scratchpad
         /// toggle).
         public var needsWindow: Bool
@@ -218,14 +206,14 @@ public enum WindowCommand: Equatable, Sendable
         case .lower:
             return .lower(try optionalSelector(value))
         case .toggle:
-            if let toggle = WindowToggle(value) { return .toggle(toggle) }
+            if let toggle = WindowToggle(token: value) { return .toggle(toggle) }
             return .toggleScratchpad(value)
         case .scratchpad:
             if value.isValid && value.equals(Argument.recover) { return .scratchpad(.recover) }
             if let label = try parseLabel(value, .window) { return .scratchpad(.assign(label: label.string)) }
             return .scratchpad(.remove)
         case .layout:
-            guard let layout = WindowLayout(value) else { throw unknownValue(name, value).stoppingMessage }
+            guard let layout = WindowLayout(token: value) else { throw unknownValue(name, value).stoppingMessage }
             return .layout(layout)
         case .split:
             guard let orientation = SplitOrientation(value) else { throw unknownValue(name, value).stoppingMessage }

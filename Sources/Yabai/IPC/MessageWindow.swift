@@ -367,7 +367,7 @@ extension WindowCommand
     }
 
     try runCommands(&rsp, &message, from: first) { (_, source, token) throws(CommandError) -> Bool in
-        let name = WindowCommand.Name(token)
+        let name = WindowCommand.Name(token: token)
         if actingWindow == nil && name?.needsWindow != false {
             throw noActingWindow.stoppingMessage
         }

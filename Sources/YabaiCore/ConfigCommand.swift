@@ -62,12 +62,6 @@ public enum ConfigCommand
         case scratchpadRaise = "scratchpad_raise"
         case scratchpadBelow = "scratchpad_below"
         case scratchpadGrid = "scratchpad_grid"
-
-        public init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
     }
 
     /// Parses the optional scope prefix, leaving the command token intact for byte-accurate failures.
@@ -80,7 +74,7 @@ public enum ConfigCommand
     /// Parses one command name and preserves the original token in an unknown-command error.
     public static func parseName(_ token: Token) throws(CommandError) -> Name
     {
-        guard let name = Name(token) else { throw CommandError.unknownCommand(Token(Domain.config), token) }
+        guard let name = Name(token: token) else { throw CommandError.unknownCommand(Token(Domain.config), token) }
         return name
     }
 }

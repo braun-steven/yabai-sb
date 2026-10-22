@@ -20,12 +20,6 @@ public enum QueryCommand: Equatable, Sendable
         case spaces = "--spaces"
         case windows = "--windows"
         case tree = "--tree"
-
-        init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
     }
 
     private enum TargetOption: String, CaseIterable
@@ -33,28 +27,13 @@ public enum QueryCommand: Equatable, Sendable
         case display = "--display"
         case space = "--space"
         case window = "--window"
-
-        init?(_ token: Token)
-        {
-            guard let option = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = option
-        }
     }
 
     /// Parses one query command from the message.
     public static func parse(_ message: inout some TokenSource) throws(CommandError) -> QueryCommand
     {
         let nameToken = message.next()
-        guard let name = Name(nameToken) else { throw CommandError.unknownCommand(Token(Domain.query), nameToken) }
-
-        if name == .tree {
-            let option = message.next()
-            if option.equals(TargetOption.space.rawValue) {
-                return .tree(space: try optionalSpaceSelector(message.next()))
-            }
-            if option.isValid { throw CommandError.unknownOption(Token(Domain.query), nameToken, option) }
-            return .tree(space: nil)
-        }
+        guard let name = Name(token: nameToken) else { throw CommandError.unknownCommand(Token(Domain.query), nameToken) }
 
         switch name {
         case .displays:
@@ -67,6 +46,11 @@ public enum QueryCommand: Equatable, Sendable
             let (properties, target) = try parseSelection(WindowInfo.Key.self, nameToken, &message)
             return .windows(properties: properties, target: target)
         case .tree:
+            let option = message.next()
+            if option.equals(TargetOption.space.rawValue) {
+                return .tree(space: try optionalSpaceSelector(message.next()))
+            }
+            if option.isValid { throw CommandError.unknownOption(Token(Domain.query), nameToken, option) }
             return .tree(space: nil)
         }
     }
@@ -80,7 +64,7 @@ public enum QueryCommand: Equatable, Sendable
 
     private static func parseTarget(_ optionToken: Token, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> Target
     {
-        guard let option = TargetOption(optionToken) else {
+        guard let option = TargetOption(token: optionToken) else {
             if optionToken.isValid { throw CommandError.unknownOption(Token(Domain.query), command, optionToken) }
             return .all
         }

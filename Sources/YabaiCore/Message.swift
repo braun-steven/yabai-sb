@@ -136,6 +136,16 @@ public struct Token: Equatable, Sendable
     }
 }
 
+extension CaseIterable where Self: RawRepresentable, RawValue == String
+{
+    /// The case whose raw value the token equals (case-sensitive, `Token.equals`), in `allCases` order; nil when none.
+    public init?(token: Token)
+    {
+        guard let match = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
+        self = match
+    }
+}
+
 extension Token
 {
     /// sscanf with a format like "%255[^:]:%d:%d" (`MAXLEN` buffer for the string, then one pointer per value);

@@ -27,12 +27,6 @@ public enum SpaceCommand: Equatable, Sendable
         case balance = "--balance", mirror = "--mirror", rotate = "--rotate", padding = "--padding"
         case gap = "--gap", toggle = "--toggle", layout = "--layout", label = "--label"
 
-        public init?(_ token: Token)
-        {
-            guard let name = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-            self = name
-        }
-
         /// Layout and appearance commands fail before parsing a value when the acting space is missing.
         public var needsActingSpace: Bool
         {
@@ -62,7 +56,7 @@ public enum SpaceCommand: Equatable, Sendable
         case .equalize: return .equalize(try optionalAxis(value, name))
         case .balance: return .balance(try optionalAxis(value, name))
         case .mirror:
-            guard let axis = SpaceCommandAxis(value) else { throw unknownValue(name, value) }
+            guard let axis = SpaceCommandAxis(token: value) else { throw unknownValue(name, value) }
             return .mirror(axis)
         case .rotate:
             let degrees = value.equals("90") ? 90 : value.equals("180") ? 180 : value.equals("270") ? 270 : 0
@@ -77,10 +71,10 @@ public enum SpaceCommand: Equatable, Sendable
             guard value.scan("%255[^:]:%d", &type, &gap) == 2 else { throw unknownValue(name, value) }
             return .gap(parseValueType(Token(cString: type)), Int(gap[0]))
         case .toggle:
-            guard let toggle = SpaceToggle(value) else { throw unknownValue(name, value) }
+            guard let toggle = SpaceToggle(token: value) else { throw unknownValue(name, value) }
             return .toggle(toggle)
         case .layout:
-            guard let layout = SpaceCommandLayout(value) else { throw unknownValue(name, value) }
+            guard let layout = SpaceCommandLayout(token: value) else { throw unknownValue(name, value) }
             return .layout(layout)
         case .label: return .label(value)
         }
@@ -101,7 +95,7 @@ public enum SpaceCommand: Equatable, Sendable
     private static func optionalAxis(_ token: Token, _ name: Name) throws(CommandError) -> SpaceCommandAxis?
     {
         guard token.isValid else { return nil }
-        guard let axis = SpaceCommandAxis(token) else { throw unknownValue(name, token) }
+        guard let axis = SpaceCommandAxis(token: token) else { throw unknownValue(name, token) }
         return axis
     }
 }
@@ -109,11 +103,6 @@ public enum SpaceCommand: Equatable, Sendable
 public enum SpaceCommandAxis: String, CaseIterable, Sendable
 {
     case xAxis = "x-axis", yAxis = "y-axis"
-    public init?(_ token: Token)
-    {
-        guard let value = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-        self = value
-    }
 }
 
 public enum SpaceToggle: String, CaseIterable, Sendable
@@ -121,19 +110,9 @@ public enum SpaceToggle: String, CaseIterable, Sendable
     case padding, gap
     case missionControl = "mission-control"
     case showDesktop = "show-desktop"
-    public init?(_ token: Token)
-    {
-        guard let value = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-        self = value
-    }
 }
 
 public enum SpaceCommandLayout: String, CaseIterable, Sendable
 {
     case float, tree
-    public init?(_ token: Token)
-    {
-        guard let value = Self.allCases.first(where: { token.equals($0.rawValue) }) else { return nil }
-        self = value
-    }
 }

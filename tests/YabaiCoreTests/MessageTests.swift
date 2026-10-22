@@ -100,9 +100,9 @@ func tokenValue(_ text: String, _ value: String)
 func configCommandNames()
 {
     #expect(ConfigCommand.Name.allCases.count == 59)
-    #expect(ConfigCommand.Name(Token("window_border")) == .windowBorder)
-    #expect(ConfigCommand.Name(Token("tree_default_orientation")) == .treeDefaultOrientation)
-    #expect(ConfigCommand.Name(Token("unknown_option")) == nil)
+    #expect(ConfigCommand.Name(token: Token("window_border")) == .windowBorder)
+    #expect(ConfigCommand.Name(token: Token("tree_default_orientation")) == .treeDefaultOrientation)
+    #expect(ConfigCommand.Name(token: Token("unknown_option")) == nil)
 }
 
 @Test("Config command parsing keeps a typed space scope and the following command token")
@@ -179,13 +179,13 @@ func messageConfigChoice() throws
 
 @Test("message_window_toggle_lookup") func messageWindowToggleLookup()
 {
-    #expect(WindowToggle(Token("float")) == .float)
-    #expect(WindowToggle(Token("zoom-fullscreen")) == .zoomFullscreen)
-    #expect(WindowToggle(Token("shadow")) == .shadow)
+    #expect(WindowToggle(token: Token("float")) == .float)
+    #expect(WindowToggle(token: Token("zoom-fullscreen")) == .zoomFullscreen)
+    #expect(WindowToggle(token: Token("shadow")) == .shadow)
 
     // NOTE: anything else is a scratchpad label
-    #expect(WindowToggle(Token("notes")) == nil)
-    #expect(WindowToggle(Token("floa")) == nil)
+    #expect(WindowToggle(token: Token("notes")) == nil)
+    #expect(WindowToggle(token: Token("floa")) == nil)
 
     // NOTE: window_toggle_list in src/message_window.c keeps its functions in this order
     #expect(WindowToggle.allCases.map(\.rawValue) == ["float", "sticky", "shadow", "split", "zoom-parent", "zoom-fullscreen", "windowed-fullscreen", "native-fullscreen", "expose", "pip"])
@@ -365,7 +365,7 @@ func spaceSelectorParsesWithoutLookups(_ text: String, _ selector: SpaceSelector
 private func parseWindowCommand(_ text: String) -> (WindowCommand?, String, Bool)
 {
     var message = Message(text)
-    guard let name = WindowCommand.Name(message.next()) else { return (nil, "no name", false) }
+    guard let name = WindowCommand.Name(token: message.next()) else { return (nil, "no name", false) }
 
     do {
         return (try WindowCommand.parse(name, &message), "", false)
@@ -376,8 +376,8 @@ private func parseWindowCommand(_ text: String) -> (WindowCommand?, String, Bool
 
 @Test func windowCommandNames()
 {
-    #expect(WindowCommand.Name(Token("--sub-layer")) == .subLayer)
-    #expect(WindowCommand.Name(Token("--foo")) == nil)
+    #expect(WindowCommand.Name(token: Token("--sub-layer")) == .subLayer)
+    #expect(WindowCommand.Name(token: Token("--foo")) == nil)
     #expect(!WindowCommand.Name.toggle.needsWindow)
     #expect(!WindowCommand.Name.deminimize.needsWindow)
     #expect(WindowCommand.Name.swap.needsWindow)
@@ -451,9 +451,9 @@ func windowCommandFailure(_ text: String, _ failure: String, _ stopsMessage: Boo
 
 @Test func windowLayoutValues()
 {
-    #expect(WindowLayout(Token("tabbed")) == .tabbed)
-    #expect(WindowLayout(Token("toggle-split")) == .toggleSplit)
-    #expect(WindowLayout(Token("stacked")) == nil)
+    #expect(WindowLayout(token: Token("tabbed")) == .tabbed)
+    #expect(WindowLayout(token: Token("toggle-split")) == .toggleSplit)
+    #expect(WindowLayout(token: Token("stacked")) == nil)
 
     #expect(SplitOrientation(Token("vertical")) == .fixed(.vertical))
     #expect(SplitOrientation(Token("toggle")) == .toggle)
@@ -463,7 +463,7 @@ func windowCommandFailure(_ text: String, _ failure: String, _ stopsMessage: Boo
 private func parseSpaceCommand(_ text: String) -> (SpaceCommand?, String, Bool)
 {
     var message = Message(text)
-    guard let name = SpaceCommand.Name(message.next()) else { return (nil, "no name", false) }
+    guard let name = SpaceCommand.Name(token: message.next()) else { return (nil, "no name", false) }
     do { return (try SpaceCommand.parse(name, &message), "", false) }
     catch { return (nil, error.description, error.stopsMessage) }
 }
@@ -521,8 +521,8 @@ func spaceCommandNeedsAnActingSpace(_ name: SpaceCommand.Name)
 
 @Test func spaceCommandNames()
 {
-    #expect(SpaceCommand.Name(Token("--rotate")) == .rotate)
-    #expect(SpaceCommand.Name(Token("--bogus")) == nil)
+    #expect(SpaceCommand.Name(token: Token("--rotate")) == .rotate)
+    #expect(SpaceCommand.Name(token: Token("--bogus")) == nil)
 }
 
 private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureContext()) -> (Bool, Rule, String)

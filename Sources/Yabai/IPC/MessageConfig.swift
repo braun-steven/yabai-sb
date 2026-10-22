@@ -224,7 +224,7 @@ private enum WorkspaceLayout: String, CaseIterable
         }
         guard count == 3 else { return nil }
         let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
-        guard let choice = ExternalBarMode.allCases.first(where: { modeToken.equals($0.rawValue) }) else {
+        guard let choice = ExternalBarMode(token: modeToken) else {
             throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
         }
         let topPadding = Int(top)

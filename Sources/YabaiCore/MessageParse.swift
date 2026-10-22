@@ -111,7 +111,7 @@ public enum WindowLayer: String, CaseIterable, Sendable
 /// The window layer named by a token, nil for an unknown layer.
 public func parseLayer(_ value: Token) -> WindowLayer?
 {
-    WindowLayer.allCases.first { value.equals($0.rawValue) }
+    WindowLayer(token: value)
 }
 
 /// The types of a move or resize value: absolute or relative.
@@ -170,13 +170,6 @@ public enum WindowToggle: String, CaseIterable, Sendable
     case nativeFullscreen   = "native-fullscreen"
     case expose
     case pip
-
-    /// The toggle named by a token, nil for any other value.
-    public init?(_ value: Token)
-    {
-        guard let toggle = WindowToggle.allCases.first(where: { value.equals($0.rawValue) }) else { return nil }
-        self = toggle
-    }
 }
 
 /// What a label names.
@@ -270,7 +263,7 @@ public func parseProperties<Key: CaseIterable & RawRepresentable<String> & Hasha
         }
 
         let property = Token(bytes[cursor..<end])
-        if let key = Key.allCases.first(where: { property.equals($0.rawValue) }) {
+        if let key = Key(token: property) {
             result.selection.insert(key)
         } else {
             failures.append(CommandError("'\(property)' is not a valid property.\n"))

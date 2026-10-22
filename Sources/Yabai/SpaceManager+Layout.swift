@@ -15,14 +15,6 @@ private func addAndClampToZero(_ a: Int, _ b: Int) -> Int
 
 extension SpaceManager
 {
-    func untile(_ win: Window, from target: View)
-    {
-        if target.layout == .float { return }
-
-        win.adjustLayer(to: .normal)
-        if target.remove(win) { target.flush() }
-    }
-
     func setLayout(_ layout: ViewType, for sid: SpaceID)
     {
         let target = view(for: sid)

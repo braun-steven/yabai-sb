@@ -134,10 +134,11 @@ extension EventHandler
             switch untile {
             case .immediate:
                 let nextFocus = wm.treeFocusCandidate(in: view, for: window)
-                SpaceManager.shared.untile(window, from: view)
-                wm.removeManagedWindow(window.id)
+                wm.unmanage(window, from: view, options: .flush)
                 wm.treeFocusAfterClose(in: view, windowID: nextFocus)
             case .batched:
+                // NOTE: This path does not adjust the layer, unlike unmanage: it only removes the window from the tree and
+                // the managed windows, and the caller flushes the view it returns.
                 untileWindowBatched(view, window)
                 dirtyView = view
             }
@@ -555,9 +556,7 @@ extension EventHandler
 
         for window in windows {
             if let view = wm.managedView(for: window) {
-                window.adjustLayer(to: .normal)
-                untileWindowBatched(view, window)
-                wm.purifyWindow(window)
+                wm.unmanage(window, from: view, options: .purify)
                 viewList.append(view)
             }
         }

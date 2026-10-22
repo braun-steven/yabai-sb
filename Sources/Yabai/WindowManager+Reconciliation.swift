@@ -8,7 +8,8 @@ extension WindowManager
         sid.windows(includingMinimized: false)
     }
 
-    private func validateWindows(on owner: View, against windowList: [WindowID])
+    // NOTE: Internal, not private, so that tests can reconcile a view against a window list without the window server.
+    func validateWindows(on owner: View, against windowList: [WindowID])
     {
         let onSpace = Set(windowList)
 
@@ -25,10 +26,7 @@ extension WindowManager
             // This is necessary to make sure that we do not call the AX API for each modification to the tree.
             //
 
-            owner.remove(target)
-            target.adjustLayer(to: .normal)
-            removeManagedWindow(target.id)
-            purifyWindow(target)
+            unmanage(target, from: owner, options: .purify)
 
             owner.isDirty = true
         }
@@ -52,10 +50,7 @@ extension WindowManager
                 // This is necessary to make sure that we do not call the AX API for each modification to the tree.
                 //
 
-                existingView.remove(target)
-                target.adjustLayer(to: .normal)
-                removeManagedWindow(target.id)
-                purifyWindow(target)
+                unmanage(target, from: existingView, options: .purify)
                 existingView.isDirty = true
             }
 

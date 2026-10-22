@@ -3,6 +3,17 @@ import CoreGraphics
 import CPrivate
 import YabaiCore
 
+/// The variable parts of unmanaging a window (`WindowManager.unmanage`).
+struct UnmanageOptions: OptionSet
+{
+    let rawValue: Int
+
+    /// Flush the view when the window was in its tree. Without it, the caller flushes the dirty view later.
+    static let flush = UnmanageOptions(rawValue: 1 << 0)
+    /// Restore the shadow of an unmanaged window once the window has left its view.
+    static let purify = UnmanageOptions(rawValue: 1 << 1)
+}
+
 extension WindowManager
 {
     func setFocusFollowsMouse(_ mode: FocusFollowsMouse)
@@ -71,9 +82,21 @@ extension WindowManager
 
     func unmanageWindow(_ target: Window, from owner: View)
     {
-        SpaceManager.shared.untile(target, from: owner)
+        unmanage(target, from: owner, options: [.flush, .purify])
+    }
+
+    /// Takes a window out of its view and out of the managed windows: for a tiled view, the layer is restored and the
+    /// window is removed from the tree (flushing the view with `.flush` when it was in the tree); then the window leaves
+    /// the managed windows and `.purify` restores its shadow. A float view has no tree to leave. Without `.flush` the
+    /// caller flushes the dirty view later.
+    func unmanage(_ target: Window, from owner: View, options: UnmanageOptions)
+    {
+        if owner.layout != .float {
+            target.adjustLayer(to: .normal)
+            if owner.remove(target), options.contains(.flush) { owner.flush() }
+        }
         removeManagedWindow(target.id)
-        purifyWindow(target)
+        if options.contains(.purify) { purifyWindow(target) }
     }
 
     func manageWindow(_ target: Window, on spaceID: SpaceID, inserting insertionPoint: WindowID?)

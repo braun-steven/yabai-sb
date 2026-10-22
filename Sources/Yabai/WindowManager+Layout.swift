@@ -112,8 +112,7 @@ extension WindowManager
             aView.tree!.flatten()
             treeApply(aView)
         } else {
-            SpaceManager.shared.untile(a, from: aView)
-            removeManagedWindow(a.id)
+            unmanage(a, from: aView, options: .flush)
             addManagedWindow(a, to: bView)
             bView.sid.moveWindow(a)
             _ = bView.sid.waitForWindow(a.id, timeoutMS: 200)

@@ -199,6 +199,18 @@ The output has one line per failure, \f(CR<file>:<line>: <message>\fP, one \f(CR
 .br
 The exit status is 0 when M is 0. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
 .RE
+.SS "Reload the Config File"
+.sp
+yabai \-m config \-\-reload [\fI<config_file>\fP]
+.RS 4
+Run the config file again without restarting the daemon. Without <config_file>, reload the file the daemon loads: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabairc\fP, \f(CR~/.config/yabai/yabairc\fP and \f(CR~/.yabairc\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
+.br
+The file is checked first, exactly as \fBconfig \-\-check\fP checks it. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is \f(CRreloaded <config_file>\fP.
+.br
+Windows, trees and spaces stay as they are. A rule applies to new windows only, unless the config file runs \fBrule \-\-apply\fP. The layout, gaps, padding and auto_padding of a space stay as they are, and so does a value set with \fB\-\-space\fP: a reset changes the global defaults that spaces created later get. The tree options (\fBtree_default_orientation\fP, \fBtree_workspace_layout\fP and \fBtree_autotiling\fP) and the other settings that are read when they are used take their reset value from then on. \fBspace_layout\fP is cleared without re\-laying out the spaces, and \fBdebug_output\fP returns to the value the daemon started with (\fB\-\-verbose\fP).
+.br
+Keep the yabairc idempotent, as it already must be for \fB\-\-restart\-service\fP: its commands run again on every reload, so a command that creates a space or a rule must not create it twice. A yabairc must not run \fBconfig \-\-reload\fP itself, because the reload would run the file again; \fBconfig \-\-check\fP notes such a line. An skhd binding can run \f(CRyabai \-m config \-\-reload\fP.
+.RE
 .SS "Global Settings"
 .sp
 \fBdebug_output\fP [\fI<BOOL_SEL>\fP]

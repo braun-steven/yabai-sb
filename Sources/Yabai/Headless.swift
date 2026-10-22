@@ -24,6 +24,8 @@ struct HeadlessLog: Sendable
     var placements: [RecordedPlacement] = []
     /// The messages to the payload: two length bytes, the opcode, then the packed arguments (`SAPayload`).
     var messages: [[UInt8]] = []
+    /// The config files that the daemon would run (`Daemon.execConfigFile`), in order.
+    var configFiles: [String] = []
 }
 
 enum Headless
@@ -62,6 +64,11 @@ enum Headless
     static func record(message: [UInt8])
     {
         log.withLock { $0.messages.append(message) }
+    }
+
+    static func record(configFile: String)
+    {
+        log.withLock { $0.configFiles.append(configFile) }
     }
 
     /// Applies placements as the window server would at once: the frames that differ from the last request are

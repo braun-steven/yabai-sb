@@ -293,6 +293,8 @@ checked 14 commands, 1 failures, 1 skipped
 
 Without a file, the check reads the file the daemon loads. Lines that the shell computes when it runs them are not checked, and neither are the messages of *space*, *display*, *window* and *query*, which act on the session. Nothing is applied, and the exit status is 1 when there is a failure.
 
+`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the file first, as above, and changes nothing when the check fails. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
+
 ---
 
 <!-- Please be careful editing the below HTML, as GitHub is quite finicky with anything that looks like an HTML tag in GitHub Flavored Markdown. -->

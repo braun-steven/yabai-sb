@@ -27,7 +27,8 @@ import YabaiCore
     var space = SpaceDefaults()
     var display = DisplayConfig()
 
-    /// Restores the defaults of a new daemon.
+    /// Restores the defaults of a new daemon: the values of `Config()`, then the space defaults that the startup sequence
+    /// applies (`applySpaceDefaults`). The side effects of a setting (its window server state) are not restored here.
     func resetToDefaults()
     {
         let defaults = Config()
@@ -43,6 +44,7 @@ import YabaiCore
         scratchpad = defaults.scratchpad
         space = defaults.space
         display = defaults.display
+        applySpaceDefaults()
     }
 
     /// The space defaults of a new daemon: tree layout, no padding, and the tree and focus options off. The startup
@@ -83,7 +85,7 @@ struct DisplayConfig
 }
 
 /// The space an external status bar reserves (`config external_bar`).
-struct ExternalBarConfig
+struct ExternalBarConfig: Equatable
 {
     var mode = ExternalBarMode.off
     var topPadding: Int = 0

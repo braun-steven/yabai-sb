@@ -169,7 +169,7 @@ struct YabaircExtractorTests
 
         let commands = extractYabaiCommands(script)
         #expect(commands.count == 1)
-        #expect(commands.first?.line == 15)
+        #expect(commands.first?.line == 17)
 
         // NOTE: `config` and 30 key-value pairs, one per continued line.
         let arguments = try #require(commands.first?.arguments)

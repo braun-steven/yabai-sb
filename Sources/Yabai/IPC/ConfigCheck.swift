@@ -4,6 +4,7 @@ import YabaiCore
 //
 // NOTE: `config --check [<file>]` reads a yabairc, extracts its `yabai -m` messages (extractYabaiCommands) and checks each
 // one with checkMessage. Nothing is applied and no command runs: the file is read and its messages are only parsed.
+// `config --reload [<file>]` (IPC/ConfigReload.swift) starts with the same checkConfigFile.
 //
 
 /// The report of `config --check`. `text` ends with a newline; `failures` counts the failure responses in it.
@@ -63,23 +64,24 @@ private func failureLines(_ failure: String) -> [String]
     return bytes.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false).map { String(decoding: $0, as: UTF8.self) }
 }
 
-/// The file argument of `config --check [<file>]`: none (nil), or one token. A further token is a failure.
-@WM func configCheckFile(_ message: inout Message) throws(CommandError) -> String?
+/// The file argument of `config --check [<file>]` or `config --reload [<file>]` (`command` names it in a failure): none
+/// (nil), or one token. A further token is a failure.
+@WM func configFileArgument(_ command: String, _ message: inout Message) throws(CommandError) -> String?
 {
     let file = message.next()
     let extra = message.next()
     if extra.isValid {
-        throw CommandError("unknown argument '\(extra)' given to command '--check' for domain 'config'\n")
+        throw CommandError("unknown argument '\(extra)' given to command '\(command)' for domain 'config'\n")
     }
 
     return file.isValid ? file.string : nil
 }
 
-/// Writes the report of `config --check [<file>]`: of the file given, else of the file the daemon loads (the -c path or
-/// the first existing candidate). A report with a failure is one failure response. Nothing is applied.
-@WM func handleConfigCheck(_ rsp: inout Response, _ message: inout Message) throws(CommandError)
+/// Reads and checks the file of `config --check|--reload [<file>]` (`command`): the file given, else the file the daemon
+/// loads (the -c path or the first existing candidate). Returns that path and the report. Nothing is applied.
+@WM func checkConfigFile(_ command: String, _ message: inout Message) throws(CommandError) -> (path: String, report: ConfigCheckReport)
 {
-    let explicit = try configCheckFile(&message) ?? WindowManager.shared.explicitConfigFile
+    let explicit = try configFileArgument(command, &message) ?? WindowManager.shared.explicitConfigFile
     guard let path = Daemon.configFileChoice(explicit: explicit)?.chosen else {
         throw CommandError("could not locate config file\n")
     }
@@ -88,7 +90,13 @@ private func failureLines(_ failure: String) -> [String]
         throw CommandError("cannot read config file '\(path)'\n")
     }
 
-    let report = configCheckReport(path: path, script: String(decoding: data, as: UTF8.self))
+    return (path, configCheckReport(path: path, script: String(decoding: data, as: UTF8.self)))
+}
+
+/// Writes `config --check [<file>]`: the report, and a failure response when the report has a failure.
+@WM func handleConfigCheck(_ rsp: inout Response, _ message: inout Message) throws(CommandError)
+{
+    let (_, report) = try checkConfigFile("--check", &message)
     let text = ResponseText(stringLiteral: report.text)
     if report.failures > 0 {
         rsp.fail(CommandError(text))

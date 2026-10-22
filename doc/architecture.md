@@ -47,6 +47,10 @@ failure, as before).
 10. Start the message loop on the user's socket.
 11. Run the config file (`execConfigFile`), then `NSApp.run()`.
 
+`config --reload` (`IPC/ConfigReload.swift`) runs the same `execConfigFile` again, after resetting the config to the
+values of step 9 (`Config.resetToDefaults`, which applies the space defaults, and the side effects of the settings the
+daemon keeps elsewhere) and clearing the rules and signals, all inside one `@WM` handler.
+
 The config write in step 9 is the only call that moved. Its readers between the old and the new position are none:
 `WindowManager.initialize` does not read the space defaults. The socket path reuses the `$USER` read in step 1 instead
 of reading it again.

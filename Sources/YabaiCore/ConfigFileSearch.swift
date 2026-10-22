@@ -53,14 +53,16 @@ public enum ConfigFileSearch
 
     //
     // NOTE: The daemon resolves a relative path against its own directory, not the one of `yabai -m`. The client makes the
-    // file of `config --check <file>` absolute before it sends the message, so both sides check the same file.
+    // file of `config --check <file>` and `config --reload <file>` absolute before it sends the message, so both sides
+    // read the same file.
     //
 
-    /// The arguments of a message `config --check <file>` with a relative `<file>` made absolute against
-    /// `workingDirectory`, the client's directory. Any other message, an absolute file or no file is returned unchanged.
-    public static func resolvingCheckFile(_ arguments: [[UInt8]], workingDirectory: String) -> [[UInt8]]
+    /// The arguments of a message `config --check <file>` or `config --reload <file>` with a relative `<file>` made absolute
+    /// against `workingDirectory`, the client's directory. Any other message, an absolute file or no file is returned unchanged.
+    public static func resolvingConfigFile(_ arguments: [[UInt8]], workingDirectory: String) -> [[UInt8]]
     {
-        guard arguments.count >= 3, arguments[0] == Array("config".utf8), arguments[1] == Array("--check".utf8) else {
+        guard arguments.count >= 3, arguments[0] == Array("config".utf8),
+              arguments[1] == Array("--check".utf8) || arguments[1] == Array("--reload".utf8) else {
             return arguments
         }
 

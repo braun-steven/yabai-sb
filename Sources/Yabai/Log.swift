@@ -18,6 +18,9 @@ enum Log
     /// Set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
     static let verbose = Atomic<Bool>(false)
 
+    /// The value of `verbose` that the daemon started with (--verbose); `config --reload` restores it for debug_output.
+    static let verboseAtStartup = Atomic<Bool>(false)
+
     /// Sends every Logger to the StandardLogHandler; called once, before the first message.
     static func bootstrap()
     {

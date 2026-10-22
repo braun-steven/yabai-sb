@@ -78,7 +78,9 @@ enum Daemon
         return ConfigFileSearch.choose(explicit: explicit, candidates: candidates, exists: fileExists)
     }
 
-    private static func execConfigFile(_ configFile: String?)
+    /// Runs the config file: the one given (`explicit`, from -c) or else the first existing candidate, as the daemon does at
+    /// startup and `config --reload` does on each reload. In headless mode the run is recorded instead (Headless.swift).
+    static func execConfigFile(_ configFile: String?)
     {
         guard let choice = configFileChoice(explicit: configFile) else {
             Logger.daemon.warning("could not locate config file")
@@ -98,6 +100,11 @@ enum Daemon
         if !fileExists(configFile) {
             Logger.daemon.warning("configuration file '\(configFile)' does not exist")
             notify("configuration", "file '\(configFile)' does not exist..")
+            return
+        }
+
+        if Headless.isEnabled {
+            Headless.record(configFile: configFile)
             return
         }
 
@@ -211,6 +218,7 @@ enum Daemon
         if options.verbose {
             Log.verbose.store(true, ordering: .relaxed)
         }
+        Log.verboseAtStartup.store(options.verbose, ordering: .relaxed)
 
         if isRoot {
             Logger.daemon.fatal("running as root is not allowed", exitCode: EXIT_SUCCESS)

@@ -84,24 +84,32 @@ struct ConfigFileSearchTests
             == ConfigFileChoice(chosen: "/xdg/yabai/yabairc", ignored: ["/home/u/.yabairc"]))
     }
 
-    @Test("config --check resolves a relative file against the client's directory")
-    func resolvingCheckFile()
+    @Test("config --check and --reload resolve a relative file against the client's directory")
+    func resolvingConfigFile()
     {
         func bytes(_ words: [String]) -> [[UInt8]] { words.map { Array($0.utf8) } }
 
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/Users/u/cfg")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/Users/u/cfg")
             == bytes(["config", "--check", "/Users/u/cfg/yabairc"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/")
             == bytes(["config", "--check", "/yabairc"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "sub/yabairc"]), workingDirectory: "/a/")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--check", "sub/yabairc"]), workingDirectory: "/a/")
             == bytes(["config", "--check", "/a/sub/yabairc"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "/tmp/yabairc"]), workingDirectory: "/a")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--check", "/tmp/yabairc"]), workingDirectory: "/a")
             == bytes(["config", "--check", "/tmp/yabairc"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check"]), workingDirectory: "/a")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--check"]), workingDirectory: "/a")
             == bytes(["config", "--check"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "window_gap", "10"]), workingDirectory: "/a")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--reload", "yabairc"]), workingDirectory: "/Users/u/cfg")
+            == bytes(["config", "--reload", "/Users/u/cfg/yabairc"]))
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--reload", "/tmp/yabairc"]), workingDirectory: "/a")
+            == bytes(["config", "--reload", "/tmp/yabairc"]))
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--reload"]), workingDirectory: "/a")
+            == bytes(["config", "--reload"]))
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "--reloads", "yabairc"]), workingDirectory: "/a")
+            == bytes(["config", "--reloads", "yabairc"]))
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["config", "window_gap", "10"]), workingDirectory: "/a")
             == bytes(["config", "window_gap", "10"]))
-        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["window", "--focus", "west"]), workingDirectory: "/a")
+        #expect(ConfigFileSearch.resolvingConfigFile(bytes(["window", "--focus", "west"]), workingDirectory: "/a")
             == bytes(["window", "--focus", "west"]))
     }
 }

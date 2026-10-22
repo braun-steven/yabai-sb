@@ -409,6 +409,10 @@ private func cInt(_ value: Float) -> Int
         try handleConfigCheck(&rsp, &message)
         return
     }
+    if first.equals("--reload") {
+        try handleConfigReload(&rsp, &message)
+        return
+    }
 
     let (spaceSelector, command) = try ConfigCommand.parseScope(first, &message)
     if let spaceSelector {
@@ -450,7 +454,8 @@ private func cInt(_ value: Float) -> Int
 // commands run even where the selector would find nothing; and the failures that only a Change can throw are not
 // found: tab_bar_font (TabBar.setFont), window_animation_duration (SIP and Screen Recording) and the other Change
 // closures. Those stay for handleMessage. `--check` is accepted with its file, as handleDomainConfig accepts it: it
-// checks a file and changes nothing.
+// checks a file and changes nothing. `--reload` takes its file the same way; the reload itself is not run by the check
+// (checkDomain notes it, since a reload inside a yabairc runs the yabairc again).
 //
 
 /// Checks a config message: the failures of its commands, parsed as handleDomainConfig parses them, with the Change of
@@ -459,8 +464,8 @@ private func cInt(_ value: Float) -> Int
 {
     var selSid: SpaceID?
     let first = message.next()
-    if first.equals("--check") {
-        _ = try configCheckFile(&message)
+    if first.equals("--check") || first.equals("--reload") {
+        _ = try configFileArgument(first.string, &message)
         return
     }
 

@@ -54,9 +54,9 @@ enum Client
             fail("yabai-msg: no arguments given! abort..\n")
         }
 
-        // NOTE: `config --check <file>` sends the file as an absolute path: the daemon resolves a relative one in its own
-        // directory.
-        let arguments = workingDirectory().map { ConfigFileSearch.resolvingCheckFile(arguments, workingDirectory: $0) } ?? arguments
+        // NOTE: `config --check <file>` and `config --reload <file>` send the file as an absolute path: the daemon resolves
+        // a relative one in its own directory.
+        let arguments = workingDirectory().map { ConfigFileSearch.resolvingConfigFile(arguments, workingDirectory: $0) } ?? arguments
 
         guard let user = ProcessEnvironment.currentUser() else {
             fail("yabai-msg: 'env USER' not set! abort..\n")

@@ -86,7 +86,8 @@ let package = Package(
                 .product(name: "SortedCollections", package: "swift-collections"),
                 .product(name: "Subprocess", package: "swift-subprocess")
             ],
-            swiftSettings: swiftSettings,
+            // NOTE: NonisolatedNonsendingByDefault (SE-0461): nonisolated async functions run on the actor of their caller.
+            swiftSettings: swiftSettings + [.enableUpcomingFeature("NonisolatedNonsendingByDefault")],
             linkerSettings: [
                 .linkedFramework("Carbon"),
                 .linkedFramework("Cocoa"),

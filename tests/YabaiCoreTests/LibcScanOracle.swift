@@ -48,7 +48,7 @@ enum LibcOracle
 
         let returned = buffer.withUnsafeMutableBufferPointer { text in
             numbers.withUnsafeMutableBufferPointer { values in
-                var arguments: [CVarArg] = []
+                var arguments: [any CVarArg] = []
                 if field { arguments.append(text.baseAddress!) }
                 for index in 0..<values.count { arguments.append(values.baseAddress! + index) }
                 return Int(token.string.withCString { input in withVaList(arguments) { vsscanf(input, format, $0) } })

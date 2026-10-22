@@ -15,7 +15,13 @@ import PackageDescription
 let sdk = Context.environment["SDKROOT"].map { ["-Xclang-linker", "-isysroot", "-Xclang-linker", $0] } ?? []
 
 let warnings = ["-Wall", "-Wextra", "-Wstrict-prototypes", "-Wimplicit-fallthrough", "-Wnull-dereference", "-Wno-shorten-64-to-32"]
-let swiftSettings: [SwiftSetting] = [.treatAllWarnings(as: .error)]
+let swiftSettings: [SwiftSetting] = [
+    .treatAllWarnings(as: .error),
+    // NOTE: both are Swift 7 defaults (not on in Swift 6 mode): imports must cover the members a file uses, and
+    // existential types must be spelled with `any`.
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("ExistentialAny")
+]
 
 let package = Package(
     name: "yabai",

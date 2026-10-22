@@ -2,6 +2,7 @@ import Algorithms
 import AppKit
 import CoreText
 import OrderedCollections
+import SortedCollections
 import Synchronization
 import CPrivate
 import YabaiCore

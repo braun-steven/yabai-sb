@@ -2,6 +2,7 @@ import CoreGraphics
 import Darwin
 import AppKit
 import CPrivate
+import Synchronization
 import YabaiCore
 
 //

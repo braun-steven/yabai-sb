@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import CPrivate
+import Synchronization
 import YabaiCore
 
 //

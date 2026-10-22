@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import AppKit
+import Synchronization
 import YabaiCore
 import Logging
 

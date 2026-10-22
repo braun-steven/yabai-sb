@@ -3,6 +3,7 @@ import Foundation
 import AppKit
 import CPrivate
 import Logging
+import YabaiCore
 
 //
 // NOTE: The handlers of system events: Mission Control, the Dock, menus, the menu bar, waking from sleep,

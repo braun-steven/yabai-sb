@@ -4,6 +4,7 @@ import AppKit
 import CPrivate
 import YabaiCore
 import Logging
+import Synchronization
 
 //
 // NOTE: The handlers of mouse events: moving and resizing windows with the mouse modifier, dropping them on

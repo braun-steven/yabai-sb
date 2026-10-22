@@ -1,5 +1,6 @@
 import AppKit
 import CPrivate
+import SortedCollections
 import YabaiCore
 
 extension WindowManager

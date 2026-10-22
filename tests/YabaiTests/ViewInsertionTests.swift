@@ -1,3 +1,4 @@
+import SortedCollections
 import Testing
 import Foundation
 import InlineSnapshotTesting

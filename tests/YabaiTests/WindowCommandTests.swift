@@ -1,3 +1,5 @@
+import CoreGraphics
+import SortedCollections
 import Testing
 import Foundation
 import CustomDump

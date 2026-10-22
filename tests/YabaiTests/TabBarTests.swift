@@ -1,10 +1,12 @@
 import AppKit
 import CoreText
 import Foundation
+import OrderedCollections
 import SnapshotTesting
 import Testing
 import CPrivate
 @testable import Yabai
+import YabaiCore
 import YabaiTestSupport
 
 extension DaemonState

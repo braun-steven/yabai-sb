@@ -1,6 +1,7 @@
 import ApplicationServices
 import Foundation
 import CPrivate
+import SortedCollections
 import YabaiCore
 
 //

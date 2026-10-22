@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import OrderedCollections
+import SortedCollections
 import Synchronization
 import CPrivate
 import AppKit

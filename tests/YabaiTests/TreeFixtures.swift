@@ -1,5 +1,6 @@
 import CPrivate
 import Foundation
+import SortedCollections
 import YabaiCore
 @testable import Yabai
 import YabaiTestSupport

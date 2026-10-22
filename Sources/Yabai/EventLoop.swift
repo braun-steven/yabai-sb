@@ -177,7 +177,7 @@ enum EventLoop
 
     private static let delayedTimerQueue = DispatchQueue(label: "yabai.events.delayed")
 
-    private static let delayedTimer: DispatchSourceTimer =
+    private static let delayedTimer: any DispatchSourceTimer =
     {
         let timer = DispatchSource.makeTimerSource(queue: delayedTimerQueue)
         timer.setEventHandler { postDueEvents() }

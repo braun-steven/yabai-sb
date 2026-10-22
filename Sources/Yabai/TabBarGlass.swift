@@ -216,7 +216,7 @@ private final class Panel
     var snapshot: Snapshot?
     var pointerWindowID: WindowID?
     var pressed = false
-    var accessibilityObserver: NSObjectProtocol?
+    var accessibilityObserver: (any NSObjectProtocol)?
     var backdrop: NSView?
     var backdropTint: NSView?
     var backdropKind = TabBarBackdrop.off

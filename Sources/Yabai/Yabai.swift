@@ -1,6 +1,7 @@
 import AppKit
 import CPrivate
 import Logging
+import Synchronization
 
 //
 // NOTE: The daemon and its startup, run with the options of YabaiOptions.swift. `--message` / `-m` never gets here:

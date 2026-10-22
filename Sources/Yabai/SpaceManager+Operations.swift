@@ -2,6 +2,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 import CPrivate
+import SortedCollections
 import YabaiCore
 
 //

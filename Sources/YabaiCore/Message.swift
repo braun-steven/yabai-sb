@@ -213,7 +213,7 @@ public enum Domain
 }
 
 /// printf: the arguments formatted as the C version's fprintf did, e.g. `cFormat("%.4f", Double(value))`.
-public func cFormat(_ format: String, _ arguments: CVarArg...) -> String
+public func cFormat(_ format: String, _ arguments: any CVarArg...) -> String
 {
     var buffer = [CChar](repeating: 0, count: 64)
     let length = Int(withVaList(arguments) { vsnprintf(&buffer, buffer.count, format, $0) })

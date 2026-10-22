@@ -3,6 +3,7 @@ import AppKit
 import CPrivate
 import YabaiCore
 import Logging
+import SortedCollections
 
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays

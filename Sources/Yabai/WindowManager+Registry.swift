@@ -57,9 +57,12 @@ extension WindowManager
     //   FocusState (phase 4.6) owns them.
     // - Application.focusedWindowID: per application, read by its front-switch handler.
     // - Border.show and Border.hide (Border.swift): batch lists, emptied by endBatch, which skips an id without a border.
+    // Cleared here: the AX destroyed mark of the id (axDestroyedWindowIDs, Window.swift). Its destroyed event, queued
+    // behind the mark, finds no window and clears it too, for a mark that arrives after this removal.
     //
     func forget(_ id: WindowID)
     {
+        unmarkAXDestroyed(id)
         Border.remove(id)
         removeLostFocusedEvent(for: id)
         removeManagedWindow(id)

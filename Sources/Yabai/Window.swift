@@ -4,6 +4,24 @@ import Synchronization
 import YabaiCore
 import Logging
 
+/// The ids whose AX destroyed notification arrived on the main thread. The callback writes them (`markAXDestroyed`), and
+/// `Window.isValid` reads them, so the events queued for a window before its destroyed event are ignored at once; the
+/// id leaves the set when its window is forgotten (`WindowManager.forget`) or its destroyed event finds no window.
+private let axDestroyedWindowIDs = Mutex<Set<WindowID>>([])
+
+/// Records that the AX destroyed notification of a window arrived. Returns false when it was already recorded, so the
+/// callback posts the destroyed event once per window, even when the application sends the notification twice.
+nonisolated func markAXDestroyed(_ id: WindowID) -> Bool
+{
+    axDestroyedWindowIDs.withLock { $0.insert(id).inserted }
+}
+
+/// Removes the AX destroyed mark of a window id, once its window is gone.
+nonisolated func unmarkAXDestroyed(_ id: WindowID)
+{
+    axDestroyedWindowIDs.withLock { _ = $0.remove(id) }
+}
+
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
 @WM final class Window
 {
@@ -11,9 +29,10 @@ import Logging
     var ref: AXUIElement!
     let id: WindowID
 
-    // NOTE: A window stays valid until it is invalidated. Queued events carry its id, not the window, so their handlers
-    // look it up on @WM and check that it is still valid before using it. Only the destroyed handler on @WM invalidates
-    // a window, and it tears the window down once; a terminated application removes its windows either way
+    // NOTE: A window stays valid until it is invalidated, and it is invalid at once once its AX destroyed notification
+    // arrived (`axDestroyedWindowIDs`, marked on the main thread). Queued events carry its id, not the window, so their
+    // handlers look it up on @WM and check `isValid` before using it. Only the destroyed handler on @WM invalidates
+    // `valid`, and it tears the window down once; a terminated application removes its windows either way
     // (`EventHandler.removeTerminatedWindows`).
     let valid = Atomic<Bool>(true)
     var role: CFString?
@@ -65,7 +84,10 @@ import Logging
         isSticky = id.isSticky
     }
 
-    nonisolated var isValid: Bool { valid.load(ordering: .sequentiallyConsistent) }
+    nonisolated var isValid: Bool
+    {
+        valid.load(ordering: .sequentiallyConsistent) && !axDestroyedWindowIDs.withLock { $0.contains(id) }
+    }
 
     @discardableResult
     nonisolated func invalidate() -> Bool

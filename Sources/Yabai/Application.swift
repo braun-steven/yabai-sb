@@ -135,12 +135,14 @@ private let axApplicationNotifications: [(notification: ApplicationNotifications
     (.menuClosed,           kAXMenuClosedNotification,           "kAXMenuClosedNotification"),
 ]
 
-// NOTE: The callback runs on the main run loop and only posts events, on the main thread it never touches a window.
-// The context is the application (unretained) for application notifications, which do not read it, and the window id
-// for those of Window.observe(), which uses the same observer. An id is no pointer, so a callback that runs after its
-// window is gone only posts the id: the handlers on @WM look the window up and ignore it when it is missing. The
-// handler of `.windowDestroyed` invalidates the window on @WM before it tears the window down, so a window destroyed
-// twice (or destroyed after its application terminated) is torn down once.
+// NOTE: The callback runs on the main run loop and never touches a window; it only records and posts. The context is
+// the application (unretained) for application notifications, which do not read it, and the window id for those of
+// Window.observe(), which uses the same observer. An id is no pointer, so a callback that runs after its window is gone
+// only posts the id: the handlers on @WM look the window up and ignore it when it is missing. The destroyed callback
+// marks the id (`markAXDestroyed`), so `Window.isValid` is false at once and the events queued for that window before
+// its destroyed event are ignored, as before. It posts `.windowDestroyed` only when the mark is new, so a repeated AX
+// notification posts nothing. The handler of `.windowDestroyed` on @WM invalidates the window and tears it down once;
+// a window destroyed twice (or destroyed after its application terminated) is torn down once.
 private func applicationNotificationHandler(_ observer: AXObserver, _ element: AXUIElement, _ notification: CFString, _ context: UnsafeMutableRawPointer?)
 {
     switch notification as String {
@@ -164,7 +166,8 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     case kAXWindowDeminiaturizedNotification:
         if let windowID = WindowID(notificationContext: context) { EventLoop.post(.windowDeminimized(windowID: windowID)) }
     case kAXUIElementDestroyedNotification:
-        if let windowID = WindowID(notificationContext: context) { EventLoop.post(.windowDestroyed(windowID: windowID)) }
+        guard let windowID = WindowID(notificationContext: context), markAXDestroyed(windowID) else { return }
+        EventLoop.post(.windowDestroyed(windowID: windowID))
     default:
         break
     }

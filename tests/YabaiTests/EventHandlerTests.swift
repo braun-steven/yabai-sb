@@ -296,6 +296,50 @@ extension DaemonState
             #expect(WindowID(notificationContext: target.notificationContext) == target.id)
             #expect(WindowID(notificationContext: nil) == nil)
         }
+
+        //
+        // NOTE: The AX destroyed callback marks the id on the main thread. The window is invalid at once, so the events
+        // queued before its destroyed event are ignored, as when the callback invalidated it. The destroyed event on @WM
+        // then tears it down once and drops the mark (forget).
+        //
+
+        @Test func axDestroyedMarkIgnoresQueuedEventsUntilTheDestroyedEventTearsDown() async
+        {
+            let (workspace, target) = teardownScenario(2, eligible: true)
+            let before = EventSignals.shared.pending.count
+            let dump = workspace.dump
+
+            #expect(markAXDestroyed(target.id))
+            #expect(!target.isValid)
+            #expect(!target.isDestroyed)
+
+            await EventHandler.shared.handle(.windowMoved(windowID: target.id))
+            await EventHandler.shared.handle(.windowMinimized(windowID: target.id))
+            #expect(workspace.dump == dump)
+            #expect(!target.isMinimized)
+            #expect(EventSignals.shared.pending.count == before)
+            #expect(WindowManager.shared.window[target.id] === target)
+
+            await EventHandler.shared.handle(.windowDestroyed(windowID: target.id))
+            #expect(target.isDestroyed)
+            #expect(WindowManager.shared.window[target.id] == nil)
+            #expect(EventSignals.shared.pending.count == before + 1)
+            #expect(WindowManager.shared.window[wid(1)] != nil)
+            #expect(WindowManager.shared.window[wid(3)] != nil)
+
+            // NOTE: the mark is gone with the window: marking the id again is new. Clear it again for the other tests.
+            #expect(markAXDestroyed(target.id))
+            unmarkAXDestroyed(target.id)
+        }
+
+        @Test func axDestroyedMarkIsNewOnlyOnce()
+        {
+            let id = wid(9)
+            defer { unmarkAXDestroyed(id) }
+
+            #expect(markAXDestroyed(id))
+            #expect(!markAXDestroyed(id))
+        }
     }
 }
 

@@ -44,14 +44,17 @@ extension EventHandler
     }
 
     //
-    // NOTE: The destroyed event of a window, handled on @WM. The AX and SkyLight callbacks only post the id. The handler
-    // looks the window up and invalidates it, so the first destroyed event for a window tears it down and any later one
-    // finds the window gone (removed by its termination or its first event) or invalid, and returns.
+    // NOTE: The destroyed event of a window, handled on @WM. The AX callback marks the id on the main thread (so the
+    // window is invalid before this event runs) and the SkyLight callback only posts the id. The handler looks the window
+    // up and invalidates it, so the first destroyed event for a window tears it down and any later one finds the window
+    // gone (removed by its termination or its first event) or invalid, and returns. A window that is gone also drops
+    // the AX mark of its id, which a termination may leave behind when the callback marked the window after its removal.
     //
 
     func windowDestroyed(windowID: WindowID)
     {
         guard let window = WindowManager.shared.window(for: windowID) else {
+            unmarkAXDestroyed(windowID)
             Logger.events.debug("window destroyed: \(windowID) has already been removed, ignoring event")
             return
         }

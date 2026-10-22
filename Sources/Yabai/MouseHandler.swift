@@ -81,6 +81,33 @@ enum DockSwipe
     static let phaseCancelled: Int64 = 8                     // kCGSGesturePhaseCancelled
 }
 
+//
+// NOTE: The click that focuses a display or a space (`postFocusClick`) replaces CGPostMouseEvent, which is deprecated
+// and unavailable to Swift. A CGEvent posted at .cghidEventTap passes through this tap too, so the events carry
+// `SyntheticClick.userData` as their source user data, and the callback returns them untouched: the window server
+// still gets the click, but yabai skips its own mouse handling (drag and drop, tab bar clicks, mouse modifier actions).
+// The click is a left click at point, click count one, and the cursor is not moved: both callers warp it to point
+// before the click, as they did with updateMouseCursorPosition false. The SDK headers do not say whether
+// CGPostMouseEvent also passed through this tap, so this is the one behavior the replacement could not confirm.
+//
+
+enum SyntheticClick
+{
+    /// The source user data of the clicks yabai posts: "yabai" in ASCII.
+    static let userData: Int64 = 0x7961_6261_69
+}
+
+/// Clicks the left button at point, to focus a display or a space. The caller has moved the cursor to point.
+func postFocusClick(at point: CGPoint)
+{
+    for type in [CGEventType.leftMouseDown, CGEventType.leftMouseUp] {
+        guard let event = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: point, mouseButton: .left) else { return }
+        event.setIntegerValueField(.mouseEventClickState, value: 1)
+        event.setIntegerValueField(.eventSourceUserData, value: SyntheticClick.userData)
+        event.post(tap: .cghidEventTap)
+    }
+}
+
 /// How a dragged window changed since the mouse went down.
 struct MouseWindowChange: Sendable
 {
@@ -206,6 +233,10 @@ private func mouseHandleDockGesture(_ event: CGEvent)
 private func mouseHandler(_ proxy: CGEventTapProxy, _ type: CGEventType, _ event: CGEvent, _ context: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>?
 {
     let tap = Unmanaged<MouseTapState>.fromOpaque(context!).takeUnretainedValue()
+    // NOTE: Clicks posted by yabai (`postFocusClick`) pass through untouched, see `SyntheticClick`.
+    if (type == .leftMouseDown || type == .leftMouseUp) && event.getIntegerValueField(.eventSourceUserData) == SyntheticClick.userData {
+        return .passUnretained(event)
+    }
     switch type {
     case .tapDisabledByTimeout, .tapDisabledByUserInput:
         tap.withPort { port in

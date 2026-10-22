@@ -254,8 +254,7 @@ extension SpaceManager
         if focusDisplay {
             newDid.activate()
             if SpaceID.active != newSid {
-                CGPostMouseEventC(point, false, true)
-                CGPostMouseEventC(point, false, false)
+                postFocusClick(at: point)
             }
         }
 

@@ -52,17 +52,11 @@ static inline int64_t SLSPerformBridgedWindowOperation(void *operation)
 }
 
 //
-// NOTE: The window server clicks at a point through CGPostMouseEvent, which is deprecated and marked unavailable for Swift.
-// The C wrapper keeps the call for the focus of a display (`DisplayID.focus(space:)`, `SpaceManager.focusSpaceUsingGesture`),
-// with a click count of one; the caller chooses whether the cursor moves.
+// NOTE: The focus click of a display or space is a CGEvent (`postFocusClick`, MouseHandler.swift), not CGPostMouseEvent.
 //
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-static inline void CGPostMouseEventC(CGPoint point, bool updateCursor, bool buttonDown)
-{
-    CGPostMouseEvent(point, updateCursor, 1, buttonDown);
-}
 
 // NOTE: CGWindowListCreate is unavailable to Swift. TabBar.swift uses the raw window-id array for hit testing.
 static inline CF_RETURNS_RETAINED CFArrayRef _Nullable CGWindowListCreateC(CGWindowListOption options, CGWindowID relative_to_window)

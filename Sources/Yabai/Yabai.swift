@@ -176,6 +176,12 @@ enum Daemon
         signal(SIGPIPE, SIG_IGN)
     }
 
+    //
+    // NOTE: The suppression interval stays a global setting (CGSetLocalEventsSuppressionInterval, deprecated). Its
+    // per-source replacement (CGEventSourceSetLocalEventsSuppressionInterval) only covers events posted with that
+    // source. The SDK headers do not say that it also covers CGWarpMouseCursorPosition, which mouse_follows_focus and
+    // display focus use, so the zero interval could not be moved to a source without a lag after a warp.
+    //
     /// Turns off the local event suppression interval and enables event state combining.
     @MainActor private static func configureEventSystem()
     {

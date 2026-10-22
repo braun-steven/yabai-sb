@@ -267,8 +267,7 @@ extension DisplayID
             activate()
 
             if SpaceID.active != currentSpace {
-                CGPostMouseEventC(point, false, true)
-                CGPostMouseEventC(point, false, false)
+                postFocusClick(at: point)
             }
         }
     }

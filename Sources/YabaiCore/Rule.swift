@@ -6,26 +6,35 @@ import Darwin
 // rules that match a window combine. Ported from parse_rule and parse_signal (src/message.c) and src/rule.c.
 //
 
+// NOTE: The class owns a `regex_t` that only regcomp fills and regfree releases, so its raw pointer never escapes;
+// the public API is safe, hence `@safe`.
 /// A POSIX extended regular expression (`regcomp` with `REG_EXTENDED`), freed with the last reference.
+@safe
 public final class POSIXRegex
 {
-    public let pointer: UnsafeMutablePointer<regex_t>
+    private let pointer: UnsafeMutablePointer<regex_t>
 
     public init?(_ pattern: String)
     {
         let regex = UnsafeMutablePointer<regex_t>.allocate(capacity: 1)
-        guard regcomp(regex, pattern, REG_EXTENDED) == 0 else {
-            regex.deallocate()
+        guard unsafe regcomp(regex, pattern, REG_EXTENDED) == 0 else {
+            unsafe regex.deallocate()
             return nil
         }
 
-        pointer = regex
+        unsafe pointer = regex
+    }
+
+    /// Whether the text matches the pattern anywhere (`regexec` without match data).
+    public func matches(_ text: String) -> Bool
+    {
+        unsafe regexec(pointer, text, 0, nil, 0) == 0
     }
 
     deinit
     {
-        regfree(pointer)
-        pointer.deallocate()
+        unsafe regfree(pointer)
+        unsafe pointer.deallocate()
     }
 }
 
@@ -48,7 +57,7 @@ public struct RulePattern
     public func admits(_ text: String) -> Bool
     {
         guard let regex else { return true }
-        return (regexec(regex.pointer, text, 0, nil, 0) == 0) != exclude
+        return regex.matches(text) != exclude
     }
 }
 

@@ -11,7 +11,8 @@ public enum ClientMessage
     {
         let payloadLength = Int32(truncatingIfNeeded: arguments.reduce(1) { $0 + $1.count + 1 })
 
-        var message = withUnsafeBytes(of: payloadLength) { Array($0) }
+        // NOTE: the length's bytes in host order, as the daemon reads them; a byte copy of a plain integer.
+        var message = withUnsafeBytes(of: payloadLength) { unsafe Array($0) }
         message.reserveCapacity(MemoryLayout<Int32>.size + Int(payloadLength))
 
         for argument in arguments {

@@ -67,9 +67,10 @@ let package = Package(
             plugins: [.plugin(name: "OSAXEmbed")]
         ),
         // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
+        // NOTE: strict memory safety (SE-0458) is on for this target only: every unsafe construct is spelled `unsafe`.
         .target(
             name: "YabaiCore",
-            swiftSettings: swiftSettings
+            swiftSettings: swiftSettings + [.strictMemorySafety()]
         ),
         .executableTarget(
             name: "Yabai",

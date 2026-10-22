@@ -104,7 +104,7 @@ phase: in-progress · mode: nested
 | ID | Title | Status | Notes |
 |---|---|---|---|
 | P8.1 | `MemberImportVisibility` and `ExistentialAny` | done | Both features enabled in `swiftSettings` (`Package.swift`); `swiftc -print-supported-features` lists both as `enabled_in: 7`, so neither was on in Swift 6 mode and neither was skipped. Fixed the diagnostics: 20 `Sources/` files and 12 `tests/` files got the imports their members need (no existing import reordered), `any CVarArg...` in `cFormat`, `any DispatchSourceTimer`, `(any NSObjectProtocol)?`, and `[any CVarArg]` in `LibcScanOracle`. Convention bullet added to `doc/swift-conventions.md`. Gates: `make ci-quick` passed (324 + 116 tests, build and test logs 0 warnings, after a forced recompile of the changed files); `make install` passed (release, 0 warnings). No live checks (no runtime behavior changed). |
-| P8.2 | Strict memory safety in YabaiCore | todo | |
+| P8.2 | Strict memory safety in YabaiCore | done | `.strictMemorySafety()` on the `YabaiCore` target only (`Package.swift`; spelling checked with a scratch package, the compiler flag is `-strict-memory-safety`). Diagnostic sites: 14 before the rewrites (Message.swift 4, Client.swift 1, Rule.swift 8, EventSignal.swift 1), 0 after. 11 `unsafe` markers remain: `cFormat` 4 (`vsnprintf` through `withVaList`, kept as C printf for exact output), `ClientMessage.encode` 1 (the length's native-endian bytes), `POSIXRegex` 6 (regcomp/regexec/regfree; the class is `@safe` with a private pointer). Safe rewrites: 0, because none keeps the same bytes without a pointer. Consolidation: the two `regexec` call sites (`RulePattern.admits`, `EventSignal.regexMismatch`) now call `POSIXRegex.matches(_:)`, so the regex call is one unsafe site. Gates: `make ci-quick` passed (324 + 116 tests, 0 warnings, logs in `.build/ci`); `make install` passed (release, 0 warnings). No live check: no runtime behavior changed. |
 | P8.3 | Measured trials: strict memory safety in Yabai, nonisolated(nonsending) by default | todo | |
 | P8.4 | OSSignposter intervals | todo | |
 | P8.5 | Optional lint target | todo | |
@@ -289,6 +289,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 20:43 · phase agent · P8 · start (nested) · start P8.1 subphase agent
 - 2026-10-22 20:48 · subphase agent · P8.1 · start · enable MemberImportVisibility and ExistentialAny in swiftSettings; fix diagnostics; convention bullet; run ci-quick and make install
 - 2026-10-22 20:48 · subphase agent · P8.1 · done · both features on (verified enabled_in 7 in the toolchain); make ci-quick and make install passed with 0 warnings. P8.2 (strict memory safety in YabaiCore) is next; it has no dependencies and can start now
+- 2026-10-22 20:52 · phase agent · P8.1 · reviewed · d295f77d reviewed (both features in shared swiftSettings, only imports and four `any` spellings changed); `make ci-quick` and `make install` re-run and passed, 0 warnings. Next: start P8.2 subphase agent
+- 2026-10-22 20:53 · subphase agent · P8.2 · start · `.strictMemorySafety()` on the YabaiCore target only (spelling verified in a scratch package); diagnostics resolved (`unsafe` with reasons, `@safe` on `POSIXRegex`); gate quick and `make install` (Package.swift changed)
+- 2026-10-22 20:54 · subphase agent · P8.2 · done · 14 strict-memory diagnostics in YabaiCore resolved (0 left, 11 `unsafe` markers with reasons, `POSIXRegex` is `@safe`, 0 safe rewrites); `make ci-quick` passed (324 + 116 tests, 0 warnings) and `make install` passed (0 warnings). No live check. Phase-agent handoff entry for P8.1 kept. Next: P8.3 (phase agent reviews P8.2 first)
 
 ## Discovered
 

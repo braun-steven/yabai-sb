@@ -115,7 +115,7 @@ public struct PendingSignal
     private static func regexMismatch(_ pattern: RulePattern?, _ text: String?) -> Bool
     {
         guard let pattern, let regex = pattern.regex else { return false }
-        let matched = regexec(regex.pointer, text ?? "", 0, nil, 0) == 0
+        let matched = regex.matches(text ?? "")
         return matched == pattern.exclude
     }
 

@@ -21,6 +21,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 - **Isolation:** `@MainActor` only for AppKit; window manager state is `@WM`. Plain value types are `Sendable` without annotations.
 - **Errors:** command code `throws(CommandError)` (`throw CommandError("…\n")`, `.unknownValue(domain, command, value)`); typed selectors throw from `required(_:)` (no selector) and `resolve(acting:_:)` (found nothing; `nil` only for display/space 'recent'). Platform wrappers return optionals or `Bool`; do not invent AX/SkyLight error types.
 - **Imports and existentials:** each file imports the module that defines every member it uses, and the compiler enforces it (`MemberImportVisibility`: a subscript or `.relaxed` from `SortedCollections`, `Synchronization` or `ArgumentParser` needs its own `import`, and `import Foundation` does not supply them). Existentials are spelled with `any` (`ExistentialAny`, e.g. `any CVarArg...` in `cFormat`). Both are set in `Package.swift` `swiftSettings`; they are not on by default in Swift 6 mode.
+- **Strict memory safety:** `YabaiCore` alone has `.strictMemorySafety()` (SE-0458, spelled `-strict-memory-safety` by the compiler). Every C pointer call, `vsnprintf`-style `withVaList` and pointer-to-`Array` copy is marked with `unsafe` and a NOTE saying why; a type that owns raw storage and exposes a safe API is `@safe` (`POSIXRegex`). The count of unsafe markers is in `doc/refactor/status.md` (P8.2). Build with `make ci-quick` to see new sites.
 
 ## Build and toolchain pitfalls
 

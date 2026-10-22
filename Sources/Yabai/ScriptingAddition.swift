@@ -220,19 +220,40 @@ final class ScriptingAddition: Sendable
         return connection.handshake()
     }
 
+    enum AttributeVerdict: Equatable
+    {
+        case supported
+        case missingAnimation
+        case unsupported
+    }
+
+    // NOTE: OSAX_ATTRIB_ALL (the macro combines macros and does not import). Every bit but OSAX_ATTRIB_ANIM_TIME is
+    // required; a missing animation bit only costs the space animation patch.
+    static func attributeVerdict(_ attributes: UInt32) -> AttributeVerdict
+    {
+        let required = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE)
+        if attributes & required != required { return .unsupported }
+        return attributes & UInt32(OSAX_ATTRIB_ANIM_TIME) != 0 ? .supported : .missingAnimation
+    }
+
     private func performValidation(socketPath: String) async -> Int32
     {
         let isLatestInstalled = check() == 0
         guard let handshake = requestHandshake(socketPath: socketPath) else { report("connection failed!"); return 1 }
         if handshake.version.elementsEqual(saVersion.utf8) {
-            // OSAX_ATTRIB_ALL (the macro combines macros and does not import).
-            let all = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
-            if handshake.attributes & all == all {
-                report("payload v\(String(decoding: handshake.version, as: UTF8.self))")
+            let version = String(decoding: handshake.version, as: UTF8.self)
+            switch Self.attributeVerdict(handshake.attributes) {
+            case .supported:
+                report("payload v\(version)")
                 return 0
+            case .missingAnimation:
+                // NOTE: Only the animation bit is optional: its patch is skipped for Dock builds that are not validated.
+                report("payload v\(version): space animation patch unavailable for this Dock build")
+                return 0
+            case .unsupported:
+                report("payload (0x\(String(handshake.attributes, radix: 16, uppercase: true))) doesn't support this macOS version!")
+                return 1
             }
-            report("payload (0x\(String(handshake.attributes, radix: 16, uppercase: true))) doesn't support this macOS version!")
-            return 1
         }
         if !isLatestInstalled {
             report("payload is outdated, updating..")

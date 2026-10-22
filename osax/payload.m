@@ -36,6 +36,7 @@
 
 #include "arm64_payload.m"
 #include <ptrauth.h>
+#include <uuid/uuid.h>
 
 #define page_align(addr) (vm_address_t)((uintptr_t)(addr) & (~(vm_page_size - 1)))
 #define unpack(v) memcpy(&v, message, sizeof(v)); message += sizeof(v)
@@ -206,6 +207,42 @@ static id find_instance(uint64_t address, const char *pattern, SEL selector, boo
     return [result retain];
 }
 
+// NOTE: Dock builds whose animation instruction (get_fix_animation_pattern) was validated, see the Dock inspection
+// in doc/osax-prototypes.md and "Adding a Dock build" in doc/payload-updates.md. Other builds keep their instruction.
+static const char *known_dock_uuids[] = {
+    "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B",
+};
+
+static bool is_known_dock_uuid(const char *uuid)
+{
+    for (size_t i = 0; i < sizeof(known_dock_uuids) / sizeof(known_dock_uuids[0]); i++) {
+        if (strcmp(uuid, known_dock_uuids[i]) == 0) return true;
+    }
+    return false;
+}
+
+// NOTE: Reads LC_UUID from the load commands behind the header. ncmds and each cmdsize are checked against
+// sizeofcmds, so a malformed header cannot make the loop read past the load commands.
+static bool read_image_uuid(const struct mach_header_64 *header, char uuid[sizeof(uuid_string_t)])
+{
+    if (!header || header->magic != MH_MAGIC_64) return false;
+    const uint8_t *cursor = (const uint8_t *)header + sizeof(struct mach_header_64);
+    const uint8_t *end = cursor + header->sizeofcmds;
+    for (uint32_t i = 0; i < header->ncmds; i++) {
+        size_t remaining = (size_t)(end - cursor);
+        if (remaining < sizeof(struct load_command)) return false;
+        const struct load_command *lc = (const struct load_command *)cursor;
+        if (lc->cmdsize < sizeof(struct load_command) || lc->cmdsize > remaining) return false;
+        if (lc->cmd == LC_UUID) {
+            if (lc->cmdsize < sizeof(struct uuid_command)) return false;
+            uuid_unparse_upper(((const struct uuid_command *)lc)->uuid, uuid);
+            return true;
+        }
+        cursor += lc->cmdsize;
+    }
+    return false;
+}
+
 static bool verify_os_version(NSOperatingSystemVersion os_version)
 {
     NSLog(@"[yabai-sa] checking for macOS %ld.%ld.%ld compatibility!", os_version.majorVersion, os_version.minorVersion, os_version.patchVersion);
@@ -227,6 +264,8 @@ static void init_instances(void)
     const uint8_t *text = getsectiondata(header, "__TEXT", "__text", &text_size);
     if (!text || text_size < 8) return;
     uint64_t baseaddr = (uint64_t)header;
+    char dock_uuid[sizeof(uuid_string_t)] = "unreadable";
+    bool known_dock_build = read_image_uuid(header, dock_uuid) && is_known_dock_uuid(dock_uuid);
     text_start = (uint64_t)text;
     text_end = text_start + text_size;
     if (text_end < text_start) return;
@@ -279,7 +318,9 @@ static void init_instances(void)
         NSLog(@"[yabai-sa] failed to get pointer to animation-time..");
     } else {
         NSLog(@"[yabai-sa] (0x%llx) animation_time_addr found at address 0x%llX (0x%llx)", baseaddr, animation_time_addr, animation_time_addr - baseaddr);
-        if (vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) == KERN_SUCCESS) {
+        if (!known_dock_build) {
+            NSLog(@"[yabai-sa] unknown Dock build %s; animation patch skipped", dock_uuid);
+        } else if (vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0, VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) == KERN_SUCCESS) {
             *(uint32_t *) animation_time_addr = 0x2f00e400;
             sys_icache_invalidate((void *)animation_time_addr, sizeof(uint32_t));
             animation_time_patched = vm_protect(mach_task_self(), page_align(animation_time_addr), vm_page_size, 0,

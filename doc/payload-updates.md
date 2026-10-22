@@ -31,6 +31,24 @@ The makefile embeds the rebuilt binaries as `__osax_payload` and `__osax_loader`
 
 The fade timer is armed only while fades run. `ensure_fade_timer` resumes it after an accepted fade (opcode 8 with a duration above 0), and the handler suspends it as soon as `sa_core_tick` reports that no fades remain. An idle payload therefore wakes nothing.
 
+## Adding a Dock build
+
+The animation patch (the `0x2f00e400` instruction at `animation_time_addr`) is written only when Dock's `LC_UUID` is in
+`known_dock_uuids` in `osax/payload.m`, next to `read_image_uuid`. For any other Dock build the payload logs
+`unknown Dock build <uuid>; animation patch skipped` and does not report `OSAX_ATTRIB_ANIM_TIME`. The daemon then warns
+"space animation patch unavailable for this Dock build" (`ScriptingAddition.attributeVerdict`) instead of failing. The
+other attribute bits still fail the check.
+
+To add a build after validating it:
+
+1. Read its UUID: `otool -arch arm64e -l /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock | grep -A3 LC_UUID`.
+2. Confirm the animation pattern and the `0x2f00e400` write against that binary, and record the Dock SHA-256 and build
+   number in [osax-prototypes.md](osax-prototypes.md) "Dock inspection and ownership evidence".
+3. Add the UUID to `known_dock_uuids` and bump `OSAX_VERSION` (`osax/common.h`) for the payload change.
+4. Live check before shipping: reload the payload, then run `python3 scripts/live-tests/sa_version.py` (expect `0x5f`)
+   and `log show --predicate 'process == "Dock"' --last 2m | grep yabai-sa` (expect the patch applied). See
+   [live-testing.md](live-testing.md) "Scripting addition".
+
 ## Hardened core prototypes
 
 `make osax-prototypes` builds both arm64e variants without installing or injecting them. Normal

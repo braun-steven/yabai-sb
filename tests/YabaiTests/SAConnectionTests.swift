@@ -91,3 +91,20 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false, timeoutMS:
     let bounded = try #require(SAConnection(fd: stalled[0], timeoutMS: 50))
     #expect(!bounded.write(expected))
 }
+
+// NOTE: Only OSAX_ATTRIB_ANIM_TIME is optional: a Dock build without the validated animation patch still works.
+@Test(arguments: [UInt32(0x5F), 0x7F]) func scriptingAdditionAttributeVerdictAcceptsEveryBitSet(attributes: UInt32)
+{
+    #expect(ScriptingAddition.attributeVerdict(attributes) == .supported)
+}
+
+@Test func scriptingAdditionAttributeVerdictWarnsWhenOnlyAnimationIsMissing()
+{
+    #expect(ScriptingAddition.attributeVerdict(0x1F) == .missingAnimation)
+    #expect(ScriptingAddition.attributeVerdict(0x1F | 0x20) == .missingAnimation)
+}
+
+@Test(arguments: [UInt32(0x00), 0x1E, 0x1B, 0x5B, 0x5E]) func scriptingAdditionAttributeVerdictFailsWhenARequiredBitIsMissing(attributes: UInt32)
+{
+    #expect(ScriptingAddition.attributeVerdict(attributes) == .unsupported)
+}

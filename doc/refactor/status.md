@@ -172,6 +172,16 @@ phase: todo · mode: —
 | P13.4 | `space --save-layout` | todo | |
 | P13.5 | `space --restore-layout` | todo | |
 
+## Phase 14: Replace make with just
+
+phase: todo · mode: — 
+
+| ID | Title | Status | Notes |
+|---|---|---|---|
+| P14.1 | Install just and add a `justfile` with every make target | todo | |
+| P14.2 | Scripts and `update-yabai-fork` call just | todo | |
+| P14.3 | Delete the makefile and move the docs to just | todo | |
+
 ## Handoff log
 
 Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
@@ -324,6 +334,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 22:04 · subphase agent · P9.6 · done · `config --reload [<file>]` implemented (see the P9.6 row); 10 DaemonState tests, 4 new YabaiCore rows, the check note; docs (asciidoc + `make man`, CHANGELOG, README, examples/yabairc, architecture); `make ci-quick` passed (349 + 130 tests, 0 warnings). Golden unchanged. One extractor expectation moved from line 15 to 17 (the example file gained a comment). Open for the phase agent: whether a yabairc with a bare `config --reload` should be stopped at run time (Discovered); one live check added (P9.6). Next: phase agent reviews P9.6 (the last subphase of phase 9) and closes phase 9
 - 2026-10-22 22:08 · phase agent · P9.6 · reviewed · cd52b02a reviewed (reset through `Config.resetToDefaults` plus the setters' side effects, rules and signals cleared, `execConfigFile` reused, headless records the run instead of an injected closure; asciidoc + `make man`, CHANGELOG, README entry extended, examples/yabairc comment, live check added, golden unchanged); `make ci-quick` passed. `make ci` failed in check-build: the P9.4 example test reads `examples/yabairc`, which the isolated copy lacked; fixed by the phase agent (P9.4 Fix commit). Next: phase close
 - 2026-10-22 22:09 · phase agent · P9 · close · Phase 9 done; each subphase reviewed and its gate re-run by the phase agent. `make ci` passed (349 + 130 tests, install, osax-test 11, check-build PASS). Done: P9.1 `CommandError.unknownValue(…, expected:)` appends `; expected …` at config options and window/space choice arguments (14 golden records; selector failures unchanged). P9.2 `ConfigFileSearch` (YabaiCore) picks the yabairc, logs it, warns and notifies when other candidates are ignored. P9.3 `checkMessage` -> `MessageCheck` (failures + notes) parses config/rule/signal without applying. P9.4 `extractYabaiCommands` (YabaiCore shell-word lexer; `$` literal unless it starts an expansion, CRLF handled). P9.5 `config --check [file]` (`file:line:` failures, `note:` lines, summary; exit 1 on failure; CLI absolutizes a relative file; golden `config --check /nonexistent`). P9.6 `config --reload [file]` (check, reset to startup defaults incl. setter side effects, clear rules and signals, rerun the yabairc in one @WM handler; headless records the run). Fix commits: P9.4 Fix (literal `$`, CRLF; found because the user's yabairc has 36 `app="^X$"` rules), P9.4 Fix (check-build copies examples/yabairc). `config --check` on the user's real yabairc: 96 checked, 0 failures, 1 skipped. Docs: asciidoc + man, CHANGELOG, README "Config check and reload". Live checks added: P9.5, P9.6. Discovered: symlinked yabairc false warning, unconditional `--reload` in a yabairc loops, tab_bar_font does not rebuild glass bars. For the next phase: `Message` from argument words via `ClientMessage.encode` minus the length prefix (ConfigCheck.swift); `explicitConfigFile` on WindowManager; `Headless.record(configFile:)`. · orchestrator starts phase 10
+- 2026-10-22 22:20 · orchestrator · P9 · verified (make ci passed; check-build passed on re-run after a transient SwiftPM cache warning) · added phase 14 (user request: replace make with just); start phase 10
 
 ## Discovered
 
@@ -351,7 +362,7 @@ Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.
 - P9.2: `ConfigFileSearch.choose` compares paths, not files, so `~/.yabairc` symlinked to `~/.config/yabai/yabairc` (or both linked to one dotfile) warns about an ignored file on every start. Fix: drop candidates whose resolved path (`realpath`, in the Yabai caller) equals the chosen file's (`Sources/Yabai/Yabai.swift`, `execConfigFile`).
 - P9.6: `config --reload` in a yabairc that runs it unconditionally loops (each run spawns the file again). The check only notes the line, and the daemon does not stop it; decide whether to guard at run time (`Daemon.execConfigFile` is the spawn). (`Sources/Yabai/IPC/ConfigReload.swift`)
 - P9.6: a `tab_bar_font` change (and its reset) does not rebuild glass tab bars: `TabBarConfig.needsRebuild` leaves the font out, and `TabBarGlass` reads `WindowManager.shared.tabBarFont` when it is set up (`Sources/Yabai/TabBarGlass.swift:63`). Existing bars may keep the old font until rebuilt; this is the setter's existing behavior, not checked live. (`Sources/Yabai/Config.swift`)
-
+- orchestrator (after P9): `scripts/check-build.py` fails on any `warning:` line, including SwiftPM package-cache noise (`'swift-collections': skipping cache due to an error: The file “maintenance.lock” doesn’t exist.` in 01-clean); a re-run passed (`scripts/check-build.py`, `BuildCheck.run`)
 
 ## Baseline (P1.3)
 

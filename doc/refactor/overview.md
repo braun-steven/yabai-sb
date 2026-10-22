@@ -1,6 +1,6 @@
 # Refactor and feature plan: overview
 
-This plan improves the Swift port of the fork in 13 sequential phases. The 2026-10-22 review produced it: eight
+This plan improves the Swift port of the fork in 14 sequential phases. The 2026-10-22 review produced it: eight
 read-only agents covered architecture, IPC/config, the platform layer, the scripting addition, build/tests,
 rendering/UX, feature gaps and Swift quality, and their key claims were checked against the code.
 
@@ -24,6 +24,7 @@ Manual checks for the user are collected in [live-checks.md](live-checks.md).
 | [11](phase-11.md) | Rendering and UX | Reduce Motion; one AX resize path; render dedupe; borders move in one update; animation alpha/display-link fixes; cheaper tab-bar hover; focus-follows-mouse fixes. |
 | [12](phase-12.md) | Tree and window features | `insert=` rule effect; window labels usable as `WINDOW_SEL` (i3 marks); float frame restore; tree snapshots with `space --undo`; skhd mode recipes; space-to-display pinning by label. |
 | [13](phase-13.md) | Mouse and layout features | Drag the gap between splits to resize; drop ghost preview; save and restore layouts. |
+| [14](phase-14.md) | Replace make with just | A `justfile` with every make target; scripts and `update-yabai-fork` call just; the makefile is deleted. Added by the user on 2026-10-22. |
 
 The [backlog](#backlog) lists work the plan leaves out on purpose, because it needs a user decision.
 
@@ -129,7 +130,7 @@ handoff entry, and commit everything together.
 ## Orchestrator procedure
 
 1. Run the resume protocol (step 2 commits the plan if needed).
-2. For each phase from 1 to 13 whose phase status is not `done`:
+2. For each phase from 1 to 14 whose phase status is not `done`:
    1. Start a phase agent with the **phase prompt** below. Wait for it.
    2. If it returns `FLAT_MODE_REQUIRED`, run the phase yourself in flat mode with the phase agent procedure.
    3. Check the result:

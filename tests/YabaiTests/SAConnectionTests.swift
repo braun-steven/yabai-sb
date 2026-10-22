@@ -108,3 +108,60 @@ private func withSAPeer(_ response: [UInt8]?, fragment: Bool = false, timeoutMS:
 {
     #expect(ScriptingAddition.attributeVerdict(attributes) == .unsupported)
 }
+
+struct TrustedSocketRow: Sendable
+{
+    let name: String
+    let mode: mode_t
+    let owner: uid_t
+    let uid: uid_t
+    let sudoUID: uid_t?
+    let trusted: Bool
+}
+
+private let socketMode = mode_t(S_IFSOCK) | 0o600
+private let trustedSocketRows: [TrustedSocketRow] = [
+    TrustedSocketRow(name: "user owns socket", mode: socketMode, owner: 501, uid: 501, sudoUID: nil, trusted: true),
+    TrustedSocketRow(name: "other user owns socket", mode: socketMode, owner: 502, uid: 501, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "root owns socket as user", mode: socketMode, owner: 0, uid: 501, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "SUDO_UID ignored when not root", mode: socketMode, owner: 501, uid: 501, sudoUID: 502, trusted: true),
+    TrustedSocketRow(name: "regular file", mode: mode_t(S_IFREG) | 0o600, owner: 501, uid: 501, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "symbolic link", mode: mode_t(S_IFLNK) | 0o777, owner: 501, uid: 501, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "directory", mode: mode_t(S_IFDIR) | 0o700, owner: 501, uid: 501, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "root with SUDO_UID owns socket", mode: socketMode, owner: 501, uid: 0, sudoUID: 501, trusted: true),
+    TrustedSocketRow(name: "root with SUDO_UID, other owner", mode: socketMode, owner: 502, uid: 0, sudoUID: 501, trusted: false),
+    TrustedSocketRow(name: "root with SUDO_UID, root owns socket", mode: socketMode, owner: 0, uid: 0, sudoUID: 501, trusted: false),
+    TrustedSocketRow(name: "root without SUDO_UID, console user", mode: socketMode, owner: 501, uid: 0, sudoUID: nil, trusted: true),
+    TrustedSocketRow(name: "root without SUDO_UID, root owns socket", mode: socketMode, owner: 0, uid: 0, sudoUID: nil, trusted: false),
+    TrustedSocketRow(name: "root, regular file", mode: mode_t(S_IFREG) | 0o600, owner: 501, uid: 0, sudoUID: 501, trusted: false),
+]
+
+@Test(arguments: trustedSocketRows) func saSocketIsTrustedOnlyWhenOwnedByTheUser(row: TrustedSocketRow)
+{
+    #expect(SAConnection.isTrustedSocket(mode: row.mode, owner: row.owner, uid: row.uid, sudoUID: row.sudoUID) == row.trusted,
+            "\(row.name)")
+}
+
+struct SUDOUIDRow: Sendable
+{
+    let text: String?
+    let uid: uid_t?
+}
+
+private let sudoUIDRows: [SUDOUIDRow] = [
+    SUDOUIDRow(text: "501", uid: 501),
+    SUDOUIDRow(text: "4294967294", uid: 4294967294),
+    SUDOUIDRow(text: nil, uid: nil),
+    SUDOUIDRow(text: "", uid: nil),
+    SUDOUIDRow(text: "0", uid: nil),
+    SUDOUIDRow(text: "501abc", uid: nil),
+    SUDOUIDRow(text: " 501", uid: nil),
+    SUDOUIDRow(text: "+501", uid: nil),
+    SUDOUIDRow(text: "-1", uid: nil),
+    SUDOUIDRow(text: "4294967296", uid: nil),
+]
+
+@Test(arguments: sudoUIDRows) func saSudoUIDParsesOnlyDecimalNonZeroIDs(row: SUDOUIDRow)
+{
+    #expect(SAConnection.parseSUDOUID(row.text) == row.uid)
+}

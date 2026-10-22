@@ -1,4 +1,5 @@
 import Darwin
+import Logging
 import OSAX
 
 //
@@ -31,8 +32,42 @@ struct SAConnection
         deadline = Self.now() + UInt64(max(0, timeoutMS)) * 1_000_000
     }
 
+    // NOTE: The payload binds its socket in Dock as the console user and refuses a path it does not own (start_daemon
+    // in osax/payload.m). The daemon applies the same rule before it connects, so a socket another user left in /tmp
+    // never receives a command. As root (--load-sa under sudo) the owner is the user named by SUDO_UID.
+    static func isTrustedSocketPath(_ path: String) -> Bool
+    {
+        var info = stat()
+        guard lstat(path, &info) == 0 else { return false }
+        let trusted = isTrustedSocket(mode: info.st_mode, owner: info.st_uid, uid: getuid(), sudoUID: sudoUID())
+        if !trusted { Logger.daemon.warning("scripting-addition socket '\(path)' is not owned by the user; not connecting") }
+        return trusted
+    }
+
+    static func isTrustedSocket(mode: mode_t, owner: uid_t, uid: uid_t, sudoUID: uid_t?) -> Bool
+    {
+        guard mode & mode_t(S_IFMT) == mode_t(S_IFSOCK) else { return false }
+        if uid != 0 { return owner == uid }
+        if let sudoUID { return owner == sudoUID }
+        return owner != 0
+    }
+
+    // nil for an unset, empty, non-decimal, out-of-range or zero SUDO_UID.
+    static func parseSUDOUID(_ text: String?) -> uid_t?
+    {
+        guard let text, !text.isEmpty, text.utf8.allSatisfy({ $0 >= 0x30 && $0 <= 0x39 }),
+              let uid = uid_t(text), uid != 0 else { return nil }
+        return uid
+    }
+
+    static func sudoUID() -> uid_t?
+    {
+        parseSUDOUID(getenv("SUDO_UID").map { String(cString: $0) })
+    }
+
     func connect(_ path: String) -> Bool
     {
+        guard Self.isTrustedSocketPath(path) else { return false }
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)
         let bytes = Array(path.utf8)

@@ -122,10 +122,7 @@ final class ScriptingAddition: Sendable
 
     private static func resolveSudoSocketPath() -> String?
     {
-        guard getuid() == 0, let value = getenv("SUDO_UID") else { return nil }
-        var uid: uid_t = 0
-        let parsed = sscanfUIntC(value, &uid)
-        guard parsed == 1, let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return nil }
+        guard getuid() == 0, let uid = SAConnection.sudoUID(), let pw = getpwuid(uid), let name = pw.pointee.pw_name else { return nil }
         return "/tmp/yabai-sa_\(String(cString: name)).socket"
     }
 

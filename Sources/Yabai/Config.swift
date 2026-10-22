@@ -8,8 +8,8 @@ import YabaiCore
 //
 
 /// The settings of the config domain. `Config.current` starts with the defaults of a new daemon; the space layout
-/// default becomes tree in `SpaceManager.begin`. It is observable, so that renderers follow its changes; runtime state
-/// that only lasts for an operation stays out of it.
+/// default becomes tree in `applySpaceDefaults()`, which the startup sequence runs before the views are created. It is
+/// observable, so that renderers follow its changes; runtime state that only lasts for an operation stays out of it.
 @WM @Observable final class Config
 {
     static let current = Config()
@@ -43,6 +43,18 @@ import YabaiCore
         scratchpad = defaults.scratchpad
         space = defaults.space
         display = defaults.display
+    }
+
+    /// The space defaults of a new daemon: tree layout, no padding, and the tree and focus options off. The startup
+    /// sequence calls it before the managers create the views, which read these values.
+    func applySpaceDefaults()
+    {
+        space.layout = .tree
+        space.autoPadding = false
+        space.treeDefaultOrientation = .auto
+        space.treeWorkspaceTabbed = false
+        space.treeAutotiling = false
+        space.skipWindowFocusAnimation = false
     }
 }
 

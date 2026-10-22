@@ -154,16 +154,11 @@ enum SpaceOperationError: Error, Sendable
         lastSpaceID = currentSpaceID
     }
 
-    /// The defaults of the space manager and an empty table of views.
-    func resetToDefaults()
+    /// An empty table of labels and views. The space defaults in Config are not written here: the startup sequence
+    /// sets them (`Config.applySpaceDefaults()`) before this manager begins.
+    func resetViews()
     {
-        Config.current.space.layout = .tree
-        Config.current.space.autoPadding = false
-        Config.current.space.treeDefaultOrientation = .auto
-        Config.current.space.treeWorkspaceTabbed = false
-        Config.current.space.treeAutotiling = false
         labels = LabelList<SpaceID>()
-        Config.current.space.skipWindowFocusAnimation = false
         //
         // NOTE: The views are keyed by space id.
         //
@@ -171,10 +166,10 @@ enum SpaceOperationError: Error, Sendable
         views = [:]
     }
 
-    /// Creates the views of every space of every display.
+    /// Creates the views of every space of every display. Reads the space defaults of Config, so those are set first.
     func begin()
     {
-        resetToDefaults()
+        resetViews()
 
         for did in DisplayID.all {
             guard let spaceList = did.spaces else { continue }

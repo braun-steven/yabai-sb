@@ -23,6 +23,34 @@ the scripting addition.
 
 SwiftPM builds the executable `Yabai`, pure library `YabaiCore`, and C targets `CPrivate` and `OSAX`. `Yabai.swift` holds the startup sequence and `Service.swift` the launchd commands. Enums live with the type or manager that uses them (`ConLayout` in `Con.swift`, `FocusFollowsMouse` in `WindowManager.swift`), shared math and string helpers in `Helpers.swift`. Config values are parsed and printed through their String raw values (`parseConfigChoice`). `Config.current` is an `@Observable` class of value sub-structs holding only user configuration; runtime overrides live with their owner (`EventHandler.focusFollowsMouse` while a menu is open, `WindowManager.withoutAnimations`). CPrivate wrappers preserve unavailable or deprecated calls and ObjC exception handling. Private +1 CF functions need `CF_RETURNS_RETAINED` even when their names lack Copy/Create.
 
+#### Startup sequence
+
+`Daemon.run` (`Yabai.swift`) runs these steps in this order, each logging one `debug` line (`startup: …`, visible with
+`--verbose`). Checks first: not root, the accessibility permission and "displays have separate spaces" (each exits on
+failure, as before).
+
+1. Read `$USER` and connect to the window server (`connectToWindowServer`: AppKit, the SkyLight connection).
+2. Resolve the private SkyLight symbols and log the unresolved ones (`resolvePrivateSymbols`).
+3. Ignore SIGCHLD and SIGPIPE (`installSignalHandlers`).
+4. Set the event suppression interval and state combining (`configureEventSystem`).
+5. Take the lock-file; another running daemon makes the start fail (`acquireLock`).
+6. Start the event loop's consumer (`EventLoop.start`).
+7. Begin the workspace context, the process manager, the display manager, the mouse event tap (`WM.sync`) and the
+   Mission Control observer.
+8. Register the SkyLight notifications. This stays before step 9: the windows that step 9 tiles must already be
+   subscribed (see "Subscribe before initial tiling" below).
+9. One `WM.sync` block, in this order: the space defaults (`Config.applySpaceDefaults`, which sets the tree layout
+   and the tree options that new views read; moved here from `SpaceManager.begin`, which no longer writes `Config`),
+   `WindowManager.initialize`, `SpaceManager.begin` (creates the views), `WindowManager.begin` (adopts and tiles the
+   existing windows), `updateWindowNotifications` and `ConfigObserver.start`. Nothing else runs inside the block, so the
+   space defaults are set before any reader of them.
+10. Start the message loop on the user's socket.
+11. Run the config file (`execConfigFile`), then `NSApp.run()`.
+
+The config write in step 9 is the only call that moved. Its readers between the old and the new position are none:
+`WindowManager.initialize` does not read the space defaults. The socket path reuses the `$USER` read in step 1 instead
+of reading it again.
+
 ### Models and managers
 
 `WindowManager`, `SpaceManager`, `DisplayManager`, `ProcessManager` and `MouseState` own Swift state. Their globals/accessors live with the managers. `Window`, `Application`, `Process`, `View`, `Con` and `TabBar` are reference models with identity equality and ARC lifetimes. Managers keep models in Dictionaries and Sets. Where a user can observe the order of a loop, the collection keeps it: windows and views are `SortedDictionary`s by id (`WindowManager.window`, `SpaceManager.views`); processes, keyed by serial number, still sort by pid. Unique lists in insertion order are `OrderedSet`s (`tabBars`, `applicationsToRefresh`). Labels use `LabelList`, other lists use arrays. Focus lives in one value, `WindowManager.focus` (`FocusState.swift`): the focused window and its process, the last window, a pending focus request and the lost focus events. Its transitions take the clock as a parameter (`consumePending(now:)`), and getters do not change it.

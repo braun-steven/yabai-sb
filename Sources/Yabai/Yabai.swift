@@ -136,17 +136,28 @@ enum Daemon
         Logger.daemon.notice("unresolved private symbols: \(list)")
     }
 
-    @MainActor private static func configureSettingsAndAcquireLock() -> Bool
+    /// The user of the daemon, from $USER. Stops the daemon when it is not set.
+    private static func currentUser() -> String
     {
         guard let user = getenv("USER").map({ String(cString: $0) }) else {
             Logger.daemon.fatal("'env USER' not set")
         }
 
-        let lockFile = "/tmp/yabai_\(user).lock"
+        return user
+    }
 
+    /// Loads AppKit and connects to the window server. Returns the pid of the daemon.
+    @MainActor private static func connectToWindowServer() -> pid_t
+    {
         NSApplicationLoadC()
         let pid = getpid()
         _ = SLS.connection
+        return pid
+    }
+
+    /// Resolves the two SkyLight functions that the daemon takes from its symbol table, and logs the unresolved ones.
+    @MainActor private static func resolvePrivateSymbols()
+    {
         let connectionPortName = "_CGSGetConnectionPortById"
         let bridgedOperationName = "__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"
         let connectionPort = skyLightSymbol(connectionPortName)
@@ -156,11 +167,27 @@ enum Daemon
             (name: connectionPortName, feature: "window sub-level query", address: connectionPort),
             (name: bridgedOperationName, feature: "bridged window move", address: bridgedOperation),
         ])
+    }
 
+    /// Ignores SIGCHLD, so the kernel reaps the children the daemon spawns, and SIGPIPE.
+    @MainActor private static func installSignalHandlers()
+    {
         signal(SIGCHLD, SIG_IGN)
         signal(SIGPIPE, SIG_IGN)
+    }
+
+    /// Turns off the local event suppression interval and enables event state combining.
+    @MainActor private static func configureEventSystem()
+    {
         CGSetLocalEventsSuppressionIntervalC(0.0)
         CGEnableEventStateCombiningC(false)
+    }
+
+    /// Takes the write lock of the user's lock-file. False when another daemon holds it.
+    @MainActor private static func acquireLock(user: String, pid: pid_t) -> Bool
+    {
+        let lockFile = "/tmp/yabai_\(user).lock"
+
         let handle = open(lockFile, O_CREAT | O_WRONLY | O_CLOEXEC, 0o600)
         if handle == -1 {
             Logger.daemon.fatal("could not create lock-file")
@@ -195,58 +222,95 @@ enum Daemon
             Logger.daemon.fatal("'display has separate spaces' is disabled", exitCode: EXIT_SUCCESS)
         }
 
-        if !configureSettingsAndAcquireLock() {
+        //
+        // NOTE: The startup steps run in this order, each with one debug line; doc/architecture.md "Startup sequence"
+        // lists them. Keep the SkyLight notification registration before the manager sync: the windows that the
+        // managers tile must already be subscribed (architecture.md, "Subscribe before initial tiling").
+        //
+
+        Logger.daemon.debug("startup: reading the user and connecting to the window server")
+        let user = currentUser()
+        let pid = connectToWindowServer()
+
+        Logger.daemon.debug("startup: resolving private symbols")
+        resolvePrivateSymbols()
+
+        Logger.daemon.debug("startup: installing signal handlers")
+        installSignalHandlers()
+
+        Logger.daemon.debug("startup: configuring the event system")
+        configureEventSystem()
+
+        Logger.daemon.debug("startup: acquiring the lock-file")
+        if !acquireLock(user: user, pid: pid) {
             Logger.daemon.fatal("could not acquire lock-file")
         }
 
+        Logger.daemon.debug("startup: starting the event loop")
         EventLoop.start()
 
+        Logger.daemon.debug("startup: starting the workspace context")
         if !Workspace.begin() {
             Logger.daemon.fatal("could not start workspace context")
         }
 
+        Logger.daemon.debug("startup: starting the process manager")
         if !ProcessManager.shared.begin() {
             Logger.daemon.fatal("could not start process manager")
         }
 
+        Logger.daemon.debug("startup: starting the display manager")
         if !DisplayManager.shared.begin() {
             Logger.daemon.fatal("could not start display manager")
         }
 
+        Logger.daemon.debug("startup: starting the mouse handler")
         if !WM.sync({ MouseState.shared.beginEventTap(mask: mouseEventMask) }) {
             Logger.daemon.fatal("could not start mouse handler")
         }
 
+        Logger.daemon.debug("startup: observing Mission Control")
         MissionControl.shared.observe()
 
         //
         // NOTE: Registration order is the declaration order of SLSNotification (see SLSNotification.swift).
         //
+        Logger.daemon.debug("startup: registering the SkyLight notifications")
         for kind in SLSNotification.allCases {
             SLS.registerNotification(SLS.connection, kind.rawValue, handler: connectionNotificationHandler)
         }
 
         //
-        // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue.
+        // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue. The space
+        // defaults come first in the sync block: SpaceManager.begin creates the views from them, and no other @WM
+        // work runs inside the block.
         //
+        Logger.daemon.debug("startup: starting the managers on the event loop")
         WM.sync {
+            Logger.daemon.debug("startup: applying the space defaults")
+            Config.current.applySpaceDefaults()
+            Logger.daemon.debug("startup: initializing the window manager")
             WindowManager.shared.initialize()
+            Logger.daemon.debug("startup: beginning the space manager")
             SpaceManager.shared.begin()
+            Logger.daemon.debug("startup: beginning the window manager")
             WindowManager.shared.begin()
+            Logger.daemon.debug("startup: requesting window notifications")
             WindowManager.shared.updateWindowNotifications()
+            Logger.daemon.debug("startup: starting the config observer")
             ConfigObserver.shared.start()
         }
 
-        guard let user = getenv("USER").map({ String(cString: $0) }) else {
-            Logger.daemon.fatal("'env USER' not set")
-        }
+        Logger.daemon.debug("startup: starting the message loop")
         let socketFile = "/tmp/yabai_\(user).socket"
         if !MessageLoop.begin(socketPath: socketFile) {
             Logger.daemon.fatal("could not start message loop")
         }
 
+        Logger.daemon.debug("startup: running the config file")
         execConfigFile(options.config)
 
+        Logger.daemon.debug("startup: running the main run loop")
         NSApp.run()
 
         return 0

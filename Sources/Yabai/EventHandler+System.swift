@@ -41,7 +41,7 @@ extension EventHandler
         Logger.events.debug("mission control enter")
         MissionControl.shared.mode = .show
 
-        EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100))
+        EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
 
         EventSignals.shared.push(.missionControlEnter, .missionControl(.show))
     }
@@ -67,7 +67,7 @@ extension EventHandler
         }
 
         if found {
-            EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100))
+            EventLoop.post(.missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
         } else {
             EventLoop.post(.missionControlExit)
         }
@@ -155,11 +155,10 @@ extension EventHandler
         ConfigObserver.shared.apply(group)
     }
 
-    func spaceLayoutReconcile(_ generation: UInt32)
+    func spaceLayoutReconcile()
     {
         let sm = SpaceManager.shared
 
-        if generation != sm.spaceLayoutGeneration { return }
         if Config.current.space.spaceLayouts.isEmpty { return }
 
         if MissionControl.shared.isActive {

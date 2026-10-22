@@ -37,7 +37,6 @@ enum SpaceOperationError: Error, Sendable
     var lastSpaceID: SpaceID?
     var didBegin = false
     var labels = LabelList<SpaceID>()
-    var spaceLayoutGeneration: UInt32 = 0
     var spaceLayoutPasses = 0
 
     /// The view of a space; before `begin()` only a known one, after it the view is created when the space is new.

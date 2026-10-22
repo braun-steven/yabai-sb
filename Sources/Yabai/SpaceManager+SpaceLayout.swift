@@ -105,19 +105,16 @@ extension SpaceManager
     }
 
     //
-    // NOTE: A schedule replaces the pending one: the space layout reconcile event only runs for the latest generation.
-    // resetPasses restarts the limit of passes for a new change of the displays.
+    // NOTE: A schedule replaces the pending one: the keyed reconcile event supersedes the event still waiting in the
+    // delayed queue. resetPasses restarts the limit of passes for a new change of the displays.
     //
 
-    /// Posts the space layout reconcile event for the current generation after the delay.
+    /// Posts the space layout reconcile event after the delay, superseding the pending one.
     func scheduleSpaceLayout(after delay: Duration, resetPasses: Bool)
     {
         if Config.current.space.spaceLayouts.isEmpty { return }
         if resetPasses { spaceLayoutPasses = 0 }
 
-        spaceLayoutGeneration &+= 1
-        let generation = spaceLayoutGeneration
-
-        EventLoop.post(.spaceLayoutReconcile(generation: generation), after: delay)
+        EventLoop.post(.spaceLayoutReconcile, after: delay, key: .spaceLayoutReconcile)
     }
 }

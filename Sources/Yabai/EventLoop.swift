@@ -12,7 +12,7 @@ import YabaiCore
 // async: the loop awaits it before it takes the next event, but other @WM code (WM.sync blocks, C callbacks on
 // yabai.wm) can run at its await, so the handler re-checks the state it relies on afterwards. After each handler
 // the signals it pushed run. Events never get a Task {} of their own: separate tasks could run them out of order.
-// Delays post their event later through post(_:after:). The handlers are EventHandler methods, in EventHandler*.swift.
+// Delays post their event later through post(_:after:key:). The handlers are EventHandler methods, in EventHandler*.swift.
 //
 
 /// The actor of the window manager state. Its executor is the serial queue of the event loop.
@@ -122,7 +122,7 @@ enum Event: Sendable
     case dockDidChangePref
     case systemWoke
     case configChanged(ConfigGroup)
-    case spaceLayoutReconcile(generation: UInt32)
+    case spaceLayoutReconcile
     case daemonMessage(DaemonMessage)
 }
 
@@ -141,46 +141,76 @@ enum EventLoop
     }
 
     //
-    // NOTE: A delayed event waits in delayedEvents until its deadline, so the loop keeps handling the events posted
-    // meanwhile; handlers never await a delay themselves. A task sleeps until the deadline and then posts every due
-    // event, in deadline order and in posting order for equal deadlines: two sleeping tasks can wake in either
-    // order, but the delayed events keep the order of their deadlines (two deferred focus activations must not
-    // swap). The tasks only sleep and post, they never run a handler. Posting under the lock keeps two waking tasks
-    // from interleaving their events. The queue stays sorted: an event goes in after the events with its deadline.
+    // NOTE: A delayed event waits in one DelayedQueue until its deadline, so the loop keeps handling the events posted
+    // meanwhile; handlers never await a delay themselves. One DispatchSourceTimer, on a private serial queue, is armed
+    // for the earliest deadline. Its handler only posts the due events, in deadline order, and then arms the timer for
+    // the next deadline. The queue and the armed deadline share one Mutex, and an insert that moves the earliest
+    // deadline earlier re-arms the timer under that lock, so a deadline is never left without a timer. The timer
+    // sleeps on the monotonic uptime clock; deadlines and the due check use ContinuousClock. After a system sleep, a
+    // delay can end later than with ContinuousClock.
+    //
+    // NOTE: An event with a DelayedEventKey supersedes the pending event with that key: the insert removes it. A
+    // superseded event that is already due and posted (waiting in the event stream) is still handled.
     //
 
-    private struct DelayedEvent: Sendable
+    /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
+    enum DelayedEventKey: Hashable, Sendable
     {
-        let deadline: ContinuousClock.Instant
-        let event: Event
+        case spaceLayoutReconcile
+        case missionControlCheck
     }
 
-    private static let delayedEvents = Mutex<Deque<DelayedEvent>>([])
+    private struct DelayedState: Sendable
+    {
+        var queue = DelayedQueue<Event, DelayedEventKey>()
+        /// The deadline the timer is set for, nil when it is not armed. It is never later than the next deadline.
+        var armed: ContinuousClock.Instant?
+    }
 
-    /// Posts an event after a delay. Callable from any thread.
-    static func post(_ event: Event, after delay: Duration)
+    private static let delayed = Mutex(DelayedState())
+
+    private static let delayedTimerQueue = DispatchQueue(label: "yabai.events.delayed")
+
+    private static let delayedTimer: DispatchSourceTimer =
+    {
+        let timer = DispatchSource.makeTimerSource(queue: delayedTimerQueue)
+        timer.setEventHandler { postDueEvents() }
+        timer.resume()
+        return timer
+    }()
+
+    /// Posts an event after a delay. A key supersedes the pending event with the same key. Callable from any thread.
+    static func post(_ event: Event, after delay: Duration, key: DelayedEventKey? = nil)
     {
         let deadline = ContinuousClock.now + delay
-        delayedEvents.withLock { pending in
-            let index = pending.partitioningIndex { $0.deadline > deadline }
-            pending.insert(DelayedEvent(deadline: deadline, event: event), at: index)
-        }
-
-        Task {
-            try? await Task.sleep(until: deadline, clock: .continuous)
-            postDueEvents()
+        delayed.withLock { state in
+            state.queue.insert(event, at: deadline, key: key)
+            if let next = state.queue.nextDeadline, state.armed.map({ next < $0 }) ?? true {
+                arm(&state, for: next)
+            }
         }
     }
 
-    /// Posts the delayed events whose deadline has passed.
+    /// Posts the due events, then arms the timer for the next deadline. Runs on the timer queue.
     private static func postDueEvents()
     {
-        let now = ContinuousClock.now
-        delayedEvents.withLock { pending in
-            let count = pending.partitioningIndex { $0.deadline > now }
-            for delayed in pending.prefix(count) { post(delayed.event) }
-            pending.removeFirst(count)
+        delayed.withLock { state in
+            for event in state.queue.removeDue(at: ContinuousClock.now) { post(event) }
+
+            state.armed = nil
+            if let next = state.queue.nextDeadline { arm(&state, for: next) }
         }
+    }
+
+    /// Sets the timer to fire at the deadline. Called under the lock of `delayed`.
+    private static func arm(_ state: inout DelayedState, for deadline: ContinuousClock.Instant)
+    {
+        state.armed = deadline
+
+        let remaining = max(Duration.zero, deadline - ContinuousClock.now).components
+        let (scaled, overflow) = remaining.seconds.multipliedReportingOverflow(by: 1_000_000_000)
+        let nanoseconds = overflow ? Int.max : Int(scaled) + Int(remaining.attoseconds / 1_000_000_000)
+        delayedTimer.schedule(deadline: .now() + .nanoseconds(nanoseconds), repeating: .never)
     }
 
     //
@@ -267,7 +297,7 @@ extension EventHandler
         case .dockDidChangePref:                         dockDidChangePref()
         case .systemWoke:                                systemWoke()
         case .configChanged(let group):                  configChanged(group)
-        case .spaceLayoutReconcile(let generation):      spaceLayoutReconcile(generation)
+        case .spaceLayoutReconcile:                      spaceLayoutReconcile()
         case .daemonMessage(let message):                MessageLoop.handle(message)
         }
     }

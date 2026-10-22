@@ -2,6 +2,7 @@ import AppKit
 import CPrivate
 import Logging
 import Synchronization
+import YabaiCore
 
 //
 // NOTE: The daemon and its startup, run with the options of YabaiOptions.swift. `--message` / `-m` never gets here:
@@ -59,23 +60,6 @@ enum Daemon
         return buffer.st_mode & S_IXUSR != 0
     }
 
-    /// The first of $XDG_CONFIG_HOME/yabai/<filename>, ~/.config/yabai/<filename> and ~/.<filename> that exists, or nil.
-    private static func getConfigFile(_ filename: String) -> String?
-    {
-        if let xdgHome = getenv("XDG_CONFIG_HOME"), xdgHome.pointee != 0 {
-            let path = "\(String(cString: xdgHome))/yabai/\(filename)"
-            if fileExists(path) { return path }
-        }
-
-        guard let home = getenv("HOME").map({ String(cString: $0) }) else { return nil }
-
-        let path = "\(home)/.config/yabai/\(filename)"
-        if fileExists(path) { return path }
-
-        let dotPath = "\(home)/.\(filename)"
-        return fileExists(dotPath) ? dotPath : nil
-    }
-
     //
     // NOTE: Swift cannot fork (see EventSignals.spawn), so posix_spawn
     // starts the shell directly; nobody waits for it, because SIGCHLD is ignored. A shell that cannot be started is now
@@ -84,10 +68,24 @@ enum Daemon
 
     private static func execConfigFile(_ configFile: String?)
     {
-        guard let configFile = configFile.flatMap({ $0.isEmpty ? nil : $0 }) ?? getConfigFile("yabairc") else {
+        let candidates = ConfigFileSearch.candidates(
+            filename: "yabairc",
+            xdgConfigHome: getenv("XDG_CONFIG_HOME").map { String(cString: $0) },
+            home: getenv("HOME").map { String(cString: $0) })
+
+        guard let choice = ConfigFileSearch.choose(explicit: configFile, candidates: candidates, exists: fileExists) else {
             Logger.daemon.warning("could not locate config file")
             notify("configuration", "could not locate config file..")
             return
+        }
+
+        let configFile = choice.chosen
+        Logger.daemon.notice("using config file '\(configFile)'")
+
+        if !choice.ignored.isEmpty {
+            let ignored = choice.ignored.map { "'\($0)'" }.joined(separator: ", ")
+            Logger.daemon.warning("using '\(configFile)'; ignoring \(ignored)")
+            notify("configuration", "using '\(configFile)'; ignoring \(ignored)..")
         }
 
         if !fileExists(configFile) {

@@ -28,8 +28,10 @@ public struct ExtractedCommand: Equatable, Sendable
 }
 
 /// The `yabai -m` invocations of a script, in order. A line that the shell would compute is reported as skipped with
-/// `dynamic shell`: `$`, backticks, `;`, `&`, `|`, parentheses, redirections, unquoted glob characters and `~`, and any
-/// command inside a compound command (`if`, `for`, `while`, `until`, `case`, `select`, `function`, braces). Comments
+/// `dynamic shell`: a `$` that starts an expansion (`$name`, `${…}`, `$1`, `$@`, `$(…)`, `$[…]`, `$'…'`, `$"…"`, and
+/// `$` before a byte above ASCII, which bash expands in a UTF-8 locale), backticks, `;`, `&`, `|`, parentheses,
+/// redirections, unquoted glob characters and `~`, and any command inside a compound command (`if`, `for`, `while`,
+/// `until`, `case`, `select`, `function`, braces). A `$` that is not followed by one of these is literal, as in sh. Comments
 /// (`#` at the start of a word) and blank lines are ignored. Lines that do not run yabai are ignored. `yabai` without
 /// `-m` or `--message` (e.g. `sudo yabai --load-sa`) is skipped as `not a message`. A `yabai` path ending in `/yabai`
 /// and a leading `sudo` are accepted. Only the first word of a command counts (after `sudo`), so `FOO=1 yabai -m …`
@@ -117,9 +119,11 @@ private struct ScriptLine
 }
 
 /// Splits a script into logical lines of words, following sh quoting. Single quotes are literal. Double quotes keep
-/// `$` and backticks (both make the line dynamic) and treat a backslash before `"`, `\`, `$`, a backtick or a newline
-/// as an escape. An unquoted backslash escapes the next byte. Only ASCII bytes are special, so multi-byte characters
-/// pass through unchanged.
+/// backticks and a `$` that starts an expansion (both make the line dynamic), and treat a backslash before `"`, `\`,
+/// `$`, a backtick or a newline as an escape. Any other `$` is a literal byte (see `startsExpansion`). An unquoted
+/// backslash escapes the next byte. A `\r` directly before a `\n` belongs to the line ending: it is dropped, and so is
+/// the `\r` of a backslash continuation (`\` then `\r\n`). Only ASCII bytes are special, so multi-byte characters pass
+/// through unchanged.
 private struct ScriptLexer
 {
     private enum Quote
@@ -214,6 +218,29 @@ private struct ScriptLexer
         reason = nil
     }
 
+    /// Whether the `$` before `position` starts an expansion, so that the line is dynamic. The next byte decides: a
+    /// name start, a digit, `{`, `(`, `[` (arithmetic), a special parameter, or a byte above ASCII (a name start in a
+    /// UTF-8 locale). Unquoted, `'` and `"` also start `$'…'` and `$"…"`. Inside double quotes they are literal.
+    /// Anything else (end of input, white space, `/`, `:`, `=`, `^`, `.`, a closing `"`) leaves `$` literal.
+    private func startsExpansion(at position: Int, doubleQuoted: Bool) -> Bool
+    {
+        guard position < bytes.count else { return false }
+
+        switch bytes[position]
+        {
+        case UInt8(ascii: "A")...UInt8(ascii: "Z"), UInt8(ascii: "a")...UInt8(ascii: "z"), UInt8(ascii: "0")...UInt8(ascii: "9"),
+             UInt8(ascii: "_"), UInt8(ascii: "{"), UInt8(ascii: "("), UInt8(ascii: "["), 0x80...0xFF:
+            return true
+        case UInt8(ascii: "@"), UInt8(ascii: "*"), UInt8(ascii: "#"), UInt8(ascii: "?"), UInt8(ascii: "$"),
+             UInt8(ascii: "!"), UInt8(ascii: "-"):
+            return true
+        case UInt8(ascii: "'"), UInt8(ascii: "\""):
+            return !doubleQuoted
+        default:
+            return false
+        }
+    }
+
     private mutating func lexUnquoted()
     {
         let byte = bytes[index]
@@ -223,6 +250,10 @@ private struct ScriptLexer
         {
         case UInt8(ascii: " "), UInt8(ascii: "\t"):
             endWord()
+
+        case UInt8(ascii: "\r") where index < bytes.count && bytes[index] == UInt8(ascii: "\n"):
+            // NOTE: The `\r` of a CRLF line ending is not part of the last word; the `\n` after it ends the line.
+            break
 
         case UInt8(ascii: "\n"):
             line += 1
@@ -240,7 +271,20 @@ private struct ScriptLexer
             }
             let next = bytes[index]
             index += 1
-            if next == UInt8(ascii: "\n") { line += 1 } else { add(next, quoted: true) }
+            if next == UInt8(ascii: "\n")
+            {
+                line += 1
+            }
+            else if next == UInt8(ascii: "\r") && index < bytes.count && bytes[index] == UInt8(ascii: "\n")
+            {
+                // NOTE: `\` then CRLF is a continuation too; the `\r` belongs to the line ending.
+                index += 1
+                line += 1
+            }
+            else
+            {
+                add(next, quoted: true)
+            }
 
         case UInt8(ascii: "'"):
             quote = .single
@@ -250,7 +294,11 @@ private struct ScriptLexer
             quote = .double
             markQuoted()
 
-        case UInt8(ascii: "$"), UInt8(ascii: "`"):
+        case UInt8(ascii: "$"):
+            if startsExpansion(at: index, doubleQuoted: false) { mark("dynamic shell") }
+            add(byte, quoted: false)
+
+        case UInt8(ascii: "`"):
             mark("dynamic shell")
             add(byte, quoted: false)
 
@@ -311,7 +359,12 @@ private struct ScriptLexer
                 index += 1
             }
 
-        case UInt8(ascii: "$"), UInt8(ascii: "`"):
+        case UInt8(ascii: "$"):
+            index += 1
+            if startsExpansion(at: index, doubleQuoted: true) { mark("dynamic shell") }
+            add(byte, quoted: true)
+
+        case UInt8(ascii: "`"):
             index += 1
             mark("dynamic shell")
             add(byte, quoted: true)

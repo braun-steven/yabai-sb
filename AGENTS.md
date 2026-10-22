@@ -28,8 +28,8 @@ commands yourself.
 - `make`: debug build, published atomically to `bin/yabai`. `make install`: release build (no install).
   `make asan` / `make tsan`: sanitizer builds.
 - `make test` (= `swift test`); one test: `swift test --filter <name>`. `make osax-test`: payload core tests.
-- `make lint`: optional swift-format lint of `Sources` and `tests` (findings only, never reformats; not in `make ci`).
   `make coverage [COVERAGE_FILTER=<re>]`: line coverage of `Sources/` per file.
+- `make lint`: optional swift-format lint of `Sources` and `tests` (findings only, never reformats; not in `make ci`).
 - `make ci-quick`: debug build and `make test` with one line per step; full logs in `.build/ci/`.
 - `make ci`: `ci-quick` plus release build, `make osax-test` and `make check-build` (the phase gate).
 - `swift test --filter Golden`: byte-for-byte IPC regression snapshot (`tests/YabaiTests/Golden/commands.txt`).

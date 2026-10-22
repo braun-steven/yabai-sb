@@ -11,7 +11,7 @@ frameworks (SkyLight, AX, CoreDock) through the `CPrivate` C target, and injects
 | write or review Swift, C/Swift bridges, `Package.swift` or `CPrivate` | `doc/swift-conventions.md` |
 | change the event loop, isolation, managers, tree, IPC, rules/signals, rendering | `doc/architecture.md` |
 | run live tests, deploy, sanitizers or analyze crashes | `doc/live-testing.md` |
-| change build scripts, the makefile or toolchain handling | `doc/building.md` |
+| change build scripts, the justfile or toolchain handling | `doc/building.md` |
 | touch the scripting addition or reload a payload | `doc/payload-updates.md`, `doc/osax-prototypes.md` |
 | work on the refactor plan | `doc/refactor/overview.md`, `doc/refactor/status.md` |
 
@@ -25,30 +25,30 @@ commands yourself.
 
 ## Commands
 
-- `make`: debug build, published atomically to `bin/yabai`. `make install`: release build (no install).
-  `make asan` / `make tsan`: sanitizer builds.
-- `make test` (= `swift test`); one test: `swift test --filter <name>`. `make osax-test`: payload core tests.
-  `make coverage [COVERAGE_FILTER=<re>]`: line coverage of `Sources/` per file.
-- `make lint`: optional swift-format lint of `Sources` and `tests` (findings only, never reformats; not in `make ci`).
-- `make ci-quick`: debug build and `make test` with one line per step; full logs in `.build/ci/`.
-- `make ci`: `ci-quick` plus release build, `make osax-test` and `make check-build` (the phase gate).
+- `just` (or `just build`): debug build, published atomically to `bin/yabai`. `just install`: release build (no install).
+  `just asan` / `just tsan`: sanitizer builds.
+- `just test` (= `swift test`); one test: `swift test --filter <name>`. `just osax-test`: payload core tests.
+  `just coverage <re>`: line coverage of `Sources/` per file.
+- `just lint`: optional swift-format lint of `Sources` and `tests` (findings only, never reformats; not in `just ci`).
+- `just ci-quick`: debug build and `just test` with one line per step; full logs in `.build/ci/`.
+- `just ci`: `ci-quick` plus release build, `just osax-test` and `just check-build` (the phase gate).
 - `swift test --filter Golden`: byte-for-byte IPC regression snapshot (`tests/YabaiTests/Golden/commands.txt`).
   Only after an intended response change: `GOLDEN_RECORD=1 swift test --filter Golden`, then review every
   changed record.
-- `make man`: regenerate `doc/yabai.1` from `doc/yabai.asciidoc` (edit only the Asciidoc).
+- `just man`: regenerate `doc/yabai.1` from `doc/yabai.asciidoc` (edit only the Asciidoc).
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding to keep Accessibility permission.
 - Deploying: agents use `bash scripts/live-tests/deploy.sh install` (read `doc/live-testing.md` first).
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: payload history.
-- After a CPrivate change, also run `make install`: some link errors only appear in release.
+- After a CPrivate change, also run `just install`: some link errors only appear in release.
 
-IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `make lint` is advisory; nothing gates on it.
+IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `just lint` is advisory; nothing gates on it.
 
 ## Rules
 
 - Whenever a new feature is added, update the "Fork changes" list at the top of `README.md` in the same
   commit. Fixes to existing fork features get no entry.
-- New commands need handler parsing, `doc/yabai.asciidoc` documentation (`make man`) and usually a
+- New commands need handler parsing, `doc/yabai.asciidoc` documentation (`just man`) and usually a
   CHANGELOG entry.
 - Keep `YabaiCore` free of CPrivate and window server access. Add CPrivate wrappers only when Swift cannot
   call the API; remaining C/ObjC is C11 with manual retain/release.
@@ -68,7 +68,7 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `mak
 - Property tests (PropertyBased) print a seed on failure: replay it with `@Test(.fixedSeed("…"))`. Run a new
   property about ten times before committing. Inline and image snapshots re-record with `SNAPSHOT_TESTING_RECORD=all`;
   review every recorded value.
-- Independent cases are `@Test(arguments:)` rows. `make coverage` shows line coverage. Run
+- Independent cases are `@Test(arguments:)` rows. `just coverage` shows line coverage. Run
   `swift test --sanitize=thread` and `--sanitize=address` after test changes that involve sockets, threads or timeouts.
 - `doc/live-testing.md` "Unit tests" lists the fixtures, gates and pitfalls; read it before writing tests.
 - Deploys restart yabai and reset all layouts: tell the user beforehand and restore the installed binary

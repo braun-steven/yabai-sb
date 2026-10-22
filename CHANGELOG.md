@@ -31,6 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *batch* (`yabai -m batch`) runs many commands in one message: their words are read from stdin, one command per line, without `yabai -m`; the commands run in order, a failing one is reported with its index in the batch, and the response fails if any command failed
 
 ### Changed
+- Build commands now use `just`; the makefile has been removed (`brew install just`)
 - The options of the *yabai* process are parsed by swift-argument-parser: option values may be attached (*--config=file*, *-Vc file*), and an action, *--message* or *--version* combined with other options, an unknown option or a missing value prints the usage and exits with status 64. Messages after *-m* are parsed as before
 - Space, display, rule, signal and scratchpad labels compare as Unicode text: a label spelled with a precomposed character (*é*) and one with a combining accent (*e* + U+0301) are the same label. Every argument is read as UTF-8 text, so a failure that echoes an argument shows invalid bytes as U+FFFD
 - The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr

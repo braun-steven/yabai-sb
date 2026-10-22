@@ -45,8 +45,8 @@ after executable protection is restored.
 ## Reproduce isolated checks
 
 ```sh
-make osax-payload
-make osax-test
+just osax-payload
+just osax-test
 swift test --package-path osax --sanitize=address
 swift test --package-path osax --sanitize=thread
 swift build --package-path osax -c release --product osax-benchmark

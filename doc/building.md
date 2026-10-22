@@ -3,8 +3,10 @@
 Use Xcode with the macOS 27 SDK and Swift 6.4 on Apple Silicon. The package dependencies are
 Apple's swift-algorithms, swift-argument-parser, swift-collections and swift-log, and swiftlang's
 swift-subprocess (without its Foundation trait; the swift-system it resolves links only on other platforms). SwiftPM owns the complete executable build, including the scripting addition,
-compilation, linking, test discovery and debug/release optimization. Make provides convenience
+compilation, linking, test discovery and debug/release optimization. The `justfile` provides convenience
 commands for publishing to `bin/yabai`, documentation, signing and release archives.
+
+Requirements: Xcode with the macOS 27 SDK and Swift 6.4, plus just (`brew install just`).
 
 ## Commands
 
@@ -13,33 +15,35 @@ commands for publishing to `bin/yabai`, documentation, signing and release archi
 | `swift build` / `swift build -c release` | Complete debug/release build in SwiftPM's output directory |
 | `swift test` | Daemon/core tests, including golden IPC replay |
 | `swift run yabai --version` | Build and run the CLI's version command |
-| `make` | Debug executable at `bin/yabai` |
-| `make install` | Release executable at `bin/yabai`; no installation or service restart |
-| `make asan` / `make tsan` | Debug executable with Address/ThreadSanitizer and C UndefinedBehaviorSanitizer |
-| `make test` | Daemon/core tests, including golden IPC replay |
-| `make osax-test` | Isolated payload/loader tests, outside Dock |
-| `make lint` | Optional swift-format lint of `Sources` and `tests` (config `.swift-format`); reports findings, never reformats, not in `ci` |
-| `make osax-payload` | Standalone binaries/arrays in `.build/osax/swift/`; no injection |
-| `make prepare` | Optional build of just the `OSAX` target through SwiftPM |
-| `make check-build` | Isolated clean/incremental/toolchain upgrade checks and Swift tests |
-| `make clean` | Remove `bin/`, both packages' build caches and generated C sources |
+| `just` / `just build` | Debug executable at `bin/yabai` |
+| `just install` | Release executable at `bin/yabai`; no installation or service restart |
+| `just asan` / `just tsan` | Debug executable with Address/ThreadSanitizer and C UndefinedBehaviorSanitizer |
+| `just test` | Daemon/core tests, including golden IPC replay |
+| `just osax-test` | Isolated payload/loader tests, outside Dock |
+| `just lint` | Optional swift-format lint of `Sources` and `tests` (config `.swift-format`); reports findings, never reformats, not in `ci` |
+| `just osax-payload` | Standalone binaries/arrays in `.build/osax/swift/`; no injection |
+| `just prepare` | Optional build of just the `OSAX` target through SwiftPM |
+| `just check-build` | Isolated clean/incremental/toolchain upgrade checks and Swift tests |
+| `just clean` | Remove `bin/`, both packages' build caches and generated C sources |
 
 Every daemon variant publishes to `bin/yabai` after a successful build. Copying to a temporary sibling
 and renaming it preserves the last successful executable if compilation or copying fails. Other
-`bin/` artifacts are retained. Make serializes goals because variants share this published path.
+`bin/` artifacts are retained. Recipes run serially within one just invocation because variants share this
+published path; run separate build invocations one at a time.
 
 Debug/release use the normal `.build/` cache; sanitizer builds use `.build/asan` and `.build/tsan`.
-Switching back to `make` cannot publish a cached sanitizer executable. The isolated package has its
+Switching between build variants cannot publish a cached sanitizer executable. The isolated package has its
 own `osax/.build/` cache. `SWIFT` overrides the Swift command (default `xcrun swift`); `SWIFT_FLAGS`
-passes additional SwiftPM options to builds and tests, for example `make test SWIFT_FLAGS='--filter Golden'`.
-Coverage filters are extended regular expressions. `scripts/coverage.sh` passes them to `awk` through `ENVIRON`
-because `awk -v` consumes backslashes, which can change a literal `+` in a filename filter such as
-`WindowManager\+Tree`.
+passes additional SwiftPM options to builds and tests through `SWIFT_FLAGS`, for example
+`SWIFT_FLAGS='--filter Golden' just test`.
+Coverage filters are extended regular expressions, passed as a recipe argument such as
+`just coverage 'WindowManager\+Tree'`. `scripts/coverage.sh` passes them to `awk` through `ENVIRON`
+because macOS `awk -v` consumes backslashes, which can change a literal `+` in a filename filter.
 
 ## CI gates
 
-`make ci-quick` (debug build, then `make test`) and `make ci` (adds `make install`, `make osax-test` and
-`make check-build`) run `scripts/ci.sh`. Each step prints one `PASS|FAIL <step> <seconds>s <log>` line; the full
+`just ci-quick` (debug build, then `just test`) and `just ci` (adds `just install`, `just osax-test` and
+`just check-build`) run `scripts/ci.sh`. Each step prints one `PASS|FAIL <step> <seconds>s <log>` line; the full
 output goes to `.build/ci/<step>.log`. The first failing step stops the run and prints its `error:` lines, its
 unlisted warning lines and the last 40 log lines. A compiler or linker warning fails a step too, unless its text is
 in `scripts/ci-warning-allowlist.txt` (one fixed string per line; each entry needs a reason comment above it).
@@ -49,7 +53,7 @@ in `scripts/ci-warning-allowlist.txt` (one fixed string per line; each entry nee
 `SWIFT` and `SWIFT_FLAGS` affect the outer SwiftPM invocation only. They do not select the payload
 compiler or pass flags to it. Both native generation and its identity check resolve `clang` and
 `swiftc` through `xcrun`, honoring `DEVELOPER_DIR` and `TOOLCHAINS`. `SDKROOT` selects the macOS SDK;
-Make preserves an existing value. The native commands pass that resolved SDK explicitly to both
+The just recipes preserve an existing value. The native commands pass that resolved SDK explicitly to both
 compilers. The supported setup remains Xcode with Swift 6.4 and the macOS 27 SDK.
 
 Use `DEVELOPER_DIR` to select an Xcode installation for the whole build, and `TOOLCHAINS` to select
@@ -117,14 +121,14 @@ different plugin work directories.
 
 ## Upgrade checks
 
-Run `make check-build` after an Xcode/SwiftPM upgrade or changes to build generation. It copies the
+Run `just check-build` after an Xcode/SwiftPM upgrade or changes to build generation. It copies the
 current working sources into a fresh temporary directory and checks a complete build/version
 command, a no-op rebuild, a native-header change, and another no-op build. It then changes the
 Xcode selector to an equivalent selection of the same installation and verifies native cache
 invalidation followed by another no-op. Identical native bytes and C-array timestamps must be
 preserved. Finally it runs the Swift tests, including golden IPC replay. The copy holds only what the build and
 tests read (`Sources`, `Plugins`, `osax`, `tests`, `Package.swift`, `assets/Info.plist`, two scripts and
-`examples/yabairc`): a test that reads another repository file through `#filePath` passes in `make test` but fails
+`examples/yabairc`): a test that reads another repository file through `#filePath` passes in `just test` but fails
 here until `scripts/check-build.py` copies that file too.
 
 The check needs only the selected Xcode; it does not switch system-wide `xcode-select`, require a
@@ -142,12 +146,12 @@ only adds `NDEBUG` for release. The injected payload retains its tested explicit
 settings. Remaining unsafe flags express private-framework search paths, manual ObjC ownership,
 selected C diagnostics and the embedded Info.plist/SDK linker workaround.
 
-Make exports the selected macOS `SDKROOT`; the Xcode `swift` shim also supplies it for direct commands.
+The just recipes export the selected macOS `SDKROOT`; the Xcode `swift` shim also supplies it for direct commands.
 `Package.swift` forwards `-isysroot` to the Clang linker so the executable records the actual SDK
 version and AppKit does not enable old-SDK compatibility behavior. Check it with
 `xcrun vtool -show-build bin/yabai` after toolchain changes.
 
-For build-system changes, check plain `swift build` and `swift test` after `make clean`, a second
+For build-system changes, check plain `swift build` and `swift test` after `just clean`, a second
 build without native generation/compilation, all four daemon variants, both test
 suites, unchanged golden IPC output, and `bin/yabai --version`. A deliberate failed build should
 leave `bin/yabai` unchanged. Check the generated payload hash against the tested artifact.

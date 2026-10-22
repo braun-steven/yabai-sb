@@ -381,23 +381,25 @@ Please also take note of the following caveats.
 
 ## Building this fork
 
-Use the Xcode toolchain for macOS 27 (Swift 6.4). SwiftPM builds the complete executable, including the embedded arm64e scripting addition through the `OSAXEmbed` build plugin. The makefile provides convenience commands that copy successful builds to `bin/yabai`.
+Requirements: Xcode with the macOS 27 SDK and Swift 6.4, plus just (`brew install just`).
+
+SwiftPM builds the complete executable, including the embedded arm64e scripting addition through the `OSAXEmbed` build plugin. The `justfile` provides convenience commands that copy successful builds to `bin/yabai`.
 
 ```sh
 swift build          # complete debug build, including the scripting addition
 swift test           # Swift unit tests and byte-for-byte golden IPC replay
-make                 # debug binary at bin/yabai
-make install         # optimized release binary at the same path
-make test            # Swift unit tests and byte-for-byte golden IPC replay
-make asan            # AddressSanitizer build
-make tsan            # ThreadSanitizer build
-make check-build     # isolated build-system upgrade checks and Swift tests
+just                 # debug binary at bin/yabai
+just install         # optimized release binary at the same path
+just test            # Swift unit tests and byte-for-byte golden IPC replay
+just asan            # AddressSanitizer build
+just tsan            # ThreadSanitizer build
+just check-build     # isolated build-system upgrade checks and Swift tests
 ```
 
-`make install` builds locally; it does not copy the binary into your PATH. A failed build preserves the last successful `bin/yabai`. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes both packages' build products. The package opts into SwiftPM's experimental C-source generation support; see [build details](doc/building.md) and [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
+`just install` builds locally; it does not copy the binary into your PATH. A failed build preserves the last successful `bin/yabai`. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `just clean` removes both packages' build products. The package opts into SwiftPM's experimental C-source generation support; see [build details](doc/building.md) and [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
 The scripting addition uses the Swift core (2.1.37), with private Dock operations in a native
-adapter. `make osax-test` tests it outside Dock; `make osax-payload` builds the standalone payload
+adapter. `just osax-test` tests it outside Dock; `just osax-payload` builds the standalone payload
 without injecting it. The unused Objective-C prototype has been removed. See the
 [comparison results and reload procedure](doc/osax-prototypes.md).
 

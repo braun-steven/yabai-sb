@@ -11,7 +11,7 @@ Manual checks for the user are collected in [live-checks.md](live-checks.md).
 
 | Phase | Title | Summary |
 |---|---|---|
-| [1](phase-1.md) | Gates and tooling | `make ci`/`make ci-quick` with concise logs; OSAXEmbed enumerates its inputs; de-flake the socket tests; fix doc drift. Every later commit runs these gates. |
+| [1](phase-1.md) | Gates and tooling | CI with concise logs; OSAXEmbed enumerates its inputs; de-flake the socket tests; fix doc drift. Every later commit runs these gates. |
 | [2](phase-2.md) | Crash and robustness fixes | Public `AXUIElementGetPid`; checked CF casts; guarded SLS notification payloads with a typed enum; `@try` around private KVC; deprecated timer; Mach-O bounds; symbol-availability log; IPC length cap, client timeout and malformed-message reply; no traps in JSON/signal code. |
 | [3](phase-3.md) | Scripting addition hardening | Fade timer runs only while fading; Dock code patch gated on known Dock UUIDs; guarded reads in the payload core; client checks the payload socket owner. |
 | [4](phase-4.md) | Core lifecycle and event loop | One window teardown/untile path; `forget(_:)` for per-window tables; AX callbacks carry `WindowID`; keyed delayed events with a single timer; `FocusState`; a `Startup` sequence. |
@@ -66,7 +66,7 @@ phase agent's duties itself: it starts the Haiku subphase agents, reviews their 
    summary>` (e.g. `P4.2 Forget per-window render state when a window is removed`). The commit includes the
    `status.md` update. Follow-up fixes are separate commits, `P4.2 Fix …`. Never amend, rebase, force, push or rewrite
    history.
-8. **Docs in the same commit.** A new command or option means handler parsing, `doc/yabai.asciidoc` + `make man`, and
+8. **Docs in the same commit.** A new command or option means handler parsing, `doc/yabai.asciidoc` + `just man`, and
    a CHANGELOG entry. A new feature also gets a "Fork changes" entry in `README.md`. Record any pitfall that cost time
    in the matching doc.
 9. **Tests.** Swift Testing (`@Test`, `#expect`), in `tests/`. Tests that change managers go in the `DaemonState` suite
@@ -85,14 +85,13 @@ phase agent's duties itself: it starts the Haiku subphase agents, reviews their 
 
 | Gate | Command | When |
 |---|---|---|
-| quick | `make ci-quick` (debug build + `swift test`, warnings fail) | every subphase, before its commit |
-| payload | `make osax-test` | a subphase that touches `osax/` or `Plugins/OSAXEmbed` |
-| release | `make install` (release build into `bin/yabai`; it installs nothing) | a subphase that touches `Sources/CPrivate`, `Package.swift` or `@_cdecl` exports |
+| quick | `just ci-quick` (debug build + `swift test`, warnings fail) | every subphase, before its commit |
+| payload | `just osax-test` | a subphase that touches `osax/` or `Plugins/OSAXEmbed` |
+| release | `just install` (release build into `bin/yabai`; it installs nothing) | a subphase that touches `Sources/CPrivate`, `Package.swift` or `@_cdecl` exports |
 | sanitizers | `swift test --sanitize=thread`, then `swift test --sanitize=address` | sockets, threads, timeouts, payload core |
-| full | `make ci` (quick + release + payload + check-build) | end of every phase, run by the phase agent |
+| full | `just ci` (quick + release + payload + check-build) | end of every phase, run by the phase agent |
 
-Until phase 1 adds `make ci-quick` and `make ci`, use `make && make test` and `make && make test && make install && make
-osax-test` instead.
+Before phase 1 added the CI recipes, phase agents used direct make targets; this is a historical note.
 
 ## State and handoff
 
@@ -137,8 +136,7 @@ handoff entry, and commit everything together.
       - every subphase is `done`, `skipped` or `blocked`, each with a reason;
       - the phase is marked `done`;
       - `git status` is clean;
-      - `make ci` passes; let the output-summarizer agent run it if available, otherwise
-        `make ci 2>&1 | tail -n 40`.
+      - `just ci` passes; let the output-summarizer agent run it if available, otherwise capture its concise summary.
    4. If the check fails, start a fresh phase agent with the same prompt. The resume protocol picks up where the last
       one stopped. After two failed attempts on the same phase, stop and report to the user.
    5. A `blocked` subphase does not stop the run unless a later subphase lists it under **Depends on**. The phase file
@@ -175,7 +173,7 @@ done/blocked/skipped, commits, live checks added.
    4. If something is wrong, start a new subphase agent with the **fix prompt**, at most twice. After that, fix it
       yourself in a `P<ID> Fix …` commit, or mark the subphase `blocked` with a precise reason and a stash name.
    5. If the agent says it could not finish, use the same two-strikes rule.
-3. **Close.** Run `make ci`. Fix failures through a fix agent, or yourself. Then:
+3. **Close.** Run `just ci`. Fix failures through a fix agent, or yourself. Then:
    - mark the phase `done`;
    - add a short phase summary to the handoff log: what changed, deviations, anything the next phase must know;
    - commit `P<N> Close phase`.
@@ -251,8 +249,8 @@ These are not scheduled. Each needs a user decision first.
 - **Tooling**:
   - self-hosted CI runner (no hosted macOS 27 runners exist);
   - move the test-only packages into a separate package;
-  - one signing-identity source for `makefile` and `deploy.sh`;
-  - rename `make install` to `make release`;
+  - one signing-identity source for `justfile` and `deploy.sh`;
+  - rename `just install` to `just release`;
   - replace the font-dependent PNG snapshot;
   - merge the three `Event` dispatch switches.
 - **Measurement only**: wired memory of glass tab bars with 1, 5 and 20 bars (`vm_stat`), compared with the i3 style.

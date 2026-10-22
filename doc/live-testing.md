@@ -6,12 +6,12 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
-- `make test` wraps `swift test`. SwiftPM's OSAXEmbed plugin generates the
+- `just test` wraps `swift test`. SwiftPM's OSAXEmbed plugin generates the
   embedded arrays automatically, including on a fresh checkout; no preparation command is needed.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
   Run a single test with `swift test --filter <name>`, or the golden IPC replay with
   `swift test --filter Golden` (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`).
-  Builds must be warning-free; any warning is new. Sanitizer daemon builds are `make asan` / `make tsan`.
+  Builds must be warning-free; any warning is new. Sanitizer daemon builds are `just asan` / `just tsan`.
 - A command added to `Golden/commands.txt` fails `goldenCaptureCoversEveryCommand` on the recording run
   (`GOLDEN_RECORD=1`): that test can read `responses.txt` before the replay rewrites it. Replay again without
   `GOLDEN_RECORD` to confirm the record.
@@ -41,9 +41,9 @@ point below was learned the hard way; read it before running anything live.
   (`0xFFFF_0000` and up) and keep headless mode in the path.
 - Shared test helpers (the id literals) live in the `YabaiTestSupport` target (`tests/YabaiTestSupport/`), which
   cannot depend on the executable `Yabai`: daemon fixtures stay in `tests/YabaiTests/`.
-- `make coverage` (`scripts/coverage.sh`) prints the line coverage of `Sources/` per file;
-  `make coverage COVERAGE_FILTER='Con|TreeView'` limits the files shown. Write `+` in a file name as `.`
-  (`WindowManager.Tree`): make drops the backslash of `\+`, and the files silently disappear from the table.
+- `just coverage` (`scripts/coverage.sh`) prints the line coverage of `Sources/` per file;
+  `just coverage 'Con|TreeView'` limits the files shown. The recipe passes the regular expression as an argument,
+  preserving a backslash used to match a literal `+` in a filename.
 - Make decisions testable through pure internal helpers taking explicit inputs (e.g.
   `WindowManager.canUseKnownFocus`, `Process.launchRetryDelay`, `treeCollectWindowOrder`),
   keeping side effects in the caller. Swift tests use `@Test` and `#expect`.
@@ -290,7 +290,7 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 
 ## Scripting addition
 
-- `make osax-test` and `swift test --package-path osax --sanitize=address` / `--sanitize=thread`
+- `just osax-test` and `swift test --package-path osax --sanitize=address` / `--sanitize=thread`
   exercise the Swift payload core against a recording backend, including a mock Mach task
   for loader failures. Daemon sanitizer builds do not instrument the injected payload.
 - `bash scripts/live-tests/deploy.sh install` embeds the Swift payload (2.1.37); it does not reload

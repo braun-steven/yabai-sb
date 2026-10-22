@@ -16,10 +16,10 @@ order. At the end of its phase, each agent writes a handover entry at the bottom
      flag (Phase 1).
    - Builds stay warning-free.
 4. **Verify before you commit:**
-   - `make test`
+   - `just test`
    - `swift test --filter Golden`: unchanged, unless you re-recorded on purpose and reviewed every changed record.
-   - `make install`, if production code changed (release-only link errors).
-   - `make coverage COVERAGE_FILTER='<files of your phase>'`
+   - `just install`, if production code changed (release-only link errors).
+   - `just coverage '<files of your phase>'`
 5. Commit on `main`, one or a few commits per phase, with concise imperative subjects. Don't commit unrelated
    working-tree changes.
 6. Update the Status table and add a handover entry (template at the end). Record pitfalls that cost real time in
@@ -105,7 +105,7 @@ Dock record what they would do instead.
      socket.
 4. Docs: describe headless mode in `doc/live-testing.md` "Unit tests", and record the fake-id hazard there.
 
-**Done when:** the gates are in, the tests pass, `make install` succeeds, and `otool -L bin/yabai` shows no test
+**Done when:** the gates are in, the tests pass, `just install` succeeds, and `otool -L bin/yabai` shows no test
 libraries.
 
 ## Phase 2: Tree model properties
@@ -237,7 +237,7 @@ Add `tests/YabaiTests/WindowCommandTests.swift`.
 - Convert loop-in-body tests to `@Test(arguments:)` where they check independent cases (`MessageTests`,
   `TabBarTests`, `QueryTests`).
 - Run `swift test --sanitize=thread` and `swift test --sanitize=address`.
-- Final `make coverage`, compared with the baseline above.
+- Final `just coverage`, compared with the baseline above.
 - Update `doc/live-testing.md` "Unit tests": headless mode, property seeds, snapshot re-recording, coverage. Update
   the `AGENTS.md` Tests section too.
 - These aren't user features, so there is no README "Fork changes" entry.
@@ -467,7 +467,7 @@ Template:
   - A first gate in `SpaceID.active` broke the golden replay: `space --foo` then failed with "could not locate the
     space to act on!" instead of the unknown command. The `space` records of the golden replay depend on the user's
     session having an active space; the gate was narrowed to `activeTreeView`.
-  - `make coverage COVERAGE_FILTER='WindowManager\+Tree'` silently shows nothing: write `.` for `+`.
+  - Historical make behavior before P14.3: `make coverage COVERAGE_FILTER='WindowManager\+Tree'` silently showed nothing because the backslash was lost; just passes the filter as a recipe argument.
   - Behavior worth knowing, matching the manual: `--swap` acts on windows even with a selected container, `--warp`
     and `--layout` act on the selection; `--layout` of a selected container changes its parent (i3); zoom-parent of a
     window directly on the space becomes zoom-fullscreen; `smallest` picks the visible tab (the glass card is smaller).

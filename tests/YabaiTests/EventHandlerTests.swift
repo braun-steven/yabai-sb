@@ -230,6 +230,72 @@ extension DaemonState
             #expect(outcome.destroyed)
             #expect(outcome.signals.isEmpty)
         }
+
+        //
+        // NOTE: Each window is torn down once. A second destroyed event for the same window finds it destroyed, and a
+        // queued destroyed event after a termination finds it removed: both push nothing.
+        //
+
+        @Test func secondDestroyedEventForTheSameWindowPushesNothing() async
+        {
+            let (_, target) = teardownScenario(2, eligible: true)
+            let before = EventSignals.shared.pending.count
+
+            await EventHandler.shared.handle(.windowDestroyed(windowID: target.id))
+            await EventHandler.shared.handle(.windowDestroyed(windowID: target.id))
+
+            #expect(target.isDestroyed)
+            #expect(EventSignals.shared.pending.count == before + 1)
+            #expect(WindowManager.shared.window[target.id] == nil)
+            #expect(WindowManager.shared.window[wid(1)] != nil)
+        }
+
+        //
+        // NOTE: The queued destroyed event of a window that the termination of its application already removed finds no
+        // window, so it pushes nothing and leaves the other windows alone.
+        //
+
+        @Test func destroyedEventAfterTerminationPushesNothingMore() async
+        {
+            let (_, target) = teardownScenario(2, eligible: true)
+            let before = EventSignals.shared.pending.count
+
+            _ = EventHandler.shared.removeTerminatedWindows([target])
+            await EventHandler.shared.handle(.windowDestroyed(windowID: target.id))
+
+            #expect(EventSignals.shared.pending.count == before + 1)
+            #expect(WindowManager.shared.window[target.id] == nil)
+            #expect(WindowManager.shared.window[wid(1)] != nil)
+            #expect(WindowManager.shared.window[wid(3)] != nil)
+        }
+
+        @Test func eventsForAnUnknownWindowDoNothing() async
+        {
+            let (workspace, _) = teardownScenario(2, eligible: true)
+            let before = EventSignals.shared.pending.count
+            let dump = workspace.dump
+            let unknown = wid(99)
+            WindowManager.shared.addLostFocusedEvent(for: unknown)
+
+            await EventHandler.shared.handle(.windowDestroyed(windowID: unknown))
+            await EventHandler.shared.handle(.windowMinimized(windowID: unknown))
+            await EventHandler.shared.handle(.windowDeminimized(windowID: unknown))
+
+            #expect(EventSignals.shared.pending.count == before)
+            #expect(workspace.dump == dump)
+            #expect(WindowManager.shared.window[wid(1)] != nil)
+            #expect(WindowManager.shared.window[wid(3)] != nil)
+            // NOTE: a deminimized event drops the lost focus event of the id, as for an invalid window
+            #expect(!WindowManager.shared.hasLostFocusedEvent(for: unknown))
+        }
+
+        @Test func notificationContextCarriesTheWindowId()
+        {
+            let target = Window(id: wid(7))
+
+            #expect(WindowID(notificationContext: target.notificationContext) == target.id)
+            #expect(WindowID(notificationContext: nil) == nil)
+        }
     }
 }
 

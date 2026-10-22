@@ -11,9 +11,10 @@ import Logging
     var ref: AXUIElement!
     let id: WindowID
 
-    // NOTE: A window stays valid until it is invalidated. Events already queued for a window hold on to it, so their
-    // handlers check that it is still valid before using it. Exactly one caller can invalidate it and then posts its
-    // destruction; a terminated application destroys its windows either way (`EventHandler.removeTerminatedWindows`).
+    // NOTE: A window stays valid until it is invalidated. Queued events carry its id, not the window, so their handlers
+    // look it up on @WM and check that it is still valid before using it. Only the destroyed handler on @WM invalidates
+    // a window, and it tears the window down once; a terminated application removes its windows either way
+    // (`EventHandler.removeTerminatedWindows`).
     let valid = Atomic<Bool>(true)
     var role: CFString?
     var subrole: CFString?
@@ -234,13 +235,22 @@ import Logging
         subrole = axSubrole
     }
 
-    // NOTE: Notifications use the application observer and the window as an unretained context. The callback is
-    // `Application.applicationNotificationHandler`, whose NOTE documents window ownership.
+    /// The AX context of this window's notifications: its id, not a pointer. A callback can run after the window is gone,
+    /// and then it only finds the id (`WindowID(notificationContext:)`).
+    var notificationContext: UnsafeMutableRawPointer? { UnsafeMutableRawPointer(bitPattern: UInt(id.rawValue)) }
+
+    // NOTE: Notifications use the application observer and the window id as their context. The callback is
+    // `Application.applicationNotificationHandler`, whose NOTE documents how the events find the window.
     func observe() -> Bool
     {
         let observerRef = application.observerRef!
+        guard let context = notificationContext else {
+            Logger.windows.debug("\(id): no notification context, not observing")
+            return false
+        }
+
         for notification in axWindowNotifications {
-            let result = observerRef.add(notification.name, for: ref, context: Unmanaged.passUnretained(self).toOpaque())
+            let result = observerRef.add(notification.name, for: ref, context: context)
             if result == .success || result == .notificationAlreadyRegistered {
                 notifications.insert(notification.notification)
             } else {
@@ -299,6 +309,13 @@ private let axWindowNotifications: [(notification: WindowNotifications, name: St
 
 extension WindowID
 {
+    /// The id that a window's AX notification carries as its context; nil for 0, which no window has.
+    init?(notificationContext context: UnsafeMutableRawPointer?)
+    {
+        guard let context else { return nil }
+        self.init(nonzero: UInt32(truncatingIfNeeded: UInt(bitPattern: context)))
+    }
+
     private var displayUUID: String?
     {
         if let uuid = SLS.managedDisplay(SLS.connection, forWindow: self) { return uuid }

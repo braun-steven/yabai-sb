@@ -135,11 +135,12 @@ private let axApplicationNotifications: [(notification: ApplicationNotifications
     (.menuClosed,           kAXMenuClosedNotification,           "kAXMenuClosedNotification"),
 ]
 
-// NOTE: The callback runs on the main run loop and only posts events. Its context is the application (unretained) for
-// application notifications, and the window for those of Window.observe(), which uses the same observer. Both belong
-// to the window manager: the event loop removes notifications before releasing them. A window can be destroyed while
-// its events are queued (they keep it alive), so `.windowDestroyed` is posted only by the caller whose invalidate()
-// succeeds; the handlers check isValid before using a window.
+// NOTE: The callback runs on the main run loop and only posts events, on the main thread it never touches a window.
+// The context is the application (unretained) for application notifications, which do not read it, and the window id
+// for those of Window.observe(), which uses the same observer. An id is no pointer, so a callback that runs after its
+// window is gone only posts the id: the handlers on @WM look the window up and ignore it when it is missing. The
+// handler of `.windowDestroyed` invalidates the window on @WM before it tears the window down, so a window destroyed
+// twice (or destroyed after its application terminated) is torn down once.
 private func applicationNotificationHandler(_ observer: AXObserver, _ element: AXUIElement, _ notification: CFString, _ context: UnsafeMutableRawPointer?)
 {
     switch notification as String {
@@ -159,16 +160,11 @@ private func applicationNotificationHandler(_ observer: AXObserver, _ element: A
     case kAXMenuClosedNotification:
         EventLoop.post(.menuClosed)
     case kAXWindowMiniaturizedNotification:
-        EventLoop.post(.windowMinimized(Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()))
+        if let windowID = WindowID(notificationContext: context) { EventLoop.post(.windowMinimized(windowID: windowID)) }
     case kAXWindowDeminiaturizedNotification:
-        EventLoop.post(.windowDeminimized(Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()))
+        if let windowID = WindowID(notificationContext: context) { EventLoop.post(.windowDeminimized(windowID: windowID)) }
     case kAXUIElementDestroyedNotification:
-        let target = Unmanaged<Window>.fromOpaque(context!).takeUnretainedValue()
-
-        // NOTE: Ignore queued events after invalidation; only the caller that invalidates the window posts destruction.
-        if !target.invalidate() { return }
-
-        EventLoop.post(.windowDestroyed(target))
+        if let windowID = WindowID(notificationContext: context) { EventLoop.post(.windowDestroyed(windowID: windowID)) }
     default:
         break
     }

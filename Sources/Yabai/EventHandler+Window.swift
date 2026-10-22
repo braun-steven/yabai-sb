@@ -43,6 +43,27 @@ extension EventHandler
         Border.refreshSpace(of: window)
     }
 
+    //
+    // NOTE: The destroyed event of a window, handled on @WM. The AX and SkyLight callbacks only post the id. The handler
+    // looks the window up and invalidates it, so the first destroyed event for a window tears it down and any later one
+    // finds the window gone (removed by its termination or its first event) or invalid, and returns.
+    //
+
+    func windowDestroyed(windowID: WindowID)
+    {
+        guard let window = WindowManager.shared.window(for: windowID) else {
+            Logger.events.debug("window destroyed: \(windowID) has already been removed, ignoring event")
+            return
+        }
+
+        if !window.invalidate() {
+            Logger.events.debug("window destroyed: \(windowID) has been marked invalid by the system, ignoring event")
+            return
+        }
+
+        windowDestroyed(window)
+    }
+
     func windowDestroyed(_ window: Window?)
     {
         guard let window, !window.isDestroyed else {
@@ -242,6 +263,17 @@ extension EventHandler
         }
     }
 
+    // NOTE: A window that is gone (removed, so it was invalidated first) has nothing left to minimize.
+    func windowMinimized(windowID: WindowID)
+    {
+        guard let window = WindowManager.shared.window(for: windowID) else {
+            Logger.events.debug("window minimized: \(windowID) has already been removed, ignoring event")
+            return
+        }
+
+        windowMinimized(window)
+    }
+
     func windowMinimized(_ window: Window)
     {
         let wm = WindowManager.shared
@@ -270,6 +302,19 @@ extension EventHandler
 
         Border.refreshSpace(of: window)
         EventSignals.shared.push(.windowMinimized, .window(window))
+    }
+
+    // NOTE: A window that is gone (removed, so it was invalidated first) is ignored like an invalid one, and its lost
+    // focus event is dropped the same way.
+    func windowDeminimized(windowID: WindowID)
+    {
+        guard let window = WindowManager.shared.window(for: windowID) else {
+            Logger.events.debug("window deminimized: \(windowID) has already been removed, ignoring event")
+            WindowManager.shared.removeLostFocusedEvent(for: windowID)
+            return
+        }
+
+        windowDeminimized(window)
     }
 
     func windowDeminimized(_ window: Window)
@@ -334,19 +379,8 @@ extension EventHandler
     {
         Logger.events.debug("SkyLight window destroyed: \(wid)")
 
-        guard let window = WindowManager.shared.window(for: wid) else { return }
-
-        //
-        // NOTE: The AX destroyed notification for the same window can arrive on the main thread at any
-        // time. Claim the window like that callback does, so that it bails out instead of posting a second
-        // WINDOW_DESTROYED event for memory that we are about to free.
-        //
-
-        if !window.invalidate() {
-            Logger.events.debug("SkyLight window destroyed: \(wid) has been marked invalid by the system, ignoring event")
-            return
-        }
-
-        windowDestroyed(window)
+        // NOTE: The AX destroyed notification of the same window may be queued too. The handler invalidates the window,
+        // so whichever arrives second finds it gone and does nothing.
+        windowDestroyed(windowID: wid)
     }
 }

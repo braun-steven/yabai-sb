@@ -119,7 +119,10 @@ current working sources into a fresh temporary directory and checks a complete b
 command, a no-op rebuild, a native-header change, and another no-op build. It then changes the
 Xcode selector to an equivalent selection of the same installation and verifies native cache
 invalidation followed by another no-op. Identical native bytes and C-array timestamps must be
-preserved. Finally it runs the Swift tests, including golden IPC replay.
+preserved. Finally it runs the Swift tests, including golden IPC replay. The copy holds only what the build and
+tests read (`Sources`, `Plugins`, `osax`, `tests`, `Package.swift`, `assets/Info.plist`, two scripts and
+`examples/yabairc`): a test that reads another repository file through `#filePath` passes in `make test` but fails
+here until `scripts/check-build.py` copies that file too.
 
 The check needs only the selected Xcode; it does not switch system-wide `xcode-select`, require a
 second installation, touch the checkout's sources/build caches/`bin/`, or deploy a service.

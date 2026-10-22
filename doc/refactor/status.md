@@ -124,7 +124,7 @@ phase: done · mode: nested
 
 ## Phase 10: IPC features
 
-phase: in-progress · mode: nested
+phase: done · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
@@ -364,6 +364,8 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 
 - 2026-10-23 01:00 · subphase agent · P10.4 · start · `yabai -m subscribe` in the daemon (Response keep-open outcome, EventSubscribers.add with the first line), client, golden row, socketpair acceptance test, docs; gates ci-quick, TSan, ASan
 - 2026-10-23 01:40 · subphase agent · P10.4 · done · `subscribe` keeps the socket (Response.subscribedTypes, MessageLoop.handle hands it to EventSubscribers.add with the first line); batch refuses it; golden `subscribe not_an_event` added; 3 live checks appended to live-checks.md. Gates: `just ci-quick` (365 + 156 tests, 0 warnings), TSan and ASan passed; no deploy, sudo or live action. Next: the phase agent closes P10 (P10.4 is its last subphase). Open: an idle subscriber of a closed client is found only on the next event (Discovered).
+- 2026-10-23 00:58 · phase agent · P10.4 · reviewed · 768dd6de reviewed (keep-open outcome is `Response.subscribedTypes`, `send` untouched; the subscribed line goes through the subscriber's own queue, so it precedes every event; batch refuses subscribe; client drops SO_RCVTIMEO only for subscribe; golden adds only `subscribe not_an_event`; socketpair DaemonState acceptance test; docs, man, CHANGELOG, README, example). Accepted deviation: the unknown-event text is `unknown event '…' for domain 'subscribe'; expected one of: …` (no command token). Note: the handoff times of the subphase agent (01:00, 01:40) are later than the real ones (about 00:47 to 00:56). `just ci-quick` (365 + 156), TSan and ASan re-run, 0 reports
+- 2026-10-23 01:01 · phase agent · P10 · closed · `just ci` passed (build, 365 + 156 tests, release, 11 payload tests, check-build). Summary: P10.1 batch encoding, P10.2 `yabai -m batch` (one message, per-command flush kept: no per-message flush exists; failure prefix is the command index, not the stdin line), P10.3 subscriber registry and JSON event lines, P10.4 `yabai -m subscribe`. Phase gate run under just (makefile gone in P14). Live checks pending: P10.2 (2), P10.4 (3). Next phases: the IPC message loop now has two outcomes (close after the response, or hand the socket to `EventSubscribers`); a closed idle subscriber is noticed only at its next event (Discovered)
 
 ## Discovered
 

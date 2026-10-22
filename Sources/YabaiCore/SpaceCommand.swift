@@ -37,9 +37,10 @@ public enum SpaceCommand: Equatable, Sendable
         }
     }
 
-    public static func unknownValue(_ name: Name, _ value: Token) -> CommandError
+    /// The failure of a command given a value it does not accept; `expected` names the values it takes.
+    public static func unknownValue(_ name: Name, _ value: Token, expected: String) -> CommandError
     {
-        CommandError.unknownValue(Token(Domain.space), Token(name.rawValue), value)
+        CommandError.unknownValue(Token(Domain.space), Token(name.rawValue), value, expected: expected)
     }
 
     public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError) -> SpaceCommand
@@ -56,25 +57,33 @@ public enum SpaceCommand: Equatable, Sendable
         case .equalize: return .equalize(try optionalAxis(value, name))
         case .balance: return .balance(try optionalAxis(value, name))
         case .mirror:
-            guard let axis = SpaceCommandAxis(token: value) else { throw unknownValue(name, value) }
+            guard let axis = SpaceCommandAxis(token: value) else { throw unknownValue(name, value, expected: axisChoices) }
             return .mirror(axis)
         case .rotate:
             let degrees = value.equals("90") ? 90 : value.equals("180") ? 180 : value.equals("270") ? 270 : 0
-            guard degrees != 0 else { throw unknownValue(name, value) }
+            guard degrees != 0 else { throw unknownValue(name, value, expected: "one of: 90, 180, 270") }
             return .rotate(degrees)
         case .padding:
             let scan = value.scanIntegers(field: 255, count: 4)
-            guard scan.assigned == 5, let type = scan.field else { throw unknownValue(name, value) }
+            guard scan.assigned == 5, let type = scan.field else {
+                throw unknownValue(name, value, expected: "abs or rel, then four integers as top:bottom:left:right, e.g. abs:10:10:10:10")
+            }
             return .padding(parseValueType(type), top: Int(scan.values[0]), bottom: Int(scan.values[1]), left: Int(scan.values[2]), right: Int(scan.values[3]))
         case .gap:
             let scan = value.scanIntegers(field: 255, count: 1)
-            guard scan.assigned == 2, let type = scan.field else { throw unknownValue(name, value) }
+            guard scan.assigned == 2, let type = scan.field else {
+                throw unknownValue(name, value, expected: "abs or rel, then one integer, e.g. abs:10")
+            }
             return .gap(parseValueType(type), Int(scan.values[0]))
         case .toggle:
-            guard let toggle = SpaceToggle(token: value) else { throw unknownValue(name, value) }
+            guard let toggle = SpaceToggle(token: value) else {
+                throw unknownValue(name, value, expected: expectedChoices(SpaceToggle.allCases.map(\.rawValue)))
+            }
             return .toggle(toggle)
         case .layout:
-            guard let layout = SpaceCommandLayout(token: value) else { throw unknownValue(name, value) }
+            guard let layout = SpaceCommandLayout(token: value) else {
+                throw unknownValue(name, value, expected: expectedChoices(SpaceCommandLayout.allCases.map(\.rawValue)))
+            }
             return .layout(layout)
         case .label: return .label(value)
         }
@@ -95,9 +104,11 @@ public enum SpaceCommand: Equatable, Sendable
     private static func optionalAxis(_ token: Token, _ name: Name) throws(CommandError) -> SpaceCommandAxis?
     {
         guard token.isValid else { return nil }
-        guard let axis = SpaceCommandAxis(token: token) else { throw unknownValue(name, token) }
+        guard let axis = SpaceCommandAxis(token: token) else { throw unknownValue(name, token, expected: axisChoices) }
         return axis
     }
+
+    private static let axisChoices = expectedChoices(SpaceCommandAxis.allCases.map(\.rawValue))
 }
 
 public enum SpaceCommandAxis: String, CaseIterable, Sendable

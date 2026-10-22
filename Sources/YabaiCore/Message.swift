@@ -304,10 +304,12 @@ public struct CommandError: Error, Sendable, CustomStringConvertible
         CommandError("unknown option '\(option)' given to command '\(command)' for domain '\(domain)'\n")
     }
 
-    /// The failure of a command given a value it does not accept.
-    public static func unknownValue(_ domain: Token, _ command: Token, _ value: Token) -> CommandError
+    /// The failure of a command given a value it does not accept. `expected` names the values it takes, e.g.
+    /// `one of: a, b`, and is appended as `; expected …`.
+    public static func unknownValue(_ domain: Token, _ command: Token, _ value: Token, expected: String? = nil) -> CommandError
     {
-        CommandError("unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
+        let hint = expected.map { "; expected \($0)" } ?? ""
+        return CommandError("unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\(hint)\n")
     }
 }
 

@@ -181,7 +181,7 @@ extension DaemonState
                   w2 0.1667
                   w3 0.5000
                 """),
-            CommandCase(command: "--ratio 0.5", failure: "unknown value '0.5' given to command '--ratio' for domain 'window'\n", result: """
+            CommandCase(command: "--ratio 0.5", failure: "unknown value '0.5' given to command '--ratio' for domain 'window'; expected abs or rel, then a number, e.g. abs:0.5\n", result: """
                 splith focus=1,2,0
                   w1 0.3333
                   w2 0.3333
@@ -231,7 +231,7 @@ extension DaemonState
                     w2 1.0000
                   w3 0.3333
                 """),
-            CommandCase(command: "--split diagonal", failure: "unknown value 'diagonal' given to command '--split' for domain 'window'\n", result: """
+            CommandCase(command: "--split diagonal", failure: "unknown value 'diagonal' given to command '--split' for domain 'window'; expected one of: horizontal, vertical, toggle\n", result: """
                 splith focus=1,2,0
                   w1 0.3333
                   w2 0.3333
@@ -269,7 +269,7 @@ extension DaemonState
                   w2 0.3333
                   w3 0.3333
                 """),
-            CommandCase(command: "--layout grid", failure: "unknown value 'grid' given to command '--layout' for domain 'window'\n", result: """
+            CommandCase(command: "--layout grid", failure: "unknown value 'grid' given to command '--layout' for domain 'window'; expected one of: tabbed, split, toggle, splith, splitv, toggle-split\n", result: """
                 splith focus=1,2,0
                   w1 0.3333
                   w2 0.3333

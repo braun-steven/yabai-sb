@@ -44,19 +44,26 @@ public func parseConfigBool(_ domain: Token, _ command: Token, _ value: Token) t
 {
     if value.equals(Argument.on) { return true }
     if value.equals(Argument.off) { return false }
-    throw CommandError.unknownValue(domain, command, value)
+    throw CommandError.unknownValue(domain, command, value, expected: "on or off")
+}
+
+/// The expected values of a choice, `one of: a, b, c`, in the order given.
+public func expectedChoices(_ choices: [String]) -> String
+{
+    "one of: " + choices.joined(separator: ", ")
 }
 
 //
 // NOTE: A setting whose values are the String raw values of an enum; only the given choices are accepted (e.g.
-// mouse_action1 takes move and resize, not swap).
+// mouse_action1 takes move and resize, not swap). `expected` replaces the list of the choices when some accepted
+// value is not one of them.
 //
 
 /// One of the choices, by its raw value.
-public func parseConfigChoice<Choice: RawRepresentable<String>>(_ domain: Token, _ command: Token, _ value: Token, _ choices: [Choice]) throws(CommandError) -> Choice
+public func parseConfigChoice<Choice: RawRepresentable<String>>(_ domain: Token, _ command: Token, _ value: Token, _ choices: [Choice], expected: String? = nil) throws(CommandError) -> Choice
 {
     if let choice = choices.first(where: { value.equals($0.rawValue) }) { return choice }
-    throw CommandError.unknownValue(domain, command, value)
+    throw CommandError.unknownValue(domain, command, value, expected: expected ?? expectedChoices(choices.map(\.rawValue)))
 }
 
 /// One of every case of the enum, by its raw value.

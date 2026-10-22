@@ -89,7 +89,7 @@ extension WindowCommand
             toggle.apply(to: window)
         case .toggleScratchpad(let label):
             if !WindowManager.shared.toggleScratchpad(withLabel: label.string) {
-                throw WindowCommand.unknownValue(.toggle, label)
+                throw WindowCommand.unknownValue(.toggle, label, expected: expectedChoices(WindowToggle.allCases.map(\.rawValue)) + ", or the label of a scratchpad")
             }
         case .display, .space, .swap, .warp, .stack:
             try runPlacement(on: try requiredWindow(acting))

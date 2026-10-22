@@ -137,10 +137,10 @@ public enum WindowCommand: Equatable, Sendable
         }
     }
 
-    /// The failure of a command given a value it does not accept.
-    public static func unknownValue(_ name: Name, _ value: Token) -> CommandError
+    /// The failure of a command given a value it does not accept; `expected` names the values it takes.
+    public static func unknownValue(_ name: Name, _ value: Token, expected: String) -> CommandError
     {
-        CommandError.unknownValue(Token(Domain.window), Token(name.rawValue), value)
+        CommandError.unknownValue(Token(Domain.window), Token(name.rawValue), value, expected: expected)
     }
 
     //
@@ -178,25 +178,37 @@ public enum WindowCommand: Equatable, Sendable
             return .insert(try parseInsertSelector(value))
         case .grid:
             var grid = Grid()
-            guard grid.parse(value) else { throw unknownValue(name, value) }
+            guard grid.parse(value) else {
+                throw unknownValue(name, value, expected: "six integers as rows:columns:x:y:width:height")
+            }
             return .grid(grid)
         case .move:
             let scan = value.scanFloats(field: 255, count: 2)
-            guard scan.assigned == 3, let type = scan.field, scan.values.allSatisfy(\.isFinite) else { throw unknownValue(name, value) }
+            guard scan.assigned == 3, let type = scan.field, scan.values.allSatisfy(\.isFinite) else {
+                throw unknownValue(name, value, expected: "abs or rel, then two numbers, e.g. rel:10:-5")
+            }
             return .move(parseValueType(type), dx: scan.values[0], dy: scan.values[1])
         case .resize:
             let scan = value.scanFloats(field: 255, count: 2)
-            guard scan.assigned == 3, let handle = scan.field, scan.values.allSatisfy(\.isFinite) else { throw unknownValue(name, value) }
+            guard scan.assigned == 3, let handle = scan.field, scan.values.allSatisfy(\.isFinite) else {
+                throw unknownValue(name, value, expected: "a handle (top, bottom, left, right, top_left, top_right, bottom_left, bottom_right or abs), then two numbers, e.g. top_left:10:-5")
+            }
             return .resize(parseResizeHandle(handle), dx: scan.values[0], dy: scan.values[1])
         case .ratio:
             let scan = value.scanFloats(field: 255, count: 1)
-            guard scan.assigned == 2, let type = scan.field, scan.values[0].isFinite else { throw unknownValue(name, value) }
+            guard scan.assigned == 2, let type = scan.field, scan.values[0].isFinite else {
+                throw unknownValue(name, value, expected: "abs or rel, then a number, e.g. abs:0.5")
+            }
             return .ratio(parseValueType(type), scan.values[0])
         case .subLayer:
-            guard let layer = parseLayer(value) else { throw unknownValue(name, value) }
+            guard let layer = parseLayer(value) else {
+                throw unknownValue(name, value, expected: expectedChoices(WindowLayer.allCases.map(\.rawValue)))
+            }
             return .subLayer(layer)
         case .opacity:
-            guard let opacity = value.value.floatValue, opacity >= 0.0 && opacity <= 1.0 else { throw unknownValue(name, value) }
+            guard let opacity = value.value.floatValue, opacity >= 0.0 && opacity <= 1.0 else {
+                throw unknownValue(name, value, expected: "a number from 0.0 to 1.0")
+            }
             return .opacity(opacity)
         case .raise:
             return .raise(try optionalSelector(value))
@@ -210,10 +222,14 @@ public enum WindowCommand: Equatable, Sendable
             if let label = try parseLabel(value, .window) { return .scratchpad(.assign(label: label.string)) }
             return .scratchpad(.remove)
         case .layout:
-            guard let layout = WindowLayout(token: value) else { throw unknownValue(name, value).stoppingMessage }
+            guard let layout = WindowLayout(token: value) else {
+                throw unknownValue(name, value, expected: expectedChoices(WindowLayout.allCases.map(\.rawValue))).stoppingMessage
+            }
             return .layout(layout)
         case .split:
-            guard let orientation = SplitOrientation(value) else { throw unknownValue(name, value).stoppingMessage }
+            guard let orientation = SplitOrientation(value) else {
+                throw unknownValue(name, value, expected: expectedChoices(["horizontal", "vertical", "toggle"])).stoppingMessage
+            }
             return .split(orientation)
         }
     }

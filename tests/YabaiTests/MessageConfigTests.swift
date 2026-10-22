@@ -30,10 +30,77 @@ struct ConfigCase: CustomTestStringConvertible, Sendable
     /// Whether value is the default (the other rows set a value other than the default).
     var isDefault = false
 
-    var expectedFailure: String { failure ?? "unknown value '\(invalid)' given to command '\(option)' for domain 'config'\n" }
+    var expectedFailure: String
+    {
+        if let failure { return failure }
+        let expected = configExpectations[option] ?? "(no expectation recorded for \(option))"
+        return "unknown value '\(invalid)' given to command '\(option)' for domain 'config'; expected \(expected)\n"
+    }
 
     var testDescription: String { "\(option) \(value)" }
 }
+
+/// What each option of the config domain names as its valid values, the `; expected …` text of its unknown-value failure.
+private let configExpectations: [String: String] = [
+    "debug_output": "on or off",
+    "mouse_follows_focus": "on or off",
+    "focus_follows_mouse": "one of: off, autofocus, autoraise",
+    "display_arrangement_order": "one of: default, horizontal, vertical",
+    "builtin_display_last": "on or off",
+    "window_origin_display": "one of: default, focused, cursor",
+    "window_opacity": "on or off",
+    "window_opacity_duration": "a number of seconds",
+    "window_animation_duration": "a number of seconds (0 turns animations off)",
+    "window_animation_easing": "one of: ease_in_sine, ease_out_sine, ease_in_out_sine, ease_in_quad, ease_out_quad, ease_in_out_quad, ease_in_cubic, ease_out_cubic, ease_in_out_cubic, ease_in_quart, ease_out_quart, ease_in_out_quart, ease_in_quint, ease_out_quint, ease_in_out_quint, ease_in_expo, ease_out_expo, ease_in_out_expo, ease_in_circ, ease_out_circ, ease_in_out_circ",
+    "window_shadow": "one of: on, float, off",
+    "menubar_opacity": "a number from 0.0 to 1.0",
+    "active_window_opacity": "a number above 0.0 and at most 1.0",
+    "normal_window_opacity": "a number above 0.0 and at most 1.0",
+    "insert_feedback_color": "a non-zero hex color such as 0xffe1e3e4",
+    "window_border": "on or off",
+    "window_border_width": "a number above 0.0",
+    "window_border_hide_single": "on or off",
+    "active_window_border_color": "a hex color such as 0xffe1e3e4",
+    "normal_window_border_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar": "on or off",
+    "tab_bar_height": "a positive integer",
+    "tab_bar_offset": "an integer",
+    "tab_bar_font": "a font as family:size, e.g. system:12",
+    "tab_bar_icons": "on or off",
+    "tab_bar_style": "one of: glass, i3",
+    "tab_bar_appearance": "one of: dark, system",
+    "tab_bar_backdrop": "one of: off, glass, blur",
+    "tab_bar_card_padding": "a non-negative integer",
+    "tab_bar_window_radius": "a non-negative integer",
+    "tab_bar_focused_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_focused_text_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_inactive_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_inactive_text_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_unfocused_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_unfocused_text_color": "a hex color such as 0xffe1e3e4",
+    "tab_bar_backdrop_color": "a hex color such as 0xffe1e3e4",
+    "top_padding": "a non-negative integer",
+    "bottom_padding": "a non-negative integer",
+    "left_padding": "a non-negative integer",
+    "right_padding": "a non-negative integer",
+    "window_gap": "a non-negative integer",
+    "layout": "one of: float, tree",
+    "auto_padding": "on or off",
+    "tree_default_orientation": "one of: auto, horizontal, vertical",
+    "tree_workspace_layout": "one of: default, tabbed",
+    "tree_autotiling": "on or off",
+    "focus_wrapping": "one of: off, on, force",
+    "mouse_modifier": "one of: alt, shift, cmd, ctrl, fn",
+    "mouse_action1": "one of: move, resize",
+    "mouse_action2": "one of: move, resize",
+    "mouse_drop_action": "one of: swap, stack",
+    "skip_window_focus_animation": "on or off",
+    "scratchpad_exclusive": "on or off",
+    "scratchpad_raise": "on or off",
+    "scratchpad_below": "on or off",
+    "scratchpad_grid": "off or rows:columns:x:y:width:height, with rows and columns above 0",
+    "space_layout": "off or one or more layouts such as 10:5 or 15 10:5:1b",
+]
 
 /// A config message from words separated by spaces.
 @WM private func runConfigLine(_ words: String) -> String
@@ -322,8 +389,8 @@ extension DaemonState
 
             // NOTE: a failing option writes its failure and the next option still runs; an invalid space_layout stops
             // the message, since its layouts cannot be told apart from the next option
-            #expect(runConfig("top_padding\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'top_padding' for domain 'config'\n7\n")
-            #expect(runConfig("space_layout\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'space_layout' for domain 'config'\n")
+            #expect(runConfig("top_padding\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'top_padding' for domain 'config'; expected a non-negative integer\n7\n")
+            #expect(runConfig("space_layout\0x\0top_padding\0") == "\u{07}unknown value 'x' given to command 'space_layout' for domain 'config'; expected off or one or more layouts such as 10:5 or 15 10:5:1b\n")
         }
 
         @Test("message_config_values")

@@ -52,32 +52,33 @@ private enum WorkspaceLayout: String, CaseIterable
     })
 }
 
-@WM private func integerOption(_ name: ConfigName, get: @escaping @WM () -> Int, parseValue: @escaping @WM (Token) -> Int?, set: @escaping @WM (Int) -> Void) -> ConfigOption
+@WM private func integerOption(_ name: ConfigName, get: @escaping @WM () -> Int, parseValue: @escaping @WM (Token) -> Int?, expected: String, set: @escaping @WM (Int) -> Void) -> ConfigOption
 {
     ConfigOption(name: name, print: { rsp, _ in rsp.write("\(get())\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token) }
+        guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token, expected: expected) }
         return { set(value) }
     })
 }
 
-@WM private func floatOption(_ name: ConfigName, get: @escaping @WM () -> Float, printValue: @escaping @WM (Float) -> String, parseValue: @escaping @WM (Token) -> Float?, set: @escaping @WM (Float) -> Void) -> ConfigOption
+@WM private func floatOption(_ name: ConfigName, get: @escaping @WM () -> Float, printValue: @escaping @WM (Float) -> String, parseValue: @escaping @WM (Token) -> Float?, expected: String, set: @escaping @WM (Float) -> Void) -> ConfigOption
 {
     ConfigOption(name: name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token) }
+        guard let value = parseValue(token) else { throw CommandError.unknownValue(domain, command, token, expected: expected) }
         return { set(value) }
     })
 }
 
 @WM private func colorOption(_ name: ConfigName, get: @escaping @WM () -> RGBAColor, set: @escaping @WM (RGBAColor) -> Void, allowZero: Bool = true) -> ConfigOption
 {
-    ConfigOption(name: name, print: { rsp, _ in rsp.write("0x\(String(get().argb, radix: 16))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
+    let expected = allowZero ? "a hex color such as 0xffe1e3e4" : "a non-zero hex color such as 0xffe1e3e4"
+    return ConfigOption(name: name, print: { rsp, _ in rsp.write("0x\(String(get().argb, radix: 16))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard case .u32(let value) = token.value, allowZero || value != 0 else { throw CommandError.unknownValue(domain, command, token) }
+        guard case .u32(let value) = token.value, allowZero || value != 0 else { throw CommandError.unknownValue(domain, command, token, expected: expected) }
         let color = RGBAColor(hex: value)
         return { set(color) }
     })
@@ -90,7 +91,7 @@ private enum WorkspaceLayout: String, CaseIterable
         guard token.isValid else { return nil }
         let value: FocusFollowsMouse
         if token.equals(Argument.off) { value = .disabled }
-        else { value = try parseConfigChoice(domain, command, token, [FocusFollowsMouse.autofocus, .autoraise]) }
+        else { value = try parseConfigChoice(domain, command, token, [FocusFollowsMouse.autofocus, .autoraise], expected: expectedChoices([Argument.off, "autofocus", "autoraise"])) }
         return { WindowManager.shared.setFocusFollowsMouse(value) }
     })
 }
@@ -109,7 +110,9 @@ private enum WorkspaceLayout: String, CaseIterable
         guard token.isValid else { return nil }
         if token.equals(Argument.off) { return { Config.current.scratchpad.grid = Grid() } }
         var grid = Grid()
-        guard grid.parse(token), grid.rows > 0, grid.columns > 0 else { throw CommandError.unknownValue(domain, command, token) }
+        guard grid.parse(token), grid.rows > 0, grid.columns > 0 else {
+            throw CommandError.unknownValue(domain, command, token, expected: "off or rows:columns:x:y:width:height, with rows and columns above 0")
+        }
         return { Config.current.scratchpad.grid = grid }
     })
 }
@@ -162,7 +165,9 @@ private enum WorkspaceLayout: String, CaseIterable
             guard isLayout(message.peek()) else { break }
             token = message.next()
         }
-        guard !layouts.isEmpty else { throw CommandError.unknownValue(domain, command, token).stoppingMessage }
+        guard !layouts.isEmpty else {
+            throw CommandError.unknownValue(domain, command, token, expected: "off or one or more layouts such as 10:5 or 15 10:5:1b").stoppingMessage
+        }
         let layoutSpec = String(decoding: spec, as: UTF8.self)
         return {
             Config.current.space.spaceLayouts = layouts
@@ -181,7 +186,9 @@ private enum WorkspaceLayout: String, CaseIterable
     ConfigOption(name: .windowAnimationDuration, print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") }, parse: { (domain, command, message, _) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let duration = token.value.floatValue else { throw CommandError.unknownValue(domain, command, token) }
+        guard let duration = token.value.floatValue else {
+            throw CommandError.unknownValue(domain, command, token, expected: "a number of seconds (0 turns animations off)")
+        }
         return { () throws(CommandError) in
             if duration == 0.0 {
                 Config.current.animation.duration = duration
@@ -203,7 +210,7 @@ private enum WorkspaceLayout: String, CaseIterable
         let token = message.next()
         guard token.isValid else { return nil }
         return { () throws(CommandError) in
-            guard TabBar.setFont(token.string) else { throw CommandError.unknownValue(domain, command, token) }
+            guard TabBar.setFont(token.string) else { throw CommandError.unknownValue(domain, command, token, expected: "a font as family:size, e.g. system:12") }
         }
     })
 }
@@ -240,7 +247,7 @@ private enum WorkspaceLayout: String, CaseIterable
     }, parse: { (domain, command, message, selSid) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard case .int(let value) = token.value else { throw CommandError.unknownValue(domain, command, token) }
+        guard case .int(let value) = token.value else { throw CommandError.unknownValue(domain, command, token, expected: "a non-negative integer") }
         return {
             let manager = SpaceManager.shared
             if let selSid {
@@ -264,8 +271,9 @@ private enum WorkspaceLayout: String, CaseIterable
     }, parse: { (domain, command, message, selSid) throws(CommandError) in
         let token = message.next()
         guard token.isValid else { return nil }
-        guard let layout = [ViewType.float, .tree].first(where: { token.equals($0.rawValue) }) else {
-            throw CommandError.unknownValue(domain, command, token)
+        let layouts: [ViewType] = [.float, .tree]
+        guard let layout = layouts.first(where: { token.equals($0.rawValue) }) else {
+            throw CommandError.unknownValue(domain, command, token, expected: expectedChoices(layouts.map(\.rawValue)))
         }
         return { () throws(CommandError) in
             let manager = SpaceManager.shared
@@ -335,19 +343,19 @@ private enum WorkspaceLayout: String, CaseIterable
     choiceOption(.tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style }, set: { Config.current.tabBar.style = $0 }),
     choiceOption(.tabBarAppearance, choices: TabBarAppearance.allCases, get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0 }),
     choiceOption(.tabBarBackdrop, choices: TabBarBackdrop.allCases, get: { Config.current.tabBar.backdrop }, set: { Config.current.tabBar.backdrop = $0 }),
-    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, set: { Config.current.border.width = $0 }),
+    floatOption(.windowBorderWidth, get: { Config.current.border.width }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } }, expected: "a number above 0.0", set: { Config.current.border.width = $0 }),
     colorOption(.activeWindowBorderColor, get: { Config.current.border.activeColor }, set: { Config.current.border.activeColor = $0 }),
     colorOption(.normalWindowBorderColor, get: { Config.current.border.normalColor }, set: { Config.current.border.normalColor = $0 }),
-    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, set: { Config.current.tabBar.height = $0 }),
+    integerOption(.tabBarHeight, get: { Config.current.tabBar.height }, parseValue: { token in if case .int(let value) = token.value, value > 0 { return value }; return nil }, expected: "a positive integer", set: { Config.current.tabBar.height = $0 }),
     integerOption(.tabBarOffset, get: { Config.current.tabBar.offset }, parseValue: { token in
         switch token.value {
         case .int(let value): return value
         case .float(let value) where value == Float(cInt(value)): return cInt(value)
         default: return nil
         }
-    }, set: { Config.current.tabBar.offset = $0 }),
-    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.cardPadding = $0 }),
-    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, set: { Config.current.tabBar.windowRadius = $0 }),
+    }, expected: "an integer", set: { Config.current.tabBar.offset = $0 }),
+    integerOption(.tabBarCardPadding, get: { Config.current.tabBar.cardPadding }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, expected: "a non-negative integer", set: { Config.current.tabBar.cardPadding = $0 }),
+    integerOption(.tabBarWindowRadius, get: { Config.current.tabBar.windowRadius }, parseValue: { token in if case .int(let value) = token.value, value >= 0 { return value }; return nil }, expected: "a non-negative integer", set: { Config.current.tabBar.windowRadius = $0 }),
     colorOption(.tabBarFocusedColor, get: { Config.current.tabBar.focusedColor }, set: { Config.current.tabBar.focusedColor = $0; Config.current.tabBar.focusedColorIsCustom = true }),
     colorOption(.tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor }, set: { Config.current.tabBar.focusedTextColor = $0; Config.current.tabBar.focusedTextColorIsCustom = true }),
     colorOption(.tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor }, set: { Config.current.tabBar.inactiveColor = $0; Config.current.tabBar.inactiveColorIsCustom = true }),
@@ -355,11 +363,11 @@ private enum WorkspaceLayout: String, CaseIterable
     colorOption(.tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor }, set: { Config.current.tabBar.unfocusedColor = $0; Config.current.tabBar.unfocusedColorIsCustom = true }),
     colorOption(.tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor }, set: { Config.current.tabBar.unfocusedTextColor = $0; Config.current.tabBar.unfocusedTextColorIsCustom = true }),
     colorOption(.tabBarBackdropColor, get: { Config.current.tabBar.backdropColor }, set: { Config.current.tabBar.backdropColor = $0; Config.current.tabBar.backdropColorIsCustom = true }),
-    floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, set: { Config.current.window.opacityDuration = $0 }),
+    floatOption(.windowOpacityDuration, get: { Config.current.window.opacityDuration }, printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue }, expected: "a number of seconds", set: { Config.current.window.opacityDuration = $0 }),
     // NOTE: An opacity is printed with 4 decimals. Only the menubar accepts 0, windows need an opacity above 0.
-    floatOption(.menubarOpacity, get: { Config.current.menuBar.opacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.menuBar.opacity = $0 }),
-    floatOption(.activeWindowOpacity, get: { Config.current.windowOpacity.active }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.windowOpacity.active = $0 }),
-    floatOption(.normalWindowOpacity, get: { Config.current.windowOpacity.normal }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, set: { Config.current.windowOpacity.normal = $0 }),
+    floatOption(.menubarOpacity, get: { Config.current.menuBar.opacity }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } }, expected: "a number from 0.0 to 1.0", set: { Config.current.menuBar.opacity = $0 }),
+    floatOption(.activeWindowOpacity, get: { Config.current.windowOpacity.active }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, expected: "a number above 0.0 and at most 1.0", set: { Config.current.windowOpacity.active = $0 }),
+    floatOption(.normalWindowOpacity, get: { Config.current.windowOpacity.normal }, printValue: { cFormat("%.4f", Double($0)) }, parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } }, expected: "a number above 0.0 and at most 1.0", set: { Config.current.windowOpacity.normal = $0 }),
     colorOption(.insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor }, set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
     scratchpadGridOption(),
     spaceLayoutOption(),

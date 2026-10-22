@@ -385,63 +385,63 @@ main:1:2
 ### 74 config space_layout 1001
 invalid value '1001' given to command 'space_layout' for domain 'config'
 
-### 70 config window_gap -1
-unknown value '-1' given to command 'window_gap' for domain 'config'
+### 103 config window_gap -1
+unknown value '-1' given to command 'window_gap' for domain 'config'; expected a non-negative integer
 
-### 71 config window_gap 1.5
-unknown value '1.5' given to command 'window_gap' for domain 'config'
+### 104 config window_gap 1.5
+unknown value '1.5' given to command 'window_gap' for domain 'config'; expected a non-negative integer
 
 ### 2 config window_gap ''
 8
 
-### 79 config window_border_width -0
-unknown value '-0' given to command 'window_border_width' for domain 'config'
+### 108 config window_border_width -0
+unknown value '-0' given to command 'window_border_width' for domain 'config'; expected a number above 0.0
 
 ### 0 config tab_bar_offset 1e3
 
 ### 5 config tab_bar_offset
 1000
 
-### 83 config tab_bar_height 99999999999
-unknown value '99999999999' given to command 'tab_bar_height' for domain 'config'
+### 112 config tab_bar_height 99999999999
+unknown value '99999999999' given to command 'tab_bar_height' for domain 'config'; expected a positive integer
 
 ### 3 config tab_bar_height
 30
 
-### 81 config insert_feedback_color 0x
-unknown value '0x' given to command 'insert_feedback_color' for domain 'config'
+### 131 config insert_feedback_color 0x
+unknown value '0x' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4
 
-### 74 config mouse_modifier é
-unknown value 'é' given to command 'mouse_modifier' for domain 'config'
+### 118 config mouse_modifier é
+unknown value 'é' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn
 
 ### 0 config ''
 
-### 79 config window_gap top_padding
-unknown value 'top_padding' given to command 'window_gap' for domain 'config'
+### 112 config window_gap top_padding
+unknown value 'top_padding' given to command 'window_gap' for domain 'config'; expected a non-negative integer
 
 ### 58 config nonexistent_option
 unknown command 'nonexistent_option' for domain 'config'
 
-### 71 config window_gap abc
-unknown value 'abc' given to command 'window_gap' for domain 'config'
+### 104 config window_gap abc
+unknown value 'abc' given to command 'window_gap' for domain 'config'; expected a non-negative integer
 
-### 77 config mouse_modifier hyper
-unknown value 'hyper' given to command 'mouse_modifier' for domain 'config'
+### 121 config mouse_modifier hyper
+unknown value 'hyper' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn
 
-### 82 config focus_follows_mouse bogus
-unknown value 'bogus' given to command 'focus_follows_mouse' for domain 'config'
+### 126 config focus_follows_mouse bogus
+unknown value 'bogus' given to command 'focus_follows_mouse' for domain 'config'; expected one of: off, autofocus, autoraise
 
-### 84 config window_opacity_duration abc
-unknown value 'abc' given to command 'window_opacity_duration' for domain 'config'
+### 114 config window_opacity_duration abc
+unknown value 'abc' given to command 'window_opacity_duration' for domain 'config'; expected a number of seconds
 
-### 80 config insert_feedback_color 0
-unknown value '0' given to command 'insert_feedback_color' for domain 'config'
+### 130 config insert_feedback_color 0
+unknown value '0' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4
 
-### 82 config active_window_opacity 2.0
-unknown value '2.0' given to command 'active_window_opacity' for domain 'config'
+### 127 config active_window_opacity 2.0
+unknown value '2.0' given to command 'active_window_opacity' for domain 'config'; expected a number above 0.0 and at most 1.0
 
-### 76 config tab_bar_style bogus
-unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'
+### 104 config tab_bar_style bogus
+unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3
 
 ### 53 config --space nolabel window_gap
 value 'nolabel' is not a valid option for SPACE_SEL

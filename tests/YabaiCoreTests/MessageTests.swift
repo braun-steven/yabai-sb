@@ -159,7 +159,7 @@ private enum TestAction: String, CaseIterable
     #expect(try parseConfigBool(domain, command, Token("off")) == false)
 
     let text = thrownText { () throws(CommandError) in _ = try parseConfigBool(domain, command, Token("yes")) }
-    #expect(text == "unknown value 'yes' given to command 'test' for domain 'config'\n")
+    #expect(text == "unknown value 'yes' given to command 'test' for domain 'config'; expected on or off\n")
 }
 
 @Test("A config choice is one of the accepted raw values, and the CaseIterable overload accepts every case")
@@ -171,7 +171,7 @@ func messageConfigChoice() throws
 
     // NOTE: values of the enum outside of the accepted choices are rejected
     let text = thrownText { () throws(CommandError) in _ = try parseConfigChoice(domain, command, Token("swap"), choices) }
-    #expect(text == "unknown value 'swap' given to command 'test' for domain 'config'\n")
+    #expect(text == "unknown value 'swap' given to command 'test' for domain 'config'; expected one of: move, resize\n")
 
     let chosen: TestAction = try parseConfigChoice(domain, command, Token("swap"))
     #expect(chosen == .swap)
@@ -417,16 +417,16 @@ func windowCommandValue(_ text: String, _ command: WindowCommand)
 private let windowCommandFailureRows: [(String, String, Bool)] = [
     ("--focus\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", true),
     ("--swap\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", false),
-    ("--layout\0stacked\0", "unknown value 'stacked' given to command '--layout' for domain 'window'\n", true),
-    ("--split\0diagonal\0", "unknown value 'diagonal' given to command '--split' for domain 'window'\n", true),
-    ("--opacity\01.5\0", "unknown value '1.5' given to command '--opacity' for domain 'window'\n", false),
-    ("--grid\0a\0", "unknown value 'a' given to command '--grid' for domain 'window'\n", false),
-    ("--move\0rel:nan:0\0", "unknown value 'rel:nan:0' given to command '--move' for domain 'window'\n", false),
-    ("--move\0abs:0:-inf\0", "unknown value 'abs:0:-inf' given to command '--move' for domain 'window'\n", false),
-    ("--resize\0right:nan:0\0", "unknown value 'right:nan:0' given to command '--resize' for domain 'window'\n", false),
-    ("--resize\0right:inf:0\0", "unknown value 'right:inf:0' given to command '--resize' for domain 'window'\n", false),
-    ("--ratio\0abs:nan\0", "unknown value 'abs:nan' given to command '--ratio' for domain 'window'\n", false),
-    ("--ratio\0rel:-inf\0", "unknown value 'rel:-inf' given to command '--ratio' for domain 'window'\n", false),
+    ("--layout\0stacked\0", "unknown value 'stacked' given to command '--layout' for domain 'window'; expected one of: tabbed, split, toggle, splith, splitv, toggle-split\n", true),
+    ("--split\0diagonal\0", "unknown value 'diagonal' given to command '--split' for domain 'window'; expected one of: horizontal, vertical, toggle\n", true),
+    ("--opacity\01.5\0", "unknown value '1.5' given to command '--opacity' for domain 'window'; expected a number from 0.0 to 1.0\n", false),
+    ("--grid\0a\0", "unknown value 'a' given to command '--grid' for domain 'window'; expected six integers as rows:columns:x:y:width:height\n", false),
+    ("--move\0rel:nan:0\0", "unknown value 'rel:nan:0' given to command '--move' for domain 'window'; expected abs or rel, then two numbers, e.g. rel:10:-5\n", false),
+    ("--move\0abs:0:-inf\0", "unknown value 'abs:0:-inf' given to command '--move' for domain 'window'; expected abs or rel, then two numbers, e.g. rel:10:-5\n", false),
+    ("--resize\0right:nan:0\0", "unknown value 'right:nan:0' given to command '--resize' for domain 'window'; expected a handle (top, bottom, left, right, top_left, top_right, bottom_left, bottom_right or abs), then two numbers, e.g. top_left:10:-5\n", false),
+    ("--resize\0right:inf:0\0", "unknown value 'right:inf:0' given to command '--resize' for domain 'window'; expected a handle (top, bottom, left, right, top_left, top_right, bottom_left, bottom_right or abs), then two numbers, e.g. top_left:10:-5\n", false),
+    ("--ratio\0abs:nan\0", "unknown value 'abs:nan' given to command '--ratio' for domain 'window'; expected abs or rel, then a number, e.g. abs:0.5\n", false),
+    ("--ratio\0rel:-inf\0", "unknown value 'rel:-inf' given to command '--ratio' for domain 'window'; expected abs or rel, then a number, e.g. abs:0.5\n", false),
     ("--scratchpad\0float\0", "'float' is a reserved keyword and cannot be used as a scratchpad.\n", false),
     ("--space\0", "value '' is not a valid option for SPACE_SEL\n", false),
 ]
@@ -497,7 +497,7 @@ func spaceCommandValue(_ text: String, _ command: SpaceCommand)
 }
 
 private let spaceCommandFailureRows: [(String, String, Bool)] = [
-    ("--rotate\0" + "45\0", "unknown value '45' given to command '--rotate' for domain 'space'\n", false),
+    ("--rotate\0" + "45\0", "unknown value '45' given to command '--rotate' for domain 'space'; expected one of: 90, 180, 270\n", false),
     ("--destroy\01.2\0", "value '1.2' is not a valid option for SPACE_SEL\n", true),
 ]
 

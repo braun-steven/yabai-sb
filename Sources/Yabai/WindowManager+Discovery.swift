@@ -228,6 +228,8 @@ extension WindowManager
 
     private func debugWindowInfo(_ target: Window)
     {
-        Logger.windows.debug("window info: \(String(decoding: JSON.encode(target.info(Set(WindowInfo.Key.allCases))), as: UTF8.self))")
+        let info = target.info(Set(WindowInfo.Key.allCases))
+        let json = (try? JSON.encode(info)).map { String(decoding: $0, as: UTF8.self) } ?? "<not encodable>"
+        Logger.windows.debug("window info: \(json)")
     }
 }

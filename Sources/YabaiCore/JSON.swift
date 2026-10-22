@@ -10,7 +10,7 @@ public enum JSON
     //
 
     /// The compact json of a query response, with sorted keys and unescaped slashes.
-    public static func encode(_ value: some Encodable) -> [UInt8]
+    public static func encode(_ value: some Encodable) throws(CommandError) -> [UInt8]
     {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -19,7 +19,7 @@ public enum JSON
         do {
             return Array(try encoder.encode(value))
         } catch {
-            preconditionFailure("could not encode query json: \(error)")
+            throw CommandError("could not encode query json\n")
         }
     }
 }

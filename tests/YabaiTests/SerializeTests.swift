@@ -56,7 +56,7 @@ extension DaemonState
             testView.tree = root
 
             let tree = try #require(testView.treeNode())
-            let text = String(decoding: JSON.encode(tree), as: UTF8.self)
+            let text = String(decoding: try JSON.encode(tree), as: UTF8.self)
             #expect(text.hasPrefix("{\"focused\":false,"))
             #expect(text.contains("\"layout\":\"splith\""))
             #expect(text.contains("\"layout\":\"tabbed\""))

@@ -10,9 +10,9 @@ import YabaiCore
 
 extension WindowManager
 {
-    func queryWindowRules(into response: inout Response)
+    func queryWindowRules(into response: inout Response) throws(CommandError)
     {
-        response.write(json: rules.enumerated().map { $1.info(index: $0) })
+        try response.write(json: rules.enumerated().map { $1.info(index: $0) })
     }
 
     // NOTE: Matching rule effects combine in WindowManager.rules order; matching one-shot rules are marked for removal.

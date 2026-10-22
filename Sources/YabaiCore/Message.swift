@@ -364,9 +364,9 @@ public struct Response: Sendable
     }
 
     /// Writes the json of a query response and a newline.
-    public mutating func write(json value: some Encodable)
+    public mutating func write(json value: some Encodable) throws(CommandError)
     {
-        bytes += JSON.encode(value)
+        bytes += try JSON.encode(value)
         bytes.append(UInt8(ascii: "\n"))
     }
 

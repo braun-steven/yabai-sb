@@ -15,14 +15,14 @@ import YabaiCore
     case .displays(let properties, let target):
         guard let target = try resolve(target, context) else { return }
         switch target {
-        case .all:              rsp.write(json: DisplayID.all.map { $0.info(properties) })
-        case .display(let did): rsp.write(json: did.info(properties))
+        case .all:              try rsp.write(json: DisplayID.all.map { $0.info(properties) })
+        case .display(let did): try rsp.write(json: did.info(properties))
         case .space(let sid):
             guard let did = sid.display else { throw CommandError("could not find display details.\n") }
-            rsp.write(json: did.info(properties))
+            try rsp.write(json: did.info(properties))
         case .window(let window):
             guard let window, let did = window.id.displayID else { throw CommandError("could not find window to retrieve display details.\n") }
-            rsp.write(json: did.info(properties))
+            try rsp.write(json: did.info(properties))
         }
     case .spaces(let properties, let target):
         guard let target = try resolve(target, context) else { return }
@@ -31,29 +31,29 @@ import YabaiCore
         case .all:
             let spaceList = SpaceID.all
             if spaceList.isEmpty { throw CommandError("could not retrieve spaces for displays.\n") }
-            rsp.write(json: sm.spaceInfos(spaceList, properties))
+            try rsp.write(json: sm.spaceInfos(spaceList, properties))
         case .display(let did):
             guard let spaceList = did.spaces else { throw CommandError("could not retrieve spaces for display.\n") }
-            rsp.write(json: sm.spaceInfos(spaceList, properties))
+            try rsp.write(json: sm.spaceInfos(spaceList, properties))
         case .space(let sid):
             guard let view = sm.queryView(for: sid) else { throw CommandError("could not retrieve space details.\n") }
-            rsp.write(json: view.info(properties))
+            try rsp.write(json: view.info(properties))
         case .window(let window):
             guard let window else { throw CommandError("could not find window to retrieve space details.\n") }
             // NOTE: A window on no space prints nothing.
             let spaceList = window.id.spaces
-            if !spaceList.isEmpty { rsp.write(json: sm.spaceInfos(spaceList, properties)) }
+            if !spaceList.isEmpty { try rsp.write(json: sm.spaceInfos(spaceList, properties)) }
         }
     case .windows(let properties, let target):
         guard let target = try resolve(target, context) else { return }
         let wm = WindowManager.shared
         switch target {
-        case .all:              rsp.write(json: wm.windowInfos(on: SpaceID.all, properties))
-        case .display(let did): rsp.write(json: wm.windowInfos(on: did.spaces ?? [], properties))
-        case .space(let sid):   rsp.write(json: wm.windowInfos(on: [sid], properties))
+        case .all:              try rsp.write(json: wm.windowInfos(on: SpaceID.all, properties))
+        case .display(let did): try rsp.write(json: wm.windowInfos(on: did.spaces ?? [], properties))
+        case .space(let sid):   try rsp.write(json: wm.windowInfos(on: [sid], properties))
         case .window(let window):
             guard let window else { throw CommandError("could not retrieve window details.\n") }
-            rsp.write(json: window.info(properties))
+            try rsp.write(json: window.info(properties))
         }
     case .tree(let selector):
         let sid: SpaceID?
@@ -66,7 +66,7 @@ import YabaiCore
         guard let sid, let tree = SpaceManager.shared.view(for: sid).treeNode() else {
             throw CommandError("the selected space does not use the tree layout.\n")
         }
-        rsp.write(json: tree)
+        try rsp.write(json: tree)
     }
 }
 
@@ -140,7 +140,7 @@ private enum ResolvedQueryTarget
             if !WindowManager.shared.removeRule(label: label.string) { throw CommandError("rule with label '\(label)' not found.\n") }
         }
     case .list:
-        WindowManager.shared.queryWindowRules(into: &rsp)
+        try WindowManager.shared.queryWindowRules(into: &rsp)
     case .ignore:
         break
     }
@@ -159,6 +159,6 @@ private enum ResolvedQueryTarget
             if !EventSignals.shared.table.remove(label: label.string) { throw CommandError("signal with label '\(label)' not found.\n") }
         }
     case .list:
-        rsp.write(json: EventSignals.shared.table.list())
+        try rsp.write(json: EventSignals.shared.table.list())
     }
 }

@@ -106,9 +106,14 @@ public struct WindowInfo: Sendable
 extension KeyedEncodingContainer where Key: Hashable
 {
     /// Encodes the value when its key is selected.
-    mutating func encode(_ value: some Encodable, forKey key: Key, in selection: Set<Key>) throws
+    mutating func encode(_ value: some Encodable, forKey key: Key, in selection: Set<Key>) throws(CommandError)
     {
-        if selection.contains(key) { try encode(value, forKey: key) }
+        guard selection.contains(key) else { return }
+        do {
+            try encode(value, forKey: key)
+        } catch {
+            throw CommandError("could not encode query json\n")
+        }
     }
 }
 

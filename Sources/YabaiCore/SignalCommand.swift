@@ -36,7 +36,7 @@ public enum SignalCommand
             var signal = EventSignal()
             var event: SignalType?
             try parseSignal(&message, &signal, &event) { SignalType(name: $0) }
-            guard let event else { preconditionFailure("parseSignal requires an event") }
+            guard let event else { throw CommandError("missing required key-value pair 'event=..'\n") }
             return .add(signal, event)
 
         case .remove:

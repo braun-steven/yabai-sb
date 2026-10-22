@@ -78,7 +78,7 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
     return signal
 }
 
-@Test func signalTableAddsRemovesAndLists()
+@Test func signalTableAddsRemovesAndLists() throws
 {
     var table = SignalTable()
     #expect(table.list().isEmpty)
@@ -94,11 +94,11 @@ private func signal(_ label: String?, _ command: String) -> EventSignal
     titled.active = false
     table.add(titled, .applicationLaunched)
     // NOTE: SignalInfo's memberwise init is internal, so the entries are compared as their json.
-    #expect(String(decoding: JSON.encode(table.list()), as: UTF8.self) == "[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"},"
+    #expect(String(decoding: try JSON.encode(table.list()), as: UTF8.self) == "[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"},"
                           + "{\"action\":\"x\",\"active\":false,\"app\":\"\",\"event\":\"application_launched\",\"index\":1,\"label\":\"\",\"title\":\"^T$\"},"
                           + "{\"action\":\"echo a\",\"active\":null,\"app\":\"\",\"event\":\"window_focused\",\"index\":2,\"label\":\"a\",\"title\":\"\"},"
                           + "{\"action\":\"echo \\\"c\\\"\",\"active\":null,\"app\":\"\",\"event\":\"window_focused\",\"index\":3,\"label\":\"c\",\"title\":\"\"}]")
-    #expect(String(decoding: JSON.encode(table.list()), as: UTF8.self).hasPrefix("[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"}"))
+    #expect(String(decoding: try JSON.encode(table.list()), as: UTF8.self).hasPrefix("[{\"action\":\"echo b\",\"active\":null,\"app\":\"\",\"event\":\"application_launched\",\"index\":0,\"label\":\"\",\"title\":\"\"}"))
 
     // NOTE: a signal replaces the signal with its label, also of another event type
     table.add(signal("a", "echo moved"), .spaceChanged)

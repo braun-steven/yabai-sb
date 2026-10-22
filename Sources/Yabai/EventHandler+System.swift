@@ -81,15 +81,13 @@ extension EventHandler
     }
 
     //
-    // NOTE: The AX exit and the fallback check can both end the session, in either order. The first one that runs ends
-    // it, and the exit of the other one is a no-op: it is guarded by the mode, and the cancel drops a check that is
-    // still pending or in flight. An exit without an active session does nothing (before, it restored the menu bar
-    // alpha and pushed a mission_control_exit signal with mode inactive).
+    // NOTE: The exit cancels the fallback check, pending or in flight, so the check cannot end a session after the AX
+    // exit. An exit without an active session still restores the menu bar alpha and pushes the mission_control_exit
+    // signal with mode inactive, as before.
     //
 
     func missionControlExit()
     {
-        guard MissionControl.shared.isActive else { return }
         EventLoop.cancel(key: .missionControlCheck)
 
         Logger.events.debug("mission control exit")

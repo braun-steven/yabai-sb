@@ -404,11 +404,11 @@ extension DaemonState
 
 extension DaemonState
 {
-    @Test("mission_control_exit_runs_once") @WM func missionControlExitRunsOnce()
+    @Test("mission_control_exit_without_session_still_signals") @WM func missionControlExitWithoutSessionStillSignals()
     {
         //
-        // NOTE: The AX exit and the fallback check can both end a Mission Control session. The first exit ends it and
-        // pushes one signal; the second one finds no session and does nothing.
+        // NOTE: An exit without an active session (for example after a missed AX show notification) still pushes the
+        // mission_control_exit signal with mode inactive, as it did before the fallback check moved to AX.
         //
 
         var signal = EventSignal()
@@ -421,6 +421,6 @@ extension DaemonState
         EventHandler.shared.missionControlExit()
 
         #expect(MissionControl.shared.mode == .inactive)
-        #expect(EventSignals.shared.pending.dropFirst(first).map { $0.type.name } == ["mission_control_exit"])
+        #expect(EventSignals.shared.pending.dropFirst(first).map { $0.type.name } == ["mission_control_exit", "mission_control_exit"])
     }
 }

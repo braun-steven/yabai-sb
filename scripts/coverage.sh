@@ -2,7 +2,7 @@
 #
 # Line coverage of Sources/ by the Swift tests: runs `swift test --enable-code-coverage` and prints lines, missed
 # lines and line coverage per file, then the total. An optional argument is an extended regex of the files to show,
-# e.g. `scripts/coverage.sh 'Con|TreeView'`. SWIFT and SWIFT_FLAGS select the driver like the makefile.
+# e.g. `scripts/coverage.sh 'Con|TreeView'`. SWIFT and SWIFT_FLAGS select the driver like the justfile.
 #
 
 set -euo pipefail

@@ -179,7 +179,7 @@ phase: in-progress · mode: nested
 | ID | Title | Status | Notes |
 |---|---|---|---|
 | P14.1 | Install just and add a `justfile` with every make target | done | Added all make recipes as just recipes; `just` 1.59.0 installed with Homebrew. Golden args and `SWIFT_FLAGS` each ran only 2 tests; escaped-plus coverage selected `WindowManager+Tree.swift`; list/format checks, make/just version builds (`yabai-v7.1.25`), archive/publish dry-run comparison, `make ci` and `just ci` passed. Deviation: fixed `scripts/coverage.sh` to pass its regex via `ENVIRON` because macOS awk `-v` stripped `\+`; documented the pitfall in `doc/building.md`. |
-| P14.2 | Scripts and `update-yabai-fork` call just | todo | |
+| P14.2 | Scripts and `update-yabai-fork` call just | done | `scripts/ci.sh` runs just recipes (build uses `just build`), `deploy.sh` uses just, and script comments name the justfile. `~/.local/bin/update-yabai-fork` now resolves and validates just once and uses `--justfile` for check-build/install; its original was backed up to `~/.local/state/yabai/update-yabai-fork.before-just` (the bin path is a symlink into dotfiles). `just ci` passed all five gates with 0 warnings; `bash -n` passed for all three scripts and the updater. `rg 'make ' scripts` found only English AppleScript strings. The updater live check is recorded but not run. The external before/after lines are in the commit body. |
 | P14.3 | Delete the makefile and move the docs to just | todo | |
 
 ## Handoff log
@@ -190,6 +190,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 22:51 · phase agent · P14 · start (nested; user-authorized prerequisite override) · start P14.1 with just 1.59.0; user requested Sol 6.1/Luna model substitution
 - 2026-10-22 23:02 · subphase agent · P14.1 · start · add justfile and verify make-target parity; coverage acceptance requires fixing awk backslash loss
 - 2026-10-22 23:02 · subphase agent · P14.1 · done · just 1.59.0 installed; justfile, coverage ENVIRON fix and building pitfall note committed after acceptance gates; parent phase agent reviews commit and starts P14.2
+- 2026-10-22 · subphase agent · P14.2 · start · update CI and deploy scripts plus the authorized external updater; backup created before editing
 - 2026-10-22 13:23 · phase agent · P1 · start (nested) · start P1.1 subphase agent
 - 2026-10-22 13:23 · subphase agent · P1.1 · start · add scripts/ci.sh, makefile targets, docs; run gates
 - 2026-10-22 13:40 · subphase agent · P1.1 · done · P1.2 (OSAXEmbed inputs) is next; it depends on P1.1 and can start now
@@ -349,6 +350,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 22:43 · subphase agent · P10.3 · done · `EventSubscribers` registry, `eventJSONLine` encoder and the push/flush hook; a line over the 1 MiB backlog ends the subscriber (shutdown wakes a blocked write, fd closed on its queue, removal via `.eventSubscriberRemoved`). Tests: 4 YabaiCore rows, 4 socketpair tests and 1 DaemonState test. Gates: `make ci-quick` (362 + 151, 0 warnings), TSan and ASan passed, new tests 6 of 6. Deviation recorded in the P10.3 row: keys sorted, so `event` is not first. No live check. Next: P10.4 (`yabai -m subscribe`) builds on this; it must add the keep-open outcome and the subscribe domain, and `handleMessage` must not close the fd it hands over
 - 2026-10-22 22:50 · phase agent · P10.3 · reviewed · 14199c28 reviewed (writes on per-subscriber queues, @WM only enqueues; backlog ends via shutdown, fd closed once on its own queue, removal posted as `.eventSubscriberRemoved`; SO_NOSIGPIPE + 5 s SO_SNDTIMEO; sorted keys, so `event` is not always first); `make ci-quick` (362 + 151), TSan and ASan re-run, new tests 5 of 5 runs, all pass; next P10.4
 - 2026-10-22 23:00 · orchestrator · P10 · paused (user stop: usage limit) · P10.1–P10.3 done and reviewed; P10.4 not started (its agent was only reading, no changes). Next session: run the orchestrator procedure; it starts a phase-10 agent that resumes at P10.4, then closes P10 and continues with phases 11–14
+- 2026-10-22 23:06 · subphase agent · P14.2 · done · CI/deploy/updater now use just; external updater backup and exact before/after edits recorded in commit; `just ci` passed all gates, syntax and script scan passed. Live updater check added, not run. Commit 114f48d3 is ready for phase-agent review; then start P14.3
 
 ## Discovered
 

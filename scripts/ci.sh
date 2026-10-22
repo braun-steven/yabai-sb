@@ -4,7 +4,7 @@
 # build, the payload tests and the upgrade checks. Each step writes its full output to .build/ci/<step>.log and
 # prints one line: PASS|FAIL <step> <seconds>s <log>. A step also fails on a compiler or linker warning that is not
 # listed in scripts/ci-warning-allowlist.txt. The first failing step stops the run and prints its details.
-# SWIFT and SWIFT_FLAGS come from the makefile (`make ci-quick`, `make ci`); they default like the makefile.
+# SWIFT and SWIFT_FLAGS come from the justfile (`just ci-quick`, `just ci`); they default like the justfile.
 #
 
 set -euo pipefail
@@ -16,6 +16,11 @@ case $mode in
 esac
 
 cd "$(dirname "$0")/.."
+
+if ! JUST=$(command -v just); then
+    echo "just is required to run CI; install it with: brew install just" >&2
+    exit 1
+fi
 
 export SWIFT=${SWIFT:-xcrun swift}
 export SWIFT_FLAGS=${SWIFT_FLAGS:-}
@@ -51,7 +56,7 @@ run_step() {
     local log=$log_dir/$name.log
     local start=$SECONDS rc=0 warnings seconds
 
-    make "$target" > "$log" 2>&1 || rc=$?
+    "$JUST" "$target" > "$log" 2>&1 || rc=$?
 
     warnings=$(warnings_in "$log")
     seconds=$((SECONDS - start))
@@ -80,7 +85,7 @@ run_step() {
     return 1
 }
 
-run_step build all
+run_step build build
 run_step test test
 if [[ $mode == full ]]; then
     run_step install install

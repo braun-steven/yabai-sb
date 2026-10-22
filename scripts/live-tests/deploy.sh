@@ -25,7 +25,7 @@ case $VARIANT in
     install|asan|tsan) ;;
     *) echo "usage: deploy.sh [install|asan|tsan|restore]"; exit 1 ;;
 esac
-make $VARIANT > $S/build.log 2>&1 || { tail -30 $S/build.log; exit 1; }
+just $VARIANT > $S/build.log 2>&1 || { tail -30 $S/build.log; exit 1; }
 grep "warning:" $S/build.log | head || true
 cp bin/yabai $S/yabai.new
 codesign --force --sign 3A6E8695062DDC7C02B02042FB3DB70B41E75409 $S/yabai.new

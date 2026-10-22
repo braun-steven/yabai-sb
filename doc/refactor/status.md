@@ -358,6 +358,8 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 
 - 2026-10-22 23:20 · orchestrator · P14.1 · follow-up review fixed · exported SWIFT/SWIFT_FLAGS instead of interpolating them as shell source, disabled glob expansion for whitespace-separated override words in Just and coverage, made SDKROOT fallback conditional (preserving an explicitly empty value), scoped positional arguments to test recipes, marked build as default, quoted paths and corrected the signing comment. Focused temporary-driver checks passed for literal dollar signs/wildcards/command substitutions, spaces and quotes in positional arguments, prepare/lint, escaped-plus coverage and existing/empty/failing SDK selection. Formatting, bash syntax and `git diff --check` passed. Full `just ci` passed build, 362 + 151 tests, release, 11 payload tests and isolated check-build (68s). No live actions.
 
+- 2026-10-22 23:25 · orchestrator · P14.1 · simplify follow-up · removed fixed-path variables and their quote/path expressions, and shortened long recipe comments. Dynamic coverage-filter quoting, strict Bash, exported overrides, conditional SDK lookup, scoped positional arguments, explicit default and shared publishing remain. Archive/publish/clean/CI/test dry-runs match after removing redundant fixed-path quotes; formatting and `git diff --check` passed. `just ci-quick` passed build and all 362 + 151 tests. No live actions.
+
 ## Discovered
 
 Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.

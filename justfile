@@ -1,11 +1,6 @@
 # Split SWIFT/SWIFT_FLAGS on whitespace without expanding wildcard characters.
 set shell := ["bash", "-efuo", "pipefail", "-c"]
 
-build_path := "bin"
-doc_path := "doc"
-script_path := "scripts"
-archive_path := "archive"
-
 # SWIFT selects only the outer driver. DEVELOPER_DIR/TOOLCHAINS select tools for both builds.
 export SWIFT := env("SWIFT", "xcrun swift")
 export SWIFT_FLAGS := env("SWIFT_FLAGS", "")
@@ -13,16 +8,16 @@ export SWIFT_FLAGS := env("SWIFT_FLAGS", "")
 # Package.swift reads it to stamp the right SDK version into the binary.
 export SDKROOT := `if [[ ${SDKROOT+x} ]]; then printf '%s' "$SDKROOT"; else xcrun --sdk macosx --show-sdk-path; fi`
 
-# Build with SwiftPM and publish only after success, keeping the previous executable and other bin/ artifacts on failure.
+# Build with SwiftPM; preserve the previous executable if building or copying fails.
 [default]
 build: (_publish "--configuration debug")
 
 [private]
 _publish build_flags:
     $SWIFT build --product yabai --arch arm64 $SWIFT_FLAGS {{ build_flags }}
-    mkdir -p {{ quote(build_path) }}
-    cp "$($SWIFT build --product yabai --arch arm64 $SWIFT_FLAGS {{ build_flags }} --show-bin-path)/yabai" {{ quote(build_path / ".yabai.tmp") }}
-    mv -f {{ quote(build_path / ".yabai.tmp") }} {{ quote(build_path / "yabai") }}
+    mkdir -p bin
+    cp "$($SWIFT build --product yabai --arch arm64 $SWIFT_FLAGS {{ build_flags }} --show-bin-path)/yabai" bin/.yabai.tmp
+    mv -f bin/.yabai.tmp bin/yabai
 
 # Build and publish the optimized executable; this does not install or restart the service.
 install: (_publish "--configuration release")
@@ -42,25 +37,25 @@ prepare:
 test *args:
     $SWIFT test $SWIFT_FLAGS "$@"
 
-# Optional style lint with swift-format (config .swift-format). Reports findings only; it does not reformat and is not part of ci.
+# Optional swift-format lint; reports findings without reformatting, outside CI.
 lint:
     $SWIFT format lint --recursive Sources tests
 
-# CI gates print concise per-step output and keep full logs in .build/ci/; quick runs build and test, full also runs release, osax-test and check-build.
+# Build and test with concise output; full logs are in .build/ci/.
 ci-quick:
-    bash {{ quote(script_path / "ci.sh") }} quick
+    bash scripts/ci.sh quick
 
 # Run all CI gates, including release, payload tests and build checks.
 ci:
-    bash {{ quote(script_path / "ci.sh") }} full
+    bash scripts/ci.sh full
 
 # Line coverage of Sources/ per file; filter is an extended regex of the files to show.
 coverage filter="":
-    bash {{ quote(script_path / "coverage.sh") }} {{ quote(filter) }}
+    bash scripts/coverage.sh {{ quote(filter) }}
 
 # Check clean, incremental and toolchain-upgrade builds in an isolated copy.
 check-build:
-    python3 {{ quote(script_path / "check-build.py") }} --swift "$SWIFT"
+    python3 scripts/check-build.py --swift "$SWIFT"
 
 # Run isolated payload and loader tests; trailing arguments are forwarded to SwiftPM.
 [positional-arguments]
@@ -69,38 +64,38 @@ osax-test *args:
 
 # Build the standalone arm64e payload without installing or injecting it.
 osax-payload:
-    bash {{ quote(script_path / "build-osax.sh") }} .build/osax/swift
+    bash scripts/build-osax.sh .build/osax/swift
 
 # Regenerate the man page from its Asciidoc source.
 man:
-    asciidoctor -b manpage {{ quote(doc_path / "yabai.asciidoc") }} -o {{ quote(doc_path / "yabai.1") }}
+    asciidoctor -b manpage doc/yabai.asciidoc -o doc/yabai.1
 
 # Set the icon on the built executable.
 icon:
-    python3 {{ quote(script_path / "seticon.py") }} assets/icon/2x/icon-512px@2x.png {{ quote(build_path / "yabai") }}
+    python3 scripts/seticon.py assets/icon/2x/icon-512px@2x.png bin/yabai
 
 # Update the install script's version and release archive hash.
 publish:
-    sed -i '' "s/^VERSION=.*/VERSION=\"$({{ quote(build_path / "yabai") }} --version | cut -d v -f 2)\"/" {{ quote(script_path / "install.sh") }}
-    sed -i '' "s/^EXPECTED_HASH=.*/EXPECTED_HASH=\"$(shasum -a 256 {{ quote(build_path) }}/$({{ quote(build_path / "yabai") }} --version).tar.gz | cut -d ' ' -f 1)\"/" {{ quote(script_path / "install.sh") }}
+    sed -i '' "s/^VERSION=.*/VERSION=\"$(bin/yabai --version | cut -d v -f 2)\"/" scripts/install.sh
+    sed -i '' "s/^EXPECTED_HASH=.*/EXPECTED_HASH=\"$(shasum -a 256 bin/$(bin/yabai --version).tar.gz | cut -d ' ' -f 1)\"/" scripts/install.sh
 
 # Build the release archive after generating docs, building, signing and setting the icon.
 archive: man install sign icon
-    rm -rf {{ quote(archive_path) }}
-    mkdir -p {{ quote(archive_path / "bin") }}
-    cp {{ quote(build_path / "yabai") }} {{ quote(archive_path / "bin/") }}
-    cp -r {{ quote(doc_path) }} {{ quote(archive_path) }}/
-    cp -r examples {{ quote(archive_path) }}/
-    tar -cvzf {{ quote(build_path) }}/$({{ quote(build_path / "yabai") }} --version).tar.gz {{ quote(archive_path) }}
-    rm -rf {{ quote(archive_path) }}
+    rm -rf archive
+    mkdir -p archive/bin
+    cp bin/yabai archive/bin/
+    cp -r doc archive/
+    cp -r examples archive/
+    tar -cvzf bin/$(bin/yabai --version).tar.gz archive
+    rm -rf archive
 
 # Sign the built executable with the named signing identity.
 sign:
-    codesign -fs "yabai-cert" {{ quote(build_path / "yabai") }}
+    codesign -fs "yabai-cert" bin/yabai
 
 # Remove the published executable directory.
 clean-build:
-    rm -rf {{ quote(build_path) }}
+    rm -rf bin
 
 # Remove published binaries, SwiftPM caches and generated payload C files.
 clean: clean-build

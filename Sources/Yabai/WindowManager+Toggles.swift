@@ -60,7 +60,7 @@ extension WindowManager
             iteration += 1
         }
 
-        target.ref.setAttribute(Window.fullscreenAttribute, to: !target.reportsFullscreen)
+        _ = target.ref?.setAttribute(Window.fullscreenAttribute, to: !target.reportsFullscreen)
 
         // NOTE: After changing fullscreen, wait for the display animation to finish.
         blockUntilNativeFullscreenTransitionIsDone()

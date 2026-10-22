@@ -22,11 +22,27 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
     axDestroyedWindowIDs.withLock { _ = $0.remove(id) }
 }
 
+/// What the accessibility API reports about a window, read by `Window.refreshAXState()`. The strings are converted once,
+/// when they are read; nil is kept distinct from "" (a role that the application does not report is nil).
+struct WindowAXState: Equatable, Sendable
+{
+    var role: String?
+    var subrole: String?
+    var title: String?
+    var isMovable = false
+    var isResizable = false
+}
+
 // NOTE: A window that yabai tracks, a thin wrapper of its AX element and the window server queries about its id.
 @WM final class Window
 {
+    // NOTE: Stays an implicitly unwrapped optional: about 70 readers (`window.application.pid`, `.name`, `.psn`) need a
+    // value, and it is set by `init(application:reference:id:)`. Only a window made with `init(id:)` (tests, and a
+    // window whose application is set afterwards) has none; no reader has an obvious result for a missing application.
     var application: Application!
-    var ref: AXUIElement!
+    /// The AX element of the window; nil once `destroy()` has run, and for a window made with `init(id:)` until its
+    /// element is set.
+    var ref: AXUIElement?
     let id: WindowID
 
     // NOTE: A window stays valid until it is invalidated, and it is invalid at once once its AX destroyed notification
@@ -34,10 +50,11 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
     // handlers look it up on @WM and check `isValid` before using it. Only the destroyed handler on @WM invalidates
     // `valid`, and it tears the window down once; a terminated application removes its windows either way
     // (`EventHandler.removeTerminatedWindows`).
+    /// The cross-thread, invalidate-once flag. `invalidate()` clears it from any thread and returns true for the first
+    /// call only, so exactly one caller claims the window for teardown. `isValid` also checks the AX destroyed mark.
     let valid = Atomic<Bool>(true)
-    var role: CFString?
-    var subrole: CFString?
-    var title: CFString?
+    /// The AX-observed facts of the window (role, subrole, title, movable and resizable), refreshed by `refreshAXState()`.
+    var ax = WindowAXState()
     var frame = CGRect.zero
     var frameRequest = CGRect.zero
     var windowedFrame = CGRect.zero
@@ -45,14 +62,16 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
     var isEligible = false
     var notifications: WindowNotifications = []
     var hasShadow = false
+    // NOTE: `isFullscreen` and `isMinimized` stay on `Window`, not in `ax`: the minimize and fullscreen handlers set them
+    // from notifications, and `isFullscreen` also merges the fullscreen state of the window's space.
     var isFullscreen = false
     var isMinimized = false
     var isFloating = false
     var isSticky = false
     var isWindowed = false
-    var isMovable = false
-    var isResizable = false
-    /// Set by `destroy()`; queued events and border updates then ignore the window.
+    /// Set by `destroy()`, on @WM, when the window is torn down. Queued events and border updates then ignore the window.
+    /// Unlike `valid`, it is never set from another thread, and it is not what claims the window: `invalidate()` does
+    /// that first, then `destroy()` runs during the teardown.
     var isDestroyed = false
 
     // NOTE: These record rule effects: `isManagedByRule` remains true while a rule manages the window; `isFullscreenByRule`
@@ -75,61 +94,61 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
         self.application = application
         self.ref = reference
         frame = axFrame
-        title = currentTitle()
+        ax.title = readTitle().value
         isRoot = id.parent == nil || hasApplicationAsParent
         hasShadow = id.hasShadow
         isMinimized = reportsMinimized
-        refreshAXProperties()
+        refreshAXState()
         isFullscreen = reportsFullscreen || (id.space.map { $0.isFullscreen } ?? false)
         isSticky = id.isSticky
     }
 
+    /// False once the window is invalidated, or once its AX destroyed notification arrived (`markAXDestroyed`), which
+    /// can happen on the main thread before the destroyed event reaches @WM.
     nonisolated var isValid: Bool
     {
         valid.load(ordering: .sequentiallyConsistent) && !axDestroyedWindowIDs.withLock { $0.contains(id) }
     }
 
+    /// Clears `valid`, and returns true only for the call that cleared it.
     @discardableResult
     nonisolated func invalidate() -> Bool
     {
         valid.compareExchange(expected: true, desired: false, ordering: .sequentiallyConsistent).exchanged
     }
 
-    var cachedTitle: String { title.map { $0 as String } ?? "" }
-
-    func currentTitle() -> CFString? { readTitle().value }
-
     /// The AX title and the error of its call, for the calls that record a timeout (`WindowManager.ifResponsive`).
-    func readTitle() -> (value: CFString?, error: AXError)
+    func readTitle() -> (value: String?, error: AXError)
     {
+        guard let ref else { return (nil, .invalidUIElement) }
         let (value, error) = ref.attributeValue(kAXTitleAttribute)
         guard error == .success, let value else { return (nil, error) }
         let title: CFString? = castAttribute(value, typeID: CFStringGetTypeID())
-        return (title, error)
+        return (title.map { $0 as String }, error)
     }
 
     var axOrigin: CGPoint
     {
-        return ref.pointAttribute(kAXPositionAttribute) ?? .zero
+        return ref?.pointAttribute(kAXPositionAttribute) ?? .zero
     }
 
     var axFrame: CGRect
     {
-        let origin = ref.pointAttribute(kAXPositionAttribute) ?? .zero
-        let size = ref.sizeAttribute(kAXSizeAttribute) ?? .zero
+        let origin = ref?.pointAttribute(kAXPositionAttribute) ?? .zero
+        let size = ref?.sizeAttribute(kAXSizeAttribute) ?? .zero
         return CGRect(origin: origin, size: size)
     }
 
     func move(to point: CGPoint)
     {
         frameRequest.origin = point
-        ref.setAttribute(kAXPositionAttribute, to: point)
+        ref?.setAttribute(kAXPositionAttribute, to: point)
     }
 
     func resize(width: Float, height: Float)
     {
         frameRequest.size = CGSize(width: CGFloat(width), height: CGFloat(height))
-        ref.setAttribute(kAXSizeAttribute, to: CGSize(width: CGFloat(width), height: CGFloat(height)))
+        ref?.setAttribute(kAXSizeAttribute, to: CGSize(width: CGFloat(width), height: CGFloat(height)))
     }
 
     func resizeRelative(frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool)
@@ -167,19 +186,20 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
         }
     }
 
-    var canMoveViaAccessibility: Bool { ref.isAttributeSettable(kAXPositionAttribute) }
-    var canMove: Bool { isMovable }
-    var canResizeViaAccessibility: Bool { ref.isAttributeSettable(kAXSizeAttribute) }
-    var canResize: Bool { isResizable }
-    var canMinimize: Bool { ref.isAttributeSettable(kAXMinimizedAttribute) }
+    var canMoveViaAccessibility: Bool { ref?.isAttributeSettable(kAXPositionAttribute) ?? false }
+    var canMove: Bool { ax.isMovable }
+    var canResizeViaAccessibility: Bool { ref?.isAttributeSettable(kAXSizeAttribute) ?? false }
+    var canResize: Bool { ax.isResizable }
+    var canMinimize: Bool { ref?.isAttributeSettable(kAXMinimizedAttribute) ?? false }
     var isUndersized: Bool { frame.width <= 500.0 || frame.height <= 500.0 }
 
-    var reportsMinimized: Bool { ref.boolAttribute(kAXMinimizedAttribute) }
-    var reportsFullscreen: Bool { ref.boolAttribute(Self.fullscreenAttribute) }
+    var reportsMinimized: Bool { ref?.boolAttribute(kAXMinimizedAttribute) ?? false }
+    var reportsFullscreen: Bool { ref?.boolAttribute(Self.fullscreenAttribute) ?? false }
 
     /// The AXFullScreen value (false when it is not a boolean) and the error of its call, for `WindowManager.ifResponsive`.
     func readFullscreen() -> (value: Bool, error: AXError)
     {
+        guard let ref else { return (false, .invalidUIElement) }
         let (value, error) = ref.attributeValue(Self.fullscreenAttribute)
         guard let boolean: CFBoolean = value.flatMap({ castAttribute($0, typeID: CFBooleanGetTypeID()) }) else {
             return (false, error)
@@ -192,7 +212,8 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
         if !canMinimize { throw .cannotMinimize }
         if isMinimized { throw .alreadyMinimized }
 
-        let result = ref.setAttribute(kAXMinimizedAttribute, to: true)
+        // A window without an element cannot be minimized: `canMinimize` is false, so it throws above.
+        let result = ref?.setAttribute(kAXMinimizedAttribute, to: true)
         if result != .success { throw .minimizeFailed }
     }
 
@@ -200,28 +221,26 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
     {
         if !isMinimized { throw .notMinimized }
 
-        let result = ref.setAttribute(kAXMinimizedAttribute, to: false)
+        let result = ref?.setAttribute(kAXMinimizedAttribute, to: false)
         if result != .success { throw .deminimizeFailed }
     }
 
     /// Presses the close button when the window has one.
     func close() -> Bool
     {
-        guard let button = ref.elementAttribute(kAXCloseButtonAttribute) else { return false }
+        guard let button = ref?.elementAttribute(kAXCloseButtonAttribute) else { return false }
 
         button.perform(kAXPressAction)
         return true
     }
 
-    private var axRole: CFString? { ref.stringAttribute(kAXRoleAttribute) }
+    private var axRole: String? { ref?.stringAttribute(kAXRoleAttribute).map { $0 as String } }
 
-    private var axSubrole: CFString? { ref.stringAttribute(kAXSubroleAttribute) }
-
-    var roleString: String { role.map { $0 as String } ?? "" }
-    var subroleString: String { subrole.map { $0 as String } ?? "" }
+    private var axSubrole: String? { ref?.stringAttribute(kAXSubroleAttribute).map { $0 as String } }
 
     private var hasApplicationAsParent: Bool
     {
+        guard let ref else { return false }
         let (value, error) = ref.attributeValue(kAXParentAttribute)
         guard error == .success else { return false }
         return !(value != nil && !CFEqual(value, application.ref))
@@ -229,17 +248,17 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
 
     var isReal: Bool
     {
-        guard let role, let subrole else { return false }
-        return CFEqual(role, kAXWindowRole as CFString) &&
-               (CFEqual(subrole, kAXStandardWindowSubrole as CFString) ||
-                CFEqual(subrole, kAXFloatingWindowSubrole as CFString) ||
-                CFEqual(subrole, kAXDialogSubrole as CFString))
+        guard let role = ax.role, let subrole = ax.subrole else { return false }
+        return role == kAXWindowRole as String &&
+               (subrole == kAXStandardWindowSubrole as String ||
+                subrole == kAXFloatingWindowSubrole as String ||
+                subrole == kAXDialogSubrole as String)
     }
 
     var isStandard: Bool
     {
-        guard let role, let subrole else { return false }
-        return CFEqual(role, kAXWindowRole as CFString) && CFEqual(subrole, kAXStandardWindowSubrole as CFString)
+        guard let role = ax.role, let subrole = ax.subrole else { return false }
+        return role == kAXWindowRole as String && subrole == kAXStandardWindowSubrole as String
     }
 
     var isStandardLevel: Bool { id.level == CGWindowLevelForKey(.normalWindow) }
@@ -259,18 +278,19 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
 
     var isUnknown: Bool
     {
-        guard let subrole else { return false }
-        return CFEqual(subrole, kAXUnknownSubrole as CFString)
+        guard let subrole = ax.subrole else { return false }
+        return subrole == kAXUnknownSubrole as String
     }
 
-    // NOTE: Windows report other roles and capabilities while minimized or in native fullscreen, so refresh these cached
-    // properties whenever that state changes.
-    func refreshAXProperties()
+    // NOTE: Windows report other roles and capabilities while minimized or in native fullscreen, so refresh the observed
+    // state whenever that state changes. The title is not read here: it is read at discovery and on title-changed
+    // events, so these direct calls do not add an AX read that the responsiveness breaker does not cover.
+    func refreshAXState()
     {
-        isMovable = canMoveViaAccessibility
-        isResizable = canResizeViaAccessibility
-        role = axRole
-        subrole = axSubrole
+        ax.isMovable = canMoveViaAccessibility
+        ax.isResizable = canResizeViaAccessibility
+        ax.role = axRole
+        ax.subrole = axSubrole
     }
 
     /// The AX context of this window's notifications: its id, not a pointer. A callback can run after the window is gone,
@@ -281,7 +301,7 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
     // `Application.applicationNotificationHandler`, whose NOTE documents how the events find the window.
     func observe() -> Bool
     {
-        let observerRef = application.observerRef!
+        guard let observerRef = application.observerRef, let ref else { return false }
         guard let context = notificationContext else {
             Logger.windows.debug("\(id): no notification context, not observing")
             return false
@@ -300,22 +320,22 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
 
     func unobserve()
     {
-        guard !notifications.isEmpty else { return }
+        guard !notifications.isEmpty, let observerRef = application.observerRef, let ref else { return }
 
-        let observerRef = application.observerRef!
         for notification in axWindowNotifications where notifications.contains(notification.notification) {
             observerRef.remove(notification.name, for: ref)
             notifications.remove(notification.notification)
         }
     }
 
-    // NOTE: The window holds its AX element, role, subrole and title until `destroy()`.
+    // NOTE: The window holds its AX element and its observed state until `destroy()`. `destroy()` clears the role,
+    // subrole and title only; the movable and resizable flags are left unchanged.
     func destroy()
     {
         isDestroyed = true
-        role = nil
-        subrole = nil
-        title = nil
+        ax.role = nil
+        ax.subrole = nil
+        ax.title = nil
         ref = nil
     }
 

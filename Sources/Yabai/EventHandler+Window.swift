@@ -218,7 +218,7 @@ extension EventHandler
         window.isFullscreen = isFullscreen
 
         if wasFullscreen != isFullscreen {
-            window.refreshAXProperties()
+            window.refreshAXState()
         }
 
         let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
@@ -289,7 +289,7 @@ extension EventHandler
         Logger.events.debug("window minimized: \(window.application.name) \(window.id)")
         window.isMinimized = true
 
-        window.refreshAXProperties()
+        window.refreshAXState()
 
         let view = wm.managedView(for: window)
         let nextFocus = view.flatMap { wm.treeFocusCandidate(in: $0, for: window) }
@@ -332,7 +332,7 @@ extension EventHandler
 
         window.isMinimized = false
 
-        window.refreshAXProperties()
+        window.refreshAXState()
 
         let sid = SpaceID.active
         if let sid, window.id.spaces.contains(sid) {
@@ -369,7 +369,7 @@ extension EventHandler
         // Non-essential: the title refresh is skipped while the application's breaker is open; the cached title stays
         // until its next change event.
         if let title = WindowManager.shared.ifResponsive(pid: window.application.pid, { window.readTitle() }) {
-            window.title = title
+            window.ax.title = title
         } else {
             Logger.events.debug("window title changed: \(window.application.name) \(window.id) is unresponsive, keeping its title")
         }

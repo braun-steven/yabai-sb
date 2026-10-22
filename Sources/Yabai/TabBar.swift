@@ -311,7 +311,7 @@ extension TabBar
     static func title(for wid: WindowID?) -> CFString?
     {
         guard let wid, let target = WindowManager.shared.window(for: wid) else { return nil }
-        if let title = target.title, CFStringGetLength(title) > 0 { return title }
+        if let title = target.ax.title, !title.isEmpty { return title as CFString }
         if let app = target.application { return app.name as CFString }
         return nil
     }

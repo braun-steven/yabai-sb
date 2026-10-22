@@ -263,11 +263,11 @@ extension Workspace
 
         let windows = (1...count).map { n in
             let target = open(n, focus: n == 1)
-            target.role = "AXWindow" as CFString
-            target.subrole = "AXStandardWindow" as CFString
-            target.title = "Window \(n)" as CFString
+            target.ax.role = "AXWindow"
+            target.ax.subrole = "AXStandardWindow"
+            target.ax.title = "Window \(n)"
             target.isRoot = true
-            target.isMovable = true
+            target.ax.isMovable = true
             return target
         }
         windows.last?.application = mail
@@ -549,7 +549,7 @@ extension DaemonState
         {
             let space = Workspace()
             let windows = space.openForRules(2)
-            windows[1].role = "AXSheet" as CFString
+            windows[1].ax.role = "AXSheet"
 
             // NOTE: a window that is not real is only eligible once a rule manages it
             #expect(send("rule --apply app=^Mail$ manage=on sticky=on") == "")

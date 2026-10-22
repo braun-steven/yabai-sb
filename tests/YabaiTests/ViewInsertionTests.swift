@@ -482,7 +482,7 @@ extension DaemonState
             #expect(space.view.root.title as String? == "H[Safari V[iTerm2 T[Safari iTerm2]]]")
 
             // a window shows its own title, or the name of its application without one
-            WindowManager.shared.window[wid(1)]!.title = "Start Page" as CFString
+            WindowManager.shared.window[wid(1)]!.ax.title = "Start Page"
             #expect(space.node(1).title as String? == "Start Page")
             #expect(space.node(2).title as String? == "iTerm2")
         }

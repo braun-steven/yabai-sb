@@ -36,9 +36,9 @@ extension DaemonState
             let space = Workspace()
             space.application.name = "Safari"
             let first = space.open(1, focus: true)
-            first.title = "Document" as CFString
-            first.role = "AXWindow" as CFString
-            first.subrole = "AXStandardWindow" as CFString
+            first.ax.title = "Document"
+            first.ax.role = "AXWindow"
+            first.ax.subrole = "AXStandardWindow"
             first.isRoot = true
             space.open(2)
             space.view.updateTree()

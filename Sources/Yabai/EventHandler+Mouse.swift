@@ -236,11 +236,9 @@ extension EventHandler
         for childWid in associatedWindows {
             guard let child = wm.window(for: childWid) else { continue }
 
-            // NOTE: `Window.role` owns its reference; reading it here does not transfer ownership.
+            guard let role = child.ax.role else { continue }
 
-            guard let role = child.role else { continue }
-
-            if CFEqual(role, kAXSheetRole as CFString) || CFEqual(role, kAXDrawerRole as CFString) {
+            if role == kAXSheetRole as String || role == kAXDrawerRole as String {
                 return child
             }
         }

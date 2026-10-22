@@ -2,6 +2,7 @@ import ApplicationServices
 import CPrivate
 import AppKit
 import YabaiCore
+import Logging
 
 //
 // NOTE: Focusing windows through synthesized event records, and the window that commands act on.
@@ -102,7 +103,11 @@ extension WindowManager
 
     func focusWithRaise(_ target: Window)
     {
-        focusWithRaise(process: target.application.psn, windowID: target.id, reference: target.ref)
+        guard let reference = target.ref else {
+            Logger.windows.debug("\(target.id): has no AX element, not raising it")
+            return
+        }
+        focusWithRaise(process: target.application.psn, windowID: target.id, reference: reference)
     }
 
     /// Focuses a window that is not represented by a managed `Window` model.

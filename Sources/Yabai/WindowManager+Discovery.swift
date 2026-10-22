@@ -21,9 +21,9 @@ extension WindowManager
     {
         let target = Window(application: owner, reference: reference, id: id)
 
-        let windowTitle = target.cachedTitle
-        let windowRole = target.roleString
-        let windowSubrole = target.subroleString
+        let windowTitle = target.ax.title ?? ""
+        let windowRole = target.ax.role ?? ""
+        let windowSubrole = target.ax.subrole ?? ""
         Logger.windows.debug("adding window \(target.id) \(owner.name) - \(windowTitle) (\(windowRole):\(windowSubrole):\(target.isRoot ? 1 : 0))")
 
         if target.isUnknown {

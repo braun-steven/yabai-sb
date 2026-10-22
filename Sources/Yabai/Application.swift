@@ -7,6 +7,9 @@ import Logging
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and observer.
 @WM final class Application
 {
+    // NOTE: Stays an implicitly unwrapped optional: `init(process:)` sets it and `destroy()` clears it, and its readers
+    // (window frame writes, `WindowFrameGroup` in the animations) need the element; none has an obvious
+    // result for a missing element. `init()` leaves it nil until a test or `init(process:)` sets it.
     var ref: AXUIElement!
     /// The window server connection of the process; nil until the window server knows it.
     var connection: Int32?
@@ -14,7 +17,8 @@ import Logging
     var pid: pid_t = 0
     var name = ""
     var icon: CGImage?
-    var observerRef: AXObserver!
+    /// The AX observer of the application; nil until `observe()` creates one, and again after `unobserve()`.
+    var observerRef: AXObserver?
     var notifications: ApplicationNotifications = []
     var isObserving = false
     var isHidden = false
@@ -66,9 +70,8 @@ import Logging
 
     func unobserve()
     {
-        guard isObserving else { return }
+        guard isObserving, let observer = observerRef else { return }
 
-        let observer = observerRef!
         for notification in axApplicationNotifications where notifications.contains(notification.notification) {
             observer.remove(notification.name, for: ref)
             notifications.remove(notification.notification)

@@ -438,7 +438,7 @@ extension Window
     {
         frameRequest = CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
         application.ref.withEnhancedUserInterfaceDisabled {
-            ref.setFrame(position: CGPoint(x: CGFloat(x), y: CGFloat(y)), size: CGSize(width: CGFloat(width), height: CGFloat(height)))
+            _ = ref?.setFrame(position: CGPoint(x: CGFloat(x), y: CGFloat(y)), size: CGSize(width: CGFloat(width), height: CGFloat(height)))
         }
     }
 }
@@ -484,6 +484,10 @@ final class WindowFrameGroup: @unchecked Sendable
                 Logger.windows.debug("\(placement.window.id): has no application, not setting its frame")
                 continue
             }
+            guard let reference = placement.window.ref else {
+                Logger.windows.debug("\(placement.window.id): has no AX element, not setting its frame")
+                continue
+            }
             let group: WindowFrameGroup
             if let existing = result.first(where: { $0.application == owner }) {
                 group = existing
@@ -491,7 +495,7 @@ final class WindowFrameGroup: @unchecked Sendable
                 group = WindowFrameGroup(owner)
                 result.append(group)
             }
-            group.list.append(WindowFrameRequest(ref: placement.window.ref,
+            group.list.append(WindowFrameRequest(ref: reference,
                                                  position: CGPoint(x: CGFloat(placement.x), y: CGFloat(placement.y)),
                                                  size: CGSize(width: CGFloat(placement.w), height: CGFloat(placement.h))))
         }

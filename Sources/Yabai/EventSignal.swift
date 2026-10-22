@@ -189,7 +189,7 @@ extension PendingSignal
             addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
             app   = target.application.name
-            title = target.cachedTitle
+            title = target.ax.title ?? ""
         case .windowDestroyed:
             addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
@@ -199,7 +199,7 @@ extension PendingSignal
             addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
 
             app   = target.application.name
-            title = target.cachedTitle
+            title = target.ax.title ?? ""
             active = focusedWindowID == target.id
         default:
             break

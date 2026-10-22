@@ -149,9 +149,9 @@ extension Window
         info.isFloating       = isFloating
         info.isGrabbed        = self == MouseState.shared.window
 
-        if properties.contains(.title)     { info.title     = cachedTitle }
-        if properties.contains(.role)      { info.role      = roleString }
-        if properties.contains(.subrole)   { info.subrole   = subroleString }
+        if properties.contains(.title)     { info.title     = ax.title ?? "" }
+        if properties.contains(.role)      { info.role      = ax.role ?? "" }
+        if properties.contains(.subrole)   { info.subrole   = ax.subrole ?? "" }
         if properties.contains(.canMove)   { info.canMove   = canMove }
         if properties.contains(.canResize) { info.canResize = canResize }
         info.setLevels(id)

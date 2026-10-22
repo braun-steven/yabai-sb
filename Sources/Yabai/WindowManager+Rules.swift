@@ -88,7 +88,7 @@ extension WindowManager
         }
 
         if effects.fullscreen == true {
-            target.ref.setAttribute(Window.fullscreenAttribute, to: true)
+            _ = target.ref?.setAttribute(Window.fullscreenAttribute, to: true)
             target.isFullscreenByRule = true
         }
 
@@ -152,9 +152,9 @@ extension WindowManager
     {
         // Windows in id order, so rules apply in the same order every time.
         for target in window.values where target.isRoot {
-            let title = target.cachedTitle
-            let role = target.roleString
-            let subrole = target.subroleString
+            let title = target.ax.title ?? ""
+            let role = target.ax.role ?? ""
+            let subrole = target.ax.subrole ?? ""
 
             applyManageRules(to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
 
@@ -196,7 +196,7 @@ extension WindowManager
     {
         // Windows in id order, so rules apply in the same order every time.
         for target in window.values where target.isRoot {
-            if candidate.matches(app: target.application.name, title: target.cachedTitle, role: target.roleString, subrole: target.subroleString) {
+            if candidate.matches(app: target.application.name, title: target.ax.title ?? "", role: target.ax.role ?? "", subrole: target.ax.subrole ?? "") {
                 applyManageRuleEffects(candidate.effects, to: target)
 
                 if target.isEligibleForManagement {

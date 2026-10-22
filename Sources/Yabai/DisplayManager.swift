@@ -64,7 +64,9 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
     // NOTE: The space and display lists are read often (SpaceID.all for every Mission Control index, and every display
     // arrangement index), and each read is a window server call. They are cached on the event loop: the handlers of the
     // space and display events, the Mission Control exit, every space operation and each space layout pass invalidate
-    // them (`invalidateSpaceCaches`), and the lifetime bounds a change that was not reported.
+    // them (`invalidateSpaceCaches`), and the lifetime bounds a change that was not reported. Each IPC message starts
+    // with an invalidation (MessageLoop's handleMessage): the window server moves spaces between displays after the
+    // event that announces it, so a list cached by the event handlers can be partial until the next change.
     //
     private var managedDisplaySpacesCache = Cached<[[SpaceID]]>(lifetime: .seconds(2))
     private var arrangedDisplaysCache = Cached<[String]>(lifetime: .seconds(2))
@@ -121,9 +123,10 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
         return fresh
     }
 
-    /// Drops the cached space and display lists, so that the next read asks the window server. Called by the handlers of
-    /// the space and display events and of the Mission Control exit, after the operations that change spaces or displays,
-    /// before each space layout pass, and when a display config option that orders the lists changes.
+    /// Drops the cached space and display lists, so that the next read asks the window server. Called at the start of each
+    /// IPC message (`handleMessage`), by the handlers of the space and display events and of the Mission Control exit,
+    /// after the operations that change spaces or displays, before each space layout pass, and when a display config
+    /// option that orders the lists changes.
     func invalidateSpaceCaches()
     {
         managedDisplaySpacesCache.invalidate()

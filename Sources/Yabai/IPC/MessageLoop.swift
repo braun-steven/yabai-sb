@@ -221,6 +221,14 @@ enum MessageLoop
 /// Runs the commands of a message and writes the failure that ends it.
 @WM func handleMessage(_ response: inout Response, _ message: inout Message)
 {
+    //
+    // NOTE: Commands and queries are user-driven and must not see a space list cached before a display change settled
+    // (the window server moves spaces between displays for a while after the event). Each message starts from a fresh
+    // list; within the message the cache still serves the repeated reads, e.g. one SkyLight call for all space indices
+    // of `query --spaces`.
+    //
+    DisplayManager.shared.invalidateSpaceCaches()
+
     do {
         try handleDomain(&response, &message)
     } catch {

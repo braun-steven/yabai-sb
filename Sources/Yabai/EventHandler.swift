@@ -319,7 +319,6 @@ extension EventHandler
         defer { process.releaseRunningApplication() }
 
         let wm = WindowManager.shared
-        let ms = MouseState.shared
 
         guard let application = wm.application(for: process.pid) else {
             Logger.events.debug("application terminated: \(process.nameAndPID) (not observed)")
@@ -332,14 +331,32 @@ extension EventHandler
 
         wm.applicationsToRefresh.remove(application)
 
-        let windows = wm.windows(for: application)
+        let viewList = removeTerminatedWindows(wm.windows(for: application))
+
+        application.unobserve()
+        application.destroy()
+
+        flushDirtyViews(viewList)
+
+        WindowManager.shared.updateWindowNotifications()
+    }
+
+    //
+    // NOTE: Removes the windows of a terminated application and returns the views to flush. This includes windows
+    // that their AX destroyed callback already invalidated: the windowDestroyed event it queued runs after this
+    // handler, and until then the window would stay in the tree and the registry without an application, so the
+    // flush below would lay it out (and trap building its frame group). The queued event then ignores the destroyed
+    // window, so each window is still untiled, signalled and destroyed exactly once.
+    //
+
+    func removeTerminatedWindows(_ windows: [Window]) -> [View]
+    {
+        let wm = WindowManager.shared
+        let ms = MouseState.shared
         var viewList: [View] = []
 
         for window in windows {
-            if !window.invalidate() {
-                window.application = nil
-                continue
-            }
+            _ = window.invalidate()
 
             if let view = wm.managedView(for: window) {
                 untileWindowBatched(view, window)
@@ -359,12 +376,7 @@ extension EventHandler
             window.destroy()
         }
 
-        application.unobserve()
-        application.destroy()
-
-        flushDirtyViews(viewList)
-
-        WindowManager.shared.updateWindowNotifications()
+        return viewList
     }
 
     //

@@ -48,6 +48,22 @@ import YabaiTestSupport
     #expect(groups[1].list[1].size.height == 200)
 }
 
+@Test("frames of a window without application are skipped")
+@WM func windowFrameGroupSkipsOrphan()
+{
+    let owner = Application()
+    owner.ref = AXUIElementCreateApplication(1)
+    let orphan = Window(id: 0)
+    let owned = Window(id: 0)
+    owned.application = owner
+    owned.ref = AXUIElementCreateApplication(2)
+    let groups = WindowFrameGroup.groups(for: [WindowPlacement(window: orphan, x: 0, y: 0, w: 100, h: 200),
+                                               WindowPlacement(window: owned, x: 100, y: 0, w: 100, h: 200)])
+    #expect(groups.count == 1)
+    #expect(groups.first?.application == owner)
+    #expect(groups.first?.list.map(\.position.x) == [100])
+}
+
 @Test("frame update decision")
 @WM func windowFrameNeedsUpdateDecision()
 {

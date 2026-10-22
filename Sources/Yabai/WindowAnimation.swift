@@ -479,7 +479,10 @@ final class WindowFrameGroup: @unchecked Sendable
     {
         var result: [WindowFrameGroup] = []
         for placement in list {
-            let owner = placement.window.application!
+            guard let owner = placement.window.application else {
+                Logger.windows.debug("\(placement.window.id): has no application, not setting its frame")
+                continue
+            }
             let group: WindowFrameGroup
             if let existing = result.first(where: { $0.application == owner }) {
                 group = existing

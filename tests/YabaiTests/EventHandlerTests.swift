@@ -67,3 +67,43 @@ func mouseResizeHandle()
     #expect(ResizeHandle(at: CGPoint(x: 110, y: 150), in: frame) == .left)
     #expect(ResizeHandle(at: CGPoint(x: 200, y: 150), in: frame) == [])
 }
+
+extension DaemonState
+{
+    @Suite
+    @WM struct TerminatedApplicationTests
+    {
+        //
+        // NOTE: The AX destroyed callback of w1 invalidated it and queued its windowDestroyed, but the application's
+        // terminate event runs first. Its windows must leave the tree before the flush lays out the view again.
+        //
+
+        @Test func removesWindowsInvalidatedBeforeTermination()
+        {
+            let workspace = Workspace()
+            let first = workspace.open(1)
+            let second = workspace.open(2)
+            let survivor = workspace.open(3)
+            survivor.application = Application()
+            #expect(first.invalidate())
+
+            let views = EventHandler.shared.removeTerminatedWindows([first, second])
+
+            #expect(views.allSatisfy { $0 === workspace.view })
+            for target in [first, second] {
+                #expect(target.isDestroyed)
+                #expect(WindowManager.shared.window[target.id] == nil)
+                #expect(WindowManager.shared.managedWindows[target.id] == nil)
+                #expect(workspace.view.findWindow(target.id) == nil)
+            }
+
+            workspace.view.flush()
+            #expect(Headless.drain().placements == [RecordedPlacement(windowID: survivor.id, x: 0, y: 0, w: 1200, h: 800)])
+
+            // the queued event finds the window destroyed and leaves the rest alone
+            EventHandler.shared.windowDestroyed(first)
+            #expect(WindowManager.shared.window[survivor.id] === survivor)
+            #expect(workspace.view.findWindow(survivor.id) != nil)
+        }
+    }
+}

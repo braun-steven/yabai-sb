@@ -12,8 +12,8 @@ import Logging
     let id: WindowID
 
     // NOTE: A window stays valid until it is invalidated. Events already queued for a window hold on to it, so their
-    // handlers check that it is still valid before using it. Exactly one caller can invalidate it and then owns its
-    // destruction.
+    // handlers check that it is still valid before using it. Exactly one caller can invalidate it and then posts its
+    // destruction; a terminated application destroys its windows either way (`EventHandler.removeTerminatedWindows`).
     let valid = Atomic<Bool>(true)
     var role: CFString?
     var subrole: CFString?
@@ -252,6 +252,8 @@ import Logging
 
     func unobserve()
     {
+        guard !notifications.isEmpty else { return }
+
         let observerRef = application.observerRef!
         for notification in axWindowNotifications where notifications.contains(notification.notification) {
             observerRef.remove(notification.name, for: ref)

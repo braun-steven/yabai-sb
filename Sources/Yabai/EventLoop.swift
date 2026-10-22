@@ -127,6 +127,9 @@ enum Event: Sendable
     // NOTE: Only post with `key: .spaceLayoutReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
     case spaceLayoutReconcile
     case daemonMessage(DaemonMessage)
+    // NOTE: Posted by an EventSubscriber when it ends (a closed peer, a failed write or a full backlog). It only removes
+    // the subscriber from EventSubscribers, which runs on @WM.
+    case eventSubscriberRemoved(id: Int)
 }
 
 enum EventLoop
@@ -332,6 +335,7 @@ extension EventHandler
         case .spaceLayoutReconcile:
             if EventLoop.claimDelivery(of: .spaceLayoutReconcile) { spaceLayoutReconcile() }
         case .daemonMessage(let message):                MessageLoop.handle(message)
+        case .eventSubscriberRemoved(let id):            EventSubscribers.shared.remove(id)
         }
     }
 }

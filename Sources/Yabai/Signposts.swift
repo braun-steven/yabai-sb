@@ -67,6 +67,7 @@ extension Event
         case .configChanged: "configChanged"
         case .spaceLayoutReconcile: "spaceLayoutReconcile"
         case .daemonMessage: "daemonMessage"
+        case .eventSubscriberRemoved: "eventSubscriberRemoved"
         }
     }
 }

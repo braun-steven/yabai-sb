@@ -256,3 +256,25 @@ public struct SignalTable
         return entries
     }
 }
+
+//
+// NOTE: The json line that an event subscriber (`yabai -m subscribe`) receives: the event name, then one key per
+// environment variable of the event, lowercase and without the YABAI_ prefix (YABAI_WINDOW_ID -> window_id). The values
+// stay strings, as in the environment. JSON.encode sorts the keys, so "event" is not always the first key, and escapes
+// control characters, so one event is one line. A dictionary of strings cannot fail to encode; the empty line that the
+// guard returns is never written.
+//
+
+/// The json line of an event for its subscribers: `{"event":"…","window_id":"…",…}` followed by a newline.
+public func eventJSONLine(type: String, arguments: [(name: String, value: String)]) -> [UInt8]
+{
+    var object = ["event": type]
+    for argument in arguments {
+        let prefix = "YABAI_"
+        let name = argument.name.hasPrefix(prefix) ? String(argument.name.dropFirst(prefix.count)) : argument.name
+        object[name.lowercased()] = argument.value
+    }
+
+    guard let json = try? JSON.encode(object) else { return [] }
+    return json + [UInt8(ascii: "\n")]
+}

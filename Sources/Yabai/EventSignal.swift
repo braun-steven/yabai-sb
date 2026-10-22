@@ -71,7 +71,7 @@ enum SignalSubject
     /// Mission Control mode).
     func push(_ type: SignalType, _ subject: SignalSubject = .none)
     {
-        if table.subscribers(type).isEmpty { return }
+        if table.subscribers(type).isEmpty && !EventSubscribers.shared.wants(type) { return }
 
         var es = PendingSignal(type)
 
@@ -110,6 +110,9 @@ enum SignalSubject
             for signal in subscribers where !es.filters(signal) {
                 spawn(signal.command ?? "", es.arguments)
             }
+
+            // NOTE: Event subscribers get every event of their types; the app and title filters of the signals do not apply.
+            EventSubscribers.shared.publish(es.type, arguments: es.arguments)
         }
     }
 

@@ -79,7 +79,7 @@ Each `View` owns a container tree. `Con` has a weak parent and ordered children/
 
 ### Rules and signals
 
-`Rule.swift` matches rules and builds the `RuleInfo` of `rule --list`; `WindowManager+Rules.swift` applies effects. YabaiCore's `EventSignal.swift` holds signal filters and `SignalInfo`; the executable's `EventSignal.swift` queues and flushes commands with `posix_spawn` through `env`. Config scripts also use `posix_spawn`; Swift must never execute in a forked child. The CLI actions that wait for a command (`Service`'s launchctl calls, `ScriptingAddition`'s codesign and loader) run it through swift-subprocess; `main.swift` runs those actions in a main-actor task under `dispatchMain`.
+`Rule.swift` matches rules and builds the `RuleInfo` of `rule --list`; `WindowManager+Rules.swift` applies effects. YabaiCore's `EventSignal.swift` holds signal filters and `SignalInfo`; the executable's `EventSignal.swift` queues and flushes commands with `posix_spawn` through `env`. The same flush publishes each event to the event subscribers (`EventSubscribers.swift`, `yabai -m subscribe`): `@WM` encodes the JSON line once and queues it on each subscriber's serial queue, which owns the socket's writes; a subscriber over its 1 MiB backlog is ended on `@WM` without waiting for its write. Config scripts also use `posix_spawn`; Swift must never execute in a forked child. The CLI actions that wait for a command (`Service`'s launchctl calls, `ScriptingAddition`'s codesign and loader) run it through swift-subprocess; `main.swift` runs those actions in a main-actor task under `dispatchMain`.
 
 ### Logging
 

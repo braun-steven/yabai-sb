@@ -216,6 +216,9 @@ signal --remove nolabel
 signal --list
 signal --foo
 
+# subscribe: a failure only (a success keeps its socket open, which the golden replay cannot do)
+subscribe not_an_event
+
 # query: errors only, a query of everything reads the live spaces
 query
 query --foo

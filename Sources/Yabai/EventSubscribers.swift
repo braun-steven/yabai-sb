@@ -125,9 +125,10 @@ final class EventSubscriber: Sendable {
   }
 
   /// Adds a socket as a subscriber to the events of the types (all events when empty). The subscriber takes the fd, and
-  /// closes it when it ends. Returns the id of the subscriber.
+  /// closes it when it ends. A non-empty firstLine (the subscribed line) is queued before any event, on the subscriber's
+  /// own queue, so it reaches the client first. Returns the id of the subscriber.
   @discardableResult
-  func add(fd: Int32, types: Set<SignalType>) -> Int {
+  func add(fd: Int32, types: Set<SignalType>, firstLine: [UInt8] = []) -> Int {
     //
     // NOTE: SO_NOSIGPIPE and SO_SNDTIMEO (5 s) are set on the socket, as on the response sockets of the message loop.
     // The timeout is only a bound for a stalled client; the backlog limit is what ends a client that falls behind.
@@ -139,7 +140,11 @@ final class EventSubscriber: Sendable {
 
     let id = nextID
     nextID += 1
-    subscribers.append(EventSubscriber(id: id, fd: fd, types: types))
+    let subscriber = EventSubscriber(id: id, fd: fd, types: types)
+    subscribers.append(subscriber)
+    if !firstLine.isEmpty {
+      subscriber.enqueue(firstLine, backlogLimit: backlogLimit)
+    }
     return id
   }
 

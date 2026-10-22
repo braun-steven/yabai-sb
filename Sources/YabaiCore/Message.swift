@@ -223,6 +223,7 @@ public enum Domain {
   public static let query = "query"
   public static let rule = "rule"
   public static let signal = "signal"
+  public static let subscribe = "subscribe"
 }
 
 /// printf: the arguments formatted as the C version's fprintf did, e.g. `cFormat("%.4f", Double(value))`.
@@ -326,6 +327,14 @@ public struct Response: Sendable {
   public static let failureByte: UInt8 = 0x07
 
   public var bytes: [UInt8] = []
+
+  //
+  // NOTE: `subscribe` does not end its message: the socket stays open and receives the events of these types, after
+  // `bytes`, which hold its first line. The message loop hands the socket to the event subscribers instead of writing
+  // the response and closing it. Only a successful subscribe sets this; a failure is an ordinary response.
+  //
+  /// The event types of a subscription, or nil when the message is not one.
+  public var subscribedTypes: [SignalType]?
 
   public init() {}
 

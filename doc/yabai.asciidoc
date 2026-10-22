@@ -68,7 +68,7 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
     Send message to a running instance of yabai. +
     The response is awaited for 30 seconds by default; set *YABAI_CLIENT_TIMEOUT* to a positive number of seconds to change it, other values are ignored. +
     A message longer than 1 MiB, or one that does not arrive complete, is answered with `invalid message`.
-    `yabai -m batch` runs several commands from stdin in one message; see *Batch* under Domains.
+    `yabai -m batch` runs several commands from stdin in one message; see *Batch* under Domains. `yabai -m subscribe` streams events to the client; see *Subscribe* under Domains.
 
 *--config*, *-c* '<config_file>'::
     Use the specified configuration file. +
@@ -1079,6 +1079,17 @@ EOF
 +
 The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and *yabai -m* exits with status 1, when any command failed. A failing response is printed on stderr in full, so the output of the commands that succeeded goes to stderr too. +
 A batch with no command, e.g. stdin with only blank lines, fails with `batch: no commands given`. `yabai -m batch` takes no arguments: with any, it fails and sends nothing. A batch is one message, so it is limited to 1 MiB like any message.
+
+Subscribe
+~~~~~~~~~
+
+yabai -m subscribe [<EVENT>...]::
+    Stream events to the client, one JSON line per event, until the daemon or the client ends the subscription. The events are the names of *signal --add*, e.g. `yabai -m subscribe window_focused space_changed`; without an event, every event is streamed. +
+    The first line lists the subscribed events, in the order of the EVENT list under *Signal*, e.g. `{"subscribed":["space_changed","window_focused"]}`. +
+    Each later line is one event: its name as *event*, then the environment values of the event as keys in lowercase, without the *YABAI_* prefix, e.g. `{"event":"window_focused","window_id":"42"}`. The keys are sorted and every value is a string. The line ends with a newline. +
+    The client prints each line as it arrives and exits with status 0 when the daemon closes the connection. An unknown event fails with the events it accepts, and the client exits with status 1, as for any failure. +
+    The events are not filtered by the *app* and *title* filters of a signal; every event of the subscribed type is streamed. A subscription keeps its connection open, so it cannot be a command of a batch, and *config --check* does not run it. +
+    A subscriber that does not read is dropped when more than 1 MiB of its events are waiting to be written, or when a write waits more than 5 seconds; the daemon then closes its connection. A closed client is noticed when the next event is written. Other subscribers and the window manager are not affected.
 
 Tree Layout
 -----------

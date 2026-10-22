@@ -168,6 +168,15 @@ enum MessageLoop {
     var tokens = Message(message.bytes)
     handleMessage(&response, &tokens)
 
+    //
+    // NOTE: A subscribe keeps its socket open: the event subscribers write the first line and then the events, and
+    // close the socket when they end. So the socket is not sent to here, and nothing else writes to it.
+    //
+    if let types = response.subscribedTypes {
+      EventSubscribers.shared.add(fd: message.sockfd, types: Set(types), firstLine: response.bytes)
+      return
+    }
+
     send(response, to: message.sockfd)
   }
 
@@ -259,6 +268,8 @@ enum MessageLoop {
     try handleDomainSignal(&response, domain, &message)
   } else if domain.equals(BatchMessage.domain) {
     try handleDomainBatch(&response, &message)
+  } else if domain.equals(Domain.subscribe) {
+    try handleDomainSubscribe(&response, &message)
   } else {
     throw CommandError("unknown domain '\(domain)'\n")
   }
@@ -292,6 +303,10 @@ enum MessageLoop {
     var commandResponse = Response()
     if command.first?.equals(BatchMessage.domain) == true {
       commandResponse.fail(CommandError("batch: a batch cannot contain a batch\n"))
+    } else if command.first?.equals(Domain.subscribe) == true {
+      // NOTE: A subscription keeps its socket open, and a batch response cannot become a stream, so it is refused here.
+      commandResponse.fail(
+        CommandError("batch: subscribe keeps its client connected and cannot run in a batch\n"))
     } else {
       var commandMessage = Message(commandTokens: command)
       handleMessage(&commandResponse, &commandMessage)

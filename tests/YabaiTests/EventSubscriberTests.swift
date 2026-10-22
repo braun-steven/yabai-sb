@@ -13,7 +13,7 @@ import YabaiTestSupport
 //
 
 /// A socketpair for a subscriber: the subscriber takes the first end, the test reads the second, whose reads time out.
-private func subscriberSocketPair() throws -> (subscriber: Int32, peer: Int32) {
+func subscriberSocketPair() throws -> (subscriber: Int32, peer: Int32) {
   var pair: [Int32] = [0, 0]
   try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
 
@@ -23,7 +23,7 @@ private func subscriberSocketPair() throws -> (subscriber: Int32, peer: Int32) {
 }
 
 /// Reads up to count bytes from the peer; fewer when the read fails or times out, or the subscriber closed its end.
-private func receive(_ fd: Int32, count: Int) -> [UInt8] {
+func receive(_ fd: Int32, count: Int) -> [UInt8] {
   var bytes: [UInt8] = []
   var chunk = [UInt8](repeating: 0, count: 4096)
   while bytes.count < count {

@@ -72,6 +72,11 @@ struct MessageCheck {
     // NOTE: The commands of a batch are read from their own tokens when the batch runs (handleDomainBatch), which
     // the check does not do, so it reports them as not checked. A malformed batch is still reported when it runs.
     check.notes.append("not checked: batch commands are checked when they run")
+  } else if domain.equals(Domain.subscribe) {
+    // NOTE: A subscription keeps its client connected until the daemon ends it, so the check does not run it. Its event
+    // names are parsed, which is all a failure can come from.
+    _ = try SubscribeCommand.parse(&message)
+    check.notes.append("not run: subscribe keeps its client connected")
   } else if domain.equals(Domain.display) || domain.equals(Domain.space)
     || domain.equals(Domain.window) || domain.equals(Domain.query)
   {

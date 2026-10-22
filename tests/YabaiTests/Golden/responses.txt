@@ -531,6 +531,9 @@ missing required key-value pair 'action=..'
 ### 45 signal --foo
 unknown command '--foo' for domain 'signal'
 
+### 624 subscribe not_an_event
+unknown event 'not_an_event' for domain 'subscribe'; expected one of: application_launched, application_terminated, application_front_switched, application_activated, application_deactivated, application_visible, application_hidden, window_created, window_destroyed, window_focused, window_moved, window_resized, window_minimized, window_deminimized, window_title_changed, space_created, space_destroyed, space_changed, display_added, display_removed, display_moved, display_resized, display_changed, mission_control_enter, mission_control_exit, dock_did_change_pref, dock_did_restart, menu_bar_hidden_changed, system_woke
+
 ### 39 query
 unknown command '' for domain 'query'
 

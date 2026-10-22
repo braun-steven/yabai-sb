@@ -105,10 +105,14 @@ enum Client {
       fail("yabai-msg: failed to connect to socket..\n")
     }
 
-    var timeout = timeval(
-      tv_sec: responseTimeout(getenv("YABAI_CLIENT_TIMEOUT").map { String(cString: $0) }),
-      tv_usec: 0)
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+    // NOTE: A subscription has no response time limit: its events come whenever they happen, and the daemon ends it.
+    let subscribing = tokens.first == Array(Domain.subscribe.utf8)
+    if !subscribing {
+      var timeout = timeval(
+        tv_sec: responseTimeout(getenv("YABAI_CLIENT_TIMEOUT").map { String(cString: $0) }),
+        tv_usec: 0)
+      setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+    }
 
     var sent = 0
     while sent < message.count {

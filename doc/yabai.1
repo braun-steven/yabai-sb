@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-22
+.\"      Date: 2026-10-23
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-22" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-23" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -98,7 +98,7 @@ Send message to a running instance of yabai.
 The response is awaited for 30 seconds by default; set \fBYABAI_CLIENT_TIMEOUT\fP to a positive number of seconds to change it, other values are ignored.
 .br
 A message longer than 1 MiB, or one that does not arrive complete, is answered with \f(CRinvalid message\fP.
-\f(CRyabai \-m batch\fP runs several commands from stdin in one message; see \fBBatch\fP under Domains.
+\f(CRyabai \-m batch\fP runs several commands from stdin in one message; see \fBBatch\fP under Domains. \f(CRyabai \-m subscribe\fP streams events to the client; see \fBSubscribe\fP under Domains.
 .RE
 .sp
 \fB\-\-config\fP, \fB\-c\fP \fI<config_file>\fP
@@ -1610,6 +1610,22 @@ EOF
 The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and \fByabai \-m\fP exits with status 1, when any command failed. A failing response is printed on stderr in full, so the output of the commands that succeeded goes to stderr too.
 .br
 A batch with no command, e.g. stdin with only blank lines, fails with \f(CRbatch: no commands given\fP. \f(CRyabai \-m batch\fP takes no arguments: with any, it fails and sends nothing. A batch is one message, so it is limited to 1 MiB like any message.
+.RE
+.SS "Subscribe"
+.sp
+yabai \-m subscribe [<EVENT>.\|.\|.]
+.RS 4
+Stream events to the client, one JSON line per event, until the daemon or the client ends the subscription. The events are the names of \fBsignal \-\-add\fP, e.g. \f(CRyabai \-m subscribe window_focused space_changed\fP; without an event, every event is streamed.
+.br
+The first line lists the subscribed events, in the order of the EVENT list under \fBSignal\fP, e.g. \f(CR{"subscribed":["space_changed","window_focused"]}\fP.
+.br
+Each later line is one event: its name as \fBevent\fP, then the environment values of the event as keys in lowercase, without the \fBYABAI_\fP prefix, e.g. \f(CR{"event":"window_focused","window_id":"42"}\fP. The keys are sorted and every value is a string. The line ends with a newline.
+.br
+The client prints each line as it arrives and exits with status 0 when the daemon closes the connection. An unknown event fails with the events it accepts, and the client exits with status 1, as for any failure.
+.br
+The events are not filtered by the \fBapp\fP and \fBtitle\fP filters of a signal; every event of the subscribed type is streamed. A subscription keeps its connection open, so it cannot be a command of a batch, and \fBconfig \-\-check\fP does not run it.
+.br
+A subscriber that does not read is dropped when more than 1 MiB of its events are waiting to be written, or when a write waits more than 5 seconds; the daemon then closes its connection. A closed client is noticed when the next event is written. Other subscribers and the window manager are not affected.
 .RE
 .SH "TREE LAYOUT"
 .sp

@@ -24,6 +24,9 @@ import Logging
     init(process: Process)
     {
         ref = AXUIElement.application(process.pid)
+        // NOTE: 0.5 s, half the 1 s of the system-wide element (WindowManager+Startup), so one call to a frozen application
+        // stalls the event loop for 0.5 s. Window elements keep the system default.
+        ref.setMessagingTimeout(0.5)
         psn = process.psn
         pid = process.pid
         name = process.name

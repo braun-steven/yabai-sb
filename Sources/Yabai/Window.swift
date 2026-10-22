@@ -97,9 +97,15 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
 
     var cachedTitle: String { title.map { $0 as String } ?? "" }
 
-    func currentTitle() -> CFString?
+    func currentTitle() -> CFString? { readTitle().value }
+
+    /// The AX title and the error of its call, for the calls that record a timeout (`WindowManager.ifResponsive`).
+    func readTitle() -> (value: CFString?, error: AXError)
     {
-        return ref.stringAttribute(kAXTitleAttribute)
+        let (value, error) = ref.attributeValue(kAXTitleAttribute)
+        guard error == .success, let value else { return (nil, error) }
+        let title: CFString? = castAttribute(value, typeID: CFStringGetTypeID())
+        return (title, error)
     }
 
     var axOrigin: CGPoint
@@ -170,6 +176,16 @@ nonisolated func unmarkAXDestroyed(_ id: WindowID)
 
     var reportsMinimized: Bool { ref.boolAttribute(kAXMinimizedAttribute) }
     var reportsFullscreen: Bool { ref.boolAttribute(Self.fullscreenAttribute) }
+
+    /// The AXFullScreen value (false when it is not a boolean) and the error of its call, for `WindowManager.ifResponsive`.
+    func readFullscreen() -> (value: Bool, error: AXError)
+    {
+        let (value, error) = ref.attributeValue(Self.fullscreenAttribute)
+        guard let boolean: CFBoolean = value.flatMap({ castAttribute($0, typeID: CFBooleanGetTypeID()) }) else {
+            return (false, error)
+        }
+        return (CFBooleanGetValue(boolean), error)
+    }
 
     func minimize() throws(WindowOperationError)
     {

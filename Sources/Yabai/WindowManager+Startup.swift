@@ -18,6 +18,7 @@ extension WindowManager
         window = [:]
         managedWindows = [:]
         focus.clearLostEvents()
+        axBreaker = AXBreaker()
     }
 
     func begin()

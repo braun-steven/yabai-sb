@@ -316,7 +316,8 @@ extension WindowManager
         workers.wait()
         ScriptingAddition.shared.swapProxiesIn(animations)
         for animation in animations { Border.setSuspended(true, for: animation.wid) }
-        setWindowFrames(list)
+        // Non-essential: frame writes to an application whose breaker is open are skipped; its next layout sets them.
+        setWindowFrames(list, nonEssential: true)
         SLS.reenableUpdate(connection)
         DispatchQueue.main.async {
             WindowAnimationDisplayLink(connection: connection, animations: animations, duration: duration, easing: easing).start()
@@ -520,8 +521,18 @@ final class WindowFrameGroup: @unchecked Sendable
 
 extension WindowManager
 {
-    func setWindowFrames(_ list: [WindowPlacement])
+    /// Sets the frames of the placements. `nonEssential` (animation frames) skips the windows of an application whose
+    /// breaker is open; they keep their frame, and the next layout sets it. Every write records the outcome of its
+    /// application's calls, so an essential write that times out also opens the breaker.
+    func setWindowFrames(_ list: [WindowPlacement], nonEssential: Bool = false)
     {
+        let now = ContinuousClock.now
+        let list = nonEssential ? list.filter { placement in
+            guard let pid = placement.window.application?.pid else { return true }
+            if !axBreaker.isOpen(pid: pid, now: now) { return true }
+            Logger.windows.debug("\(placement.window.id): \(pid) is unresponsive, not setting its frame")
+            return false
+        } : list
         if list.isEmpty { return }
         for placement in list {
             placement.window.frameRequest = CGRect(x: CGFloat(placement.x), y: CGFloat(placement.y),
@@ -532,6 +543,9 @@ extension WindowManager
             groups[0].apply()
         } else {
             DispatchQueue.concurrentPerform(iterations: groups.count) { groups[$0].apply() }
+        }
+        for group in groups {
+            recordAXResult(group.error, pid: group.application.pid)
         }
         for group in groups where group.error == .cannotComplete {
             Logger.windows.notice("\(group.name) did not respond, \(group.list.count) window(s) may not have been moved")

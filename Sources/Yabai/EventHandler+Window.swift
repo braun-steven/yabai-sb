@@ -366,7 +366,13 @@ extension EventHandler
 
         Logger.events.debug("window title changed: \(window.application.name) \(window.id)")
 
-        window.title = window.currentTitle()
+        // Non-essential: the title refresh is skipped while the application's breaker is open; the cached title stays
+        // until its next change event.
+        if let title = WindowManager.shared.ifResponsive(pid: window.application.pid, { window.readTitle() }) {
+            window.title = title
+        } else {
+            Logger.events.debug("window title changed: \(window.application.name) \(window.id) is unresponsive, keeping its title")
+        }
         TabBar.refresh(for: window.id)
 
         EventSignals.shared.push(.windowTitleChanged, .window(window))

@@ -91,6 +91,9 @@ extension WindowLayer
     var scratchpads: OrderedDictionary<String, Window> = [:]
     /// Set while an operation moves windows without animating them; see withoutAnimations(_:).
     var animationsSuppressed = false
+    // NOTE: The breaker of the AX calls to applications that do not answer (AXBreaker.swift). Only the non-essential calls
+    // consult it (`ifResponsive`); the calls that record their outcome go through `recordAXResult`.
+    var axBreaker = AXBreaker()
 }
 
 /// The mouse events the event tap receives.

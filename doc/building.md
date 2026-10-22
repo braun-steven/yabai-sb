@@ -80,9 +80,11 @@ The installed executable therefore contains everything it needs to load the scri
 The plugin declares native sources, headers, the module map and scripts as inputs, and two C files
 as outputs. Native compilation runs when an input changes or an output is missing. All generated files and
 compiler caches stay in the sandboxed plugin work directory under `.build/`. Identical generated
-arrays retain their timestamps to avoid unnecessary downstream compilation. Keep the input list
-current when adding native dependencies. The standalone command uses the same script, so compiler
-settings have one owner.
+arrays retain their timestamps to avoid unnecessary downstream compilation. The inputs are enumerated
+from `osax/` (`.m`, `.c`, `.h`, `.S`, `.swift` and `.modulemap` files), excluding `osax/.build/`,
+`osax/testing/`, `osax/include/`, `osax/Version.c`, `osax/Package.swift` and the generated arrays, so a new
+native file needs no plugin edit. Enumerated files that `build-osax.sh` does not read still trigger a rebuild
+when they change, so keep such files out of `osax/`. The standalone command uses the same script, so compiler settings have one owner.
 
 A small prebuild command checks the selected tools on each build. `scripts/osax-toolchain.sh`
 records selection variables, resolved compiler paths, compiler versions/file identities, and the

@@ -143,9 +143,8 @@ extension TabBar
     {
         let utf8 = name.utf8
         guard let separator = utf8.lastIndex(of: UInt8(ascii: ":")), separator != utf8.startIndex else { return false }
-        var size: Float = 0
-        let sizeText = Token(utf8[utf8.index(after: separator)...])
-        guard withUnsafeMutablePointer(to: &size, { sizeText.scan("%f", $0) }) == 1, !(size <= 0) else { return false }
+        let scan = Token(utf8[utf8.index(after: separator)...]).scanFloats(count: 1)
+        guard scan.assigned == 1, let size = scan.values.first, !(size <= 0) else { return false }
         let family = String(decoding: utf8[..<separator], as: UTF8.self)
         let font: CTFont? = family == "system"
             ? CTFontCreateUIFontForLanguage(.system, CGFloat(size), nil)

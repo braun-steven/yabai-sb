@@ -102,29 +102,6 @@ public struct Token: Equatable, Sendable
         return value
     }
 
-    /// `token_is_float`: what strtof accepts (leading spaces, exponents, inf, nan, hexadecimal floats), with nothing left over.
-    public var float: Float?
-    {
-        withCString { text in
-            var end: UnsafeMutablePointer<CChar>? = nil
-            let value = strtof(text, &end)
-            guard let end, end.pointee == 0 else { return nil }
-            return value
-        }
-    }
-
-    /// Calls body with the token as a null-terminated C string. A token never contains a null byte.
-    public func withCString<R>(_ body: (UnsafePointer<CChar>) -> R) -> R
-    {
-        string.withCString(body)
-    }
-
-    /// sscanf on the token, e.g. `token.scan("%d:%d", &a, &b)`; returns the number of assigned conversions.
-    public func scan(_ format: String, _ arguments: CVarArg...) -> Int
-    {
-        Int(withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } })
-    }
-
     /// `token_to_value`
     public var value: TokenValue
     {
@@ -146,28 +123,6 @@ extension CaseIterable where Self: RawRepresentable, RawValue == String
     }
 }
 
-extension Token
-{
-    /// sscanf with a format like "%255[^:]:%d:%d" (`MAXLEN` buffer for the string, then one pointer per value);
-    /// returns the number of assigned conversions.
-    public func scan<T>(_ format: String, _ type: inout [CChar], _ values: inout [T]) -> Int
-    {
-        type = [CChar](repeating: 0, count: 512)
-        return type.withUnsafeMutableBufferPointer { t in
-            values.withUnsafeMutableBufferPointer { v in
-                let arguments: [CVarArg] = [t.baseAddress!] + (0..<v.count).map { v.baseAddress! + $0 }
-                return Int(withCString { text in withVaList(arguments) { vsscanf(text, format, $0) } })
-            }
-        }
-    }
-
-    /// The token of a buffer that sscanf filled.
-    public init(cString: UnsafePointer<CChar>?)
-    {
-        self.init(cString.map { String(cString: $0) } ?? "")
-    }
-}
-
 /// `struct token_value`. C also had TOKEN_TYPE_UNKNOWN, which token_to_value could not return for a valid token.
 public enum TokenValue: Sendable
 {
@@ -179,7 +134,7 @@ public enum TokenValue: Sendable
 
     //
     // NOTE: Float options also accept integers, which token_to_value reports as TOKEN_TYPE_INT. They reject nan and
-    // inf, which strtof accepts.
+    // inf, which the float conversion of the token accepts.
     //
 
     /// `token_value_float`

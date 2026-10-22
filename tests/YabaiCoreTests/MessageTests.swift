@@ -667,11 +667,17 @@ func ruleParseFailureText(_ text: String, _ expected: String)
     #expect(response == "value '' is not a valid option for SPACE_SEL\ninvalid key-value pair 'bogus'\n")
 }
 
-@Test func gridScanPreservesNegativeBitsAndPartialValues()
+@Test func gridParseKeepsNegativeBitsAndIsAllOrNothing()
 {
     var grid = Grid(1, 2, 3, 4, 5, 6)
 
-    #expect(grid.scan(Token("-1:2:bad:4:5:6")) == 2)
+    let rejected = grid.parse(Token("-1:2:bad:4:5:6"))
+    #expect(!rejected)
+    #expect(grid == Grid(1, 2, 3, 4, 5, 6))
+    #expect(Token("-1:2:bad:4:5:6").scanIntegers(count: 6).assigned == 2)
+
+    let accepted = grid.parse(Token("-1:2:3:4:5:6"))
+    #expect(accepted)
     #expect(grid.rows == UInt32.max)
     #expect(grid.columns == 2)
     #expect(grid.x == 3 && grid.y == 4 && grid.width == 5 && grid.height == 6)

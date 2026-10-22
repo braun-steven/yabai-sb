@@ -108,7 +108,7 @@ private enum WorkspaceLayout: String, CaseIterable
         guard token.isValid else { return nil }
         if token.equals(Argument.off) { return { Config.current.scratchpad.grid = Grid() } }
         var grid = Grid()
-        guard grid.scan(token) == 6, grid.rows > 0, grid.columns > 0 else { throw CommandError.unknownValue(domain, command, token) }
+        guard grid.parse(token), grid.rows > 0, grid.columns > 0 else { throw CommandError.unknownValue(domain, command, token) }
         return { Config.current.scratchpad.grid = grid }
     })
 }
@@ -214,21 +214,13 @@ private enum WorkspaceLayout: String, CaseIterable
         rsp.write("\(externalBar.mode.rawValue):\(externalBar.topPadding):\(externalBar.bottomPadding)\n")
     }, parse: { (domain, command, message, _) throws(CommandError) in
         let value = message.next()
-        var mode = [CChar](repeating: 0, count: 6)
-        var top: Int32 = 0
-        var bottom: Int32 = 0
-        let count = mode.withUnsafeMutableBufferPointer { m in
-            withUnsafeMutablePointer(to: &top) { t in
-                withUnsafeMutablePointer(to: &bottom) { b in value.scan("%5[^:]:%d:%d", m.baseAddress!, t, b) }
-            }
-        }
-        guard count == 3 else { return nil }
-        let modeToken = mode.withUnsafeBufferPointer { Token(cString: $0.baseAddress) }
+        let scan = value.scanIntegers(field: 5, count: 2)
+        guard scan.assigned == 3, let modeToken = scan.field else { return nil }
         guard let choice = ExternalBarMode(token: modeToken) else {
             throw CommandError("unknown mode '\(modeToken)' specified in value '\(value)' given to command '\(command)' for domain '\(domain)'\n")
         }
-        let topPadding = Int(top)
-        let bottomPadding = Int(bottom)
+        let topPadding = Int(scan.values[0])
+        let bottomPadding = Int(scan.values[1])
         return {
             Config.current.display.externalBar.mode = choice
             Config.current.display.externalBar.topPadding = topPadding

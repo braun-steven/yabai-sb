@@ -83,21 +83,20 @@ public struct Grid: Equatable, Sendable
     }
 
     //
-    // NOTE: Keep `%d` and the UInt32 fields: negative input is accepted and its 32-bit bit pattern is used by the
-    // grid math. Like sscanf, values assigned before a mismatch remain updated.
+    // NOTE: Negative input is accepted and its 32-bit bit pattern is used by the grid math, so the fields stay UInt32.
+    // The parse is all or nothing: the grid changes only when all six values match.
     //
 
-    /// Scans six colon-separated `%d` values, preserving negative inputs as their UInt32 bit patterns; returns the
-    /// number of values read. Values assigned before a mismatch remain updated.
-    public mutating func scan(_ value: Token) -> Int
+    /// Parses six colon-separated `%d` values, preserving negative inputs as their UInt32 bit patterns. Returns false,
+    /// and leaves the grid as it was, unless all six match.
+    public mutating func parse(_ value: Token) -> Bool
     {
-        var values = [rows, columns, x, y, width, height]
-        let count = values.withUnsafeMutableBufferPointer { v in
-            value.scan("%d:%d:%d:%d:%d:%d", v.baseAddress!, v.baseAddress! + 1, v.baseAddress! + 2, v.baseAddress! + 3, v.baseAddress! + 4, v.baseAddress! + 5)
-        }
+        let scan = value.scanIntegers(count: 6)
+        guard scan.assigned == 6 else { return false }
 
+        let values = scan.values.map { UInt32(bitPattern: $0) }
         (rows, columns, x, y, width, height) = (values[0], values[1], values[2], values[3], values[4], values[5])
-        return count
+        return true
     }
 }
 
@@ -434,10 +433,14 @@ public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ r
                 scanner.fail(SpaceSelector.invalid(value))
             }
         } else if key.equals("grid") {
-            validValue = rule.effects.grid.scan(value) == 6
+            validValue = rule.effects.grid.parse(value)
         } else if key.equals("opacity") {
-            validValue = withUnsafeMutablePointer(to: &rule.effects.opacity) { value.scan("%f", $0) } == 1 && rule.effects.opacity >= 0 && rule.effects.opacity <= 1
-            if validValue { rule.effects.flags.insert(.opacity) }
+            let scan = value.scanFloats(count: 1)
+            validValue = scan.assigned == 1 && (0...1).contains(scan.values[0])
+            if validValue {
+                rule.effects.opacity = scan.values[0]
+                rule.effects.flags.insert(.opacity)
+            }
         } else if key.equals("manage") {
             validValue = parseRuleProp(value, &rule.effects.manage)
         } else if key.equals("sticky") {

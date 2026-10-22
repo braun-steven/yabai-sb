@@ -63,13 +63,13 @@ public enum SpaceCommand: Equatable, Sendable
             guard degrees != 0 else { throw unknownValue(name, value) }
             return .rotate(degrees)
         case .padding:
-            var type: [CChar] = []; var values: [Int32] = [0, 0, 0, 0]
-            guard value.scan("%255[^:]:%d:%d:%d:%d", &type, &values) == 5 else { throw unknownValue(name, value) }
-            return .padding(parseValueType(Token(cString: type)), top: Int(values[0]), bottom: Int(values[1]), left: Int(values[2]), right: Int(values[3]))
+            let scan = value.scanIntegers(field: 255, count: 4)
+            guard scan.assigned == 5, let type = scan.field else { throw unknownValue(name, value) }
+            return .padding(parseValueType(type), top: Int(scan.values[0]), bottom: Int(scan.values[1]), left: Int(scan.values[2]), right: Int(scan.values[3]))
         case .gap:
-            var type: [CChar] = []; var gap: [Int32] = [0]
-            guard value.scan("%255[^:]:%d", &type, &gap) == 2 else { throw unknownValue(name, value) }
-            return .gap(parseValueType(Token(cString: type)), Int(gap[0]))
+            let scan = value.scanIntegers(field: 255, count: 1)
+            guard scan.assigned == 2, let type = scan.field else { throw unknownValue(name, value) }
+            return .gap(parseValueType(type), Int(scan.values[0]))
         case .toggle:
             guard let toggle = SpaceToggle(token: value) else { throw unknownValue(name, value) }
             return .toggle(toggle)

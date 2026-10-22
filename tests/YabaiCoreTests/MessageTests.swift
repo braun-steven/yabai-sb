@@ -589,6 +589,46 @@ func ruleParseFailure(_ text: String, _ failures: [String])
     }
 }
 
+// NOTE: the exact failure text of every rule failure path, and the order the failures come in. Empty text: a display or
+// space 'recent' with nothing recent, which is not parsed and reports nothing.
+private let ruleExactFailures: [(String, String)] = [
+    ("app=x\0manage=maybe\0", "invalid value 'maybe' for key 'manage'\n"),
+    ("manage=maybe\0app=(\0", "invalid value 'maybe' for key 'manage'\ninvalid regex pattern '(' for key 'app'\n"),
+    ("app=(\0", "invalid regex pattern '(' for key 'app'\n"),
+    ("title=[\0", "invalid regex pattern '[' for key 'title'\n"),
+    ("role=[\0", "invalid regex pattern '[' for key 'role'\n"),
+    ("subrole=[\0", "invalid regex pattern '[' for key 'subrole'\n"),
+    ("app=x\0label!=y\0", "unsupported token '!' (exclusion) given for key 'label'\n"),
+    ("app=x\0sticky!=on\0", "unsupported token '!' (exclusion) given for key 'sticky'\n"),
+    ("app=x\0sticky!=on\0label!=y\0", "unsupported token '!' (exclusion) given for key 'label'\n"),
+    ("app=(\0label!=y\0", "invalid regex pattern '(' for key 'app'\nunsupported token '!' (exclusion) given for key 'label'\n"),
+    ("app=x\0colour=red\0", "unknown key 'colour'\n"),
+    ("manage=on\0colour=red\0", "unknown key 'colour'\nmissing required key-value pair 'app[!]=..' or 'title[!]=..'\n"),
+    ("app=x\0bogus\0", "invalid key-value pair 'bogus'\n"),
+    ("app=x\0label=\0", "invalid key-value pair 'label='\n"),
+    ("bogus\0", "invalid key-value pair 'bogus'\nmissing required key-value pair 'app[!]=..' or 'title[!]=..'\n"),
+    ("label=x\0", "missing required key-value pair 'app[!]=..' or 'title[!]=..'\n"),
+    ("app=x\0display=bogus\0", "value 'bogus' is not a valid option for DISPLAY_SEL\n"),
+    ("app=x\0space=bogus\0", "value 'bogus' is not a valid option for SPACE_SEL\n"),
+    ("app=x\0display=recent\0", ""),
+    ("app=x\0space=recent\0", ""),
+    ("app=x\0opacity=2\0", "invalid value '2' for key 'opacity'\n"),
+    ("app=x\0grid=2:2\0", "invalid value '2:2' for key 'grid'\n"),
+    ("app=x\0sub-layer=bogus\0", "invalid value 'bogus' for key 'sub-layer'\n"),
+    ("app=x\0sticky=maybe\0", "invalid value 'maybe' for key 'sticky'\n"),
+    ("app=x\0mouse_follows_focus=maybe\0", "invalid value 'maybe' for key 'mouse_follows_focus'\n"),
+    ("app=x\0native-fullscreen=maybe\0", "invalid value 'maybe' for key 'native-fullscreen'\n"),
+    ("app=x\0scratchpad=float\0", "invalid value 'float' for key 'scratchpad'\n"),
+]
+
+@Test(arguments: ruleExactFailures)
+func ruleParseFailureText(_ text: String, _ expected: String)
+{
+    let (result, _, response) = parseRuleText(text)
+    #expect(result == false)
+    #expect(response == expected)
+}
+
 @Test func ruleMatchingAndListFlags()
 {
     var (_, rule, _) = parseRuleText("app=^Safari$\0title!=Preferences\0subrole=(\0sub-layer=above\0")
@@ -743,6 +783,34 @@ private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String
     #expect(response.contains("missing required key-value pair 'event=..'"))
     #expect(response.contains("missing required key-value pair 'action=..'"))
     #expect(response.contains("unsupported token '!' (exclusion) given for key 'label'"))
+}
+
+// NOTE: the exact failure text of every signal failure path, and the order the failures come in.
+private let signalExactFailures: [(String, String)] = [
+    ("event=window_focused\0action=x\0active=maybe\0", "invalid value 'maybe' for key 'active'\n"),
+    ("event=window_focused\0action=x\0app=(\0", "invalid regex pattern '(' for key 'app'\n"),
+    ("event=window_focused\0action=x\0title=[\0", "invalid regex pattern '[' for key 'title'\n"),
+    ("event=window_focused\0action=x\0colour=red\0", "unknown key 'colour'\n"),
+    ("event=window_focused\0action=x\0bogus\0", "invalid key-value pair 'bogus'\n"),
+    ("event=window_focused\0action=x\0label=\0", "invalid key-value pair 'label='\n"),
+    ("event=bogus\0action=x\0", "invalid value 'bogus' for key 'event'\n"),
+    ("action=x\0", "missing required key-value pair 'event=..'\n"),
+    ("event=window_focused\0", "missing required key-value pair 'action=..'\n"),
+    ("event=window_focused\0action=x\0label!=y\0", "unsupported token '!' (exclusion) given for key 'label'\n"),
+    ("event=window_focused\0action=x\0active!=yes\0", "unsupported token '!' (exclusion) given for key 'active'\n"),
+    ("bogus\0", "invalid key-value pair 'bogus'\nmissing required key-value pair 'event=..'\nmissing required key-value pair 'action=..'\n"),
+    (
+        "event=bogus\0bogus\0colour=red\0label!=y\0",
+        "invalid value 'bogus' for key 'event'\ninvalid key-value pair 'bogus'\nunknown key 'colour'\nmissing required key-value pair 'action=..'\nunsupported token '!' (exclusion) given for key 'label'\n"
+    ),
+]
+
+@Test(arguments: signalExactFailures)
+func signalParseFailureText(_ text: String, _ expected: String)
+{
+    let (result, _, _, response) = parseSignalText(text)
+    #expect(result == false)
+    #expect(response == expected)
 }
 
 private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects

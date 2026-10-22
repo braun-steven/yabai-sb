@@ -99,6 +99,67 @@ public func parseKeyValuePair(_ token: Token) -> KeyValue?
     return KeyValue(key: Token(bytes[bytes.startIndex..<at]), value: Token(bytes[valueStart...]), exclusion: exclusion)
 }
 
+//
+// NOTE: The failures come in the order the arguments were read, then the missing required keys, then the unsupported
+// exclusion, which reports only the last such key. Any failure rejects the command.
+//
+
+/// Reads the key-value arguments of a rule or signal to the end of the message and collects the failures they share.
+/// The command keeps its own keys and values.
+struct KeyValueScanner
+{
+    private var token: Token
+    private var unsupportedExclusion: Token?
+    private var failures: [CommandError] = []
+    private var didParse = true
+
+    /// `first` is the token of the first argument; the rest are read from the message.
+    init(first: Token) { token = first }
+
+    /// The next key-value pair, nil at the end of the message. A malformed argument is reported and skipped.
+    mutating func next(_ message: inout some TokenSource) -> KeyValue?
+    {
+        while token.isValid {
+            let current = token
+            token = message.next()
+            if let pair = parseKeyValuePair(current) { return pair }
+            fail(CommandError("invalid key-value pair '\(current)'\n"))
+        }
+        return nil
+    }
+
+    /// Checks a pair after its value is handled. An exclusion is valid only on a filter key (`app`, `title`, ...).
+    mutating func check(_ pair: KeyValue, filter: Bool = false, validValue: Bool = true, validPattern: Bool = true)
+    {
+        if pair.exclusion && !filter { unsupportedExclusion = pair.key }
+        if !validValue { fail(CommandError("invalid value '\(pair.value)' for key '\(pair.key)'\n")) }
+        if !validPattern { fail(CommandError("invalid regex pattern '\(pair.value)' for key '\(pair.key)'\n")) }
+    }
+
+    mutating func unknownKey(_ key: Token) { fail(CommandError("unknown key '\(key)'\n")) }
+
+    mutating func fail(_ error: CommandError)
+    {
+        failures.append(error)
+        didParse = false
+    }
+
+    /// The command does not apply, with nothing to report (a display or space 'recent' that is not set).
+    mutating func reject() { didParse = false }
+
+    /// Adds the unsupported exclusion, then throws every failure together. Otherwise returns whether the command
+    /// parsed. Call it after the command's own required-key checks.
+    @discardableResult
+    mutating func finish() throws(CommandError) -> Bool
+    {
+        if let unsupportedExclusion {
+            fail(CommandError("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n"))
+        }
+        if !failures.isEmpty { throw CommandError(combining: failures) }
+        return didParse
+    }
+}
+
 /// The sub-layers of a window, named as in `window --layer`.
 public enum WindowLayer: String, CaseIterable, Sendable
 {

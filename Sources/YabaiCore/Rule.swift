@@ -375,21 +375,10 @@ private func parseRuleFollowPrefix(_ effects: inout RuleEffects, _ value: Token)
 /// selector found nothing ('recent'): the rule is then not used either.
 public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ rule: inout Rule, _ first: Token, _ context: C) throws(CommandError) -> Bool
 {
-    var unsupportedExclusion: Token?
-    var didParse = true
+    var scanner = KeyValueScanner(first: first)
     var hasFilter = false
-    var failures: [CommandError] = []
 
-    var token = first
-    while token.isValid {
-        defer { token = message.next() }
-
-        guard let pair = parseKeyValuePair(token) else {
-            failures.append(CommandError("invalid key-value pair '\(token)'\n"))
-            didParse = false
-            continue
-        }
-
+    while let pair = scanner.next(&message) {
         let key = pair.key
         var value = pair.value
         var isFilter = false
@@ -425,28 +414,24 @@ public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ r
             if let selector = DisplaySelector(value) {
                 do {
                     if let did = try selector.resolve(acting: context.activeDisplay, context) { rule.effects.did = did }
-                    else { didParse = false }
+                    else { scanner.reject() }
                 } catch {
-                    failures.append(error)
-                    if case .label = selector { didParse = false }
+                    scanner.fail(error)
                 }
             } else {
-                failures.append(DisplaySelector.invalid(value))
-                didParse = false
+                scanner.fail(DisplaySelector.invalid(value))
             }
         } else if key.equals("space") {
             value = parseRuleFollowPrefix(&rule.effects, value)
             if let selector = SpaceSelector(value) {
                 do {
                     if let sid = try selector.resolve(acting: context.activeSpace, context) { rule.effects.sid = sid }
-                    else { didParse = false }
+                    else { scanner.reject() }
                 } catch {
-                    failures.append(error)
-                    if case .label = selector { didParse = false }
+                    scanner.fail(error)
                 }
             } else {
-                failures.append(SpaceSelector.invalid(value))
-                didParse = false
+                scanner.fail(SpaceSelector.invalid(value))
             }
         } else if key.equals("grid") {
             validValue = rule.effects.grid.scan(value) == 6
@@ -468,38 +453,14 @@ public func parseRule<C: SelectorContext>(_ message: inout some TokenSource, _ r
                 rule.effects.layer = layer
                 rule.effects.flags.insert(.layer)
             }
-        } else {
-            failures.append(CommandError("unknown key '\(key)'\n"))
-            didParse = false
-            continue
-        }
+        } else { scanner.unknownKey(key); continue }
 
         hasFilter = hasFilter || isFilter
-        if pair.exclusion && !isFilter { unsupportedExclusion = key }
-
-        if !validValue {
-            failures.append(CommandError("invalid value '\(value)' for key '\(key)'\n"))
-            didParse = false
-        }
-
-        if !validPattern {
-            failures.append(CommandError("invalid regex pattern '\(value)' for key '\(key)'\n"))
-            didParse = false
-        }
+        scanner.check(pair, filter: isFilter, validValue: validValue, validPattern: validPattern)
     }
 
-    if !hasFilter {
-        failures.append(CommandError("missing required key-value pair 'app[!]=..' or 'title[!]=..'\n"))
-        didParse = false
-    }
-
-    if let unsupportedExclusion {
-        failures.append(CommandError("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n"))
-        didParse = false
-    }
-
-    if !failures.isEmpty { throw CommandError(combining: failures) }
-    return didParse
+    if !hasFilter { scanner.fail(CommandError("missing required key-value pair 'app[!]=..' or 'title[!]=..'\n")) }
+    return try scanner.finish()
 }
 
 /// `struct signal` (the former src/event_signal.h): the filters and the action of a signal.
@@ -519,22 +480,11 @@ public struct EventSignal
 /// (`signal_type_from_string`). Throws the problems of all the pairs together in one failure when the signal is invalid.
 public func parseSignal<Event>(_ message: inout some TokenSource, _ signal: inout EventSignal, _ event: inout Event?, eventType: (Token) -> Event?) throws(CommandError)
 {
-    var unsupportedExclusion: Token?
-    var didParse = true
+    var scanner = KeyValueScanner(first: message.next())
     var hasSignalType = false
-    var failures: [CommandError] = []
     event = nil
 
-    var token = message.next()
-    while token.isValid {
-        defer { token = message.next() }
-
-        guard let pair = parseKeyValuePair(token) else {
-            failures.append(CommandError("invalid key-value pair '\(token)'\n"))
-            didParse = false
-            continue
-        }
-
+    while let pair = scanner.next(&message) {
         let key = pair.key
         let value = pair.value
         var isFilter = false
@@ -565,39 +515,12 @@ public func parseSignal<Event>(_ message: inout some TokenSource, _ signal: inou
             hasSignalType = true
             event = eventType(value)
             validValue = event != nil
-        } else {
-            failures.append(CommandError("unknown key '\(key)'\n"))
-            didParse = false
-            continue
-        }
+        } else { scanner.unknownKey(key); continue }
 
-        if pair.exclusion && !isFilter { unsupportedExclusion = key }
-
-        if !validValue {
-            failures.append(CommandError("invalid value '\(value)' for key '\(key)'\n"))
-            didParse = false
-        }
-
-        if !validPattern {
-            failures.append(CommandError("invalid regex pattern '\(value)' for key '\(key)'\n"))
-            didParse = false
-        }
+        scanner.check(pair, filter: isFilter, validValue: validValue, validPattern: validPattern)
     }
 
-    if !hasSignalType {
-        failures.append(CommandError("missing required key-value pair 'event=..'\n"))
-        didParse = false
-    }
-
-    if signal.command == nil {
-        failures.append(CommandError("missing required key-value pair 'action=..'\n"))
-        didParse = false
-    }
-
-    if let unsupportedExclusion {
-        failures.append(CommandError("unsupported token '!' (exclusion) given for key '\(unsupportedExclusion)'\n"))
-        didParse = false
-    }
-
-    if !didParse { throw CommandError(combining: failures) }
+    if !hasSignalType { scanner.fail(CommandError("missing required key-value pair 'event=..'\n")) }
+    if signal.command == nil { scanner.fail(CommandError("missing required key-value pair 'action=..'\n")) }
+    try scanner.finish()
 }

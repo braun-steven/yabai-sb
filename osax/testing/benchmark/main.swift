@@ -28,7 +28,7 @@ for i in 0..<1000 {
     autoreleasepool {
         let message = messages[i % messages.count]
         message.withUnsafeBufferPointer { _ = sa_native_dispatch($0.baseAddress, $0.count) }
-        core.tick(UInt64(i) * 8_000_000)
+        _ = core.tick(UInt64(i) * 8_000_000)
     }
 }
 sa_test_reset()
@@ -42,7 +42,7 @@ for i in 0..<iterations {
             if !core.validate($0.baseAddress, $0.count) { fatalError("valid fixture rejected") }
             _ = sa_native_dispatch($0.baseAddress, $0.count)
         }
-        core.tick(UInt64(i) * 8_000_000)
+        _ = core.tick(UInt64(i) * 8_000_000)
         dispatchSamples.append(now() - start)
     }
 }

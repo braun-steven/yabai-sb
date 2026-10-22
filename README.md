@@ -362,7 +362,7 @@ make check-build     # isolated build-system upgrade checks and Swift tests
 
 `make install` builds locally; it does not copy the binary into your PATH. A failed build preserves the last successful `bin/yabai`. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `make clean` removes both packages' build products. The package opts into SwiftPM's experimental C-source generation support; see [build details](doc/building.md) and [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
-The scripting addition uses the Swift core (2.1.36), with private Dock operations in a native
+The scripting addition uses the Swift core (2.1.37), with private Dock operations in a native
 adapter. `make osax-test` tests it outside Dock; `make osax-payload` builds the standalone payload
 without injecting it. The unused Objective-C prototype has been removed. See the
 [comparison results and reload procedure](doc/osax-prototypes.md).

@@ -289,7 +289,7 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 - `make osax-test` and `swift test --package-path osax --sanitize=address` / `--sanitize=thread`
   exercise the Swift payload core against a recording backend, including a mock Mach task
   for loader failures. Daemon sanitizer builds do not instrument the injected payload.
-- `bash scripts/live-tests/deploy.sh install` embeds the Swift payload (2.1.36); it does not reload
+- `bash scripts/live-tests/deploy.sh install` embeds the Swift payload (2.1.37); it does not reload
   Dock's payload by itself. The unused Objective-C prototype and core-selection option are removed.
   Follow [osax-prototypes.md](osax-prototypes.md), including the
   old-payload check, terminal reload and restoration. The compatibility wrapper uses empty space

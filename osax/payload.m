@@ -77,7 +77,10 @@ static bool animation_time_patched;
 
 static pthread_t daemon_thread;
 static int daemon_sockfd;
+static dispatch_queue_t fade_queue;
 static dispatch_source_t fade_timer;
+// Read and written only on fade_queue. The timer is armed while the Swift core reports fades.
+static bool fade_timer_running;
 
 static __attribute__((unused)) void dump_class_info(Class c)
 {
@@ -619,6 +622,16 @@ uint64_t sa_clock_ns(void)
     return sa_io_now();
 }
 
+// Called on the socket thread. The timer block is queued, so fade_timer_running is only touched on fade_queue.
+static void ensure_fade_timer(void)
+{
+    dispatch_async(fade_queue, ^{
+        if (fade_timer_running) return;
+        fade_timer_running = true;
+        dispatch_resume(fade_timer);
+    });
+}
+
 static bool do_window_opacity(char *message, bool fade)
 {
     uint32_t wid;
@@ -626,7 +639,9 @@ static bool do_window_opacity(char *message, bool fade)
     unpack(wid);
     unpack(alpha);
     unpack(duration);
-    return sa_core_opacity(wid, alpha, fade ? duration : 0, sa_clock_ns());
+    if (!sa_core_opacity(wid, alpha, fade ? duration : 0, sa_clock_ns())) return false;
+    if (fade && duration > 0) ensure_fade_timer();
+    return true;
 }
 
 static bool do_window_layer(char *message)
@@ -966,16 +981,24 @@ static bool start_daemon(char *socket_path)
     if (chmod(socket_path, 0600) != 0 || listen(daemon_sockfd, SOMAXCONN) != 0) goto unlink_socket;
 
     // One timer, independent of the socket thread and Dock's main queue, replaces unbounded worker
-    // creation. The Swift core uses elapsed monotonic time for interpolation.
-    dispatch_queue_t queue = dispatch_queue_create("yabai.sa.fade", DISPATCH_QUEUE_SERIAL);
-    if (!queue) goto unlink_socket;
-    fade_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
-    dispatch_release(queue);
+    // creation. The Swift core uses elapsed monotonic time for interpolation. Sources start suspended:
+    // ensure_fade_timer resumes the timer after a fade is accepted, and the handler suspends it again
+    // once the core reports no fades. The queue stays alive for the process lifetime (the timer and
+    // ensure_fade_timer use it).
+    fade_queue = dispatch_queue_create("yabai.sa.fade", DISPATCH_QUEUE_SERIAL);
+    if (!fade_queue) goto unlink_socket;
+    fade_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, fade_queue);
     if (!fade_timer) goto unlink_socket;
     dispatch_source_set_timer(fade_timer, dispatch_time(DISPATCH_TIME_NOW, 8000000), 8000000, 1000000);
-    dispatch_source_set_event_handler(fade_timer, ^{ sa_core_tick(sa_clock_ns()); });
+    dispatch_source_set_event_handler(fade_timer, ^{
+        if (!sa_core_tick(sa_clock_ns())) {
+            dispatch_suspend(fade_timer);
+            fade_timer_running = false;
+        }
+    });
     init_instances();
     if (pthread_create(&daemon_thread, NULL, handle_connection, NULL) != 0) {
+        // A suspended source must be resumed before it is cancelled or released.
         dispatch_source_cancel(fade_timer);
         dispatch_resume(fade_timer);
         dispatch_release(fade_timer);
@@ -983,7 +1006,6 @@ static bool start_daemon(char *socket_path)
         goto unlink_socket;
     }
     pthread_detach(daemon_thread);
-    dispatch_resume(fade_timer);
     return true;
 
 unlink_socket:

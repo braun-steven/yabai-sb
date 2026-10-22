@@ -37,11 +37,11 @@ phase: done · mode: nested
 
 ## Phase 3: Scripting addition hardening
 
-phase: todo · mode: — · osax_bumped: —
+phase: in-progress · mode: nested · osax_bumped: 2.1.37
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P3.1 | Fade timer runs only while fades are active | todo | |
+| P3.1 | Fade timer runs only while fades are active | done | `OSAX_VERSION` bumped to 2.1.37 (`osax_bumped`; docs and `scripts/osax/runtime.py` expected version updated). `sa_swift_tick` returns Bool (true while fades remain) and `sa_swift_has_fades` is new (`Core.swift`, `OSAXCore.h`, `sa_core_has_fades` macro). `payload.m`: the timer is created suspended; `ensure_fade_timer` resumes it after an accepted fade with duration > 0 (opcode 8 only); the handler suspends it when the core reports no fades. Deviation: `fade_queue` is kept in a static (it was released after creating the source) so `ensure_fade_timer` can dispatch to it. Tests: `fadeTimerStateFollowsActiveFades` in `osax/testing/tests/PayloadTests.swift`; `doc/payload-updates.md` "Fade timer". Gates: `make ci-quick` passed (256 + 83 tests, 0 warnings), `make osax-test` passed (10 tests), `swift test --package-path osax` under `--sanitize=thread` and `--sanitize=address` passed with 0 reports, `make osax-payload` 0 warnings. Live check added (P3.1, fades and idle Dock). |
 | P3.2 | Gate the Dock animation patch on known Dock UUIDs | todo | |
 | P3.3 | Guarded reads in the payload core | todo | |
 | P3.4 | Daemon checks the payload socket's owner | todo | |
@@ -202,11 +202,15 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 14:22 · subphase agent · P2.6 · start · JSON.encode and Response.write(json:) throw CommandError; SignalCommand throws instead of trapping; the Query.swift encode helper typed; gates quick
 - 2026-10-22 14:24 · subphase agent · P2.6 · done · `make ci-quick` (256 tests, 0 warnings), Golden unchanged, acceptance grep empty. No live checks. Phase 2 has no subphase left: the phase agent runs the phase close (`make ci`).
 - 2026-10-22 14:27 · phase agent · P2 · close · Phase 2 done; each subphase reviewed and its gate re-run by the phase agent, no fix commits needed; `make ci` passed (256 + 83 tests, osax-test 9, install and check-build PASS). Changes: AX pid through `AXUIElementGetPid` (`pid_t?`) and `castAttribute` checks CF type ids; `SLSNotification` enum with length-checked `payload`; `@try` around private KVC in Notify.m, `OSTimer.now` on `CLOCK_UPTIME_RAW` (`ReadOSTimerC` removed), Mach-O string-table bounds; one startup notice for unresolved private symbols; IPC 1 MiB cap, `invalid message` reply, client `SO_RCVTIMEO` (`YABAI_CLIENT_TIMEOUT`, 30 s); `JSON.encode`/`Response.write(json:)` are `throws(CommandError)` and YabaiCore has no traps. Deviations: raw SLS ids still enter through `WindowID(_:)` (Discovered); no README entry for `YABAI_CLIENT_TIMEOUT` (hardening, CHANGELOG + man page only). For the next phase: `Response.write(json:)` now needs `try`; 5 phase-2 live checks are pending in live-checks.md; `bin/yabai` holds an unsigned release build. · orchestrator starts phase 3
+- 2026-10-22 14:30 · phase agent · P3 · start (nested) · start P3.1 subphase agent
+- 2026-10-22 14:34 · subphase agent · P3.1 · start · fade timer armed only while fades run (Core tick returns Bool, has_fades export, ensure_fade_timer in payload.m); OSAX_VERSION 2.1.37; gates quick + payload + sanitizers
+- 2026-10-22 14:40 · subphase agent · P3.1 · done · `make ci-quick` (256 + 83 tests, 0 warnings), `make osax-test` (10 tests), TSan and ASan clean, `make osax-payload` 0 warnings. One live check added (P3.1). P3.2 (Dock UUID gate) is next; it has no dependency and can start now.
 
 ## Discovered
 
 Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.
 
+- P3.1: `doc/payload-updates.md` "Hardened core prototypes" still says normal builds select the Objective-C core (2.1.35), which the removed-prototype notes in `doc/osax-prototypes.md` contradict. Left as is; only the version number changed there.
 - P2.2: `WindowID(_:)` for the raw window server ids in `connectionNotificationHandler` contradicts the convention that raw ids enter through `init?(nonzero:)`. Kept as is so decoded values do not change; a 0 id would now reach `Border`/`EventLoop` as before.
 - P1.4: C-style names remain in doc comments outside the four files P1.4 named: `YabaiCore/Query.swift`, `Client.swift`, `Message.swift` (e.g. `:56`, `:238`), `EventSignal.swift`, `SpaceLayout.swift`, `SpaceWindow.swift`, `Rule.swift` (e.g. `Rule.swift:360`, `:373`, `:505`, `:518`). Plus "Ported from src/..." provenance lines (`Rule.swift:6`, `SpaceWindow.swift:7`, `Sources/Yabai/IPC/Client.swift:8`, `Sources/YabaiCore/Client.swift:4`).
 

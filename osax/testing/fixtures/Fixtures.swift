@@ -28,7 +28,7 @@ public func fixtures() -> [[UInt8]]
 public typealias Validator = @convention(c) (UnsafePointer<UInt8>?, Int) -> Bool
 public typealias Server = @convention(c) (Int32) -> Bool
 public typealias Opacity = @convention(c) (UInt32, Float, Float, UInt64) -> Bool
-public typealias Tick = @convention(c) (UInt64) -> Void
+public typealias Tick = @convention(c) (UInt64) -> Bool
 
 public struct Core: Sendable
 {

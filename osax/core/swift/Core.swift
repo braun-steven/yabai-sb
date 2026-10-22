@@ -149,8 +149,9 @@ public func swiftOpacity(_ wid: UInt32, _ alpha: Float, _ duration: Float, _ now
     }
 }
 
+// Returns true while fades remain, so the native side can keep its timer armed only for that time.
 @_cdecl("sa_swift_tick")
-public func swiftTick(_ now: UInt64)
+public func swiftTick(_ now: UInt64) -> Bool
 {
     fades.withLock { state in
         // Snapshot keys so removing completed fades does not mutate a live iterator.
@@ -161,7 +162,14 @@ public func swiftTick(_ now: UInt64)
             let alpha = Float((1 - t) * Double(fade.startAlpha) + t * Double(fade.alpha))
             if !sa_native_set_alpha(wid, alpha) || t >= 1 { state.removeValue(forKey: wid) }
         }
+        return !state.isEmpty
     }
+}
+
+@_cdecl("sa_swift_has_fades")
+public func swiftHasFades() -> Bool
+{
+    fades.withLock { !$0.isEmpty }
 }
 
 @_cdecl("sa_swift_reset")

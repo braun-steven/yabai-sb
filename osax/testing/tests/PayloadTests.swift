@@ -158,13 +158,13 @@ import LoaderFixture
         let core = Core()
         sa_test_reset()
         #expect(core.opacity(7, 0, 1, 0))
-        core.tick(500_000_000)
+        _ = core.tick(500_000_000)
         #expect(abs(sa_test_alpha(7) - 0.5) < 0.00001)
         #expect(core.opacity(7, 1, 1, 500_000_000))
-        core.tick(1_000_000_000)
+        _ = core.tick(1_000_000_000)
         #expect(abs(sa_test_alpha(7) - 0.75) < 0.00001)
         #expect(core.opacity(7, 0.2, 0, 1_000_000_000))
-        core.tick(3_000_000_000)
+        _ = core.tick(3_000_000_000)
         #expect(sa_test_alpha(7) == 0.2)
         sa_test_fail(true, false)
         #expect(!core.opacity(7, 1, 1, 0))
@@ -175,10 +175,29 @@ import LoaderFixture
         #expect(!core.opacity(7, 1, -.infinity, 0))
         #expect(core.opacity(7, 1, 1, 0))
         sa_test_fail(false, true)
-        core.tick(500_000_000)
+        _ = core.tick(500_000_000)
         sa_test_fail(false, false)
-        core.tick(2_000_000_000)
+        _ = core.tick(2_000_000_000)
         #expect(sa_test_alpha(7) == 0.2)
+    }
+
+    @Test func fadeTimerStateFollowsActiveFades()
+    {
+        let core = Core()
+        sa_test_reset()
+        #expect(!sa_swift_has_fades())
+        // An immediate write never leaves a fade behind, so the timer would have nothing to do.
+        #expect(core.opacity(7, 1, 0, 0))
+        #expect(!sa_swift_has_fades())
+        #expect(!core.tick(0))
+        #expect(core.opacity(7, 0, 1, 0))
+        #expect(sa_swift_has_fades())
+        #expect(core.tick(500_000_000))
+        #expect(sa_swift_has_fades())
+        // The completing tick removes the fade and reports that none remain.
+        #expect(!core.tick(2_000_000_000))
+        #expect(!sa_swift_has_fades())
+        #expect(sa_test_alpha(7) == 0)
     }
 
     @Test func concurrentFadesAndImmediateCommands()
@@ -187,10 +206,10 @@ import LoaderFixture
         sa_test_reset()
         DispatchQueue.concurrentPerform(iterations: 1000) { index in
             _ = core.opacity(UInt32(index % 32 + 1), Float(index % 10) / 10, index % 3 == 0 ? 0 : 1, UInt64(index))
-            core.tick(UInt64(index))
+            _ = core.tick(UInt64(index))
         }
         #expect(core.opacity(7, 0.25, 0, 2000))
-        core.tick(10_000_000_000)
+        _ = core.tick(10_000_000_000)
         #expect(sa_test_alpha(7) == 0.25)
     }
 

@@ -66,7 +66,7 @@ def unlocked():
 
 
 unlocked()
-expected_version = "2.1.36"
+expected_version = "2.1.37"
 version = request(b"\1").split(b"\0", 1)[0].decode()
 assert version == expected_version, (version, expected_version)
 windows = query("--windows", "--space", 4)

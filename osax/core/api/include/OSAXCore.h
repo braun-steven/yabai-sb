@@ -20,13 +20,15 @@ bool sa_decode_adrp_add(uint32_t adrp, uint32_t add, uint64_t pc, uint64_t *targ
 bool sa_swift_validate(const uint8_t *message, size_t length);
 bool sa_swift_serve(int fd);
 bool sa_swift_opacity(uint32_t wid, float alpha, float duration, uint64_t now);
-void sa_swift_tick(uint64_t now);
+bool sa_swift_tick(uint64_t now);
+bool sa_swift_has_fades(void);
 void sa_swift_reset(void);
 
 #ifndef __swift__
 #define sa_core_serve sa_swift_serve
 #define sa_core_opacity sa_swift_opacity
 #define sa_core_tick sa_swift_tick
+#define sa_core_has_fades sa_swift_has_fades
 #endif
 
 #endif

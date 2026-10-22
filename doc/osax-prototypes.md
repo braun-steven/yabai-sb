@@ -1,6 +1,6 @@
 # Scripting-addition prototype comparison
 
-The Swift core (2.1.36) is the only implementation, selected by the user after the isolated and
+The Swift core (2.1.37) is the only implementation, selected by the user after the isolated and
 injected comparison below. The unused Objective-C core, legacy framing benchmark and selection
 options have been removed. The native Dock adapter and loader still require Objective-C/C and
 the existing SIP/arm64e setup. The choice favors Swift state management and consistency with the
@@ -28,7 +28,7 @@ daemon, not a demonstrated visible speed gain. Historical comparison sources are
   already discards that byte. An old
   payload closes without one; the new daemon represents this as **legacy/unconfirmed**, preserving
   the old Bool API. Accepted means dispatched or queued, not observed WindowServer completion.
-- Swift is version 2.1.36. The embedded bundle, loader and daemon's version accessor use that
+- Swift is version 2.1.37. The embedded bundle, loader and daemon's version accessor use that
   version; the removed Objective-C prototype used 2.1.35.
 
 The bootstrap is now assembly with named literal slots, rather than a byte string with numeric

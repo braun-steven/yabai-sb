@@ -232,3 +232,62 @@ extension DaemonState
         }
     }
 }
+
+extension DaemonState
+{
+    @Suite
+    @WM struct WindowForgetTests
+    {
+        //
+        // NOTE: removeWindow forgets the state keyed by the id of the window it removes, and only that: the entries of the
+        // windows that stay are kept.
+        //
+
+        @Test func removeWindowForgetsTheStateKeyedByItsId()
+        {
+            let wm = WindowManager.shared
+            let workspace = Workspace()
+            let target = workspace.open(1, focus: true)
+            let other = workspace.open(2)
+
+            Border.trackForTest(target.id)
+            Border.trackForTest(other.id)
+            wm.addLostFocusedEvent(for: target.id)
+            wm.addLostFocusedEvent(for: other.id)
+            MouseState.shared.window = target
+            MouseState.shared.ffmWindowID = target.id
+            MouseState.shared.feedbackWindowID = target.id
+            MouseState.shared.feedbackDirection = .west
+
+            wm.removeWindow(target.id)
+
+            #expect(wm.window[target.id] == nil)
+            #expect(wm.managedWindows[target.id] == nil)
+            #expect(!Border.isTracked(target.id))
+            #expect(!wm.hasLostFocusedEvent(for: target.id))
+            #expect(MouseState.shared.window == nil)
+            #expect(MouseState.shared.ffmWindowID == nil)
+            #expect(MouseState.shared.feedbackWindowID == nil)
+            #expect(MouseState.shared.feedbackDirection == nil)
+
+            #expect(wm.window[other.id] === other)
+            #expect(wm.managedWindows[other.id] != nil)
+            #expect(Border.isTracked(other.id))
+            #expect(wm.hasLostFocusedEvent(for: other.id))
+
+            // NOTE: the feedback of another window is left alone when a window is removed
+            MouseState.shared.feedbackWindowID = other.id
+            MouseState.shared.feedbackDirection = .east
+            wm.removeWindow(target.id)
+            #expect(MouseState.shared.feedbackWindowID == other.id)
+            #expect(MouseState.shared.feedbackDirection == .east)
+
+            Border.remove(other.id)
+            wm.removeLostFocusedEvent(for: other.id)
+            MouseState.shared.window = nil
+            MouseState.shared.ffmWindowID = nil
+            MouseState.shared.feedbackWindowID = nil
+            MouseState.shared.feedbackDirection = nil
+        }
+    }
+}

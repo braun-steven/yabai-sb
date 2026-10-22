@@ -632,6 +632,19 @@ extension Border
     }
 
     //
+    // NOTE: Test seams. A tracked border has no window server windows until it is shown, so these do not reach SkyLight.
+    //
+    static func isTracked(_ wid: WindowID) -> Bool
+    {
+        borderLock.withLock { $0.borders[wid] != nil }
+    }
+
+    static func trackForTest(_ wid: WindowID)
+    {
+        borderLock.withLock { state in state.borders[wid] = Border(wid) }
+    }
+
+    //
     // NOTE: A window that is animated is drawn by a proxy window in its place while the real window already sits at its
     // final frame, so its border is hidden for the duration of the animation and put back at the end.
     //

@@ -48,11 +48,11 @@ phase: done · mode: nested · osax_bumped: 2.1.37
 
 ## Phase 4: Core lifecycle and event loop
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P4.1 | One window teardown path | todo | |
+| P4.1 | One window teardown path | done | `EventHandler.teardown(_:untile:)` (`EventHandler.swift`) holds the shared tail once: mouse state, the `.windowDestroyed` signal, scratchpad, window table, AX notifications, `destroy()`. `windowDestroyed` calls it with `.immediate` (untile with focus hand-over, as before); `removeTerminatedWindows` calls it with `.batched` and flushes the views it returns. Deviation: `.batched` returns the view instead of taking `inout [View]`, since Swift does not allow inout in enum payloads. Tests: `WindowTeardownTests` in `tests/YabaiTests/EventHandlerTests.swift` (3 rows of both paths compared, a layout pin, an ineligible row), written first and passing before and after the refactor. Test seams: `EventSignals.pending` is `private(set)` with `discardPending()` (reset by `DaemonFixture`), and `updateWindowNotifications` is a no-op in headless mode (`doc/live-testing.md`). Not observable headless: the focus hand-over (`focusWindow` needs a visible space), so the tests pin the untile, not the focus. Gates: `make ci-quick` passed (264 + 83 tests, 0 warnings). No live check (the plan lists none). |
 | P4.2 | One untile/unmanage path | todo | |
 | P4.3 | `forget(_:)` for per-window tables | todo | |
 | P4.4 | AX window callbacks carry a `WindowID` | todo | |
@@ -212,6 +212,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 14:46 · subphase agent · P3.4 · start · lstat-based owner check before SAConnection.connect (pure isTrustedSocket helper, SUDO_UID parser); truth-table tests; gates quick + Golden + sanitizers
 - 2026-10-22 14:48 · subphase agent · P3.4 · done · `make ci-quick` (261 + 83 tests, 0 warnings), Golden unchanged, TSan and ASan 0 reports. One live check added (P3.4). Phase 3 has no subphase left: the phase agent runs the phase close (`make ci`).
 - 2026-10-22 15:00 · phase agent · P3 · close · Phase 3 done; each subphase reviewed and its gate re-run by the phase agent, no fix commits needed; `make ci` passed (261 + 83 tests, osax-test 11, install and check-build PASS), Golden unchanged, `swift test` and `swift test --package-path osax` under `--sanitize=thread` and `--sanitize=address` clean. Changes: `OSAX_VERSION` 2.1.37; the payload fade timer starts suspended and runs only while fades remain (`sa_swift_tick` returns Bool, `sa_swift_has_fades`); the Dock animation code write is gated on `known_dock_uuids` (LC_UUID, bounds-checked), and the daemon treats a missing `OSAX_ATTRIB_ANIM_TIME` as a warning (`ScriptingAddition.attributeVerdict`); the Swift payload core has no force unwraps and no Foundation import; `SAConnection.connect` lstat()s the payload socket and requires a socket owned by the user (`isTrustedSocket`, `parseSUDOUID`). Deviations: optional RawSpan rewrite skipped; SA warnings log through `Logger.daemon` (no `Logger.sa`); SUDO_UID=0 counts as unset. For the next phase: 4 phase-3 live checks plus the combined phase check are pending in live-checks.md and need a payload reload (sudo, user); `sscanfUIntC` is unused (Discovered); `bin/yabai` holds an unsigned release build. · orchestrator starts phase 4
+- 2026-10-22 14:56 · phase agent · P4 · start (nested) · start P4.1 subphase agent
+- 2026-10-22 15:00 · subphase agent · P4.1 · start · DaemonState tests for windowDestroyed and removeTerminatedWindows first (against the unchanged code); then one `teardown` helper for the shared tail; gate quick
+- 2026-10-22 15:01 · subphase agent · P4.1 · done · `make ci-quick` (264 + 83 tests, 0 warnings). Tests written first and run against the unchanged code, then again after the refactor. No live check. P4.2 (unmanage path) is next; it depends on P4.1 and can start now.
 
 
 ## Discovered

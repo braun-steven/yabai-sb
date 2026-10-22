@@ -61,7 +61,10 @@ enum SignalSubject
     var table = SignalTable()
 
     /// The signals pushed while the current event is handled.
-    private var pending: [PendingSignal] = []
+    private(set) var pending: [PendingSignal] = []
+
+    /// Drops the pushed signals without running them (the tests reset them between cases).
+    func discardPending() { pending.removeAll() }
 
     /// Stores a signal of the event that is handled, with the values its commands get, when the event type has
     /// signals. The subject is the object of the event (an application, a window, a space or display id, or the

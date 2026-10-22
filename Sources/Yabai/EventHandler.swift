@@ -108,6 +108,56 @@ extension EventHandler
         WindowManager.shared.addManagedWindow(window, to: view)
     }
 
+    /// How teardown takes a window out of its view. `immediate` untiles it now, hands the focus to the next window of the
+    /// tree and flushes the view. `batched` only removes it from the tree; the caller flushes the view it gets back.
+    enum TeardownUntile
+    {
+        case immediate
+        case batched
+    }
+
+    //
+    // NOTE: The one teardown of a window that is gone, from its destroyed event or its application's termination. The
+    // caller has invalidated the window. The order is the behavior: the untile (if the window is tiled), the mouse state,
+    // the destroyed signal, the scratchpad, the window table, the AX notifications, then destroy(). Returns the view that
+    // a batched untile left dirty.
+    //
+
+    @discardableResult
+    func teardown(_ window: Window, untile: TeardownUntile) -> View?
+    {
+        let wm = WindowManager.shared
+        let ms = MouseState.shared
+        var dirtyView: View?
+
+        if let view = wm.managedView(for: window) {
+            switch untile {
+            case .immediate:
+                let nextFocus = wm.treeFocusCandidate(in: view, for: window)
+                SpaceManager.shared.untile(window, from: view)
+                wm.removeManagedWindow(window.id)
+                wm.treeFocusAfterClose(in: view, windowID: nextFocus)
+            case .batched:
+                untileWindowBatched(view, window)
+                dirtyView = view
+            }
+        }
+
+        if ms.window == window { ms.window = nil }
+        if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
+
+        if window.isEligible {
+            EventSignals.shared.push(.windowDestroyed, .window(window))
+        }
+
+        wm.removeScratchpad(from: window, unfloat: false)
+        wm.removeWindow(window.id)
+        window.unobserve()
+        window.destroy()
+
+        return dirtyView
+    }
+
     private func untileWindowBatched(_ view: View, _ window: Window)
     {
         view.remove(window)
@@ -351,29 +401,12 @@ extension EventHandler
 
     func removeTerminatedWindows(_ windows: [Window]) -> [View]
     {
-        let wm = WindowManager.shared
-        let ms = MouseState.shared
         var viewList: [View] = []
 
         for window in windows {
             _ = window.invalidate()
 
-            if let view = wm.managedView(for: window) {
-                untileWindowBatched(view, window)
-                viewList.append(view)
-            }
-
-            if ms.window == window { ms.window = nil }
-            if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
-
-            if window.isEligible {
-                EventSignals.shared.push(.windowDestroyed, .window(window))
-            }
-
-            wm.removeScratchpad(from: window, unfloat: false)
-            wm.removeWindow(window.id)
-            window.unobserve()
-            window.destroy()
+            if let view = teardown(window, untile: .batched) { viewList.append(view) }
         }
 
         return viewList

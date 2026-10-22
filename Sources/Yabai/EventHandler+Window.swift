@@ -50,29 +50,9 @@ extension EventHandler
             return
         }
 
-        let wm = WindowManager.shared
-        let ms = MouseState.shared
-
         Logger.events.debug("window destroyed: \(window.application != nil ? window.application.name : "<unknown>") \(window.id)")
 
-        if let view = wm.managedView(for: window) {
-            let nextFocus = wm.treeFocusCandidate(in: view, for: window)
-            SpaceManager.shared.untile(window, from: view)
-            wm.removeManagedWindow(window.id)
-            wm.treeFocusAfterClose(in: view, windowID: nextFocus)
-        }
-
-        if ms.window == window { ms.window = nil }
-        if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
-
-        if window.isEligible {
-            EventSignals.shared.push(.windowDestroyed, .window(window))
-        }
-
-        wm.removeScratchpad(from: window, unfloat: false)
-        wm.removeWindow(window.id)
-        window.unobserve()
-        window.destroy()
+        teardown(window, untile: .immediate)
 
         if Config.current.border.hideSingle {
             Border.refresh(space: SpaceManager.shared.currentSpaceID)

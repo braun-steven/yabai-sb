@@ -22,7 +22,8 @@ point below was learned the hard way; read it before running anything live.
   of the test process; the daemon never enables it. `View.flush()` then applies the tree's frames to the window
   models (`flushHeadless`: no AX, tab bars, feedback windows or borders), `animateWindows`/`animateWindow` do the
   same without reading `SLS.windowBounds`, and `ScriptingAddition.send` records the message bytes instead of
-  reaching Dock (`payloadIsCurrent` is true). `Headless.drain()` returns and clears the recorded placements and
+  reaching Dock (`payloadIsCurrent` is true), and `WindowManager.updateWindowNotifications` requests no SkyLight
+  notifications. `Headless.drain()` returns and clears the recorded placements and
   messages (`tests/YabaiTests/HeadlessTests.swift`). `View.update()` (and auto padding) lays a view out in
   `Headless.displayFrame` (1440×900 at the origin, reset per test) instead of asking SkyLight for the display; or
   lay out a seeded view with `view.area = …` and `updateTree()`. The window selectors that look in the active space's tree

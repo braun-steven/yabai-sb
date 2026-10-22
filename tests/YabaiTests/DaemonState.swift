@@ -41,6 +41,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
         WindowManager.shared.animationsSuppressed = false
         SpaceManager.shared.resetToDefaults()
         EventSignals.shared.table = SignalTable()
+        EventSignals.shared.discardPending()
     }
 }
 

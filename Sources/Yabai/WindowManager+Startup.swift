@@ -54,6 +54,9 @@ extension WindowManager
     /// Requests the SkyLight notifications of all known windows. Daemon.run calls it before the event loop runs, so it is not @WM.
     func updateWindowNotifications()
     {
+        // NOTE: Headless mode (the tests) must not ask the window server for notifications.
+        if Headless.isEnabled { return }
+
         // NOTE(asmvik): Subscribe to all windows because of the window destroyed (and ordered) notifications
         SLS.requestNotifications(SLS.connection, forWindows: window.values.map(\.id))
     }

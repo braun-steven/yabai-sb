@@ -107,3 +107,128 @@ extension DaemonState
         }
     }
 }
+
+//
+// NOTE: A window leaves the managers in two ways: windowDestroyed untiles it at once (with the focus hand-over) and
+// removeTerminatedWindows batches it (the caller flushes the views it returns). Both then tear the window down the same
+// way: the mouse state, the signal, the scratchpad, the window table and the AX notifications.
+//
+
+/// What a teardown leaves behind: the tree, the registries, the mouse and scratchpad state, the signals it pushed and
+/// the frames of the flush that follows.
+private struct TeardownOutcome: Equatable
+{
+    var tree: String
+    var managed: [UInt32]
+    var windows: [UInt32]
+    var scratchpads: [String]
+    var targetScratchpad: String?
+    var mouseWindow: UInt32?
+    var mouseFocus: UInt32?
+    var destroyed: Bool
+    var signals: [String]
+    var placements: [RecordedPlacement]
+}
+
+/// Three tiled windows in a Workspace (w2 is the middle one). The window n carries a scratchpad, the mouse state and an
+/// eligible signal subscriber, so that each part of the teardown has something to clear.
+@WM private func teardownScenario(_ n: UInt32, eligible: Bool) -> (workspace: Workspace, target: Window)
+{
+    let workspace = Workspace()
+    workspace.open(1, focus: true)
+    workspace.open(2)
+    workspace.open(3)
+
+    let target = WindowManager.shared.window[wid(n)]!
+    target.isEligible = eligible
+    target.scratchpad = "pad"
+    WindowManager.shared.scratchpads["pad"] = target
+    MouseState.shared.window = target
+    MouseState.shared.ffmWindowID = target.id
+
+    var signal = EventSignal()
+    signal.command = "true"
+    EventSignals.shared.table.add(signal, .windowDestroyed)
+
+    _ = Headless.drain()
+    return (workspace, target)
+}
+
+@WM private func teardownOutcome(_ workspace: Workspace, _ target: Window, signalsFrom first: Int) -> TeardownOutcome
+{
+    let wm = WindowManager.shared
+    return TeardownOutcome(
+        tree: workspace.dump,
+        managed: wm.managedWindows.keys.map(\.rawValue).sorted(),
+        windows: wm.window.keys.map(\.rawValue),
+        scratchpads: wm.scratchpads.map { "\($0.key)=\($0.value.id.rawValue)" },
+        targetScratchpad: target.scratchpad,
+        mouseWindow: MouseState.shared.window?.id.rawValue,
+        mouseFocus: MouseState.shared.ffmWindowID?.rawValue,
+        destroyed: target.isDestroyed,
+        signals: EventSignals.shared.pending.dropFirst(first).map { $0.type.name },
+        placements: Headless.drain().placements)
+}
+
+/// The outcome of the AX or SkyLight destroyed event of window n, which untiles at once.
+@WM private func outcomeOfWindowDestroyed(_ n: UInt32, eligible: Bool = true) -> TeardownOutcome
+{
+    let (workspace, target) = teardownScenario(n, eligible: eligible)
+    let first = EventSignals.shared.pending.count
+    EventHandler.shared.windowDestroyed(target)
+    return teardownOutcome(workspace, target, signalsFrom: first)
+}
+
+/// The outcome of the termination of window n's application, which batches the untile and flushes the view after.
+@WM private func outcomeOfTermination(_ n: UInt32) -> TeardownOutcome
+{
+    let (workspace, target) = teardownScenario(n, eligible: true)
+    let first = EventSignals.shared.pending.count
+    for view in EventHandler.shared.removeTerminatedWindows([target]) { view.flush() }
+    return teardownOutcome(workspace, target, signalsFrom: first)
+}
+
+extension DaemonState
+{
+    @Suite
+    @WM struct WindowTeardownTests
+    {
+        @Test(arguments: [1, 2, 3] as [UInt32])
+        func destroyedWindowLeavesTheSameStateOnEveryPath(_ n: UInt32)
+        {
+            let immediate = outcomeOfWindowDestroyed(n)
+            let batched = outcomeOfTermination(n)
+
+            #expect(immediate == batched)
+            #expect(immediate.destroyed)
+            #expect(!immediate.windows.contains(treeTestWindowBase + n))
+            #expect(!immediate.managed.contains(treeTestWindowBase + n))
+            #expect(immediate.scratchpads.isEmpty)
+            #expect(immediate.targetScratchpad == nil)
+            #expect(immediate.mouseWindow == nil)
+            #expect(immediate.mouseFocus == nil)
+            #expect(immediate.signals == [SignalType.windowDestroyed.name])
+        }
+
+        @Test func middleWindowTeardownPinsTheLayout()
+        {
+            let outcome = outcomeOfWindowDestroyed(2)
+
+            #expect(outcome.tree == "splith\n  w1 0.5000\n  w3 0.5000")
+            #expect(outcome.managed == [treeTestWindowBase + 1, treeTestWindowBase + 3])
+            #expect(outcome.windows == [treeTestWindowBase + 1, treeTestWindowBase + 3])
+            #expect(outcome.placements == [
+                RecordedPlacement(windowID: wid(1), x: 0, y: 0, w: 600, h: 800),
+                RecordedPlacement(windowID: wid(3), x: 600, y: 0, w: 600, h: 800),
+            ])
+        }
+
+        @Test func ineligibleWindowPushesNoSignal()
+        {
+            let outcome = outcomeOfWindowDestroyed(2, eligible: false)
+
+            #expect(outcome.destroyed)
+            #expect(outcome.signals.isEmpty)
+        }
+    }
+}

@@ -12,14 +12,6 @@ import YabaiCore
 // and reapEmpty() closes the containers that are left without children.
 //
 
-/// The layout of a container, named as in `query --tree`.
-enum ConLayout: String, Sendable
-{
-    case splitH = "splith"
-    case splitV = "splitv"
-    case tabbed
-}
-
 /// The zoom of a window's container: to its parent's area or to the whole view.
 enum ConZoom: Sendable
 {
@@ -1218,76 +1210,49 @@ extension Con
     }
 
     //
-    // NOTE: Computes the area of every container. Splits divide the area along their orientation by
-    // the share of each child, with the window gap in between; a gap is never longer than the average
-    // child, so the gaps of a split only a few gaps long shrink instead of leaving its children a
-    // negative length, and a child that rounding leaves no room for gets none. The children of a tabbed container
-    // share its area below the tab bar, moved down by the bar offset (a negative offset lets them
-    // reach under the bar). They always keep at least the height of the bar. With a backdrop card
-    // the bar and the windows are additionally inset from every edge of the container by bar_inset.
+    // NOTE: The area of every container is computed by TreeLayout (YabaiCore), a pure function over a flat
+    // pre-order array of LayoutNode. Con only maps its containers to that array and assigns the areas back.
+    // A window does not lay out its children, so they are left out of the array and keep their area.
     //
 
+    /// The inset of a backdrop card; see TreeLayout.cardInset.
     static func cardInset(_ area: Area, barHeight: Int, barInset: Int) -> Int
     {
-        if barInset <= 0 { return 0 }
-        if area.w <= Float(4 * barInset) || area.h - Float(2 * barInset) <= Float(2 * barHeight) { return 0 }
-        return barInset
+        TreeLayout.cardInset(area, barHeight: barHeight, barInset: barInset)
+    }
+
+    /// The gap of a split; see TreeLayout.splitGap.
+    static func splitGap(_ gap: Int, length: Float, count: Int) -> Int
+    {
+        TreeLayout.splitGap(gap, length: length, count: count)
     }
 
     func layOut(_ area: Area, gap: Int, barHeight: Int, barOffset: Int, barInset: Int)
     {
-        self.area = area
-        if isLeaf || children.count == 0 { return }
+        var nodes: [LayoutNode] = []
+        appendLayoutNodes(to: &nodes)
 
-        if layout == .tabbed {
-            var childArea = area
-            if barHeight > 0 && area.h > Float(2 * barHeight) {
-                let inset = Con.cardInset(area, barHeight: barHeight, barInset: barInset)
-                childArea.x += Float(inset)
-                childArea.y += Float(inset)
-                childArea.w -= Float(2 * inset)
-                childArea.h -= Float(2 * inset)
+        let params = LayoutParams(gap: gap, barHeight: barHeight, barOffset: barOffset, barInset: barInset)
+        let areas = TreeLayout.layOut(nodes, in: area, params: params)
 
-                let reserve = max(0, min(barHeight + barOffset, Int(childArea.h) - barHeight))
-                childArea.y += Float(reserve)
-                childArea.h -= Float(reserve)
-            }
-
-            for child in children {
-                child.layOut(childArea, gap: gap, barHeight: barHeight, barOffset: barOffset, barInset: barInset)
-            }
-
-            return
-        }
-
-        let horizontal = layout == .splitH
-        let length = horizontal ? area.w : area.h
-        let splitGap = Con.splitGap(gap, length: length, count: children.count)
-        let total = length - Float(splitGap * (children.count - 1))
-        var offset = horizontal ? area.x : area.y
-        let end = horizontal ? area.x + area.w : area.y + area.h
-
-        for (i, next) in children.enumerated() {
-            let room = end - offset - Float(splitGap * (children.count - 1 - i))
-            let size = i == children.count - 1 ? room : min(room, Float(Int(total * next.percent + 0.5)))
-
-            var childArea = area
-            if horizontal {
-                childArea.x = offset
-                childArea.w = size
-            } else {
-                childArea.y = offset
-                childArea.h = size
-            }
-
-            next.layOut(childArea, gap: gap, barHeight: barHeight, barOffset: barOffset, barInset: barInset)
-            offset += size + Float(splitGap)
-        }
+        var index = 0
+        assignLayoutAreas(areas, index: &index)
     }
 
-    /// The gap between the count children of a split of the given length: at most the length of an average child.
-    static func splitGap(_ gap: Int, length: Float, count: Int) -> Int
+    private func appendLayoutNodes(to nodes: inout [LayoutNode])
     {
-        min(gap, max(0, Int(length) / (2 * count - 1)))
+        nodes.append(LayoutNode(layout: layout, percent: percent, childCount: isLeaf ? 0 : children.count))
+        if isLeaf { return }
+
+        for child in children { child.appendLayoutNodes(to: &nodes) }
+    }
+
+    private func assignLayoutAreas(_ areas: [Area], index: inout Int)
+    {
+        area = areas[index]
+        index += 1
+        if isLeaf { return }
+
+        for child in children { child.assignLayoutAreas(areas, index: &index) }
     }
 }

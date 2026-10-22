@@ -10,30 +10,18 @@ import YabaiCore
 
 extension Con
 {
-    private func appendTitle(to string: CFMutableString)
+    /// The name of the application of the window of a leaf, nil when it has none.
+    fileprivate var applicationName: String?
     {
-        if isLeaf {
-            if let windowID, let target = WindowManager.shared.window(for: windowID),
-               let application = target.application {
-                CFStringAppend(string, application.name as CFString)
-            }
-            return
-        }
-
-        CFStringAppendCString(string, layout == .splitH ? "H[" : layout == .splitV ? "V[" : "T[", CFStringBuiltInEncodings.UTF8.rawValue)
-
-        for i in 0..<children.count {
-            if i > 0 { CFStringAppendCString(string, " ", CFStringBuiltInEncodings.UTF8.rawValue) }
-            children[i].appendTitle(to: string)
-        }
-
-        CFStringAppendCString(string, "]", CFStringBuiltInEncodings.UTF8.rawValue)
+        guard let windowID, let target = WindowManager.shared.window(for: windowID),
+              let application = target.application else { return nil }
+        return application.name
     }
 }
 
 //
 // NOTE: The tab title of a container: the window title for a window, or the layout and the
-// applications inside for a container, like i3 shows it (H[iTerm2 Safari]).
+// applications inside for a container, like i3 shows it (H[iTerm2 Safari]). TreeTitle builds the string.
 //
 
 extension Con
@@ -42,9 +30,10 @@ extension Con
     {
         if isLeaf { return TabBar.title(for: windowID) }
 
-        let string = CFStringCreateMutable(nil, 0)!
-        appendTitle(to: string)
-        return string
+        let string = TreeTitle.title(of: self,
+                                    container: { $0.isLeaf ? nil : (layout: $0.layout, children: $0.children) },
+                                    leafName: { $0.applicationName })
+        return string as CFString
     }
 
     func destroyFeedback()
@@ -385,7 +374,7 @@ extension Con
 
         let above = focusedDescendant
         let area = self.area
-        let inset = Float(Con.cardInset(area, barHeight: config.height, barInset: treeBarInset()))
+        let inset = Float(TreeLayout.cardInset(area, barHeight: config.height, barInset: treeBarInset()))
         let card = CGRect(x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
         let frame = CGRect(x: CGFloat(area.x + inset), y: CGFloat(area.y + inset), width: CGFloat(area.w - 2 * inset), height: CGFloat(config.height))
         entryList.withUnsafeMutableBufferPointer { entries in
@@ -425,7 +414,7 @@ extension View
 
         if let outer {
             let config = Config.current.tabBar
-            let inset = Con.cardInset(outer.area, barHeight: config.height, barInset: treeBarInset())
+            let inset = TreeLayout.cardInset(outer.area, barHeight: config.height, barInset: treeBarInset())
             if inset > 0 { radius = config.windowRadius + inset }
         }
 

@@ -18,6 +18,7 @@ commands for publishing to `bin/yabai`, documentation, signing and release archi
 | `make asan` / `make tsan` | Debug executable with Address/ThreadSanitizer and C UndefinedBehaviorSanitizer |
 | `make test` | Daemon/core tests, including golden IPC replay |
 | `make osax-test` | Isolated payload/loader tests, outside Dock |
+| `make lint` | Optional swift-format lint of `Sources` and `tests` (config `.swift-format`); reports findings, never reformats, not in `ci` |
 | `make osax-payload` | Standalone binaries/arrays in `.build/osax/swift/`; no injection |
 | `make prepare` | Optional build of just the `OSAX` target through SwiftPM |
 | `make check-build` | Isolated clean/incremental/toolchain upgrade checks and Swift tests |

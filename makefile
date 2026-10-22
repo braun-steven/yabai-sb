@@ -13,7 +13,7 @@ BUILD_FLAGS    = --configuration debug
 # Package.swift reads it to stamp the right SDK version into the binary
 export SDKROOT ?= $(shell xcrun --sdk macosx --show-sdk-path)
 
-.PHONY: all asan tsan install prepare test ci-quick ci coverage check-build osax-test osax-payload man icon archive publish sign clean-build clean
+.PHONY: all asan tsan install prepare test lint ci-quick ci coverage check-build osax-test osax-payload man icon archive publish sign clean-build clean
 
 # Build variants publish to the same bin/yabai; do not run them concurrently with make -j.
 .NOTPARALLEL:
@@ -38,6 +38,10 @@ prepare:
 
 test:
 	$(SWIFT) test $(SWIFT_FLAGS)
+
+# Optional style lint with swift-format (config in .swift-format). Reports findings only; it does not reformat and is not part of ci.
+lint:
+	$(SWIFT) format lint --recursive Sources tests
 
 # CI gates: concise per-step output, full logs in .build/ci/. quick: build and test; full: adds release build, osax-test, check-build.
 ci-quick:

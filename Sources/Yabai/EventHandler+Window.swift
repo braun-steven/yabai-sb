@@ -20,8 +20,7 @@ extension EventHandler
 
         if wm.window(for: windowID) != nil { return }
 
-        let windowPid = element.pid
-        if windowPid == 0 { return }
+        guard let windowPid = element.pid, windowPid != 0 else { return }
 
         guard let application = wm.application(for: windowPid) else { return }
 

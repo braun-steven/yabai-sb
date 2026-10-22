@@ -220,7 +220,10 @@ extension WindowManager
 
     private func accessibilityElements(in list: CFArray) -> [AXUIElement]
     {
-        return (0..<CFArrayGetCount(list)).map { unsafeBitCast(CFArrayGetValueAtIndex(list, $0), to: AXUIElement.self) }
+        return (0..<CFArrayGetCount(list)).compactMap { index -> AXUIElement? in
+            guard let item = CFArrayGetValueAtIndex(list, index) else { return nil }
+            return castAttribute(Unmanaged<CFTypeRef>.fromOpaque(item).takeUnretainedValue(), typeID: AXUIElementGetTypeID())
+        }
     }
 
     private func debugWindowInfo(_ target: Window)

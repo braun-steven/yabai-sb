@@ -1,11 +1,23 @@
 import ApplicationServices
 import CPrivate
+import Logging
 import YabaiCore
 
 //
 // NOTE: Swift wrappers of the Accessibility calls. AX calls block for as long as the application takes to answer, up to
 // the messaging timeout; the callers on the event loop accept that.
 //
+
+/// The value as `T` when its CF type is `typeID`; nil otherwise, with a debug line. The type is checked before the cast,
+/// so a value of another type is never read as `T`. Used for AX attributes and for CF arrays of the window server.
+func castAttribute<T>(_ value: CFTypeRef, typeID: CFTypeID) -> T?
+{
+    guard CFGetTypeID(value) == typeID else {
+        Logger.windows.debug("CF value has type \(CFGetTypeID(value)), expected \(typeID)")
+        return nil
+    }
+    return value as? T
+}
 
 extension AXError
 {
@@ -44,10 +56,12 @@ extension AXUIElement
         return WindowID(nonzero: wid)
     }
 
-    /// The pid that the AX element stores at offset 0x10.
-    var pid: pid_t
+    /// The pid of the process that owns the element; nil if AX cannot tell.
+    var pid: pid_t?
     {
-        return Unmanaged.passUnretained(self).toOpaque().load(fromByteOffset: 0x10, as: pid_t.self)
+        var value: pid_t = 0
+        guard AXUIElementGetPid(self, &value) == .success else { return nil }
+        return value
     }
 
     /// `AXUIElementCreateSystemWide`
@@ -81,46 +95,52 @@ extension AXUIElement
         return error == .success ? value : nil
     }
 
-    /// A string attribute (role, subrole, title); nil if the call fails.
+    /// A string attribute (role, subrole, title); nil if the call fails or the value is not a string.
     func stringAttribute(_ name: String) -> CFString?
     {
-        return attribute(name).map { unsafeDowncast($0, to: CFString.self) }
+        return attribute(name).flatMap { castAttribute($0, typeID: CFStringGetTypeID()) }
     }
 
-    /// A boolean attribute; false if the call fails.
+    /// A boolean attribute; false if the call fails or the value is not a boolean.
     func boolAttribute(_ name: String) -> Bool
     {
-        guard let value = attribute(name) else { return false }
-        return CFBooleanGetValue(unsafeDowncast(value, to: CFBoolean.self))
+        guard let value: CFBoolean = attribute(name).flatMap({ castAttribute($0, typeID: CFBooleanGetTypeID()) }) else {
+            return false
+        }
+        return CFBooleanGetValue(value)
     }
 
-    /// An element attribute (window, close button, focused window); nil if the call fails.
+    /// An element attribute (window, close button, focused window); nil if the call fails or the value is not an element.
     func elementAttribute(_ name: String) -> AXUIElement?
     {
-        return attribute(name).map { unsafeDowncast($0, to: AXUIElement.self) }
+        return attribute(name).flatMap { castAttribute($0, typeID: AXUIElementGetTypeID()) }
     }
 
-    /// An array attribute (the windows of an application); nil if the call fails.
+    /// An array attribute (the windows of an application); nil if the call fails or the value is not an array.
     func arrayAttribute(_ name: String) -> CFArray?
     {
-        return attribute(name).map { unsafeDowncast($0, to: CFArray.self) }
+        return attribute(name).flatMap { castAttribute($0, typeID: CFArrayGetTypeID()) }
     }
 
-    /// A CGPoint attribute (position); nil if the call fails.
+    /// A CGPoint attribute (position); nil if the call fails or the value is not a point.
     func pointAttribute(_ name: String) -> CGPoint?
     {
-        guard let value = attribute(name) else { return nil }
+        guard let value: AXValue = attribute(name).flatMap({ castAttribute($0, typeID: AXValueGetTypeID()) }) else {
+            return nil
+        }
         var point = CGPoint.zero
-        AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cgPoint, &point)
+        guard AXValueGetValue(value, .cgPoint, &point) else { return nil }
         return point
     }
 
-    /// A CGSize attribute (size); nil if the call fails.
+    /// A CGSize attribute (size); nil if the call fails or the value is not a size.
     func sizeAttribute(_ name: String) -> CGSize?
     {
-        guard let value = attribute(name) else { return nil }
+        guard let value: AXValue = attribute(name).flatMap({ castAttribute($0, typeID: AXValueGetTypeID()) }) else {
+            return nil
+        }
         var size = CGSize.zero
-        AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cgSize, &size)
+        guard AXValueGetValue(value, .cgSize, &size) else { return nil }
         return size
     }
 

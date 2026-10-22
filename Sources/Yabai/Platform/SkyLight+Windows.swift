@@ -146,8 +146,10 @@ extension SLS
         guard let query = SLSWindowQueryWindows(cid, cfArray(windows: [wid]), 1),
               let iterator = SLSWindowQueryResultCopyWindows(query), SLSWindowIteratorAdvance(iterator),
               let radii = SLSWindowIteratorGetCornerRadii(iterator), CFArrayGetCount(radii) > 0 else { return nil }
+        guard let item = CFArrayGetValueAtIndex(radii, 0),
+              let number: CFNumber = castAttribute(Unmanaged<CFTypeRef>.fromOpaque(item).takeUnretainedValue(),
+                                                   typeID: CFNumberGetTypeID()) else { return nil }
         var radius: Int32 = 0
-        let number = unsafeBitCast(CFArrayGetValueAtIndex(radii, 0), to: CFNumber.self)
         CFNumberGetValue(number, .intType, &radius)
         return radius
     }

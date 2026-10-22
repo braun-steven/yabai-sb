@@ -24,11 +24,11 @@ phase: done · mode: nested
 
 ## Phase 2: Crash and robustness fixes
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P2.1 | Public `AXUIElementGetPid` and checked CF casts | todo | |
+| P2.1 | Public `AXUIElementGetPid` and checked CF casts | done | `AXUIElement.pid` is `pid_t?` through `AXUIElementGetPid`; its one caller (`EventHandler+Window.swift`, window created) unwraps it. The typed AX getters and the two array reads (`WindowManager+Discovery.swift`, `SkyLight+Windows.swift` corner radius) go through the new `castAttribute<T>(_:typeID:)` in `AX.swift`, which checks the CF type ID before the cast and logs a debug line on a mismatch. `pointAttribute`/`sizeAttribute` return nil where they returned `.zero` on a failed AXValue read; the callers use `?? .zero`, so they are unchanged. New `tests/YabaiTests/AXAttributeTests.swift` (CFNumber refused as a string, pid of the application element). Gates: `make ci-quick` passed, 240 tests in 29 suites (was 236), 0 warnings. No live checks. |
 | P2.2 | Typed, length-checked SLS notification payloads | todo | |
 | P2.3 | CPrivate hardening: KVC guard, timer, Mach-O bounds, region ownership | todo | |
 | P2.4 | Log private-symbol availability at startup | todo | |
@@ -188,6 +188,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 13:50 · subphase agent · P1.4 · done · make ci-quick and make install passed; the phase agent runs the phase close (make ci) for P1
 - 2026-10-22 13:29 · phase agent · P1 · resume (nested) · P1.1 done at e197af95; start P1.2
 - 2026-10-22 13:55 · phase agent · P1 · close · Phase 1 done. `make ci`/`make ci-quick` (scripts/ci.sh, logs in .build/ci/) are the gates; OSAXEmbed enumerates osax/ (same 10 files as before); baseline in "Baseline (P1.3)"; doc drift fixed and AGENTS.md links the plan. Deviation: P1.2's "Build and embed" step name only shows with `swift build -v`. Phase agent fixed ci.sh to print both test-run summaries. Next phase: run `make ci-quick` per subphase and `make ci` at close; remaining C-style doc comments are listed under Discovered. No live checks added in phase 1. · orchestrator starts phase 2
+- 2026-10-22 13:57 · phase agent · P2 · start (nested) · start P2.1 subphase agent
+- 2026-10-22 14:05 · subphase agent · P2.1 · start · AX pid through AXUIElementGetPid (pid_t?), type-checked attribute casts, two unsafeBitCast array reads replaced; gates
+- 2026-10-22 14:12 · subphase agent · P2.1 · done · `make ci-quick` passed (240 tests, 0 warnings); no live checks in P2.1. P2.2 (SLS notification payloads) is next.
 
 ## Discovered
 

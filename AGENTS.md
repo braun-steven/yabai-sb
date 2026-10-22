@@ -78,6 +78,8 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `jus
 
 - Before committing, run the selected toolchain's `swift format format --in-place` on every changed Swift file,
   using the stock defaults in `.swift-format`, then verify those files with `swift format lint --strict`.
+- Before committing, run `xcrun clang-format -i` on every changed C, header and Objective-C file (`.c`, `.h`, `.m`),
+  using the stock LLVM style in `.clang-format`, then verify those files with `xcrun clang-format --dry-run --Werror`.
 - Commit directly to `main` unless the user asks for a branch. Concise, imperative subjects, optionally
   prefixed with an issue id (`#1234 fix …`) or version tag (`v7.1.16`).
 - PRs include macOS version + arch, repro steps, expected vs actual behavior and relevant logs

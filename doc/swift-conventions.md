@@ -46,6 +46,7 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 
 ## C interop pitfalls
 
+- **C/Objective-C style:** use the selected Xcode toolchain's `xcrun clang-format` with the stock LLVM preset (`.clang-format` has no overrides). Format maintained `.c`, `.h` and `.m` files with `-i` and check with `--dry-run --Werror`; exclude generated binary arrays and build outputs.
 - **Swift imports C headers with ARC.** Manual retain/release bodies belong in `.m` files (`Notify.m`), with only declarations in `CPrivate.h`. The importer also makes structs with ObjC pointer fields ARC structs.
 - **Nullability is per file:** after one annotation, clang requires all pointers annotated (`-Wnullability-completeness`), including macro expansions; the `connection_callback` typedef carries qualifiers. Spell both levels of multi-level pointers inside `CF_ASSUME_NONNULL`, e.g. `CFTypeRef _Nullable *_Nonnull`.
 - **Imported C types:** `Boolean` imports as `Bool`, `CGError` as an enum (`== .success`), CF out-parameters as `UnsafeMutablePointer<Unmanaged<T>?>` (use `takeRetainedValue()` for Copy/Create functions). See `Sources/Yabai/Platform/SkyLight.swift`.

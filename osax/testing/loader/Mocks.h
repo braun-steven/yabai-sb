@@ -1,20 +1,30 @@
-#include <stdbool.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
+#include <stdbool.h>
 
 void sa_loader_test_mode(int mode);
 int sa_loader_test_deallocations(void);
 int sa_loader_test_terminations(void);
 int sa_loader_main(void);
 
-kern_return_t sa_mock_task_for_pid(mach_port_t self, pid_t pid, mach_port_t *task);
-kern_return_t sa_mock_allocate(vm_map_t task, mach_vm_address_t *address, mach_vm_size_t size, int flags);
-kern_return_t sa_mock_write(vm_map_t task, mach_vm_address_t address, vm_offset_t data, mach_msg_type_number_t size);
-kern_return_t sa_mock_protect(vm_map_t task, mach_vm_address_t address, mach_vm_size_t size, boolean_t maximum, vm_prot_t protection);
-kern_return_t sa_mock_read(vm_map_t task, mach_vm_address_t address, mach_vm_size_t size, mach_vm_address_t data, mach_vm_size_t *received);
-kern_return_t sa_mock_deallocate(vm_map_t task, mach_vm_address_t address, mach_vm_size_t size);
+kern_return_t sa_mock_task_for_pid(mach_port_t self, pid_t pid,
+                                   mach_port_t *task);
+kern_return_t sa_mock_allocate(vm_map_t task, mach_vm_address_t *address,
+                               mach_vm_size_t size, int flags);
+kern_return_t sa_mock_write(vm_map_t task, mach_vm_address_t address,
+                            vm_offset_t data, mach_msg_type_number_t size);
+kern_return_t sa_mock_protect(vm_map_t task, mach_vm_address_t address,
+                              mach_vm_size_t size, boolean_t maximum,
+                              vm_prot_t protection);
+kern_return_t sa_mock_read(vm_map_t task, mach_vm_address_t address,
+                           mach_vm_size_t size, mach_vm_address_t data,
+                           mach_vm_size_t *received);
+kern_return_t sa_mock_deallocate(vm_map_t task, mach_vm_address_t address,
+                                 mach_vm_size_t size);
 kern_return_t sa_mock_create(task_t task, thread_act_t *thread);
-kern_return_t sa_mock_running(task_t task, int flavor, thread_state_t state, mach_msg_type_number_t count, thread_act_t *thread);
+kern_return_t sa_mock_running(task_t task, int flavor, thread_state_t state,
+                              mach_msg_type_number_t count,
+                              thread_act_t *thread);
 kern_return_t sa_mock_terminate(thread_act_t thread);
 kern_return_t sa_mock_port(mach_port_t task, mach_port_name_t name);
 void *sa_mock_symbol(void *handle, const char *name);

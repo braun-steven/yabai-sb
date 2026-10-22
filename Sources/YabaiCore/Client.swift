@@ -4,23 +4,21 @@
 // client_encode_message in src/yabai.c.
 //
 
-public enum ClientMessage
-{
-    /// `client_encode_message`: the arguments after `-m`, as their bytes.
-    public static func encode(_ arguments: [[UInt8]]) -> [UInt8]
-    {
-        let payloadLength = Int32(truncatingIfNeeded: arguments.reduce(1) { $0 + $1.count + 1 })
+public enum ClientMessage {
+  /// `client_encode_message`: the arguments after `-m`, as their bytes.
+  public static func encode(_ arguments: [[UInt8]]) -> [UInt8] {
+    let payloadLength = Int32(truncatingIfNeeded: arguments.reduce(1) { $0 + $1.count + 1 })
 
-        // NOTE: the length's bytes in host order, as the daemon reads them; a byte copy of a plain integer.
-        var message = withUnsafeBytes(of: payloadLength) { unsafe Array($0) }
-        message.reserveCapacity(MemoryLayout<Int32>.size + Int(payloadLength))
+    // NOTE: the length's bytes in host order, as the daemon reads them; a byte copy of a plain integer.
+    var message = withUnsafeBytes(of: payloadLength) { unsafe Array($0) }
+    message.reserveCapacity(MemoryLayout<Int32>.size + Int(payloadLength))
 
-        for argument in arguments {
-            message += argument
-            message.append(0)
-        }
-        message.append(0)
-
-        return message
+    for argument in arguments {
+      message += argument
+      message.append(0)
     }
+    message.append(0)
+
+    return message
+  }
 }

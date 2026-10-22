@@ -5,36 +5,31 @@
 //
 
 /// A value that stays fresh until it is invalidated or its lifetime has passed.
-public struct Cached<Value>
-{
-    /// How long a stored value stays fresh.
-    public let lifetime: ContinuousClock.Duration
+public struct Cached<Value> {
+  /// How long a stored value stays fresh.
+  public let lifetime: ContinuousClock.Duration
 
-    private var entry: (value: Value, storedAt: ContinuousClock.Instant)?
+  private var entry: (value: Value, storedAt: ContinuousClock.Instant)?
 
-    public init(lifetime: ContinuousClock.Duration)
-    {
-        self.lifetime = lifetime
-    }
+  public init(lifetime: ContinuousClock.Duration) {
+    self.lifetime = lifetime
+  }
 
-    /// The stored value while it is fresh at `now`; nil when nothing is stored, it expired or it was invalidated.
-    public func value(at now: ContinuousClock.Instant) -> Value?
-    {
-        guard let entry else { return nil }
-        return now < entry.storedAt.advanced(by: lifetime) ? entry.value : nil
-    }
+  /// The stored value while it is fresh at `now`; nil when nothing is stored, it expired or it was invalidated.
+  public func value(at now: ContinuousClock.Instant) -> Value? {
+    guard let entry else { return nil }
+    return now < entry.storedAt.advanced(by: lifetime) ? entry.value : nil
+  }
 
-    /// Stores a value, fresh from `now` on. It replaces the stored one.
-    public mutating func store(_ value: Value, at now: ContinuousClock.Instant)
-    {
-        entry = (value, now)
-    }
+  /// Stores a value, fresh from `now` on. It replaces the stored one.
+  public mutating func store(_ value: Value, at now: ContinuousClock.Instant) {
+    entry = (value, now)
+  }
 
-    /// Drops the stored value, so that the next read computes it again.
-    public mutating func invalidate()
-    {
-        entry = nil
-    }
+  /// Drops the stored value, so that the next read computes it again.
+  public mutating func invalidate() {
+    entry = nil
+  }
 }
 
 //

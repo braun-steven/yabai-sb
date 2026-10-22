@@ -12,134 +12,144 @@ import PackageDescription
 // -isysroot fixes the version. The swift shim of xcrun sets SDKROOT; so does the makefile.
 //
 
-let sdk = Context.environment["SDKROOT"].map { ["-Xclang-linker", "-isysroot", "-Xclang-linker", $0] } ?? []
+let sdk =
+  Context.environment["SDKROOT"].map { ["-Xclang-linker", "-isysroot", "-Xclang-linker", $0] } ?? []
 
-let warnings = ["-Wall", "-Wextra", "-Wstrict-prototypes", "-Wimplicit-fallthrough", "-Wnull-dereference", "-Wno-shorten-64-to-32"]
+let warnings = [
+  "-Wall", "-Wextra", "-Wstrict-prototypes", "-Wimplicit-fallthrough", "-Wnull-dereference",
+  "-Wno-shorten-64-to-32",
+]
 let swiftSettings: [SwiftSetting] = [
-    .treatAllWarnings(as: .error),
-    // NOTE: both are Swift 7 defaults (not on in Swift 6 mode): imports must cover the members a file uses, and
-    // existential types must be spelled with `any`.
-    .enableUpcomingFeature("MemberImportVisibility"),
-    .enableUpcomingFeature("ExistentialAny")
+  .treatAllWarnings(as: .error),
+  // NOTE: both are Swift 7 defaults (not on in Swift 6 mode): imports must cover the members a file uses, and
+  // existential types must be spelled with `any`.
+  .enableUpcomingFeature("MemberImportVisibility"),
+  .enableUpcomingFeature("ExistentialAny"),
 ]
 
 let package = Package(
-    name: "yabai",
-    platforms: [.macOS("27.0")],
-    products: [
-        .executable(name: "yabai", targets: ["Yabai"])
-    ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.2.1"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
-        // NOTE: SortedCollections is behind an unstable trait whose API can break in any release, so the version is exact.
-        .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.3", traits: ["UnstableSortedCollections"]),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1"),
-        // NOTE: Without the default SubprocessFoundation trait: the commands yabai runs need no Data input or output.
-        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: []),
-        // the test targets only: property-based tests, diffs of large values, and snapshots
-        .package(url: "https://github.com/x-sheep/swift-property-based.git", from: "2.0.1"),
-        .package(url: "https://github.com/pointfreeco/swift-custom-dump.git", from: "1.7.3"),
-        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.6")
-    ],
-    targets: [
-        // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
-        // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
-        .target(
-            name: "CPrivate",
-            cSettings: [
-                .unsafeFlags(warnings + ["-fno-objc-arc"]),
-                .treatAllWarnings(as: .error),
-                .define("NDEBUG", .when(configuration: .release))
-            ],
-            linkerSettings: [
-                .linkedFramework("Cocoa"),
-                .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"])
-            ]
-        ),
-        // the scripting addition: its opcodes and the binary arrays generated in the plugin work directory
-        .target(
-            name: "OSAX",
-            path: "osax",
-            sources: ["Version.c"],
-            publicHeadersPath: "include",
-            cSettings: [.treatAllWarnings(as: .error)],
-            plugins: [.plugin(name: "OSAXEmbed")]
-        ),
-        // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
-        // NOTE: strict memory safety (SE-0458) is on for this target only: every unsafe construct is spelled `unsafe`.
-        .target(
-            name: "YabaiCore",
-            swiftSettings: swiftSettings + [.strictMemorySafety()]
-        ),
-        .executableTarget(
-            name: "Yabai",
-            dependencies: [
-                "CPrivate",
-                "OSAX",
-                "YabaiCore",
-                .product(name: "Algorithms", package: "swift-algorithms"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "DequeModule", package: "swift-collections"),
-                .product(name: "Logging", package: "swift-log"),
-                .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SortedCollections", package: "swift-collections"),
-                .product(name: "Subprocess", package: "swift-subprocess")
-            ],
-            // NOTE: NonisolatedNonsendingByDefault (SE-0461): nonisolated async functions run on the actor of their caller.
-            swiftSettings: swiftSettings + [.enableUpcomingFeature("NonisolatedNonsendingByDefault")],
-            linkerSettings: [
-                .linkedFramework("Carbon"),
-                .linkedFramework("Cocoa"),
-                .linkedFramework("CoreServices"),
-                .unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", Context.packageDirectory + "/assets/Info.plist"] + sdk)
-            ]
-        ),
-        .plugin(name: "OSAXEmbed", capability: .buildTool()),
-        // tests/, not Tests/: the file system is case-insensitive
-        // the helpers both test targets share: the id literals, the generators and the snapshot strategies
-        .target(
-            name: "YabaiTestSupport",
-            dependencies: [
-                "YabaiCore",
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-                .product(name: "PropertyBased", package: "swift-property-based"),
-                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
-            ],
-            path: "tests/YabaiTestSupport",
-            swiftSettings: swiftSettings
-        ),
-        .testTarget(
-            name: "YabaiCoreTests",
-            dependencies: [
-                "YabaiCore",
-                "YabaiTestSupport",
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-                .product(name: "PropertyBased", package: "swift-property-based")
-            ],
-            path: "tests/YabaiCoreTests",
-            swiftSettings: swiftSettings
-        ),
-        // the code of the daemon (the IPC handlers, the managers and the golden replay), through @testable import Yabai
-        .testTarget(
-            name: "YabaiTests",
-            dependencies: [
-                "CPrivate",
-                "OSAX",
-                "Yabai",
-                "YabaiCore",
-                "YabaiTestSupport",
-                .product(name: "CustomDump", package: "swift-custom-dump"),
-                .product(name: "InlineSnapshotTesting", package: "swift-snapshot-testing"),
-                .product(name: "PropertyBased", package: "swift-property-based"),
-                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
-            ],
-            path: "tests/YabaiTests",
-            exclude: ["__Snapshots__"],
-            resources: [.copy("Golden")],
-            swiftSettings: swiftSettings
-        )
-    ],
-    swiftLanguageModes: [.v6],
-    cLanguageStandard: .c11
+  name: "yabai",
+  platforms: [.macOS("27.0")],
+  products: [
+    .executable(name: "yabai", targets: ["Yabai"])
+  ],
+  dependencies: [
+    .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.2.1"),
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
+    // NOTE: SortedCollections is behind an unstable trait whose API can break in any release, so the version is exact.
+    .package(
+      url: "https://github.com/apple/swift-collections.git", exact: "1.7.3",
+      traits: ["UnstableSortedCollections"]),
+    .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1"),
+    // NOTE: Without the default SubprocessFoundation trait: the commands yabai runs need no Data input or output.
+    .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: []),
+    // the test targets only: property-based tests, diffs of large values, and snapshots
+    .package(url: "https://github.com/x-sheep/swift-property-based.git", from: "2.0.1"),
+    .package(url: "https://github.com/pointfreeco/swift-custom-dump.git", from: "1.7.3"),
+    .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.6"),
+  ],
+  targets: [
+    // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
+    // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
+    .target(
+      name: "CPrivate",
+      cSettings: [
+        .unsafeFlags(warnings + ["-fno-objc-arc"]),
+        .treatAllWarnings(as: .error),
+        .define("NDEBUG", .when(configuration: .release)),
+      ],
+      linkerSettings: [
+        .linkedFramework("Cocoa"),
+        .unsafeFlags(["-F/System/Library/PrivateFrameworks", "-framework", "SkyLight"]),
+      ]
+    ),
+    // the scripting addition: its opcodes and the binary arrays generated in the plugin work directory
+    .target(
+      name: "OSAX",
+      path: "osax",
+      sources: ["Version.c"],
+      publicHeadersPath: "include",
+      cSettings: [.treatAllWarnings(as: .error)],
+      plugins: [.plugin(name: "OSAXEmbed")]
+    ),
+    // the pure logic of the daemon (no window server access), unit-tested by YabaiCoreTests
+    // NOTE: strict memory safety (SE-0458) is on for this target only: every unsafe construct is spelled `unsafe`.
+    .target(
+      name: "YabaiCore",
+      swiftSettings: swiftSettings + [.strictMemorySafety()]
+    ),
+    .executableTarget(
+      name: "Yabai",
+      dependencies: [
+        "CPrivate",
+        "OSAX",
+        "YabaiCore",
+        .product(name: "Algorithms", package: "swift-algorithms"),
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "DequeModule", package: "swift-collections"),
+        .product(name: "Logging", package: "swift-log"),
+        .product(name: "OrderedCollections", package: "swift-collections"),
+        .product(name: "SortedCollections", package: "swift-collections"),
+        .product(name: "Subprocess", package: "swift-subprocess"),
+      ],
+      // NOTE: NonisolatedNonsendingByDefault (SE-0461): nonisolated async functions run on the actor of their caller.
+      swiftSettings: swiftSettings + [.enableUpcomingFeature("NonisolatedNonsendingByDefault")],
+      linkerSettings: [
+        .linkedFramework("Carbon"),
+        .linkedFramework("Cocoa"),
+        .linkedFramework("CoreServices"),
+        .unsafeFlags(
+          [
+            "-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker",
+            Context.packageDirectory + "/assets/Info.plist",
+          ] + sdk),
+      ]
+    ),
+    .plugin(name: "OSAXEmbed", capability: .buildTool()),
+    // tests/, not Tests/: the file system is case-insensitive
+    // the helpers both test targets share: the id literals, the generators and the snapshot strategies
+    .target(
+      name: "YabaiTestSupport",
+      dependencies: [
+        "YabaiCore",
+        .product(name: "CustomDump", package: "swift-custom-dump"),
+        .product(name: "PropertyBased", package: "swift-property-based"),
+        .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+      ],
+      path: "tests/YabaiTestSupport",
+      swiftSettings: swiftSettings
+    ),
+    .testTarget(
+      name: "YabaiCoreTests",
+      dependencies: [
+        "YabaiCore",
+        "YabaiTestSupport",
+        .product(name: "CustomDump", package: "swift-custom-dump"),
+        .product(name: "PropertyBased", package: "swift-property-based"),
+      ],
+      path: "tests/YabaiCoreTests",
+      swiftSettings: swiftSettings
+    ),
+    // the code of the daemon (the IPC handlers, the managers and the golden replay), through @testable import Yabai
+    .testTarget(
+      name: "YabaiTests",
+      dependencies: [
+        "CPrivate",
+        "OSAX",
+        "Yabai",
+        "YabaiCore",
+        "YabaiTestSupport",
+        .product(name: "CustomDump", package: "swift-custom-dump"),
+        .product(name: "InlineSnapshotTesting", package: "swift-snapshot-testing"),
+        .product(name: "PropertyBased", package: "swift-property-based"),
+        .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+      ],
+      path: "tests/YabaiTests",
+      exclude: ["__Snapshots__"],
+      resources: [.copy("Golden")],
+      swiftSettings: swiftSettings
+    ),
+  ],
+  swiftLanguageModes: [.v6],
+  cLanguageStandard: .c11
 )

@@ -10,75 +10,69 @@ import YabaiCore
 //
 
 /// The parts of Config that a renderer applies.
-enum ConfigGroup: CaseIterable, Sendable
-{
-    case border
-    case tabBar
-    case opacity
-    case windowOpacity
-    case menuBar
-    case shadow
+enum ConfigGroup: CaseIterable, Sendable {
+  case border
+  case tabBar
+  case opacity
+  case windowOpacity
+  case menuBar
+  case shadow
 }
 
 /// Follows Config for the renderers.
-@WM final class ConfigObserver
-{
-    static let shared = ConfigObserver()
+@WM final class ConfigObserver {
+  static let shared = ConfigObserver()
 
-    /// The tab bar config last applied, to choose between rebuilding and redrawing the bars.
-    private var tabBar = TabBarConfig()
+  /// The tab bar config last applied, to choose between rebuilding and redrawing the bars.
+  private var tabBar = TabBarConfig()
 
-    /// Starts following Config; call once, at startup.
-    func start()
-    {
-        tabBar = Config.current.tabBar
-        for group in ConfigGroup.allCases { track(group) }
+  /// Starts following Config; call once, at startup.
+  func start() {
+    tabBar = Config.current.tabBar
+    for group in ConfigGroup.allCases { track(group) }
+  }
+
+  /// Applies a group of Config that was set.
+  func apply(_ group: ConfigGroup) {
+    track(group)
+    let wm = WindowManager.shared
+    switch group {
+    case .border:
+      Border.refreshAll()
+    case .tabBar:
+      let old = tabBar
+      tabBar = Config.current.tabBar
+      TabBar.applyConfig(tabBar, from: old)
+    case .opacity:
+      wm.applyOpacityEnabled()
+    case .windowOpacity:
+      wm.applyWindowOpacity()
+    case .menuBar:
+      SLS.setMenuBarAlpha(SLS.connection, Config.current.menuBar.opacity)
+    case .shadow:
+      wm.applyShadows()
     }
+  }
 
-    /// Applies a group of Config that was set.
-    func apply(_ group: ConfigGroup)
-    {
-        track(group)
-        let wm = WindowManager.shared
-        switch group {
-        case .border:
-            Border.refreshAll()
-        case .tabBar:
-            let old = tabBar
-            tabBar = Config.current.tabBar
-            TabBar.applyConfig(tabBar, from: old)
-        case .opacity:
-            wm.applyOpacityEnabled()
-        case .windowOpacity:
-            wm.applyWindowOpacity()
-        case .menuBar:
-            SLS.setMenuBarAlpha(SLS.connection, Config.current.menuBar.opacity)
-        case .shadow:
-            wm.applyShadows()
-        }
+  /// Reads the group, so that Observation tracks it.
+  static func read(_ group: ConfigGroup) {
+    let config = Config.current
+    switch group {
+    case .border: _ = config.border
+    case .tabBar: _ = config.tabBar
+    case .opacity: _ = config.opacity
+    case .windowOpacity: _ = config.windowOpacity
+    case .menuBar: _ = config.menuBar
+    case .shadow: _ = config.shadow
     }
+  }
 
-    /// Reads the group, so that Observation tracks it.
-    static func read(_ group: ConfigGroup)
-    {
-        let config = Config.current
-        switch group {
-        case .border:        _ = config.border
-        case .tabBar:        _ = config.tabBar
-        case .opacity:       _ = config.opacity
-        case .windowOpacity: _ = config.windowOpacity
-        case .menuBar:       _ = config.menuBar
-        case .shadow:        _ = config.shadow
-        }
+  /// Tracks a group; its next set posts configChanged.
+  private func track(_ group: ConfigGroup) {
+    withObservationTracking {
+      Self.read(group)
+    } onChange: {
+      EventLoop.post(.configChanged(group))
     }
-
-    /// Tracks a group; its next set posts configChanged.
-    private func track(_ group: ConfigGroup)
-    {
-        withObservationTracking {
-            Self.read(group)
-        } onChange: {
-            EventLoop.post(.configChanged(group))
-        }
-    }
+  }
 }

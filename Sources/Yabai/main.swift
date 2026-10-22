@@ -8,14 +8,18 @@ import Foundation
 //
 
 let argv = CommandLine.unsafeArgv
-if CommandLine.argc > 1, let option = argv[1], strcmp(option, "--message") == 0 || strcmp(option, "-m") == 0 {
-    let arguments = (2..<Int(CommandLine.argc)).map { Array(UnsafeRawBufferPointer(start: argv[$0]!, count: strlen(argv[$0]!))) }
-    exit(Client.send(arguments))
+if CommandLine.argc > 1, let option = argv[1],
+  strcmp(option, "--message") == 0 || strcmp(option, "-m") == 0
+{
+  let arguments = (2..<Int(CommandLine.argc)).map {
+    Array(UnsafeRawBufferPointer(start: argv[$0]!, count: strlen(argv[$0]!)))
+  }
+  exit(Client.send(arguments))
 }
 
 let options = YabaiOptions.parseOrExit()
 if !options.message.isEmpty {
-    exit(Client.send(options.message.map { Array($0.utf8) }))
+  exit(Client.send(options.message.map { Array($0.utf8) }))
 }
 
 Log.bootstrap()
@@ -26,8 +30,8 @@ Log.bootstrap()
 //
 
 if let action = options.action {
-    Task { exit(await action.run()) }
-    dispatchMain()
+  Task { exit(await action.run()) }
+  dispatchMain()
 }
 
 exit(Daemon.run(options))

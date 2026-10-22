@@ -2,6 +2,7 @@ import OrderedCollections
 import Synchronization
 import Testing
 import YabaiCore
+
 @testable import Yabai
 
 //
@@ -16,42 +17,40 @@ struct DaemonState {}
 /// Resets the global managers to the state of a daemon without displays, spaces or windows before each test, and turns
 /// on headless mode (never off again), so that flushes and payload messages are recorded instead of reaching the
 /// window server or Dock.
-struct DaemonFixture: SuiteTrait, TestTrait, TestScoping
-{
-    var isRecursive: Bool { true }
+struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
+  var isRecursive: Bool { true }
 
-    func provideScope(for test: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void) async throws
-    {
-        await Self.reset()
-        try await function()
-    }
+  func provideScope(
+    for test: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void
+  ) async throws {
+    await Self.reset()
+    try await function()
+  }
 
-    @WM static func reset()
-    {
-        Headless.enable()
-        Headless.displayFrame = Headless.defaultDisplayFrame
-        Headless.activeSpace = nil
-        Config.current.resetToDefaults()
-        DisplayManager.shared.invalidateSpaceCaches()
-        Log.verbose.store(false, ordering: .relaxed)
-        MouseState.shared.tap.modifier = Config.current.mouse.modifier
-        WindowManager.shared.initialize()
-        WindowManager.shared.rules = []
-        WindowManager.shared.scratchpads = [:]
-        WindowManager.shared.focus.focusChanged(to: nil)
-        WindowManager.shared.focus.clearPending()
-        WindowManager.shared.focus.setLast(nil)
-        WindowManager.shared.animationsSuppressed = false
-        Config.current.applySpaceDefaults()
-        SpaceManager.shared.resetViews()
-        EventSignals.shared.table = SignalTable()
-        EventSignals.shared.discardPending()
-        EventSubscribers.shared.removeAll()
-    }
+  @WM static func reset() {
+    Headless.enable()
+    Headless.displayFrame = Headless.defaultDisplayFrame
+    Headless.activeSpace = nil
+    Config.current.resetToDefaults()
+    DisplayManager.shared.invalidateSpaceCaches()
+    Log.verbose.store(false, ordering: .relaxed)
+    MouseState.shared.tap.modifier = Config.current.mouse.modifier
+    WindowManager.shared.initialize()
+    WindowManager.shared.rules = []
+    WindowManager.shared.scratchpads = [:]
+    WindowManager.shared.focus.focusChanged(to: nil)
+    WindowManager.shared.focus.clearPending()
+    WindowManager.shared.focus.setLast(nil)
+    WindowManager.shared.animationsSuppressed = false
+    Config.current.applySpaceDefaults()
+    SpaceManager.shared.resetViews()
+    EventSignals.shared.table = SignalTable()
+    EventSignals.shared.discardPending()
+    EventSubscribers.shared.removeAll()
+  }
 }
 
-extension Trait where Self == DaemonFixture
-{
-    /// Resets the daemon state before each test of the suite.
-    static var daemonFixture: Self { DaemonFixture() }
+extension Trait where Self == DaemonFixture {
+  /// Resets the daemon state before each test of the suite.
+  static var daemonFixture: Self { DaemonFixture() }
 }

@@ -9,7 +9,8 @@ Swift 6.4 on macOS 27 is near the edge of the model's training data. For recent 
 
 ## Conventions
 
-- **Style:** four-space indentation and the surrounding file's brace style. Prefer final classes for reference models and structs/arrays for values. Older tests carry their C names as display names (`@Test("label_list")`); renaming them is fine.
+- **Style:** use the selected Swift toolchain's stock `swift format` defaults (`.swift-format` has no overrides): two-space indentation, a 100-column line length and opening braces on the declaration line. Prefer final classes for reference models and structs/arrays for values. Older tests carry their C names as display names (`@Test("label_list")`); renaming them is fine.
+- **Formatter checks:** formatting does not fix every lint finding. Run `swift format lint --strict` afterward; raw-value enum cases sharing a declaration, `.forEach` calls and overlong trailing comments can require manual fixes.
 - **Naming:** Swift API Design Guidelines. No C names in identifiers or doc comments, no "Ported from" headers, no `*_global()` accessors. Managers are reached as `WindowManager.shared`; large managers split into `Type+Area.swift` files. Order code by responsibility, not by the C order it came from.
 - **Comments:** keep every `// NOTE:` that records macOS, WindowServer or AX behavior, reworded to name the Swift symbols. Drop comments that only explain the C origin.
 - **Values:** `Int` for counts, indices and arithmetic; fixed-width integers only for C/ABI and wire formats. "None" is an optional, never `0`, `-1` or `NULL`. Flags are `OptionSet`s or `Bool`s.

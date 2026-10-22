@@ -10,113 +10,107 @@
 //
 
 /// The tokens of a batch message: `encode` for the client, `decode` for the daemon.
-public enum BatchMessage
-{
-    /// The domain token that starts a batch message.
-    public static let domain = "batch"
+public enum BatchMessage {
+  /// The domain token that starts a batch message.
+  public static let domain = "batch"
 
-    /// The tokens of a batch message for the commands, each command as its tokens: the domain token, then a count
-    /// and the tokens of each command. `ClientMessage.encode` takes these tokens as its arguments.
-    public static func encode(_ commands: [[String]]) -> [[UInt8]]
-    {
-        var tokens: [[UInt8]] = [Array(domain.utf8)]
-        for command in commands {
-            tokens.append(Array(String(command.count).utf8))
-            tokens += command.map { Array($0.utf8) }
-        }
-        return tokens
+  /// The tokens of a batch message for the commands, each command as its tokens: the domain token, then a count
+  /// and the tokens of each command. `ClientMessage.encode` takes these tokens as its arguments.
+  public static func encode(_ commands: [[String]]) -> [[UInt8]] {
+    var tokens: [[UInt8]] = [Array(domain.utf8)]
+    for command in commands {
+      tokens.append(Array(String(command.count).utf8))
+      tokens += command.map { Array($0.utf8) }
     }
+    return tokens
+  }
 
-    /// The commands of a batch message, from the tokens after the domain token (`encode` without its first token).
-    ///
-    /// Fails for no commands at all, for a count that is not decimal, for a count of 0, and for a count that is larger
-    /// than the tokens that follow it.
-    public static func decode(_ tokens: [[UInt8]]) throws(BatchError) -> [[Token]]
-    {
-        guard !tokens.isEmpty else { throw .emptyBatch }
+  /// The commands of a batch message, from the tokens after the domain token (`encode` without its first token).
+  ///
+  /// Fails for no commands at all, for a count that is not decimal, for a count of 0, and for a count that is larger
+  /// than the tokens that follow it.
+  public static func decode(_ tokens: [[UInt8]]) throws(BatchError) -> [[Token]] {
+    guard !tokens.isEmpty else { throw .emptyBatch }
 
-        var commands: [[Token]] = []
-        var index = 0
-        while index < tokens.count {
-            let command = commands.count + 1
-            guard let count = decimalCount(tokens[index]) else {
-                throw .malformedCount(command: command, Token(tokens[index]))
-            }
-            guard count > 0 else { throw .emptyCommand(command: command) }
+    var commands: [[Token]] = []
+    var index = 0
+    while index < tokens.count {
+      let command = commands.count + 1
+      guard let count = decimalCount(tokens[index]) else {
+        throw .malformedCount(command: command, Token(tokens[index]))
+      }
+      guard count > 0 else { throw .emptyCommand(command: command) }
 
-            index += 1
-            let remaining = tokens.count - index
-            guard count <= remaining else {
-                throw .countExceedsTokens(command: command, count: count, remaining: remaining)
-            }
+      index += 1
+      let remaining = tokens.count - index
+      guard count <= remaining else {
+        throw .countExceedsTokens(command: command, count: count, remaining: remaining)
+      }
 
-            commands.append(tokens[index..<index + count].map { Token($0) })
-            index += count
-        }
-        return commands
+      commands.append(tokens[index..<index + count].map { Token($0) })
+      index += count
     }
+    return commands
+  }
 
-    //
-    // NOTE: The tokens of a batch end where a count is due and the piece is empty: a count is never empty, so that empty
-    // piece is the end of the message (the client's terminator). An empty piece inside a command is one of its arguments,
-    // because the count is read first. The two padding nulls that readMessage adds come after the terminator. A count that
-    // is larger than the tokens a client sent can be filled by that padding, so such a message is not always refused; the
-    // client never sends one.
-    //
+  //
+  // NOTE: The tokens of a batch end where a count is due and the piece is empty: a count is never empty, so that empty
+  // piece is the end of the message (the client's terminator). An empty piece inside a command is one of its arguments,
+  // because the count is read first. The two padding nulls that readMessage adds come after the terminator. A count that
+  // is larger than the tokens a client sent can be filled by that padding, so such a message is not always refused; the
+  // client never sends one.
+  //
 
-    /// The tokens of a batch, from the pieces after its domain token (`Message.rawPieces`, empty pieces kept): the pieces
-    /// up to the empty piece where a count is due. A malformed count ends the tokens at that count, so `decode` reports
-    /// it. A count larger than the pieces left gives all the pieces but their trailing empty ones, which are the end and
-    /// the padding, so `decode` reports how many tokens follow.
-    public static func terminated(_ pieces: [[UInt8]]) -> [[UInt8]]
-    {
-        var index = 0
-        while index < pieces.count {
-            if pieces[index].isEmpty { break }
-            guard let count = decimalCount(pieces[index]) else { return Array(pieces[...index]) }
+  /// The tokens of a batch, from the pieces after its domain token (`Message.rawPieces`, empty pieces kept): the pieces
+  /// up to the empty piece where a count is due. A malformed count ends the tokens at that count, so `decode` reports
+  /// it. A count larger than the pieces left gives all the pieces but their trailing empty ones, which are the end and
+  /// the padding, so `decode` reports how many tokens follow.
+  public static func terminated(_ pieces: [[UInt8]]) -> [[UInt8]] {
+    var index = 0
+    while index < pieces.count {
+      if pieces[index].isEmpty { break }
+      guard let count = decimalCount(pieces[index]) else { return Array(pieces[...index]) }
 
-            let next = index + 1 + count
-            if next > pieces.count {
-                var end = pieces.count
-                while end > index + 1 && pieces[end - 1].isEmpty { end -= 1 }
-                return Array(pieces[..<end])
-            }
-            index = next
-        }
-        return Array(pieces[..<index])
+      let next = index + 1 + count
+      if next > pieces.count {
+        var end = pieces.count
+        while end > index + 1 && pieces[end - 1].isEmpty { end -= 1 }
+        return Array(pieces[..<end])
+      }
+      index = next
     }
+    return Array(pieces[..<index])
+  }
 
-    /// The value of a count token, or nil when it is empty or has a byte that is not a decimal digit or is beyond Int.
-    private static func decimalCount(_ bytes: [UInt8]) -> Int?
-    {
-        guard !bytes.isEmpty, bytes.allSatisfy({ $0 >= UInt8(ascii: "0") && $0 <= UInt8(ascii: "9") }) else { return nil }
-        return Int(String(decoding: bytes, as: UTF8.self))
-    }
+  /// The value of a count token, or nil when it is empty or has a byte that is not a decimal digit or is beyond Int.
+  private static func decimalCount(_ bytes: [UInt8]) -> Int? {
+    guard !bytes.isEmpty, bytes.allSatisfy({ $0 >= UInt8(ascii: "0") && $0 <= UInt8(ascii: "9") })
+    else { return nil }
+    return Int(String(decoding: bytes, as: UTF8.self))
+  }
 }
 
 /// Why a batch message could not be decoded. `message` is the response text, without a newline.
-public enum BatchError: Error, Equatable, Sendable
-{
-    /// The batch has no tokens after `batch`.
-    case emptyBatch
-    /// The count of a command is not a decimal number. `command` is 1-based.
-    case malformedCount(command: Int, Token)
-    /// The count of a command is 0, so it has no tokens.
-    case emptyCommand(command: Int)
-    /// The count of a command is larger than the tokens left in the batch.
-    case countExceedsTokens(command: Int, count: Int, remaining: Int)
+public enum BatchError: Error, Equatable, Sendable {
+  /// The batch has no tokens after `batch`.
+  case emptyBatch
+  /// The count of a command is not a decimal number. `command` is 1-based.
+  case malformedCount(command: Int, Token)
+  /// The count of a command is 0, so it has no tokens.
+  case emptyCommand(command: Int)
+  /// The count of a command is larger than the tokens left in the batch.
+  case countExceedsTokens(command: Int, count: Int, remaining: Int)
 
-    public var message: String
-    {
-        switch self {
-        case .emptyBatch:
-            return "batch: no commands given"
-        case .malformedCount(let command, let token):
-            return "batch: command \(command) has the count '\(token.string)', expected a decimal number"
-        case .emptyCommand(let command):
-            return "batch: command \(command) has no tokens"
-        case .countExceedsTokens(let command, let count, let remaining):
-            return "batch: command \(command) has \(count) tokens, but only \(remaining) follow"
-        }
+  public var message: String {
+    switch self {
+    case .emptyBatch:
+      return "batch: no commands given"
+    case .malformedCount(let command, let token):
+      return "batch: command \(command) has the count '\(token.string)', expected a decimal number"
+    case .emptyCommand(let command):
+      return "batch: command \(command) has no tokens"
+    case .countExceedsTokens(let command, let count, let remaining):
+      return "batch: command \(command) has \(count) tokens, but only \(remaining) follow"
     }
+  }
 }

@@ -5,34 +5,31 @@
 //
 
 /// The predicates that classify the windows of a space query. Ported from src/space.h.
-public enum SpaceWindow
-{
-    /// `space_window_has_user_level`
-    public static func hasUserLevel(parentID: WindowID?, level: Int32) -> Bool
-    {
-        parentID == nil && (level == 0 || level == 3 || level == 8)
-    }
+public enum SpaceWindow {
+  /// `space_window_has_user_level`
+  public static func hasUserLevel(parentID: WindowID?, level: Int32) -> Bool {
+    parentID == nil && (level == 0 || level == 3 || level == 8)
+  }
 
-    /// `space_window_has_user_tags`
-    public static func hasUserTags(_ tags: UInt64) -> Bool
-    {
-        (tags & 0x1) != 0 || ((tags & 0x2) != 0 && (tags & 0x80000000) != 0)
-    }
+  /// `space_window_has_user_tags`
+  public static func hasUserTags(_ tags: UInt64) -> Bool {
+    (tags & 0x1) != 0 || ((tags & 0x2) != 0 && (tags & 0x8000_0000) != 0)
+  }
 
-    /// `space_window_is_user_window`
-    public static func isUserWindow(parentID: WindowID?, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
-    {
-        hasUserLevel(parentID: parentID, level: level) &&
-        ((attributes & 0x2) != 0 || (tags & 0x400000000000000) != 0) &&
-        hasUserTags(tags)
-    }
+  /// `space_window_is_user_window`
+  public static func isUserWindow(
+    parentID: WindowID?, level: Int32, tags: UInt64, attributes: UInt64
+  ) -> Bool {
+    hasUserLevel(parentID: parentID, level: level)
+      && ((attributes & 0x2) != 0 || (tags & 0x400_0000_0000_0000) != 0) && hasUserTags(tags)
+  }
 
-    /// `space_window_is_minimized_user_window`
-    public static func isMinimizedUserWindow(parentID: WindowID?, level: Int32, tags: UInt64, attributes: UInt64) -> Bool
-    {
-        hasUserLevel(parentID: parentID, level: level) &&
-        (attributes == 0x0 || attributes == 0x1) &&
-        ((tags & 0x1000000000000000) != 0 || (tags & 0x300000000000000) != 0) &&
-        hasUserTags(tags)
-    }
+  /// `space_window_is_minimized_user_window`
+  public static func isMinimizedUserWindow(
+    parentID: WindowID?, level: Int32, tags: UInt64, attributes: UInt64
+  ) -> Bool {
+    hasUserLevel(parentID: parentID, level: level) && (attributes == 0x0 || attributes == 0x1)
+      && ((tags & 0x1000_0000_0000_0000) != 0 || (tags & 0x300_0000_0000_0000) != 0)
+      && hasUserTags(tags)
+  }
 }

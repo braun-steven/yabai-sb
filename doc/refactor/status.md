@@ -13,7 +13,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped`. Find a subph
 
 ## Phase 1: Gates and tooling
 
-phase: in-progress · mode: nested
+phase: done · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
@@ -186,6 +186,8 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 13:44 · subphase agent · P1.3 · done · P1.4 (documentation drift) is next; it has no dependencies and can start now
 - 2026-10-22 13:50 · subphase agent · P1.4 · start · fix doc drift (architecture.md, testing-refactor.md, C comments), AGENTS.md row; gates
 - 2026-10-22 13:50 · subphase agent · P1.4 · done · make ci-quick and make install passed; the phase agent runs the phase close (make ci) for P1
+- 2026-10-22 13:29 · phase agent · P1 · resume (nested) · P1.1 done at e197af95; start P1.2
+- 2026-10-22 13:55 · phase agent · P1 · close · Phase 1 done. `make ci`/`make ci-quick` (scripts/ci.sh, logs in .build/ci/) are the gates; OSAXEmbed enumerates osax/ (same 10 files as before); baseline in "Baseline (P1.3)"; doc drift fixed and AGENTS.md links the plan. Deviation: P1.2's "Build and embed" step name only shows with `swift build -v`. Phase agent fixed ci.sh to print both test-run summaries. Next phase: run `make ci-quick` per subphase and `make ci` at close; remaining C-style doc comments are listed under Discovered. No live checks added in phase 1. · orchestrator starts phase 2
 
 ## Discovered
 

@@ -107,6 +107,16 @@ struct RGBAColor: Sendable, Equatable
     }
 }
 
+/// The environment variables that the daemon, its clients and the service read.
+enum ProcessEnvironment
+{
+    /// The user from $USER, or nil when it is not set. Each caller decides how a missing user fails.
+    static func currentUser() -> String?
+    {
+        getenv("USER").map { String(cString: $0) }
+    }
+}
+
 /// The Unix domain sockets of the IPC client, the daemon and the scripting addition.
 enum UnixSocket
 {

@@ -46,7 +46,7 @@ enum Client
             fail("yabai-msg: no arguments given! abort..\n")
         }
 
-        guard let user = getenv("USER") else {
+        guard let user = ProcessEnvironment.currentUser() else {
             fail("yabai-msg: 'env USER' not set! abort..\n")
         }
 
@@ -57,7 +57,7 @@ enum Client
             fail("yabai-msg: failed to open socket..\n")
         }
 
-        if !UnixSocket.connect(sockfd, to: "/tmp/yabai_\(String(cString: user)).socket") {
+        if !UnixSocket.connect(sockfd, to: "/tmp/yabai_\(user).socket") {
             fail("yabai-msg: failed to connect to socket..\n")
         }
 

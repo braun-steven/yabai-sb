@@ -136,16 +136,6 @@ enum Daemon
         Logger.daemon.notice("unresolved private symbols: \(list)")
     }
 
-    /// The user of the daemon, from $USER. Stops the daemon when it is not set.
-    private static func currentUser() -> String
-    {
-        guard let user = getenv("USER").map({ String(cString: $0) }) else {
-            Logger.daemon.fatal("'env USER' not set")
-        }
-
-        return user
-    }
-
     /// Loads AppKit and connects to the window server. Returns the pid of the daemon.
     @MainActor private static func connectToWindowServer() -> pid_t
     {
@@ -235,7 +225,9 @@ enum Daemon
         //
 
         Logger.daemon.debug("startup: reading the user and connecting to the window server")
-        let user = currentUser()
+        guard let user = ProcessEnvironment.currentUser() else {
+            Logger.daemon.fatal("'env USER' not set")
+        }
         let pid = connectToWindowServer()
 
         Logger.daemon.debug("startup: resolving private symbols")

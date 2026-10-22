@@ -116,7 +116,7 @@ final class ScriptingAddition: Sendable
 
     private init()
     {
-        socketPath = getenv("USER").map { "/tmp/yabai-sa_\(String(cString: $0)).socket" }
+        socketPath = ProcessEnvironment.currentUser().map { "/tmp/yabai-sa_\($0).socket" }
         sudoSocketPath = Self.resolveSudoSocketPath()
     }
 

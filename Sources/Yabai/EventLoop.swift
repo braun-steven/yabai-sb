@@ -113,6 +113,7 @@ enum Event: Sendable
     case missionControlShowFrontWindows
     case missionControlShowDesktop
     case missionControlEnter
+    // NOTE: Only post with `key: .missionControlCheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
     case missionControlCheckForExit
     case missionControlExit
     case dockDidRestart
@@ -122,6 +123,7 @@ enum Event: Sendable
     case dockDidChangePref
     case systemWoke
     case configChanged(ConfigGroup)
+    // NOTE: Only post with `key: .spaceLayoutReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
     case spaceLayoutReconcile
     case daemonMessage(DaemonMessage)
 }
@@ -150,10 +152,12 @@ enum EventLoop
     // delay can end later than with ContinuousClock.
     //
     // NOTE: An event with a DelayedEventKey supersedes the pending event with that key: the insert removes it. A
-    // superseded event that is already due and posted (waiting in the event stream) is still handled.
+    // keyed event that is already due and posted (waiting in the event stream) is superseded too: the insert marks it
+    // stale, and claimDelivery drops it when the handler takes it. The unkeyed events are never superseded.
     //
 
     /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
+    /// Only post the events `.spaceLayoutReconcile` and `.missionControlCheckForExit` with their key.
     enum DelayedEventKey: Hashable, Sendable
     {
         case spaceLayoutReconcile
@@ -162,6 +166,7 @@ enum EventLoop
 
     private struct DelayedState: Sendable
     {
+        /// The pending events, and the keyed events delivered and not yet handled (see DelayedQueue).
         var queue = DelayedQueue<Event, DelayedEventKey>()
         /// The deadline the timer is set for, nil when it is not armed. It is never later than the next deadline.
         var armed: ContinuousClock.Instant?
@@ -191,11 +196,18 @@ enum EventLoop
         }
     }
 
+    /// Called on @WM when a keyed delayed event is handled. Returns false when the event was superseded after its
+    /// delivery, so the handler must drop it.
+    static func claimDelivery(of key: DelayedEventKey) -> Bool
+    {
+        delayed.withLock { state in state.queue.claim(key: key) }
+    }
+
     /// Posts the due events, then arms the timer for the next deadline. Runs on the timer queue.
     private static func postDueEvents()
     {
         delayed.withLock { state in
-            for event in state.queue.removeDue(at: ContinuousClock.now) { post(event) }
+            for due in state.queue.removeDue(at: ContinuousClock.now) { post(due.element) }
 
             state.armed = nil
             if let next = state.queue.nextDeadline { arm(&state, for: next) }
@@ -288,7 +300,8 @@ extension EventHandler
         case .missionControlShowFrontWindows:            missionControlShowFrontWindows()
         case .missionControlShowDesktop:                 missionControlShowDesktop()
         case .missionControlEnter:                       missionControlEnter()
-        case .missionControlCheckForExit:                missionControlCheckForExit()
+        case .missionControlCheckForExit:
+            if EventLoop.claimDelivery(of: .missionControlCheck) { missionControlCheckForExit() }
         case .missionControlExit:                        missionControlExit()
         case .dockDidRestart:                            dockDidRestart()
         case .menuOpened:                                menuOpened()
@@ -297,7 +310,8 @@ extension EventHandler
         case .dockDidChangePref:                         dockDidChangePref()
         case .systemWoke:                                systemWoke()
         case .configChanged(let group):                  configChanged(group)
-        case .spaceLayoutReconcile:                      spaceLayoutReconcile()
+        case .spaceLayoutReconcile:
+            if EventLoop.claimDelivery(of: .spaceLayoutReconcile) { spaceLayoutReconcile() }
         case .daemonMessage(let message):                MessageLoop.handle(message)
         }
     }

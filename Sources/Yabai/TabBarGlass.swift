@@ -597,6 +597,29 @@ final class TabBarGlass: Sendable
         onMain { $0.panel?.pointer(windowID: windowID, pressed: pressed) }
     }
 
+    /// Takes a snapshot of the bar on the event loop and applies it on the main queue.
+    @WM func render(_ bar: TabBar, above aboveWid: WindowID, entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
+    {
+        let snapshot = Snapshot(bar, aboveWid, entries, count)
+        onMain { $0.apply(snapshot) }
+    }
+
+    func orderBar(above wid: WindowID)
+    {
+        onMain { $0.order(wid) }
+    }
+
+    func hideBar()
+    {
+        onMain { $0.hide() }
+    }
+
+    // NOTE: FIFO main-queue delivery closes the panel after pending updates; each block retains its owner.
+    func destroyBar()
+    {
+        onMain { $0.close() }
+    }
+
     static func innerRect(_ bounds: CGRect) -> CGRect
     {
         let inset = min(glassPillInset, max(0, min(bounds.width, bounds.height) * 0.5))
@@ -641,33 +664,4 @@ final class TabBarGlass: Sendable
             MainActor.assumeIsolated { body(self) }
         }
     }
-}
-
-extension TabBar
-{
-    func renderGlass(above aboveWid: WindowID, entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
-    {
-        let snapshot = Snapshot(self, aboveWid, entries, count)
-        if glass == nil { glass = TabBarGlass() }
-        glass!.onMain { $0.apply(snapshot) }
-    }
-
-    func hideGlass()
-    {
-        glass?.onMain { $0.hide() }
-    }
-
-    func orderGlass(above wid: WindowID)
-    {
-        glass?.onMain { $0.order(wid) }
-    }
-
-    func destroyGlass()
-    {
-        // NOTE: FIFO main-queue delivery closes the panel after pending updates; each block retains its owner.
-        glass?.onMain { $0.close() }
-        glass = nil
-    }
-
-    var glassPanelID: WindowID? { glass?.id }
 }

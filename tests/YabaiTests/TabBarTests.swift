@@ -77,8 +77,8 @@ extension DaemonState
             let frame = Self.hitFrame
             let inner = TabBarGlass.innerRect(frame)
             let boundary = TabBar.slot(in: inner, index: 0, count: 3).maxX
-            #expect(TabBar.hitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, count: 3, glass: true) == 0)
-            #expect(TabBar.hitIndex(CGPoint(x: boundary, y: 21), frame: frame, count: 3, glass: true) == 1)
+            #expect(TabBar.hitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, slots: inner, count: 3) == 0)
+            #expect(TabBar.hitIndex(CGPoint(x: boundary, y: 21), frame: frame, slots: inner, count: 3) == 1)
             #expect(TabBarGlass.innerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
         }
 
@@ -95,7 +95,41 @@ extension DaemonState
         @Test(arguments: hitRows)
         func hitIndex(_ x: CGFloat, _ count: Int, _ glass: Bool, _ index: Int?)
         {
-            #expect(TabBar.hitIndex(CGPoint(x: x, y: 21), frame: Self.hitFrame, count: count, glass: glass) == index)
+            let slots = glass ? TabBarGlass.innerRect(Self.hitFrame) : Self.hitFrame
+            #expect(TabBar.hitIndex(CGPoint(x: x, y: 21), frame: Self.hitFrame, slots: slots, count: count) == index)
+        }
+
+        nonisolated static let backendKindRows: [(TabBarStyle, TabBarBackend.Kind)] = [
+            (.glass, .glass),
+            (.i3, .classic),
+        ]
+
+        // NOTE: Only the choice is tested: make would create a classic window in the window server.
+        @Test(arguments: backendKindRows)
+        func backendFollowsTheStyle(_ style: TabBarStyle, _ kind: TabBarBackend.Kind)
+        {
+            #expect(TabBarBackend.kind(for: style) == kind)
+        }
+
+        @Test("tab_bar_style_switch_destroys_the_backend")
+        func styleSwitchDestroysTheBackend()
+        {
+            Config.current.tabBar.style = .glass
+            let space = Workspace()
+            space.open(1, focus: true)
+            space.open(2, focus: true)
+            space.view.root.setLayout(.tabbed)
+            let bar = space.view.root.render.tabBar
+            bar.backend = .glass(TabBarGlass())
+            WindowManager.shared.tabBars.append(bar)
+
+            // the config command applies the new style this way
+            let old = Config.current.tabBar
+            Config.current.tabBar.style = .i3
+            TabBar.applyConfig(Config.current.tabBar, from: old)
+
+            #expect(bar.backend == nil)
+            #expect(!WindowManager.shared.tabBars.contains(bar))
         }
 
         @Test("tab_bar_nested_card_order")

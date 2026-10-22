@@ -15,8 +15,8 @@ import YabaiCore
     /// The most tabs a tab bar shows.
     static let maxEntryCount = 64
 
-    var id: WindowID?
-    var context: CGContext?
+    /// The drawing of the bar: nil until it is created, and again after `destroy()`.
+    var backend: TabBarBackend?
     var frame = CGRect.zero
     var card = CGRect.zero
     var sid: SpaceID?
@@ -24,15 +24,13 @@ import YabaiCore
     var hidden = false
     var entryCount = 0
     var entryWindowIDs: [WindowID?] = []
-    var glass: TabBarGlass?
     // NOTE: The container that embeds the bar. It redraws the bar when colors or fonts change.
     weak var owner: Con?
 
     /// The empty bar of `destroy()`, which keeps its owner.
     func reset()
     {
-        id = nil
-        context = nil
+        backend = nil
         frame = .zero
         card = .zero
         sid = nil
@@ -40,7 +38,6 @@ import YabaiCore
         hidden = false
         entryCount = 0
         entryWindowIDs = []
-        glass = nil
     }
 }
 
@@ -116,10 +113,13 @@ struct TabBarEntry
 private struct TabBarHit: Sendable
 {
     let frame: CGRect
+    // NOTE: The rect the entries are laid out in (the backend's hitSlots), which may be inset from the frame.
+    let slots: CGRect
     let sid: SpaceID
     let aboveWid: WindowID
     let entries: [WindowID?]
-    let glass: TabBarGlass?
+    // NOTE: The glass panel that takes the pointer feedback of this bar; nil for a classic bar.
+    let pointer: TabBarGlass?
 }
 private let tabBarHits = Mutex<[TabBarHit]>([])
 
@@ -171,7 +171,8 @@ extension TabBar
                 // NOTE: A bar that shows entries has been rendered above a window on a space, so both are set.
                 guard let sid = bar.sid, let aboveWid = bar.aboveWindowID else { continue }
                 let entries = Array(bar.entryWindowIDs.prefix(bar.entryCount))
-                hits.append(TabBarHit(frame: bar.frame, sid: sid, aboveWid: aboveWid, entries: entries, glass: bar.glass))
+                let slots = bar.backend?.hitSlots(bar.frame) ?? bar.frame
+                hits.append(TabBarHit(frame: bar.frame, slots: slots, sid: sid, aboveWid: aboveWid, entries: entries, pointer: bar.backend?.glass))
             }
         }
     }
@@ -194,7 +195,7 @@ extension TabBar
         let above: WindowID? = tabBarHits.withLock { hits in
             for hit in hits {
                 if !hit.frame.contains(point) || !hit.sid.isVisible { continue }
-                guard let index = hitIndex(point, frame: hit.frame, count: hit.entries.count, glass: hit.glass != nil) else { continue }
+                guard let index = hitIndex(point, frame: hit.frame, slots: hit.slots, count: hit.entries.count) else { continue }
                 window = hit.entries[index]
                 return hit.aboveWid
             }
@@ -203,11 +204,11 @@ extension TabBar
         return above.map { !isCovered(point, above: $0) } ?? false
     }
 
-    /// Match the drawn slots, including the rounded track's outer hit padding.
-    nonisolated static func hitIndex(_ point: CGPoint, frame: CGRect, count: Int, glass: Bool) -> Int?
+    /// Match the drawn slots, including the rounded track's outer hit padding. `slots` is the rect the entries are laid
+    /// out in (`TabBarBackend.hitSlots`), inside `frame`.
+    nonisolated static func hitIndex(_ point: CGPoint, frame: CGRect, slots: CGRect, count: Int) -> Int?
     {
         guard count > 0, frame.width > 0, frame.contains(point) else { return nil }
-        let slots = glass ? TabBarGlass.innerRect(frame) : frame
         // NOTE: The slots run from left to right, so the first slot ending right of the point is found by bisection.
         return (0..<count - 1).partitioningIndex { point.x < slot(in: slots, index: $0, count: count).maxX }
     }
@@ -217,7 +218,7 @@ extension TabBar
 // NOTE: The event tap owns pointer state. It only sends changes to AppKit; it never reads the window tree.
 private struct TabBarPointer: Sendable
 {
-    var glass: TabBarGlass?
+    var target: TabBarGlass?
     var windowID: WindowID?
     var pressed = false
 }
@@ -228,24 +229,24 @@ extension TabBar
     nonisolated static func updatePointer(_ point: CGPoint, pressed: Bool)
     {
         let hit = tabBarHits.withLock { hits in
-            hits.first { $0.glass != nil && $0.frame.contains(point) && $0.sid.isVisible }
+            hits.first { $0.pointer != nil && $0.frame.contains(point) && $0.sid.isVisible }
         }
-        var glass: TabBarGlass?
+        var target: TabBarGlass?
         var windowID: WindowID?
         if let hit, !isCovered(point, above: hit.aboveWid),
-           let index = hitIndex(point, frame: hit.frame, count: hit.entries.count, glass: true) {
-            glass = hit.glass
+           let index = hitIndex(point, frame: hit.frame, slots: hit.slots, count: hit.entries.count) {
+            target = hit.pointer
             windowID = hit.entries[index]
         }
         let change = tabBarPointer.withLock { state -> (Bool, TabBarGlass?) in
-            guard state.glass !== glass || state.windowID != windowID || state.pressed != pressed else { return (false, nil) }
-            let previous = state.glass
-            state = TabBarPointer(glass: glass, windowID: windowID, pressed: pressed)
+            guard state.target !== target || state.windowID != windowID || state.pressed != pressed else { return (false, nil) }
+            let previous = state.target
+            state = TabBarPointer(target: target, windowID: windowID, pressed: pressed)
             return (true, previous)
         }
         guard change.0 else { return }
-        if change.1 !== glass { change.1?.pointer(windowID: nil, pressed: false) }
-        glass?.pointer(windowID: windowID, pressed: pressed)
+        if change.1 !== target { change.1?.pointer(windowID: nil, pressed: false) }
+        target?.pointer(windowID: windowID, pressed: pressed)
     }
 
     private static func line(_ text: CFString, _ attributes: CFDictionary) -> CTLine
@@ -340,35 +341,6 @@ extension TabBar
         return text
     }
 
-    private func draw(_ entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
-    {
-        SLS.disableUpdate(SLS.connection)
-        defer { SLS.reenableUpdate(SLS.connection) }
-        guard let context else { return }
-        let config = Config.current.tabBar
-        let font = WindowManager.shared.tabBarFont
-        let bounds = CGRect(origin: .zero, size: frame.size)
-        context.clear(bounds)
-        for i in 0..<count {
-            let entry = entries[i]
-            let (background, text) = entry.state.colors(in: config)
-            let tab = TabBar.slot(in: bounds, index: i, count: count)
-            context.setFillColor(red: CGFloat(background.r), green: CGFloat(background.g), blue: CGFloat(background.b), alpha: CGFloat(background.a))
-            context.fill(tab)
-            if i > 0 {
-                let separator = TabBar.separatorColor(for: text)
-                context.setFillColor(red: CGFloat(separator.r), green: CGFloat(separator.g), blue: CGFloat(separator.b), alpha: CGFloat(separator.a))
-                context.fill(CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
-            }
-            if entry.title != nil || entry.icon != nil {
-                TabBar.drawTitle(in: context, font: font, glass: false, title: entry.title, icon: entry.icon, rect: tab, color: text.cgColor)
-            }
-        }
-        context.flush()
-    }
-
-    private static var usesGlass: Bool { Config.current.tabBar.style == .glass }
-
     static var cardPadding: Int
     {
         let config = Config.current.tabBar
@@ -376,42 +348,20 @@ extension TabBar
         return config.cardPadding
     }
 
-    private var exists: Bool { id != nil || glass != nil }
+    private var exists: Bool { backend != nil }
 
     private func create(_ frame: CGRect)
     {
-        self.frame = frame
         WindowManager.shared.tabBars.append(self)
-        if TabBar.usesGlass { return }
-        //
-        // NOTE: Created with SLSNewWindow instead of SLSNewWindowWithOpaqueShapeAndContext, because a window of the latter
-        // is moved to the active space each time it is ordered in again, so a bar that was hidden and shown again would
-        // land on whatever space is visible instead of the space of its window.
-        //
-        let shape = SLS.region(frame)!
-        id = SLS.newWindow(SLS.connection, at: .zero, shape: shape)
-        guard let id else { return }
-        SLS.setTags(SLS.connection, id, (1 << 1) | (1 << 9))
-        SLS.disableShadow(id)
-        SLS.setResolution(SLS.connection, id, 2)
-        SLS.setOpaque(SLS.connection, id, false)
-        context = SLS.context(SLS.connection, id)
+        // NOTE: A classic bar whose window the window server refuses has no backend, so it draws nothing (it is still in
+        // tabBars and keeps its model, and the next render tries again).
+        backend = TabBarBackend.make(frame: frame)
     }
 
     //
-    // NOTE: Ordering a bar in can still move it to the active space, so its space is checked after every order and
-    // fixed up when it no longer matches the space of the window it sits above.
-    //
-    private func keepOnSpace()
-    {
-        guard let id, let sid, id.space != sid else { return }
-        TabBarGlass.moveWindow(id, to: sid)
-    }
-
-    //
-    // NOTE: Creates the bar window if needed, moves it to the frame and to the space of the window it
-    // sits above, draws the entries and orders it right above that window (right below it for a glass bar
-    // with a backdrop card, which then covers the whole card). Titles stay owned by the caller.
+    // NOTE: Creates the backend if needed, moves the bar to the frame and to the space of the window it sits above, draws
+    // the entries and orders it right above that window (right below it for a glass bar with a backdrop card, which
+    // then covers the whole card). Titles stay owned by the caller.
     //
     func render(frame: CGRect, card: CGRect, above aboveWid: WindowID?, entries: UnsafeMutablePointer<TabBarEntry>, count entryCount: Int)
     {
@@ -420,38 +370,26 @@ extension TabBar
         guard let aboveWid else { hide(); return }
         let count = min(entryCount, TabBar.maxEntryCount)
         if !exists { create(frame) }
-        else if frame != self.frame {
-            if let id {
-                let shape = SLS.region(frame)!
-                SLS.disableUpdate(SLS.connection)
-                SLS.setShape(SLS.connection, id, shape)
-                SLS.reenableUpdate(SLS.connection)
-            }
-            self.frame = frame
-        }
+        self.frame = frame
+        // NOTE: The model moves to the space before the backend renders, so the backend sees the new space (sid), and
+        // movedTo is set only when the space changed (the classic window is then moved there).
+        var movedTo: SpaceID?
         if let space = aboveWid.space, space != sid {
-            if let id { TabBarGlass.moveWindow(id, to: space) }
+            movedTo = space
             sid = space
         }
         aboveWindowID = aboveWid
         hidden = false
         self.entryCount = count
         entryWindowIDs = (0..<count).map { entries[$0].focusWindowID }
-        if let id {
-            draw(entries, count: count)
-            SLS.setLevel(SLS.connection, id, aboveWid.level)
-            SLS.setSubLevel(SLS.connection, id, aboveWid.subLevel)
-            SLS.order(SLS.connection, id, .above, relativeTo: aboveWid)
-            keepOnSpace()
-        } else { renderGlass(above: aboveWid, entries: entries, count: count) }
+        backend?.render(self, frame: frame, movedTo: movedTo, above: aboveWid, entries: entries, count: count)
         TabBar.publishHits()
     }
 
     func hide()
     {
         if !exists || hidden { return }
-        if let id { SLS.order(SLS.connection, id, .out) }
-        else { hideGlass() }
+        backend?.hide()
         hidden = true
         TabBar.publishHits()
     }
@@ -461,13 +399,15 @@ extension TabBar
         if !exists { return }
         let wm = WindowManager.shared
         wm.tabBars.remove(self)
-        if let id {
-            SLS.order(SLS.connection, id, .out)
-            context = nil
-            SLS.releaseWindow(SLS.connection, id)
-        } else { destroyGlass() }
+        backend?.destroy()
         reset()
         TabBar.publishHits()
+    }
+
+    /// Orders the bar right above its window (`wid`), or right below it for a glass bar with a card.
+    func order(above wid: WindowID)
+    {
+        backend?.order(self, above: wid)
     }
 
     //
@@ -476,19 +416,16 @@ extension TabBar
     //
     var cardID: WindowID?
     {
-        if hidden || glass == nil { return nil }
+        if hidden { return nil }
         let config = Config.current.tabBar
         if config.style != .glass || config.backdrop == .off { return nil }
-        return glassPanelID
+        return backend?.cardID
     }
 
     static func orderBars(above wid: WindowID)
     {
         for bar in outerFirst(WindowManager.shared.tabBars.filter { !$0.hidden && $0.aboveWindowID == wid }) {
-            if let id = bar.id {
-                SLS.order(SLS.connection, id, .above, relativeTo: wid)
-                bar.keepOnSpace()
-            } else { bar.orderGlass(above: wid) }
+            bar.order(above: wid)
         }
     }
 
@@ -535,5 +472,206 @@ extension TabBar
     {
         if config != old && !config.needsRebuild(from: old) { redrawAll() }
         else { refreshAll() }
+    }
+}
+
+/// The SLS window of a classic (i3 style) tab bar: its shape, its space, its drawing and its order.
+@WM final class ClassicTabBar
+{
+    let id: WindowID
+    var context: CGContext?
+    // NOTE: The shape the window was last set to. Only a frame that changes is sent to SkyLight again.
+    private var shape: CGRect
+
+    //
+    // NOTE: Created with SLSNewWindow instead of SLSNewWindowWithOpaqueShapeAndContext, because a window of the latter
+    // is moved to the active space each time it is ordered in again, so a bar that was hidden and shown again would
+    // land on whatever space is visible instead of the space of its window.
+    //
+    init?(frame: CGRect)
+    {
+        let region = SLS.region(frame)!
+        guard let window = SLS.newWindow(SLS.connection, at: .zero, shape: region) else { return nil }
+        id = window
+        shape = frame
+        SLS.setTags(SLS.connection, window, (1 << 1) | (1 << 9))
+        SLS.disableShadow(window)
+        SLS.setResolution(SLS.connection, window, 2)
+        SLS.setOpaque(SLS.connection, window, false)
+        context = SLS.context(SLS.connection, window)
+    }
+
+    /// Sets the shape to the frame when it changed, moves the window to `space` when the bar changed space, draws the
+    /// entries and orders the window right above `aboveWid`. `sid` is the space of the bar after the move.
+    func render(frame: CGRect, movedTo space: SpaceID?, sid: SpaceID?, above aboveWid: WindowID, entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
+    {
+        if frame != shape {
+            let region = SLS.region(frame)!
+            SLS.disableUpdate(SLS.connection)
+            SLS.setShape(SLS.connection, id, region)
+            SLS.reenableUpdate(SLS.connection)
+            shape = frame
+        }
+        if let space { SLS.moveWindows(SLS.connection, [id], toSpace: space) }
+        draw(entries, count: count, frame: frame)
+        SLS.setLevel(SLS.connection, id, aboveWid.level)
+        SLS.setSubLevel(SLS.connection, id, aboveWid.subLevel)
+        SLS.order(SLS.connection, id, .above, relativeTo: aboveWid)
+        keepOnSpace(sid)
+    }
+
+    func order(above wid: WindowID, sid: SpaceID?)
+    {
+        SLS.order(SLS.connection, id, .above, relativeTo: wid)
+        keepOnSpace(sid)
+    }
+
+    func hide()
+    {
+        SLS.order(SLS.connection, id, .out)
+    }
+
+    func destroy()
+    {
+        SLS.order(SLS.connection, id, .out)
+        context = nil
+        SLS.releaseWindow(SLS.connection, id)
+    }
+
+    //
+    // NOTE: Ordering a bar in can still move it to the active space, so its space is checked after every order and
+    // fixed up when it no longer matches the space of the window it sits above.
+    //
+    private func keepOnSpace(_ sid: SpaceID?)
+    {
+        guard let sid, id.space != sid else { return }
+        SLS.moveWindows(SLS.connection, [id], toSpace: sid)
+    }
+
+    private func draw(_ entries: UnsafeMutablePointer<TabBarEntry>, count: Int, frame: CGRect)
+    {
+        SLS.disableUpdate(SLS.connection)
+        defer { SLS.reenableUpdate(SLS.connection) }
+        guard let context else { return }
+        let config = Config.current.tabBar
+        let font = WindowManager.shared.tabBarFont
+        let bounds = CGRect(origin: .zero, size: frame.size)
+        context.clear(bounds)
+        for i in 0..<count {
+            let entry = entries[i]
+            let (background, text) = entry.state.colors(in: config)
+            let tab = TabBar.slot(in: bounds, index: i, count: count)
+            ClassicTabBar.fill(context, background, tab)
+            if i > 0 {
+                ClassicTabBar.fill(context, TabBar.separatorColor(for: text), CGRect(x: tab.minX, y: 0, width: 1, height: bounds.height))
+            }
+            if entry.title != nil || entry.icon != nil {
+                TabBar.drawTitle(in: context, font: font, glass: false, title: entry.title, icon: entry.icon, rect: tab, color: text.cgColor)
+            }
+        }
+        context.flush()
+    }
+
+    // NOTE: Sets the fill with the components as given, which the classic bar has always drawn with.
+    private static func fill(_ context: CGContext, _ color: RGBAColor, _ rect: CGRect)
+    {
+        context.setFillColor(red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b), alpha: CGFloat(color.a))
+        context.fill(rect)
+    }
+}
+
+/// The drawing backend of a tab bar: the SLS window of a classic bar, or the AppKit panel of a glass bar. TabBar keeps
+/// the model and calls one operation here; each operation is a single switch over the two cases.
+@WM enum TabBarBackend
+{
+    /// The kinds of backend, chosen by the style alone.
+    enum Kind: Sendable
+    {
+        case classic
+        case glass
+    }
+
+    case classic(ClassicTabBar)
+    case glass(TabBarGlass)
+
+    /// The backend a bar of the style is drawn with.
+    static func kind(for style: TabBarStyle) -> Kind
+    {
+        switch style {
+        case .glass: return .glass
+        case .i3:    return .classic
+        }
+    }
+
+    /// The backend of a new bar, or nil when the window server refuses the window of a classic bar.
+    static func make(frame: CGRect) -> TabBarBackend?
+    {
+        switch kind(for: Config.current.tabBar.style) {
+        case .classic: return ClassicTabBar(frame: frame).map { TabBarBackend.classic($0) }
+        case .glass:   return .glass(TabBarGlass())
+        }
+    }
+
+    /// Draws the bar; `movedTo` is the space the bar moved to in this render, nil when it stayed. The bar's model already
+    /// has the new frame and space.
+    func render(_ bar: TabBar, frame: CGRect, movedTo space: SpaceID?, above aboveWid: WindowID, entries: UnsafeMutablePointer<TabBarEntry>, count: Int)
+    {
+        switch self {
+        case .classic(let classic):
+            classic.render(frame: frame, movedTo: space, sid: bar.sid, above: aboveWid, entries: entries, count: count)
+        case .glass(let glass):
+            glass.render(bar, above: aboveWid, entries: entries, count: count)
+        }
+    }
+
+    func order(_ bar: TabBar, above wid: WindowID)
+    {
+        switch self {
+        case .classic(let classic): classic.order(above: wid, sid: bar.sid)
+        case .glass(let glass):     glass.orderBar(above: wid)
+        }
+    }
+
+    func hide()
+    {
+        switch self {
+        case .classic(let classic): classic.hide()
+        case .glass(let glass):     glass.hideBar()
+        }
+    }
+
+    func destroy()
+    {
+        switch self {
+        case .classic(let classic): classic.destroy()
+        case .glass(let glass):     glass.destroyBar()
+        }
+    }
+
+    /// The rect the entries are laid out in, inside the frame of the bar.
+    func hitSlots(_ frame: CGRect) -> CGRect
+    {
+        switch self {
+        case .classic:     return frame
+        case .glass:       return TabBarGlass.innerRect(frame)
+        }
+    }
+
+    /// The glass panel that takes the pointer feedback; nil for a classic bar.
+    var glass: TabBarGlass?
+    {
+        switch self {
+        case .classic:              return nil
+        case .glass(let glass):     return glass
+        }
+    }
+
+    /// The window of the backdrop card; a classic bar has none.
+    var cardID: WindowID?
+    {
+        switch self {
+        case .classic:              return nil
+        case .glass(let glass):     return glass.id
+        }
     }
 }

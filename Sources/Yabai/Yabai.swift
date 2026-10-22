@@ -198,22 +198,12 @@ enum Daemon
 
         MissionControl.shared.observe()
 
-        SLS.registerNotification(SLS.connection, 1327, handler: connectionNotificationHandler)
-        SLS.registerNotification(SLS.connection, 1328, handler: connectionNotificationHandler)
-
-        SLS.registerNotification(SLS.connection, 808, handler: connectionNotificationHandler)
-
         //
-        // NOTE: Moves, resizes and hides of windows that have a border.
+        // NOTE: Registration order is the declaration order of SLSNotification (see SLSNotification.swift).
         //
-
-        SLS.registerNotification(SLS.connection, 806, handler: connectionNotificationHandler)
-        SLS.registerNotification(SLS.connection, 807, handler: connectionNotificationHandler)
-        SLS.registerNotification(SLS.connection, 815, handler: connectionNotificationHandler)
-        SLS.registerNotification(SLS.connection, 816, handler: connectionNotificationHandler)
-        SLS.registerNotification(SLS.connection, 1202, handler: connectionNotificationHandler)
-
-        SLS.registerNotification(SLS.connection, 804, handler: connectionNotificationHandler)
+        for kind in SLSNotification.allCases {
+            SLS.registerNotification(SLS.connection, kind.rawValue, handler: connectionNotificationHandler)
+        }
 
         //
         // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue.

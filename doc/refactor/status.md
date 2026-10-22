@@ -29,7 +29,7 @@ phase: in-progress · mode: nested
 | ID | Title | Status | Notes |
 |---|---|---|---|
 | P2.1 | Public `AXUIElementGetPid` and checked CF casts | done | `AXUIElement.pid` is `pid_t?` through `AXUIElementGetPid`; its one caller (`EventHandler+Window.swift`, window created) unwraps it. The typed AX getters and the two array reads (`WindowManager+Discovery.swift`, `SkyLight+Windows.swift` corner radius) go through the new `castAttribute<T>(_:typeID:)` in `AX.swift`, which checks the CF type ID before the cast and logs a debug line on a mismatch. `pointAttribute`/`sizeAttribute` return nil where they returned `.zero` on a failed AXValue read; the callers use `?? .zero`, so they are unchanged. New `tests/YabaiTests/AXAttributeTests.swift` (CFNumber refused as a string, pid of the application element). Gates: `make ci-quick` passed, 240 tests in 29 suites (was 236), 0 warnings. No live checks. |
-| P2.2 | Typed, length-checked SLS notification payloads | todo | |
+| P2.2 | Typed, length-checked SLS notification payloads | done | `SLSNotification` enum (`Sources/Yabai/Platform/SLSNotification.swift`, declaration order = old registration order) with `payload(_:_:as:)`, nil for a nil buffer or a short length. The handler switches on the enum, decodes each case with the same offsets and widths, and logs and drops a short payload; no `data!` left. `Daemon.run` registers `allCases`. Deviation: `WindowID(_:)` kept (not `init?(nonzero:)`), so decoded values are unchanged. Tests: `tests/YabaiTests/SLSNotificationTests.swift` (7). Gates: `make ci-quick` passed, 247 tests in 30 suites (was 240), 0 warnings. Live check added (P2.2, SLS space and window notifications). |
 | P2.3 | CPrivate hardening: KVC guard, timer, Mach-O bounds, region ownership | todo | |
 | P2.4 | Log private-symbol availability at startup | todo | |
 | P2.5 | IPC hardening: length cap, malformed-message reply, client timeout | todo | |
@@ -191,11 +191,14 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-22 13:57 · phase agent · P2 · start (nested) · start P2.1 subphase agent
 - 2026-10-22 14:05 · subphase agent · P2.1 · start · AX pid through AXUIElementGetPid (pid_t?), type-checked attribute casts, two unsafeBitCast array reads replaced; gates
 - 2026-10-22 14:12 · subphase agent · P2.1 · done · `make ci-quick` passed (240 tests, 0 warnings); no live checks in P2.1. P2.2 (SLS notification payloads) is next.
+- 2026-10-22 14:02 · subphase agent · P2.2 · start · SLSNotification enum and length-checked payload helper; registration iterates the enum; handler and tests; gates
+- 2026-10-22 14:20 · subphase agent · P2.2 · done · `make ci-quick` passed (247 tests, 0 warnings). One live check added (P2.2, SLS notifications). P2.3 (CPrivate hardening) is next.
 
 ## Discovered
 
 Out-of-scope findings, as `- P<ID>: <finding> (<file:line>)`.
 
+- P2.2: `WindowID(_:)` for the raw window server ids in `connectionNotificationHandler` contradicts the convention that raw ids enter through `init?(nonzero:)`. Kept as is so decoded values do not change; a 0 id would now reach `Border`/`EventLoop` as before.
 - P1.4: C-style names remain in doc comments outside the four files P1.4 named: `YabaiCore/Query.swift`, `Client.swift`, `Message.swift` (e.g. `:56`, `:238`), `EventSignal.swift`, `SpaceLayout.swift`, `SpaceWindow.swift`, `Rule.swift` (e.g. `Rule.swift:360`, `:373`, `:505`, `:518`). Plus "Ported from src/..." provenance lines (`Rule.swift:6`, `SpaceWindow.swift:7`, `Sources/Yabai/IPC/Client.swift:8`, `Sources/YabaiCore/Client.swift:4`).
 
 ## Baseline (P1.3)

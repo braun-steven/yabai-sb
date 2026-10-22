@@ -1,6 +1,7 @@
 import ApplicationServices
 import CPrivate
 import Foundation
+import Logging
 import Synchronization
 import YabaiCore
 
@@ -31,35 +32,46 @@ enum MissionControlMode: Int, Sendable
     }
 }
 
-/// Registered for each notification type by Daemon.run.
+/// Registered for each `SLSNotification` type by Daemon.run. A payload shorter than its type is logged and dropped.
 func connectionNotificationHandler(_ type: UInt32, _ data: UnsafeMutableRawPointer?, _ dataLength: Int, _ context: UnsafeMutableRawPointer?, _ cid: Int32)
 {
-    switch type {
-    case 1327:
-        EventLoop.post(.slsSpaceCreated(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
-    case 1328:
-        EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(data!.loadUnaligned(as: UInt64.self))))
-    case 808:
-        let wid = data!.loadUnaligned(as: UInt32.self)
+    guard let kind = SLSNotification(rawValue: type) else { return }
+
+    switch kind {
+    case .spaceCreated:
+        guard let sid = SLSNotification.payload(data, dataLength, as: UInt64.self) else { return logShortPayload(kind, dataLength) }
+        EventLoop.post(.slsSpaceCreated(spaceID: SpaceID(sid)))
+    case .spaceDestroyed:
+        guard let sid = SLSNotification.payload(data, dataLength, as: UInt64.self) else { return logShortPayload(kind, dataLength) }
+        EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(sid)))
+    case .windowOrdered:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
         Border.windowOrdered(WindowID(wid))
         EventLoop.post(.slsWindowOrdered(windowID: WindowID(wid)))
-    case 804:
-        let wid = data!.loadUnaligned(as: UInt32.self)
+    case .windowDestroyed:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
         Border.windowHidden(WindowID(wid))
         EventLoop.post(.slsWindowDestroyed(windowID: WindowID(wid)))
-    case 806:
-        Border.windowMoved(WindowID(data!.loadUnaligned(as: UInt32.self)))
-    case 807:
-        Border.windowResized(WindowID(data!.loadUnaligned(as: UInt32.self)))
-    case 815:
-        Border.windowChanged(WindowID(data!.loadUnaligned(as: UInt32.self)))
-    case 816:
-        Border.windowHidden(WindowID(data!.loadUnaligned(as: UInt32.self)))
-    case 1202:
+    case .windowMoved:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
+        Border.windowMoved(WindowID(wid))
+    case .windowResized:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
+        Border.windowResized(WindowID(wid))
+    case .windowChanged:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
+        Border.windowChanged(WindowID(wid))
+    case .windowHidden:
+        guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else { return logShortPayload(kind, dataLength) }
+        Border.windowHidden(WindowID(wid))
+    case .cmdTab:
         lastCmdTabTime.store(OSTimer.now, ordering: .releasing)
-    default:
-        break
     }
+}
+
+private func logShortPayload(_ kind: SLSNotification, _ length: Int)
+{
+    Logger.events.debug("SLS notification \(kind.rawValue) has a payload of \(length) bytes, too short to decode")
 }
 
 private enum Expose

@@ -85,6 +85,8 @@ extension WindowLayer
     // FocusState (FocusState.swift).
     var focus = FocusState()
     var rules: [Rule] = []
+    /// The config file given with -c, or nil. Set once at startup; `config --check` without a file checks it.
+    var explicitConfigFile: String?
     var applicationsToRefresh: OrderedSet<Application> = []
     var tabBarFont: CTFont?
     /// The scratchpad windows by label, in the order they were assigned.

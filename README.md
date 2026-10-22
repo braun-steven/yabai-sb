@@ -15,6 +15,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
 - [Shell completions](#shell-completions)
+- [Config check and reload](#config-check-and-reload)
 
 Configuration examples can go in your `yabairc`; window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
@@ -275,6 +276,22 @@ yabai --generate-completion-script fish > ~/.config/fish/completions/yabai.fish
 ```
 
 They complete the options of the process (`--start-service`, `--config <file>`, …), not the messages after `-m`.
+
+### Config check and reload
+
+`yabai -m config --check [<file>]` parses the `yabai -m` messages of a yabairc without running them. Each failure is printed with its file and line, and a summary follows:
+
+```sh
+yabai -m config --check
+```
+
+```text
+/Users/you/.config/yabai/yabairc:12: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
+note: /Users/you/.config/yabai/yabairc:20: not checked: dynamic shell
+checked 14 commands, 1 failures, 1 skipped
+```
+
+Without a file, the check reads the file the daemon loads. Lines that the shell computes when it runs them are not checked, and neither are the messages of *space*, *display*, *window* and *query*, which act on the session. Nothing is applied, and the exit status is 1 when there is a failure.
 
 ---
 

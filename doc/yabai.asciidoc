@@ -142,6 +142,15 @@ yabai -m config <global setting>::
 yabai -m config [--space '<SPACE_SEL>'] <space setting>::
     Get or set the value of <space setting>.
 
+Check the Config File
+^^^^^^^^^^^^^^^^^^^^^
+
+yabai -m config --check ['<config_file>']::
+    Check the `yabai -m` messages of a config file without running them. Without <config_file>, check the file the daemon loads: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabairc`, `~/.config/yabai/yabairc` and `~/.yabairc`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
+    Each `yabai -m` message of the file is parsed as the daemon parses it, and nothing is applied: the check runs no command and changes no setting. Lines that the shell computes when it runs them (variables, `$(…)`, pipes, redirections, `if` and loops) are not checked, and neither are `yabai` lines without `-m`. The domains *space*, *display*, *window* and *query* act on the session, so their messages are not checked either. +
+    The output has one line per failure, `<file>:<line>: <message>`, one `note: <file>:<line>: not checked: <reason>` line per message that is not checked, and the summary `checked N commands, M failures, K skipped`. A command is checked when its message was parsed; a message that is not checked counts as skipped, and so does a line that was not extracted. M counts the failing responses, one for each failing command. +
+    The exit status is 0 when M is 0. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
+
 Global Settings
 ^^^^^^^^^^^^^^^
 

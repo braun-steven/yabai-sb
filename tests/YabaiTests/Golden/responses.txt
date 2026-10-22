@@ -446,6 +446,9 @@ main:1:2
 ### 53 config --space nolabel window_gap
 value 'nolabel' is not a valid option for SPACE_SEL
 
+### 40 config --check /nonexistent
+cannot read config file '/nonexistent'
+
 ### 0 rule --add app=^Calculator$ manage=off
 
 ### 0 rule --add label=term app=Terminal opacity=0.9 sticky=on

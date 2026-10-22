@@ -83,4 +83,25 @@ struct ConfigFileSearchTests
         #expect(ConfigFileSearch.choose(explicit: nil, candidates: candidates, exists: { existing.contains($0) })
             == ConfigFileChoice(chosen: "/xdg/yabai/yabairc", ignored: ["/home/u/.yabairc"]))
     }
+
+    @Test("config --check resolves a relative file against the client's directory")
+    func resolvingCheckFile()
+    {
+        func bytes(_ words: [String]) -> [[UInt8]] { words.map { Array($0.utf8) } }
+
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/Users/u/cfg")
+            == bytes(["config", "--check", "/Users/u/cfg/yabairc"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "yabairc"]), workingDirectory: "/")
+            == bytes(["config", "--check", "/yabairc"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "sub/yabairc"]), workingDirectory: "/a/")
+            == bytes(["config", "--check", "/a/sub/yabairc"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check", "/tmp/yabairc"]), workingDirectory: "/a")
+            == bytes(["config", "--check", "/tmp/yabairc"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "--check"]), workingDirectory: "/a")
+            == bytes(["config", "--check"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["config", "window_gap", "10"]), workingDirectory: "/a")
+            == bytes(["config", "window_gap", "10"]))
+        #expect(ConfigFileSearch.resolvingCheckFile(bytes(["window", "--focus", "west"]), workingDirectory: "/a")
+            == bytes(["window", "--focus", "west"]))
+    }
 }

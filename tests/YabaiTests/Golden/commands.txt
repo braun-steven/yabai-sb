@@ -178,6 +178,9 @@ config active_window_opacity 2.0
 config tab_bar_style bogus
 config --space nolabel window_gap
 
+# config --check: a file that does not exist (without a file, it would read the user's yabairc)
+config --check /nonexistent
+
 # rule
 rule --add app=^Calculator$ manage=off
 rule --add label=term app=Terminal opacity=0.9 sticky=on

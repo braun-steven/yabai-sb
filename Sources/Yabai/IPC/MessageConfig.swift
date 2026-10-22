@@ -404,7 +404,13 @@ private func cInt(_ value: Float) -> Int
 @WM func handleDomainConfig(_ rsp: inout Response, _ domain: Token, _ message: inout Message) throws(CommandError)
 {
     var selSid: SpaceID?
-    let (spaceSelector, command) = try ConfigCommand.parseScope(message.next(), &message)
+    let first = message.next()
+    if first.equals("--check") {
+        try handleConfigCheck(&rsp, &message)
+        return
+    }
+
+    let (spaceSelector, command) = try ConfigCommand.parseScope(first, &message)
     if let spaceSelector {
         guard let target = try spaceSelector.resolve(acting: nil, CSelectorContext()) else { return }
         selSid = target
@@ -443,7 +449,8 @@ private func cInt(_ value: Float) -> Int
 // a placeholder space stands in for it (the spaceLayout option fails on any space, as it does for a real one) and the
 // commands run even where the selector would find nothing; and the failures that only a Change can throw are not
 // found: tab_bar_font (TabBar.setFont), window_animation_duration (SIP and Screen Recording) and the other Change
-// closures. Those stay for handleMessage.
+// closures. Those stay for handleMessage. `--check` is accepted with its file, as handleDomainConfig accepts it: it
+// checks a file and changes nothing.
 //
 
 /// Checks a config message: the failures of its commands, parsed as handleDomainConfig parses them, with the Change of
@@ -451,7 +458,13 @@ private func cInt(_ value: Float) -> Int
 @WM func checkConfigMessage(_ rsp: inout Response, _ domain: Token, _ message: inout Message) throws(CommandError)
 {
     var selSid: SpaceID?
-    let (spaceSelector, command) = try ConfigCommand.parseScope(message.next(), &message)
+    let first = message.next()
+    if first.equals("--check") {
+        _ = try configCheckFile(&message)
+        return
+    }
+
+    let (spaceSelector, command) = try ConfigCommand.parseScope(first, &message)
     if spaceSelector != nil {
         selSid = CheckSelectorContext.placeholderSpace
     }

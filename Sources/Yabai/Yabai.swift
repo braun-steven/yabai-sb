@@ -66,14 +66,21 @@ enum Daemon
     // reported like a failed fork.
     //
 
-    private static func execConfigFile(_ configFile: String?)
+    /// The config file the daemon loads: `explicit` (from -c) when given, else the first existing candidate. Nil when no
+    /// candidate exists. The daemon and `config --check` without a file both use it.
+    static func configFileChoice(explicit: String?) -> ConfigFileChoice?
     {
         let candidates = ConfigFileSearch.candidates(
             filename: "yabairc",
             xdgConfigHome: getenv("XDG_CONFIG_HOME").map { String(cString: $0) },
             home: getenv("HOME").map { String(cString: $0) })
 
-        guard let choice = ConfigFileSearch.choose(explicit: configFile, candidates: candidates, exists: fileExists) else {
+        return ConfigFileSearch.choose(explicit: explicit, candidates: candidates, exists: fileExists)
+    }
+
+    private static func execConfigFile(_ configFile: String?)
+    {
+        guard let choice = configFileChoice(explicit: configFile) else {
             Logger.daemon.warning("could not locate config file")
             notify("configuration", "could not locate config file..")
             return
@@ -276,6 +283,13 @@ enum Daemon
         for kind in SLSNotification.allCases {
             SLS.registerNotification(SLS.connection, kind.rawValue, handler: connectionNotificationHandler)
         }
+
+        //
+        // NOTE: The -c path is kept for `config --check` without a file. It is set on the event loop before the message loop
+        // starts, so no message reads it earlier.
+        //
+        let explicitConfigFile = options.config
+        WM.sync { WindowManager.shared.explicitConfigFile = explicitConfigFile }
 
         //
         // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue. The space

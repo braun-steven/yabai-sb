@@ -39,12 +39,24 @@ enum Client
         return seconds
     }
 
+    /// The working directory of the client, or nil when it cannot be read.
+    static func workingDirectory() -> String?
+    {
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        guard getcwd(&buffer, buffer.count) != nil else { return nil }
+        return String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
     /// `client_send_message`: arguments are the arguments after `-m`.
     static func send(_ arguments: [[UInt8]]) -> Int32
     {
         if arguments.isEmpty {
             fail("yabai-msg: no arguments given! abort..\n")
         }
+
+        // NOTE: `config --check <file>` sends the file as an absolute path: the daemon resolves a relative one in its own
+        // directory.
+        let arguments = workingDirectory().map { ConfigFileSearch.resolvingCheckFile(arguments, workingDirectory: $0) } ?? arguments
 
         guard let user = ProcessEnvironment.currentUser() else {
             fail("yabai-msg: 'env USER' not set! abort..\n")

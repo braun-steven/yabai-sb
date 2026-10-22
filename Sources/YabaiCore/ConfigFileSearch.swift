@@ -50,4 +50,27 @@ public enum ConfigFileSearch
         guard let chosen = found.first else { return nil }
         return ConfigFileChoice(chosen: chosen, ignored: Array(found.dropFirst()))
     }
+
+    //
+    // NOTE: The daemon resolves a relative path against its own directory, not the one of `yabai -m`. The client makes the
+    // file of `config --check <file>` absolute before it sends the message, so both sides check the same file.
+    //
+
+    /// The arguments of a message `config --check <file>` with a relative `<file>` made absolute against
+    /// `workingDirectory`, the client's directory. Any other message, an absolute file or no file is returned unchanged.
+    public static func resolvingCheckFile(_ arguments: [[UInt8]], workingDirectory: String) -> [[UInt8]]
+    {
+        guard arguments.count >= 3, arguments[0] == Array("config".utf8), arguments[1] == Array("--check".utf8) else {
+            return arguments
+        }
+
+        let file = arguments[2]
+        guard let first = file.first, first != UInt8(ascii: "/") else { return arguments }
+
+        var resolved = arguments
+        var directory = Array(workingDirectory.utf8)
+        if directory.last != UInt8(ascii: "/") { directory.append(UInt8(ascii: "/")) }
+        resolved[2] = directory + file
+        return resolved
+    }
 }

@@ -12,6 +12,9 @@ point below was learned the hard way; read it before running anything live.
   Run a single test with `swift test --filter <name>`, or the golden IPC replay with
   `swift test --filter Golden` (`goldenReplay`, `tests/YabaiTests/GoldenTests.swift`).
   Builds must be warning-free; any warning is new. Sanitizer daemon builds are `make asan` / `make tsan`.
+- A command added to `Golden/commands.txt` fails `goldenCaptureCoversEveryCommand` on the recording run
+  (`GOLDEN_RECORD=1`): that test can read `responses.txt` before the replay rewrites it. Replay again without
+  `GOLDEN_RECORD` to confirm the record.
 - The golden replay runs on a daemon state without displays, spaces or windows, but in the test process: a command
   in `tests/YabaiTests/Golden/commands.txt` that acts on a display, space or window would act on the user's
   real one. Only add commands that fail before they act, or that only change the daemon's own state.

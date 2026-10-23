@@ -22,8 +22,6 @@ struct HeadlessLog: Sendable {
   var placements: [RecordedPlacement] = []
   /// The messages to the payload: two length bytes, the opcode, then the packed arguments (`SAPayload`).
   var messages: [[UInt8]] = []
-  /// The config files that the daemon would run (`Daemon.execConfigFile`), in order.
-  var configFiles: [String] = []
   /// The messages of a yabai.toml that the startup applied (`ConfigStep.apply`), in the order they ran.
   var configEntries: [ConfigEntry] = []
   /// The user notifications that the daemon would show, as `subtitle: text`, in order (`notify`).
@@ -64,10 +62,6 @@ enum Headless {
 
   static func record(message: [UInt8]) {
     log.withLock { $0.messages.append(message) }
-  }
-
-  static func record(configFile: String) {
-    log.withLock { $0.configFiles.append(configFile) }
   }
 
   static func record(configEntries: [ConfigEntry]) {

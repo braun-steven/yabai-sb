@@ -1,6 +1,6 @@
 //
 // NOTE: Lowering turns a decoded ConfigDocument into the messages that `yabai -m` would send for the same settings: the
-// words after `-m`, as `ExtractedCommand.arguments` holds them. The handlers of those messages then check the values
+// words after `-m`, as the shell words of a `yabai -m` line are. The handlers of those messages then check the values
 // (C2.2), so lowering only spells each value the way its parser reads it. Nothing here is checked against the window
 // server or the daemon's state.
 //
@@ -107,7 +107,7 @@ private func optionEntry(_ option: ConfigOptionEntry, arguments: [String], kind:
     arguments: arguments + optionWords(option), keyPath: option.keyPath, kind: kind)
 }
 
-/// The words of an option's value. Colors print as eight hex digits, as yabairc lines usually write them.
+/// The words of an option's value. Colors print as eight hex digits, as `yabai -m config` takes them.
 private func optionWords(_ option: ConfigOptionEntry) -> [String] {
   switch option.value {
   case .strings(let layouts):

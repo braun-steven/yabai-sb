@@ -46,7 +46,7 @@ class BuildCheck:
         shutil.copy2(repository / "Package.swift", self.root / "Package.swift")
         (self.root / "assets").mkdir()
         shutil.copy2(repository / "assets/Info.plist", self.root / "assets/Info.plist")
-        # NOTE: Tests read files of examples/ (yabairc, skhdrc, yabai.toml, batch.sh), located through #filePath, so the
+        # NOTE: Tests read files of examples/ (skhdrc, yabai.toml, batch.sh), located through #filePath, so the
         # whole directory is copied.
         shutil.copytree(repository / "examples", self.root / "examples")
         (self.root / "scripts").mkdir()

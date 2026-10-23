@@ -1,9 +1,7 @@
 //
-// NOTE: The daemon loads the first existing file of $XDG_CONFIG_HOME/yabai/<name> (when the variable is set),
-// ~/.config/yabai/<name> and, for the yabairc, ~/.<name>, unless the process was started with -c. The yabairc is what
-// the daemon runs until the static config (yabai.toml) is applied at startup; the yabai.toml search has no dot file in
-// $HOME. Both the daemon startup and `config --check` / `--reload` without a file call this search, so they agree on the
-// file.
+// NOTE: The daemon loads the first existing file of $XDG_CONFIG_HOME/yabai/<name> (when the variable is set) and
+// ~/.config/yabai/<name>, unless the process was started with -c. Both the daemon startup and `config --check` /
+// `--reload` without a file call this search, so they agree on the file.
 //
 
 /// The config file that the search chooses, and the other existing candidates that it ignores.
@@ -20,20 +18,16 @@ public struct ConfigFileChoice: Equatable, Sendable {
 /// Pure functions over the config file search (no file system or environment access; the caller passes both in).
 public enum ConfigFileSearch {
   /// The paths searched for `filename`, in order. $XDG_CONFIG_HOME/yabai/<filename> comes first only when it is set and
-  /// not empty, then ~/.config/yabai/<filename>, then ~/.<filename> when `homeDotfile` is true. A path that appears twice
-  /// (e.g. XDG_CONFIG_HOME set to ~/.config) is listed once.
-  public static func candidates(
-    filename: String, xdgConfigHome: String?, home: String?, homeDotfile: Bool
-  ) -> [String] {
+  /// not empty, then ~/.config/yabai/<filename>. A path that appears twice (e.g. XDG_CONFIG_HOME set to ~/.config) is
+  /// listed once.
+  public static func candidates(filename: String, xdgConfigHome: String?, home: String?) -> [String]
+  {
     var paths: [String] = []
     if let xdgConfigHome, !xdgConfigHome.isEmpty {
       paths.append("\(xdgConfigHome)/yabai/\(filename)")
     }
     if let home {
       paths.append("\(home)/.config/yabai/\(filename)")
-      if homeDotfile {
-        paths.append("\(home)/.\(filename)")
-      }
     }
 
     var seen = Set<String>()
@@ -58,21 +52,6 @@ public enum ConfigFileSearch {
     let found = candidates.filter { exists($0) && files.insert(resolve($0)).inserted }
     guard let chosen = found.first else { return nil }
     return ConfigFileChoice(chosen: chosen, ignored: Array(found.dropFirst()))
-  }
-
-  /// Whether `path` names a TOML file (`.toml`).
-  public static func isTOML(_ path: String) -> Bool {
-    path.hasSuffix(".toml")
-  }
-
-  /// The notice for a yabairc that the daemon does not read in favor of a yabai.toml: nil unless no yabai.toml is chosen
-  /// (`toml` is nil) and a yabairc exists. `tomlCandidates` are the yabai.toml paths the search lists; the first one is
-  /// where the file belongs.
-  public static func leftoverYabaircNotice(
-    toml: ConfigFileChoice?, yabairc: ConfigFileChoice?, tomlCandidates: [String]
-  ) -> String? {
-    guard toml == nil, yabairc != nil, let target = tomlCandidates.first else { return nil }
-    return "yabairc is no longer read; convert it to \(target)"
   }
 
   //

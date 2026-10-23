@@ -1,4 +1,3 @@
-import Foundation
 import PropertyBased
 import Testing
 
@@ -6,8 +5,7 @@ import Testing
 
 //
 // NOTE: Tests of the lowering of a ConfigDocument (`ConfigLowering.swift`): the words of each setting are the words of
-// the yabai message that sets it, and the document's messages follow the apply order. The acceptance check compares the
-// lowered words with the words that `extractYabaiCommands` reads from a yabairc with the same settings.
+// the yabai message that sets it, and the document's messages follow the apply order.
 //
 
 /// One `[config]` option of the samples: its TOML value, and the words that `config <name>` takes for it.
@@ -82,24 +80,6 @@ private let optionSamples: [OptionSample] = [
   OptionSample(name: .scratchpadGrid, toml: "\"40:40:1:1:38:38\"", words: ["40:40:1:1:38:38"]),
 ]
 
-/// The `[config]` option of the target format document, its lowered words and the yabairc line with the same setting.
-private let targetConfigYabairc = """
-  yabai -m config mouse_follows_focus off
-  yabai -m config window_shadow float
-  yabai -m config window_gap 10
-  yabai -m config active_window_border_color 0xff51afef
-  yabai -m config tab_bar_font system:12
-  yabai -m config scratchpad_grid 40:40:1:1:38:38
-  yabai -m config external_bar all:0:0
-  yabai -m config space_layout 15 10:5 10:5:1b
-  yabai -m space 11 --label chat
-  yabai -m space chat --pin 1
-  yabai -m config --space 11 window_gap 0
-  yabai -m rule --add 'app=^Calendar$' space=9 insert=stack
-  yabai -m rule --add label=Finder 'app=^Finder$' manage=off 'title!=^(Copy|Move)$'
-  yabai -m signal --add event=window_focused 'action=sketchybar --trigger window_focus'
-  """
-
 // The lines come from the locator of the same source; without one, no entry has a line.
 @Test func loweredEntriesCarryTheLineOfTheirKeyPath() throws {
   let document = try ConfigDocument.decode(targetFormat)
@@ -118,17 +98,6 @@ private let targetConfigYabairc = """
 /// Lowers a document text, failing the test when it does not decode.
 private func lowered(_ source: String) throws -> [ConfigEntry] {
   try ConfigDocument.decode(source).lowered()
-}
-
-// NOTE: The acceptance check. The yabairc has the messages of the target format document, written in the order that
-// `lowered()` gives (the key order of each table, see ConfigDocumentDecoding.swift). The words of the lowered document
-// must be the words the extractor reads from it, line by line.
-@Test func targetFormatLowersToTheWordsOfItsYabairc() throws {
-  let extracted = extractYabaiCommands(targetConfigYabairc)
-  #expect(extracted.allSatisfy { $0.skipped == nil })
-  let entries = try lowered(targetFormat)
-  #expect(entries.map(\.arguments) == extracted.compactMap(\.arguments))
-  #expect(entries.count == 14)
 }
 
 @Test func everyOptionLowersToItsMessage() throws {
@@ -407,45 +376,4 @@ private func randomDocument(_ picks: inout Picks) -> ConfigDocument {
       }
     }
   }
-}
-
-// NOTE: The equivalence of examples/yabairc and examples/yabai.toml. The yabairc's messages are compared with the lowered
-// lines of the TOML as sets. A `config` message with several name-value pairs is one line per pair. Numbers are compared
-// by value, since TOML has no leading zeros (`06` is `6`) and writes a float in its shortest form (`0.90` is `0.9`). The
-// yabairc's `echo` line runs no yabai message, and its other shell lines are comments, so only the `config` message is
-// extracted.
-@Test func exampleTomlHasTheSettingsOfTheExampleYabairc() throws {
-  let directory = URL(filePath: #filePath)
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .deletingLastPathComponent()
-    .appending(path: "examples")
-  let script = try String(contentsOf: directory.appending(path: "yabairc"), encoding: .utf8)
-  let toml = try String(contentsOf: directory.appending(path: "yabai.toml"), encoding: .utf8)
-
-  let commands = extractYabaiCommands(script)
-  #expect(commands.allSatisfy { $0.skipped == nil })
-  let yabairc = commands.compactMap { $0.arguments }.flatMap { yabaircLines($0) }
-  let lowered = try ConfigDocument.decode(toml).lowered().map { $0.arguments }
-  #expect(lowered.count == 30)
-  #expect(Set(yabairc.map(normalizedLine)) == Set(lowered.map(normalizedLine)))
-}
-
-/// The lines of a message as the yabairc writes them: a `config` message with name-value pairs is one line per pair.
-private func yabaircLines(_ words: [String]) -> [[String]] {
-  guard words.first == "config" else { return [words] }
-  return stride(from: 1, to: words.count - 1, by: 2).map { ["config", words[$0], words[$0 + 1]] }
-}
-
-/// The words of a line joined by spaces, with each number written as `lowered()` writes it.
-private func normalizedLine(_ words: [String]) -> String {
-  words.map { word -> String in
-    if let integer = Int(word) { return String(integer) }
-    if word.contains("."), word.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
-      let number = Double(word)
-    {
-      return String(number)
-    }
-    return word
-  }.joined(separator: " ")
 }

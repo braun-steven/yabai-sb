@@ -6,8 +6,7 @@ import YabaiCore
 
 //
 // NOTE: `config --check [<file>]` (IPC/ConfigCheck.swift) reads a yabai.toml, lowers it and checks each setting without
-// applying it (configFileReport). The yabairc report (configCheckReport) is no longer called by a handler; its tests stay here
-// until C5.1 deletes it. The handler is tested with files in the temporary directory. The suite is
+// applying it (configFileReport). The handler is tested with files in the temporary directory. The suite is
 // DaemonState: the handler runs through handleMessage, and the check must leave the managers and the config as they are.
 //
 
@@ -35,25 +34,6 @@ private func writeTOMLFile(_ text: String) throws -> String {
   ).path
   try text.write(toFile: path, atomically: true, encoding: .utf8)
   return path
-}
-
-/// A yabairc with one bad value (line 2), one dynamic line (line 3) and one valid line (line 4).
-private let fixtureScript = """
-  #!/bin/sh
-  yabai -m config window_gap x
-  yabai -m config window_gap $GAP
-  yabai -m config window_gap 10
-
-  """
-
-/// The yabairc report of `fixtureScript` read from `path`.
-private func fixtureScriptReport(_ path: String) -> String {
-  """
-  \(path):2: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-  note: \(path):3: not checked: dynamic shell
-  checked 2 commands, 1 failures, 1 skipped
-
-  """
 }
 
 extension DaemonState {
@@ -148,41 +128,6 @@ extension DaemonState {
       DaemonFixture.reset()
       var message = Golden.encode("config --check /some/file")
       #expect(checkMessage(&message).failures.isEmpty)
-    }
-
-    //
-    // NOTE: The yabairc report, used by config --reload until C3.3 replaces the reload.
-    //
-
-    @Test func yabaircReportOfTheFixtureIsExact() {
-      let report = configCheckReport(path: "/fixture/yabairc", script: fixtureScript)
-      #expect(
-        report == ConfigCheckReport(text: fixtureScriptReport("/fixture/yabairc"), failures: 1))
-    }
-
-    @Test func yabaircReportOfAValidScriptHasNoFailures() {
-      let report = configCheckReport(
-        path: "/fixture/yabairc", script: "yabai -m config window_gap 10\n")
-      #expect(
-        report
-          == ConfigCheckReport(text: "checked 1 commands, 0 failures, 0 skipped\n", failures: 0))
-    }
-
-    @Test(arguments: [
-      (
-        "yabai -m window --focus west\n",
-        "note: /fixture/yabairc:1: not checked: window commands act on the current session\n"
-          + "checked 0 commands, 0 failures, 1 skipped\n"
-      ),
-      (
-        "sudo yabai --load-sa\n",
-        "note: /fixture/yabairc:1: not checked: not a message\n"
-          + "checked 0 commands, 0 failures, 1 skipped\n"
-      ),
-    ])
-    func yabaircDomainsThatActOnTheSessionAreNotChecked(_ row: (script: String, text: String)) {
-      let report = configCheckReport(path: "/fixture/yabairc", script: row.script)
-      #expect(report == ConfigCheckReport(text: row.text, failures: 0))
     }
 
     @Test func exampleFileChecksClean() throws {

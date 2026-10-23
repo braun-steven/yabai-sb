@@ -60,11 +60,12 @@ mode: nested
 
 ## Phase 5: Remove yabairc
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C5.1 | Delete the yabairc code paths | todo | |
+| C5.1 | Delete the yabairc code paths | done | `Daemon.execConfigFile` and its sh spawn, `configFileChoice`, `warnLeftoverYabairc` (with `leftoverYabaircNotice`), `resetConfigToStartupDefaults` (with its inventory), `Log.verboseAtStartup` (only that reset read it), `Headless.configFiles` and `record(configFile:)`, `configCheckReport`, `ConfigFileSearch.isTOML` and `leftoverYabaircNotice` are deleted, with their tests; `homeDotfile` is gone from `ConfigFileSearch.candidates`. `examples/yabairc` and the two yabairc tests of ConfigLoweringTests are deleted. Deviation: `YabaircExtractor.swift` is not moved whole. The word lexer stays in YabaiCore as `Sources/YabaiCore/ShellWords.swift` (`yabai -m batch` reads stdin with it); `extractYabaiCommands` and `ExtractedCommand` moved to `tests/YabaiTests/Support/ShellCommandExtractor.swift`, its tests to `tests/YabaiTests/ShellCommandExtractorTests.swift` (the examples/yabairc test is cut). Golden: no record changed. Gate quick and release passed; `just ci` passed too (486 + 256 tests, 0 warnings). Clean grep of Sources, tests, scripts, examples, justfile: no match. Left for C5.2: README.md (2), doc/architecture.md (2), doc/live-testing.md (4) still say yabairc; CHANGELOG history stays. No live check. |
 | C5.2 | Rewrite the docs | todo | |
 
 ## Phase 6: Editor and tooling support
@@ -122,6 +123,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 22:17 · subphase agent · C4.2 · started · C4.2 (ConfigLoader flag and request helper, startup/dock/reload calls, headless guard in MissionControl.observe for tests, payload cache reset on a load, example toml, docs, tests)
 - 2026-10-23 22:20 · subphase agent · C4.2 · done (commit pending) · C4 close (`just ci`, then phase 4 is complete; the live check is for the user). Deviation to review: `MissionControl.observe` is off in headless mode.
 - 2026-10-23 22:40 · phase agent · C4 · closed, just ci passed · phase 5. Summary: `ScriptingAdditionLoader` (C4.1) runs `/usr/bin/sudo -n <realpath of the daemon binary> --load-sa` in a detached task with a 30 s timeout and posts `.scriptingAdditionLoaded`; one run at a time, requests during a run coalesce into one more (`ScriptingAdditionLoadQueue`, YabaiCore); a failure is logged and notified; headless records `Headless.scriptingAdditionLoads`. C4.2 requests a load after the startup apply (before config_loaded), on every `dock_did_restart`, and on a reload that turns `[daemon] load_scripting_addition` on (`requestScriptingAdditionLoad`, `ConfigLoader.loadScriptingAddition`); a successful load resets the payload handshake cache (`payloadChanged`). `examples/yabai.toml` sets the option instead of the dock_did_restart signal; the man page `[daemon]` has the sudoers setup. Deviation: `MissionControl.observe` returns in headless mode (tests must not observe the real Dock). Live check C4.2 (the user removes the dock_did_restart load signal from ~/.config/yabai/yabai.toml). For phase 5: no yabairc path is touched by phase 4; the Discovered C4.1 lines (timeout kills only sudo, 4096-byte stderr limit) are open.
+- 2026-10-23 22:31 · phase agent · C5 · started (nested) · C5.1
+- 2026-10-23 22:33 · subphase agent · C5.1 · started · C5.1 (delete the yabairc code paths: Daemon.execConfigFile and the spawn, resetConfigToStartupDefaults, Headless configFiles, leftover warning, isTOML; YabaircExtractor moves to tests; examples/yabairc and its tests deleted)
+- 2026-10-23 22:42 · subphase agent · C5.1 · done (commit pending) · C5.2 (rewrite the docs; the yabairc matches left by C5.1 are listed in its note)
 
 ## Discovered
 
@@ -154,3 +158,4 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 - C3.5: the startup `config_loaded` is posted 1 s after start, after the first space pin pass only; a pin pass that a `[[space]]` pin schedules later (`SpaceManager+Pins.swift`, `schedulePinReconcile`) is not waited for (`Sources/Yabai/Yabai.swift`, `loadedEvent`).
 - C3.5: `signal --add event=config_loaded app=… title=… active=…` is accepted, and the filters are ignored: the signal runs whatever they say, as for `system_woke` (`Sources/YabaiCore/EventSignal.swift`, `PendingSignal.filters`, default branch). Decide whether the parser should reject them.
 - C4.2: the sudoers entry must name the path the daemon runs: `ScriptingAdditionLoader` runs the realpath of the binary, and `sudo -n` matches that path, so a Homebrew symlink in the entry may not match (`Sources/Yabai/ScriptingAdditionLoader.swift`, `init`; `scripts/install.sh` writes the link path). The live check covers it; the man page says `realpath`.
+- C5.1: `Config.resetToDefaults` (`Sources/Yabai/Config.swift`) has no production caller now; only the DaemonState test fixture uses it (`tests/YabaiTests/DaemonState.swift`). Fold it into the fixture when a later cleanup touches it.

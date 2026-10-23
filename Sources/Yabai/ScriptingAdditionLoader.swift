@@ -6,7 +6,7 @@ import YabaiCore
 
 //
 // NOTE: The built-in load of the scripting addition (`[daemon] load_scripting_addition`). The daemon runs
-// `sudo -n <its own binary> --load-sa` (ScriptingAdditionLoad.arguments), the command the user's yabairc ran by hand.
+// `sudo -n <its own binary> --load-sa` (ScriptingAdditionLoad.arguments), the command a user runs by hand.
 // The process runs in a detached task that only posts its result back as `.scriptingAdditionLoaded`, so the event loop
 // never waits for it. The state of the runs is @WM: ScriptingAdditionLoadQueue lets one run go at a time, and a request
 // during a run becomes one more run after it. In headless mode a request is only recorded, and no process starts.

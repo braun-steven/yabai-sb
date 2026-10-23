@@ -125,8 +125,8 @@ extension ConfigLoader {
   }
 }
 
-/// Whether the message that sets an option to `word` must run. A tab bar font runs while none is loaded: the reload
-/// clears the font (resetConfigToStartupDefaults), and the bars then use the fallback until a font is set.
+/// Whether the message that sets an option to `word` must run. A tab bar font runs while none is loaded, and the bars
+/// then use the fallback until a font is set.
 @WM private func optionNeedsApply(_ name: ConfigName, word: String) -> Bool {
   if name == .tabBarFont && WindowManager.shared.tabBarFont == nil { return true }
   guard let printed = printedConfigValue(["config", name.rawValue]) else { return true }

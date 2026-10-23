@@ -52,43 +52,18 @@ enum Daemon {
     return getuid() == 0 || geteuid() == 0
   }
 
-  private static func fileCanExecute(_ filename: String) -> Bool {
-    var buffer = stat()
-
-    if stat(filename, &buffer) != 0 {
-      return false
-    }
-
-    return buffer.st_mode & S_IXUSR != 0
-  }
-
-  //
-  // NOTE: Swift cannot fork (see EventSignals.spawn), so posix_spawn
-  // starts the shell directly; nobody waits for it, because SIGCHLD is ignored. A shell that cannot be started is now
-  // reported like a failed fork.
-  //
-
   /// The search paths of `filename` from $XDG_CONFIG_HOME and $HOME (see ConfigFileSearch.candidates).
-  private static func configCandidates(_ filename: String, homeDotfile: Bool) -> [String] {
+  private static func configCandidates(_ filename: String) -> [String] {
     return ConfigFileSearch.candidates(
       filename: filename,
       xdgConfigHome: getenv("XDG_CONFIG_HOME").map { String(cString: $0) },
-      home: getenv("HOME").map { String(cString: $0) },
-      homeDotfile: homeDotfile)
-  }
-
-  /// The yabairc the daemon runs: `explicit` (from -c) when given, else the first existing candidate. Nil when no
-  /// candidate exists. The daemon and `config --check` without a file both use it.
-  static func configFileChoice(explicit: String?) -> ConfigFileChoice? {
-    let candidates = configCandidates("yabairc", homeDotfile: true)
-    return ConfigFileSearch.choose(
-      explicit: explicit, candidates: candidates, exists: fileExists, resolve: resolvedPath)
+      home: getenv("HOME").map { String(cString: $0) })
   }
 
   /// The static config file (yabai.toml): `explicit` (from -c) when given, else the first existing candidate. Nil when no
-  /// candidate exists. The startup reads it (loadStartupConfig, ConfigLoader.swift) and the leftover check below uses it.
+  /// candidate exists. The startup reads it (loadStartupConfig, ConfigLoader.swift).
   static func configFile(explicit: String?) -> ConfigFileChoice? {
-    let candidates = configCandidates("yabai.toml", homeDotfile: false)
+    let candidates = configCandidates("yabai.toml")
     return ConfigFileSearch.choose(
       explicit: explicit, candidates: candidates, exists: fileExists, resolve: resolvedPath)
   }
@@ -97,66 +72,7 @@ enum Daemon {
   /// where a file is created. Nil only when the search has no candidate (no $HOME).
   static func configFileWatchPath(explicit: String?) -> String? {
     configFile(explicit: explicit)?.chosen
-      ?? configCandidates("yabai.toml", homeDotfile: false).first
-  }
-
-  /// Warns, and notifies, at startup when a yabairc exists and no yabai.toml does. See
-  /// ConfigFileSearch.leftoverYabaircNotice for the decision.
-  static func warnLeftoverYabairc(explicit: String?) {
-    let notice = ConfigFileSearch.leftoverYabaircNotice(
-      toml: configFile(explicit: explicit),
-      yabairc: configFileChoice(explicit: explicit),
-      tomlCandidates: configCandidates("yabai.toml", homeDotfile: false))
-    guard let notice else { return }
-
-    Logger.daemon.warning("\(notice)")
-    notify("configuration", "\(notice)..")
-  }
-
-  /// Runs the yabairc: the one given (`explicit`, from -c) or else the first existing candidate. Nothing calls it any more:
-  /// the startup applies yabai.toml (loadStartupConfig) and `config --reload` reconciles it. C5.1 deletes it. In headless
-  /// mode the run is recorded instead (Headless.swift).
-  static func execConfigFile(_ configFile: String?) {
-    guard let choice = configFileChoice(explicit: configFile) else {
-      Logger.daemon.warning("could not locate config file")
-      notify("configuration", "could not locate config file..")
-      return
-    }
-
-    let configFile = choice.chosen
-    Logger.daemon.notice("using config file '\(configFile)'")
-
-    if !choice.ignored.isEmpty {
-      let ignored = choice.ignored.map { "'\($0)'" }.joined(separator: ", ")
-      Logger.daemon.warning("using '\(configFile)'; ignoring \(ignored)")
-      notify("configuration", "using '\(configFile)'; ignoring \(ignored)..")
-    }
-
-    if !fileExists(configFile) {
-      Logger.daemon.warning("configuration file '\(configFile)' does not exist")
-      notify("configuration", "file '\(configFile)' does not exist..")
-      return
-    }
-
-    if Headless.isEnabled {
-      Headless.record(configFile: configFile)
-      return
-    }
-
-    let exec =
-      fileCanExecute(configFile)
-      ? ["/usr/bin/env", "sh", "-c", configFile]
-      : ["/usr/bin/env", "sh", configFile]
-    var argv: [UnsafeMutablePointer<CChar>?] = exec.map { strdup($0) } + [nil]
-    defer {
-      for argument in argv { free(argument) }
-    }
-
-    var pid: pid_t = 0
-    if posix_spawn(&pid, argv[0], nil, nil, &argv, environ_global()) != 0 {
-      Logger.daemon.warning("failed to load config file '\(configFile)'")
-      notify("configuration", "failed to load file '\(configFile)'")
-    }
+      ?? configCandidates("yabai.toml").first
   }
 
   /// Asks for the Accessibility permission when the daemon does not have it.
@@ -253,7 +169,6 @@ enum Daemon {
     if options.verbose {
       Log.verbose.store(true, ordering: .relaxed)
     }
-    Log.verboseAtStartup.store(options.verbose, ordering: .relaxed)
 
     if isRoot {
       Logger.daemon.fatal("running as root is not allowed", exitCode: EXIT_SUCCESS)
@@ -434,9 +349,6 @@ enum Daemon {
     if !MessageLoop.begin(socketPath: socketFile) {
       Logger.daemon.fatal("could not start message loop")
     }
-
-    Logger.daemon.debug("startup: checking for a yabairc that is no longer read")
-    warnLeftoverYabairc(explicit: options.config)
 
     Logger.daemon.debug("startup: running the main run loop")
     NSApp.run()

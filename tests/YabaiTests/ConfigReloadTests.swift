@@ -72,7 +72,6 @@ extension DaemonState {
       #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
       #expect(Golden.run("config window_gap") == Array("10\n".utf8))
       #expect(WindowManager.shared.rules.count == 1)
-      #expect(Headless.drain().configFiles.isEmpty)
     }
 
     @Test func reloadOfAnUnchangedFileChangesAndRecordsNothing() throws {

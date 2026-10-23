@@ -8,7 +8,6 @@ import YabaiCore
 // without a daemon (checkConfigOffline).
 //
 // NOTE: `config --reload [<file>]` (IPC/ConfigReload.swift) reads and checks the file the same way, then reconciles it.
-// The yabairc report (configCheckReport) is no longer called by a handler; its tests keep it until C5.1 deletes it.
 //
 
 /// The report of a check. `text` ends with a newline; `failures` counts the failure responses in it.
@@ -108,48 +107,6 @@ private func linePrefix(_ path: String, _ line: Int?, _ keyPath: String) -> Stri
 @WM private func checkArguments(_ arguments: [String]) -> MessageCheck {
   var message = configMessage(arguments)
   return checkMessage(&message)
-}
-
-//
-// NOTE: The yabairc report, which no handler calls since C3.3 (only its tests). Its lines are the `yabai -m` messages of the script.
-//
-
-/// The report of the yabairc `script`, read from `path`: a `<path>:<line>: <text>` line for each line of each failure, a
-/// `note: <path>:<line>: …` line for each command that is not checked, and the summary
-/// `checked N commands, M failures, K skipped`. A command is checked when its message was parsed. It is skipped when the
-/// extractor did not extract it (`not checked: dynamic shell` and the like) or when checkMessage reports a note for it
-/// (domains that act on the session: not parsed). M counts the failure responses, one per failing command; a failure that
-/// lists several problems prints one line each. Reads nothing and changes nothing: the file is the caller's to read.
-@WM func configCheckReport(path: String, script: String) -> ConfigCheckReport {
-  var lines: [String] = []
-  var checked = 0
-  var skipped = 0
-  var failures = 0
-
-  for command in extractYabaiCommands(script) {
-    guard let arguments = command.arguments else {
-      skipped += 1
-      lines.append("note: \(path):\(command.line): not checked: \(command.skipped ?? "unknown")")
-      continue
-    }
-
-    let check = checkArguments(arguments)
-
-    for failure in check.failures {
-      failures += 1
-      for line in failureLines(failure) { lines.append("\(path):\(command.line): \(line)") }
-    }
-
-    if check.notes.isEmpty {
-      checked += 1
-    } else {
-      skipped += 1
-      for note in check.notes { lines.append("note: \(path):\(command.line): \(note)") }
-    }
-  }
-
-  lines.append("checked \(checked) commands, \(failures) failures, \(skipped) skipped")
-  return ConfigCheckReport(text: lines.map { $0 + "\n" }.joined(), failures: failures)
 }
 
 /// The lines of a failure text: its trailing newline dropped, then one line per newline left in it.

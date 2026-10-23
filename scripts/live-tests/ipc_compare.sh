@@ -2,7 +2,7 @@
 # Runs IPC commands that only query, fail before acting, or change the daemon's own state (labeled rules and signals,
 # removed again), and prints each response with its exit code. Run it on the installed build and on a test build,
 # each right after a restart, and diff the outputs: `--display mouse` follows the cursor, and a long-running daemon can
-# hold stale space ids in its rules. The config commands only read options, fail, or set an option of the yabairc to
+# hold stale space ids in its rules. The config commands only read options, fail, or set an option of the config file to
 # the value it already has. Usage: bash ipc_compare.sh > out.txt
 Y=~/.local/bin/yabai
 

@@ -1,96 +1,18 @@
 //
-// NOTE: The yabairc extractor. It finds the `yabai -m` messages of a shell script and splits each into words the way sh
-// does, without running the script. Whatever sh would compute (variables, command substitution, lists, pipes,
-// redirections, globs, compound commands) makes the invocation skipped instead of guessed, so the words of an extracted
-// message are exactly the words the shell would pass to yabai.
+// NOTE: The sh word lexer. It splits a script into logical lines of words the way sh does, without running it. Whatever sh
+// would compute (variables, command substitution, lists, pipes, redirections, globs, compound commands) is reported as a
+// reason on its line instead of being guessed, so a word that is kept is exactly the word the shell would pass. The stdin
+// of `yabai -m batch` is read with it (parseBatchInput). The tests extract the `yabai -m` invocations of a script with
+// the same lexer (tests/YabaiTests/Support/ShellCommandExtractor.swift).
 //
 
-/// One `yabai -m` invocation of a script, or the reason it was not extracted.
-public struct ExtractedCommand: Equatable, Sendable {
-  /// The 1-based line of the invocation's first word. A command continued with a backslash starts on its first line.
-  public let line: Int
-
-  /// The words after `-m`, starting with the domain (`space`, `window`, ...); `-m` itself is not included. These are
-  /// the words that `ClientMessage.encode` takes as bytes (`map { Array($0.utf8) }`). Nil when skipped.
-  public let arguments: [String]?
-
-  /// Why the invocation was not extracted: `not a message`, `dynamic shell` or `unterminated quote`. Nil when
-  /// `arguments` is set.
-  public let skipped: String?
-
-  public init(line: Int, arguments: [String]?, skipped: String?) {
-    self.line = line
-    self.arguments = arguments
-    self.skipped = skipped
-  }
-}
-
-/// The `yabai -m` invocations of a script, in order. A line that the shell would compute is reported as skipped with
-/// `dynamic shell`: a `$` that starts an expansion (`$name`, `${…}`, `$1`, `$@`, `$(…)`, `$[…]`, `$'…'`, `$"…"`, and
-/// `$` before a byte above ASCII, which bash expands in a UTF-8 locale), backticks, `;`, `&`, `|`, parentheses,
-/// redirections, unquoted glob characters and `~`, and any command inside a compound command (`if`, `for`, `while`,
-/// `until`, `case`, `select`, `function`, braces). A `$` that is not followed by one of these is literal, as in sh. Comments
-/// (`#` at the start of a word) and blank lines are ignored. Lines that do not run yabai are ignored. `yabai` without
-/// `-m` or `--message` (e.g. `sudo yabai --load-sa`) is skipped as `not a message`. A `yabai` path ending in `/yabai`
-/// and a leading `sudo` are accepted. Only the first word of a command counts (after `sudo`), so `FOO=1 yabai -m …`
-/// is not extracted.
-public func extractYabaiCommands(_ script: String) -> [ExtractedCommand] {
-  var commands: [ExtractedCommand] = []
-  var depth = 0  // compound commands open at the current segment
-  var lexer = ScriptLexer(script)
-
-  for scriptLine in lexer.lex() {
-    for segment in scriptLine.segments {
-      var words = segment.words[...]
-
-      // NOTE: Reserved words lead a segment: `if x; then yabai …` and `{ yabai …; }` put the command after them.
-      while let first = words.first, !first.quoted {
-        if openingKeywords.contains(first.string) {
-          depth += 1
-        } else if closingKeywords.contains(first.string) {
-          depth = max(0, depth - 1)
-        } else if !continuationKeywords.contains(first.string) {
-          break
-        }
-        words = words.dropFirst()
-      }
-
-      if words.first?.string == "sudo" { words = words.dropFirst() }
-      guard let program = words.first, isYabai(program.string) else { continue }
-
-      let rest = words.dropFirst()
-      let isMessage = rest.first.map { $0.string == "-m" || $0.string == "--message" } ?? false
-      if !isMessage {
-        commands.append(
-          ExtractedCommand(line: segment.line, arguments: nil, skipped: "not a message"))
-      } else if let skipped = scriptLine.reason ?? (depth > 0 ? "dynamic shell" : nil) {
-        commands.append(ExtractedCommand(line: segment.line, arguments: nil, skipped: skipped))
-      } else {
-        commands.append(
-          ExtractedCommand(
-            line: segment.line, arguments: rest.dropFirst().map(\.string), skipped: nil))
-      }
-    }
-  }
-
-  return commands
-}
-
-/// Reserved words that open a compound command, and the ones that close it.
-private let openingKeywords: Set<String> = [
-  "if", "for", "while", "until", "case", "select", "function", "{",
-]
-private let closingKeywords: Set<String> = ["fi", "done", "esac", "}"]
-/// Reserved words that only introduce the next command of their segment.
-private let continuationKeywords: Set<String> = ["then", "do", "else", "elif"]
-
 /// `yabai`, or a path ending in `/yabai`.
-private func isYabai(_ program: String) -> Bool {
+func isYabai(_ program: String) -> Bool {
   program == "yabai" || program.hasSuffix("/yabai")
 }
 
 /// A word of a script: its bytes, and whether any part of it was quoted (a quoted word is never a reserved word).
-private struct ScriptWord {
+struct ScriptWord {
   var bytes: [UInt8] = []
   var quoted = false
 
@@ -100,7 +22,7 @@ private struct ScriptWord {
 
 /// The words of one simple command: the text between list operators, which are `;`, `&`, `|`, parentheses and
 /// redirections, or a newline. `line` is the line of its first word.
-private struct ScriptSegment {
+struct ScriptSegment {
   let line: Int
   let words: [ScriptWord]
 }
@@ -108,7 +30,7 @@ private struct ScriptSegment {
 /// A logical line: the text up to an unquoted newline, with backslash continuations joined. `line` is the line where it
 /// starts. `reason` names the first construct that the shell would compute on this line, and it applies to every
 /// segment of the line.
-private struct ScriptLine {
+struct ScriptLine {
   let line: Int
   let segments: [ScriptSegment]
   let reason: String?
@@ -120,7 +42,7 @@ private struct ScriptLine {
 /// backslash escapes the next byte. A `\r` directly before a `\n` belongs to the line ending: it is dropped, and so is
 /// the `\r` of a backslash continuation (`\` then `\r\n`). Only ASCII bytes are special, so multi-byte characters pass
 /// through unchanged.
-private struct ScriptLexer {
+struct ScriptLexer {
   private enum Quote {
     case none, single, double
   }
@@ -356,7 +278,7 @@ private struct ScriptLexer {
 }
 
 /// Why the stdin of `yabai -m batch` could not be read: the 1-based line where the command starts, and the reason, which
-/// is one of the skip reasons of `extractYabaiCommands` (`dynamic shell`, `unterminated quote`) or `no command`.
+/// is one of the reasons the lexer gives (`dynamic shell`, `unterminated quote`) or `no command`.
 public struct BatchInputError: Error, Equatable, Sendable {
   public let line: Int
   public let reason: String
@@ -368,7 +290,7 @@ public struct BatchInputError: Error, Equatable, Sendable {
 }
 
 /// The commands on the stdin of `yabai -m batch`, in order, each as its words after `-m`. One command per line, read
-/// with the sh quoting of `extractYabaiCommands`. Blank lines and comments (`#` at the start of a word) are skipped, and
+/// with the sh quoting of the lexer (ScriptLexer). Blank lines and comments (`#` at the start of a word) are skipped, and
 /// a leading `yabai -m` (or `--message`) is stripped. Nothing is run by a shell, so a line that the shell would compute
 /// (variables, substitutions, lists, pipes, redirections, globs, compound commands) is an error naming its line, and so
 /// is a line with no command after `-m`.

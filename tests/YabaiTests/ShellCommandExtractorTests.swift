@@ -1,12 +1,11 @@
-import Foundation
 import PropertyBased
 import Testing
 
 @testable import YabaiCore
 
 //
-// NOTE: Tests of the yabairc extractor (`YabaircExtractor.swift`): the words of each message follow sh quoting, lines the
-// shell would compute are skipped, and the shipped examples/yabairc gives its one message. The property quotes random
+// NOTE: Tests of the shell command extractor (Support/ShellCommandExtractor.swift), which the skhd recipe tests use: the
+// words of each message follow sh quoting, and lines the shell would compute are skipped. The property quotes random
 // words with a reference quoting function (single quotes, or double quotes with the escapes) and expects them back.
 //
 
@@ -213,8 +212,8 @@ private let extractRows: [ExtractRow] = [
     expected: []),
 ]
 
-@Suite("yabairc command extractor")
-struct YabaircExtractorTests {
+@Suite("shell command extractor")
+struct ShellCommandExtractorTests {
   @Test(arguments: extractRows)
   func extractsOrSkips(_ row: ExtractRow) {
     #expect(extractYabaiCommands(row.script) == row.expected)
@@ -225,27 +224,6 @@ struct YabaircExtractorTests {
     #expect(
       extractYabaiCommands("yabai -m space --focus 1; yabai -m space --focus 2\n")
         == [skipped(1, "dynamic shell"), skipped(1, "dynamic shell")])
-  }
-
-  @Test("examples/yabairc gives its one message, with the comments left out")
-  func exampleFile() throws {
-    let url = URL(filePath: #filePath)
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .deletingLastPathComponent()
-      .appending(path: "examples/yabairc")
-    let script = try String(contentsOf: url, encoding: .utf8)
-
-    let commands = extractYabaiCommands(script)
-    #expect(commands.count == 1)
-    #expect(commands.first?.line == 17)
-
-    // NOTE: `config` and 30 key-value pairs, one per continued line.
-    let arguments = try #require(commands.first?.arguments)
-    #expect(arguments.count == 61)
-    #expect(arguments.prefix(3) == ["config", "external_bar", "off:40:0"])
-    #expect(arguments.suffix(2) == ["mouse_drop_action", "swap"])
-    #expect(commands.first?.skipped == nil)
   }
 }
 
@@ -288,7 +266,7 @@ private let wordGenerator = pick(wordCharacters).array(of: 0...6)
 private let quotedWordGenerator = zip(wordGenerator, pick([false, true])).array(of: 0...4)
   .eraseToAny()
 
-@Suite struct YabaircQuotingPropertyTests {
+@Suite struct ShellQuotingPropertyTests {
   @Test func quotedWordsRoundTrip() async {
     await propertyCheck(count: 3000, input: quotedWordGenerator) { words in
       let script =

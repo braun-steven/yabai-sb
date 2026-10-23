@@ -1,7 +1,5 @@
-# Example yabai configuration, converted from examples/yabairc. Copy it to ~/.config/yabai/yabai.toml and change it.
+# Example yabai configuration. Copy it to ~/.config/yabai/yabai.toml and change it.
 # Each [config] line is the `yabai -m config <option>` of the same name. Check a file with `yabai --check-config <file>`.
-#
-# The yabairc ended with `echo "yabai configuration loaded.."`. A TOML file runs nothing, so it has no such line.
 
 # The daemon loads the scripting addition itself, at startup and after each Dock restart, with `sudo -n`. This needs the
 # sudoers entry of the man page (CONFIGURATION, [daemon]), which lets your user run `yabai --load-sa` without a password.

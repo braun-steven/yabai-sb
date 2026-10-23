@@ -43,7 +43,7 @@ def checked(command):
 
 
 def configure_fixture():
-    # A deploy reruns yabairc, which may turn autotiling back on. Hold the same controlled
+    # A deploy reapplies yabai.toml, which may turn autotiling back on. Hold the same controlled
     # settings across every reinsertion workload and restore the saved values afterward.
     for key, value in {"focus_follows_mouse": "off", "mouse_follows_focus": "off", "window_animation_duration": "0",
                        "tree_autotiling": "off", "tree_workspace_layout": "default", "tree_default_orientation": "horizontal"}.items():

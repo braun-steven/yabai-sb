@@ -6,11 +6,11 @@ import YabaiCore
 
 //
 // NOTE: examples/skhdrc holds the binding-mode recipes. An skhd binding is `keys : command` (a mode is `:: name : command`),
-// not a yabairc line, so extractYabaiCommands does not read the file as it is: for each binding the test takes the text
+// not a shell line, so extractYabaiCommands does not read the file as it is: for each binding the test takes the text
 // from its first `yabai -m` on and extracts that as a script of its own. The reference bindings, commented out in the
 // file, are checked too. A binding continued with a trailing backslash is left out: its only example is a shell pipeline
 // with `$(…)`, which the extractor skips as dynamic. A `;` chain is split here before extraction, because the extractor
-// marks a whole line that holds a `;` as dynamic (as `config --check` does for a yabairc line). The window and space
+// marks a whole line that holds a `;` as dynamic. The window and space
 // commands are not parsed by checkMessage (it adds a note for them), so they are parsed here by the pure parsers that
 // their domain handlers use, and not run.
 //
@@ -40,8 +40,7 @@ private func skhdBindingCommands(_ text: String) -> [(line: Int, command: String
   return commands
 }
 
-/// The message the daemon reads for `arguments` (the words after `-m`, domain first): the length prefix is dropped, as
-/// `configCheckReport` does.
+/// The message the daemon reads for `arguments` (the words after `-m`, domain first): the length prefix is dropped.
 private func clientMessage(_ arguments: [String]) -> Message {
   let encoded = ClientMessage.encode(arguments.map { Array($0.utf8) })
   return Message(Array(encoded.dropFirst(MemoryLayout<Int32>.size)))

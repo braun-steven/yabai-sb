@@ -178,7 +178,7 @@ config active_window_opacity 2.0
 config tab_bar_style bogus
 config --space nolabel window_gap
 
-# config --check: a file that does not exist (without a file, it would read the user's yabairc)
+# config --check: a file that does not exist (without a file, it would read the user's yabai.toml)
 config --check /nonexistent
 
 # rule

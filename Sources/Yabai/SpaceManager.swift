@@ -36,7 +36,7 @@ enum SpaceOperationError: Error, Sendable {
   var didBegin = false
   var labels = LabelList<SpaceID>()
   var spaceLayoutPasses = 0
-  /// The pins of the labels (SpacePins), kept in memory: the yabairc sets them again at startup.
+  /// The pins of the labels (SpacePins), kept in memory: the config file sets them again at startup.
   var pins = SpacePins()
   var spacePinPasses = 0
   /// Whether the notice about the pins without the scripting addition was logged (once per daemon run).

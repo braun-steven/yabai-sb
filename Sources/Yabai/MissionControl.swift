@@ -180,6 +180,8 @@ final class MissionControl: Sendable {
   }
 
   func observe() {
+    // NOTE: Headless mode (tests) never observes the Dock of the user's session.
+    guard !Headless.isEnabled else { return }
     let alreadyObserving = stateLock.withLock { $0.isObserving }
     guard !alreadyObserving, let pid = Workspace.dockPID else { return }
 

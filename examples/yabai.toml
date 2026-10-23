@@ -1,23 +1,14 @@
 # Example yabai configuration, converted from examples/yabairc. Copy it to ~/.config/yabai/yabai.toml and change it.
 # Each [config] line is the `yabai -m config <option>` of the same name. Check a file with `yabai --check-config <file>`.
 #
-# The scripting addition is loaded by the daemon when [daemon] load_scripting_addition is true. For this to work
-# you must configure sudo such that it will be able to run `yabai --load-sa` without a password. See this wiki page
-# for information:
-#  - https://github.com/asmvik/yabai/wiki/Installing-yabai-(latest-release)#configure-scripting-addition
-#
 # The yabairc ended with `echo "yabai configuration loaded.."`. A TOML file runs nothing, so it has no such line.
 
-# [daemon]
-# Runs `sudo -n yabai --load-sa` at startup and after the Dock restarts. Built-in loading takes effect from phase 4 of
-# the static config plan; until then the daemon does not load it at startup, and the dock_did_restart signal below does
-# it after each Dock restart.
-# load_scripting_addition = true
-
-# Loads the scripting addition again after each Dock restart (the yabairc signal line).
-# [[signal]]
-# event = "dock_did_restart"
-# action = "sudo yabai --load-sa"
+# The daemon loads the scripting addition itself, at startup and after each Dock restart, with `sudo -n`. This needs the
+# sudoers entry of the man page (CONFIGURATION, [daemon]), which lets your user run `yabai --load-sa` without a password.
+# See this wiki page for information:
+#  - https://github.com/asmvik/yabai/wiki/Installing-yabai-(latest-release)#configure-scripting-addition
+[daemon]
+load_scripting_addition = true
 
 # global settings
 [config]

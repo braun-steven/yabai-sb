@@ -13,7 +13,8 @@ import YabaiCore
 // `config --overrides` lists what differs from the last applied document (configOverrideLines).
 //
 // The reload core is reloadConfig, which the watch of the daemon's file (ConfigWatcher, `.configFileChanged`) calls too:
-// there is one reload path, and the watch only adds the decision whether the file changed.
+// there is one reload path, and the watch only adds the decision whether the file changed. A reload that turns
+// `[daemon] load_scripting_addition` on requests the scripting addition load (requestScriptingAdditionLoad).
 //
 
 /// The outcome of a reload (reloadConfig).
@@ -37,9 +38,14 @@ enum ConfigReloadOutcome {
     return .failed(check.report)
   }
 
+  let loadedScriptingAddition = ConfigLoader.shared.loadScriptingAddition
   var result = ConfigReconcileResult()
   for step in ConfigStep.allCases {
     result += ConfigLoader.shared.reconcile(to: document, step: step)
+  }
+  // NOTE: A reload that turns `load_scripting_addition` on loads the scripting addition; turning it off does nothing.
+  if !loadedScriptingAddition {
+    requestScriptingAdditionLoad(reason: "reload")
   }
   ConfigWatcher.shared.sync()
   // NOTE: The config_loaded signal of the file is pushed here, once per applied file (a failed check pushes nothing). The

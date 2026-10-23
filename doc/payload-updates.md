@@ -58,3 +58,13 @@ remains in `payload.m`, and the named bootstrap template in `bootstrap.S` is sha
 [osax-prototypes.md](osax-prototypes.md) for protocol compatibility, signatures/ownership evidence,
 sanitizer coverage, benchmarks and the controlled live comparison procedure.
 
+
+## After a built-in load
+
+The daemon's own load (`[daemon] load_scripting_addition`, `ScriptingAdditionLoader.swift`) runs `sudo -n <yabai> --load-sa`,
+which installs the payload like the manual command. No reconnect step is needed for the messages: each `ScriptingAddition.send`
+opens a new socket and connects to `/tmp/yabai-sa_$USER.socket`, so the first message after a successful load reaches the new
+payload. The only state kept across messages is the handshake verdict (`payloadIsCurrentCache`): a handshake that fails is
+retried, but a verdict "not current" (the version differs) stays until `payloadChanged()`. A Dock restart calls it before the
+load starts, and a successful load calls it too (`EventHandler.scriptingAdditionLoaded`), so a daemon that started with an old
+payload asks again. Not verified live: the first `space --focus` after a load is in the C4.2 live check.

@@ -104,6 +104,7 @@ extension EventHandler {
     MissionControl.shared.observe()
 
     EventSignals.shared.push(.dockDidRestart)
+    requestScriptingAdditionLoad(reason: "dock_did_restart")
   }
 
   func menuOpened() {
@@ -164,6 +165,11 @@ extension EventHandler {
     switch result {
     case .loaded:
       Logger.daemon.info("scripting addition: loaded")
+      //
+      // NOTE: A handshake that found an old payload is cached as "not current" (ScriptingAddition.payloadIsCurrent), and
+      // only a Dock restart clears it. The load has just replaced the payload, so the next payload use asks again.
+      //
+      ScriptingAddition.shared.payloadChanged()
     case .failed(let reason):
       Logger.daemon.warning("scripting addition: could not load (\(reason))")
       notify("scripting-addition", "could not load (\(reason)); see sudoers setup in the man page")

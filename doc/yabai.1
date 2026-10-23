@@ -139,8 +139,20 @@ The file has these tables:
 .sp
 \f(CR[daemon]\fP
 .RS 4
-\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition\fP is read, but it takes effect in a later version.
+\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition = true|false\fP (default \f(CRfalse\fP): the daemon loads the scripting addition itself, by running \f(CRsudo \-n <yabai> \-\-load\-sa\fP at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
 .RE
+.sp
+Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a sudoers entry that runs the binary as root without a password. As root, run \f(CRsudo visudo \-f /private/etc/sudoers.d/yabai\fP and add this line, with your user name for \f(CR<user>\fP and the path of the binary for \f(CR<path>\fP:
+.sp
+.if n .RS 4
+.nf
+.fam C
+<user> ALL=(root) NOPASSWD: sha256:<digest> <path> \-\-load\-sa
+.fam
+.fi
+.if n .RE
+.sp
+\f(CR<path>\fP is the binary\(cqs path with links resolved (\f(CRrealpath "$(which yabai)"\fP), since the daemon runs the binary at that path. \f(CR<digest>\fP is the SHA\-256 of that file (\f(CRshasum \-a 256 <path>\fP). The digest changes with each build, so update the line after an upgrade. Without the entry the load fails with \f(CRsudo: a password is required\fP.
 .sp
 \f(CR[config]\fP
 .RS 4

@@ -34,12 +34,24 @@ import YabaiCore
   /// missing, so fixing it applies it.
   var autoReload: Bool { applied?.daemon.autoReload ?? true }
 
+  /// `[daemon] load_scripting_addition` of the applied document. Off when no document is applied.
+  var loadScriptingAddition: Bool { applied?.daemon.loadScriptingAddition ?? false }
+
   /// Forgets the applied document, the defaults and the file state, as a new daemon has them (the test fixture).
   func reset() {
     applied = nil
     defaults = nil
     filePath = nil
     lastContents = nil
+  }
+}
+
+/// Requests the built-in load of the scripting addition (ScriptingAdditionLoader) when the applied document sets
+/// `[daemon] load_scripting_addition`. The startup calls it once the steps have run, the Dock restart after its work, and
+/// a reload that turns the setting on. Turning it off requests nothing.
+@WM func requestScriptingAdditionLoad(reason: String) {
+  if ConfigLoader.shared.loadScriptingAddition {
+    ScriptingAdditionLoader.shared.load(reason: reason)
   }
 }
 

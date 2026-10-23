@@ -333,7 +333,14 @@ enum Daemon {
     // starts, so no message reads it earlier.
     //
     let explicitConfigFile = options.config
-    WM.sync { WindowManager.shared.explicitConfigFile = explicitConfigFile }
+    //
+    // NOTE: ScriptingAdditionLoader reads the path of this binary when it is first created, so the daemon creates it here,
+    // at startup, even when `load_scripting_addition` is off: a later load runs the binary that the daemon was started as.
+    //
+    WM.sync {
+      WindowManager.shared.explicitConfigFile = explicitConfigFile
+      _ = ScriptingAdditionLoader.shared
+    }
 
     //
     // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue. The space
@@ -394,6 +401,10 @@ enum Daemon {
       // NOTE: The watch starts last, after the file is applied, so the first change it sees is compared with the text that
       // was loaded (ConfigLoader.lastContents). It is on unless the applied file sets `[daemon] auto_reload = false`.
       //
+      // NOTE: The built-in load of the scripting addition is requested once the file is applied, so the load sees the
+      // applied document. It runs in a child process, and config_loaded (posted below) does not wait for it.
+      //
+      requestScriptingAdditionLoad(reason: "startup")
       Logger.daemon.debug("startup: watching the config file")
       ConfigWatcher.shared.sync()
       return total

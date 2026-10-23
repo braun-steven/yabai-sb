@@ -57,7 +57,8 @@ failure, as before).
     state and runs only the messages whose setting differs, through `handleMessage` in-process, not through IPC. Options
     are compared through their own print (`config <name>`), rules and signals as the lists `rule --add` and `signal --add`
     would store them, and spaces by their index. At startup the running state is the defaults, so the steps apply the file
-    as before. The last step records the document as applied, and a reload compares with it.
+    as before. The last step records the document as applied, and a reload compares with it. When the applied document sets
+    `load_scripting_addition`, the startup then requests the scripting addition load (`requestScriptingAdditionLoad`), before the watch starts.
 11. Schedule the space pin pass (one second later), then the `config_loaded` event with the same delay and no key (only when a file passed the check, `LoadedConfig.loadedEvent`), so the delayed queue delivers it after the pass; then start the message loop on the user's socket. No client message
     runs before the file is applied.
 12. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), then `NSApp.run()`. The yabairc is
@@ -113,7 +114,7 @@ Signpost intervals for Instruments (one per handled event, per animation run and
 
 `osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
 
-The daemon's own load (`ScriptingAdditionLoader.swift`) runs `sudo -n <its binary> --load-sa` in a detached task, with a 30 s timeout, and posts `.scriptingAdditionLoaded`; the event loop never waits for it. One run goes at a time, and a request during a run queues one more (`ScriptingAdditionLoadQueue`, pure, in `YabaiCore/ScriptingAdditionLoad.swift`). Headless mode records the request instead of spawning.
+The daemon's own load (`ScriptingAdditionLoader.swift`) runs `sudo -n <its binary> --load-sa` in a detached task, with a 30 s timeout, and posts `.scriptingAdditionLoaded`; the event loop never waits for it. One run goes at a time, and a request during a run queues one more (`ScriptingAdditionLoadQueue`, pure, in `YabaiCore/ScriptingAdditionLoad.swift`). Headless mode records the request instead of spawning. The requests come from `requestScriptingAdditionLoad` (`ConfigLoader.swift`), which checks `[daemon] load_scripting_addition` of the applied document: the startup after the steps (`reason: startup`), `EventHandler.dockDidRestart` after its work, and `reloadConfig` when the setting went from false to true. `Daemon.run` creates the loader in its first `WM.sync` block, so the binary path is read at startup.
 
 ### Platform gating
 

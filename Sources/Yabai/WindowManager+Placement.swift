@@ -63,14 +63,40 @@ extension WindowManager {
       if let owner = managedView(for: target) {
         unmanageWindow(target, from: owner)
       }
+      let wasFloating = target.isFloating
       target.isFloating = true
+      if !wasFloating { restoreFloatingFrame(of: target) }
     } else {
+      target.rememberFloatingFrame()
       target.isFloating = false
 
+      // NOTE: In headless mode the test process must not ask the window server for the active space.
       if !target.isSticky && target.shouldBeManaged && managedView(for: target) == nil {
-        if let spaceID = SpaceID.active { manageWindow(target, on: spaceID, inserting: nil) }
+        if let spaceID = Headless.isEnabled ? Headless.activeSpace : SpaceID.active {
+          manageWindow(target, on: spaceID, inserting: nil)
+        }
       }
     }
+  }
+
+  /// Moves a window that starts floating to the frame it remembers (`Window.lastFloatingFrame`), through the animated
+  /// frame path. Nothing moves when no frame is remembered, or when the frame decision keeps the current frame.
+  private func restoreFloatingFrame(of target: Window) {
+    guard let remembered = target.lastFloatingFrame else { return }
+    guard
+      let frame = FloatingFrame.restoredFrame(
+        remembered: remembered, current: target.frame, displays: visibleDisplayFrames())
+    else { return }
+    animateWindow(
+      WindowPlacement(
+        window: target, x: Float(frame.origin.x), y: Float(frame.origin.y),
+        w: Float(frame.size.width), h: Float(frame.size.height)))
+  }
+
+  /// The visible frame of each display, the area that windows can use. In headless mode, the one headless display.
+  func visibleDisplayFrames() -> [CGRect] {
+    if Headless.isEnabled { return [Headless.displayFrame] }
+    return DisplayID.all.map { $0.constrainedBounds(ignoringExternalBar: false) }
   }
 
   func makeWindowSticky(_ target: Window, shouldBeSticky: Bool) {

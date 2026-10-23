@@ -58,6 +58,7 @@ extension WindowManager {
       unmanageWindow(b, from: bView)
     } else if b.isFloating {
       if !b.isEligibleForManagement { throw .invalidDestinationNode }
+      b.rememberFloatingFrame()
       b.isFloating = false
       if b.isSticky { makeWindowSticky(b, shouldBeSticky: false) }
     }

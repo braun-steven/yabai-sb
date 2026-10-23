@@ -171,6 +171,7 @@ extension EventHandler {
     EventSignals.shared.push(.windowMoved, .window(window))
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame.origin = newOrigin
+    window.rememberFloatingFrame()
 
     if !windowedFullscreen {
       window.isWindowed = false
@@ -232,6 +233,7 @@ extension EventHandler {
 
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame = newFrame
+    window.rememberFloatingFrame()
 
     if wasFullscreen != isFullscreen { Border.refreshSpace(of: window) }
 

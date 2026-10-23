@@ -896,6 +896,8 @@ Toggle the given property of the selected window.
 The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) .
 .br
 Toggling a scratchpad by \fILABEL\fP shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options \fBscratchpad_exclusive\fP, \fBscratchpad_raise\fP, \fBscratchpad_below\fP and \fBscratchpad_grid\fP.
+.br
+A window that floats again returns to the frame it had the last time it was floating (moved or resized while floating, or tiled again). That frame is kept when at least half of its area is on a display; otherwise the window is centered at its current size on its display. A window that has never floated keeps its tiled frame when it floats.
 .RE
 .sp
 \fB\-\-sub\-layer\fP \fI<LAYER>\fP

@@ -63,6 +63,9 @@ struct WindowAXState: Equatable, Sendable {
   var isFullscreen = false
   var isMinimized = false
   var isFloating = false
+  // NOTE: The frame the window had the last time it was floating (`rememberFloatingFrame`), restored when it floats
+  // again (`WindowManager.makeWindowFloating`). Cleared by `WindowManager.forget`.
+  var lastFloatingFrame: CGRect?
   var isSticky = false
   var isWindowed = false
   /// Set by `destroy()`, on @WM, when the window is torn down. Queued events and border updates then ignore the window.
@@ -98,6 +101,12 @@ struct WindowAXState: Equatable, Sendable {
     refreshAXState()
     isFullscreen = reportsFullscreen || (id.space.map { $0.isFullscreen } ?? false)
     isSticky = id.isSticky
+  }
+
+  /// Records the frame of a floating window as the one it returns to when it floats again. A tiled window keeps the
+  /// record it has, so it is a no-op for other windows.
+  func rememberFloatingFrame() {
+    if isFloating { lastFloatingFrame = frame }
   }
 
   /// False once the window is invalidated, or once its AX destroyed notification arrived (`markAXDestroyed`), which

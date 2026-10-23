@@ -36,6 +36,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Changed
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value
 - Build commands now use `just`; the makefile has been removed (`brew install just`)
+- Command *window --toggle float* returns a window to the frame it had while it last floated: that frame is kept when at least half of it is on a display, and otherwise the window is centered at its current size on its display. A window that has never floated keeps its tiled frame, as before
 - The options of the *yabai* process are parsed by swift-argument-parser: option values may be attached (*--config=file*, *-Vc file*), and an action, *--message* or *--version* combined with other options, an unknown option or a missing value prints the usage and exits with status 64. Messages after *-m* are parsed as before
 - Space, display, rule, signal and scratchpad labels compare as Unicode text: a label spelled with a precomposed character (*é*) and one with a combining accent (*e* + U+0301) are the same label. Every argument is read as UTF-8 text, so a failure that echoes an argument shows invalid bytes as U+FFFD
 - The daemon logs through swift-log: each line has a timestamp, a level and a component (e.g. *yabai.event*); *--verbose* and *debug_output* switch the level from info to debug, warnings and fatal errors still go to stderr

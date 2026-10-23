@@ -1,3 +1,4 @@
+import CoreGraphics
 import OSAX
 import SortedCollections
 import Testing
@@ -117,6 +118,97 @@ extension DaemonState {
       #expect(Headless.drain().messages.last == shadowMessage(2, shadow))
       #expect(target.hasShadow == shadow)
       #expect(workspace.dump == "splith\n  w1 0.5000\n  w3 0.5000")
+    }
+
+    // NOTE: A window that floats again returns to the frame it had while floating (FloatingFrame). Headless mode
+    // records the frame writes, and the frame a move or resize leaves is set by rememberFloatingFrame, as the
+    // move and resize handlers do; the window server is not asked for the active space (Headless.activeSpace).
+    @Test func floatingAgainReturnsToTheFrameOfTheLastFloat() {
+      _ = tiledWorkspace()
+      let wm = WindowManager.shared
+      let target = wm.window[wid(2)]!
+      target.isRoot = true
+      target.isManagedByRule = true
+      Headless.activeSpace = Workspace.sid
+      defer { Headless.activeSpace = nil }
+
+      wm.makeWindowFloating(target, shouldFloat: true, force: true)
+      #expect(target.lastFloatingFrame == nil)
+      _ = Headless.drain()
+
+      // moved and resized while floating
+      target.frame = CGRect(x: 100, y: 120, width: 500, height: 400)
+      target.rememberFloatingFrame()
+
+      // tiled again: the floating frame is captured, and the window takes its tiled place
+      wm.makeWindowFloating(target, shouldFloat: false, force: true)
+      #expect(target.lastFloatingFrame == CGRect(x: 100, y: 120, width: 500, height: 400))
+      #expect(wm.managedView(for: target) != nil)
+      _ = Headless.drain()
+
+      // floats again: the frame it had is restored
+      wm.makeWindowFloating(target, shouldFloat: true, force: true)
+      #expect(target.isFloating)
+      #expect(target.frame == CGRect(x: 100, y: 120, width: 500, height: 400))
+      #expect(
+        Headless.drain().placements.contains(
+          RecordedPlacement(windowID: wid(2), x: 100, y: 120, w: 500, h: 400)))
+    }
+
+    @Test func floatingAgainCentersAFrameThatNoLongerFits() {
+      _ = tiledWorkspace()
+      let wm = WindowManager.shared
+      let target = wm.window[wid(2)]!
+      target.isRoot = true
+      target.isManagedByRule = true
+      Headless.activeSpace = Workspace.sid
+      defer { Headless.activeSpace = nil }
+
+      wm.makeWindowFloating(target, shouldFloat: true, force: true)
+      target.frame = CGRect(x: 5000, y: 5000, width: 500, height: 400)
+      target.rememberFloatingFrame()
+      wm.makeWindowFloating(target, shouldFloat: false, force: true)
+      let tiled = target.frame
+      _ = Headless.drain()
+
+      wm.makeWindowFloating(target, shouldFloat: true, force: true)
+      let expected = FloatingFrame.centered(size: tiled.size, in: Headless.displayFrame)
+      #expect(target.frame == expected)
+      #expect(
+        Headless.drain().placements.contains(
+          RecordedPlacement(
+            windowID: wid(2), x: Float(expected.minX), y: Float(expected.minY),
+            w: Float(expected.width), h: Float(expected.height))))
+    }
+
+    @Test func floatingAgainKeepsTheTiledFrameWithoutARememberedFrame() {
+      _ = tiledWorkspace()
+      let wm = WindowManager.shared
+      let target = wm.window[wid(2)]!
+      target.isRoot = true
+      target.isManagedByRule = true
+      Headless.activeSpace = Workspace.sid
+      defer { Headless.activeSpace = nil }
+
+      // a window that was tiled and never floated keeps its frame when it floats
+      let tiled = target.frame
+      wm.makeWindowFloating(target, shouldFloat: true, force: true)
+      #expect(target.frame == tiled)
+      #expect(target.lastFloatingFrame == nil)
+      #expect(!Headless.drain().placements.contains { $0.windowID == wid(2) })
+    }
+
+    @Test func forgetClearsTheFloatingFrame() {
+      _ = tiledWorkspace()
+      let wm = WindowManager.shared
+      let target = wm.window[wid(2)]!
+      target.isFloating = true
+      target.frame = CGRect(x: 100, y: 120, width: 500, height: 400)
+      target.rememberFloatingFrame()
+      #expect(target.lastFloatingFrame != nil)
+
+      wm.forget(target.id)
+      #expect(target.lastFloatingFrame == nil)
     }
   }
 }

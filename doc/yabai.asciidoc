@@ -578,7 +578,8 @@ COMMAND
 *--toggle* 'float|sticky|pip|shadow|split|zoom-parent|zoom-fullscreen|windowed-fullscreen|native-fullscreen|expose|<LABEL>'::
     Toggle the given property of the selected window. +
     The following properties require System Integrity Protection to be partially disabled: sticky, pip, shadow, LABEL (scratchpad identifier) . +
-    Toggling a scratchpad by 'LABEL' shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options *scratchpad_exclusive*, *scratchpad_raise*, *scratchpad_below* and *scratchpad_grid*.
+    Toggling a scratchpad by 'LABEL' shows it on the active space, moving it there if necessary, or hides it if it is already shown there. See the config options *scratchpad_exclusive*, *scratchpad_raise*, *scratchpad_below* and *scratchpad_grid*. +
+    A window that floats again returns to the frame it had the last time it was floating (moved or resized while floating, or tiled again). That frame is kept when at least half of its area is on a display; otherwise the window is centered at its current size on its display. A window that has never floated keeps its tiled frame when it floats.
 
 *--sub-layer* '<LAYER>'::
     Set the stacking sub-layer of the selected window. +

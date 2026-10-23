@@ -12,6 +12,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Native window borders](#native-window-borders)
 - [Rule placement](#rule-placement)
 - [Window labels](#window-labels)
+- [Floating frame memory](#floating-frame-memory)
 - [Automatic space layout](#automatic-space-layout)
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
@@ -235,6 +236,10 @@ yabai -m window --label        # remove the label of the focused window
 ```
 
 A label names one window: labelling another window moves it there. `yabai -m query --windows` reports the label as `label`. Scratchpad names (`--scratchpad`) are a separate namespace, so a window label and a scratchpad may share a name.
+
+### Floating frame memory
+
+A window that floats remembers the frame it had while floating. When it floats again with `yabai -m window --toggle float`, it returns to that frame if at least half of the frame is on a display. Otherwise it is centered at its current size on its display. A window that has never floated keeps its tiled frame when it floats, as before.
 
 ### Automatic space layout
 

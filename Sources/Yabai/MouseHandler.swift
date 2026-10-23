@@ -182,7 +182,21 @@ final class MouseTapState {
   var lastMovedTime: UInt64 = 0
   var window: Window!
   var windowFrame = CGRect.zero
-  var ffmWindowID: WindowID?
+  //
+  // NOTE: The window of the focus follows mouse request in flight. Its time is stamped by the setter, so every place that
+  // sets or clears the window (a focus event, teardown, forget, the front switch) also sets or clears the time.
+  //
+  var ffmWindowID: WindowID? {
+    didSet { ffmRequestTime = ffmWindowID == nil ? nil : ContinuousClock.now }
+  }
+  /// When the focus follows mouse request in flight was made; nil when none is pending.
+  private(set) var ffmRequestTime: ContinuousClock.Instant?
+  /// Bumped by every event but a mouse move (EventHandler.handle); the hit cache is valid only in the generation it was stored.
+  var ffmGeneration: UInt64 = 0
+  /// The frame of the last focus follows mouse hit test, when no other window could cover it.
+  var ffmHit: FFMHitRecord?
+  /// The windows on the visible spaces, asked from the window server once per generation.
+  var ffmVisible: (generation: UInt64, windowIDs: Set<WindowID>?)?
   var direction: ResizeHandle = []
   var feedbackWindowID: WindowID?
   var feedbackDirection: InsertDirection?

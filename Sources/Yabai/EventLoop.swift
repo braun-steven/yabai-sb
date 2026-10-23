@@ -127,6 +127,13 @@ enum Event: Sendable {
   case eventSubscriberRemoved(id: Int)
 }
 
+extension Event {
+  var isMouseMoved: Bool {
+    if case .mouseMoved = self { return true }
+    return false
+  }
+}
+
 enum EventLoop {
   //
   // NOTE: Unbounded, so a producer never blocks or drops an event. Events posted before start() wait in the buffer.
@@ -247,6 +254,13 @@ extension EventHandler {
 
   /// Runs the handler of an event.
   func handle(_ event: Event) async {
+    //
+    // NOTE: Every event but a mouse move may change what is under the pointer, so it bumps the generation that the
+    // focus follows mouse hit cache is kept for (MouseState.ffmGeneration). Mouse moves do not: they are the reason for
+    // the cache.
+    //
+    if !event.isMouseMoved { MouseState.shared.ffmGeneration &+= 1 }
+
     //
     // NOTE: The loop takes the next event only after this handler returns, even when the handler awaits, so the
     // intervals of the events never overlap and their id is .exclusive.

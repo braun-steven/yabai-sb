@@ -3,6 +3,7 @@ import ApplicationServices
 import CPrivate
 import Foundation
 import Logging
+import SortedCollections
 import Synchronization
 import YabaiCore
 
@@ -35,6 +36,14 @@ extension ResizeHandle {
 //
 
 private let dragResizeInterval: Float = 67.67
+
+//
+// NOTE: Focus follows mouse ignores moves for this long after a horizontal Dock swipe (a space switch gesture) ends.
+// During the swipe the windows of the sliding spaces pass under the pointer, and a move after it would focus one of
+// them. The value is the one of #2781 (commit 51393903); it was not derived from the length of the animation.
+//
+
+private let ffmGestureSettleInterval: Float = 1250.0
 
 extension EventHandler {
   func mouseDown(_ event: CGEvent, _ modifiers: MouseModifiers) {
@@ -325,6 +334,40 @@ extension EventHandler {
     MouseState.shared.ffmWindowID = wid
   }
 
+  /// Records the hit window's frame for the current generation, when no other window on a visible space can cover it.
+  /// Otherwise the cache is cleared, and every move takes the hit test.
+  private func ffmStoreHit(_ window: Window) {
+    let ms = MouseState.shared
+    guard let visible = ffmVisibleWindowIDs() else {
+      ms.ffmHit = nil
+      return
+    }
+
+    var otherFrames: [CGRect] = []
+    for (id, other) in WindowManager.shared.window where id != window.id {
+      if visible.contains(id) { otherFrames.append(other.frame) }
+    }
+
+    if FFMDecision.isCacheable(hitFrame: window.frame, otherFrames: otherFrames) {
+      ms.ffmHit = FFMHitRecord(frame: window.frame, generation: ms.ffmGeneration)
+    } else {
+      ms.ffmHit = nil
+    }
+  }
+
+  /// The ids of the windows on the visible spaces, minimized ones included. The window server is asked once per
+  /// generation, not per move; nil when it fails.
+  private func ffmVisibleWindowIDs() -> Set<WindowID>? {
+    let ms = MouseState.shared
+    if let memo = ms.ffmVisible, memo.generation == ms.ffmGeneration { return memo.windowIDs }
+
+    let spaces = DisplayID.all.compactMap { $0.currentSpace }
+    let ids = SpaceID.windowCandidates(on: spaces, connection: nil, includingMinimized: true)
+      .map { Set($0) }
+    ms.ffmVisible = (ms.ffmGeneration, ids)
+    return ids
+  }
+
   func mouseMoved(_ event: CGEvent) {
     let wm = WindowManager.shared
 
@@ -332,17 +375,31 @@ extension EventHandler {
 
     if focusFollowsMouse == .disabled { return }
     if MissionControl.shared.isActive { return }
-    if MouseState.shared.ffmWindowID != nil { return }
+
+    let ms = MouseState.shared
+    let point = event.location
+
+    let decision = FFMDecision.decide(
+      pointer: point, lastHit: ms.ffmHit, generation: ms.ffmGeneration,
+      requestedAt: ms.ffmRequestTime, now: ContinuousClock.now)
+    if decision.clearPending {
+      Logger.events.debug(
+        "focus follows mouse: no focus event for window \(ms.ffmWindowID?.rawValue ?? 0) before the request timeout, dropping it"
+      )
+      ms.ffmWindowID = nil
+    }
+    if ms.ffmWindowID != nil || !decision.hitTest { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
     let dt = OSTimer.milliseconds(from: lastGestureTime.load(ordering: .relaxed), to: OSTimer.now)
-    if dt < 1250.0 { return }
-
-    let point = event.location
+    if dt < ffmGestureSettleInterval { return }
 
     if let window = wm.window(at: point) {
+      Logger.events.debug("focus follows mouse: hit window \(window.id.rawValue)")
+      ffmStoreHit(window)
       ffmFocusWindow(window)
     } else {
+      ms.ffmHit = nil
       ffmFocusDisplayAtPoint(point)
     }
   }

@@ -15,6 +15,8 @@ struct UnmanageOptions: OptionSet {
 
 extension WindowManager {
   func setFocusFollowsMouse(_ mode: FocusFollowsMouse) {
+    MouseState.shared.ffmHit = nil
+
     // NOTE: In headless mode the test process must not install an event tap on the user's mouse.
     if Headless.isEnabled {
       Config.current.window.focusFollowsMouse = mode

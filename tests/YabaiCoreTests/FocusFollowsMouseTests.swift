@@ -1,0 +1,151 @@
+import CoreGraphics
+import Testing
+
+@testable import YabaiCore
+
+@Suite("FocusFollowsMouse")
+struct FocusFollowsMouseTests {
+  private static let base = ContinuousClock.now
+  private static let frame = CGRect(x: 100, y: 100, width: 200, height: 200)
+
+  private static func instant(_ ms: Int) -> ContinuousClock.Instant {
+    base.advanced(by: .milliseconds(ms))
+  }
+
+  // Columns: pointer, last hit (nil: none), hit generation, current generation, request age (ms; nil: none), expected.
+  // The last hit is `frame` (100..300 on both axes) unless a row says otherwise; the current time is the request
+  // time plus the age, so the age decides expiry.
+  @Test(
+    arguments: [
+      // a young request holds the move, inside the last hit or not, and clears nothing
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 0,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      (
+        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), 499,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      (
+        CGPoint(x: 50, y: 50), nil, UInt64(1), UInt64(1), 10,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      // a young request holds the move even when the generation changed
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), 10,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      // the request is dropped at exactly 500 ms, and an expired one moves on
+      (
+        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), 500,
+        FFMDecision(hitTest: true, clearPending: true)
+      ),
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 501,
+        FFMDecision(hitTest: false, clearPending: true)
+      ),
+      (
+        CGPoint(x: 50, y: 50), nil, UInt64(1), UInt64(1), 501,
+        FFMDecision(hitTest: true, clearPending: true)
+      ),
+      // an expired request inside the last hit clears and does not hit test
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 900,
+        FFMDecision(hitTest: false, clearPending: true)
+      ),
+      // an expired request while the cache is from another generation: hit test
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), 900,
+        FFMDecision(hitTest: true, clearPending: true)
+      ),
+      // no request: inside a valid last hit needs no hit test
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      // the same frame in another generation: hit test
+      (
+        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), nil,
+        FFMDecision(hitTest: true, clearPending: false)
+      ),
+      // outside the last hit: hit test
+      (
+        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: true, clearPending: false)
+      ),
+      // no last hit at all: hit test
+      (
+        CGPoint(x: 150, y: 150), nil, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: true, clearPending: false)
+      ),
+      // the frame edges are the ones of CGRect.contains: the min edge is inside, the max edge is outside
+      (
+        CGPoint(x: 100, y: 100), frame, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: false, clearPending: false)
+      ),
+      (
+        CGPoint(x: 300, y: 150), frame, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: true, clearPending: false)
+      ),
+      (
+        CGPoint(x: 150, y: 300), frame, UInt64(1), UInt64(1), nil,
+        FFMDecision(hitTest: true, clearPending: false)
+      ),
+    ] as [(CGPoint, CGRect?, UInt64, UInt64, Int?, FFMDecision)]
+  )
+  func decision(
+    pointer: CGPoint, lastFrame: CGRect?, hitGeneration: UInt64, generation: UInt64,
+    ageMs: Int?, expected: FFMDecision
+  ) {
+    let lastHit = lastFrame.map { FFMHitRecord(frame: $0, generation: hitGeneration) }
+    let requestedAt = ageMs.map { _ in Self.instant(0) }
+    let now = ageMs.map { Self.instant($0) } ?? Self.instant(0)
+
+    let result = FFMDecision.decide(
+      pointer: pointer, lastHit: lastHit, generation: generation,
+      requestedAt: requestedAt, now: now)
+    #expect(result == expected)
+  }
+
+  @Test("the request timeout is 500 ms")
+  func requestTimeout() {
+    #expect(ffmRequestTimeout == .milliseconds(500))
+  }
+
+  // Columns: hit frame, other frames, expected.
+  @Test(
+    arguments: [
+      // nothing else on a visible space: cacheable
+      (CGRect(x: 0, y: 0, width: 100, height: 100), [CGRect](), true),
+      // another window beside it, sharing an edge only: cacheable
+      (
+        CGRect(x: 0, y: 0, width: 100, height: 100),
+        [CGRect(x: 100, y: 0, width: 100, height: 100)], true
+      ),
+      // a window that is entirely apart: cacheable
+      (
+        CGRect(x: 0, y: 0, width: 100, height: 100),
+        [CGRect(x: 500, y: 500, width: 10, height: 10)], true
+      ),
+      // a floating window or dialog over part of the hit window: not cacheable
+      (
+        CGRect(x: 0, y: 0, width: 100, height: 100),
+        [CGRect(x: 50, y: 50, width: 100, height: 100)], false
+      ),
+      // one covering window among several apart ones: not cacheable
+      (
+        CGRect(x: 0, y: 0, width: 100, height: 100),
+        [CGRect(x: 500, y: 500, width: 10, height: 10), CGRect(x: 0, y: 0, width: 10, height: 10)],
+        false
+      ),
+      // a window that contains the hit window: not cacheable
+      (
+        CGRect(x: 10, y: 10, width: 50, height: 50), [CGRect(x: 0, y: 0, width: 200, height: 200)],
+        false
+      ),
+    ] as [(CGRect, [CGRect], Bool)]
+  )
+  func cacheable(hitFrame: CGRect, otherFrames: [CGRect], expected: Bool) {
+    #expect(FFMDecision.isCacheable(hitFrame: hitFrame, otherFrames: otherFrames) == expected)
+  }
+}

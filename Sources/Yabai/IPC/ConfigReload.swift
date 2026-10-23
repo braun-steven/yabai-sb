@@ -43,7 +43,8 @@ enum ConfigReloadOutcome {
   }
   ConfigWatcher.shared.sync()
   // NOTE: The config_loaded signal of the file is pushed here, once per applied file (a failed check pushes nothing). The
-  // pushed signals run at the next flush: the event that the watch handles flushes them, `config --reload` flushes below.
+  // pushed signals run when the event loop flushes after the current event: the watch's .configFileChanged, or the
+  // .daemonMessage of `config --reload` (MessageLoop.swift).
   EventSignals.shared.push(.configLoaded, .config(file: path, changes: result.changes))
   return .reloaded(path: path, result: result)
 }
@@ -51,10 +52,7 @@ enum ConfigReloadOutcome {
 /// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, or the failures of the check, which change nothing.
 @WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
   let (path, check) = try checkConfigFile("--reload", &message)
-  let outcome = reloadConfig(path: path, check: check)
-  // NOTE: A client message is not an event, so the event loop does not flush after it: the signals of this reload run now.
-  EventSignals.shared.flush()
-  switch outcome {
+  switch reloadConfig(path: path, check: check) {
   case .failed(let report):
     rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
   case .reloaded(let path, let result):

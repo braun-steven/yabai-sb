@@ -24,6 +24,15 @@ import YabaiTestSupport
   String(decoding: Golden.run("config --dump"), as: UTF8.self)
 }
 
+/// The dump must pass `config --check`: a value that a handler rejects is a failure, and the report is the message.
+@WM private func expectCleanDump(_ text: String, sourceLocation: SourceLocation = #_sourceLocation)
+{
+  let check = configFileCheck(path: "dump.toml", source: text)
+  #expect(
+    check.report.failures == 0, Comment(rawValue: check.report.text),
+    sourceLocation: sourceLocation)
+}
+
 /// A file with a window gap, a rule, a rule with a label and a signal.
 private let fileText = """
   [config]
@@ -42,6 +51,21 @@ private let fileText = """
   action = "true"
   """
 
+/// A file with a non-default value of each kind of option: a bool, an integer, floats, a color, a choice, a choice that
+/// is also a string, an array of strings and a text.
+private let kindsText = """
+  [config]
+  mouse_follows_focus = true
+  window_gap = 7
+  window_opacity_duration = 0.25
+  window_animation_duration = 0.4
+  active_window_border_color = 0xffff0000
+  window_shadow = "float"
+  focus_follows_mouse = "autofocus"
+  space_layout = ["bsp", "stack"]
+  scratchpad_grid = "40:40:1:1:38:38"
+  """
+
 extension DaemonState {
   @Suite
   @WM struct ConfigDumpTests {
@@ -49,6 +73,7 @@ extension DaemonState {
       DaemonFixture.reset()
       let text = dumpText()
 
+      expectCleanDump(text)
       let document = try ConfigDocument.decode(text)
       #expect(reconcileSteps(document) == ConfigReconcileResult())
       #expect(
@@ -65,11 +90,34 @@ extension DaemonState {
       _ = Headless.drain()
 
       let text = dumpText()
+      expectCleanDump(text)
       #expect(text.contains("\nwindow_gap = 7\n"))
       #expect(text.contains("\n[[rule]]\napp = \"^Keep$\"\nmanage = false\n"))
       #expect(text.contains("\n[[rule]]\nlabel = \"other\"\napp = \"^Other$\"\n"))
       #expect(text.contains("\n[[signal]]\nevent = \"window_focused\"\naction = \"true\"\n"))
       #expect(!text.contains("# override"))
+    }
+
+    /// NOTE: A file with a value of each kind dumps clean and reconciles to nothing, so the dump writes every kind in a
+    /// form that the handlers accept.
+    @Test func aFileOfEveryKindDumpsCleanAndReconcilesToNothing() throws {
+      DaemonFixture.reset()
+      _ = reconcileSteps(try ConfigDocument.decode(kindsText))
+      _ = Headless.drain()
+
+      let text = dumpText()
+      expectCleanDump(text)
+      // NOTE: The values are checked too, so the test cannot pass with the file's values left unapplied.
+      #expect(text.contains("\nmouse_follows_focus = true"))
+      #expect(text.contains("\nwindow_gap = 7"))
+      #expect(text.contains("\nwindow_opacity_duration = 0.25"))
+      #expect(text.contains("\nwindow_animation_duration = 0.4"))
+      #expect(text.contains("\nactive_window_border_color = 0xffff0000"))
+      #expect(text.contains("\nwindow_shadow = \"float\""))
+      #expect(text.contains("\nfocus_follows_mouse = \"autofocus\""))
+      #expect(text.contains("\nscratchpad_grid = \"40:40:1:1:38:38\""))
+      let document = try ConfigDocument.decode(text)
+      #expect(reconcileSteps(document) == ConfigReconcileResult())
     }
 
     /// NOTE: A value that the file does not give, changed at runtime, is an override; the others say default.
@@ -99,6 +147,7 @@ extension DaemonState {
       let before = runningRules()
 
       let text = dumpText()
+      expectCleanDump(text)
       #expect(
         text.contains(
           "\n[[rule]]\nlabel = \"term\"\napp = \"Terminal\"\nopacity = 0.9\nsticky = true\n"))

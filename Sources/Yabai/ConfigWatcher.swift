@@ -142,6 +142,9 @@ private let configWatchDebounce: Duration = .milliseconds(200)
       notify("configuration", "\(path) has \(report.failures) errors; kept the running config..")
     case .reloaded(let path, let result):
       Logger.daemon.notice("config watch: reloaded \(path): \(result.changes) changes")
+      if result.failures > 0 {
+        notify("configuration", "\(result.failures) settings of \(path) did not apply..")
+      }
     }
   }
 

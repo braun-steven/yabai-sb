@@ -71,17 +71,17 @@ struct OneShotCase: CustomTestStringConvertible, Sendable {
   var testDescription: String { rules.joined(separator: " ") }
 }
 
-// NOTE: removeOneShotRules swaps the last rule into the place of a removed one and checks that place again.
+// NOTE: removeOneShotRules removes the matched one-shot rules and keeps the order of the others.
 @Test(arguments: [
   OneShotCase(rules: [], left: []),
   OneShotCase(rules: ["a"], left: ["a"]),
   OneShotCase(rules: ["a*"], left: []),
   OneShotCase(rules: ["a*", "b", "c*"], left: ["b"]),
   OneShotCase(rules: ["a*", "b*", "c"], left: ["c"]),
-  OneShotCase(rules: ["a", "b*", "c", "d"], left: ["a", "d", "c"]),
+  OneShotCase(rules: ["a", "b*", "c", "d"], left: ["a", "c", "d"]),
   OneShotCase(rules: ["a*", "b*", "c*"], left: []),
 ])
-@WM func removeOneShotRulesSwapsTheLastRuleIn(_ row: OneShotCase) {
+@WM func removeOneShotRulesKeepsTheOrder(_ row: OneShotCase) {
   let wm = windowManagerCreate()
   defer { windowManagerFree(wm) }
 

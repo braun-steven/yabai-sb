@@ -8,7 +8,9 @@ import YabaiCore
 // the running state for each ConfigStep, in order, with nothing between the steps (ConfigLoader.reconcile): only the
 // settings whose value differs are run, so the layouts, the windows and the spaces stay as they are. Overrides made by
 // `config`, `rule --add` or `signal --add` since the last load are put back by the same reconcile. Rules apply to windows
-// created later, as before. The reply is `reloaded <file>: <n> changes`.
+// created later, as before. The reply is `reloaded <file>: <n> changes`. When a setting failed while it ran (a check
+// cannot catch everything: a selector names a space that does not exist), the other settings still apply, and the reply
+// is a failure: `reloaded <file>: <n> changes, <m> failures` and a `<key path>: <failure>` line for each.
 //
 // `config --overrides` lists what differs from the last applied document (configOverrideLines).
 //
@@ -55,15 +57,27 @@ enum ConfigReloadOutcome {
   return .reloaded(path: path, result: result)
 }
 
-/// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, or the failures of the check, which change nothing.
+/// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, the failures of the check, which change nothing, or
+/// as a failure the settings that failed while they ran (configReloadFailureText).
 @WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
   let (path, check) = try checkConfigFile("--reload", &message)
   switch reloadConfig(path: path, check: check) {
   case .failed(let report):
     rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
+  case .reloaded(let path, let result) where result.failures > 0:
+    rsp.fail(
+      CommandError(ResponseText(stringLiteral: configReloadFailureText(path: path, result: result)))
+    )
   case .reloaded(let path, let result):
     rsp.write("reloaded \(path): \(result.changes) changes\n")
   }
+}
+
+/// The reply of a reload in which settings failed while they ran: the counts, then a line for each failure.
+func configReloadFailureText(path: String, result: ConfigReconcileResult) -> String {
+  (["reloaded \(path): \(result.changes) changes, \(result.failures) failures"]
+    + result.failureLines)
+    .joined(separator: "\n") + "\n"
 }
 
 /// Writes `config --overrides`: the lines of configOverrideLines, or nothing when no value is overridden.

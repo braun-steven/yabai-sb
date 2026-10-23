@@ -227,6 +227,54 @@ extension DaemonState {
       #expect(EventSignals.shared.pending.isEmpty)
     }
 
+    @Test func usedUpOneShotRuleIsNotAddedAgain() throws {
+      DaemonFixture.reset()
+      let text = reloadText + "[[rule]]\napp = \"^Once$\"\nmanage = false\none_shot = true\n"
+      let path = try writeReloadFile(text)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 4))
+
+      // NOTE: As a window that the one-shot rule matched would: mark it, then remove it.
+      let wm = WindowManager.shared
+      for index in wm.rules.indices where wm.rules[index].oneShot { wm.rules[index].matched = true }
+      wm.removeOneShotRules()
+      #expect(wm.rules.count == 1)
+
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 0))
+      #expect(wm.rules.count == 1)
+      #expect(Golden.run("config --overrides") == [])
+    }
+
+    @Test func changedOneShotRuleIsAddedAgain() throws {
+      DaemonFixture.reset()
+      let path = try writeReloadFile(
+        reloadText + "[[rule]]\napp = \"^Once$\"\nmanage = false\none_shot = true\n")
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 4))
+      let wm = WindowManager.shared
+      for index in wm.rules.indices where wm.rules[index].oneShot { wm.rules[index].matched = true }
+      wm.removeOneShotRules()
+
+      try (reloadText + "[[rule]]\napp = \"^Twice$\"\nmanage = false\none_shot = true\n")
+        .write(toFile: path, atomically: true, encoding: .utf8)
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
+      #expect(wm.rules.map(\.oneShot) == [false, true])
+    }
+
+    @Test func settingThatFailsWhileItRunsMakesTheReplyAFailure() throws {
+      DaemonFixture.reset()
+      let text = reloadText + "[[rule]]\napp = \"^Far$\"\nspace = 99\n"
+      let path = try writeReloadFile(text)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(configFileReport(path: path, source: text).failures == 0)
+
+      let failure = "rule[1]: could not locate space with mission-control index '99'."
+      #expect(
+        Golden.run("config --reload \(path)")
+          == Array("\u{07}reloaded \(path): 3 changes, 1 failures\n\(failure)\n".utf8))
+      #expect(Golden.run("config window_gap") == Array("10\n".utf8))
+    }
+
     @Test func overridesTakeNoArgument() {
       DaemonFixture.reset()
       #expect(

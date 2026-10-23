@@ -34,10 +34,13 @@ import YabaiCore
 struct ConfigReconcileResult: Equatable, Sendable {
   var changes = 0
   var failures = 0
+  /// One `<key path>: <failure>` line per failure, as the log has it.
+  var failureLines: [String] = []
 
   static func += (total: inout ConfigReconcileResult, part: ConfigReconcileResult) {
     total.changes += part.changes
     total.failures += part.failures
+    total.failureLines += part.failureLines
   }
 }
 
@@ -91,10 +94,12 @@ func sameConfigValue(_ printed: String, _ word: String) -> Bool {
 
   let texts = failureTexts(response.bytes)
   let source = keyPath.isEmpty ? arguments.joined(separator: " ") : keyPath
-  for text in texts {
-    Logger.daemon.warning("config file: \(source): \(text.trimmingCharacters(in: .newlines))")
+  let lines = texts.map { "\(source): \($0.trimmingCharacters(in: .newlines))" }
+  for line in lines {
+    Logger.daemon.warning("config file: \(line)")
   }
-  return ConfigReconcileResult(changes: texts.isEmpty ? 1 : 0, failures: texts.count)
+  return ConfigReconcileResult(
+    changes: texts.isEmpty ? 1 : 0, failures: texts.count, failureLines: lines)
 }
 
 extension ConfigLoader {
@@ -120,7 +125,7 @@ extension ConfigLoader {
     case .settings, .managerSettings:
       result = reconcileOptions(document, step: step, applied: applied, defaults: defaults)
     case .spaces: result = reconcileSpaces(document, applied: applied)
-    case .rulesAndSignals: result = reconcileRulesAndSignals(document)
+    case .rulesAndSignals: result = reconcileRulesAndSignals(document, applied: applied)
     }
 
     if step == ConfigStep.allCases.last { applied = document }
@@ -361,13 +366,30 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
   return table
 }
 
-@WM private func reconcileRulesAndSignals(_ document: ConfigDocument) -> ConfigReconcileResult {
+/// Whether the running rules are the file's rules (`fileRules`, nil when one does not parse). A one-shot rule is removed
+/// once it matched a window, so the rules without one-shot rules are compared in order, and the file's one-shot rules
+/// either with the running ones that did not match yet or with those of the last applied document (`applied`): a one-shot
+/// rule that was used up is no override, and it is added again only when the file's one-shot rules change.
+@WM private func rulesMatchFile(_ fileRules: [Rule]?, applied: ConfigDocument?) -> Bool {
+  guard let fileRules else { return false }
+  let running = WindowManager.shared.rules
+  guard fileRules.filter({ !$0.oneShot }) == running.filter({ !$0.oneShot }) else { return false }
+
+  let fileOneShot = fileRules.filter(\.oneShot)
+  if fileOneShot == running.filter({ $0.oneShot && !$0.matched }) { return true }
+  let appliedRules = applied.flatMap { parsedRules($0.lowered().filter { $0.kind == .rule }) } ?? []
+  return fileOneShot == appliedRules.filter(\.oneShot)
+}
+
+@WM private func reconcileRulesAndSignals(_ document: ConfigDocument, applied: ConfigDocument?)
+  -> ConfigReconcileResult
+{
   var result = ConfigReconcileResult()
   let entries = document.lowered()
   let ruleEntries = entries.filter { $0.kind == .rule }
   let signalEntries = entries.filter { $0.kind == .signal }
 
-  if parsedRules(ruleEntries) != WindowManager.shared.rules {
+  if !rulesMatchFile(parsedRules(ruleEntries), applied: applied) {
     WindowManager.shared.rules = []
     result.changes += 1
     for entry in ruleEntries {
@@ -454,7 +476,7 @@ func appliedWords(_ entries: [ConfigEntry])
   }
 
   let fileRules = parsedRules(entries.filter { $0.kind == .rule }) ?? []
-  if fileRules != WindowManager.shared.rules {
+  if !rulesMatchFile(fileRules, applied: ConfigLoader.shared.applied) {
     lines.append("rules: overridden")
   }
   let fileSignals = parsedSignals(entries.filter { $0.kind == .signal }) ?? SignalTable()

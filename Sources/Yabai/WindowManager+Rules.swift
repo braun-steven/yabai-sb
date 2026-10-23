@@ -238,15 +238,10 @@ extension WindowManager {
   }
 
   // NOTE: One-shot rules are marked when applied to a window, then removed once all windows created together
-  // have been checked. After swap-removal, the replacement at that index is checked again.
+  // have been checked. Unlike `rule --remove`, this keeps the order of the other rules: a reload compares the running
+  // rules with the file's in order (rulesMatchFile in ConfigReconcile.swift), so a used-up one-shot rule must not reorder
+  // them.
   func removeOneShotRules() {
-    var index = 0
-    while index < rules.count {
-      if rules[index].matched {
-        removeRule(index)
-        continue
-      }
-      index += 1
-    }
+    rules.removeAll { $0.matched }
   }
 }

@@ -137,6 +137,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `border_perf.swift` | persistent ScreenCaptureKit pixel probe for visible focus-border changes and moving edges |
 | `border_geometry.swift` | read-only check that four border edges surround each supplied untabbed window at its actual WindowServer frame |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
+| `missioncontrol.swift` | `state\|open\|close\|toggle`: posts the user's Mission Control shortcut (symbolic hotkey 32) and waits for the Dock overlay; compile it with `xcrun swiftc -O missioncontrol.swift -o missioncontrol` (the binary is ignored by git) |
 | `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); compile it with `xcrun swiftc -O mirror.swift -o mirror` (the binary is ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
@@ -255,11 +256,12 @@ Rules for the user's machine:
 - Script Editor can leave an invisible window without an AX reference (`Untitled.scpt`) on the fixture space:
   `query --windows --space` lists it as tiled, `query --windows --window <id>` cannot find it and it is not in the
   tree. Take the tiled windows from the leaves of `query --tree`, or a bench cycles focus through it.
-- Mission Control could not be opened from an agent shell (2026-10-20: `open -a "Mission Control"`, the CoreDock
-  `com.apple.expose.awake` notification and System Events key codes all left it closed), so its enter/exit handling
-  needs the user's gesture or keyboard.
-  Posted key events do not open it either (2026-10-23: key code 160 and ctrl-up, with and without fn, from a
-  CGEvent tap with posting access).
+- Opening and closing Mission Control from an agent shell (2026-10-23, outside the command sandbox): use
+  `missioncontrol open|close`. It posts the shortcut of symbolic hotkey 32 as the user set it (F10, key code 109,
+  plain), and a function key only fires with `.maskSecondaryFn` set. Earlier attempts failed because they posted
+  other keys (key code 160, ctrl-up) or used `open -a "Mission Control"` / the CoreDock `com.apple.expose.awake`
+  notification. The top-left hot corner (`wvous-tl-corner` 2) works too: a posted `mouse sweep 200 200 0 0 40`
+  toggles it; leave the corner before sweeping in again. A posted Esc closes it as well.
 - Mission Control on macOS 27 (2026-10-23, probes with the user's gesture): the Dock accepts the AXExpose*
   registrations but never posts them, and no connection notification marks the exit. Opening it sends 1508 (the
   front change, also sent on every app switch; the Dock does not become the front process) with the Dock's overlay
@@ -273,7 +275,7 @@ Rules for the user's machine:
   (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.
   An alt + left drag of a tiled window moves and swaps tiles; start resize drags inside the window body, not on the
   gap. Never press or drag on Finder's sidebar or list items: a plain drag at the sidebar removed the user's
-  Downloads favourite. Mission Control and VoiceOver (cmd-F5) are left to the user.
+  Downloads favourite. VoiceOver (cmd-F5) is left to the user.
 
 Always run a baseline on the installed binary before changing anything, so before/after numbers
 come from the same session. Reference numbers from the `fix-left-out-findings` session (release builds):

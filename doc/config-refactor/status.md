@@ -20,7 +20,7 @@ mode: nested
 |---|---|---|---|
 | C1.1 | Add the TOMLDecoder dependency | done | TOMLDecoder 0.4.5 pinned exact in Package.swift (YabaiCore; YabaiCoreTests for the smoke test). Criteria met: pure Swift, MIT, typed throws, syntax error line only in TOMLError.description. Release binary 9679832 to 10167880 bytes (+0.49 MB, before any code uses it). No live check. Convention bullet in doc/swift-conventions.md. |
 | C1.2 | `ConfigDocument` and strict decoding | done | `ConfigDocument` types and `ConfigDocument.decode` (`ConfigDocument.swift`, `ConfigDocumentDecoding.swift`); 27 rows of one problem each plus collection, empty-file, full-document and syntax-line tests in `tests/YabaiCoreTests/ConfigDocumentTests.swift`. Deviations: (1) the key order of a table is the one `TOMLTable.keys` gives (plain values, then arrays, then inline tables), not file order, because the file order across those kinds is not public; C1.4 can restore it. (2) Value types are checked by kind only (bool, integer, float, string; arrays only for `space_layout`); the type each option takes is left to the handlers (C2.2). Signal `active` is a TOML boolean; its yes/no spelling is C1.3. No live check. |
-| C1.3 | Lower a document to IPC messages | todo | |
+| C1.3 | Lower a document to IPC messages | done | `ConfigDocument.lowered()` (`ConfigLowering.swift`) gives `ConfigEntry` (arguments, keyPath, kind) in apply order. Booleans are on/off (rules, options) or yes/no (signal `active`); colors print as `0x` + 8 hex digits; an empty `space_layout` lowers to `off`. Tests in `tests/YabaiCoreTests/ConfigLoweringTests.swift`: a sample for each of the 61 options, the target format against `extractYabaiCommands`, rule/signal/option rows, and a property (300 documents, run 10 times). Deviations: the acceptance yabairc is written in lowered order (exact compare), not file order; no InlineSnapshotTesting in YabaiCoreTests, so the yabairc text and literal arrays are the expectations; `ConfigEntry` has no `line` yet (C1.4). No live check. Gate quick passed. |
 | C1.4 | Line numbers for key paths | todo | |
 
 ## Phase 2: Check and load at startup
@@ -82,6 +82,8 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 19:01 · phase agent · C1.1 · done (commit pending) · C1.2 (ConfigDocument); the TOML line is only in the description, so C1.2 must parse it or use C1.4 for the line
 - 2026-10-23 19:07 · phase agent · C1.2 · started · C1.2 (ConfigDocument, decoding, tests)
 - 2026-10-23 19:09 · subphase agent · C1.2 · done (commit pending) · C1.3 (lower a ConfigDocument to IPC words); the key order of a table is not file order (see the C1.2 note)
+- 2026-10-23 19:13 · subphase agent · C1.3 · started · C1.3 (ConfigLowering.swift, ConfigLoweringTests.swift)
+- 2026-10-23 19:25 · subphase agent · C1.3 · done · C1.4 (line numbers for key paths; ConfigEntry gets its line there)
 
 ## Discovered
 

@@ -13,7 +13,7 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped`. Find a subph
 
 ## Phase 1: TOML document model
 
-phase: in-progress
+phase: done
 mode: nested
 
 | ID | Title | Status | Notes |
@@ -86,7 +86,11 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 19:25 · subphase agent · C1.3 · done · C1.4 (line numbers for key paths; ConfigEntry gets its line there)
 - 2026-10-23 19:19 · phase agent · C1.4 · started · C1.4 (TOMLKeyLocator.swift, line in ConfigDocumentError and ConfigEntry)
 - 2026-10-23 19:24 · subphase agent · C1.4 · done · C2.1 (find yabai.toml); the locator is `TOMLKeyLocator(source:).line(for:)`, lowering takes `lowered(locator:)`
+- 2026-10-23 19:27 · phase agent · C1 · closed, just ci passed · phase 2. Summary: YabaiCore now decodes yabai.toml (`ConfigDocument.decode`, all problems collected, lines via `TOMLKeyLocator`), lowers it to `yabai -m` words in apply order (`lowered(locator:)`), no daemon change. For phase 2: build the locator from the same text that was decoded; value ranges and per-option types (e.g. a bool option given an integer, out-of-range colors written in decimal) are left to the handlers in C2.2; keys inside a table follow `TOMLTable.keys` order, not file order (see Discovered).
 
 ## Discovered
 
 Out-of-scope findings for later, one line each with the subphase ID and a file reference.
+
+- C1.2/C1.4: keys inside a table are decoded in `TOMLTable.keys` order (plain values, arrays, inline tables), not file order; sorting by `TOMLKeyLocator` lines would restore it (`Sources/YabaiCore/ConfigDocumentDecoding.swift`).
+- C1.4: array elements (`config.space_layout[2]`) report the key's line, and quoted keys decode only `\"` and `\\` (`Sources/YabaiCore/TOMLKeyLocator.swift`).

@@ -26,6 +26,10 @@ enum ConfigGroup: CaseIterable, Sendable {
   /// The tab bar config last applied, to choose between rebuilding and redrawing the bars.
   private var tabBar = TabBarConfig()
 
+  /// The number of config groups applied so far. A renderer that keeps what it drew compares it to know that the config
+  /// it drew with is still the current one.
+  private(set) var generation = 0
+
   /// Starts following Config; call once, at startup.
   func start() {
     tabBar = Config.current.tabBar
@@ -34,6 +38,7 @@ enum ConfigGroup: CaseIterable, Sendable {
 
   /// Applies a group of Config that was set.
   func apply(_ group: ConfigGroup) {
+    generation += 1
     track(group)
     let wm = WindowManager.shared
     switch group {

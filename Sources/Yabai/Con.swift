@@ -64,6 +64,8 @@ enum FocusWrapping: String, CaseIterable, Sendable {
 struct FeedbackWindow {
   var id: WindowID?
   var context: CGContext?
+  // NOTE: What the outline was last drawn with. Destroying the window forgets it, so a new window is drawn.
+  var gate = RenderGate<FeedbackKey>()
 }
 
 //

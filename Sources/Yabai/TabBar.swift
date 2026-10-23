@@ -26,6 +26,8 @@ import YabaiCore
   var entryWindowIDs: [WindowID?] = []
   // NOTE: The container that embeds the bar. It redraws the bar when colors or fonts change.
   weak var owner: Con?
+  // NOTE: The key of the last draw. Hiding or destroying the bar forgets it, so the bar is drawn when it is shown again.
+  private var drawGate = RenderGate<TabBarRenderKey>()
 
   /// The empty bar of `destroy()`, which keeps its owner.
   func reset() {
@@ -37,6 +39,7 @@ import YabaiCore
     hidden = false
     entryCount = 0
     entryWindowIDs = []
+    drawGate.reset()
   }
 }
 
@@ -93,6 +96,37 @@ struct TabBarEntry {
   var title: CFString?
   var icon: CGImage?
   var state: TabBarState
+}
+
+//
+// NOTE: What a tab bar draws, as its last draw saw it. A render with an equal key draws nothing new and only orders the
+// bar again (TabBar.render). The icon is compared by identity: an application keeps the icon it loaded (TabBar.icon), so
+// it changes only when a new icon is loaded. The config generation (ConfigObserver) covers every tab bar setting, and the
+// main display height covers the frame that the glass panel converts with it.
+//
+struct TabBarRenderKey: Equatable {
+  struct Entry: Equatable {
+    let focusWindowID: WindowID?
+    let title: String?
+    let icon: CGImage?
+    let state: TabBarState
+
+    static func == (a: Entry, b: Entry) -> Bool {
+      a.focusWindowID == b.focusWindowID && a.title == b.title && a.state == b.state
+        && a.icon === b.icon
+    }
+  }
+
+  let frame: CGRect
+  let card: CGRect
+  let aboveWid: WindowID
+  let sid: SpaceID?
+  let level: Int32
+  let subLevel: Int32
+  let style: TabBarStyle
+  let generation: Int
+  let mainDisplayHeight: CGFloat
+  let entries: [Entry]
 }
 
 //
@@ -363,7 +397,8 @@ extension TabBar {
   //
   // NOTE: Creates the backend if needed, moves the bar to the frame and to the space of the window it sits above, draws
   // the entries and orders it right above that window (right below it for a glass bar with a backdrop card, which
-  // then covers the whole card). Titles stay owned by the caller.
+  // then covers the whole card). Titles stay owned by the caller. A render whose key equals the last draw keeps the
+  // drawing and only orders the bar again: the ordering is always done, since other windows may have moved.
   //
   func render(
     frame: CGRect, card: CGRect, above aboveWid: WindowID?,
@@ -376,7 +411,8 @@ extension TabBar {
       return
     }
     let count = min(entryCount, TabBar.maxEntryCount)
-    if !exists { create(frame) }
+    let created = !exists
+    if created { create(frame) }
     self.frame = frame
     // NOTE: The model moves to the space before the backend renders, so the backend sees the new space (sid), and
     // movedTo is set only when the space changed (the classic window is then moved there).
@@ -389,8 +425,24 @@ extension TabBar {
     hidden = false
     self.entryCount = count
     entryWindowIDs = (0..<count).map { entries[$0].focusWindowID }
-    backend?.render(
-      self, frame: frame, movedTo: movedTo, above: aboveWid, entries: entries, count: count)
+
+    let key = TabBarRenderKey(
+      frame: frame, card: card, aboveWid: aboveWid, sid: sid, level: aboveWid.level,
+      subLevel: aboveWid.subLevel, style: Config.current.tabBar.style,
+      generation: ConfigObserver.shared.generation,
+      mainDisplayHeight: CGDisplayBounds(CGMainDisplayID()).height,
+      entries: (0..<count).map { i in
+        TabBarRenderKey.Entry(
+          focusWindowID: entries[i].focusWindowID, title: entries[i].title.map { $0 as String },
+          icon: entries[i].icon, state: entries[i].state)
+      })
+    let draw = drawGate.needsDraw(key)
+    if draw || created {
+      backend?.render(
+        self, frame: frame, movedTo: movedTo, above: aboveWid, entries: entries, count: count)
+    } else {
+      backend?.order(self, above: aboveWid)
+    }
     TabBar.publishHits()
   }
 
@@ -398,6 +450,7 @@ extension TabBar {
     if !exists || hidden { return }
     backend?.hide()
     hidden = true
+    drawGate.reset()
     TabBar.publishHits()
   }
 

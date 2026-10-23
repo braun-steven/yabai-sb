@@ -111,6 +111,35 @@ extension DaemonState {
       #expect(TabBarBackend.kind(for: style) == kind)
     }
 
+    // NOTE: The key is built from values only, so a bar is never drawn in these tests: the draw count is the number of
+    // draws the gate allows for the keys of a sequence of renders.
+    static func renderKey(
+      title: String? = "Safari", state: TabBarState = .focused, generation: Int = 0
+    ) -> TabBarRenderKey {
+      TabBarRenderKey(
+        frame: CGRect(x: 10, y: 20, width: 300, height: 24), card: .zero,
+        aboveWid: WindowID(rawValue: 0xFFFF_0001), sid: SpaceID(rawValue: 0xFFFF_0100),
+        level: 0, subLevel: 0, style: .i3, generation: generation, mainDisplayHeight: 900,
+        entries: [
+          TabBarRenderKey.Entry(
+            focusWindowID: WindowID(rawValue: 0xFFFF_0001), title: title, icon: nil, state: state)
+        ])
+    }
+
+    @Test(
+      "tab bar renders with an equal key draw once; a config change, a title or a state draws again"
+    )
+    func renderDrawsOnlyWhenTheKeyChanges() {
+      var gate = RenderGate<TabBarRenderKey>()
+      let keys = [
+        Self.renderKey(), Self.renderKey(), Self.renderKey(generation: 1),
+        Self.renderKey(generation: 1), Self.renderKey(title: "Notes", generation: 1),
+        Self.renderKey(title: "Notes", state: .unfocused, generation: 1),
+      ]
+      let draws = keys.filter { gate.needsDraw($0) }
+      #expect(draws.count == 4)
+    }
+
     @Test("tab_bar_style_switch_destroys_the_backend")
     func styleSwitchDestroysTheBackend() {
       Config.current.tabBar.style = .glass

@@ -593,19 +593,27 @@ extension View {
 private let insertFeedbackWidth: CGFloat = 2
 private let insertFeedbackRadius: Float = 9
 
+//
+// NOTE: What an outline shows. A container draws its outline again only when this changes; the outline is ordered on
+// every call. The color is part of the key because insert_feedback_color is not a config group that is observed.
+//
+struct FeedbackKey: Equatable {
+  let area: Area
+  let direction: InsertDirection?
+  let color: RGBAColor
+}
+
 extension Con {
   func showFeedback(direction insertDir: InsertDirection?) {
     guard let windowID = focusedDescendant.windowID else { return }
 
     let cid = SLS.connection
     let area = self.area
-    var frame = CGRect(
-      x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
-    let frameRegion = SLS.region(frame)!
-    frame.origin.x = 0
-    frame.origin.y = 0
 
     if render.feedbackWindow.id == nil {
+      let frameRegion = SLS.region(
+        CGRect(
+          x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h)))!
       render.feedbackWindow.id = SLS.newWindow(
         cid, shape: frameRegion, options: 13, tags: (1 << 1) | (1 << 9))
 
@@ -622,9 +630,31 @@ extension Con {
     // NOTE: A window server that did not create the outline leaves no window to draw into or order.
     guard let feedbackWindowID = render.feedbackWindow.id else { return }
 
+    let color = Config.current.window.insertionFeedbackColor
+    let draw = render.feedbackWindow.gate.needsDraw(
+      FeedbackKey(area: area, direction: insertDir, color: color))
+    if draw {
+      drawFeedback(outline: feedbackWindowID, area: area, direction: insertDir, color: color)
+    }
+
+    SLS.setLevel(cid, feedbackWindowID, windowID.level)
+    SLS.setSubLevel(cid, feedbackWindowID, windowID.subLevel)
+    SLS.order(cid, feedbackWindowID, .above, relativeTo: windowID)
+  }
+
+  /// Draws the outline of the area into its window, the fill and stroke clipped to the half that `insertDir` marks.
+  private func drawFeedback(
+    outline feedbackWindowID: WindowID, area: Area, direction insertDir: InsertDirection?,
+    color: RGBAColor
+  ) {
+    let cid = SLS.connection
+    let frame = CGRect(x: 0, y: 0, width: CGFloat(area.w), height: CGFloat(area.h))
+    let frameRegion = SLS.region(
+      CGRect(
+        x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h)))!
+
     // NOTE: Drawing calls have no effect without a context.
     let context = render.feedbackWindow.context
-    let color = Config.current.window.insertionFeedbackColor
     context?.setFillColor(
       red: CGFloat(color.r), green: CGFloat(color.g), blue: CGFloat(color.b),
       alpha: CGFloat(color.a * (insertDir != nil ? 0.25 : 0.15)))
@@ -669,10 +699,6 @@ extension Con {
     context?.resetClip()
     context?.flush()
     SLS.reenableUpdate(cid)
-
-    SLS.setLevel(cid, feedbackWindowID, windowID.level)
-    SLS.setSubLevel(cid, feedbackWindowID, windowID.subLevel)
-    SLS.order(cid, feedbackWindowID, .above, relativeTo: windowID)
   }
 
   func hideFeedback() { destroyFeedback() }

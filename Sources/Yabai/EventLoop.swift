@@ -123,6 +123,9 @@ enum Event: Sendable {
   case dockDidChangePref
   case systemWoke
   case configChanged(ConfigGroup)
+  // NOTE: Only post with `key: .configReload` (`EventLoop.post(_:after:key:)`): the watch of yabai.toml (ConfigWatcher), or
+  // its retry. A stale one is dropped.
+  case configFileChanged
   // NOTE: Only post with `key: .spaceLayoutReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case spaceLayoutReconcile
   // NOTE: Only post with `key: .spacePinReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
@@ -168,11 +171,13 @@ enum EventLoop {
   //
 
   /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
-  /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile` and `.missionControlCheckForExit` with their key.
+  /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile`, `.missionControlCheckForExit` and
+  /// `.configFileChanged` with their key.
   enum DelayedEventKey: Hashable, Sendable {
     case spaceLayoutReconcile
     case spacePinReconcile
     case missionControlCheck
+    case configReload
   }
 
   private struct DelayedState: Sendable {
@@ -338,6 +343,8 @@ extension EventHandler {
     case .dockDidChangePref: dockDidChangePref()
     case .systemWoke: systemWoke()
     case .configChanged(let group): configChanged(group)
+    case .configFileChanged:
+      if EventLoop.claimDelivery(of: .configReload) { configFileChanged() }
     case .spaceLayoutReconcile:
       if EventLoop.claimDelivery(of: .spaceLayoutReconcile) { spaceLayoutReconcile() }
     case .spacePinReconcile:

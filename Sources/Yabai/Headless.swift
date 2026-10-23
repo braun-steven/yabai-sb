@@ -26,6 +26,8 @@ struct HeadlessLog: Sendable {
   var configFiles: [String] = []
   /// The messages of a yabai.toml that the startup applied (`ConfigStep.apply`), in the order they ran.
   var configEntries: [ConfigEntry] = []
+  /// The user notifications that the daemon would show, as `subtitle: text`, in order (`notify`).
+  var notifications: [String] = []
 }
 
 enum Headless {
@@ -68,6 +70,10 @@ enum Headless {
 
   static func record(configEntries: [ConfigEntry]) {
     log.withLock { $0.configEntries += configEntries }
+  }
+
+  static func record(notification: String) {
+    log.withLock { $0.notifications.append(notification) }
   }
 
   /// Applies placements as the window server would at once: the frames that differ from the last request are

@@ -12,20 +12,48 @@ import YabaiCore
 //
 // `config --overrides` lists what differs from the last applied document (configOverrideLines).
 //
+// The reload core is reloadConfig, which the watch of the daemon's file (ConfigWatcher, `.configFileChanged`) calls too:
+// there is one reload path, and the watch only adds the decision whether the file changed.
+//
 
-/// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, or the failures of the check, which change nothing.
-@WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
-  let (path, check) = try checkConfigFile("--reload", &message)
+/// The outcome of a reload (reloadConfig).
+enum ConfigReloadOutcome {
+  /// The check failed: nothing changed, and the report lists the failures.
+  case failed(ConfigCheckReport)
+  /// The file was applied: `result` counts the changes of the reconcile.
+  case reloaded(path: String, result: ConfigReconcileResult)
+}
+
+/// The one reload path, of `config --reload` and of the watch. It records `check.source` as the last loaded contents when
+/// `path` is the daemon's file (ConfigLoader.filePath), whatever the outcome. A failed check changes nothing. Otherwise it
+/// reconciles each ConfigStep in order, with nothing between the steps, and then syncs the watch with the applied
+/// `auto_reload` (ConfigWatcher.sync).
+@WM func reloadConfig(path: String, check: ConfigFileCheck) -> ConfigReloadOutcome {
+  if path == ConfigLoader.shared.filePath {
+    ConfigLoader.shared.lastContents = Array(check.source.utf8)
+  }
+
   guard let document = check.document, check.report.failures == 0 else {
-    rsp.fail(CommandError(ResponseText(stringLiteral: check.report.text)))
-    return
+    return .failed(check.report)
   }
 
   var result = ConfigReconcileResult()
   for step in ConfigStep.allCases {
     result += ConfigLoader.shared.reconcile(to: document, step: step)
   }
-  rsp.write("reloaded \(path): \(result.changes) changes\n")
+  ConfigWatcher.shared.sync()
+  return .reloaded(path: path, result: result)
+}
+
+/// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, or the failures of the check, which change nothing.
+@WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
+  let (path, check) = try checkConfigFile("--reload", &message)
+  switch reloadConfig(path: path, check: check) {
+  case .failed(let report):
+    rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
+  case .reloaded(let path, let result):
+    rsp.write("reloaded \(path): \(result.changes) changes\n")
+  }
 }
 
 /// Writes `config --overrides`: the lines of configOverrideLines, or nothing when no value is overridden.

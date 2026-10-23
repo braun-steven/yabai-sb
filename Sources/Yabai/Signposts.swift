@@ -65,6 +65,7 @@ extension Event {
     case .dockDidChangePref: "dockDidChangePref"
     case .systemWoke: "systemWoke"
     case .configChanged: "configChanged"
+    case .configFileChanged: "configFileChanged"
     case .spaceLayoutReconcile: "spaceLayoutReconcile"
     case .spacePinReconcile: "spacePinReconcile"
     case .daemonMessage: "daemonMessage"

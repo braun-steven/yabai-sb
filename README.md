@@ -394,7 +394,7 @@ event = "window_focused"
 action = "sketchybar --trigger window_focus"
 ```
 
-An error in the file is reported with its line, and the file is not applied: the daemon starts with the defaults and sends a notification. `yabai --check-config [<file>]` checks a file without a daemon. `load_scripting_addition` takes effect in a later version, and so does `auto_reload`; the startup no longer runs the yabairc.
+An error in the file is reported with its line, and the file is not applied: the daemon starts with the defaults and sends a notification. `yabai --check-config [<file>]` checks a file without a daemon. `load_scripting_addition` takes effect in a later version; the startup no longer runs the yabairc. With `[daemon] auto_reload = true` (the default) the daemon reloads the file when you save it, so a change applies without `config --reload`; `auto_reload = false` turns that off.
 
 ### Config check and reload
 
@@ -412,6 +412,8 @@ checked 14 settings, 1 failures
 Without a file, the check reads the file the daemon loads. The `[[space]]` labels and pins are not checked, since they act on the session. Nothing is applied, and the exit status is 1 when there is a failure. `yabai --check-config [<file>]` makes the same check without a running daemon.
 
 `yabai -m config --reload [<file>]` reloads the `yabai.toml` without restarting the daemon. It checks the file as `--check` does, and changes nothing when the check fails. Otherwise it compares each setting with the running value and runs only the settings that differ, in the startup order, so a reload of an unchanged file changes nothing and the layouts, windows and spaces stay as they are. A setting that the file no longer sets goes back to its default. The reply is `reloaded <file>: <n> changes`.
+
+With `auto_reload` on, the daemon does the same reload when the file is saved, and it watches the file's directory so an editor that saves by renaming a new file is seen too. A save that changes the file and has an error keeps the running config: the errors go to the log and a notification names the file. Changing `auto_reload` in the file starts or stops the watch when the file is reloaded.
 
 A value set with `yabai -m config` at runtime is an override: it lasts until the next reload or restart, which puts the file's value back. `yabai -m config --overrides` lists them, one per line as `<option> <running value> (file: <value>)`, with `rules: overridden` and `signals: overridden` when those lists differ from the file. Keep a value you want to keep in the file.
 

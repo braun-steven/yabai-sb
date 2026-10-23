@@ -22,6 +22,8 @@ struct ConfigCheckReport: Equatable {
 struct ConfigFileCheck {
   let report: ConfigCheckReport
   let document: ConfigDocument?
+  /// The text that was checked (the reload keeps it as the last loaded contents).
+  let source: String
 }
 
 /// The report of a yabai.toml read from `path`; `source` is its text. The first lines are the problems of the file, if
@@ -51,7 +53,7 @@ struct ConfigFileCheck {
       for line in failureLines(problem.message) { lines.append(prefix + line) }
     }
     let report = withSummary(lines, checked: 0, notChecked: 0, failures: failures)
-    return ConfigFileCheck(report: report, document: nil)
+    return ConfigFileCheck(report: report, document: nil, source: source)
   }
 
   let entries = document.lowered(locator: TOMLKeyLocator(source: source))
@@ -73,7 +75,7 @@ struct ConfigFileCheck {
   }
 
   let report = withSummary(lines, checked: checked, notChecked: notChecked, failures: failures)
-  return ConfigFileCheck(report: report, document: document)
+  return ConfigFileCheck(report: report, document: document, source: source)
 }
 
 /// The report with its summary line appended.

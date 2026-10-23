@@ -93,6 +93,13 @@ enum Daemon {
       explicit: explicit, candidates: candidates, exists: fileExists, resolve: resolvedPath)
   }
 
+  /// The path the daemon watches and reloads: the yabai.toml it loads (configFile), else the first candidate of the search,
+  /// where a file is created. Nil only when the search has no candidate (no $HOME).
+  static func configFileWatchPath(explicit: String?) -> String? {
+    configFile(explicit: explicit)?.chosen
+      ?? configCandidates("yabai.toml", homeDotfile: false).first
+  }
+
   /// Warns, and notifies, at startup when a yabairc exists and no yabai.toml does. See
   /// ConfigFileSearch.leftoverYabaircNotice for the decision.
   static func warnLeftoverYabairc(explicit: String?) {
@@ -383,6 +390,12 @@ enum Daemon {
         let isFullscreen = SpaceManager.shared.currentSpaceID.map { $0.isFullscreen } ?? false
         SLS.setMenuBarAlpha(SLS.connection, isFullscreen ? 1.0 : Config.current.menuBar.opacity)
       }
+      //
+      // NOTE: The watch starts last, after the file is applied, so the first change it sees is compared with the text that
+      // was loaded (ConfigLoader.lastContents). It is on unless the applied file sets `[daemon] auto_reload = false`.
+      //
+      Logger.daemon.debug("startup: watching the config file")
+      ConfigWatcher.shared.sync()
       return failures
     }
     if applyFailures > 0, let path = config.path {

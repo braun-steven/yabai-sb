@@ -22,11 +22,24 @@ import YabaiCore
   /// The printed value of each option of a new daemon, captured at the settings step of the startup (`apply`), or by the
   /// first reconcile when the startup did not run it (`defaultWords`).
   var defaults: [ConfigName: String]?
+  /// The daemon's yabai.toml: the file the startup read, or the first candidate of the search when there is none (the
+  /// place a file is created). The watch (ConfigWatcher) and the reloads of this path use it; a reload of another file
+  /// leaves `lastContents` alone.
+  var filePath: String?
+  /// The text of the daemon's file at its last load or attempted load (startup, `config --reload` or the watch), as UTF-8.
+  /// Nil when the file was missing or has not been read. The watch applies a change only when the text differs from it.
+  var lastContents: [UInt8]?
 
-  /// Forgets the applied document and the defaults, as a new daemon has them (the test fixture).
+  /// `[daemon] auto_reload` of the applied document. On when no document is applied: the startup file was invalid or
+  /// missing, so fixing it applies it.
+  var autoReload: Bool { applied?.daemon.autoReload ?? true }
+
+  /// Forgets the applied document, the defaults and the file state, as a new daemon has them (the test fixture).
   func reset() {
     applied = nil
     defaults = nil
+    filePath = nil
+    lastContents = nil
   }
 }
 
@@ -78,6 +91,9 @@ struct LoadedConfig: Sendable {
 /// Finds and checks the startup file: `explicit` (from -c) when given, else the first yabai.toml of the search
 /// (Daemon.configFile). The check is the one of `config --check` (configFileCheck). Nothing is applied here.
 @WM func loadStartupConfig(explicit: String?) -> LoadedConfig {
+  ConfigLoader.shared.filePath = Daemon.configFileWatchPath(explicit: explicit)
+  ConfigLoader.shared.lastContents = nil
+
   guard let choice = Daemon.configFile(explicit: explicit) else {
     return LoadedConfig(
       path: nil, document: nil, log: ["could not locate config file"],
@@ -106,7 +122,9 @@ struct LoadedConfig: Sendable {
       notices: notices + ["cannot read file '\(path)'.."])
   }
 
-  let check = configFileCheck(path: path, source: String(decoding: data, as: UTF8.self))
+  let source = String(decoding: data, as: UTF8.self)
+  ConfigLoader.shared.lastContents = Array(source.utf8)
+  let check = configFileCheck(path: path, source: source)
   let failures = check.report.failures
   guard failures == 0 else {
     let report = check.report.text.split(separator: "\n").map(String.init)

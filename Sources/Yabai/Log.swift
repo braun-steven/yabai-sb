@@ -103,7 +103,12 @@ struct StandardLogHandler: LogHandler {
   }
 }
 
-/// A user notification titled yabai (NotifyC in Sources/CPrivate/Notify.m).
+/// A user notification titled yabai (NotifyC in Sources/CPrivate/Notify.m). In headless mode it is recorded instead
+/// (Headless.notifications), so a test never shows one.
 func notify(_ subtitle: String, _ text: String) {
+  if Headless.isEnabled {
+    Headless.record(notification: "\(subtitle): \(text)")
+    return
+  }
   NotifyC(subtitle, text)
 }

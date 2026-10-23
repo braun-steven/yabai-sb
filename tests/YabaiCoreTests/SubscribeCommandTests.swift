@@ -53,7 +53,7 @@ private func parsed(_ eventNames: [String]) throws(CommandError) -> [SignalType]
     } catch {
       let text = error.description
       #expect(text.hasPrefix(prefix))
-      #expect(text.hasSuffix("system_woke\n"))
+      #expect(text.hasSuffix("system_woke, config_loaded\n"))
     }
   }
 }

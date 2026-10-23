@@ -58,7 +58,7 @@ failure, as before).
     are compared through their own print (`config <name>`), rules and signals as the lists `rule --add` and `signal --add`
     would store them, and spaces by their index. At startup the running state is the defaults, so the steps apply the file
     as before. The last step records the document as applied, and a reload compares with it.
-11. Schedule the space pin pass (one second later), then start the message loop on the user's socket. No client message
+11. Schedule the space pin pass (one second later), then the `config_loaded` event with the same delay and no key (only when a file passed the check, `LoadedConfig.loadedEvent`), so the delayed queue delivers it after the pass; then start the message loop on the user's socket. No client message
     runs before the file is applied.
 12. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), then `NSApp.run()`. The yabairc is
     not run at startup.

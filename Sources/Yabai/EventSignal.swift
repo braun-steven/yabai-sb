@@ -19,6 +19,8 @@ enum SignalSubject {
   case space(SpaceID)
   case display(DisplayID)
   case missionControl(MissionControlMode)
+  /// A config file was applied: its path, and the number of settings that the apply changed.
+  case config(file: String, changes: Int)
 
   var application: Application? {
     guard case .application(let value) = self else { return nil }
@@ -43,6 +45,11 @@ enum SignalSubject {
   var missionControlMode: MissionControlMode? {
     guard case .missionControl(let value) = self else { return nil }
     return value
+  }
+
+  var config: (file: String, changes: Int)? {
+    guard case .config(let file, let changes) = self else { return nil }
+    return (file, changes)
   }
 }
 
@@ -80,6 +87,8 @@ enum SignalSubject {
       es.describeDisplay(subject)
     case .missionControlEnter, .missionControlExit:
       es.describeMissionControl(subject)
+    case .configLoaded:
+      es.describeConfig(subject)
     default:
       break
     }
@@ -264,5 +273,12 @@ extension PendingSignal {
   fileprivate mutating func describeMissionControl(_ subject: SignalSubject) {
     let mode = subject.missionControlMode!
     addArgument("YABAI_MISSION_CONTROL_MODE", mode.name)
+  }
+
+  /// Describes a config_loaded signal: the path of the file that was applied, and the number of changed settings.
+  fileprivate mutating func describeConfig(_ subject: SignalSubject) {
+    let config = subject.config!
+    addArgument("YABAI_CONFIG_FILE", config.file)
+    addArgument("YABAI_CONFIG_CHANGES", "\(config.changes)")
   }
 }

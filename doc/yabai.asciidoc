@@ -1117,6 +1117,11 @@ EVENT
 *system_woke*::
     Triggered when macOS wakes from sleep.
 
+*config_loaded*::
+    Triggered when the config file (*yabai.toml*) has been applied: at startup, after the space pins are set, and after each
+    reload, manual (*config --reload*) or automatic (*auto_reload*). A file with an error is not applied, so no event fires for it. +
+    Passes two arguments: $YABAI_CONFIG_FILE, $YABAI_CONFIG_CHANGES (the number of settings that the apply changed)
+
 ACTION
 ^^^^^^
 

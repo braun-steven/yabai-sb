@@ -155,6 +155,11 @@ extension EventHandler {
     ConfigWatcher.shared.fileChanged()
   }
 
+  func configLoaded(file: String, changes: Int) {
+    Logger.events.debug("config loaded: \(file), \(changes) changes")
+    EventSignals.shared.push(.configLoaded, .config(file: file, changes: changes))
+  }
+
   func spaceLayoutReconcile() {
     let sm = SpaceManager.shared
 

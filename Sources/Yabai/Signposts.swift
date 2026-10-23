@@ -66,6 +66,7 @@ extension Event {
     case .systemWoke: "systemWoke"
     case .configChanged: "configChanged"
     case .configFileChanged: "configFileChanged"
+    case .configLoaded: "configLoaded"
     case .spaceLayoutReconcile: "spaceLayoutReconcile"
     case .spacePinReconcile: "spacePinReconcile"
     case .daemonMessage: "daemonMessage"

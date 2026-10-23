@@ -516,6 +516,8 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 
 ### 0 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
 
+### 0 signal --add event=config_loaded action='echo $YABAI_CONFIG_FILE' label=cl
+
 ### 0 signal --add event=space_changed action='echo hi' app=^Finder$
 
 ### 39 signal --add event=bogus action=x
@@ -527,8 +529,8 @@ missing required key-value pair 'action=..'
 
 ### 0 signal --add event=window_created action=true title!=^Untitled$ active=no
 
-### 336 signal --list
-[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":2,"label":"","title":""}]
+### 454 signal --list
+[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":2,"label":"","title":""},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":3,"label":"cl","title":""}]
 
 ### 0 signal --remove wf
 
@@ -538,14 +540,14 @@ missing required key-value pair 'action=..'
 ### 40 signal --remove nolabel
 signal with label 'nolabel' not found.
 
-### 219 signal --list
-[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":1,"label":"","title":""}]
+### 337 signal --list
+[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":1,"label":"","title":""},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":2,"label":"cl","title":""}]
 
 ### 45 signal --foo
 unknown command '--foo' for domain 'signal'
 
-### 624 subscribe not_an_event
-unknown event 'not_an_event' for domain 'subscribe'; expected one of: application_launched, application_terminated, application_front_switched, application_activated, application_deactivated, application_visible, application_hidden, window_created, window_destroyed, window_focused, window_moved, window_resized, window_minimized, window_deminimized, window_title_changed, space_created, space_destroyed, space_changed, display_added, display_removed, display_moved, display_resized, display_changed, mission_control_enter, mission_control_exit, dock_did_change_pref, dock_did_restart, menu_bar_hidden_changed, system_woke
+### 639 subscribe not_an_event
+unknown event 'not_an_event' for domain 'subscribe'; expected one of: application_launched, application_terminated, application_front_switched, application_activated, application_deactivated, application_visible, application_hidden, window_created, window_destroyed, window_focused, window_moved, window_resized, window_minimized, window_deminimized, window_title_changed, space_created, space_destroyed, space_changed, display_added, display_removed, display_moved, display_resized, display_changed, mission_control_enter, mission_control_exit, dock_did_change_pref, dock_did_restart, menu_bar_hidden_changed, system_woke, config_loaded
 
 ### 39 query
 unknown command '' for domain 'query'

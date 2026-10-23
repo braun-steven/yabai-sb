@@ -132,6 +132,42 @@ extension DaemonState {
       #expect(Headless.drain().configEntries.isEmpty)
     }
 
+    @Test func startupConfigLoadedIsOnlyForAFileThatPassedTheCheck() throws {
+      DaemonFixture.reset()
+      let path = try writeStartupFile(startupText)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      let invalid = try writeStartupFile("[config]\nwindow_gap = \"x\"\n")
+      defer { try? FileManager.default.removeItem(atPath: invalid) }
+      _ = Headless.drain()
+
+      if case .configLoaded(let file, let changes)? = loadStartupConfig(explicit: path).loadedEvent(
+        changes: 5)
+      {
+        #expect(file == path)
+        #expect(changes == 5)
+      } else {
+        Issue.record("a file that passed the check announces no config_loaded")
+      }
+      #expect(loadStartupConfig(explicit: invalid).loadedEvent(changes: 5) == nil)
+      #expect(
+        loadStartupConfig(explicit: "/nonexistent/yabai-startup.toml").loadedEvent(changes: 5)
+          == nil)
+    }
+
+    @Test func configLoadedPushesItsEnvironment() {
+      DaemonFixture.reset()
+      #expect(Golden.run("signal --add event=config_loaded action=true") == [])
+
+      EventHandler.shared.configLoaded(file: "/example/yabai.toml", changes: 4)
+
+      let pushed = EventSignals.shared.pending
+      #expect(pushed.map(\.type) == [.configLoaded])
+      #expect(
+        pushed.first?.arguments.map { $0.name } == ["YABAI_CONFIG_FILE", "YABAI_CONFIG_CHANGES"])
+      #expect(pushed.first?.arguments.map { $0.value } == ["/example/yabai.toml", "4"])
+      EventSignals.shared.discardPending()
+    }
+
     @Test func missingFileUsesTheDefaults() {
       DaemonFixture.reset()
       let path = "/nonexistent/yabai-startup.toml"

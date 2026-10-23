@@ -359,21 +359,21 @@ enum Daemon {
     // starts after the block). The block returns the number of messages that failed, for one notification.
     //
     Logger.daemon.debug("startup: starting the managers on the event loop")
-    let applyFailures = WM.sync { () -> Int in
+    let applied = WM.sync { () -> ConfigReconcileResult in
       Logger.daemon.debug("startup: applying the space defaults")
       Config.current.applySpaceDefaults()
       Logger.daemon.debug("startup: applying the config file settings")
-      var failures = config.apply(.settings).failures
+      var total = config.apply(.settings)
       Logger.daemon.debug("startup: initializing the window manager")
       WindowManager.shared.initialize()
       Logger.daemon.debug("startup: beginning the space manager")
       SpaceManager.shared.begin()
       Logger.daemon.debug("startup: applying the config file manager settings")
-      failures += config.apply(.managerSettings).failures
+      total += config.apply(.managerSettings)
       Logger.daemon.debug("startup: applying the config file spaces")
-      failures += config.apply(.spaces).failures
+      total += config.apply(.spaces)
       Logger.daemon.debug("startup: applying the config file rules and signals")
-      failures += config.apply(.rulesAndSignals).failures
+      total += config.apply(.rulesAndSignals)
       Logger.daemon.debug("startup: beginning the window manager")
       WindowManager.shared.begin()
       Logger.daemon.debug("startup: requesting window notifications")
@@ -396,10 +396,10 @@ enum Daemon {
       //
       Logger.daemon.debug("startup: watching the config file")
       ConfigWatcher.shared.sync()
-      return failures
+      return total
     }
-    if applyFailures > 0, let path = config.path {
-      notify("configuration", "\(applyFailures) settings of \(path) did not apply..")
+    if applied.failures > 0, let path = config.path {
+      notify("configuration", "\(applied.failures) settings of \(path) did not apply..")
     }
 
     //
@@ -408,6 +408,15 @@ enum Daemon {
     //
     Logger.daemon.debug("startup: reconciling the space pins")
     EventLoop.post(.spacePinReconcile, after: .seconds(1), key: .spacePinReconcile)
+
+    //
+    // NOTE: The config_loaded signal comes after that pass: it is posted with the same delay and no key, so its deadline is
+    // later and the delayed queue delivers it after the pass. Only a file that passed the check is announced (a file with
+    // an error has no document). Failed settings do not suppress it, as a reload's do not.
+    //
+    if let event = config.loadedEvent(changes: applied.changes) {
+      EventLoop.post(event, after: .seconds(1))
+    }
 
     Logger.daemon.debug("startup: starting the message loop")
     let socketFile = "/tmp/yabai_\(user).socket"

@@ -1691,6 +1691,14 @@ Triggered when the macOS menubar \fIautohide\fP setting changes.
 .RS 4
 Triggered when macOS wakes from sleep.
 .RE
+.sp
+\fBconfig_loaded\fP
+.RS 4
+Triggered when the config file (\fByabai.toml\fP) has been applied: at startup, after the space pins are set, and after each
+reload, manual (\fBconfig \-\-reload\fP) or automatic (\fBauto_reload\fP). A file with an error is not applied, so no event fires for it.
+.br
+Passes two arguments: $YABAI_CONFIG_FILE, $YABAI_CONFIG_CHANGES (the number of settings that the apply changed)
+.RE
 .SS "ACTION"
 .sp
 Arbitrary command executed through \fB/usr/bin/env sh \-c\fP

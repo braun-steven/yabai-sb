@@ -186,6 +186,48 @@ extension DaemonState {
       #expect(Golden.run("config --overrides") == Array("window_gap 30 (file: 0)\n".utf8))
     }
 
+    @Test func reloadPushesConfigLoadedWithItsEnvironment() throws {
+      DaemonFixture.reset()
+      // NOTE: The signal is in the file: a reload replaces the signal list with the file's, so a runtime signal would go.
+      // A push needs a signal of the type (or a subscriber). The action is not run: the test never flushes.
+      let text = "[[signal]]\nevent = \"config_loaded\"\naction = \"true\"\n"
+      let path = try writeReloadFile(text)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      _ = Headless.drain()
+
+      let outcome = reloadConfig(path: path, check: configFileCheck(path: path, source: text))
+      guard case .reloaded(_, let result) = outcome else {
+        Issue.record("the reload of a valid file failed")
+        return
+      }
+      // The signal list is replaced (1) and its one signal runs as a message (1).
+      #expect(result.changes == 2)
+
+      let pushed = EventSignals.shared.pending
+      #expect(pushed.map(\.type) == [.configLoaded])
+      #expect(
+        pushed.first?.arguments.map { $0.name } == ["YABAI_CONFIG_FILE", "YABAI_CONFIG_CHANGES"])
+      #expect(pushed.first?.arguments.map { $0.value } == [path, "2"])
+      EventSignals.shared.discardPending()
+    }
+
+    @Test func failedCheckPushesNoConfigLoaded() throws {
+      DaemonFixture.reset()
+      #expect(Golden.run("signal --add event=config_loaded action=true") == [])
+      let text = "[config]\nwindow_gap = \"x\"\n"
+      let path = try writeReloadFile(text)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      _ = Headless.drain()
+
+      guard
+        case .failed = reloadConfig(path: path, check: configFileCheck(path: path, source: text))
+      else {
+        Issue.record("the check of an invalid file passed")
+        return
+      }
+      #expect(EventSignals.shared.pending.isEmpty)
+    }
+
     @Test func overridesTakeNoArgument() {
       DaemonFixture.reset()
       #expect(

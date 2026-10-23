@@ -45,6 +45,7 @@ public enum SignalType: Int, CaseIterable, Sendable {
 
   case menuBarHiddenChanged
   case systemWoke
+  case configLoaded
 
   public var name: String {
     switch self {
@@ -77,6 +78,7 @@ public enum SignalType: Int, CaseIterable, Sendable {
     case .dockDidRestart: "dock_did_restart"
     case .menuBarHiddenChanged: "menu_bar_hidden_changed"
     case .systemWoke: "system_woke"
+    case .configLoaded: "config_loaded"
     }
   }
 

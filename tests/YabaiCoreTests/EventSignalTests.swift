@@ -55,9 +55,11 @@ private func filters(
 }
 
 @Test func signalTypeNames() {
-  #expect(SignalType.allCases.count == 29)
+  #expect(SignalType.allCases.count == 30)
   #expect(SignalType.applicationLaunched.rawValue == 1)
   #expect(SignalType.systemWoke.rawValue == 29)
+  #expect(SignalType.configLoaded.rawValue == 30)
+  #expect(SignalType.configLoaded.name == "config_loaded")
 
   for type in SignalType.allCases {
     #expect(SignalType(name: Token(type.name)) == type)

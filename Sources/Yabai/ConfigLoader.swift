@@ -139,6 +139,13 @@ extension LoadedConfig {
   /// The messages of the file in apply order, for the log and the tests. Nil when the file is not applied.
   var entries: [ConfigEntry]? { document?.lowered() }
 
+  /// The config_loaded event of the startup, posted after the space pin pass (Daemon.run). Nil unless a file passed the
+  /// check: a file with an error, and no file, announce nothing. `changes` counts the settings the startup applied.
+  func loadedEvent(changes: Int) -> Event? {
+    guard let path, document != nil else { return nil }
+    return .configLoaded(file: path, changes: changes)
+  }
+
   /// Reconciles the file with the running state for `step` (ConfigLoader.reconcile), and returns what it did. Without a
   /// file nothing is applied, but the settings step captures the defaults of the options first: a later reload and
   /// `config --overrides` compare with them, and a runtime message must not have changed them by then.

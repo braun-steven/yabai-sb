@@ -48,9 +48,21 @@ enum SplitDragCache {
       (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: current, order: -1)
     }
 
-    guard let wid = found else { return true }
+    return startsDrag(windowUnderPoint: found, level: found?.level, tiledWindowIDs: tiledWindowIDs)
+  }
+
+  //
+  // NOTE: The decision after the window server lookup, without window server access. The level is an autoclosure, so it is
+  // only queried for a window that is neither nil nor tiled. A level that could not be read (nil) passes the click through.
+  //
+
+  nonisolated static func startsDrag(
+    windowUnderPoint wid: WindowID?, level: @autoclosure () -> Int32?, tiledWindowIDs: Set<WindowID>
+  ) -> Bool {
+    guard let wid else { return true }
     if tiledWindowIDs.contains(wid) { return true }
-    return wid.level < CGWindowLevelKey.normalWindow.rawValue
+    guard let level = level() else { return false }
+    return level < CGWindowLevelForKey(.normalWindow)
   }
 
   /// The tiled windows of the first visible space whose split has a gap at point, or nil when no visible space has one.

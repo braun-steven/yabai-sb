@@ -415,6 +415,23 @@ extension DaemonState {
       #expect(WindowManager.shared.tabBarFont != nil)
     }
 
+    // NOTE: A loaded font with its current name is skipped, so the same font object stays and no group is notified.
+    @Test func settingTheCurrentTabBarFontNotifiesNothingAndKeepsTheFont() {
+      #expect(runConfigLine("tab_bar_font system:12") == "")
+      let font = WindowManager.shared.tabBarFont
+      #expect(font != nil)
+      let flag = ChangeFlag()
+      withObservationTracking {
+        ConfigObserver.read(.tabBar)
+      } onChange: {
+        flag.isSet.store(true, ordering: .relaxed)
+      }
+      #expect(runConfigLine("tab_bar_font system:12") == "")
+      let isSet = flag.isSet.load(ordering: .relaxed)
+      #expect(!isSet)
+      #expect(WindowManager.shared.tabBarFont === font)
+    }
+
     @Test(arguments: [
       ("menubar_opacity 1", ConfigGroup.menuBar),
       ("window_border off", .border),

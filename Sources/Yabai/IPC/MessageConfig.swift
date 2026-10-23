@@ -34,7 +34,8 @@ private enum WorkspaceLayout: String, CaseIterable {
 // NOTE: An option writes its value and runs its effects only when the value differs from the current one. A field write
 // of Config notifies ConfigObserver even for an equal value, and the setters have effects of their own (the event tap,
 // the space caches, the layouts), so setting an option to its current value changes nothing. A tab bar color also sets
-// its custom flag, so it is written when the flag is not set yet (`isCustom`).
+// its custom flag, so it is written when the flag is not set yet (`isCustom`). A tab bar font is skipped when it equals
+// the current name and is already loaded; a nil font (startup) is always set.
 //
 
 @WM private func boolOption(
@@ -281,6 +282,9 @@ private enum WorkspaceLayout: String, CaseIterable {
       let token = message.next()
       guard token.isValid else { return nil }
       return { () throws(CommandError) in
+        if Config.current.tabBar.fontName == token.string, WindowManager.shared.tabBarFont != nil {
+          return
+        }
         guard TabBar.setFont(token.string) else {
           throw CommandError.unknownValue(
             domain, command, token, expected: "a font as family:size, e.g. system:12")

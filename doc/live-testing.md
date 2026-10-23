@@ -31,7 +31,9 @@ point below was learned the hard way; read it before running anything live.
   `Headless.displayFrame` (1440×900 at the origin, reset per test) instead of asking SkyLight for the display; or
   lay out a seeded view with `view.area = …` and `updateTree()`. The window selectors that look in the active space's tree
   (`first`, `last`, `prev`, `next`, `largest`, `smallest`, `stack.*`) use `Headless.activeSpace` (nil unless a test
-  sets it) instead of `SpaceID.active`, so they find a seeded view instead of the user's space. `SpaceID.active`
+  sets it) instead of `SpaceID.active`, so they find a seeded view instead of the user's space; so does the tile
+  branch of `makeWindowFloating`, and the floating-frame restore (P12.3, `visibleDisplayFrames`) sees only
+  `Headless.displayFrame`. `SpaceID.active`
   itself still asks SkyLight: the golden replay's `space` failures depend on the user's session having an active space.
   `config focus_follows_mouse` only stores the mode (no event tap on the user's mouse), and `config external_bar`
   (`SpaceManager.markSpacesInvalid`) only marks the seeded views, refreshing the view of `Headless.activeSpace`. Gaps: `ScriptingAddition.orderIn` still queries

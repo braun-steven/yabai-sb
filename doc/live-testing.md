@@ -280,6 +280,11 @@ Rules for the user's machine:
   So it is Dock state that a Dock restart clears, not yabai's enter/exit handling. Not yet tested: the removal of
   display 2 earlier that day (its spaces 11–15 had moved to display 1). If it comes back, run the logger before
   restarting Dock and note what happened since the last Dock start.
+- Which helper windows Mission Control shows (2026-10-23, NSPanel probe at the normal level, macOS 27): a panel with
+  `.managed` or `.auxiliary` collection behavior gets a thumbnail of its own (labelled with the app), `.transient`
+  is hidden, and `.stationary` or tag bit 7 (`SLSSetWindowTags`) stays on screen unscaled over the overview. A
+  transient panel stays on its space across space switches, but ordering it out and in again moves it to the active
+  space, so it must be moved back after each order.
 - Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
   since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows
   (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.

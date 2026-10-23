@@ -42,6 +42,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 - Window borders are hidden while Mission Control is open and come back when it closes. On macOS 27 Mission Control is detected by the Dock's full-screen overlay window, since the Dock no longer posts its AXExpose notifications; the *mission_control_enter* and *mission_control_exit* signals fire again
+- Glass tab bars no longer show up as windows of their own in Mission Control
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value
 - Build commands now use `just`; the makefile has been removed (`brew install just`)
 - Command *window --toggle float* returns a window to the frame it had while it last floated: that frame is kept when at least half of it is on a display, and otherwise the window is centered at its current size on its display. A window that has never floated keeps its tiled frame, as before

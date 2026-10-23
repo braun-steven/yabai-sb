@@ -234,7 +234,12 @@ private final class Panel {
     panel.animationBehavior = .none
 
     panel.appearance = NSAppearance(named: .darkAqua)
-    panel.collectionBehavior = [.managed, .ignoresCycle, .fullScreenAuxiliary]
+    //
+    // NOTE: Transient, not managed: Mission Control shows a managed panel as a window of its own, and hides a
+    // transient one. Ordering a transient panel in again moves it to the active space; render and order move it back
+    // to the space of its window right after.
+    //
+    panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
 
     trackTint.autoresizingMask = [.width, .height]
     track.contentView = trackTint

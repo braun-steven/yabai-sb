@@ -50,7 +50,7 @@ mode: nested
 
 ## Phase 4: Built-in scripting addition loading
 
-phase: in-progress
+phase: done
 mode: nested
 
 | ID | Title | Status | Notes |
@@ -119,8 +119,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 22:30 · phase agent · C4 · started (nested) · C4.1
 - 2026-10-23 22:12 · subphase agent · C4.1 · started · C4.1 (ScriptingAdditionLoadQueue and argv in YabaiCore, ScriptingAdditionLoader, Event case, headless record, tests, architecture note)
 - 2026-10-23 22:20 · subphase agent · C4.1 · done (commit pending) · C4.2 (call `ScriptingAdditionLoader.shared.load(reason:)` at startup and on `dock_did_restart`; the loader's path is read when `shared` is first used, so the startup must touch it). Open: the failure notice points to a sudoers section the man page does not have (Discovered)
-2026-10-23 22:17 · subphase agent · C4.2 · started · C4.2 (ConfigLoader flag and request helper, startup/dock/reload calls, headless guard in MissionControl.observe for tests, payload cache reset on a load, example toml, docs, tests)
-2026-10-23 22:20 · subphase agent · C4.2 · done (commit pending) · C4 close (`just ci`, then phase 4 is complete; the live check is for the user). Deviation to review: `MissionControl.observe` is off in headless mode.
+- 2026-10-23 22:17 · subphase agent · C4.2 · started · C4.2 (ConfigLoader flag and request helper, startup/dock/reload calls, headless guard in MissionControl.observe for tests, payload cache reset on a load, example toml, docs, tests)
+- 2026-10-23 22:20 · subphase agent · C4.2 · done (commit pending) · C4 close (`just ci`, then phase 4 is complete; the live check is for the user). Deviation to review: `MissionControl.observe` is off in headless mode.
+- 2026-10-23 22:40 · phase agent · C4 · closed, just ci passed · phase 5. Summary: `ScriptingAdditionLoader` (C4.1) runs `/usr/bin/sudo -n <realpath of the daemon binary> --load-sa` in a detached task with a 30 s timeout and posts `.scriptingAdditionLoaded`; one run at a time, requests during a run coalesce into one more (`ScriptingAdditionLoadQueue`, YabaiCore); a failure is logged and notified; headless records `Headless.scriptingAdditionLoads`. C4.2 requests a load after the startup apply (before config_loaded), on every `dock_did_restart`, and on a reload that turns `[daemon] load_scripting_addition` on (`requestScriptingAdditionLoad`, `ConfigLoader.loadScriptingAddition`); a successful load resets the payload handshake cache (`payloadChanged`). `examples/yabai.toml` sets the option instead of the dock_did_restart signal; the man page `[daemon]` has the sudoers setup. Deviation: `MissionControl.observe` returns in headless mode (tests must not observe the real Dock). Live check C4.2 (the user removes the dock_did_restart load signal from ~/.config/yabai/yabai.toml). For phase 5: no yabairc path is touched by phase 4; the Discovered C4.1 lines (timeout kills only sudo, 4096-byte stderr limit) are open.
 
 ## Discovered
 

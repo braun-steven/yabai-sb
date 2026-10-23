@@ -195,5 +195,16 @@ extension DaemonState {
       let report = configCheckReport(path: "/fixture/yabairc", script: row.script)
       #expect(report == ConfigCheckReport(text: row.text, failures: 0))
     }
+
+    @Test func exampleFileChecksClean() throws {
+      let url = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appending(path: "examples/yabai.toml")
+      let source = try String(contentsOf: url, encoding: .utf8)
+      let report = configFileReport(path: "examples/yabai.toml", source: source)
+      #expect(report == ConfigCheckReport(text: "checked 30 settings, 0 failures\n", failures: 0))
+    }
   }
 }

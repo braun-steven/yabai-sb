@@ -257,19 +257,19 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
 }
 
 @Suite struct BatchExampleTests {
-  /// The heredoc of examples/yabairc, which is commented out there, is a batch: its lines parse as commands.
+  /// The heredoc of examples/batch.sh is a batch: its lines parse as commands.
   @Test func exampleHeredocParsesAsBatchInput() throws {
     let url = URL(filePath: #filePath)
       .deletingLastPathComponent()
       .deletingLastPathComponent()
       .deletingLastPathComponent()
-      .appending(path: "examples/yabairc")
+      .appending(path: "examples/batch.sh")
     let lines = try String(contentsOf: url, encoding: .utf8).split(
       separator: "\n", omittingEmptySubsequences: false)
 
-    let start = try #require(lines.firstIndex(of: "# yabai -m batch <<'EOF'"))
-    let end = try #require(lines[start...].firstIndex(of: "# EOF"))
-    let body = lines[(start + 1)..<end].map { String($0.dropFirst(2)) }.joined(separator: "\n")
+    let start = try #require(lines.firstIndex(of: "yabai -m batch <<'EOF'"))
+    let end = try #require(lines[start...].firstIndex(of: "EOF"))
+    let body = lines[(start + 1)..<end].joined(separator: "\n")
     #expect(
       try parseBatchInput(body) == [
         ["config", "window_gap", "6"],

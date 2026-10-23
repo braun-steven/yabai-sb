@@ -1,3 +1,4 @@
+import Foundation
 import PropertyBased
 import Testing
 
@@ -406,4 +407,45 @@ private func randomDocument(_ picks: inout Picks) -> ConfigDocument {
       }
     }
   }
+}
+
+// NOTE: The equivalence of examples/yabairc and examples/yabai.toml. The yabairc's messages are compared with the lowered
+// lines of the TOML as sets. A `config` message with several name-value pairs is one line per pair. Numbers are compared
+// by value, since TOML has no leading zeros (`06` is `6`) and writes a float in its shortest form (`0.90` is `0.9`). The
+// yabairc's `echo` line runs no yabai message, and its other shell lines are comments, so only the `config` message is
+// extracted.
+@Test func exampleTomlHasTheSettingsOfTheExampleYabairc() throws {
+  let directory = URL(filePath: #filePath)
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    .appending(path: "examples")
+  let script = try String(contentsOf: directory.appending(path: "yabairc"), encoding: .utf8)
+  let toml = try String(contentsOf: directory.appending(path: "yabai.toml"), encoding: .utf8)
+
+  let commands = extractYabaiCommands(script)
+  #expect(commands.allSatisfy { $0.skipped == nil })
+  let yabairc = commands.compactMap { $0.arguments }.flatMap { yabaircLines($0) }
+  let lowered = try ConfigDocument.decode(toml).lowered().map { $0.arguments }
+  #expect(lowered.count == 30)
+  #expect(Set(yabairc.map(normalizedLine)) == Set(lowered.map(normalizedLine)))
+}
+
+/// The lines of a message as the yabairc writes them: a `config` message with name-value pairs is one line per pair.
+private func yabaircLines(_ words: [String]) -> [[String]] {
+  guard words.first == "config" else { return [words] }
+  return stride(from: 1, to: words.count - 1, by: 2).map { ["config", words[$0], words[$0 + 1]] }
+}
+
+/// The words of a line joined by spaces, with each number written as `lowered()` writes it.
+private func normalizedLine(_ words: [String]) -> String {
+  words.map { word -> String in
+    if let integer = Int(word) { return String(integer) }
+    if word.contains("."), word.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
+      let number = Double(word)
+    {
+      return String(number)
+    }
+    return word
+  }.joined(separator: " ")
 }

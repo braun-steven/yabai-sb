@@ -285,6 +285,8 @@ Rules for the user's machine:
   is hidden, and `.stationary` or tag bit 7 (`SLSSetWindowTags`) stays on screen unscaled over the overview. A
   transient panel stays on its space across space switches, but ordering it out and in again moves it to the active
   space, so it must be moved back after each order.
+  A raw `SLSNewWindow` window at layer 0 (the i3 tab bar, borders) is not shown at all, so it needs nothing. The
+  collection behavior does not show in the window tags (`SLSGetWindowTags` reads the same for all of them).
 - Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
   since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows
   (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.

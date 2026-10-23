@@ -203,13 +203,36 @@ private final class WindowAnimationDisplayLink: NSObject {
   }
 
   func start() {
-    guard let screen = NSScreen.main ?? NSScreen.screens.first else {
+    //
+    // NOTE: The link runs on the screen that holds the target frames (the frames and the display bounds are in the window
+    // server's global space), else on the main screen. The screen is found from CGDisplayBounds of its display number.
+    //
+    let screens = NSScreen.screens
+    let frames = animations.map {
+      CGRect(x: CGFloat($0.x), y: CGFloat($0.y), width: CGFloat($0.w), height: CGFloat($0.h))
+    }
+    let index = AnimationScreen.index(of: frames, in: screens.map(Self.globalBounds(of:)))
+    guard let screen = index.map({ screens[$0] }) ?? NSScreen.main ?? screens.first else {
       finish()
       return
     }
     // NOTE: The link retains its target until invalidation.
     let link = screen.displayLink(target: self, selector: #selector(tick(_:)))
+    //
+    // NOTE: The minimum is capped at the maximum, so a 30 or 50 Hz display gets a valid range (preferred = maximum).
+    //
+    let maxFPS = Float(screen.maximumFramesPerSecond)
+    link.preferredFrameRateRange = CAFrameRateRange(
+      minimum: min(60, maxFPS), maximum: maxFPS, preferred: maxFPS)
     link.add(to: .main, forMode: .common)
+  }
+
+  /// The bounds of a screen in the window server's global space; zero for a screen without a display number.
+  private static func globalBounds(of screen: NSScreen) -> CGRect {
+    guard
+      let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+    else { return .zero }
+    return CGDisplayBounds(number.uint32Value)
   }
 
   @objc private func tick(_ link: CADisplayLink) {
@@ -238,6 +261,11 @@ private final class WindowAnimationDisplayLink: NSObject {
           )
           transaction.setTransform(
             WindowID(animation.proxy.id), WindowAnimation.proxyTransform(of: frame, at: area))
+          //
+          // NOTE: The alpha is read every frame, not stored at proxy creation. The payload steps the alpha of the real
+          // window during a window opacity fade that yabai runs over the animation, and the proxy mirrors each step.
+          // A stored creation alpha would freeze the proxy until the swap.
+          //
           let alpha = SLS.windowAlpha(connection, animation.wid) ?? 0
           if alpha != 0 { transaction.setAlpha(WindowID(animation.proxy.id), alpha) }
         }

@@ -550,6 +550,8 @@ private let spaceCommandRows: [(String, SpaceCommand)] = [
   ("--pin\02\0", .pin(.arrangement(2))),
   ("--pin\0next\0", .pin(.next)),
   ("--undo\0", .undo),
+  ("--save-layout\0work\0", .saveLayout("work")),
+  ("--save-layout\0a.b-c_1\0", .saveLayout("a.b-c_1")),
 ]
 
 @Test(arguments: spaceCommandRows)
@@ -573,6 +575,21 @@ private let spaceCommandFailureRows: [(String, String, Bool)] = [
     false
   ),
   ("--destroy\01.2\0", "value '1.2' is not a valid option for SPACE_SEL\n", true),
+  (
+    "--save-layout\0",
+    "missing value for '--save-layout'; expected a layout name of the characters A-Z, a-z, 0-9, '.', '_' and '-'\n",
+    false
+  ),
+  (
+    "--save-layout\0a/b\0",
+    "unknown value 'a/b' given to command '--save-layout' for domain 'space'; expected a layout name of the characters A-Z, a-z, 0-9, '.', '_' and '-'\n",
+    false
+  ),
+  (
+    "--save-layout\0..\0",
+    "unknown value '..' given to command '--save-layout' for domain 'space'; expected a layout name of the characters A-Z, a-z, 0-9, '.', '_' and '-'\n",
+    false
+  ),
 ]
 
 @Test(arguments: spaceCommandFailureRows)

@@ -16,6 +16,23 @@ import YabaiCore
   var psn = ProcessSerialNumber()
   var pid: pid_t = 0
   var name = ""
+  /// The bundle identifier of the process, nil for a process without one. It is read from AppKit on first use and kept
+  /// (`space --save-layout` is the reader); tests set it.
+  var bundleID: String? {
+    get {
+      if !bundleIDIsRead {
+        bundleIDValue = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier
+        bundleIDIsRead = true
+      }
+      return bundleIDValue
+    }
+    set {
+      bundleIDValue = newValue
+      bundleIDIsRead = true
+    }
+  }
+  private var bundleIDIsRead = false
+  private var bundleIDValue: String?
   var icon: CGImage?
   /// The AX observer of the application; nil until `observe()` creates one, and again after `unobserve()`.
   var observerRef: AXObserver?

@@ -495,6 +495,11 @@ COMMAND
     Restore the tree of the selected space as it was before its last change by a tree command: *--balance*, *--equalize*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize* or *--toggle split* that changed the tree. +
     The last 10 trees of each space are kept. Undo fails, and drops the kept trees of the space, when the windows of the space changed since it was recorded. Moving windows to another space or display and *--insert* are not undone.
 
+*--save-layout* '<NAME>'::
+    Write the tree of the selected space to `<NAME>.json` in `$XDG_CONFIG_HOME/yabai/layouts`, or `~/.config/yabai/layouts` when `XDG_CONFIG_HOME` is unset or empty, and print the path of the file. +
+    NAME may contain only the characters `A-Z`, `a-z`, `0-9`, `.`, `_` and `-`, and may not be `.` or `..`. The directory is created when it is missing, and a file of the same name is replaced. +
+    The file keeps the containers, shares, zoom, selection and focus order of the tree. Each window is saved by its application (bundle id and name) and by its title, role and subrole at save time, not by its id. A window that yabai does not know is saved without that matcher. The file is JSON, version 1.
+
 *--padding* 'abs|rel:<top>:<bottom>:<left>:<right>'::
     Padding added at the sides of the selected space.
 

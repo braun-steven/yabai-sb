@@ -16,6 +16,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Window labels](#window-labels)
 - [Floating frame memory](#floating-frame-memory)
 - [Tree undo](#tree-undo)
+- [Saved layouts](#saved-layouts)
 - [Automatic space layout](#automatic-space-layout)
 - [Space pins](#space-pins)
 - [Built-in display last](#built-in-display-last)
@@ -266,6 +267,16 @@ A window that floats remembers the frame it had while floating. When it floats a
 ### Tree undo
 
 `yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops the kept trees of the space, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
+
+### Saved layouts
+
+`yabai -m space --save-layout <NAME>` writes the tree of the selected space to `<NAME>.json` in `$XDG_CONFIG_HOME/yabai/layouts`, or `~/.config/yabai/layouts` when `XDG_CONFIG_HOME` is unset, and prints the path:
+
+```sh
+yabai -m space --save-layout work   # ~/.config/yabai/layouts/work.json
+```
+
+The file keeps the containers, shares, zoom and focus order of the tree. Each window is saved by its application and by its title, role and subrole at save time, not by its id, so the file describes the layout and not the windows of the session. NAME may use only `A-Z`, `a-z`, `0-9`, `.`, `_` and `-`.
 
 ### Automatic space layout
 

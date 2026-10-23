@@ -94,7 +94,9 @@ extension SpaceCommand {
   /// Runs the command on the acting space. Returns false to stop the message silently, when the optional selector of
   /// --create or --destroy found nothing ('recent'). --create and --destroy make the space they act on the acting
   /// space of the commands that follow it.
-  @WM fileprivate func run(acting sid: inout SpaceID?) throws(CommandError) -> Bool {
+  @WM fileprivate func run(acting sid: inout SpaceID?, _ rsp: inout Response) throws(CommandError)
+    -> Bool
+  {
     let context = CSelectorContext()
     let sm = SpaceManager.shared
     switch self {
@@ -303,6 +305,15 @@ extension SpaceCommand {
         throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
       }
       try undoTreeCommand(on: sid)
+    case .saveLayout(let name):
+      guard let sid else {
+        throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
+      }
+      guard let directory = layoutDirectory() else {
+        throw CommandError("could not locate the layout directory: HOME is not set.\n")
+      }
+      let path = try saveSpaceLayout(name: name, on: sid, directory: directory)
+      rsp.write("\(path)\n")
     }
     return true
   }
@@ -341,7 +352,7 @@ extension SpaceCommand {
   }
 
   try runCommands(&rsp, &message, from: command) {
-    (_, source, token) throws(CommandError) -> Bool in
+    (response, source, token) throws(CommandError) -> Bool in
     let name = SpaceCommand.Name(token: token)
     if actingSid == nil && name?.needsActingSpace != false {
       throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
@@ -352,7 +363,7 @@ extension SpaceCommand {
     let view = command.changesTree ? actingSid.flatMap { SpaceManager.shared.views[$0] } : nil
     var proceed = true
     try recordingTreeUndo(on: view) { () throws(CommandError) in
-      proceed = try command.run(acting: &actingSid)
+      proceed = try command.run(acting: &actingSid, &response)
     }
     return proceed
   }

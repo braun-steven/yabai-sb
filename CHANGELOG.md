@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Command *space --save-layout <NAME>* writes the tree of the selected space to `<NAME>.json` in `$XDG_CONFIG_HOME/yabai/layouts` (or `~/.config/yabai/layouts`), saving each window by its application, title, role and subrole instead of its id
 - Config *mouse_drop_preview outline|ghost* shows a translucent copy of the dragged window in the area where a drop would land (the half or whole window, and for a swap the other window in the dragged window's place); *outline*, the default, keeps the outline only
 - Config *mouse_drag_split on|off* resizes the split between two tiled windows by dragging the gap between them with the left button; the gap follows the pointer and neither window goes below its minimum share
 - Command *space --pin ['<DISPLAY_SEL>']* pins a labelled space to a display, so that it returns there whenever the display is connected; *space --pin* without an argument removes the pin, and the query key *pinned-display* reports it

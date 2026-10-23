@@ -258,6 +258,14 @@ Rules for the user's machine:
 - Mission Control could not be opened from an agent shell (2026-10-20: `open -a "Mission Control"`, the CoreDock
   `com.apple.expose.awake` notification and System Events key codes all left it closed), so its enter/exit handling
   needs the user's gesture or keyboard.
+  Posted key events do not open it either (2026-10-23: key code 160 and ctrl-up, with and without fn, from a
+  CGEvent tap with posting access).
+- Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
+  since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows
+  (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.
+  An alt + left drag of a tiled window moves and swaps tiles; start resize drags inside the window body, not on the
+  gap. Never press or drag on Finder's sidebar or list items: a plain drag at the sidebar removed the user's
+  Downloads favourite. Mission Control and VoiceOver (cmd-F5) are left to the user.
 
 Always run a baseline on the installed binary before changing anything, so before/after numbers
 come from the same session. Reference numbers from the `fix-left-out-findings` session (release builds):

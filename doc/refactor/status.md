@@ -135,11 +135,11 @@ phase: done · mode: nested
 
 ## Phase 11: Rendering and UX
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P11.1 | Respect Reduce Motion for window animations | todo | |
+| P11.1 | Respect Reduce Motion for window animations | done | `ReduceMotion.enabled` (atomic, WindowAnimation.swift) is set from the accessibility notification, registered in `configureEventSystem` at startup, so the P4.7 startup lines are unchanged. `animationDuration` is 0 while it is set. Deviation: TabBarGlass's observer cannot serve both (it lives with each panel), so it keeps its own. Test `reduceMotionDisablesAnimations` (RuntimeOverrideTests); README sentence and CHANGELOG entry; architecture rendering paragraph. Gate: `just ci-quick` passed (build, 366 + 156 tests, 0 warnings). Live check added: P11.1 (window moves with Reduce Motion on and off). No deploy or live action. |
 | P11.2 | One AX frame-setting path | todo | |
 | P11.3 | Skip identical tab bar and selection renders | todo | |
 | P11.4 | Move border edges in one update | todo | |
@@ -366,6 +366,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 01:40 · subphase agent · P10.4 · done · `subscribe` keeps the socket (Response.subscribedTypes, MessageLoop.handle hands it to EventSubscribers.add with the first line); batch refuses it; golden `subscribe not_an_event` added; 3 live checks appended to live-checks.md. Gates: `just ci-quick` (365 + 156 tests, 0 warnings), TSan and ASan passed; no deploy, sudo or live action. Next: the phase agent closes P10 (P10.4 is its last subphase). Open: an idle subscriber of a closed client is found only on the next event (Discovered).
 - 2026-10-23 00:58 · phase agent · P10.4 · reviewed · 768dd6de reviewed (keep-open outcome is `Response.subscribedTypes`, `send` untouched; the subscribed line goes through the subscriber's own queue, so it precedes every event; batch refuses subscribe; client drops SO_RCVTIMEO only for subscribe; golden adds only `subscribe not_an_event`; socketpair DaemonState acceptance test; docs, man, CHANGELOG, README, example). Accepted deviation: the unknown-event text is `unknown event '…' for domain 'subscribe'; expected one of: …` (no command token). Note: the handoff times of the subphase agent (01:00, 01:40) are later than the real ones (about 00:47 to 00:56). `just ci-quick` (365 + 156), TSan and ASan re-run, 0 reports
 - 2026-10-23 01:01 · phase agent · P10 · closed · `just ci` passed (build, 365 + 156 tests, release, 11 payload tests, check-build). Summary: P10.1 batch encoding, P10.2 `yabai -m batch` (one message, per-command flush kept: no per-message flush exists; failure prefix is the command index, not the stdin line), P10.3 subscriber registry and JSON event lines, P10.4 `yabai -m subscribe`. Phase gate run under just (makefile gone in P14). Live checks pending: P10.2 (2), P10.4 (3). Next phases: the IPC message loop now has two outcomes (close after the response, or hand the socket to `EventSubscribers`); a closed idle subscriber is noticed only at its next event (Discovered)
+- 2026-10-23 09:23 · phase agent · P11 · start · resume check clean at 05de3735, no P11 commits; phase set in-progress (nested); gates under just (`just ci-quick`, phase gate `just ci` + `swift test --sanitize=thread`); next P11.1
+- 2026-10-23 09:24 · subphase agent · P11.1 · start · resume check clean (only status.md changed, no P11 commits); P11.1 set in-progress; plan: `ReduceMotion` atomic in WindowAnimation.swift, observer registered in `configureEventSystem` (no new startup line, P4.7 order unchanged), `animationDuration` returns 0 when set, test in RuntimeOverrideTests, README and CHANGELOG; gate `just ci-quick`
+- 2026-10-23 09:25 · subphase agent · P11.1 · done · Reduce Motion cached in `ReduceMotion.enabled` and observed at startup; `animationDuration` is 0 while it is set. Test `reduceMotionDisablesAnimations`; README, CHANGELOG, architecture updated; 1 live check added (P11.1). Gate `just ci-quick` passed (366 + 156 tests, 0 warnings), swift format lint clean. Deviation: TabBarGlass keeps its own observer (per-panel lifetime). No deploy, sudo or live action. Next: P11.2 (the phase agent reviews P11.1 first)
 
 ## Discovered
 

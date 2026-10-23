@@ -388,16 +388,39 @@ extension Window {
   }
 }
 
+//
+// NOTE: The Reduce Motion setting, cached for the window animations. The accessibility notification arrives on the
+// main queue, which writes the atomic; @WM reads it. TabBarGlass observes the same setting for its panels, but its
+// observer lives only as long as the panels, so the window animations keep their own, registered at startup.
+//
+
+enum ReduceMotion {
+  /// The Reduce Motion setting; written on the main queue, read on @WM.
+  static let enabled = Atomic<Bool>(false)
+
+  /// Reads the setting and observes its changes. Called once, on the main thread, at startup.
+  @MainActor static func observe() {
+    enabled.store(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, ordering: .relaxed)
+    _ = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil,
+      queue: .main
+    ) { _ in
+      enabled.store(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, ordering: .relaxed)
+    }
+  }
+}
+
 extension WindowManager {
   //
   // NOTE: Some operations set frames without animating them (a scratchpad that is still ordered out, spaces swapped
   // across displays, Mission Control corrections). They suppress animations as runtime state instead of changing
-  // the configured duration, so Config only changes through the config domain.
+  // the configured duration, so Config only changes through the config domain. Reduce Motion is runtime state too.
   //
 
-  /// The duration in effect: zero while animations are suppressed.
+  /// The duration in effect: zero while animations are suppressed or Reduce Motion is on.
   var animationDuration: Float {
-    animationsSuppressed ? 0 : Config.current.animation.duration
+    (animationsSuppressed || ReduceMotion.enabled.load(ordering: .relaxed))
+      ? 0 : Config.current.animation.duration
   }
 
   /// Runs body with animations suppressed.

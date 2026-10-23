@@ -112,7 +112,7 @@ yabai -m config tab_bar_icons on
 | `tab_bar_appearance dark` | Keep glass controls and cards dark; the default. |
 | `tab_bar_appearance system` | Follow macOS light/dark appearance. Does not affect the i3 style. |
 
-Reduce Motion disables transitions, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
+Reduce Motion disables transitions and window animations, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
 
 #### Adjust spacing and colors
 

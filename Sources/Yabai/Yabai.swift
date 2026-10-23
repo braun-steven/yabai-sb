@@ -183,6 +183,7 @@ enum Daemon {
   @MainActor private static func configureEventSystem() {
     CGSetLocalEventsSuppressionIntervalC(0.0)
     CGEnableEventStateCombiningC(false)
+    ReduceMotion.observe()
   }
 
   /// Takes the write lock of the user's lock-file. False when another daemon holds it.

@@ -52,6 +52,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     EventSignals.shared.table = SignalTable()
     EventSignals.shared.discardPending()
     EventSubscribers.shared.removeAll()
+    ConfigLoader.shared.reset()
   }
 }
 

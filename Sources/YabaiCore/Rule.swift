@@ -35,7 +35,7 @@ public final class POSIXRegex {
 }
 
 /// The pattern of a rule or signal filter (`app`, `title`, `role`, `subrole`). regex is nil when the pattern is invalid.
-public struct RulePattern {
+public struct RulePattern: Equatable {
   public var text: String
   public var exclude: Bool
   public var regex: POSIXRegex?
@@ -51,6 +51,14 @@ public struct RulePattern {
   public func admits(_ text: String) -> Bool {
     guard let regex else { return true }
     return regex.matches(text) != exclude
+  }
+
+  //
+  // NOTE: The regex is compiled from the text, so the text and the exclusion are the pattern. POSIXRegex has no equality.
+  //
+
+  public static func == (lhs: RulePattern, rhs: RulePattern) -> Bool {
+    lhs.text == rhs.text && lhs.exclude == rhs.exclude
   }
 }
 
@@ -149,7 +157,7 @@ extension Grid {
 
 /// The effects of a rule on the windows it matches. manage, sticky, mouseFollowsFocus and fullscreen are nil when the
 /// rule leaves them alone.
-public struct RuleEffects: Sendable {
+public struct RuleEffects: Sendable, Equatable {
   public var did: DisplayID?
   public var sid: SpaceID?
   public var opacity: Float = 0
@@ -213,7 +221,7 @@ public struct RuleEffects: Sendable {
 
 /// A rule: its filters and effects. A one-shot rule applies only to windows created after it was added, and is
 /// removed once it matched one (matched).
-public struct Rule {
+public struct Rule: Equatable {
   public var label: String?
   public var app: RulePattern?
   public var title: RulePattern?
@@ -500,7 +508,7 @@ public func parseRule<C: SelectorContext>(
 }
 
 /// `struct signal` (the former src/event_signal.h): the filters and the action of a signal.
-public struct EventSignal {
+public struct EventSignal: Equatable {
   public var label: String?
   public var app: RulePattern?
   public var title: RulePattern?

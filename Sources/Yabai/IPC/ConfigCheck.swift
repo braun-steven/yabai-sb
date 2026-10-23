@@ -17,11 +17,11 @@ struct ConfigCheckReport: Equatable {
   let failures: Int
 }
 
-/// The check of a yabai.toml: its report (see configFileReport), and the messages of its settings in apply order. The
-/// entries are empty when the file does not decode. A file with a failure keeps its entries; the caller decides.
+/// The check of a yabai.toml: its report (see configFileReport), and the document it decodes to. The document is nil when
+/// the file does not decode. A file with a failure keeps its document; the caller decides.
 struct ConfigFileCheck {
   let report: ConfigCheckReport
-  let entries: [ConfigEntry]
+  let document: ConfigDocument?
 }
 
 /// The report of a yabai.toml read from `path`; `source` is its text. The first lines are the problems of the file, if
@@ -34,7 +34,7 @@ struct ConfigFileCheck {
   configFileCheck(path: path, source: source).report
 }
 
-/// The check of a yabai.toml (see ConfigFileCheck): configFileReport, with the entries that the startup applies.
+/// The check of a yabai.toml (see ConfigFileCheck): configFileReport, with the document that the startup applies.
 @WM func configFileCheck(path: String, source: String) -> ConfigFileCheck {
   var lines: [String] = []
   var checked = 0
@@ -51,7 +51,7 @@ struct ConfigFileCheck {
       for line in failureLines(problem.message) { lines.append(prefix + line) }
     }
     let report = withSummary(lines, checked: 0, notChecked: 0, failures: failures)
-    return ConfigFileCheck(report: report, entries: [])
+    return ConfigFileCheck(report: report, document: nil)
   }
 
   let entries = document.lowered(locator: TOMLKeyLocator(source: source))
@@ -73,7 +73,7 @@ struct ConfigFileCheck {
   }
 
   let report = withSummary(lines, checked: checked, notChecked: notChecked, failures: failures)
-  return ConfigFileCheck(report: report, entries: entries)
+  return ConfigFileCheck(report: report, document: document)
 }
 
 /// The report with its summary line appended.

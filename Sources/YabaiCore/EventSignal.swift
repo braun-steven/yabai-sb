@@ -181,7 +181,7 @@ public struct SignalInfo: Encodable, Equatable, Sendable {
 
 /// `g_signal_event`: the signals of each event type, in the order they were added. A signal's index counts across the
 /// event types, in the order of SignalType.
-public struct SignalTable {
+public struct SignalTable: Equatable {
   private var signals = [[EventSignal]](repeating: [], count: SignalType.allCases.count + 1)
 
   public init() {}

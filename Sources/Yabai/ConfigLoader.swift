@@ -5,10 +5,29 @@ import YabaiCore
 //
 // NOTE: The static config file (yabai.toml) at startup. Daemon.run reads and checks the file before the managers start
 // (loadStartupConfig, the check of `config --check`). A file with a failure applies nothing and the daemon keeps the
-// built-in defaults. Otherwise its messages run in four steps (ConfigStep), which the startup sequence interleaves with
-// the manager starts (doc/architecture.md "Startup sequence"). Each message goes through handleMessage in-process, the
-// handler that the daemon runs for `yabai -m`: no IPC, no Task and no delay.
+// built-in defaults. Otherwise the file is reconciled with the running state in four steps (ConfigStep), which the
+// startup sequence interleaves with the manager starts (doc/architecture.md "Startup sequence"). The reconcile is
+// ConfigLoader.reconcile (ConfigReconcile.swift): it runs only the messages whose setting differs, through handleMessage
+// in-process, the handler that the daemon runs for `yabai -m`: no IPC, no Task and no delay.
 //
+
+/// The static config of the daemon: the document that was reconciled last, which a later reconcile compares with, and
+/// the default of each option, printed before any file value was applied. The startup and a reload share the one
+/// instance (`shared`).
+@WM final class ConfigLoader {
+  static let shared = ConfigLoader()
+
+  /// The document of the last reconcile that ran every step. Nil before that: a removed setting is then not known.
+  var applied: ConfigDocument?
+  /// The printed value of each option of a new daemon, captured by the first reconcile (`defaultWords`).
+  var defaults: [ConfigName: String]?
+
+  /// Forgets the applied document and the defaults, as a new daemon has them (the test fixture).
+  func reset() {
+    applied = nil
+    defaults = nil
+  }
+}
 
 /// The steps that apply a loaded file, in the order of the startup sequence.
 enum ConfigStep: CaseIterable, Sendable {
@@ -43,12 +62,12 @@ func configStep(of entry: ConfigEntry) -> ConfigStep {
   }
 }
 
-/// The startup file: its path, its messages in apply order when they can be applied, and what to log and notify.
+/// The startup file: its path, its document when it can be applied, and what to log and notify.
 struct LoadedConfig: Sendable {
   /// The file that was found, or nil when none was.
   let path: String?
-  /// The messages of the file in apply order. Nil when there is no file or it has a failure: nothing is applied then.
-  let entries: [ConfigEntry]?
+  /// The decoded file. Nil when there is no file or it has a failure: nothing is applied then.
+  let document: ConfigDocument?
   /// Lines for the log: the failures of the file, or why there is no file.
   let log: [String]
   /// The texts for the notifications, each shown under "configuration".
@@ -60,7 +79,7 @@ struct LoadedConfig: Sendable {
 @WM func loadStartupConfig(explicit: String?) -> LoadedConfig {
   guard let choice = Daemon.configFile(explicit: explicit) else {
     return LoadedConfig(
-      path: nil, entries: nil, log: ["could not locate config file"],
+      path: nil, document: nil, log: ["could not locate config file"],
       notices: ["could not locate config file.."])
   }
 
@@ -75,14 +94,14 @@ struct LoadedConfig: Sendable {
 
   guard fileExists(path) else {
     return LoadedConfig(
-      path: path, entries: nil,
+      path: path, document: nil,
       log: log + ["configuration file '\(path)' does not exist"],
       notices: notices + ["file '\(path)' does not exist.."])
   }
 
   guard let data = FileManager.default.contents(atPath: path) else {
     return LoadedConfig(
-      path: path, entries: nil, log: log + ["cannot read config file '\(path)'"],
+      path: path, document: nil, log: log + ["cannot read config file '\(path)'"],
       notices: notices + ["cannot read file '\(path)'.."])
   }
 
@@ -91,33 +110,20 @@ struct LoadedConfig: Sendable {
   guard failures == 0 else {
     let report = check.report.text.split(separator: "\n").map(String.init)
     notices.append("\(path) has \(failures) errors; using defaults..")
-    return LoadedConfig(path: path, entries: nil, log: log + report, notices: notices)
+    return LoadedConfig(path: path, document: nil, log: log + report, notices: notices)
   }
 
-  return LoadedConfig(path: path, entries: check.entries, log: log, notices: notices)
+  return LoadedConfig(path: path, document: check.document, log: log, notices: notices)
 }
 
 extension LoadedConfig {
-  /// Runs the messages of `step`, in their order, through handleMessage. A failing message is logged and the others still
-  /// run. Returns the number of failing messages. Nothing runs when the file was not loaded.
+  /// The messages of the file in apply order, for the log and the tests. Nil when the file is not applied.
+  var entries: [ConfigEntry]? { document?.lowered() }
+
+  /// Reconciles the file with the running state for `step` (ConfigLoader.reconcile). Nothing runs when the file was not
+  /// loaded. Returns the number of messages that failed.
   @discardableResult @WM func apply(_ step: ConfigStep) -> Int {
-    guard let entries else { return 0 }
-
-    let stepEntries = entries.filter { configStep(of: $0) == step }
-    if Headless.isEnabled { Headless.record(configEntries: stepEntries) }
-
-    var failures = 0
-    for entry in stepEntries {
-      var response = Response()
-      var message = configMessage(entry.arguments)
-      handleMessage(&response, &message)
-
-      for text in failureTexts(response.bytes) {
-        failures += 1
-        Logger.daemon.warning(
-          "config file: \(entry.keyPath): \(text.trimmingCharacters(in: .newlines))")
-      }
-    }
-    return failures
+    guard let document else { return 0 }
+    return ConfigLoader.shared.reconcile(to: document, step: step)
   }
 }

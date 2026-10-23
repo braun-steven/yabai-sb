@@ -89,7 +89,9 @@ extension SpaceManager {
     }
   }
 
-  private func applyAutoPadding(_ autoPadding: Bool, to target: View) {
+  /// Sets the auto padding of a view and lays it out. The config reconcile (ConfigReconcile.swift) uses it to give a
+  /// view back to the global value.
+  func applyAutoPadding(_ autoPadding: Bool, to target: View) {
     if target.autoPadding == autoPadding { return }
 
     target.autoPadding = autoPadding

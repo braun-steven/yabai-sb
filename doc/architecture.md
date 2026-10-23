@@ -53,7 +53,11 @@ failure, as before).
     with the fullscreen rule: the observer does not see the file's set, so this is the only place it is applied).
     Nothing else runs inside the block. A
     message that fails is logged and the others still run; the block returns the number of failures for one
-    notification. The file's messages run through `handleMessage` in-process, not through IPC.
+    notification. Each step is `ConfigLoader.reconcile` (`ConfigReconcile.swift`): it compares the file with the running
+    state and runs only the messages whose setting differs, through `handleMessage` in-process, not through IPC. Options
+    are compared through their own print (`config <name>`), rules and signals as the lists `rule --add` and `signal --add`
+    would store them, and spaces by their index. At startup the running state is the defaults, so the steps apply the file
+    as before. The last step records the document as applied, and a reload compares with it.
 11. Schedule the space pin pass (one second later), then start the message loop on the user's socket. No client message
     runs before the file is applied.
 12. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), then `NSApp.run()`. The yabairc is

@@ -94,7 +94,7 @@ func tokenValue(_ text: String, _ value: String) {
 
 @Test("Config command names cover the daemon options and preserve their CLI spellings")
 func configCommandNames() {
-  #expect(ConfigCommand.Name.allCases.count == 60)
+  #expect(ConfigCommand.Name.allCases.count == 61)
   #expect(ConfigCommand.Name(token: Token("window_border")) == .windowBorder)
   #expect(ConfigCommand.Name(token: Token("tree_default_orientation")) == .treeDefaultOrientation)
   #expect(ConfigCommand.Name(token: Token("unknown_option")) == nil)

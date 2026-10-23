@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Config *mouse_drop_preview outline|ghost* shows a translucent copy of the dragged window in the area where a drop would land (the half or whole window, and for a swap the other window in the dragged window's place); *outline*, the default, keeps the outline only
 - Config *mouse_drag_split on|off* resizes the split between two tiled windows by dragging the gap between them with the left button; the gap follows the pointer and neither window goes below its minimum share
 - Command *space --pin ['<DISPLAY_SEL>']* pins a labelled space to a display, so that it returns there whenever the display is connected; *space --pin* without an argument removes the pin, and the query key *pinned-display* reports it
 - Example *examples/skhdrc* adds skhd binding modes for resize (`alt - r`), layout (`alt - l`) and move (`alt - m`); each mode sets the active window border color, and a test checks every yabai command of the file

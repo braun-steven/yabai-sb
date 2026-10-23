@@ -122,6 +122,8 @@ struct MouseConfig {
   var action1 = MouseAction.move
   var action2 = MouseAction.resize
   var dropAction = MouseAction.swap
+  /// What a drop target shows while a window is dragged over it (`mouse_drop_preview`).
+  var dropPreview = MouseDropPreview.outline
   /// Dragging the gap between two tiled windows resizes their split (`mouse_drag_split`).
   var dragSplit = false
 }

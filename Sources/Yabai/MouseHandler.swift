@@ -25,6 +25,13 @@ enum MouseDropAction: Sendable {
   case warpLeft
 }
 
+/// What a drop target shows while a window is dragged over it (`config mouse_drop_preview`): the outline only, or a
+/// translucent image of the dragged window (and, for a swap, of the target in the dragged window's slot).
+enum MouseDropPreview: String, CaseIterable, Sendable {
+  case outline
+  case ghost
+}
+
 /// The modifier keys held during a mouse event, as far as mouse actions tell them apart.
 struct MouseModifiers: OptionSet, Sendable {
   let rawValue: UInt8
@@ -206,6 +213,17 @@ final class MouseTapState {
   var splitDrag: SplitDrag?
   var feedbackWindowID: WindowID?
   var feedbackDirection: InsertDirection?
+  /// Whether the feedback of the target is a swap (the whole target, with ghosts in both slots) rather than a stack.
+  var feedbackSwap = false
+  //
+  // NOTE: The ghost images of the drop preview (mouse_drop_preview ghost). dragGhost is the dragged window, captured
+  // at the first drop target of a drag; targetGhost is the image of the swap target, replaced when the target changes;
+  // sourceGhost is the container of the dragged window, whose outline shows the target's image. releaseDropGhosts
+  // frees all three. A capture that failed is not retried until the target changes.
+  //
+  var dragGhost: (window: WindowID, image: CGImage)?
+  var targetGhost: (window: WindowID, image: CGImage)?
+  weak var sourceGhost: Con?
 
   //
   // NOTE: The EUI scope of the resize drag in progress: EUI is off on frameApplication from the drag's first frame until
@@ -216,9 +234,10 @@ final class MouseTapState {
   private var frameScope = EUIDragScope()
   private var frameApplication: Application?
 
-  /// Clears the window of the drag, and closes the EUI scope of the drag.
+  /// Clears the window of the drag, closes the EUI scope of the drag and releases the drop preview of the drag.
   func clearWindow() {
     endFrameScope()
+    releaseDropGhosts()
     window = nil
   }
 
@@ -408,21 +427,36 @@ extension MouseState {
     return .none
   }
 
+  /// Hides the feedback of the drop target and the swap ghost in the dragged window's slot. The ghost images stay, so a
+  /// drag that moves on to another target does not capture its window again.
   @WM func clearFeedback() {
-    guard let feedbackWid = feedbackWindowID else { return }
-    let wm = WindowManager.shared
-    let target = wm.window(for: feedbackWid)
-    let targetView = target.flatMap { wm.managedView(for: $0) }
-    if let con = container(of: target, in: targetView), con.insertDirection == nil {
-      con.hideFeedback()
+    if let slot = sourceGhost, slot.insertDirection == nil { slot.hideFeedback() }
+    sourceGhost = nil
+    if let feedbackWid = feedbackWindowID {
+      let wm = WindowManager.shared
+      let target = wm.window(for: feedbackWid)
+      let targetView = target.flatMap { wm.managedView(for: $0) }
+      if let con = container(of: target, in: targetView), con.insertDirection == nil {
+        con.hideFeedback()
+      }
     }
     feedbackWindowID = nil
     feedbackDirection = nil
+    feedbackSwap = false
+  }
+
+  /// Ends the drop preview of the drag and frees its ghost images: on a drop, a cancelled drag (a mouse down during it, an
+  /// invalid window) and a window that is forgotten while it is the dragged or the target window.
+  @WM func releaseDropGhosts() {
+    clearFeedback()
+    dragGhost = nil
+    targetGhost = nil
   }
 
   //
   // NOTE: While a window is dragged over a managed window, the half where it would be placed
-  // is outlined, or the whole window when dropping would swap or stack them.
+  // is outlined, or the whole window when dropping would swap or stack them. With mouse_drop_preview ghost the
+  // outline also shows the dragged window's image there, and for a swap the target's image in the dragged window's slot.
   //
 
   @WM func showDropFeedback(view: View?, window: Window?, at point: CGPoint) {
@@ -430,13 +464,49 @@ extension MouseState {
       clearFeedback()
       return
     }
-    let direction = resolveDrop(onto: window, at: point).insertDirection
-    if feedbackWindowID == window.id && feedbackDirection == direction { return }
+    let action = resolveDrop(onto: window, at: point)
+    let direction = action.insertDirection
+    let swap = action == .swap
+    if feedbackWindowID == window.id && feedbackDirection == direction && feedbackSwap == swap {
+      return
+    }
     clearFeedback()
     guard let direction else { return }
-    con.showFeedback(direction: direction)
+
+    let ghost = Config.current.mouse.dropPreview == .ghost
+    con.showFeedback(direction: direction, ghost: ghost ? draggedGhost() : nil)
     feedbackWindowID = window.id
     feedbackDirection = direction
+    feedbackSwap = swap
+    if swap && ghost { showSwapGhost(of: window) }
+  }
+
+  /// The image of the dragged window, captured at the first drop target of the drag and kept until the drag ends.
+  @WM private func draggedGhost() -> (window: WindowID, image: CGImage)? {
+    guard let dragged = window else { return nil }
+    if let dragGhost, dragGhost.window == dragged.id { return dragGhost }
+    guard let image = DropGhost.capture(of: dragged.id) else { return nil }
+    dragGhost = (dragged.id, image)
+    return dragGhost
+  }
+
+  /// The image of the swap target, captured once per target: a new target replaces the image of the last one.
+  @WM private func targetImage(of target: Window) -> CGImage? {
+    if let targetGhost, targetGhost.window == target.id { return targetGhost.image }
+    targetGhost = nil
+    guard let image = DropGhost.capture(of: target.id) else { return nil }
+    targetGhost = (target.id, image)
+    return image
+  }
+
+  /// A swap shows the target's image in the dragged window's own slot, as the outline of that container.
+  @WM private func showSwapGhost(of target: Window) {
+    guard let dragged = window,
+      let slot = container(of: dragged, in: WindowManager.shared.managedView(for: dragged)),
+      let image = targetImage(of: target)
+    else { return }
+    slot.showFeedback(direction: nil, ghost: (target.id, image))
+    sourceGhost = slot
   }
 
   @WM private func dropWithoutTarget(_ target: Window, from srcView: View, to dstView: View) {
@@ -459,7 +529,7 @@ extension MouseState {
     _ srcWindow: Window, from srcView: View, onto dstWindow: Window?, in dstView: View?,
     at point: CGPoint
   ) {
-    clearFeedback()
+    releaseDropGhosts()
     let wm = WindowManager.shared
     guard let dstView else {
       srcView.flush()
@@ -532,6 +602,18 @@ extension MouseState {
       CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
       self.runLoopSource = nil
     }
+  }
+}
+
+/// The images of the drop preview (`mouse_drop_preview ghost`).
+enum DropGhost {
+  /// The window server's image of a window, with its alpha restored when the window is translucent (as the proxy of an
+  /// animation has it). Nil when the capture fails.
+  static func capture(of wid: WindowID) -> CGImage? {
+    let cid = SLS.connection
+    guard let image = SLS.captureImage(cid, of: wid) else { return nil }
+    let alpha = SLS.windowAlpha(cid, wid) ?? 1
+    return alpha == 1 ? image : WindowAnimation.restoreAlpha(image)
   }
 }
 

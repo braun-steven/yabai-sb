@@ -565,6 +565,13 @@ What \fBwindow \-\-focus\fP \fInorth|east|south|west\fP does at the edge of a \f
 Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 .RE
 .sp
+\fBmouse_drop_preview\fP [\fIoutline|ghost\fP]
+.RS 4
+What a managed window dragged over another managed window shows where it would be dropped. \fIoutline\fP (the default) outlines the half or the whole window.
+.br
+\fIghost\fP also shows a translucent copy of the dragged window in that area, scaled to fit, and for a swap a copy of the other window in the dragged window\(cqs own place. The copies are taken once per drag and freed when the drag ends.
+.RE
+.sp
 \fBmouse_drag_split\fP [\fIon|off\fP]
 .RS 4
 Dragging with the left button, without the \fImouse_modifier\fP key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share.
@@ -1711,7 +1718,7 @@ Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow 
 .br
 In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container
 .br
-Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP.
+Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with \fBmouse_drop_action\fP \fIstack\fP. \fBmouse_drop_preview\fP \fIghost\fP shows a translucent copy of the dragged window where it would land while the drag is in progress.
 .sp
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.
 .br

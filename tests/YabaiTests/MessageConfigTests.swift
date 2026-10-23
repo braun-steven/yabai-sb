@@ -94,6 +94,7 @@ private let configExpectations: [String: String] = [
   "mouse_action1": "one of: move, resize",
   "mouse_action2": "one of: move, resize",
   "mouse_drop_action": "one of: swap, stack",
+  "mouse_drag_split": "on or off",
   "skip_window_focus_animation": "on or off",
   "scratchpad_exclusive": "on or off",
   "scratchpad_raise": "on or off",
@@ -209,6 +210,7 @@ extension DaemonState {
       ConfigCase(option: "mouse_action2", value: "move", printed: "move", invalid: "stack"),
       ConfigCase(
         option: "mouse_drop_action", value: "stack", printed: "stack", invalid: "warp_top"),
+      ConfigCase(option: "mouse_drag_split", value: "on", printed: "on", invalid: "x"),
       ConfigCase(
         option: "external_bar", value: "main:20:0", printed: "main:20:0", invalid: "some:1:2",
         failure:
@@ -371,15 +373,16 @@ extension DaemonState {
         "tree_default_orientation",
         "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "mouse_modifier",
         "mouse_action1",
-        "mouse_action2", "mouse_drop_action", "external_bar", "skip_window_focus_animation",
+        "mouse_action2", "mouse_drop_action", "mouse_drag_split", "external_bar",
+        "skip_window_focus_animation",
         "space_layout",
         "scratchpad_exclusive", "scratchpad_raise", "scratchpad_below", "scratchpad_grid",
       ]
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 59)
-      #expect(actual.count == 59)
+      #expect(ConfigName.allCases.count == 60)
+      #expect(actual.count == 60)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }

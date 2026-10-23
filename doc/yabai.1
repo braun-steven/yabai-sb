@@ -564,6 +564,13 @@ What \fBwindow \-\-focus\fP \fInorth|east|south|west\fP does at the edge of a \f
 .RS 4
 Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 .RE
+.sp
+\fBmouse_drag_split\fP [\fIon|off\fP]
+.RS 4
+Dragging with the left button, without the \fImouse_modifier\fP key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share.
+.br
+A click inside a window, or on a floating window or menu over the gap, is passed on as before. The default is \fIoff\fP.
+.RE
 .SS "Space Settings"
 .sp
 \fBlayout\fP [\fItree|float\fP]
@@ -1700,7 +1707,7 @@ A tab that holds a container is titled with its layout and applications, e.g. \f
 .br
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 .sp
-Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
+Sizes are shares of the parent container, like i3\(cqs \fIpercent\fP. \fBwindow \-\-resize\fP moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and \fBwindow \-\-ratio\fP sets the share of the window in its container. Dragging with \fBmouse_action2\fP \fIresize\fP does the same, and with \fBmouse_drag_split\fP \fIon\fP a plain drag on the gap between two tiled windows does too. \fBwindow \-\-toggle split\fP toggles between \fIsplith\fP and \fIsplitv\fP, \fBwindow \-\-toggle zoom\-fullscreen\fP and \fBzoom\-parent\fP make the window cover the space or its container, and \fBspace \-\-balance\fP, \fB\-\-rotate\fP and \fB\-\-mirror\fP work on the whole tree.
 .br
 In \fBquery \-\-windows\fP, \fIsplit\-type\fP is the layout of the container of the window (\fIvertical\fP for \fIsplith\fP, \fIhorizontal\fP for \fIsplitv\fP, and \fInone\fP for tabbed), \fIstack\-index\fP is the position of its tab in the closest tabbed container
 .br

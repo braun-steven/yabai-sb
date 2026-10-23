@@ -474,6 +474,12 @@ private enum WorkspaceLayout: String, CaseIterable {
     .mouseDropAction, choices: [.swap, .stack], get: { Config.current.mouse.dropAction },
     set: { Config.current.mouse.dropAction = $0 }),
   boolOption(
+    .mouseDragSplit, get: { Config.current.mouse.dragSplit },
+    set: {
+      Config.current.mouse.dragSplit = $0
+      MouseState.shared.tap.dragSplit.store($0, ordering: .relaxed)
+    }),
+  boolOption(
     .windowBorder, get: { Config.current.border.enabled },
     set: { Config.current.border.enabled = $0 }),
   boolOption(

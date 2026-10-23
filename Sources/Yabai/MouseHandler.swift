@@ -121,8 +121,12 @@ final class MouseTapState {
   private let portLock = Mutex<UInt>(0)
   // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
   let tracksFocus = Atomic(false)
+  // NOTE: Mirrors config mouse_drag_split for the tap: the config setter and the config reset store it.
+  let dragSplit = Atomic(false)
   var consumeMouseClick = false
   var consumeTabClick = false
+  // NOTE: A split drag that the tap started: its drag and mouse up are consumed and posted as split events.
+  var splitDragActive = false
   var dragDetected = false
   var consumedEvent: CGEvent?
 
@@ -198,6 +202,8 @@ final class MouseTapState {
   /// The windows on the visible spaces, asked from the window server once per generation.
   var ffmVisible: (generation: UInt64, windowIDs: Set<WindowID>?)?
   var direction: ResizeHandle = []
+  /// The split drag in progress (P13.2), from splitDragBegan until the mouse up.
+  var splitDrag: SplitDrag?
   var feedbackWindowID: WindowID?
   var feedbackDirection: InsertDirection?
 
@@ -286,6 +292,12 @@ private func mouseHandler(
       if let port { CGEvent.tapEnable(tap: port, enable: true) }
     }
   case .leftMouseDown, .rightMouseDown:
+    // NOTE: A mouse down during a split drag means that the mouse up of the drag was lost (the tap was disabled), so the
+    // drag ends before this click is handled.
+    if type == .leftMouseDown && tap.splitDragActive {
+      tap.splitDragActive = false
+      EventLoop.post(.splitDragEnded(event.location))
+    }
     let mod = MouseModifiers(event.flags)
     var tabWid: WindowID?
     if type == .leftMouseDown && mod != tap.modifier.modifiers
@@ -296,6 +308,15 @@ private func mouseHandler(
       if let tabWid { EventLoop.post(.tabBarClicked(windowID: tabWid)) }
       return nil
     }
+    // NOTE: A plain left click on the gap between two tiled windows starts a split drag (config mouse_drag_split). A
+    // window that is not tiled and covers the gap takes the click instead (SplitDragCache.startsSplitDrag).
+    if type == .leftMouseDown && mod.isEmpty && tap.dragSplit.load(ordering: .relaxed)
+      && !MissionControl.shared.isActive && SplitDragCache.startsSplitDrag(at: event.location)
+    {
+      tap.splitDragActive = true
+      EventLoop.post(.splitDragBegan(event.location))
+      return nil
+    }
     EventLoop.post(.mouseDown(Handoff(value: .passRetained(event)), modifiers: mod))
     if mod == tap.modifier.modifiers {
       tap.consumeMouseClick = true
@@ -303,6 +324,11 @@ private func mouseHandler(
       return nil
     }
   case .leftMouseUp, .rightMouseUp:
+    if type == .leftMouseUp && tap.splitDragActive {
+      tap.splitDragActive = false
+      EventLoop.post(.splitDragEnded(event.location))
+      return nil
+    }
     if type == .leftMouseUp && tap.consumeTabClick {
       TabBar.updatePointer(event.location, pressed: false)
       tap.consumeTabClick = false
@@ -320,6 +346,11 @@ private func mouseHandler(
       return nil
     }
   case .leftMouseDragged, .rightMouseDragged:
+    if type == .leftMouseDragged && tap.splitDragActive {
+      _ = pendingSplitDragged.wrappingAdd(1, ordering: .acquiringAndReleasing)
+      EventLoop.post(.splitDragMoved(event.location))
+      return nil
+    }
     if type == .leftMouseDragged && tap.consumeTabClick {
       TabBar.updatePointer(event.location, pressed: true)
       return nil

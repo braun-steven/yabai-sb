@@ -35,6 +35,10 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     DisplayManager.shared.invalidateSpaceCaches()
     Log.verbose.store(false, ordering: .relaxed)
     MouseState.shared.tap.modifier = Config.current.mouse.modifier
+    MouseState.shared.tap.dragSplit.store(Config.current.mouse.dragSplit, ordering: .relaxed)
+    MouseState.shared.tap.splitDragActive = false
+    MouseState.shared.splitDrag = nil
+    SplitDragCache.reset()
     WindowManager.shared.initialize()
     WindowManager.shared.rules = []
     WindowManager.shared.scratchpads = [:]

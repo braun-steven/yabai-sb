@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Config *mouse_drag_split on|off* resizes the split between two tiled windows by dragging the gap between them with the left button; the gap follows the pointer and neither window goes below its minimum share
 - Command *space --pin ['<DISPLAY_SEL>']* pins a labelled space to a display, so that it returns there whenever the display is connected; *space --pin* without an argument removes the pin, and the query key *pinned-display* reports it
 - Example *examples/skhdrc* adds skhd binding modes for resize (`alt - r`), layout (`alt - l`) and move (`alt - m`); each mode sets the active window border color, and a test checks every yabai command of the file
 - Config *tab_bar_appearance dark|system* lets glass tabs follow the macOS appearance while keeping dark as the default

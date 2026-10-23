@@ -53,6 +53,9 @@ let pendingMouseMoved = Atomic<UInt32>(0)
 /// The number of mouse dragged events that the event tap has posted and the event loop has not taken yet.
 let pendingMouseDragged = Atomic<UInt32>(0)
 
+/// The number of split drag events that the event tap has posted and the event loop has not taken yet (P13.2).
+let pendingSplitDragged = Atomic<UInt32>(0)
+
 extension EventHandler {
   //
   // NOTE: Carbon's process handler on the main thread only posts the process key. These handlers update the process

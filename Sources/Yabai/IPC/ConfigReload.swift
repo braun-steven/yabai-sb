@@ -35,6 +35,7 @@ import YabaiCore
 //   that changed (ConfigObserver).
 // - Config plus a window server or manager effect, restored here only when the value differed from the default, with the
 //   effect of the option's own setter: focus_follows_mouse (the event tap), mouse_modifier (the tap's modifier),
+//   mouse_drag_split (the tap's copy of the option),
 //   display_arrangement_order and builtin_display_last (the space caches), external_bar (the spaces are marked invalid),
 //   scratchpad_below (the scratchpad layers), tab_bar_font (the font of the bars is back to the default, nil as at startup).
 // - Not in Config: debug_output (Log.verbose), restored to the value the daemon started with.
@@ -53,6 +54,7 @@ import YabaiCore
 
   let focusFollowsMouse = config.window.focusFollowsMouse != defaults.window.focusFollowsMouse
   let mouseModifier = config.mouse.modifier != defaults.mouse.modifier
+  let mouseDragSplit = config.mouse.dragSplit != defaults.mouse.dragSplit
   let displayOrder =
     config.display.order != defaults.display.order
     || config.display.builtinDisplayLast != defaults.display.builtinDisplayLast
@@ -67,6 +69,9 @@ import YabaiCore
   }
   if mouseModifier {
     MouseState.shared.tap.modifier = defaults.mouse.modifier
+  }
+  if mouseDragSplit {
+    MouseState.shared.tap.dragSplit.store(defaults.mouse.dragSplit, ordering: .relaxed)
   }
   if displayOrder {
     DisplayManager.shared.invalidateSpaceCaches()

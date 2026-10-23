@@ -459,14 +459,16 @@ extension WindowManager {
     body()
   }
 
-  func animateWindows(_ list: [WindowPlacement]) {
+  /// Moves the windows to their placements, animated unless animated is false (a drag follows the pointer, so its frames
+  /// are set at once).
+  func animateWindows(_ list: [WindowPlacement], animated: Bool = true) {
     if Headless.isEnabled {
       Headless.apply(list)
       return
     }
     let list = list.filter { $0.window.frameNeedsUpdate(x: $0.x, y: $0.y, w: $0.w, h: $0.h) }
     if list.isEmpty { return }
-    if animationDuration != 0 {
+    if animated && animationDuration != 0 {
       animateWindowsAsync(list)
     } else {
       setWindowFrames(list)

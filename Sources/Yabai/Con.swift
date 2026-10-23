@@ -93,7 +93,8 @@ struct FeedbackWindow {
   var insertDirection: InsertDirection?
   var render = ConRender()
 
-  private static let minPercent: Float = 0.05
+  /// The smallest share of a split that a resize leaves a child (SplitRatio.resized).
+  static let minPercent: Float = 0.05
   private static let focusHead: Int? = 0
   private static let focusTail: Int? = nil
 
@@ -1134,24 +1135,14 @@ extension Con {
     guard let second, let parent = first.parent else { return false }
 
     let size = orientation == .horizontal ? parent.area.w : parent.area.h
-    if size <= 0.0 || !delta.isFinite { return false }
+    guard
+      let percents = SplitRatio.resized(
+        first: first.percent, second: second.percent, delta: backward ? -delta : delta, size: size,
+        minPercent: Con.minPercent)
+    else { return false }
 
-    let change = (backward ? -delta : delta) / size
-    var firstPercent = first.percent + change
-    var secondPercent = second.percent - change
-
-    if firstPercent < Con.minPercent {
-      secondPercent -= Con.minPercent - firstPercent
-      firstPercent = Con.minPercent
-    }
-
-    if secondPercent < Con.minPercent {
-      firstPercent -= Con.minPercent - secondPercent
-      secondPercent = Con.minPercent
-    }
-
-    first.percent = firstPercent
-    second.percent = secondPercent
+    first.percent = percents.first
+    second.percent = percents.second
     parent.fixPercent()
 
     return true

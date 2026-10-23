@@ -363,6 +363,10 @@ Global Settings
 *mouse_drop_action* ['swap|stack']::
     Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 
+*mouse_drag_split* ['on|off']::
+    Dragging with the left button, without the 'mouse_modifier' key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share. +
+    A click inside a window, or on a floating window or menu over the gap, is passed on as before. The default is 'off'.
+
 Space Settings
 ^^^^^^^^^^^^^^
 
@@ -1136,7 +1140,7 @@ Tabbed containers draw a tab bar with the *tab_bar_\** settings, also when they 
 A tab that holds a container is titled with its layout and applications, e.g. 'H[iTerm2 Safari]'. +
 The windows of hidden tabs keep the frame of the container and are ordered below the active tab. This needs the scripting addition when a tab holds more than one window.
 
-Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
+Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same, and with *mouse_drag_split* 'on' a plain drag on the gap between two tiled windows does too. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
 In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container +
 Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'.
 

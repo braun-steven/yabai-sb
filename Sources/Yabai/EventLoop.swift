@@ -103,6 +103,10 @@ enum Event: Sendable {
   case mouseUp(Handoff<Unmanaged<CGEvent>>)
   case mouseDragged(Handoff<Unmanaged<CGEvent>>)
   case mouseMoved(Handoff<Unmanaged<CGEvent>>, modifiers: MouseModifiers)
+  // NOTE: The event tap posts these for a drag of a split gap (P13.2) and consumes the mouse events itself.
+  case splitDragBegan(CGPoint)
+  case splitDragMoved(CGPoint)
+  case splitDragEnded(CGPoint)
   case tabBarClicked(windowID: WindowID)
   case tabCardOrdered(windowID: WindowID)
   case missionControlShowAllWindows
@@ -315,6 +319,9 @@ extension EventHandler {
     case .mouseUp(let event): mouseUp(event.value.takeRetainedValue())
     case .mouseDragged(let event): mouseDragged(event.value.takeRetainedValue())
     case .mouseMoved(let event, _): mouseMoved(event.value.takeRetainedValue())
+    case .splitDragBegan(let point): splitDragBegan(point)
+    case .splitDragMoved(let point): splitDragMoved(point)
+    case .splitDragEnded(let point): splitDragEnded(point)
     case .tabBarClicked(let wid): tabBarClicked(wid)
     case .tabCardOrdered(let wid): tabCardOrdered(wid)
     case .missionControlShowAllWindows: missionControlShowAllWindows()

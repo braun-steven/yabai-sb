@@ -7,6 +7,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 ## Fork changes
 
 - [i3/sway container tree](#i3sway-container-tree)
+- [Drag to resize splits](#drag-to-resize-splits)
 - [Tab bars and adaptive glass](#tab-bars-and-adaptive-glass)
 - [Exclusive scratchpads](#exclusive-scratchpads)
 - [Native window borders](#native-window-borders)
@@ -69,7 +70,7 @@ yabai -m query --tree
 
 Directional focus walks the tree and enters a neighbouring group at its last focused window. At the edge of a space it can continue onto the next display. `focus_wrapping off` stops at an edge with no display; `force` wraps inside the innermost container instead.
 
-Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`.
+Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`. With `mouse_drag_split on`, dragging the gap between two tiled windows resizes their split (see [Drag to resize splits](#drag-to-resize-splits)).
 
 Binding modes for resizing, layout and moving, built on these commands, are in [examples/skhdrc](examples/skhdrc).
 
@@ -81,6 +82,14 @@ The upstream `bsp` and `stack` layouts are replaced by `tree`. Use tabbed contai
 The bsp selectors `sibling`, `*_nephew`, `uncle` and `*_cousin`, the `split-child` window property, and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed.
 
 </details>
+
+### Drag to resize splits
+
+```sh
+yabai -m config mouse_drag_split on   # drag the gap between two tiled windows to resize their split
+```
+
+With `mouse_drag_split` on, a plain left click on the gap between two tiled windows starts a drag: the gap follows the pointer, and neither window gets smaller than its minimum share. Clicks inside windows are unchanged, and so is a click on a floating window, a menu or another window that covers the gap. The option is off by default.
 
 ### Tab bars and adaptive glass
 

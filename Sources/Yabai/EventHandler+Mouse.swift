@@ -35,7 +35,8 @@ extension ResizeHandle {
 // measured latency of the AX writes: that latency differs per application, and nothing here measures it.
 //
 
-private let dragResizeInterval: Float = 67.67
+// NOTE: The split drag (EventHandler+SplitDrag.swift) writes its frames at the same rate.
+let dragResizeInterval: Float = 67.67
 
 //
 // NOTE: Focus follows mouse ignores moves for this long after a horizontal Dock swipe (a space switch gesture) ends.

@@ -88,6 +88,8 @@ extension View {
   }
 
   func clearTree() {
+    // NOTE: The split drag layout of the space goes with its tree, so the event tap sees no gap of a removed tree.
+    SplitDragCache.store(nil, for: sid)
     guard let root = tree else { return }
 
     unmanageWindows(in: root)
@@ -544,12 +546,12 @@ extension WindowManager {
 }
 
 extension View {
-  func flushTree() {
+  func flushTree(animated: Bool = true) {
     guard let root = tree else { return }
 
     var windowList: [WindowPlacement] = []
     captureWindows(in: root, into: &windowList)
-    if !windowList.isEmpty { WindowManager.shared.animateWindows(windowList) }
+    if !windowList.isEmpty { WindowManager.shared.animateWindows(windowList, animated: animated) }
 
     root.renderBars()
     root.raiseTabs(force: false)

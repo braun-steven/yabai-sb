@@ -418,6 +418,8 @@ With `auto_reload` on, the daemon does the same reload when the file is saved, a
 
 A value set with `yabai -m config` at runtime is an override: it lasts until the next reload or restart, which puts the file's value back. `yabai -m config --overrides` lists them, one per line as `<option> <running value> (file: <value>)`, with `rules: overridden` and `signals: overridden` when those lists differ from the file. Keep a value you want to keep in the file.
 
+`yabai -m config --dump` prints the running config as a `yabai.toml`: every option with its running value, a `# default` or `# override` comment beside each one, the labels, pins and per-space settings of the spaces, and the rules and signals. The text checks clean with `--check`, so it can be saved as a file to start from. The spaces, labels and pins are written only for the spaces that yabai can number on the current displays.
+
 ### Editor schema for yabai.toml
 
 `doc/yabai.schema.json` is a JSON Schema of `yabai.toml`. Taplo, and the Even Better TOML extension of VS Code that uses it, complete the keys of every table and check the values against it. A test keeps it in step with the keys that the decoder accepts and the choices that the option handlers parse. `examples/yabai.toml` starts with `#:schema ../doc/yabai.schema.json`; for your own file, point the `#:schema` line at the raw URL of the schema on the fork's main branch, or at a local copy.

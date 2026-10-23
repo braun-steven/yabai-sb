@@ -53,6 +53,8 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     EventSignals.shared.discardPending()
     EventSubscribers.shared.removeAll()
     ConfigLoader.shared.reset()
+    // NOTE: The printed defaults are taken now, as the startup settings step takes them, before any test changes an option.
+    _ = ConfigLoader.shared.defaultWords()
   }
 }
 

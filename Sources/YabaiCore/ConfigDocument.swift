@@ -38,6 +38,12 @@ public struct ConfigOptionEntry: Equatable, Sendable {
   public var value: ConfigValue
   /// The key path of the line, e.g. `config.window_gap` or `space[1].window_gap`.
   public var keyPath: String
+
+  public init(name: ConfigCommand.Name, value: ConfigValue, keyPath: String) {
+    self.name = name
+    self.value = value
+    self.keyPath = keyPath
+  }
 }
 
 /// One `[[space]]` table: a space index with its label, its pin and its options that accept `--space`.
@@ -49,6 +55,16 @@ public struct SpaceEntry: Equatable, Sendable {
   public var options: [ConfigOptionEntry]
   /// The key path of the table, e.g. `space[1]`.
   public var keyPath: String
+
+  public init(
+    index: Int, label: String?, pin: String?, options: [ConfigOptionEntry], keyPath: String
+  ) {
+    self.index = index
+    self.label = label
+    self.pin = pin
+    self.options = options
+    self.keyPath = keyPath
+  }
 }
 
 /// One key of a `[[rule]]` or `[[signal]]` table. `key = { not = "value" }` is the exclusion of `key!=value`, and it
@@ -59,6 +75,13 @@ public struct ConfigKey: Equatable, Sendable {
   public var value: ConfigValue
   /// The key path of the key, e.g. `rule[3].app`. An exclusion's value is at `rule[3].app.not`.
   public var keyPath: String
+
+  public init(name: String, negated: Bool, value: ConfigValue, keyPath: String) {
+    self.name = name
+    self.negated = negated
+    self.value = value
+    self.keyPath = keyPath
+  }
 }
 
 /// One `[[rule]]` table: its keys in the key order of `ConfigDocumentDecoding.swift`, and `one_shot`.
@@ -67,6 +90,12 @@ public struct RuleEntry: Equatable, Sendable {
   public var oneShot: Bool
   /// The key path of the table, e.g. `rule[3]`.
   public var keyPath: String
+
+  public init(keys: [ConfigKey], oneShot: Bool, keyPath: String) {
+    self.keys = keys
+    self.oneShot = oneShot
+    self.keyPath = keyPath
+  }
 }
 
 /// One `[[signal]]` table: its keys in the key order of `ConfigDocumentDecoding.swift`. `event` and `action` are among
@@ -75,6 +104,11 @@ public struct SignalEntry: Equatable, Sendable {
   public var keys: [ConfigKey]
   /// The key path of the table, e.g. `signal[0]`.
   public var keyPath: String
+
+  public init(keys: [ConfigKey], keyPath: String) {
+    self.keys = keys
+    self.keyPath = keyPath
+  }
 }
 
 /// A problem of a `yabai.toml` file. An empty key path is a problem of the whole file (a syntax error).

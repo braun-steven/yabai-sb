@@ -57,6 +57,9 @@ struct ConfigReconcileResult: Equatable, Sendable {
 /// print is then equal to the running value. Other values must be equal.
 func sameConfigValue(_ printed: String, _ word: String) -> Bool {
   if printed == word { return true }
+  // NOTE: focus_follows_mouse prints the disabled mode as `disabled` (focusFollowsMouseOption), and takes it as `off`. No
+  // other option prints `disabled`.
+  if printed == FocusFollowsMouse.disabled.rawValue && word == Argument.off { return true }
   if printed.hasPrefix("0x") && word.hasPrefix("0x") {
     guard let a = UInt64(printed.dropFirst(2), radix: 16),
       let b = UInt64(word.dropFirst(2), radix: 16)
@@ -168,7 +171,7 @@ extension ConfigLoader {
 }
 
 /// The per-space options that a view records an override for, as `config --space` does; nil for the others.
-private func spaceOverride(_ name: ConfigName) -> ViewOverrides? {
+func spaceOverride(_ name: ConfigName) -> ViewOverrides? {
   switch name {
   case .layout: ViewOverrides.layout
   case .autoPadding: ViewOverrides.autoPadding
@@ -390,13 +393,11 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
 // space has an override of it; the space is listed by its Mission Control index.
 //
 
-/// The lines of `config --overrides`: one per overridden option (`<option> <running> (file: <value>)`), one per overridden
-/// per-space option (`space <index> <option> <running> (file: <value>)`), then `rules: overridden` and `signals: overridden`
-/// when their lists differ. Nothing changes; no line when nothing is overridden.
-@WM func configOverrideLines() -> [String] {
-  let defaults = ConfigLoader.shared.defaultWords()
-  let entries = ConfigLoader.shared.applied?.lowered() ?? []
-
+/// The words that a document's entries set: each global option by name, and each per-space option by its Mission Control
+/// index. Those are the values the file gives; an option that the file does not set has none here.
+func appliedWords(_ entries: [ConfigEntry])
+  -> (options: [ConfigName: String], spaces: [Int: [ConfigName: String]])
+{
   var fileWords: [ConfigName: String] = [:]
   var spaceWords: [Int: [ConfigName: String]] = [:]
   for entry in entries {
@@ -410,6 +411,16 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
       spaceWords[index, default: [:]][name] = entry.arguments.dropFirst(4).joined(separator: " ")
     }
   }
+  return (fileWords, spaceWords)
+}
+
+/// The lines of `config --overrides`: one per overridden option (`<option> <running> (file: <value>)`), one per overridden
+/// per-space option (`space <index> <option> <running> (file: <value>)`), then `rules: overridden` and `signals: overridden`
+/// when their lists differ. Nothing changes; no line when nothing is overridden.
+@WM func configOverrideLines() -> [String] {
+  let defaults = ConfigLoader.shared.defaultWords()
+  let entries = ConfigLoader.shared.applied?.lowered() ?? []
+  let (fileWords, spaceWords) = appliedWords(entries)
 
   var lines: [String] = []
   for name in ConfigName.allCases {

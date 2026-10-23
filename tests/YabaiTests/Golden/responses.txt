@@ -449,6 +449,74 @@ main:1:2
 ### 40 config --check /nonexistent
 cannot read config file '/nonexistent'
 
+### 2390 config --dump
+[daemon]
+auto_reload = true
+load_scripting_addition = false
+
+[config]
+debug_output = false # default
+mouse_follows_focus = false # default
+focus_follows_mouse = "off" # default
+display_arrangement_order = "default" # default
+builtin_display_last = false # default
+window_origin_display = "focused" # override
+scratchpad_exclusive = true # override
+scratchpad_raise = false # default
+scratchpad_below = false # default
+skip_window_focus_animation = false # default
+window_opacity = true # override
+window_animation_easing = "ease_in_sine" # override
+window_shadow = "on" # default
+tree_default_orientation = "vertical" # override
+tree_workspace_layout = "tabbed" # override
+tree_autotiling = true # override
+focus_wrapping = "force" # override
+mouse_modifier = "ctrl" # override
+mouse_action1 = "resize" # override
+mouse_action2 = "move" # override
+mouse_drop_action = "stack" # override
+mouse_drop_preview = "outline" # default
+mouse_drag_split = false # default
+window_border = true # override
+window_border_hide_single = false # default
+tab_bar = true # default
+tab_bar_icons = true # default
+tab_bar_style = "i3" # override
+tab_bar_appearance = "dark" # default
+tab_bar_backdrop = "blur" # default
+window_border_width = 2.0 # override
+active_window_border_color = 0xff00ff00 # override
+normal_window_border_color = 0x00000000 # override
+tab_bar_height = 30 # override
+tab_bar_offset = 1000 # override
+tab_bar_card_padding = 6 # default
+tab_bar_window_radius = 16 # default
+tab_bar_focused_color = 0xff00ff00 # override
+tab_bar_focused_text_color = 0xffffffff # default
+tab_bar_inactive_color = 0xff5f676a # default
+tab_bar_inactive_text_color = 0xffffffff # default
+tab_bar_unfocused_color = 0xff222222 # default
+tab_bar_unfocused_text_color = 0xff888888 # default
+tab_bar_backdrop_color = 0xff48484a # default
+window_opacity_duration = 0.25 # override
+menubar_opacity = 0.0 # override
+active_window_opacity = 0.9 # override
+normal_window_opacity = 0.5 # override
+insert_feedback_color = 0xff112233 # override
+scratchpad_grid = "off" # default
+window_animation_duration = 0.0 # default
+tab_bar_font = "Menlo:14" # override
+external_bar = "main:1:2" # override
+top_padding = 10 # override
+bottom_padding = 12 # override
+left_padding = 5 # override
+right_padding = 6 # override
+window_gap = 8 # override
+layout = "tree" # default
+auto_padding = false # default
+space_layout = [] # default
+
 ### 0 rule --add app=^Calculator$ manage=off
 
 ### 0 rule --add label=term app=Terminal opacity=0.9 sticky=on

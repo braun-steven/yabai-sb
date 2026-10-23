@@ -181,6 +181,9 @@ config --space nolabel window_gap
 # config --check: a file that does not exist (without a file, it would read the user's yabai.toml)
 config --check /nonexistent
 
+# config --dump: the running config as yabai.toml, after the commands above
+config --dump
+
 # rule
 rule --add app=^Calculator$ manage=off
 rule --add label=term app=Terminal opacity=0.9 sticky=on

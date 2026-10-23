@@ -278,6 +278,11 @@ yabai \-m config \-\-overrides
 .RS 4
 List the overrides: the settings whose running value differs from the file. Each is one line, \f(CR<option> <running value> (file: <value>)\fP, and a per\-space setting is \f(CRspace <index> <option> <running value> (file: <value>)\fP. A rule or signal list that differs from the file\(cqs is printed as \f(CRrules: overridden\fP or \f(CRsignals: overridden\fP. The file\(cqs value is the one the file sets, or the default of the setting when it does not set it; with no file loaded, the defaults are the file\(cqs values. Nothing is printed when nothing is overridden. The command takes no argument and changes nothing.
 .RE
+.sp
+yabai \-m config \-\-dump
+.RS 4
+Print the running config as a \fByabai.toml\fP to stdout: the \f(CR[daemon]\fP table, every \f(CR[config]\fP option with its running value, a \f(CR[[space]]\fP table for each space that has a label, a pin or a per\-space setting, and the \f(CR[[rule]]\fP and \f(CR[[signal]]\fP tables. A line gets \f(CR# override\fP when its value is not the one the file gives (as \fBconfig \-\-overrides\fP decides), and \f(CR# default\fP when its value is the default of the setting. The text checks clean with \fBconfig \-\-check\fP, and reads back as the settings it was written from, so it can be saved as a file to start from. A space is written by its Mission Control index, which needs the spaces of the window server, and a pin by its display\(cqs index. The command takes no argument and changes nothing.
+.RE
 .SS "Global Settings"
 .sp
 \fBdebug_output\fP [\fI<BOOL_SEL>\fP]

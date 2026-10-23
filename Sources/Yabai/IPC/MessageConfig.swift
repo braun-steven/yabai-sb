@@ -19,12 +19,18 @@ enum WorkspaceLayout: String, CaseIterable {
   case tabbed
 }
 
+/// The kind of an option's value, which `config --dump` reads back as a document value (ConfigDump.swift).
+enum ConfigOptionKind: Sendable {
+  case bool, integer, float, color, text, strings
+}
+
 /// One option of the config domain. `print` writes the current value (of the space with `--space`); `parse` reads the
 /// value and returns the change that applies it, or nil when no value was given. A value is checked completely before
-/// anything changes, so a rejected value leaves the config as it was.
-@WM private struct ConfigOption {
+/// anything changes, so a rejected value leaves the config as it was. `kind` is the kind of the value it prints.
+@WM struct ConfigOption {
   typealias Change = @WM () throws(CommandError) -> Void
 
+  let kind: ConfigOptionKind
   let name: ConfigName
   let print: @WM (inout Response, SpaceID?) -> Void
   let parse: @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> Change?
@@ -42,6 +48,7 @@ enum WorkspaceLayout: String, CaseIterable {
   _ name: ConfigName, get: @escaping @WM () -> Bool, set: @escaping @WM (Bool) -> Void
 ) -> ConfigOption {
   ConfigOption(
+    kind: .bool,
     name: name, print: { rsp, _ in rsp.write("\(boolString(get()))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -56,6 +63,7 @@ enum WorkspaceLayout: String, CaseIterable {
   set: @escaping @WM (Choice) -> Void
 ) -> ConfigOption where Choice.RawValue == String {
   ConfigOption(
+    kind: .text,
     name: name, print: { rsp, _ in rsp.write("\(get().rawValue)\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -70,6 +78,7 @@ enum WorkspaceLayout: String, CaseIterable {
   expected: String, set: @escaping @WM (Int) -> Void
 ) -> ConfigOption {
   ConfigOption(
+    kind: .integer,
     name: name, print: { rsp, _ in rsp.write("\(get())\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -86,6 +95,7 @@ enum WorkspaceLayout: String, CaseIterable {
   parseValue: @escaping @WM (Token) -> Float?, expected: String, set: @escaping @WM (Float) -> Void
 ) -> ConfigOption {
   ConfigOption(
+    kind: .float,
     name: name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -104,6 +114,7 @@ enum WorkspaceLayout: String, CaseIterable {
   let expected =
     allowZero ? "a hex color such as 0xffe1e3e4" : "a non-zero hex color such as 0xffe1e3e4"
   return ConfigOption(
+    kind: .color,
     name: name, print: { rsp, _ in rsp.write("0x\(String(get().argb, radix: 16))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -118,6 +129,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func focusFollowsMouseOption() -> ConfigOption {
   ConfigOption(
+    kind: .text,
     name: .focusFollowsMouse,
     print: { rsp, _ in rsp.write("\(Config.current.window.focusFollowsMouse.rawValue)\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
@@ -141,6 +153,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func scratchpadGridOption() -> ConfigOption {
   ConfigOption(
+    kind: .text,
     name: .scratchpadGrid,
     print: { rsp, _ in
       let grid = Config.current.scratchpad.grid
@@ -173,6 +186,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func spaceLayoutOption() -> ConfigOption {
   ConfigOption(
+    kind: .strings,
     name: .spaceLayout,
     print: { rsp, _ in
       if let spec = Config.current.space.spaceLayoutSpec {
@@ -247,6 +261,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func animationDurationOption() -> ConfigOption {
   ConfigOption(
+    kind: .float,
     name: .windowAnimationDuration,
     print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
@@ -277,6 +292,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func tabBarFontOption() -> ConfigOption {
   ConfigOption(
+    kind: .text,
     name: .tabBarFont, print: { rsp, _ in rsp.write("\(Token(Config.current.tabBar.fontName))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
@@ -295,6 +311,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func externalBarOption() -> ConfigOption {
   ConfigOption(
+    kind: .text,
     name: .externalBar,
     print: { rsp, _ in
       let externalBar = Config.current.display.externalBar
@@ -324,6 +341,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func spacingOption(_ name: ConfigName, spacing: ViewSpacing) -> ConfigOption {
   ConfigOption(
+    kind: .integer,
     name: name,
     print: { rsp, selSid in
       let manager = SpaceManager.shared
@@ -356,6 +374,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func layoutOption() -> ConfigOption {
   ConfigOption(
+    kind: .text,
     name: .layout,
     print: { rsp, selSid in
       let manager = SpaceManager.shared
@@ -386,6 +405,7 @@ enum WorkspaceLayout: String, CaseIterable {
 
 @WM private func autoPaddingOption() -> ConfigOption {
   ConfigOption(
+    kind: .bool,
     name: .autoPadding,
     print: { rsp, selSid in
       let manager = SpaceManager.shared
@@ -415,7 +435,7 @@ enum WorkspaceLayout: String, CaseIterable {
 // the following commands of the message rely on.
 //
 
-@WM private let configOptions: [ConfigOption] = [
+@WM let configOptions: [ConfigOption] = [
   boolOption(
     .debugOutput, get: { Log.verbose.load(ordering: .relaxed) },
     set: { Log.verbose.store($0, ordering: .relaxed) }),
@@ -683,6 +703,10 @@ private func cInt(_ value: Float) -> Int {
     try handleConfigOverrides(&rsp, &message)
     return
   }
+  if first.equals("--dump") {
+    try handleConfigDump(&rsp, &message)
+    return
+  }
 
   let (spaceSelector, command) = try ConfigCommand.parseScope(first, &message)
   if let spaceSelector {
@@ -729,7 +753,7 @@ private func cInt(_ value: Float) -> Int {
 // found: tab_bar_font (TabBar.setFont), window_animation_duration (SIP and Screen Recording) and the other Change
 // closures. Those stay for handleMessage. `--check` is accepted with its file, as handleDomainConfig accepts it: it
 // checks a file and changes nothing. `--reload` takes its file the same way; the reload itself is not run by the check,
-// since it changes the config. `--overrides` takes no argument and changes nothing.
+// since it changes the config. `--overrides` and `--dump` take no argument and change nothing.
 //
 
 /// Checks a config message: the failures of its commands, parsed as handleDomainConfig parses them, with the Change of
@@ -745,6 +769,10 @@ private func cInt(_ value: Float) -> Int {
   }
   if first.equals("--overrides") {
     try noConfigArgument("--overrides", &message)
+    return
+  }
+  if first.equals("--dump") {
+    try noConfigArgument("--dump", &message)
     return
   }
 

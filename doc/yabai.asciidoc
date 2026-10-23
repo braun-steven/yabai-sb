@@ -210,6 +210,9 @@ yabai -m config --reload ['<config_file>']::
 yabai -m config --overrides::
     List the overrides: the settings whose running value differs from the file. Each is one line, `<option> <running value> (file: <value>)`, and a per-space setting is `space <index> <option> <running value> (file: <value>)`. A rule or signal list that differs from the file's is printed as `rules: overridden` or `signals: overridden`. The file's value is the one the file sets, or the default of the setting when it does not set it; with no file loaded, the defaults are the file's values. Nothing is printed when nothing is overridden. The command takes no argument and changes nothing.
 
+yabai -m config --dump::
+    Print the running config as a *yabai.toml* to stdout: the `[daemon]` table, every `[config]` option with its running value, a `[[space]]` table for each space that has a label, a pin or a per-space setting, and the `[[rule]]` and `[[signal]]` tables. A line gets `# override` when its value is not the one the file gives (as *config --overrides* decides), and `# default` when its value is the default of the setting. The text checks clean with *config --check*, and reads back as the settings it was written from, so it can be saved as a file to start from. A space is written by its Mission Control index, which needs the spaces of the window server, and a pin by its display's index. The command takes no argument and changes nothing.
+
 Global Settings
 ^^^^^^^^^^^^^^^
 

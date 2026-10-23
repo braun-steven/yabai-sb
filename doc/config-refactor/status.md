@@ -94,3 +94,4 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 
 - C1.2/C1.4: keys inside a table are decoded in `TOMLTable.keys` order (plain values, arrays, inline tables), not file order; sorting by `TOMLKeyLocator` lines would restore it (`Sources/YabaiCore/ConfigDocumentDecoding.swift`).
 - C1.4: array elements (`config.space_layout[2]`) report the key's line, and quoted keys decode only `\"` and `\\` (`Sources/YabaiCore/TOMLKeyLocator.swift`).
+- C1 close (orchestrator): `just check-build` once failed its clean build on SwiftPM cache lines (`warning: 'swift-collections': skipping cache due to an error: The file “maintenance.lock” doesn’t exist.`); `scripts/check-build.py` fails any `warning:` line, even from SwiftPM itself. A rerun passed. Decide whether to ignore SwiftPM cache lines there (`scripts/check-build.py`).

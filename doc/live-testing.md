@@ -244,6 +244,10 @@ Rules for the user's machine:
   macOS moves the spaces of the mirrored display over, but merges its visible space into space 1; on unmirror it
   moves them back and puts those windows on a new space (a new id). With `space_layout 15 10:5 10:5:1b` each
   direction takes one reconcile pass (create one space, then destroy it), seen with `debug_output on` (P9 review).
+- `space_layout` keeps the space count (15 here) by creating and destroying spaces after every space change. A
+  `space --create` followed by `space <n> --destroy` with a freshly read count destroyed the user's space 15 (its
+  window moved to space 1): the reconciler had already removed the new space. While `space_layout` is set, do not
+  create or destroy spaces by index in a probe: the reconciler undoes it and the indices shift.
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.
@@ -267,9 +271,15 @@ Rules for the user's machine:
   front change, also sent on every app switch; the Dock does not become the front process) with the Dock's overlay
   already on screen: a named Dock window at layer 20 the size of the display (not layer 18). Closing it only removes
   the overlay, so yabai polls it (`MissionControl.overlayIsShown`).
-  Closing it with Esc sometimes activates the front app of each space in space order, so the app of the last
-  space ends up focused (its window stays hidden on its space). The installed build from before this detection does
-  it too: it is not caused by the border hiding or the exit reconciliation.
+  Closing it sometimes activates the front app of each space in space order, so the app of the last space ends up
+  focused (its window stays hidden on its space). Probed on 2026-10-23 with `missioncontrol` and an
+  `NSWorkspace.didActivateApplicationNotification` logger: a long-running Dock did it on 3 of 3 closes with the
+  shortcut (Safari, iTerm2, Mail, ChatGPT, Things within 20 ms: spaces 1, 3, 9, 11, 15), with the installed build
+  that does not detect Mission Control at all (yabai only logged the front switches). After `killall Dock` it no
+  longer happened, with or without the payload, after a payload space switch, or after a space create and destroy.
+  So it is Dock state that a Dock restart clears, not yabai's enter/exit handling. Not yet tested: the removal of
+  display 2 earlier that day (its spaces 11–15 had moved to display 1). If it comes back, run the logger before
+  restarting Dock and note what happened since the last Dock start.
 - Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
   since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows
   (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.

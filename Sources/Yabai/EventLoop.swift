@@ -121,6 +121,8 @@ enum Event: Sendable {
   case configChanged(ConfigGroup)
   // NOTE: Only post with `key: .spaceLayoutReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case spaceLayoutReconcile
+  // NOTE: Only post with `key: .spacePinReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case spacePinReconcile
   case daemonMessage(DaemonMessage)
   // NOTE: Posted by an EventSubscriber when it ends (a closed peer, a failed write or a full backlog). It only removes
   // the subscriber from EventSubscribers, which runs on @WM.
@@ -162,9 +164,10 @@ enum EventLoop {
   //
 
   /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
-  /// Only post the events `.spaceLayoutReconcile` and `.missionControlCheckForExit` with their key.
+  /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile` and `.missionControlCheckForExit` with their key.
   enum DelayedEventKey: Hashable, Sendable {
     case spaceLayoutReconcile
+    case spacePinReconcile
     case missionControlCheck
   }
 
@@ -330,6 +333,8 @@ extension EventHandler {
     case .configChanged(let group): configChanged(group)
     case .spaceLayoutReconcile:
       if EventLoop.claimDelivery(of: .spaceLayoutReconcile) { spaceLayoutReconcile() }
+    case .spacePinReconcile:
+      if EventLoop.claimDelivery(of: .spacePinReconcile) { spacePinReconcile() }
     case .daemonMessage(let message): MessageLoop.handle(message)
     case .eventSubscriberRemoved(let id): EventSubscribers.shared.remove(id)
     }

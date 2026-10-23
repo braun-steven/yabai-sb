@@ -546,6 +546,9 @@ private let spaceCommandRows: [(String, SpaceCommand)] = [
   ("--gap\0rel:5\0", .gap(.rel, 5)),
   ("--toggle\0mission-control\0", .toggle(.missionControl)),
   ("--layout\0tree\0", .layout(.tree)),
+  ("--pin\0", .pin(nil)),
+  ("--pin\02\0", .pin(.arrangement(2))),
+  ("--pin\0next\0", .pin(.next)),
   ("--undo\0", .undo),
 ]
 

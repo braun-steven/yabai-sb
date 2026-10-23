@@ -168,6 +168,7 @@ public struct DisplayInfo: Encodable, Sendable {
 public struct SpaceInfo: Encodable, Sendable {
   public enum Key: String, CodingKey, CaseIterable, Sendable {
     case id, uuid, index, label, type, display, windows
+    case pinnedDisplay = "pinned-display"
     case firstWindow = "first-window"
     case lastWindow = "last-window"
     case hasFocus = "has-focus"
@@ -184,6 +185,9 @@ public struct SpaceInfo: Encodable, Sendable {
   public var type = ""
   /// The arrangement index of the display of the space, 0 without one.
   public var display = 0
+  /// The arrangement index of the display that the space is pinned to, 0 without a pin or while that display is not
+  /// connected.
+  public var pinnedDisplay = 0
   public var windows: [WindowID] = []
   public var firstWindow: WindowID?
   public var lastWindow: WindowID?
@@ -204,6 +208,7 @@ public struct SpaceInfo: Encodable, Sendable {
     try container.encode(label, forKey: .label, in: properties)
     try container.encode(type, forKey: .type, in: properties)
     try container.encode(display, forKey: .display, in: properties)
+    try container.encode(pinnedDisplay, forKey: .pinnedDisplay, in: properties)
     try container.encode(
       windows.map { Int32(bitPattern: $0.rawValue) }, forKey: .windows, in: properties)
     try container.encode(

@@ -86,19 +86,19 @@ public struct SpaceLayout: Equatable, Sendable {
 
   /// `space_layout_move_candidate`: the space a reconcile pass moves off a display with too many spaces. It is
   /// the first user space from the given edge that is not visible, else the visible space when it is the only
-  /// user space, else nil.
+  /// user space, else nil. A pinned space is never a candidate (see SpacePinning.pinnedSpaces), so the pin keeps it.
   public static func moveCandidate(
-    spaces: [SpaceID], user: [Bool], visible: SpaceID?, fromEnd: Bool
+    spaces: [SpaceID], user: [Bool], visible: SpaceID?, fromEnd: Bool, pinned: Set<SpaceID> = []
   ) -> SpaceID? {
     let count = spaces.count
 
     for k in 0..<count {
       let i = fromEnd ? count - 1 - k : k
-      if user[i] && spaces[i] != visible { return spaces[i] }
+      if user[i] && spaces[i] != visible && !pinned.contains(spaces[i]) { return spaces[i] }
     }
 
     for i in 0..<count {
-      if user[i] && spaces[i] == visible { return visible }
+      if user[i] && spaces[i] == visible && !pinned.contains(spaces[i]) { return visible }
     }
 
     return nil

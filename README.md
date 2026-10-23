@@ -15,6 +15,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Floating frame memory](#floating-frame-memory)
 - [Tree undo](#tree-undo)
 - [Automatic space layout](#automatic-space-layout)
+- [Space pins](#space-pins)
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
@@ -267,6 +268,18 @@ The `b` suffix binds that entry to the built-in display; other entries follow di
 ```sh
 yabai -m config space_layout off  # stop enforcing counts
 ```
+
+### Space pins
+
+`space --pin` keeps a labelled space on a display. The space returns to that display whenever the display is connected:
+
+```sh
+yabai -m space web --label web
+yabai -m space web --pin 2   # display 2 in arrangement order
+yabai -m space web --pin     # remove the pin
+```
+
+A pin is kept by the display's uuid, so it survives display index changes, and it is set in memory: put the commands in your yabairc. Pins are applied when they are set, after a display is added, removed or moved, and at startup. A pinned space is not moved back when you move it by hand, and `space_layout` never moves or destroys it. Moving a space needs the scripting addition.
 
 ### Built-in display last
 

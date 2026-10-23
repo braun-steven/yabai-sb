@@ -183,4 +183,37 @@ extension EventHandler {
     case .done: sm.spaceLayoutPasses = 0
     }
   }
+
+  //
+  // NOTE: One pinned space moves per pass. A move re-posts the space layout pass, so the counts of the displays are
+  // fixed with the spaces that the layout may move (SpacePinning.pinnedSpaces keeps the pinned ones).
+  //
+
+  func spacePinReconcile() {
+    let sm = SpaceManager.shared
+
+    if sm.pins.isEmpty {
+      sm.spacePinPasses = 0
+      return
+    }
+
+    if MissionControl.shared.isActive {
+      sm.schedulePinReconcile(after: .milliseconds(500), resetPasses: false)
+      return
+    }
+
+    sm.spacePinPasses += 1
+    if sm.spacePinPasses > 40 {
+      Logger.spaces.notice("giving up on the space pins: they did not converge")
+      return
+    }
+
+    switch sm.reconcileSpacePins() {
+    case .performed:
+      sm.schedulePinReconcile(after: .milliseconds(500), resetPasses: false)
+      sm.scheduleSpaceLayout(after: .milliseconds(500), resetPasses: false)
+    case .failed: sm.schedulePinReconcile(after: .seconds(1), resetPasses: false)
+    case .done: sm.spacePinPasses = 0
+    }
+  }
 }

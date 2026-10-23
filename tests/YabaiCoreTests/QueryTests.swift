@@ -94,6 +94,12 @@ private func json(_ value: some Encodable) throws -> String {
   #expect(
     try json(space)
       == "{\"first-window\":0,\"label\":\"web/dev\",\"last-window\":8,\"windows\":[7,8]}")
+
+  // NOTE: pinned-display is the arrangement index of the display the space is pinned to, 0 without one.
+  var pinned = SpaceInfo(id: 4, properties: [.id, .pinnedDisplay])
+  #expect(try json(pinned) == "{\"id\":4,\"pinned-display\":0}")
+  pinned.pinnedDisplay = 2
+  #expect(try json(pinned) == "{\"id\":4,\"pinned-display\":2}")
 }
 
 @Test func treeNodeWritesNullLayoutForWindows() throws {

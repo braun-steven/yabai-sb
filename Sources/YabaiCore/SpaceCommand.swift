@@ -18,6 +18,7 @@ public enum SpaceCommand: Equatable, Sendable {
   case toggle(SpaceToggle)
   case layout(SpaceCommandLayout)
   case label(Token)
+  case pin(DisplaySelector?)
   case undo
 
   /// Whether the command changes the tree of the space, so `--undo` can restore the tree before it.
@@ -45,12 +46,14 @@ public enum SpaceCommand: Equatable, Sendable {
     case toggle = "--toggle"
     case layout = "--layout"
     case label = "--label"
+    case pin = "--pin"
     case undo = "--undo"
 
     /// Layout and appearance commands fail before parsing a value when the acting space is missing.
     public var needsActingSpace: Bool {
       switch self {
-      case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label, .undo:
+      case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label, .pin,
+        .undo:
         true
       default: false
       }
@@ -118,6 +121,7 @@ public enum SpaceCommand: Equatable, Sendable {
       }
       return .layout(layout)
     case .label: return .label(value)
+    case .pin: return .pin(try optionalDisplay(value))
     case .undo: return .undo
     }
   }

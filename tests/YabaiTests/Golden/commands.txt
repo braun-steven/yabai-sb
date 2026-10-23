@@ -249,6 +249,8 @@ query --windows --window nolabel
 space --foo
 space nolabel --foo
 space --undo
+space --pin
+space --pin 2
 display --foo
 display nolabel --foo
 batch 3 config window_gap x 3 config layout bogus

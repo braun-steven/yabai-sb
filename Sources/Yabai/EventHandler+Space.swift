@@ -128,6 +128,7 @@ extension EventHandler {
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
+    SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayAdded, .display(did))
   }
 
@@ -137,6 +138,7 @@ extension EventHandler {
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
+    SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayRemoved, .display(did))
   }
 
@@ -145,6 +147,7 @@ extension EventHandler {
     Logger.events.debug("display moved: \(did)")
     SpaceManager.shared.markSpacesInvalid()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
+    SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayMoved, .display(did))
   }
 

@@ -49,6 +49,7 @@ extension View {
     if properties.contains(.label) { info.label = sm.labels.name(of: sid) ?? "" }
     if properties.contains(.type) { info.type = layout.rawValue }
     if properties.contains(.display) { info.display = sid.display.flatMap { $0.arrangement } ?? 0 }
+    if properties.contains(.pinnedDisplay) { info.pinnedDisplay = sm.pinnedArrangement(of: sid) }
     if properties.contains(.windows) { info.windows = sid.windows(includingMinimized: true) ?? [] }
     if properties.contains(.firstWindow) {
       info.firstWindow = tree?.firstLeaf?.focusedDescendant.windowID

@@ -36,6 +36,11 @@ enum SpaceOperationError: Error, Sendable {
   var didBegin = false
   var labels = LabelList<SpaceID>()
   var spaceLayoutPasses = 0
+  /// The pins of the labels (SpacePins), kept in memory: the yabairc sets them again at startup.
+  var pins = SpacePins()
+  var spacePinPasses = 0
+  /// Whether the notice about the pins without the scripting addition was logged (once per daemon run).
+  var spacePinNoticeLogged = false
 
   /// The view of a space; before `begin()` only a known one, after it the view is created when the space is new.
   func queryView(for sid: SpaceID) -> View? {
@@ -148,6 +153,7 @@ enum SpaceOperationError: Error, Sendable {
   /// sets them (`Config.applySpaceDefaults()`) before this manager begins.
   func resetViews() {
     labels = LabelList<SpaceID>()
+    pins = SpacePins()
     //
     // NOTE: The views are keyed by space id.
     //

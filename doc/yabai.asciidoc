@@ -196,7 +196,7 @@ Global Settings
     Give one '<LAYOUT>' per number of connected displays; the layout whose entry count matches the number of active displays is used, e.g. '15 10:5 10:5:1b'. +
     An entry suffixed with 'b' belongs to the built-in display, and the remaining entries apply to the other displays in order. +
     After displays are added, removed or moved, and after spaces are created or destroyed, spaces are moved between displays, created or destroyed until every display matches its target. +
-    Spaces that contain windows are never destroyed. +
+    Spaces that contain windows are never destroyed. Spaces pinned to a connected display (see *--pin*) are never moved or destroyed by this. +
     System Integrity Protection must be partially disabled.
 
 *builtin_display_last* ['<BOOL_SEL>']::
@@ -501,7 +501,15 @@ COMMAND
 
 *--label* ['<LABEL>']::
     Label the selected space, allowing that label to be used as an alias in commands that take a `SPACE_SEL` parameter. +
-    If the command is called without an argument it will try to remove a previously assigned label.
+    If the command is called without an argument it will try to remove a previously assigned label. +
+    A pin follows its label: moving the label to another space moves the pin with it, and removing the label or replacing it with another one removes the pin.
+
+*--pin* ['<DISPLAY_SEL>']::
+    Pin the selected space to the given display, so that it returns to that display whenever the display is connected. The space must have a label, otherwise the command fails. +
+    The pin is kept by the uuid of the display and in memory only: a yabairc sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens. +
+    A pin to a display that is not connected leaves its space where it is. Without an argument, the command removes the pin of the selected space. +
+    The query key *pinned-display* of a space is the arrangement index of the display the space is pinned to, and 0 when it has no pin or its display is not connected. +
+    Moving a space needs the scripting addition: without it, the daemon logs one notice and leaves the spaces where they are. System Integrity Protection must be partially disabled.
 
 Window
 ~~~~~~
@@ -700,6 +708,7 @@ SPACE
     "label": string,
     "type": string,
     "display": number,
+    "pinned-display": number,
     "windows": array of number,
     "first-window": number,
     "last-window": number,

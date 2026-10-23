@@ -323,6 +323,13 @@ enum Daemon {
     Logger.daemon.debug("startup: running the config file")
     execConfigFile(options.config)
 
+    //
+    // NOTE: The pins of the config file are set by its `space --pin` messages, which schedule their own pass. This pass
+    // covers the displays that are connected at startup, once the config file has had time to run.
+    //
+    Logger.daemon.debug("startup: reconciling the space pins")
+    EventLoop.post(.spacePinReconcile, after: .seconds(1), key: .spacePinReconcile)
+
     Logger.daemon.debug("startup: running the main run loop")
     NSApp.run()
 

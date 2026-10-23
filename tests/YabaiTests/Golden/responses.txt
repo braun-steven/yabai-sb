@@ -602,6 +602,12 @@ missing required key-value pair 'action=..'
 ### 32 space --undo
 nothing to undo on this space.
 
+### 37 space --pin
+cannot pin a space without a label.
+
+### 37 space --pin 2
+cannot pin a space without a label.
+
 ### 46 display --foo
 unknown command '--foo' for domain 'display'
 

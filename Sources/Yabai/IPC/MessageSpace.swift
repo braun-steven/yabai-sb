@@ -272,6 +272,32 @@ extension SpaceCommand {
       } else if !sm.labels.remove(id: sid) {
         throw CommandError("the selected space was not associated with a label!\n")
       }
+      // NOTE: A pin follows its label to the space that gets it. A label that no space has any more takes its pin along.
+      sm.dropOrphanedPins()
+      sm.schedulePinReconcile(after: .zero, resetPasses: true)
+    case .pin(let selector):
+      guard let sid else {
+        throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
+      }
+      guard let label = sm.labels.name(of: sid) else {
+        throw CommandError("cannot pin a space without a label.\n")
+      }
+      if let selector {
+        let target: DisplayID?
+        do {
+          target = try selector.resolve(acting: DisplayID.active, context)
+        } catch {
+          throw error.stoppingMessage
+        }
+        guard let target else { return false }
+        guard let uuid = target.uuid else {
+          throw CommandError("could not locate the display to pin the space to.\n")
+        }
+        sm.pins.pin(label: label, toDisplay: uuid)
+      } else {
+        sm.pins.unpin(label: label)
+      }
+      sm.schedulePinReconcile(after: .zero, resetPasses: true)
     case .undo:
       guard let sid else {
         throw CommandError("could not locate the space to act on.\n", stopsMessage: true)

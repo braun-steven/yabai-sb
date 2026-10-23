@@ -9,8 +9,9 @@ import YabaiCore
 // displays change, reconcile passes move, create or destroy one space each until the counts match.
 //
 
-/// What a reconcile pass did: nothing left to do, one step, or a step that failed.
-enum SpaceLayoutResult: Sendable {
+/// What a reconcile pass did (of the space layout or of the space pins): nothing left to do, one step, or a step that
+/// failed.
+enum ReconcileResult: Sendable {
   case done
   case performed
   case failed
@@ -21,8 +22,8 @@ extension SpaceManager {
     return spaces.filter { $0.isUser }.count
   }
 
-  /// An empty user space of the display to destroy, preferring one that is not visible.
-  private func destroyCandidate(on did: DisplayID) -> SpaceID? {
+  /// An empty user space of the display to destroy, preferring one that is not visible. A pinned space is kept.
+  private func destroyCandidate(on did: DisplayID, pinned: Set<SpaceID>) -> SpaceID? {
     guard let spaces = did.spaces else { return nil }
 
     let visibleSid = did.currentSpace
@@ -31,6 +32,7 @@ extension SpaceManager {
     for sid in spaces.reversed() {
       if !sid.isUser { continue }
       if sid.isLastUserSpace { continue }
+      if pinned.contains(sid) { continue }
 
       guard let windows = sid.windows(includingMinimized: true), windows.isEmpty else { continue }
 
@@ -42,7 +44,7 @@ extension SpaceManager {
   }
 
   /// Performs one step that moves the user spaces towards the layout of the displays.
-  func reconcileSpaceLayout() -> SpaceLayoutResult {
+  func reconcileSpaceLayout() -> ReconcileResult {
     //
     // NOTE: Each pass reads the lists again: the previous pass may have changed them, and the next one decides on them.
     //
@@ -78,6 +80,12 @@ extension SpaceManager {
     let surplus = (0..<displayCount).first { actual[$0] > target[$0] }
     let deficit = (0..<displayCount).first { actual[$0] < target[$0] }
 
+    //
+    // NOTE: The pinned spaces (see SpacePinning.pinnedSpaces) are never moved or destroyed here. The pin reconcile moves
+    // them to their displays, so a layout move of one would be undone by its pin, and the two would ping-pong.
+    //
+    let pinned = pinnedSpaces()
+
     switch (surplus, deficit) {
     case (let surplus?, let deficit?):
       guard let spaces = didList[surplus].spaces else { return .failed }
@@ -85,18 +93,26 @@ extension SpaceManager {
       let user = spaces.map { $0.isUser }
       let sid = SpaceLayout.moveCandidate(
         spaces: spaces, user: user, visible: didList[surplus].currentSpace,
-        fromEnd: deficit > surplus)
+        fromEnd: deficit > surplus, pinned: pinned)
 
-      Logger.spaces.debug(
-        "move space \(Int64(bitPattern: sid?.rawValue ?? 0)) from display \(surplus + 1) to display \(deficit + 1)"
-      )
-      do { try moveSpace(sid, toDisplay: didList[deficit]) } catch { return .failed }
+      if let sid {
+        Logger.spaces.debug(
+          "move space \(Int64(bitPattern: sid.rawValue)) from display \(surplus + 1) to display \(deficit + 1)"
+        )
+        do { try moveSpace(sid, toDisplay: didList[deficit]) } catch { return .failed }
+      } else {
+        // NOTE: Every user space of the surplus display is pinned, so the deficit is met by a new space instead.
+        Logger.spaces.debug(
+          "display \(surplus + 1) has only pinned spaces; create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))"
+        )
+        do { try addSpace(onDisplayOf: didList[deficit].currentSpace) } catch { return .failed }
+      }
     case (nil, let deficit?):
       Logger.spaces.debug(
         "create space on display \(deficit + 1) (\(actual[deficit])/\(target[deficit]))")
       do { try addSpace(onDisplayOf: didList[deficit].currentSpace) } catch { return .failed }
     case (let surplus?, nil):
-      guard let sid = destroyCandidate(on: didList[surplus]) else {
+      guard let sid = destroyCandidate(on: didList[surplus], pinned: pinned) else {
         Logger.spaces.debug(
           "display \(surplus + 1) has \(actual[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed"
         )

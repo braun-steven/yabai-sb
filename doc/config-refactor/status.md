@@ -25,7 +25,7 @@ mode: nested
 
 ## Phase 2: Check and load at startup
 
-phase: in-progress
+phase: done
 mode: nested
 
 | ID | Title | Status | Notes |
@@ -99,6 +99,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 20:00 · subphase agent · C2.4 · done (commit pending) · C3.1 (setters skip unchanged values); the startup applies yabai.toml and no longer runs the yabairc, `config --reload` still runs it until C3.3; the file's settings run after `applySpaceDefaults` (deviation, see the C2.4 note)
 - 2026-10-23 20:02 · subphase agent · C2.4 · fix started · C2.4 Fix (menu bar alpha from yabai.toml applied after ConfigObserver.start)
 - 2026-10-23 20:02 · subphase agent · C2.4 · fix done (commit pending) · C3.1 (setters skip unchanged values)
+- 2026-10-23 20:20 · phase agent · C2 · closed, just ci passed (second run; the first failed on the transient SwiftPM cache line) · phase 3. Summary: the daemon finds `yabai.toml` (`Daemon.configFile`, XDG then ~/.config, symlinks compared by realpath), checks it with `config --check` and offline `yabai --check-config` (`configFileReport`/`configFileCheck`), and applies it in-process at startup in `ConfigStep` order between the manager starts (`ConfigLoader.swift`); the yabairc is no longer run at startup but `config --reload` still runs it until C3.3. `examples/yabai.toml` and `~/.config/yabai/yabai.toml` exist (97 settings, 0 failures; reviewed against the yabairc: 50 rules in order, 46 options, the dock_did_restart signal). Deviations: `[config]` settings run after `applySpaceDefaults` (which would overwrite them), with `tab_bar_font`/`external_bar` after the managers begin; `[[space]]` entries are notes in the check (not checkable offline); the menu bar alpha is applied once after `ConfigObserver.start` (C2.4 fix). For phase 3: `ConfigObserver` starts after the startup apply, so the reload engine runs with the observer active; startup `sudo yabai --load-sa` is lost until phase 4 (Discovered). Close fixes: `scripts/check-build.py` copies all of `examples/` and counts only real diagnostic lines (the test name of a `Syntax error:` fixture failed it).
 
 ## Discovered
 
@@ -115,3 +116,4 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 - C2.4: `yabai -c <yabairc>` at startup now reads that file as `yabai.toml`, so a yabairc passed with `-c` fails the check and the daemon starts with the defaults (`Sources/Yabai/ConfigLoader.swift`, `loadStartupConfig`).
 - C2.4: a yabairc without a yabai.toml gives two startup notices, the leftover-yabairc notice and "could not locate config file" (`Sources/Yabai/ConfigLoader.swift`); drop the second when a yabairc exists.
 - C2.4: `[daemon] auto_reload` and `load_scripting_addition` are decoded but not applied until C3.4 and C4.2 (`Sources/YabaiCore/ConfigDocumentDecoding.swift`).
+- C2 close: the SwiftPM `maintenance.lock` cache line failed `just check-build` again (01-clean.log); a rerun passed. It recurs, so ignoring SwiftPM `skipping cache` lines in `scripts/check-build.py` is worth deciding.

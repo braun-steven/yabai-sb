@@ -133,8 +133,11 @@ Xcode selector to an equivalent selection of the same installation and verifies 
 invalidation followed by another no-op. Identical native bytes and C-array timestamps must be
 preserved. Finally it runs the Swift tests, including golden IPC replay. The copy holds only what the build and
 tests read (`Sources`, `Plugins`, `osax`, `tests`, `Package.swift`, `assets/Info.plist`, two scripts and
-`examples/yabairc` and `examples/skhdrc`): a test that reads another repository file through `#filePath` passes in `just test` but fails
-here until `scripts/check-build.py` copies that file too.
+the whole `examples/` directory): a test that reads another repository file through `#filePath` passes in `just test` but fails
+here until `scripts/check-build.py` copies that file too. C2.3 hit this with `examples/yabai.toml` and `examples/batch.sh`,
+so `examples/` is now copied as a whole. Every step fails on a diagnostic line, a line that starts with `warning:` or `error:`, optionally after
+a location (`file:12:5: `) or a tool name (`ld: `); text inside a test name, such as a fixture's `Syntax error:`, does
+not count (C2 close: the earlier match anywhere in a line failed the tests step on such a test name).
 
 The check needs only the selected Xcode; it does not switch system-wide `xcode-select`, require a
 second installation, touch the checkout's sources/build caches/`bin/`, or deploy a service.

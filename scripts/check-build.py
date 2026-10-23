@@ -46,11 +46,9 @@ class BuildCheck:
         shutil.copy2(repository / "Package.swift", self.root / "Package.swift")
         (self.root / "assets").mkdir()
         shutil.copy2(repository / "assets/Info.plist", self.root / "assets/Info.plist")
-        # NOTE: Tests read examples/yabairc (YabaircExtractorTests) and examples/skhdrc (SkhdRecipesTests), located
-        # through #filePath.
-        (self.root / "examples").mkdir()
-        for name in ("yabairc", "skhdrc"):
-            shutil.copy2(repository / "examples" / name, self.root / "examples" / name)
+        # NOTE: Tests read files of examples/ (yabairc, skhdrc, yabai.toml, batch.sh), located through #filePath, so the
+        # whole directory is copied.
+        shutil.copytree(repository / "examples", self.root / "examples")
         (self.root / "scripts").mkdir()
         for name in ("build-osax.sh", "osax-toolchain.sh"):
             shutil.copy2(repository / "scripts" / name, self.root / "scripts" / name)
@@ -63,7 +61,11 @@ class BuildCheck:
                 stdout=output, stderr=subprocess.STDOUT,
             )
         text = log.read_text(errors="replace")
-        diagnostics = re.findall(r"^.*(?:warning:|error:).*$", text, flags=re.I | re.M)
+        # NOTE: A diagnostic starts its line, optionally after a location (`file:12:5: `) or a tool name (`ld: `).
+        # Test names and arguments that contain `error:` (e.g. a TOML `Syntax error:` fixture) are not diagnostics.
+        diagnostics = re.findall(
+            r"^(?:\S+?:(?:\d+:)*\s+)?(?:warning|error):.*$", text, flags=re.I | re.M
+        )
         require(
             result.returncode == 0 and not diagnostics,
             f"{name} failed (exit {result.returncode}); see {log}\n"

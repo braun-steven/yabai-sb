@@ -310,15 +310,18 @@ extension Border {
     // and bottom edges, the side edges just move.
     //
     var reshaped = (false, false, false, false)
-    var anyReshaped = false
     withUnsafeMutableBytes(of: &reshaped) { raw in
       let list = raw.bindMemory(to: Bool.self)
       for i in 0..<4 {
         list[i] = created || previous[i].size != edges[i].size
-        anyReshaped = anyReshaped || list[i]
       }
     }
-    if anyReshaped { SLS.disableUpdate(SLS.connection) }
+    //
+    // NOTE: The reshape, the redraw and the moves of the four edges are one window server update, so the edges
+    // never show apart, also when only the position changed. The update is ended on every path by the defer.
+    //
+    SLS.disableUpdate(SLS.connection)
+    defer { SLS.reenableUpdate(SLS.connection) }
     withUnsafeBytes(of: reshaped) { raw in
       let list = raw.bindMemory(to: Bool.self)
       for i in 0..<4 {
@@ -327,7 +330,6 @@ extension Border {
         SLS.moveWindow(SLS.connection, WindowID(ids[i]), to: edges[i].origin)
       }
     }
-    if anyReshaped { SLS.reenableUpdate(SLS.connection) }
     return true
   }
 }
@@ -711,6 +713,11 @@ extension Border {
       }
       border.frame = newFrame
       border.edges = BorderEdges(around: newFrame, width: border.width, radius: border.drawnRadius)
+      //
+      // NOTE: The four edges move in one window server update, as in updateFrameLocked.
+      //
+      SLS.disableUpdate(SLS.connection)
+      defer { SLS.reenableUpdate(SLS.connection) }
       for i in 0..<4 {
         SLS.moveWindow(SLS.connection, WindowID(border.ids[i]), to: border.edges[i].origin)
       }

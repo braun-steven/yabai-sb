@@ -34,4 +34,14 @@ public enum ConfigWatch {
     if slash == path.startIndex { return "/" }
     return String(path[..<slash])
   }
+
+  /// The directories the watch is placed on: the directory of `path` as given, which sees a link that is replaced, and,
+  /// when `resolved` (the target of a symlink, from realpath) is in another directory, that one too, which sees an edit of
+  /// the target. `resolved` equals `path` when it cannot be resolved, which gives one directory. The list has one or two
+  /// entries. Two entries can still name the same directory (a relative path); the caller checks identities.
+  public static func directories(path: String, resolved: String) -> [String] {
+    let first = directory(of: path)
+    let second = directory(of: resolved)
+    return first == second ? [first] : [first, second]
+  }
 }

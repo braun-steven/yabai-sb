@@ -37,4 +37,30 @@ struct ConfigWatchTests {
   func directory(path: String, expected: String) {
     #expect(ConfigWatch.directory(of: path) == expected)
   }
+
+  @Test(
+    "the watch is placed on the directory of the path, and of its target when that is elsewhere",
+    arguments: [
+      // path, resolved, directories
+      (
+        "/Users/u/.config/yabai/yabai.toml", "/Users/u/.config/yabai/yabai.toml",
+        [
+          "/Users/u/.config/yabai"
+        ]
+      ),
+      (
+        "/Users/u/.config/yabai/yabai.toml", "/Users/u/dotfiles/yabai/yabai.toml",
+        ["/Users/u/.config/yabai", "/Users/u/dotfiles/yabai"]
+      ),
+      (
+        "/Users/u/.config/yabai/yabai.toml", "/Users/u/.config/yabai/real.toml",
+        ["/Users/u/.config/yabai"]
+      ),
+      // unresolvable: resolvedPath returns the path itself
+      ("yabai.toml", "yabai.toml", ["."]),
+      ("yabai.toml", "/Users/u/dotfiles/yabai.toml", [".", "/Users/u/dotfiles"]),
+    ] as [(String, String, [String])])
+  func directories(path: String, resolved: String, expected: [String]) {
+    #expect(ConfigWatch.directories(path: path, resolved: resolved) == expected)
+  }
 }

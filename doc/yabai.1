@@ -139,7 +139,7 @@ The file has these tables:
 .sp
 \f(CR[daemon]\fP
 .RS 4
-\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition\fP is read, but it takes effect in a later version.
+\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition\fP is read, but it takes effect in a later version.
 .RE
 .sp
 \f(CR[config]\fP

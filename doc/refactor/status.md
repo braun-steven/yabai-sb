@@ -162,11 +162,11 @@ phase: done · mode: nested
 
 ## Phase 13: Mouse and layout features
 
-phase: todo · mode: — 
+phase: in-progress · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| P13.1 | Split-gap hit testing | todo | |
+| P13.1 | Split-gap hit testing | done | `SplitHitTest.handle(nodes:areas:gap:at:)` in `Sources/YabaiCore/SplitHandle.swift` returns a `SplitHandle` (pre-order container index, boundary, orientation) for a `CGPoint`; strips are `TreeLayout.splitGap` wide, widened by 2 pt, clipped to the split's area; the innermost split wins; tabbed containers have no handles, but a split inside a tab does (only the visible tab may be used, P13.2 must filter). Rows in `tests/YabaiCoreTests/SplitHandleTests.swift` (7 suites, 45 cases). No live check. `just ci-quick` passed, 0 warnings. |
 | P13.2 | Drag the gap between splits to resize | todo | |
 | P13.3 | Drop ghost preview while dragging | todo | |
 | P13.4 | `space --save-layout` | todo | |
@@ -414,6 +414,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 11:40 · phase agent · P12.6 · reviewed · a615b434 reviewed (SpacePins keyed by label with display uuid, pure SpacePinning.moves/pinnedSpaces, keyed .spacePinReconcile one move per pass, space_layout never moves or destroys a pinned space so the two converge, pin follows its label, one SA notice per run, pinned-display query key). Fixed myself: the pin pass skips a space that is the last user space of its display. `just ci-quick` passed (406 + 191); next phase close
 - 2026-10-23 11:47 · phase agent · P12.5 · fix · `just ci` check-build failed: its isolated copy lacked examples/skhdrc, which SkhdRecipesTests reads through #filePath (pitfall already in doc/building.md). check-build.py now copies it; building.md updated. `just ci` passed
 - 2026-10-23 11:48 · phase agent · P12 · closed · `just ci` passed (build, 406 + 191 tests, release, 11 payload tests, check-build). Summary: P12.1 `insert=` rule effect (recorded only for new windows, applied once in View.add through the shared setInsertion core; replaces a pending window --insert); P12.2 `window --label` and LABEL in WINDOW_SEL (LabelList<WindowID>, an unknown leading word of a window command now fails as an unknown label); P12.3 lastFloatingFrame restored on float when half of it is on a display, else centered (pure FloatingFrame); P12.4 TreeSnapshot/TreeHistory and `space --undo` (one recordingTreeUndo hook per dispatcher, push only on a successful change, a window-set mismatch clears the history); P12.5 skhd resize/layout/move modes in examples/skhdrc with SkhdRecipesTests (check-build copies the file); P12.6 `space --pin` keyed by label with display uuid, keyed .spacePinReconcile, space_layout never moves or destroys a pinned space. Four live checks pending (P12.1, P12.2, P12.3, P12.6). For later phases: P13.4 reuses TreeSnapshot (Sources/YabaiCore/TreeSnapshot.swift, Con+Snapshot.swift); ConZoom moved to YabaiCore; WindowSelector has a `.label` fallback, so any non-reserved word is a window selector; tests that read repository files through #filePath must be added to scripts/check-build.py
+- 2026-10-23 11:47 · phase agent · P13 · start · resume check clean (tree clean at 65b95ce3, no P13 commits, all subphases todo); phase set in-progress (mode nested); next P13.1
+- 2026-10-23 11:49 · subphase agent · P13.1 · start · resume check clean (only the phase agent's P13 status changes uncommitted, latest commit 65b95ce3, no P13 commits); P13.1 set in-progress. Plan: YabaiCore SplitHandle.swift (SplitHandle + SplitHitTest.handle over the TreeLayout areas, strips from TreeLayout.splitGap widened by 2 pt and clipped to the container, deepest split wins), table tests in tests/YabaiCoreTests/SplitHandleTests.swift
+- 2026-10-23 11:52 · subphase agent · P13.1 · done · SplitHandle.swift and SplitHandleTests.swift (45 table cases over 7 suites: side-by-side, stacked, gap 0, nested, tabbed, outside the root, empty/mismatched). Format and strict lint clean. `just ci-quick` passed (build, 406 + 198 tests, 0 warnings). No live check (pure function). No deploy, sudo or live action. Next: P13.2
 
 ## Discovered
 

@@ -369,6 +369,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 09:23 · phase agent · P11 · start · resume check clean at 05de3735, no P11 commits; phase set in-progress (nested); gates under just (`just ci-quick`, phase gate `just ci` + `swift test --sanitize=thread`); next P11.1
 - 2026-10-23 09:24 · subphase agent · P11.1 · start · resume check clean (only status.md changed, no P11 commits); P11.1 set in-progress; plan: `ReduceMotion` atomic in WindowAnimation.swift, observer registered in `configureEventSystem` (no new startup line, P4.7 order unchanged), `animationDuration` returns 0 when set, test in RuntimeOverrideTests, README and CHANGELOG; gate `just ci-quick`
 - 2026-10-23 09:25 · subphase agent · P11.1 · done · Reduce Motion cached in `ReduceMotion.enabled` and observed at startup; `animationDuration` is 0 while it is set. Test `reduceMotionDisablesAnimations`; README, CHANGELOG, architecture updated; 1 live check added (P11.1). Gate `just ci-quick` passed (366 + 156 tests, 0 warnings), swift format lint clean. Deviation: TabBarGlass keeps its own observer (per-panel lifetime). No deploy, sudo or live action. Next: P11.2 (the phase agent reviews P11.1 first)
+- 2026-10-23 09:26 · phase agent · P11.1 · reviewed · 7a51f1a2 reviewed (atomic written on main from startup observer, read on @WM; test injects the flag; README/CHANGELOG/architecture). Fix: CHANGELOG wording no longer implies the configured duration becomes 0. `just ci-quick` re-run passed (366 + 156); next P11.2
 
 ## Discovered
 

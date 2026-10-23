@@ -53,12 +53,14 @@ func connectionNotificationHandler(
       return logShortPayload(kind, dataLength)
     }
     Border.windowOrdered(WindowID(wid))
+    TabBar.windowOrderChanged()
     EventLoop.post(.slsWindowOrdered(windowID: WindowID(wid)))
   case .windowDestroyed:
     guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else {
       return logShortPayload(kind, dataLength)
     }
     Border.windowHidden(WindowID(wid))
+    TabBar.windowOrderChanged()
     EventLoop.post(.slsWindowDestroyed(windowID: WindowID(wid)))
   case .windowMoved:
     guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else {

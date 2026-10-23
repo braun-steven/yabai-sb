@@ -7,6 +7,9 @@ plan in [`doc/refactor/`](../refactor/overview.md) was done.
 Each phase has its own file with the exact work, split into **subphases** (`C<phase>.<sub>`). Live progress is in
 [status.md](status.md). Manual checks for the user are collected in [live-checks.md](live-checks.md).
 
+**Status: complete.** All 6 phases were done on 2026-10-23 (`C6 Close phase`); see [status.md](status.md) for the notes,
+the open "Discovered" items and the pending live checks.
+
 ## Why
 
 Today the daemon spawns the yabairc with `sh` (`Daemon.execConfigFile`, `Sources/Yabai/Yabai.swift`) and nobody waits for

@@ -49,7 +49,9 @@ failure, as before).
     (`tab_bar_font`, which comes after initialize because initialize sets the default font, and `external_bar`, which
     marks the views invalid), the `spaces` step (`[[space]]` labels, pins and per-space options), the `rulesAndSignals`
     step (so the windows that `WindowManager.begin` adopts see the rules), `WindowManager.begin` (adopts and tiles the
-    existing windows), `updateWindowNotifications` and `ConfigObserver.start`. Nothing else runs inside the block. A
+    existing windows), `updateWindowNotifications`, `ConfigObserver.start` and the menu bar alpha (once, when `menuBar.opacity` is not 1.0,
+    with the fullscreen rule: the observer does not see the file's set, so this is the only place it is applied).
+    Nothing else runs inside the block. A
     message that fails is logged and the others still run; the block returns the number of failures for one
     notification. The file's messages run through `handleMessage` in-process, not through IPC.
 11. Schedule the space pin pass (one second later), then start the message loop on the user's socket. No client message

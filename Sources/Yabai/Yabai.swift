@@ -373,6 +373,16 @@ enum Daemon {
       WindowManager.shared.updateWindowNotifications()
       Logger.daemon.debug("startup: starting the config observer")
       ConfigObserver.shared.start()
+      //
+      // NOTE: The file is applied before ConfigObserver.start, and the observer only reacts to later sets. Window
+      // adoption covers the shadow, opacity, border and tab bar groups of the file. The menu bar alpha is not covered
+      // by any step, so it is applied here once, with the fullscreen rule of EventHandler+Space.swift.
+      //
+      if Config.current.menuBar.opacity != 1.0 {
+        Logger.daemon.debug("startup: applying the menu bar alpha")
+        let isFullscreen = SpaceManager.shared.currentSpaceID.map { $0.isFullscreen } ?? false
+        SLS.setMenuBarAlpha(SLS.connection, isFullscreen ? 1.0 : Config.current.menuBar.opacity)
+      }
       return failures
     }
     if applyFailures > 0, let path = config.path {

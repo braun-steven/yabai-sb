@@ -412,3 +412,36 @@ extension DaemonState {
       ])
   }
 }
+
+extension DaemonState {
+  @Test("mission_control_hides_borders_until_exit") @WM
+  func missionControlHidesBordersUntilExit() {
+    //
+    // NOTE: Mission Control moves the windows in its overview without moving them in the window server, so the borders
+    // are hidden from its show notification until its exit.
+    //
+
+    #expect(!Border.isHiddenForMissionControl)
+    EventHandler.shared.missionControlShowDesktop()
+    #expect(Border.isHiddenForMissionControl)
+    EventHandler.shared.missionControlExit()
+    #expect(!Border.isHiddenForMissionControl)
+  }
+}
+
+@Test(
+  "mission_control_overlay_is_a_dock_window_at_layer_20_over_a_display",
+  arguments: [
+    ("Dock", 20, CGRect(x: 0, y: 0, width: 1512, height: 982), true),
+    ("Dock", 20, CGRect(x: 400, y: 900, width: 700, height: 82), false),
+    ("Dock", 18, CGRect(x: 0, y: 0, width: 1512, height: 982), false),
+    ("Finder", 20, CGRect(x: 0, y: 0, width: 1512, height: 982), false),
+  ])
+func missionControlOverlay(owner: String, layer: Int, bounds: CGRect, expected: Bool) {
+  let info: [String: Any] = [
+    kCGWindowOwnerName as String: owner, kCGWindowLayer as String: layer,
+    kCGWindowBounds as String: bounds.dictionaryRepresentation,
+  ]
+  let displays = [CGRect(x: 0, y: 0, width: 1512, height: 982)]
+  #expect(MissionControl.containsOverlay([info], displays: displays) == expected)
+}

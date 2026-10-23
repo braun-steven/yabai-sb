@@ -82,6 +82,7 @@ private struct BorderSettings {
   var width: Float = 0
   var activeColor = RGBAColor()
   var normalColor = RGBAColor()
+  var missionControl = false
 }
 
 // NOTE: @unchecked Sendable: Border is a non-Sendable reference type. Every access to the borders in this state
@@ -366,7 +367,7 @@ extension Border {
   }
 
   private func updateLocked(_ what: BorderUpdate, _ settings: BorderSettings) {
-    if !settings.enabled || !enabled || suspended {
+    if !settings.enabled || !enabled || suspended || settings.missionControl {
       hide()
       return
     }
@@ -696,6 +697,29 @@ extension Border {
         border.updateLocked(.frameAndOrder, state.settings)
       }
     }
+  }
+
+  //
+  // NOTE: Mission Control shrinks and moves the windows in its overview without moving them in the window server, so
+  // the borders would stay at the old frames. They are hidden for the whole session and put back at its exit. The
+  // AX callback of the Dock hides them on the main thread, before the event loop sees the notification.
+  //
+  static func setHiddenForMissionControl(_ hidden: Bool) {
+    borderLock.withLock { state in
+      if state.settings.missionControl == hidden { return }
+      state.settings.missionControl = hidden
+      for border in state.borders.values {
+        if hidden {
+          border.hide()
+        } else if border.enabled {
+          border.updateLocked(.frameAndOrder, state.settings)
+        }
+      }
+    }
+  }
+
+  static var isHiddenForMissionControl: Bool {
+    borderLock.withLock { $0.settings.missionControl }
   }
 
   //

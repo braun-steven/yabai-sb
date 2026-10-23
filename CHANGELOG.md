@@ -41,6 +41,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- Window borders are hidden while Mission Control is open and come back when it closes. On macOS 27 Mission Control is detected by the Dock's full-screen overlay window, since the Dock no longer posts its AXExpose notifications; the *mission_control_enter* and *mission_control_exit* signals fire again
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value
 - Build commands now use `just`; the makefile has been removed (`brew install just`)
 - Command *window --toggle float* returns a window to the frame it had while it last floated: that frame is kept when at least half of it is on a display, and otherwise the window is centered at its current size on its display. A window that has never floated keeps its tiled frame, as before

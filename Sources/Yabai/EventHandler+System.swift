@@ -14,6 +14,7 @@ extension EventHandler {
   /// Sets the Mission Control mode and pushes the signal of entering it.
   private func missionControlShow(_ mode: MissionControlMode) {
     MissionControl.shared.mode = mode
+    Border.setHiddenForMissionControl(true)
     EventSignals.shared.push(.missionControlEnter, .missionControl(mode))
   }
 
@@ -33,45 +34,33 @@ extension EventHandler {
   }
 
   //
-  // NOTE: The fallback check for the exit. The AX notification AXExposeExit is the primary exit signal; the check
-  // only covers an exit that AX does not report. Nothing posts missionControlEnter now (the window server's enter
-  // notification is no longer registered), so no check is armed; the AX exit ends the session. The check runs every
-  // 500 ms, is keyed (one pending at a time), and missionControlExit cancels it.
+  // NOTE: The front change notification of the window server posts missionControlEnter when the Mission Control
+  // overlay is on screen (MissionControl.overlayIsShown). It also comes for app switches inside Mission Control, so
+  // an enter during a session only arms the check again. Nothing reports the exit on macOS 27 (the AX exit no longer
+  // comes), so the check polls the overlay every 100 ms until it is gone. It is keyed (one pending at a time), and
+  // missionControlExit cancels it.
   //
 
   func missionControlEnter() {
-    Logger.events.debug("mission control enter")
-    MissionControl.shared.mode = .show
+    let entered = !MissionControl.shared.isActive
+    if entered {
+      Logger.events.debug("mission control enter")
+      MissionControl.shared.mode = .show
+    }
+    Border.setHiddenForMissionControl(true)
 
     EventLoop.post(
-      .missionControlCheckForExit, after: .milliseconds(500), key: .missionControlCheck)
+      .missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
 
-    EventSignals.shared.push(.missionControlEnter, .missionControl(.show))
+    if entered { EventSignals.shared.push(.missionControlEnter, .missionControl(.show)) }
   }
 
   func missionControlCheckForExit() {
     if !MissionControl.shared.isActive { return }
 
-    let windowList =
-      CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
-    var found = false
-
-    for dictionary in windowList {
-      if dictionary[kCGWindowName as String] != nil { continue }
-
-      guard let owner = dictionary[kCGWindowOwnerName as String] as? String else { continue }
-      guard let layer = dictionary[kCGWindowLayer as String] as? Int else { continue }
-      if layer != 18 { continue }
-
-      if owner == "Dock" {
-        found = true
-        break
-      }
-    }
-
-    if found {
+    if MissionControl.overlayIsShown() {
       EventLoop.post(
-        .missionControlCheckForExit, after: .milliseconds(500), key: .missionControlCheck)
+        .missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
     } else {
       EventLoop.post(.missionControlExit)
     }
@@ -100,6 +89,7 @@ extension EventHandler {
     if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {
       wm.correctForMissionControlChanges()
     }
+    Border.setHiddenForMissionControl(false)
 
     EventSignals.shared.push(.missionControlExit, .missionControl(MissionControl.shared.mode))
     MissionControl.shared.mode = .inactive

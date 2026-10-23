@@ -260,6 +260,14 @@ Rules for the user's machine:
   needs the user's gesture or keyboard.
   Posted key events do not open it either (2026-10-23: key code 160 and ctrl-up, with and without fn, from a
   CGEvent tap with posting access).
+- Mission Control on macOS 27 (2026-10-23, probes with the user's gesture): the Dock accepts the AXExpose*
+  registrations but never posts them, and no connection notification marks the exit. Opening it sends 1508 (the
+  front change, also sent on every app switch; the Dock does not become the front process) with the Dock's overlay
+  already on screen: a named Dock window at layer 20 the size of the display (not layer 18). Closing it only removes
+  the overlay, so yabai polls it (`MissionControl.overlayIsShown`).
+  Closing it with Esc sometimes activates the front app of each space in space order, so the app of the last
+  space ends up focused (its window stays hidden on its space). The installed build from before this detection does
+  it too: it is not caused by the border hiding or the exit reconciliation.
 - Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
   since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows
   (`space --focus 4`, then `open -a`/AppleScript); a run that skipped this got no windows in the space 4 tree.

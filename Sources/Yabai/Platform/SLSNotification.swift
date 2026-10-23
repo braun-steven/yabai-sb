@@ -40,6 +40,10 @@ enum SLSNotification: UInt32, CaseIterable {
   /// A window was destroyed; the payload is its `WindowID` (UInt32).
   case windowDestroyed = 804
 
+  /// The front application changed; no payload. Mission Control opening sends it too, with the Dock's overlay already
+  /// on screen (macOS 27, where the Dock no longer posts its AXExpose notifications).
+  case frontChanged = 1508
+
   /// Decodes a payload of type `T` with `loadUnaligned`. nil when there is no buffer or it is shorter than `T`.
   static func payload<T: BitwiseCopyable>(
     _ data: UnsafeMutableRawPointer?, _ length: Int, as type: T.Type

@@ -51,7 +51,9 @@ import Testing
 
   @Test func registrationOrderMatchesDeclarationOrder() {
     #expect(
-      SLSNotification.allCases.map(\.rawValue) == [1327, 1328, 808, 806, 807, 815, 816, 1202, 804])
+      SLSNotification.allCases.map(\.rawValue) == [
+        1327, 1328, 808, 806, 807, 815, 816, 1202, 804, 1508,
+      ])
   }
 
   @Test func unknownTypeHasNoCase() {

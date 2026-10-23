@@ -7,7 +7,7 @@ import YabaiCore
 
 //
 // NOTE: The notifications of the window server connection and the Mission Control notifications of the Dock. Both
-// callbacks run on the main thread and only post events (and move the borders, which Border.swift locks).
+// callbacks run on the main thread and only post events (and move or hide the borders, which Border.swift locks).
 //
 
 /// What Mission Control shows. The raw value is the context of the Mission Control signals.
@@ -84,6 +84,11 @@ func connectionNotificationHandler(
     Border.windowHidden(WindowID(wid))
   case .cmdTab:
     lastCmdTabTime.store(OSTimer.now, ordering: .releasing)
+  case .frontChanged:
+    if MissionControl.overlayIsShown() {
+      Border.setHiddenForMissionControl(true)
+      EventLoop.post(.missionControlEnter)
+    }
   }
 }
 
@@ -144,6 +149,35 @@ final class MissionControl: Sendable {
   }
 
   var isActive: Bool { mode != .inactive }
+
+  //
+  // NOTE: On macOS 27 the Dock no longer posts its AXExpose notifications. While Mission Control is open, the Dock
+  // shows an overlay window at layer 20 over each display, and it is already on screen when the window server sends
+  // the front change notification of the opening. Its owner name is readable without Screen Recording; its window
+  // name is not, so it is not checked. The Dock itself is at layer 20 too, but never covers a whole display.
+  //
+
+  /// Whether a window of the list is the Mission Control overlay: a Dock window at layer 20 that covers a display.
+  static func containsOverlay(_ windowList: [[String: Any]], displays: [CGRect]) -> Bool {
+    windowList.contains { info in
+      guard info[kCGWindowOwnerName as String] as? String == "Dock",
+        info[kCGWindowLayer as String] as? Int == 20,
+        let dictionary = info[kCGWindowBounds as String] as? NSDictionary,
+        let bounds = CGRect(dictionaryRepresentation: dictionary as CFDictionary)
+      else { return false }
+      return displays.contains { bounds.contains($0) }
+    }
+  }
+
+  /// Whether the Mission Control overlay is on screen.
+  static func overlayIsShown() -> Bool {
+    let windowList =
+      CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+    var count: UInt32 = 0
+    var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+    guard CGGetActiveDisplayList(UInt32(ids.count), &ids, &count) == .success else { return false }
+    return containsOverlay(windowList, displays: ids.prefix(Int(count)).map { CGDisplayBounds($0) })
+  }
 
   func observe() {
     let alreadyObserving = stateLock.withLock { $0.isObserving }

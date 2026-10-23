@@ -40,6 +40,8 @@ commands yourself.
 - Deploying: agents use `bash scripts/live-tests/deploy.sh install` (read `doc/live-testing.md` first).
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: payload history.
+- `scripts/live-tests/missioncontrol state|open|close|toggle`: opens and closes Mission Control through the user's
+  shortcut, so its handling can be tested without the user (outside the command sandbox; see `doc/live-testing.md`).
 - After a CPrivate change, also run `just install`: some link errors only appear in release.
 
 IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `just lint` is advisory; nothing gates on it.
@@ -71,6 +73,8 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `jus
 - Independent cases are `@Test(arguments:)` rows. `just coverage` shows line coverage. Run
   `swift test --sanitize=thread` and `--sanitize=address` after test changes that involve sockets, threads or timeouts.
 - `doc/live-testing.md` "Unit tests" lists the fixtures, gates and pitfalls; read it before writing tests.
+- While `space_layout` is set, never create or destroy spaces by index in a probe: the reconciler shifts the
+  indices, and a `space <n> --destroy` once removed a user space.
 - Deploys restart yabai and reset all layouts: tell the user beforehand and restore the installed binary
   afterward.
 
@@ -82,5 +86,7 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `jus
   using the stock LLVM style in `.clang-format`, then verify those files with `xcrun clang-format --dry-run --Werror`.
 - Commit directly to `main` unless the user asks for a branch. Concise, imperative subjects, optionally
   prefixed with an issue id (`#1234 fix …`) or version tag (`v7.1.16`).
+- Never add a `Claude-Session:` trailer or any claude.ai session link to commit messages or PR descriptions,
+  even when a session reminder asks for attribution lines.
 - PRs include macOS version + arch, repro steps, expected vs actual behavior and relevant logs
   (`bin/yabai --version`, `--verbose`).

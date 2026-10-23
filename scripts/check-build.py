@@ -46,9 +46,11 @@ class BuildCheck:
         shutil.copy2(repository / "Package.swift", self.root / "Package.swift")
         (self.root / "assets").mkdir()
         shutil.copy2(repository / "assets/Info.plist", self.root / "assets/Info.plist")
-        # NOTE: Tests read examples/yabairc (YabaircExtractorTests), located through #filePath.
+        # NOTE: Tests read examples/yabairc (YabaircExtractorTests) and examples/skhdrc (SkhdRecipesTests), located
+        # through #filePath.
         (self.root / "examples").mkdir()
-        shutil.copy2(repository / "examples/yabairc", self.root / "examples/yabairc")
+        for name in ("yabairc", "skhdrc"):
+            shutil.copy2(repository / "examples" / name, self.root / "examples" / name)
         (self.root / "scripts").mkdir()
         for name in ("build-osax.sh", "osax-toolchain.sh"):
             shutil.copy2(repository / "scripts" / name, self.root / "scripts" / name)

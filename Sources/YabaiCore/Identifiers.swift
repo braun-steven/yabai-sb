@@ -6,7 +6,9 @@
 //
 
 /// The window server id of a window (`CGWindowID`).
-public struct WindowID: RawRepresentable, Hashable, Comparable, Sendable, CustomStringConvertible {
+public struct WindowID: RawRepresentable, Hashable, Comparable, Codable, Sendable,
+  CustomStringConvertible
+{
   public var rawValue: UInt32
 
   public init(rawValue: UInt32) { self.rawValue = rawValue }

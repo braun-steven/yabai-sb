@@ -13,6 +13,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Rule placement](#rule-placement)
 - [Window labels](#window-labels)
 - [Floating frame memory](#floating-frame-memory)
+- [Tree undo](#tree-undo)
 - [Automatic space layout](#automatic-space-layout)
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
@@ -240,6 +241,10 @@ A label names one window: labelling another window moves it there. `yabai -m que
 ### Floating frame memory
 
 A window that floats remembers the frame it had while floating. When it floats again with `yabai -m window --toggle float`, it returns to that frame if at least half of the frame is on a display. Otherwise it is centered at its current size on its display. A window that has never floated keeps its tiled frame when it floats, as before.
+
+### Tree undo
+
+`yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops that tree, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
 
 ### Automatic space layout
 

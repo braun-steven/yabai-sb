@@ -406,7 +406,11 @@ extension WindowCommand {
     }
     guard let name else { throw CommandError.unknownCommand(domain, token) }
 
-    try WindowCommand.parse(name, &source).run(acting: &actingWindow)
+    let command = try WindowCommand.parse(name, &source)
+    let view = command.changesTree ? WindowManager.shared.treeView(for: actingWindow) : nil
+    try recordingTreeUndo(on: view) { () throws(CommandError) in
+      try command.run(acting: &actingWindow)
+    }
     return true
   }
 }

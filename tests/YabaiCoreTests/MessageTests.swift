@@ -546,6 +546,7 @@ private let spaceCommandRows: [(String, SpaceCommand)] = [
   ("--gap\0rel:5\0", .gap(.rel, 5)),
   ("--toggle\0mission-control\0", .toggle(.missionControl)),
   ("--layout\0tree\0", .layout(.tree)),
+  ("--undo\0", .undo),
 ]
 
 @Test(arguments: spaceCommandRows)
@@ -585,6 +586,13 @@ func spaceCommandNeedsAnActingSpace(_ name: SpaceCommand.Name) {
   case .focus, .switch, .create, .destroy, .move, .swap, .display: #expect(!name.needsActingSpace)
   default: #expect(name.needsActingSpace)
   }
+}
+
+@Test func spaceUndoTakesNoValue() throws {
+  var message = Message("--undo\0--balance\0")
+  _ = message.next()
+  #expect(try SpaceCommand.parse(.undo, &message) == .undo)
+  #expect(message.next().string == "--balance")
 }
 
 @Test func spaceCommandNames() {

@@ -1,3 +1,4 @@
+import SortedCollections
 import YabaiCore
 
 //
@@ -271,6 +272,11 @@ extension SpaceCommand {
       } else if !sm.labels.remove(id: sid) {
         throw CommandError("the selected space was not associated with a label!\n")
       }
+    case .undo:
+      guard let sid else {
+        throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
+      }
+      try undoTreeCommand(on: sid)
     }
     return true
   }
@@ -316,6 +322,12 @@ extension SpaceCommand {
     }
     guard let name else { throw CommandError.unknownCommand(domain, token) }
 
-    return try SpaceCommand.parse(name, &source).run(acting: &actingSid)
+    let command = try SpaceCommand.parse(name, &source)
+    let view = command.changesTree ? actingSid.flatMap { SpaceManager.shared.views[$0] } : nil
+    var proceed = true
+    try recordingTreeUndo(on: view) { () throws(CommandError) in
+      proceed = try command.run(acting: &actingSid)
+    }
+    return proceed
   }
 }

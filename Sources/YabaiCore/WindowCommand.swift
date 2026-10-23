@@ -99,6 +99,17 @@ public enum WindowCommand: Equatable, Sendable {
   /// The label of the acting window; nil removes it.
   case label(String?)
 
+  /// Whether the command changes the tree of the space of the acting window, so `space --undo` can restore the tree before
+  /// it. --insert only sets the pending insertion of the tree, and the commands that move a window to another space or
+  /// display change the window set of the space, which undo does not cross.
+  public var changesTree: Bool {
+    switch self {
+    case .swap, .warp, .stack, .layout, .split, .ratio, .resize: true
+    case .toggle(let toggle): toggle == .split
+    default: false
+    }
+  }
+
   /// The name of a command, its first token.
   public enum Name: String, CaseIterable, Sendable {
     case focus = "--focus"

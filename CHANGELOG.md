@@ -33,6 +33,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Rule property *insert='<DIR_SEL>|stack'* places a new window as *window --insert* does, next to the focused window of its tree or as a tab of its container, e.g. `yabai -m rule --add app='^Terminal$' insert=stack`; *rule --list* reports it as *insert*
 - Command *window --label [<LABEL>]* labels the selected window, and a label is accepted as a `WINDOW_SEL` anywhere a window selector is, e.g. `yabai -m window --label term` then `yabai -m window --swap term`; a label names one window and moves when it is set on another, and *query --windows* reports it as *label*
 
+- Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
+
 ### Changed
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value
 - Build commands now use `just`; the makefile has been removed (`brew install just`)

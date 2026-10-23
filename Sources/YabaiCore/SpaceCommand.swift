@@ -18,6 +18,15 @@ public enum SpaceCommand: Equatable, Sendable {
   case toggle(SpaceToggle)
   case layout(SpaceCommandLayout)
   case label(Token)
+  case undo
+
+  /// Whether the command changes the tree of the space, so `--undo` can restore the tree before it.
+  public var changesTree: Bool {
+    switch self {
+    case .equalize, .balance, .mirror, .rotate: true
+    default: false
+    }
+  }
 
   public enum Name: String, CaseIterable, Sendable {
     case focus = "--focus"
@@ -36,11 +45,13 @@ public enum SpaceCommand: Equatable, Sendable {
     case toggle = "--toggle"
     case layout = "--layout"
     case label = "--label"
+    case undo = "--undo"
 
     /// Layout and appearance commands fail before parsing a value when the acting space is missing.
     public var needsActingSpace: Bool {
       switch self {
-      case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label: true
+      case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label, .undo:
+        true
       default: false
       }
     }
@@ -54,6 +65,9 @@ public enum SpaceCommand: Equatable, Sendable {
   public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError)
     -> SpaceCommand
   {
+    // NOTE: --undo takes no value, so the next token is left for the next command of the message.
+    if name == .undo { return .undo }
+
     let value = message.next()
     switch name {
     case .focus: return .focus(try SpaceSelector.required(value))
@@ -104,6 +118,7 @@ public enum SpaceCommand: Equatable, Sendable {
       }
       return .layout(layout)
     case .label: return .label(value)
+    case .undo: return .undo
     }
   }
 

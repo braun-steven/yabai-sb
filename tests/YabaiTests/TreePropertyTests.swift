@@ -1,4 +1,5 @@
 import CustomDump
+import Foundation
 import PropertyBased
 import Testing
 import YabaiCore
@@ -272,6 +273,25 @@ extension DaemonState {
         first.swap(with: second)
         first.swap(with: second)
         expectNoDifference(treeDump(root), before, "swap twice")
+      }
+    }
+
+    // NOTE: space --undo rebuilds a tree from its snapshot: the rebuilt tree must look and encode the same.
+    @Test func snapshotsRebuildTheTree() async {
+      await propertyCheck(
+        count: 200, input: Gen.int(in: 1...12), TreeOperation.generator.array(of: 0...30)
+      ) { count, operations in
+        let model = TreeModel(windowCount: count)
+        for operation in operations { model.apply(operation) }
+        let snapshot = model.root.snapshot
+
+        let rebuilt = Con(snapshot: snapshot)
+        expectNoDifference(treeDump(rebuilt), treeDump(model.root))
+        #expect(rebuilt.snapshot == snapshot)
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(TreeSnapshot.self, from: encoded)
+        #expect(decoded == snapshot)
       }
     }
   }

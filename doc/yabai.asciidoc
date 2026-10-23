@@ -483,6 +483,10 @@ COMMAND
 *--rotate* '90|180|270'::
     Rotate the tree of the selected space.
 
+*--undo*::
+    Restore the tree of the selected space as it was before its last change by a tree command: *--balance*, *--equalize*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize* or *--toggle split* that changed the tree. +
+    The last 10 trees of each space are kept. Undo fails, and drops that tree, when the windows of the space changed since it was recorded. Moving windows to another space or display and *--insert* are not undone.
+
 *--padding* 'abs|rel:<top>:<bottom>:<left>:<right>'::
     Padding added at the sides of the selected space.
 

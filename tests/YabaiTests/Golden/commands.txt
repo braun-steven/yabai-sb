@@ -248,6 +248,7 @@ query --windows --window nolabel
 # space and display: commands that fail before they act
 space --foo
 space nolabel --foo
+space --undo
 display --foo
 display nolabel --foo
 batch 3 config window_gap x 3 config layout bogus

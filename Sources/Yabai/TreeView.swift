@@ -93,6 +93,7 @@ extension View {
     unmanageWindows(in: root)
     root.destroy()
     tree = nil
+    history.clear()
   }
 
   func findWindow(_ windowID: WindowID) -> Con? {

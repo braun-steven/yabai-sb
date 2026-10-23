@@ -13,13 +13,6 @@ import YabaiCore
 // and reapEmpty() closes the containers that are left without children.
 //
 
-/// The zoom of a window's container: to its parent's area or to the whole view.
-enum ConZoom: Sendable {
-  case none
-  case parent
-  case fullscreen
-}
-
 /// What a focus or move in the tree did: nothing, done within the tree, or it left the tree towards another output.
 enum TreeResult: Sendable {
   case none

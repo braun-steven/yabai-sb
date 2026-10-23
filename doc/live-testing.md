@@ -66,6 +66,10 @@ point below was learned the hard way; read it before running anything live.
   server up to the flush belong there: not `--focus <window>`, `--space`, `--display`, `--stack`, `--insert`,
   `--toggle split`, the `mouse` selector, or `--move`/`--grid`/relative `--resize` of unmanaged windows (they ask
   SkyLight for the window's space, focus windows or reach AX).
+- Undo tests (the `Undo` section of `WindowCommandTests.swift`): `space --undo` selects a space by a label, not by its
+  fake id (`SpaceID` selectors take a mission-control index or a label), so the tests label `Workspace.sid` and send
+  `space work --undo` through `Golden.run`. The commands that record a tree for undo are the `changesTree` lists of
+  `WindowCommand` and `SpaceCommand`; a command added to a list needs an undo row.
 - Rule, query and config tests (`tests/YabaiTests/RuleTests.swift`, `MessageQueryTests.swift`, `MessageConfigTests.swift`)
   send messages through `Golden.run` too. Rules are applied to `Workspace` windows made real by hand (`role`, `subrole`,
   `isRoot`, `isMovable`; `Workspace.openForRules`), and the payload messages they send are checked from

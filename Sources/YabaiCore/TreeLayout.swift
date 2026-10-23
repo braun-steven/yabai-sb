@@ -1,8 +1,15 @@
 /// The layout of a container, named as in `query --tree`.
-public enum ConLayout: String, Sendable {
+public enum ConLayout: String, Codable, Sendable {
   case splitH = "splith"
   case splitV = "splitv"
   case tabbed
+}
+
+/// The zoom of a window's container: to its parent's area or to the whole view.
+public enum ConZoom: String, Codable, Sendable {
+  case none
+  case parent
+  case fullscreen
 }
 
 /// What the layout math reads of a container: its layout, its share of the length of its parent and its number of

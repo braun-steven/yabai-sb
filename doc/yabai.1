@@ -743,6 +743,13 @@ Flip the tree of the selected space along the given axis.
 Rotate the tree of the selected space.
 .RE
 .sp
+\fB\-\-undo\fP
+.RS 4
+Restore the tree of the selected space as it was before its last change by a tree command: \fB\-\-balance\fP, \fB\-\-equalize\fP, \fB\-\-mirror\fP, \fB\-\-rotate\fP, or a window\(cqs \fB\-\-warp\fP, \fB\-\-swap\fP, \fB\-\-stack\fP, \fB\-\-layout\fP, \fB\-\-split\fP, \fB\-\-ratio\fP, \fB\-\-resize\fP or \fB\-\-toggle split\fP that changed the tree.
+.br
+The last 10 trees of each space are kept. Undo fails, and drops that tree, when the windows of the space changed since it was recorded. Moving windows to another space or display and \fB\-\-insert\fP are not undone.
+.RE
+.sp
 \fB\-\-padding\fP \fIabs|rel:<top>:<bottom>:<left>:<right>\fP
 .RS 4
 Padding added at the sides of the selected space.

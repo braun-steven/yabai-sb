@@ -1122,5 +1122,139 @@ extension DaemonState {
 
       #expect(WindowManager.shared.labels.id(named: "far") == nil)
     }
+
+    // MARK: - Undo (space --undo)
+
+    /// Labels the workspace's space, so that `space work` selects it through the message path.
+    private func labelSpace() {
+      SpaceManager.shared.labels.set(id: Workspace.sid, name: "work")
+    }
+
+    /// Runs `space work --undo` and returns the response.
+    private func spaceUndo() -> String {
+      String(decoding: Golden.run("space work --undo"), as: UTF8.self)
+    }
+
+    private let nothingToUndo = "\u{07}nothing to undo on this space.\n"
+
+    nonisolated static let undoCases: [String] = [
+      "--warp east", "--warp west", "--swap east", "--layout tabbed", "--split vertical",
+      "--ratio rel:0.1", "--resize right:100:0",
+    ]
+
+    @Test(arguments: undoCases) func undoRestoresTheTreeOfARow(_ command: String) {
+      let space = row()
+      labelSpace()
+      let before = space.dump
+
+      let result = run(command, in: space)
+
+      #expect(result.response == "")
+      #expect(space.dump != before)
+      #expect(spaceUndo() == "")
+      expectNoDifference(space.dump, before)
+      expectPlaced(space)
+    }
+
+    @Test func undoRestoresTheTreeOfAStack() {
+      let space = stack()
+      labelSpace()
+      let before = space.dump
+
+      _ = run("--layout splith", in: space)
+      #expect(space.dump != before)
+
+      #expect(spaceUndo() == "")
+      expectNoDifference(space.dump, before)
+      expectPlaced(space)
+    }
+
+    @Test func undoRestoresTheSharesBeforeBalance() {
+      let space = row()
+      labelSpace()
+      _ = run("--ratio rel:0.1", in: space)
+      let before = space.dump
+
+      #expect(Golden.run("space work --balance").isEmpty)
+      #expect(space.dump != before)
+
+      #expect(spaceUndo() == "")
+      expectNoDifference(space.dump, before)
+    }
+
+    @Test func undoWithoutACommandFails() {
+      let space = row()
+      labelSpace()
+      let before = space.dump
+
+      #expect(spaceUndo() == nothingToUndo)
+      expectNoDifference(space.dump, before)
+    }
+
+    @Test func failedCommandPushesNothing() {
+      let space = row()
+      labelSpace()
+
+      #expect(run("--swap w2", in: space).response == "\u{07}cannot swap a window with itself.\n")
+      #expect(spaceUndo() == nothingToUndo)
+    }
+
+    @Test func noOpCommandPushesNothing() {
+      let space = row()
+      labelSpace()
+      let before = space.dump
+
+      #expect(run("--ratio rel:0", in: space).response == "")
+      expectNoDifference(space.dump, before)
+      #expect(spaceUndo() == nothingToUndo)
+    }
+
+    @Test func undoFailsWhenTheWindowsChanged() {
+      let space = row()
+      labelSpace()
+      _ = run("--warp east", in: space)
+      space.close(3)
+      WindowManager.shared.forget(wid(3))
+      let before = space.dump
+
+      #expect(spaceUndo() == "\u{07}cannot undo: the windows on this space changed.\n")
+      expectNoDifference(space.dump, before)
+      #expect(spaceUndo() == nothingToUndo)
+    }
+
+    @Test func aWindowChangeDropsTheOlderTrees() {
+      let space = row()
+      labelSpace()
+      _ = run("--ratio rel:0.1", in: space)
+
+      space.close(3)
+      WindowManager.shared.forget(wid(3))
+      space.open(6)
+      space.act(2)
+      space.settle()
+      let changed = space.dump
+
+      _ = run("--ratio rel:0.1", in: space)
+      _ = run("--ratio rel:-0.1", in: space)
+
+      #expect(spaceUndo() == "")
+      #expect(spaceUndo() == "")
+      expectNoDifference(space.dump, changed)
+      #expect(spaceUndo() == nothingToUndo)
+    }
+
+    @Test func historyKeepsTheLastTenTrees() {
+      let space = row()
+      labelSpace()
+      var trees = [space.dump]
+      for step in 0..<11 {
+        _ = run(step % 2 == 0 ? "--ratio rel:0.05" : "--ratio rel:-0.05", in: space)
+        trees.append(space.dump)
+      }
+
+      for _ in 0..<10 { #expect(spaceUndo() == "") }
+      expectNoDifference(space.dump, trees[1])
+      #expect(spaceUndo() == nothingToUndo)
+    }
   }
 }

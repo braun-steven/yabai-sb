@@ -64,6 +64,8 @@ enum ViewSpacing: CaseIterable, Sendable {
   var sid: SpaceID
   var area = Area.zero
   var tree: Con?
+  /// The trees before the last tree commands of this space, for space --undo.
+  var history = TreeHistory()
   var insertionPoint: WindowID?
   var layout = ViewType.default
   var topPadding: Int = 0

@@ -70,6 +70,8 @@ Directional focus walks the tree and enters a neighbouring group at its last foc
 
 Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`.
 
+Binding modes for resizing, layout and moving, built on these commands, are in [examples/skhdrc](examples/skhdrc).
+
 <details>
 <summary>Compatibility with upstream bsp/stack configurations</summary>
 

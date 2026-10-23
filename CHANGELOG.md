@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Example *examples/skhdrc* adds skhd binding modes for resize (`alt - r`), layout (`alt - l`) and move (`alt - m`); each mode sets the active window border color, and a test checks every yabai command of the file
 - Config *tab_bar_appearance dark|system* lets glass tabs follow the macOS appearance while keeping dark as the default
 - Config *space_layout* keeps a fixed number of spaces on each display across display changes, e.g. `yabai -m config space_layout 15 10:5 10:5:1b`
 - Config *builtin_display_last* orders the built-in display after all other displays, for both display and space indices

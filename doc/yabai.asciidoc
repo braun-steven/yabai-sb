@@ -855,7 +855,8 @@ ARGUMENT
 
 *insert='<DIR_SEL>|stack'*::
     Place a new window as *window --insert* does: next to the focused window of the tree on the given side, or as a tab of its tabbed container with *stack*. +
-    The effect applies when the window is first added to a tree. A window that is already tiled is not moved by *rule --apply*. +
+    It applies to windows created while yabai runs, at the moment they are first tiled. It does not apply to windows that exist when yabai starts, to *rule --apply*, or to windows tiled later (for example after *window --toggle float*). +
+    It replaces a pending *window --insert* in that view. +
     It takes precedence over *tree_autotiling*, and has no effect on a window with (manage=off).
 
 DATAFORMAT

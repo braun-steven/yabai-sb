@@ -1282,7 +1282,9 @@ System Integrity Protection must be partially disabled.
 .RS 4
 Place a new window as \fBwindow \-\-insert\fP does: next to the focused window of the tree on the given side, or as a tab of its tabbed container with \fBstack\fP.
 .br
-The effect applies when the window is first added to a tree. A window that is already tiled is not moved by \fBrule \-\-apply\fP.
+It applies to windows created while yabai runs, at the moment they are first tiled. It does not apply to windows that exist when yabai starts, to \fBrule \-\-apply\fP, or to windows tiled later (for example after \fBwindow \-\-toggle float\fP).
+.br
+It replaces a pending \fBwindow \-\-insert\fP in that view.
 .br
 It takes precedence over \fBtree_autotiling\fP, and has no effect on a window with (manage=off).
 .RE

@@ -38,6 +38,10 @@ extension EventHandler {
       if let sid = wm.originSpace(for: window) { wm.manageWindow(window, on: sid, inserting: nil) }
     }
 
+    // NOTE: insert= applies only to the tile made while the window is created. A window that was not tiled here
+    // (floating, minimized, on a float view) must not take the placement at a later add, e.g. after a float toggle.
+    window.insertionByRule = nil
+
     if window.isEligibleForManagement {
       EventSignals.shared.push(.windowCreated, .window(window))
     }

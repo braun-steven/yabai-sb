@@ -65,7 +65,10 @@ extension WindowManager {
         let effects = applyRules(
           to: target, title: windowTitle, role: windowRole, subrole: windowSubrole,
           includingOneShotRules: includingOneShotRules)
-        target.insertionByRule = effects?.insertionForNewWindow
+        // NOTE: insert= places a window only as it is created, so it is recorded only for a new window (added with
+        // one-shot rules included). Windows that exist when yabai starts, or that a later discovery finds, keep their
+        // place: recording it for them would stack or split windows that are already tiled.
+        if includingOneShotRules { target.insertionByRule = effects?.insertionForNewWindow }
         purifyWindow(target)
         setWindowOpacity(target, to: Config.current.windowOpacity.normal)
 

@@ -644,6 +644,29 @@ extension DaemonState {
       #expect(drainPayloadCalls() == [])
     }
 
+    // NOTE: createAndAddWindow records the insert= of a rule only for a window it adds as new, with one-shot rules
+    // included, so the caller relies on applyRules returning the insert of a one-shot rule only when they are included.
+    // createAndAddWindow and windowCreated need AX windows, so the recording itself is not reachable headless.
+    @Test func applyRulesReturnsTheInsertOfTheMatchingRules() throws {
+      let space = Workspace()
+      let windows = space.openForRules(2)
+
+      #expect(send("rule --add app=^Safari$ insert=stack") == "")
+      #expect(send("rule --add --one-shot app=^Mail$ insert=east") == "")
+
+      let wm = WindowManager.shared
+      func insertion(of target: Window, oneShotRules: Bool) -> InsertDirection? {
+        wm.applyRules(
+          to: target, title: "", role: "AXWindow", subrole: "AXStandardWindow",
+          includingOneShotRules: oneShotRules)?.insertionForNewWindow
+      }
+
+      #expect(insertion(of: windows[0], oneShotRules: false) == .stack)
+      #expect(insertion(of: windows[1], oneShotRules: false) == nil)
+      #expect(insertion(of: windows[1], oneShotRules: true) == .east)
+      #expect(insertion(of: windows[0], oneShotRules: true) == .stack)
+    }
+
     @Test func manageOnOfAManagedWindowKeepsItTiled() throws {
       let space = Workspace()
       let windows = space.openForRules(2)

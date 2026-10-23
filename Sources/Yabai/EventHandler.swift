@@ -355,6 +355,10 @@ extension EventHandler {
     WindowManager.shared.updateWindowNotifications()
     tileWindowsBatched(windows, wm.focus.focused, true)
 
+    // NOTE: insert= applies only to the tile made while the window is created (see windowCreated), so a window that
+    // was not tiled here does not keep it for a later add.
+    for window in windows { window.insertionByRule = nil }
+
     for window in windows where window.isEligibleForManagement {
       EventSignals.shared.push(.windowCreated, .window(window))
     }

@@ -220,7 +220,7 @@ yabai -m rule --add app='^Slack$' insert=stack
 yabai -m rule --add app='^Terminal$' insert=east
 ```
 
-The placement applies when a window is first tiled, so it does not move windows that are already tiled. Rules with `manage=off` ignore it.
+The placement applies to new windows, at the moment they are first tiled. Windows that already exist when yabai starts, windows that `rule --apply` matches and windows tiled later (for example after floating) are not placed by it. Rules with `manage=off` ignore it.
 
 ### Automatic space layout
 

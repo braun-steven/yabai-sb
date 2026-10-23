@@ -99,45 +99,20 @@ private let targetConfigYabairc = """
   yabai -m signal --add event=window_focused 'action=sketchybar --trigger window_focus'
   """
 
-/// The "Target format" document of doc/config-refactor/overview.md, as in `ConfigDocumentTests.swift`.
-private let targetFormat = """
-  #:schema ./yabai.schema.json
-
-  [daemon]
-  auto_reload = true
-  load_scripting_addition = true
-
-  [config]
-  mouse_follows_focus = false
-  window_shadow = "float"            # also true / false
-  window_gap = 10
-  active_window_border_color = 0xff51afef
-  tab_bar_font = "system:12"
-  space_layout = ["15", "10:5", "10:5:1b"]
-  scratchpad_grid = "40:40:1:1:38:38"
-  external_bar = "all:0:0"
-
-  [[space]]                          # per-space settings, labels and pins
-  index = 11
-  label = "chat"
-  pin = "1"                          # DISPLAY_SEL
-  window_gap = 0
-
-  [[rule]]                           # the keys of `rule --add`; order is kept
-  app = "^Calendar$"
-  space = 9
-  insert = "stack"
-
-  [[rule]]
-  label = "Finder"
-  app = "^Finder$"
-  title = { not = "^(Copy|Move)$" }  # title!=…
-  manage = false
-
-  [[signal]]
-  event = "window_focused"
-  action = "sketchybar --trigger window_focus"
-  """
+// The lines come from the locator of the same source; without one, no entry has a line.
+@Test func loweredEntriesCarryTheLineOfTheirKeyPath() throws {
+  let document = try ConfigDocument.decode(targetFormat)
+  let entries = document.lowered(locator: TOMLKeyLocator(source: targetFormat))
+  #expect(
+    entries.map(\.keyPath) == [
+      "config.mouse_follows_focus", "config.window_shadow", "config.window_gap",
+      "config.active_window_border_color", "config.tab_bar_font", "config.scratchpad_grid",
+      "config.external_bar", "config.space_layout", "space[0].label", "space[0].pin",
+      "space[0].window_gap", "rule[0]", "rule[1]", "signal[0]",
+    ])
+  #expect(entries.map(\.line) == [8, 9, 10, 11, 12, 14, 15, 13, 19, 20, 21, 23, 28, 34])
+  #expect(document.lowered().allSatisfy { $0.line == nil })
+}
 
 /// Lowers a document text, failing the test when it does not decode.
 private func lowered(_ source: String) throws -> [ConfigEntry] {
@@ -302,7 +277,7 @@ func ruleAndSignalKeysLowerToTheirWords(_ row: (source: String, words: [String])
 
 /// Random picks, read in order. Each pick is taken modulo the number of choices at its point, and zero once the picks
 /// run out, so a shrunk input gives a smaller document.
-private struct Picks {
+struct Picks {
   var values: [Int]
   var index = 0
 

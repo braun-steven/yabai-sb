@@ -3,7 +3,7 @@ import Testing
 @testable import YabaiCore
 
 /// The "Target format" document of doc/config-refactor/overview.md.
-private let targetFormat = """
+let targetFormat = """
   #:schema ./yabai.schema.json
 
   [daemon]
@@ -245,6 +245,23 @@ func oneProblemIsReportedAtItsKeyPath(_ source: String, _ keyPath: String) {
     Set(errors.map(\.keyPath)) == [
       "bogus", "daemon.auto_reload", "config.window_gapp", "space[0].index",
     ])
+}
+
+// The line of a problem found after parsing is the line of its key path (`TOMLKeyLocator`).
+@Test(
+  arguments: [
+    ("[config]\n\nwindow_gapp = 1\n", "config.window_gapp", 3),
+    ("[daemon]\nauto_reload = 1\n", "daemon.auto_reload", 2),
+    ("[bogus]\n", "bogus", 1),
+    ("[[space]]\nlabel = \"chat\"\n", "space[0].index", 1),
+    ("[[space]]\nindex = 1\n\n[[space]]\nindex = 1\n", "space[1].index", 5),
+    ("[[rule]]\napp = \"x\"\nspace = { not = \"1\" }\n", "rule[0].space.not", 3),
+    ("[config]\nspace_layout = [\n  \"15\",\n  2,\n]\n", "config.space_layout[1]", 2),
+  ] as [(String, String, Int)])
+func semanticProblemCarriesTheLineOfItsKey(_ source: String, _ keyPath: String, _ line: Int) {
+  let errors = decodeErrors(source)
+  #expect(errors.map(\.keyPath) == [keyPath])
+  #expect(errors.first?.line == line)
 }
 
 @Test func syntaxErrorKeepsItsLineAndIsReportedForTheWholeFile() {

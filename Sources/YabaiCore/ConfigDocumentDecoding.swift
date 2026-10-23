@@ -17,7 +17,8 @@ private let topLevelTables: Set<String> = ["daemon", "config", "space", "rule", 
 
 // NOTE: The keys of a table come from `TOMLTable.keys`, which lists its plain values first, then its arrays, then its
 // inline and sub-tables (`TOMLDocument.allKeys`). The file order across those kinds is not public, so a decoded list
-// keeps that order, which is deterministic. Restoring the file order needs the line locator of C1.4.
+// keeps that order, which is deterministic. The lines of `TOMLKeyLocator` could restore the file order; that is not
+// done.
 
 extension ConfigDocument {
   /// Decodes the text of a `yabai.toml` file. Every problem is collected, in the order they are found, and the document
@@ -36,7 +37,14 @@ extension ConfigDocument {
     var decoder = ConfigDocumentDecoder()
     let document = decoder.decode(root)
     if !decoder.errors.isEmpty {
-      throw ConfigDocumentErrors(errors: decoder.errors)
+      // NOTE: The parser reports no line for a semantic problem, so its line comes from the key path.
+      let locator = TOMLKeyLocator(source: source)
+      let errors = decoder.errors.map { error in
+        var error = error
+        if error.keyPath.isEmpty == false { error.line = locator.line(for: error.keyPath) }
+        return error
+      }
+      throw ConfigDocumentErrors(errors: errors)
     }
     return document
   }

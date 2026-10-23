@@ -5,8 +5,8 @@
 // server or the daemon's state.
 //
 
-/// One message of a lowered document: its words after `-m`, the key path of the line that gave it, and its step in the
-/// apply order (`ConfigEntry.Kind`).
+/// One message of a lowered document: its words after `-m`, the key path of the line that gave it, its step in the
+/// apply order (`ConfigEntry.Kind`), and that line in the file when the lowering had the file (`lowered(locator:)`).
 public struct ConfigEntry: Equatable, Sendable {
   /// The steps of the apply order, in the order they run. The raw values give that order.
   public enum Kind: Int, CaseIterable, Sendable {
@@ -20,11 +20,14 @@ public struct ConfigEntry: Equatable, Sendable {
   public var arguments: [String]
   public var keyPath: String
   public var kind: Kind
+  /// The line of `keyPath` in the file, 1-based; nil when the lowering was not given the file.
+  public var line: Int?
 
-  public init(arguments: [String], keyPath: String, kind: Kind) {
+  public init(arguments: [String], keyPath: String, kind: Kind, line: Int? = nil) {
     self.arguments = arguments
     self.keyPath = keyPath
     self.kind = kind
+    self.line = line
   }
 }
 
@@ -34,7 +37,10 @@ extension ConfigDocument {
   ///
   /// Within a table the entries keep the key order of `ConfigDocumentDecoding.swift`. Within a rule or signal, the key
   /// order does not change its meaning.
-  public func lowered() -> [ConfigEntry] {
+  ///
+  /// The document does not keep the file, so the lines come only from `locator`, the locator of the same source text.
+  /// Without one, every entry has no line.
+  public func lowered(locator: TOMLKeyLocator? = nil) -> [ConfigEntry] {
     var entries: [ConfigEntry] = []
 
     for option in options where option.name != .spaceLayout {
@@ -85,7 +91,12 @@ extension ConfigDocument {
       entries.append(ConfigEntry(arguments: arguments, keyPath: signal.keyPath, kind: .signal))
     }
 
-    return entries
+    guard let locator else { return entries }
+    return entries.map { entry in
+      var entry = entry
+      entry.line = locator.line(for: entry.keyPath)
+      return entry
+    }
   }
 }
 

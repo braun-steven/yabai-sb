@@ -80,7 +80,8 @@ public struct SignalEntry: Equatable, Sendable {
 /// A problem of a `yabai.toml` file. An empty key path is a problem of the whole file (a syntax error).
 public struct ConfigDocumentError: Equatable, Sendable {
   public var keyPath: String
-  /// The line of the problem when the parser reports one. Other problems get their line from C1.4.
+  /// The line of the problem: the parser's line for a syntax error, else the line of `keyPath` in the file (see
+  /// `TOMLKeyLocator`). Nil when the file has no line for the key path.
   public var line: Int?
   public var message: String
 

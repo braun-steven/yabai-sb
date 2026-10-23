@@ -35,7 +35,7 @@ private enum WorkspaceLayout: String, CaseIterable {
 // of Config notifies ConfigObserver even for an equal value, and the setters have effects of their own (the event tap,
 // the space caches, the layouts), so setting an option to its current value changes nothing. A tab bar color also sets
 // its custom flag, so it is written when the flag is not set yet (`isCustom`). A tab bar font is skipped when it equals
-// the current name and is already loaded; a nil font (startup) is always set.
+// the current name and is already loaded; a nil font, after resetConfigToStartupDefaults, is always set.
 //
 
 @WM private func boolOption(

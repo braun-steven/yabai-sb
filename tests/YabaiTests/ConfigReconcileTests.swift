@@ -156,6 +156,17 @@ extension DaemonState {
       #expect(Headless.drain().configEntries.isEmpty)
     }
 
+    @Test func aFloatThePrintRoundsRecordsNothingOnTheSecondReconcile() {
+      DaemonFixture.reset()
+      let text = "[config]\nwindow_border_width = 2.123456\n"
+      #expect(reconcileAll(document(text)) == 0)
+      #expect(Golden.run("config window_border_width") == Array("2.1235\n".utf8))
+      _ = Headless.drain()
+
+      #expect(reconcileAll(document(text)) == 0)
+      #expect(Headless.drain().configEntries.isEmpty)
+    }
+
     @Test func aChangedGapChangesOnlyThatGap() {
       DaemonFixture.reset()
       _ = reconcileAll(document(baseText))
@@ -293,6 +304,9 @@ extension DaemonState {
         ("system:12", "system:14", false),
         ("tree", "float", false),
         ("", "0", false),
+        ("2.1235", "2.123456", true),
+        ("2.1235", "2.2", false),
+        ("0.250000", "0.25", true),
       ]
       for row in rows {
         #expect(sameConfigValue(row.printed, row.word) == row.same, "\(row)")

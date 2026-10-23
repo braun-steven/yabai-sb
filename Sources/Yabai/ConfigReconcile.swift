@@ -35,8 +35,10 @@ import YabaiCore
     .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-/// Whether a printed value and a lowered word name the same value. A float prints with fixed decimals (4.0000) and a
-/// color without leading zeros (0xff...), so numbers and colors are compared as numbers; other values must be equal.
+/// Whether a printed value and a lowered word name the same value. A color prints without leading zeros (0xff...), so
+/// colors are compared as numbers. A float prints with fixed decimals (4.0000, or 0.250000 for %f), so the word is
+/// formatted with the same number of decimals and the strings are compared: a file value with more decimals than the
+/// print is then equal to the running value. Other values must be equal.
 func sameConfigValue(_ printed: String, _ word: String) -> Bool {
   if printed == word { return true }
   if printed.hasPrefix("0x") && word.hasPrefix("0x") {
@@ -46,7 +48,11 @@ func sameConfigValue(_ printed: String, _ word: String) -> Bool {
     return a == b
   }
   guard let a = Double(printed), let b = Double(word) else { return false }
-  return a == b
+
+  guard let point = printed.firstIndex(of: ".") else { return a == b }
+  let digits = printed[printed.index(after: point)...]
+  guard !digits.isEmpty, digits.allSatisfy({ $0 >= "0" && $0 <= "9" }) else { return a == b }
+  return cFormat("%.\(digits.count)f", b) == printed
 }
 
 /// Runs one message through handleMessage, as the daemon runs a `yabai -m` message, and returns its failures. Each failure

@@ -90,7 +90,11 @@ extension SpaceManager {
     //
     DisplayManager.shared.invalidateSpaceCaches()
 
-    guard let move = spacePinMoves().first else { return .done }
+    //
+    // NOTE: The last user space of a display cannot move (moveSpace refuses it), so its pin waits for the next change
+    // instead of failing every pass and holding back the pins after it.
+    //
+    guard let move = spacePinMoves().first(where: { !$0.sid.isLastUserSpace }) else { return .done }
 
     Logger.spaces.debug(
       "move pinned space \(Int64(bitPattern: move.sid.rawValue)) to display \(move.did)")

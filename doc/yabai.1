@@ -785,7 +785,7 @@ Pin the selected space to the given display, so that it returns to that display 
 .br
 The pin is kept by the uuid of the display and in memory only: a yabairc sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens.
 .br
-A pin to a display that is not connected leaves its space where it is. Without an argument, the command removes the pin of the selected space.
+A pin to a display that is not connected leaves its space where it is, and so does a pin whose space is the last user space of its display. Without an argument, the command removes the pin of the selected space.
 .br
 The query key \fBpinned\-display\fP of a space is the arrangement index of the display the space is pinned to, and 0 when it has no pin or its display is not connected.
 .br

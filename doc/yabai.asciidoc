@@ -507,7 +507,7 @@ COMMAND
 *--pin* ['<DISPLAY_SEL>']::
     Pin the selected space to the given display, so that it returns to that display whenever the display is connected. The space must have a label, otherwise the command fails. +
     The pin is kept by the uuid of the display and in memory only: a yabairc sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens. +
-    A pin to a display that is not connected leaves its space where it is. Without an argument, the command removes the pin of the selected space. +
+    A pin to a display that is not connected leaves its space where it is, and so does a pin whose space is the last user space of its display. Without an argument, the command removes the pin of the selected space. +
     The query key *pinned-display* of a space is the arrangement index of the display the space is pinned to, and 0 when it has no pin or its display is not connected. +
     Moving a space needs the scripting addition: without it, the daemon logs one notice and leaves the spaces where they are. System Integrity Protection must be partially disabled.
 

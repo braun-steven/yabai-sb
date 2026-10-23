@@ -60,7 +60,7 @@ mode: nested
 
 ## Phase 5: Remove yabairc
 
-phase: in-progress
+phase: done
 mode: nested
 
 | ID | Title | Status | Notes |
@@ -128,6 +128,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 22:42 · subphase agent · C5.1 · done (commit pending) · C5.2 (rewrite the docs; the yabairc matches left by C5.1 are listed in its note)
 - 2026-10-23 22:44 · subphase agent · C5.2 · started · C5.2 (docs: yabai.asciidoc CONFIGURATION/FILES, README, architecture, live-testing, AGENTS.md --check-config, CHANGELOG breaking entry, live check)
 - 2026-10-23 22:50 · subphase agent · C5.2 · done (commit pending) · C5 close (`just ci`, then phase 6); the CHANGELOG unreleased Changed lines about the yabairc warning are left as history (see Discovered)
+- 2026-10-23 22:58 · phase agent · C5 · closed, just ci passed · phase 6. Summary: no code reads, spawns or checks a yabairc any more (C5.1: execConfigFile and the sh spawn, configFileChoice, the leftover warning, resetConfigToStartupDefaults, Log.verboseAtStartup, Headless.configFiles, configCheckReport, isTOML, the ~/.<name> candidate and examples/yabairc deleted). Deviation: the sh word lexer stays in YabaiCore as ShellWords.swift because `yabai -m batch` parses stdin with it (parseBatchInput); only extractYabaiCommands moved to tests/YabaiTests/Support/ShellCommandExtractor.swift for SkhdRecipesTests. C5.2 rewrote the man page CONFIGURATION section (every table and key, value types, overrides, auto-reload, config_loaded, --check-config, apply order) and added a Files section; README, architecture, live-testing, AGENTS.md and one breaking CHANGELOG entry. Phase-agent fix: the unreleased CHANGELOG lines about the deleted yabairc warnings (C5.2 Fix). Live check C5.2 (the user deletes ~/.config/yabai/yabairc). For phase 6: `Config.resetToDefaults` has only the test fixture as caller (Discovered); the man page key lists of [[rule]]/[[signal]] are hand-written (Discovered), which the C6.1 schema test could also cover.
 
 ## Discovered
 

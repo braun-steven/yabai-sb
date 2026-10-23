@@ -244,7 +244,7 @@ A window that floats remembers the frame it had while floating. When it floats a
 
 ### Tree undo
 
-`yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops that tree, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
+`yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops the kept trees of the space, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
 
 ### Automatic space layout
 

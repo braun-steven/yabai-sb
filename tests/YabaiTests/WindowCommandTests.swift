@@ -1213,10 +1213,12 @@ extension DaemonState {
       let space = row()
       labelSpace()
       _ = run("--warp east", in: space)
+      _ = run("--ratio rel:0.1", in: space)
       space.close(3)
       WindowManager.shared.forget(wid(3))
       let before = space.dump
 
+      // NOTE: both entries predate the window change, so the first failure drops the whole history
       #expect(spaceUndo() == "\u{07}cannot undo: the windows on this space changed.\n")
       expectNoDifference(space.dump, before)
       #expect(spaceUndo() == nothingToUndo)

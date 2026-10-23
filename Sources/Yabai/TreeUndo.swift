@@ -36,20 +36,24 @@ import YabaiCore
 //
 
 /// Restores the tree of the space before its last recorded tree command. The windows of the space must be the ones of
-/// that tree: otherwise the entry is dropped and the tree stays as it is.
+/// that tree: otherwise the whole history is dropped, since the older entries predate the same window change, and the
+/// tree stays as it is.
 @WM func undoTreeCommand(on sid: SpaceID) throws(CommandError) {
   guard let view = SpaceManager.shared.views[sid], let entry = view.history.pop() else {
     throw CommandError("nothing to undo on this space.\n")
   }
 
   guard Set(view.windowIDs) == entry.windows else {
+    view.history.clear()
     throw CommandError("cannot undo: the windows on this space changed.\n")
   }
 
+  // NOTE: A pending window --insert marks a node of the old tree, which is destroyed with its feedback, so it is dropped.
   let old = view.tree
   let root = Con(snapshot: entry.tree)
   root.area = view.area
   view.tree = root
+  view.insertionPoint = nil
   old?.destroy()
 
   WindowManager.shared.treeApply(view)

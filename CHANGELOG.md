@@ -92,6 +92,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - In the tree layout, a gap between the windows of a split is at most as long as an average window, so the gaps of a split only a few gaps long shrink instead of giving its windows a negative size; e.g. a 22 pixel high split of three windows with *window_gap 12* was laid out at heights 0, 0 and -2, and is now 5, 5 and 4 with 4 pixel gaps
 - IPC: a message longer than 1 MiB is rejected before it is read, a malformed or incomplete message is answered with *invalid message*, and *yabai -m* gives up after 30 seconds without a response; set *YABAI_CLIENT_TIMEOUT* to change the wait
 - Error messages list the expected values: an unknown value of a config option, *window* or *space* command names what it takes, e.g. `unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3`
+- Setting a config option to the value it already has changes nothing: a space keeps its tree when *config layout* or *space --layout* sets the layout it has (before, the tree was cleared, so tabbed containers and splits were flattened), and a repeated option, gap, border or tab bar setting does no work
 - When several yabairc files exist (*$XDG_CONFIG_HOME/yabai*, *~/.config/yabai* and *~/.yabairc*), the daemon warns and sends a notification naming the file it uses and the ones it ignores; the file it loads is logged at startup in every case
 
 ### Removed

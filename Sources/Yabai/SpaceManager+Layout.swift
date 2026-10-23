@@ -14,8 +14,11 @@ private func addAndClampToZero(_ a: Int, _ b: Int) -> Int {
 }
 
 extension SpaceManager {
+  /// Sets the layout of a space. A space that already has the layout is left alone: clearing it would drop its tree.
   func setLayout(_ layout: ViewType, for sid: SpaceID) {
     let target = view(for: sid)
+    guard target.layout != layout else { return }
+
     target.layout = layout
     target.clear()
 
@@ -57,13 +60,13 @@ extension SpaceManager {
     return toggleViewSetting(\.isGapEnabled, for: sid)
   }
 
-  /// The views without their own layout take the layout.
+  /// The views without their own layout take the layout. A view that already has it is left alone (see setLayout).
   func setLayoutForAllSpaces(_ layout: ViewType) {
     Config.current.space.layout = layout
 
     for target in views.values {
       if !target.overrides.contains(.layout) {
-        if target.sid.isUser {
+        if target.sid.isUser && target.layout != layout {
           target.layout = layout
           target.clear()
 
@@ -79,7 +82,7 @@ extension SpaceManager {
     Config.current.space[keyPath: spacing.spaceDefault] = value
 
     for target in views.values {
-      if !target.overrides.contains(spacing.override) {
+      if !target.overrides.contains(spacing.override), target[keyPath: spacing.view] != value {
         target[keyPath: spacing.view] = value
         target.updateAndFlush()
       }

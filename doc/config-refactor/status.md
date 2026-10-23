@@ -37,11 +37,12 @@ mode: nested
 
 ## Phase 3: Non-destructive reload
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C3.1 | Setters skip unchanged values | todo | |
+| C3.1 | Setters skip unchanged values | done | The option factories in `MessageConfig.swift` write and run their effects only for a changed value (focus_follows_mouse, space_layout, external_bar and the spacing setters check too), so a repeated set notifies nothing (ConfigObserver, Config notes; architecture and swift-conventions updated). `SpaceManager.setLayout(_:for:)` and `setLayoutForAllSpaces` leave a space with its layout alone, which also covers `space --layout`; per-view spacing skips unchanged views. Deviations: the font is still set when equal (a nil font draws no classic titles, so startup needs it), and a `--space` set of the current value still inserts its override. Tests: `tests/YabaiTests/MessageConfigTests.swift` (every config case set twice, tabbed container, external bar, tab bar flag and font, no notify per group). CHANGELOG, asciidoc (`just man`), refactor P9.6 marked fixed. Gate quick passed (450 + 259 tests, 0 warnings). No live check. |
 | C3.2 | The diff apply engine | todo | |
 | C3.3 | `config --reload` on the engine, and `config --overrides` | todo | |
 | C3.4 | Auto-reload on save | todo | |
@@ -100,6 +101,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 20:02 · subphase agent · C2.4 · fix started · C2.4 Fix (menu bar alpha from yabai.toml applied after ConfigObserver.start)
 - 2026-10-23 20:02 · subphase agent · C2.4 · fix done (commit pending) · C3.1 (setters skip unchanged values)
 - 2026-10-23 20:20 · phase agent · C2 · closed, just ci passed (second run; the first failed on the transient SwiftPM cache line) · phase 3. Summary: the daemon finds `yabai.toml` (`Daemon.configFile`, XDG then ~/.config, symlinks compared by realpath), checks it with `config --check` and offline `yabai --check-config` (`configFileReport`/`configFileCheck`), and applies it in-process at startup in `ConfigStep` order between the manager starts (`ConfigLoader.swift`); the yabairc is no longer run at startup but `config --reload` still runs it until C3.3. `examples/yabai.toml` and `~/.config/yabai/yabai.toml` exist (97 settings, 0 failures; reviewed against the yabairc: 50 rules in order, 46 options, the dock_did_restart signal). Deviations: `[config]` settings run after `applySpaceDefaults` (which would overwrite them), with `tab_bar_font`/`external_bar` after the managers begin; `[[space]]` entries are notes in the check (not checkable offline); the menu bar alpha is applied once after `ConfigObserver.start` (C2.4 fix). For phase 3: `ConfigObserver` starts after the startup apply, so the reload engine runs with the observer active; startup `sudo yabai --load-sa` is lost until phase 4 (Discovered). Close fixes: `scripts/check-build.py` copies all of `examples/` and counts only real diagnostic lines (the test name of a `Syntax error:` fixture failed it).
+- 2026-10-23 21:02 · phase agent · C3 · started (nested) · C3.1
+- 2026-10-23 21:06 · subphase agent · C3.1 · started · C3.1 (option factories write only changed values, setLayout and spacing skip unchanged views, tests, docs)
+- 2026-10-23 21:10 · subphase agent · C3.1 · done (commit pending) · C3.2 (the diff apply engine); the setters skip equal values, so C3.2 can diff against the running state without re-notifying. Open for C3.2: a repeated `space_layout` does not reschedule the space layout pass, and a `--space` set of an equal value still inserts its override.
 
 ## Discovered
 

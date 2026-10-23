@@ -3,10 +3,11 @@ import YabaiCore
 
 //
 // NOTE: Borders, tab bars, window opacity, the menu bar alpha and shadows follow Config through Observation. Each
-// group is tracked on its own; the first set of it posts one configChanged event, also when the value is equal, so
-// re-running a config re-applies it as the config setters did. The handler runs after the event that set the config (a
-// whole config message, for example) and before the next event: it tracks the group again and applies it. Several
-// sets of one message apply once, and the window server gets them in event order.
+// group is tracked on its own; the first set of it posts one configChanged event. The config options set a value only
+// when it differs (MessageConfig.swift), so setting the current value posts nothing, and re-running a config changes
+// nothing that is already applied. The handler runs after the event that set the config (a whole config message, for
+// example) and before the next event: it tracks the group again and applies it. Several sets of one message apply
+// once, and the window server gets them in event order.
 //
 
 /// The parts of Config that a renderer applies.

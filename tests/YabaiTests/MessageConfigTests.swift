@@ -1,4 +1,6 @@
 import CPrivate
+import Observation
+import Synchronization
 import Testing
 import YabaiCore
 import YabaiTestSupport
@@ -6,6 +8,11 @@ import YabaiTestSupport
 @testable import Yabai
 
 // NOTE: The handler changes the global managers, so the tests are part of DaemonState.
+
+/// Set when an observed config group changes.
+private final class ChangeFlag: Sendable {
+  let isSet = Atomic(false)
+}
 
 @WM private func runConfig(_ message: String) -> String {
   var response = Response()
@@ -344,6 +351,88 @@ extension DaemonState {
 
     @Test func configCasesCoverEveryOption() {
       #expect(Set(Self.configCases.map(\.option)) == Set(configOptionNames.map(\.rawValue)))
+    }
+
+    //
+    // NOTE: Setting an option to the value it has changes nothing: the second set leaves the tree and records no flush,
+    // animation or payload message. The first set may change the seeded space; its result is the reference.
+    //
+    @Test(arguments: configCases)
+    func settingTheCurrentValueChangesNothing(_ row: ConfigCase) {
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2)
+      _ = runConfigLine("\(row.option) \(row.value)")
+      let tree = space.dump
+      _ = Headless.drain()
+
+      #expect(runConfigLine("\(row.option) \(row.value)") == "")
+      #expect(space.dump == tree)
+      let log = Headless.drain()
+      #expect(log.placements.isEmpty)
+      #expect(log.messages.isEmpty)
+    }
+
+    @Test func settingTheCurrentLayoutKeepsATabbedContainer() {
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2)
+      space.open(3)
+      space.node(2).setLayout(.tabbed)
+      let tree = space.dump
+
+      SpaceManager.shared.setLayout(.tree, for: Workspace.sid)
+      #expect(space.view.layout == .tree)
+      #expect(space.dump == tree)
+      #expect(runConfigLine("layout tree") == "")
+      #expect(space.dump == tree)
+
+      SpaceManager.shared.setLayout(.float, for: Workspace.sid)
+      #expect(space.view.layout == .float)
+    }
+
+    @Test func settingTheCurrentExternalBarKeepsTheViews() {
+      let space = Workspace()
+      space.open(1, focus: true)
+      #expect(runConfigLine("external_bar main:20:0") == "")
+
+      space.view.isValid = true
+      #expect(runConfigLine("external_bar main:20:0") == "")
+      #expect(space.view.isValid)
+    }
+
+    @Test func settingATabBarColorToItsDefaultStillSetsItsCustomFlag() {
+      #expect(!Config.current.tabBar.focusedColorIsCustom)
+      #expect(runConfigLine("tab_bar_focused_color 0xff285577") == "")
+      #expect(Config.current.tabBar.focusedColorIsCustom)
+    }
+
+    // NOTE: The font is nil until tab_bar_font sets it, and a nil font draws no classic titles, so the default name still
+    // sets the font.
+    @Test func settingTheDefaultTabBarFontStillSetsTheFont() {
+      WindowManager.shared.tabBarFont = nil
+      #expect(runConfigLine("tab_bar_font system:12") == "")
+      #expect(WindowManager.shared.tabBarFont != nil)
+    }
+
+    @Test(arguments: [
+      ("menubar_opacity 1", ConfigGroup.menuBar),
+      ("window_border off", .border),
+      ("tab_bar_height 24", .tabBar),
+      ("window_opacity off", .opacity),
+      ("active_window_opacity 1", .windowOpacity),
+      ("window_shadow on", .shadow),
+    ])
+    func settingTheCurrentValueNotifiesNothing(_ line: String, _ group: ConfigGroup) {
+      let flag = ChangeFlag()
+      withObservationTracking {
+        ConfigObserver.read(group)
+      } onChange: {
+        flag.isSet.store(true, ordering: .relaxed)
+      }
+      #expect(runConfigLine(line) == "")
+      let isSet = flag.isSet.load(ordering: .relaxed)
+      #expect(!isSet, "\(line)")
     }
 
     @Test(arguments: configCases)

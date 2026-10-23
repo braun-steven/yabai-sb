@@ -30,6 +30,13 @@ private enum WorkspaceLayout: String, CaseIterable {
   let parse: @WM (Token, Token, inout Message, SpaceID?) throws(CommandError) -> Change?
 }
 
+//
+// NOTE: An option writes its value and runs its effects only when the value differs from the current one. A field write
+// of Config notifies ConfigObserver even for an equal value, and the setters have effects of their own (the event tap,
+// the space caches, the layouts), so setting an option to its current value changes nothing. A tab bar color also sets
+// its custom flag, so it is written when the flag is not set yet (`isCustom`).
+//
+
 @WM private func boolOption(
   _ name: ConfigName, get: @escaping @WM () -> Bool, set: @escaping @WM (Bool) -> Void
 ) -> ConfigOption {
@@ -39,11 +46,11 @@ private enum WorkspaceLayout: String, CaseIterable {
       let token = message.next()
       guard token.isValid else { return nil }
       let value = try parseConfigBool(domain, command, token)
-      return { set(value) }
+      return { if get() != value { set(value) } }
     })
 }
 
-@WM private func choiceOption<Choice: RawRepresentable>(
+@WM private func choiceOption<Choice: RawRepresentable & Equatable>(
   _ name: ConfigName, choices: [Choice], get: @escaping @WM () -> Choice,
   set: @escaping @WM (Choice) -> Void
 ) -> ConfigOption where Choice.RawValue == String {
@@ -53,7 +60,7 @@ private enum WorkspaceLayout: String, CaseIterable {
       let token = message.next()
       guard token.isValid else { return nil }
       let value = try parseConfigChoice(domain, command, token, choices)
-      return { set(value) }
+      return { if get() != value { set(value) } }
     })
 }
 
@@ -69,7 +76,7 @@ private enum WorkspaceLayout: String, CaseIterable {
       guard let value = parseValue(token) else {
         throw CommandError.unknownValue(domain, command, token, expected: expected)
       }
-      return { set(value) }
+      return { if get() != value { set(value) } }
     })
 }
 
@@ -85,13 +92,13 @@ private enum WorkspaceLayout: String, CaseIterable {
       guard let value = parseValue(token) else {
         throw CommandError.unknownValue(domain, command, token, expected: expected)
       }
-      return { set(value) }
+      return { if get() != value { set(value) } }
     })
 }
 
 @WM private func colorOption(
   _ name: ConfigName, get: @escaping @WM () -> RGBAColor, set: @escaping @WM (RGBAColor) -> Void,
-  allowZero: Bool = true
+  allowZero: Bool = true, isCustom: @escaping @WM () -> Bool = { true }
 ) -> ConfigOption {
   let expected =
     allowZero ? "a hex color such as 0xffe1e3e4" : "a non-zero hex color such as 0xffe1e3e4"
@@ -104,7 +111,7 @@ private enum WorkspaceLayout: String, CaseIterable {
         throw CommandError.unknownValue(domain, command, token, expected: expected)
       }
       let color = RGBAColor(hex: value)
-      return { set(color) }
+      return { if get() != color || !isCustom() { set(color) } }
     })
 }
 
@@ -123,7 +130,11 @@ private enum WorkspaceLayout: String, CaseIterable {
           domain, command, token, [FocusFollowsMouse.autofocus, .autoraise],
           expected: expectedChoices([Argument.off, "autofocus", "autoraise"]))
       }
-      return { WindowManager.shared.setFocusFollowsMouse(value) }
+      return {
+        if Config.current.window.focusFollowsMouse != value {
+          WindowManager.shared.setFocusFollowsMouse(value)
+        }
+      }
     })
 }
 
@@ -179,6 +190,7 @@ private enum WorkspaceLayout: String, CaseIterable {
       guard token.isValid else { return nil }
       if token.equals(Argument.off) {
         return {
+          guard Config.current.space.spaceLayoutSpec != nil else { return }
           Config.current.space.spaceLayoutSpec = nil
           Config.current.space.spaceLayouts = []
         }
@@ -220,6 +232,7 @@ private enum WorkspaceLayout: String, CaseIterable {
       }
       let layoutSpec = String(decoding: spec, as: UTF8.self)
       return {
+        guard Config.current.space.spaceLayoutSpec != layoutSpec else { return }
         Config.current.space.spaceLayouts = layouts
         Config.current.space.spaceLayoutSpec = layoutSpec
         SpaceManager.shared.scheduleSpaceLayout(after: .zero, resetPasses: true)
@@ -296,9 +309,10 @@ private enum WorkspaceLayout: String, CaseIterable {
       let topPadding = Int(scan.values[0])
       let bottomPadding = Int(scan.values[1])
       return {
-        Config.current.display.externalBar.mode = choice
-        Config.current.display.externalBar.topPadding = topPadding
-        Config.current.display.externalBar.bottomPadding = bottomPadding
+        let externalBar = ExternalBarConfig(
+          mode: choice, topPadding: topPadding, bottomPadding: bottomPadding)
+        guard Config.current.display.externalBar != externalBar else { return }
+        Config.current.display.externalBar = externalBar
         SpaceManager.shared.markSpacesInvalid()
       }
     })
@@ -325,8 +339,10 @@ private enum WorkspaceLayout: String, CaseIterable {
         if let selSid {
           let view = manager.view(for: selSid)
           view.overrides.insert(spacing.override)
-          view[keyPath: spacing.view] = value
-          view.updateAndFlush()
+          if view[keyPath: spacing.view] != value {
+            view[keyPath: spacing.view] = value
+            view.updateAndFlush()
+          }
         } else {
           manager.setSpacingForAllSpaces(spacing, to: value)
         }
@@ -544,43 +560,50 @@ private enum WorkspaceLayout: String, CaseIterable {
     set: {
       Config.current.tabBar.focusedColor = $0
       Config.current.tabBar.focusedColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.focusedColorIsCustom }),
   colorOption(
     .tabBarFocusedTextColor, get: { Config.current.tabBar.focusedTextColor },
     set: {
       Config.current.tabBar.focusedTextColor = $0
       Config.current.tabBar.focusedTextColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.focusedTextColorIsCustom }),
   colorOption(
     .tabBarInactiveColor, get: { Config.current.tabBar.inactiveColor },
     set: {
       Config.current.tabBar.inactiveColor = $0
       Config.current.tabBar.inactiveColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.inactiveColorIsCustom }),
   colorOption(
     .tabBarInactiveTextColor, get: { Config.current.tabBar.inactiveTextColor },
     set: {
       Config.current.tabBar.inactiveTextColor = $0
       Config.current.tabBar.inactiveTextColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.inactiveTextColorIsCustom }),
   colorOption(
     .tabBarUnfocusedColor, get: { Config.current.tabBar.unfocusedColor },
     set: {
       Config.current.tabBar.unfocusedColor = $0
       Config.current.tabBar.unfocusedColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.unfocusedColorIsCustom }),
   colorOption(
     .tabBarUnfocusedTextColor, get: { Config.current.tabBar.unfocusedTextColor },
     set: {
       Config.current.tabBar.unfocusedTextColor = $0
       Config.current.tabBar.unfocusedTextColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.unfocusedTextColorIsCustom }),
   colorOption(
     .tabBarBackdropColor, get: { Config.current.tabBar.backdropColor },
     set: {
       Config.current.tabBar.backdropColor = $0
       Config.current.tabBar.backdropColorIsCustom = true
-    }),
+    },
+    isCustom: { Config.current.tabBar.backdropColorIsCustom }),
   floatOption(
     .windowOpacityDuration, get: { Config.current.window.opacityDuration },
     printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue },

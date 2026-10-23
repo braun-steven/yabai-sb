@@ -618,6 +618,8 @@ A click inside a window, or on a floating window or menu over the gap, is passed
 Set the layout of the selected space.
 .br
 \fItree\fP (the default) arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP. \fIfloat\fP leaves windows unmanaged.
+.br
+A space that already has the layout keeps its windows and tree.
 .RE
 .sp
 \fBtree_default_orientation\fP [\fIhorizontal|vertical|auto\fP]
@@ -836,7 +838,7 @@ Toggle space setting on or off for the selected space.
 .sp
 \fB\-\-layout\fP \fItree|float\fP
 .RS 4
-Set the layout of the selected space.
+Set the layout of the selected space. A space that already has the layout keeps its windows and tree.
 .RE
 .sp
 \fB\-\-label\fP [\fI<LABEL>\fP]

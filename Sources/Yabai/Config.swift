@@ -4,7 +4,8 @@ import YabaiCore
 //
 // NOTE: Each renderer action has its own property (border, tabBar, opacity, windowOpacity, menuBar, shadow), since
 // Observation tracks Config's properties, not their fields. A set through a field notifies even with an equal value,
-// so re-running a config applies it again; assigning a whole equal struct does not notify.
+// so the config options write only a value that differs (MessageConfig.swift); assigning a whole equal struct does not
+// notify.
 //
 
 /// The settings of the config domain. `Config.current` starts with the defaults of a new daemon; the space layout

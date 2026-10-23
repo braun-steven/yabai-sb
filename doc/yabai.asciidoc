@@ -401,7 +401,8 @@ Space Settings
 
 *layout* ['tree|float']::
     Set the layout of the selected space. +
-    'tree' (the default) arranges windows in an i3-style container tree, see *TREE LAYOUT*. 'float' leaves windows unmanaged.
+    'tree' (the default) arranges windows in an i3-style container tree, see *TREE LAYOUT*. 'float' leaves windows unmanaged. +
+    A space that already has the layout keeps its windows and tree.
 
 *tree_default_orientation* ['horizontal|vertical|auto']::
     Orientation of an empty 'tree' space when its first window opens, like i3's 'default_orientation'. +
@@ -542,7 +543,7 @@ COMMAND
     Toggle space setting on or off for the selected space.
 
 *--layout* 'tree|float'::
-    Set the layout of the selected space.
+    Set the layout of the selected space. A space that already has the layout keeps its windows and tree.
 
 *--label* ['<LABEL>']::
     Label the selected space, allowing that label to be used as an alias in commands that take a `SPACE_SEL` parameter. +

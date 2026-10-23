@@ -371,21 +371,20 @@ They complete the options of the process (`--start-service`, `--config <file>`, 
 
 ### Config check and reload
 
-`yabai -m config --check [<file>]` parses the `yabai -m` messages of a yabairc without running them. Each failure is printed with its file and line, and a summary follows:
+`yabai -m config --check [<file>]` checks a `yabai.toml` without applying it. The whole file is decoded first, then each setting is checked as the daemon would check its message. Each failure is printed with its file, line and key, and a summary follows:
 
 ```sh
 yabai -m config --check
 ```
 
 ```text
-/Users/you/.config/yabai/yabairc:12: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-note: /Users/you/.config/yabai/yabairc:20: not checked: dynamic shell
-checked 14 commands, 1 failures, 1 skipped
+/Users/you/.config/yabai/yabai.toml:2: config.window_gap: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
+checked 14 settings, 1 failures
 ```
 
-Without a file, the check reads the file the daemon loads. Lines that the shell computes when it runs them are not checked, and neither are the messages of *space*, *display*, *window* and *query*, which act on the session. Nothing is applied, and the exit status is 1 when there is a failure.
+Without a file, the check reads the file the daemon loads. The `[[space]]` labels and pins are not checked, since they act on the session. Nothing is applied, and the exit status is 1 when there is a failure. `yabai --check-config [<file>]` makes the same check without a running daemon.
 
-`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the file first, as above, and changes nothing when the check fails. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
+`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the yabairc as the check did before, and changes nothing when the check fails; a `.toml` file is refused for now. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
 
 ### IPC batch and subscribe
 

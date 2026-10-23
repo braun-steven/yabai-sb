@@ -11,10 +11,11 @@ struct YabaiOptions: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "yabai",
     abstract: "Tiling window manager for macOS.",
-    usage: "yabai [<action> | --message <msg> ... | --version | [--config <config>] [--verbose]]",
+    usage:
+      "yabai [<action> | --message <msg> ... | --version | --check-config [<config_file>] | [--config <config>] [--verbose]]",
     discussion: """
-      Without options, yabai runs the window manager. An action (--load-sa through --stop-service), --message \
-      and --version must be given alone.
+      Without options, yabai runs the window manager. An action (--load-sa through --stop-service), --message, --version \
+      and --check-config must be given alone.
       Type `man yabai` for more information, or visit: \
       https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc
       """
@@ -80,11 +81,26 @@ struct YabaiOptions: ParsableCommand {
   @Flag(name: [.customShort("v"), .long], help: "Print version to stdout and exit.")
   var version = false
 
+  @Flag(
+    name: .customLong("check-config"),
+    help: "Check a yabai.toml file and exit, without a running instance of yabai.")
+  var checkConfig = false
+
+  @Argument(
+    help: ArgumentHelp(
+      "The file that --check-config checks; without it, the file the daemon loads.",
+      valueName: "config_file"),
+    completion: .file())
+  var checkConfigFile: String?
+
   func validate() throws {
     let exclusive = [
       action.map { "--\($0.rawValue)" }, message.isEmpty ? nil : "--message",
-      version ? "--version" : nil,
+      version ? "--version" : nil, checkConfig ? "--check-config" : nil,
     ].compactMap { $0 }
+    if let checkConfigFile, !checkConfig {
+      throw ValidationError("unexpected argument '\(checkConfigFile)'")
+    }
     guard let option = exclusive.first else { return }
 
     if exclusive.count > 1 || config != nil || verbose {

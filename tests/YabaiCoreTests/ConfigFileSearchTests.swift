@@ -189,6 +189,14 @@ struct ConfigFileSearchTests {
         == nil)
   }
 
+  @Test("only a file with the .toml extension is a TOML file")
+  func tomlPathsAreRecognised() {
+    #expect(ConfigFileSearch.isTOML("/Users/u/.config/yabai/yabai.toml"))
+    #expect(ConfigFileSearch.isTOML("yabai.toml"))
+    #expect(!ConfigFileSearch.isTOML("/Users/u/.config/yabai/yabairc"))
+    #expect(!ConfigFileSearch.isTOML("/tmp/toml"))
+  }
+
   @Test("config --check and --reload resolve a relative file against the client's directory")
   func resolvingConfigFile() {
     func bytes(_ words: [String]) -> [[UInt8]] { words.map { Array($0.utf8) } }

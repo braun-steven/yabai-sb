@@ -23,7 +23,7 @@ yabai - window manager
 Synopsis
 --------
 
-*yabai* [*--load-sa*|*--uninstall-sa*|*--install-service*|*--uninstall-service*|*--start-service*|*--restart-service*|*--stop-service*|*--message*,*-m* 'msg'|*--version*,*-v*|*--help*,*-h*|*--generate-completion-script* 'shell'|[*--config*,*-c* 'config_file'] [*--verbose*,*-V*]]
+*yabai* [*--load-sa*|*--uninstall-sa*|*--install-service*|*--uninstall-service*|*--start-service*|*--restart-service*|*--stop-service*|*--message*,*-m* 'msg'|*--version*,*-v*|*--help*,*-h*|*--generate-completion-script* 'shell'|*--check-config* ['config_file']|[*--config*,*-c* 'config_file'] [*--verbose*,*-V*]]
 
 Description
 -----------
@@ -32,7 +32,7 @@ Description
 
 Options
 -------
-The actions (*--load-sa* through *--stop-service*), *--message*, *--version*, *--help* and *--generate-completion-script*
+The actions (*--load-sa* through *--stop-service*), *--message*, *--version*, *--help*, *--generate-completion-script* and *--check-config*
 must be given alone. Option values may also be attached, e.g. *--config=*'<config_file>'.
 
 *--load-sa*::
@@ -147,17 +147,20 @@ Check the Config File
 ^^^^^^^^^^^^^^^^^^^^^
 
 yabai -m config --check ['<config_file>']::
-    Check the `yabai -m` messages of a config file without running them. Without <config_file>, check the file the daemon loads: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabairc`, `~/.config/yabai/yabairc` and `~/.yabairc`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
-    Each `yabai -m` message of the file is parsed as the daemon parses it, and nothing is applied: the check runs no command and changes no setting. Lines that the shell computes when it runs them (variables, `$(…)`, pipes, redirections, `if` and loops) are not checked, and neither are `yabai` lines without `-m`. The domains *space*, *display*, *window* and *query* act on the session, so their messages are not checked either. +
-    The output has one line per failure, `<file>:<line>: <message>`, one `note: <file>:<line>: not checked: <reason>` line per message that is not checked, and the summary `checked N commands, M failures, K skipped`. A command is checked when its message was parsed; a message that is not checked counts as skipped, and so does a line that was not extracted. M counts the failing responses, one for each failing command. +
-    The exit status is 0 when M is 0. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
+    Check a `yabai.toml` file without applying it. Without <config_file>, check the file the daemon loads: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabai.toml` and `~/.config/yabai/yabai.toml`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
+    The whole file is decoded first, and every unknown key or wrong kind of value is a failure. Then each setting is lowered to the `yabai -m` message that the daemon would run for it, and that message is checked as the daemon checks it. Nothing is applied: the check runs no command and changes no setting. The domains *space*, *display*, *window* and *query* act on the session, so a `[[space]]` label or pin is reported as not checked. +
+    The output has one line per failure, `<file>:<line>: <key path>: <message>`, one `note: <file>:<line>: <key path>: not checked: <reason>` line per setting that is not checked, and the summary `checked N settings, M failures`, with `, K not checked` when K is not zero. A file that does not decode is reported line by line, and nothing is checked. +
+    The exit status is 0 when there is no failure. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
+
+yabai --check-config ['<config_file>']::
+    Check a `yabai.toml` file as *yabai -m config --check* does, without a running daemon, and exit. Without <config_file>, check the file the daemon loads. The report goes to stdout, or to stderr when there is a failure, and the exit status is 0 only when there is no failure. The check does not change anything and needs no window server, e.g. `yabai --check-config ~/.config/yabai/yabai.toml`.
 
 Reload the Config File
 ^^^^^^^^^^^^^^^^^^^^^^
 
 yabai -m config --reload ['<config_file>']::
     Run the config file again without restarting the daemon. Without <config_file>, reload the file the daemon loads: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabairc`, `~/.config/yabai/yabairc` and `~/.yabairc`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
-    The file is checked first, exactly as *config --check* checks it. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is `reloaded <config_file>`. +
+    The file is checked first, with the check of a yabairc (its `yabai -m` messages are parsed, as before). A file with the `.toml` extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is `reloaded <config_file>`. +
     Windows, trees and spaces stay as they are. A rule applies to new windows only, unless the config file runs *rule --apply*. The layout, gaps, padding and auto_padding of a space stay as they are, and so does a value set with *--space*: a reset changes the global defaults that spaces created later get. The tree options (*tree_default_orientation*, *tree_workspace_layout* and *tree_autotiling*) and the other settings that are read when they are used take their reset value from then on. *space_layout* is cleared without re-laying out the spaces, and *debug_output* returns to the value the daemon started with (*--verbose*). +
     Keep the yabairc idempotent, as it already must be for *--restart-service*: its commands run again on every reload, so a command that creates a space or a rule must not create it twice. A yabairc must not run *config --reload* itself, because the reload would run the file again; *config --check* notes such a line. An skhd binding can run `yabai -m config --reload`.
 

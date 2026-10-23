@@ -31,7 +31,7 @@ mode: nested
 | ID | Title | Status | Notes |
 |---|---|---|---|
 | C2.1 | Find `yabai.toml` | done | `ConfigFileSearch.candidates` takes `homeDotfile` (no `~/.yabai.toml`); `choose` takes `resolve` (realpath via `resolvedPath` in Yabai.swift), so a link to the chosen file is not ignored; `Daemon.configFile(explicit:)` is the yabai.toml search (not applied yet); startup calls `Daemon.warnLeftoverYabairc` before `execConfigFile`, which still runs the yabairc. The notice names the first yabai.toml candidate as the target. Tests: 17 in `tests/YabaiCoreTests/ConfigFileSearchTests.swift` (both candidates, `-c`, symlinks, the notice decision). CHANGELOG Changed line; architecture "Startup sequence" step 11. Discovered P9.2 marked obsolete in `doc/refactor/status.md`. Gate quick passed (431 + 257 tests, 0 warnings). No live check. |
-| C2.2 | Check a `yabai.toml`: `config --check` and `yabai --check-config` | todo | |
+| C2.2 | Check a `yabai.toml`: `config --check` and `yabai --check-config` | done | `configFileReport` (`IPC/ConfigCheck.swift`) decodes and lowers yabai.toml and runs `checkMessage` on each setting, with `<file>:<line>: <key path>: <message>` lines and `checked N settings, M failures`; `yabai --check-config [<file>]` (`main.swift`, `YabaiOptions.swift`) runs the same code through `WM.sync` with no daemon; `config --reload` keeps the yabairc extractor check (`configCheckReport`) and refuses a `.toml` file (`ConfigFileSearch.isTOML`). The config and rule parsers read no manager state; the check reads `WindowManager.shared.rules` only for `rule --apply <label>`, and `checkMessage` names no SkyLight, CG or AX call. Deviations: a `[[space]]` label or pin cannot be checked without the session, so it is a `note:` line and counted as `K not checked`, not dropped; the yabairc report stays for reload until C3.3. Tests: `tests/YabaiTests/ConfigCheckTests.swift` rewritten for TOML (fixtures, problems with lines, space note, file and offline reads, reload refusal) with the yabairc report kept; `isTOML` rows in `ConfigFileSearchTests.swift`. Docs: man page (`just man`), CHANGELOG, README "Config check and reload". Golden: no record changed. Gate quick passed (437 + 258 tests, 0 warnings). Live check added. |
 | C2.3 | Convert the example and the user's config | todo | |
 | C2.4 | Apply the file at startup, before windows are adopted | todo | |
 
@@ -91,6 +91,8 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 19:33 · phase agent · C2 · started (nested) · C2.1
 - 2026-10-23 19:36 · subphase agent · C2.1 · started · C2.1 (ConfigFileSearch homeDotfile and resolve, Daemon.configFile, leftover warning, tests)
 - 2026-10-23 19:37 · subphase agent · C2.1 · done · C2.2 (configFileReport on the yabai.toml search). Open: the leftover notice says "no longer read" while the yabairc still runs until C2.4 (text as the plan gives it)
+- 2026-10-23 19:43 · subphase agent · C2.2 · started · C2.2 (configFileReport, config --check on yabai.toml, yabai --check-config, config --reload refuses TOML, tests, docs)
+- 2026-10-23 19:44 · subphase agent · C2.2 · done (commit pending) · C2.3 (convert the example and the user's config; `yabai --check-config` checks both files); `config --reload` still runs the yabairc and refuses `.toml`
 
 ## Discovered
 
@@ -100,3 +102,5 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 - C1.4: array elements (`config.space_layout[2]`) report the key's line, and quoted keys decode only `\"` and `\\` (`Sources/YabaiCore/TOMLKeyLocator.swift`).
 - C1 close (orchestrator): `just check-build` once failed its clean build on SwiftPM cache lines (`warning: 'swift-collections': skipping cache due to an error: The file “maintenance.lock” doesn’t exist.`); `scripts/check-build.py` fails any `warning:` line, even from SwiftPM itself. A rerun passed. Decide whether to ignore SwiftPM cache lines there (`scripts/check-build.py`).
 - C2.1: the leftover-yabairc notice (`yabairc is no longer read; convert it to <path>`) is shown while the yabairc still runs, until C2.4 applies yabai.toml; the wording is the plan's. Consider a "still run" variant for the C2.1 to C2.3 window (`Sources/YabaiCore/ConfigFileSearch.swift`, `leftoverYabaircNotice`).
+- C2.2: a `[[space]]` key path counts the table's position (`space[0].label` for the table with `index = 2`), not the `index` value (`Sources/YabaiCore/ConfigDocumentDecoding.swift`, `spaceEntry`); the message is right, the name may mislead.
+- C2.2: a daemon started with `-c <yabairc>` answers `config --check` without a file by checking that yabairc as TOML, so it reports syntax errors until C2.4 (`Sources/Yabai/IPC/ConfigCheck.swift`, `readConfigFile`).

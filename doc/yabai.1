@@ -31,13 +31,13 @@
 yabai \- window manager
 .SH "SYNOPSIS"
 .sp
-\fByabai\fP [\fB\-\-load\-sa\fP|\fB\-\-uninstall\-sa\fP|\fB\-\-install\-service\fP|\fB\-\-uninstall\-service\fP|\fB\-\-start\-service\fP|\fB\-\-restart\-service\fP|\fB\-\-stop\-service\fP|\fB\-\-message\fP,\fB\-m\fP \fImsg\fP|\fB\-\-version\fP,\fB\-v\fP|\fB\-\-help\fP,\fB\-h\fP|\fB\-\-generate\-completion\-script\fP \fIshell\fP|[\fB\-\-config\fP,\fB\-c\fP \fIconfig_file\fP] [\fB\-\-verbose\fP,\fB\-V\fP]]
+\fByabai\fP [\fB\-\-load\-sa\fP|\fB\-\-uninstall\-sa\fP|\fB\-\-install\-service\fP|\fB\-\-uninstall\-service\fP|\fB\-\-start\-service\fP|\fB\-\-restart\-service\fP|\fB\-\-stop\-service\fP|\fB\-\-message\fP,\fB\-m\fP \fImsg\fP|\fB\-\-version\fP,\fB\-v\fP|\fB\-\-help\fP,\fB\-h\fP|\fB\-\-generate\-completion\-script\fP \fIshell\fP|\fB\-\-check\-config\fP [\fIconfig_file\fP]|[\fB\-\-config\fP,\fB\-c\fP \fIconfig_file\fP] [\fB\-\-verbose\fP,\fB\-V\fP]]
 .SH "DESCRIPTION"
 .sp
 \fByabai\fP is a tiling window manager for macOS based on binary space partitioning.
 .SH "OPTIONS"
 .sp
-The actions (\fB\-\-load\-sa\fP through \fB\-\-stop\-service\fP), \fB\-\-message\fP, \fB\-\-version\fP, \fB\-\-help\fP and \fB\-\-generate\-completion\-script\fP
+The actions (\fB\-\-load\-sa\fP through \fB\-\-stop\-service\fP), \fB\-\-message\fP, \fB\-\-version\fP, \fB\-\-help\fP, \fB\-\-generate\-completion\-script\fP and \fB\-\-check\-config\fP
 must be given alone. Option values may also be attached, e.g. \fB\-\-config=\fP\fI<config_file>\fP.
 .sp
 \fB\-\-load\-sa\fP
@@ -192,13 +192,18 @@ Get or set the value of <space setting>.
 .sp
 yabai \-m config \-\-check [\fI<config_file>\fP]
 .RS 4
-Check the \f(CRyabai \-m\fP messages of a config file without running them. Without <config_file>, check the file the daemon loads: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabairc\fP, \f(CR~/.config/yabai/yabairc\fP and \f(CR~/.yabairc\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
+Check a \f(CRyabai.toml\fP file without applying it. Without <config_file>, check the file the daemon loads: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabai.toml\fP and \f(CR~/.config/yabai/yabai.toml\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
 .br
-Each \f(CRyabai \-m\fP message of the file is parsed as the daemon parses it, and nothing is applied: the check runs no command and changes no setting. Lines that the shell computes when it runs them (variables, \f(CR$(…)\fP, pipes, redirections, \f(CRif\fP and loops) are not checked, and neither are \f(CRyabai\fP lines without \f(CR\-m\fP. The domains \fBspace\fP, \fBdisplay\fP, \fBwindow\fP and \fBquery\fP act on the session, so their messages are not checked either.
+The whole file is decoded first, and every unknown key or wrong kind of value is a failure. Then each setting is lowered to the \f(CRyabai \-m\fP message that the daemon would run for it, and that message is checked as the daemon checks it. Nothing is applied: the check runs no command and changes no setting. The domains \fBspace\fP, \fBdisplay\fP, \fBwindow\fP and \fBquery\fP act on the session, so a \f(CR[[space]]\fP label or pin is reported as not checked.
 .br
-The output has one line per failure, \f(CR<file>:<line>: <message>\fP, one \f(CRnote: <file>:<line>: not checked: <reason>\fP line per message that is not checked, and the summary \f(CRchecked N commands, M failures, K skipped\fP. A command is checked when its message was parsed; a message that is not checked counts as skipped, and so does a line that was not extracted. M counts the failing responses, one for each failing command.
+The output has one line per failure, \f(CR<file>:<line>: <key path>: <message>\fP, one \f(CRnote: <file>:<line>: <key path>: not checked: <reason>\fP line per setting that is not checked, and the summary \f(CRchecked N settings, M failures\fP, with \f(CR, K not checked\fP when K is not zero. A file that does not decode is reported line by line, and nothing is checked.
 .br
-The exit status is 0 when M is 0. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
+The exit status is 0 when there is no failure. It is 1 when there is a failure, and when the file cannot be read or found; the failures are then printed on stderr.
+.RE
+.sp
+yabai \-\-check\-config [\fI<config_file>\fP]
+.RS 4
+Check a \f(CRyabai.toml\fP file as \fByabai \-m config \-\-check\fP does, without a running daemon, and exit. Without <config_file>, check the file the daemon loads. The report goes to stdout, or to stderr when there is a failure, and the exit status is 0 only when there is no failure. The check does not change anything and needs no window server, e.g. \f(CRyabai \-\-check\-config ~/.config/yabai/yabai.toml\fP.
 .RE
 .SS "Reload the Config File"
 .sp
@@ -206,7 +211,7 @@ yabai \-m config \-\-reload [\fI<config_file>\fP]
 .RS 4
 Run the config file again without restarting the daemon. Without <config_file>, reload the file the daemon loads: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabairc\fP, \f(CR~/.config/yabai/yabairc\fP and \f(CR~/.yabairc\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
 .br
-The file is checked first, exactly as \fBconfig \-\-check\fP checks it. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is \f(CRreloaded <config_file>\fP.
+The file is checked first, with the check of a yabairc (its \f(CRyabai \-m\fP messages are parsed, as before). A file with the \f(CR.toml\fP extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is \f(CRreloaded <config_file>\fP.
 .br
 Windows, trees and spaces stay as they are. A rule applies to new windows only, unless the config file runs \fBrule \-\-apply\fP. The layout, gaps, padding and auto_padding of a space stay as they are, and so does a value set with \fB\-\-space\fP: a reset changes the global defaults that spaces created later get. The tree options (\fBtree_default_orientation\fP, \fBtree_workspace_layout\fP and \fBtree_autotiling\fP) and the other settings that are read when they are used take their reset value from then on. \fBspace_layout\fP is cleared without re\-laying out the spaces, and \fBdebug_output\fP returns to the value the daemon started with (\fB\-\-verbose\fP).
 .br

@@ -22,6 +22,15 @@ if !options.message.isEmpty {
   exit(Client.send(options.message.map { Array($0.utf8) }))
 }
 
+//
+// NOTE: --check-config reads a yabai.toml on the @WM queue, with no daemon and no window server, so it runs before
+// Log.bootstrap and the actions. WM.sync is the way the startup runs @WM code from the main thread.
+//
+if options.checkConfig {
+  let file = options.checkConfigFile
+  exit(WM.sync { checkConfigOffline(file) })
+}
+
 Log.bootstrap()
 
 //

@@ -60,6 +60,11 @@ public enum ConfigFileSearch {
     return ConfigFileChoice(chosen: chosen, ignored: Array(found.dropFirst()))
   }
 
+  /// Whether `path` names a TOML file (`.toml`). `config --reload` does not run those yet.
+  public static func isTOML(_ path: String) -> Bool {
+    path.hasSuffix(".toml")
+  }
+
   /// The notice for a yabairc that the daemon does not read in favor of a yabai.toml: nil unless no yabai.toml is chosen
   /// (`toml` is nil) and a yabairc exists. `tomlCandidates` are the yabai.toml paths the search lists; the first one is
   /// where the file belongs.

@@ -47,7 +47,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
-- Startup warns and sends a notification when a yabairc exists but no `yabai.toml` does, naming the path where the file belongs; the yabairc is not run at startup, and *load_scripting_addition* in the `[daemon]` table loads the scripting addition (see *Added*)
 - Window borders are hidden while Mission Control is open and come back when it closes. On macOS 27 Mission Control is detected by the Dock's full-screen overlay window, since the Dock no longer posts its AXExpose notifications; the *mission_control_enter* and *mission_control_exit* signals fire again
 - Glass tab bars no longer show up as windows of their own in Mission Control
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value
@@ -97,7 +96,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - IPC: a message longer than 1 MiB is rejected before it is read, a malformed or incomplete message is answered with *invalid message*, and *yabai -m* gives up after 30 seconds without a response; set *YABAI_CLIENT_TIMEOUT* to change the wait
 - Error messages list the expected values: an unknown value of a config option, *window* or *space* command names what it takes, e.g. `unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3`
 - Setting a config option to the value it already has changes nothing: a space keeps its tree when *config layout* or *space --layout* sets the layout it has (before, the tree was cleared, so tabbed containers and splits were flattened), and a repeated option, gap, border or tab bar setting does no work
-- When several yabairc files exist (*$XDG_CONFIG_HOME/yabai*, *~/.config/yabai* and *~/.yabairc*), the daemon warns and sends a notification naming the file it uses and the ones it ignores; the file it loads is logged at startup in every case
+- When both `$XDG_CONFIG_HOME/yabai/yabai.toml` and `~/.config/yabai/yabai.toml` exist, the daemon warns and sends a notification naming the file it uses and the ones it ignores; the file it loads is logged at startup in every case
 
 ### Removed
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*

@@ -37,7 +37,7 @@ mode: nested
 
 ## Phase 3: Non-destructive reload
 
-phase: in-progress
+phase: done
 mode: nested
 
 | ID | Title | Status | Notes |
@@ -114,6 +114,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 21:50 · fix agent · C3.4 · fix done (commit pending) · none (C3.5 is unchanged; the Discovered symlink line is marked fixed)
 - 2026-10-23 21:54 · subphase agent · C3.5 · started · C3.5 (config_loaded event: SignalType, push from reloadConfig and the startup, tests, docs)
 - 2026-10-23 22:03 · subphase agent · C3.5 · done (commit pending) · C4.1 (run `sudo -n yabai --load-sa` from the daemon); phase 3 is complete except the close (`just ci`, phase gate); the config_loaded startup event is after the first pin pass only (Discovered)
+- 2026-10-23 22:02 · phase agent · C3 · closed, just ci passed · phase 4. Summary: setters skip equal values (no tree clear for an unchanged layout; ConfigObserver groups not notified); `ConfigLoader.reconcile(to:step:)` (ConfigReconcile.swift) applies only differences (options via their own print vs the lowered word, rounded floats formatted alike; spaces by index, a removed entry found by label; rule/signal lists replaced only when they differ) and is the startup path too; `config --reload` checks then reconciles and replies `reloaded <file>: <n> changes`; `config --overrides` lists differences from the applied document; `ConfigWatcher` reloads on save (file's directory plus a symlink target's directory, 200 ms debounce on `.configReload`, `auto_reload`); `config_loaded` fires after startup (1 s, after the pin pass) and each successful reload. Phase-agent fixes: tab_bar_font equal set re-rendered (C3.1 Fix), rounded float prints never compared equal (C3.2 Fix), symlinked yabai.toml not watched (C3.4 Fix), redundant flush in config --reload (C3.5 Fix). Deviations: `resetSpaceOption` changes views directly (no message removes an override); dead yabairc code (`resetConfigToStartupDefaults`, `execConfigFile`, `configCheckReport`, `isTOML`) kept for C5.1. For phase 4: run the scripting addition load off the event loop and after `dock_did_restart`; `[daemon]` changes come through the reconcile/`reloadConfig` path (ConfigLoader.autoReload shows how a daemon key is read).
 
 ## Discovered
 

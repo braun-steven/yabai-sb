@@ -59,12 +59,6 @@ struct MessageCheck {
   let domain = message.next()
 
   if domain.equals(Domain.config) {
-    // NOTE: A reload in a yabairc runs the yabairc again, so a bare `config --reload` there loops. The check does not
-    // run it, and it counts the line as skipped, because the reload may sit behind a condition that stops it.
-    if message.peek().equals("--reload") {
-      check.notes.append(
-        "reloads the yabairc, which runs it again: a bare config --reload there loops")
-    }
     try checkConfigMessage(&response, domain, &message)
   } else if domain.equals(Domain.rule) {
     try checkRuleMessage(&message)

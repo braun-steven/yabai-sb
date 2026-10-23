@@ -17,7 +17,8 @@ enum Log {
   /// Set by --verbose and debug_output, before the threads start or on the event loop; read anywhere.
   static let verbose = Atomic<Bool>(false)
 
-  /// The value of `verbose` that the daemon started with (--verbose); `config --reload` restores it for debug_output.
+  /// The value of `verbose` that the daemon started with (--verbose). `resetConfigToStartupDefaults` restores it for
+  /// debug_output; the yabairc reload no longer calls that.
   static let verboseAtStartup = Atomic<Bool>(false)
 
   /// Sends every Logger to the StandardLogHandler; called once, before the first message.

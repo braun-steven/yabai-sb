@@ -6,117 +6,119 @@ import YabaiCore
 @testable import Yabai
 
 //
-// NOTE: `config --reload [<file>]` (IPC/ConfigReload.swift) checks the file, then resets the config, removes the rules and
-// signals and runs the file again. The run is recorded in the headless log (Headless.configFiles) instead of spawning the
-// shell. The suite is DaemonState: the reload changes the managers and the config, which the fixture resets.
+// NOTE: `config --reload [<file>]` (IPC/ConfigReload.swift) checks a yabai.toml as `config --check` does, then reconciles it
+// with the running state for each ConfigStep (ConfigLoader.reconcile). Nothing is run as a shell script: the headless log
+// records no config file. `config --overrides` lists what the running state changed since the last load
+// (configOverrideLines). The suite is DaemonState: the reload changes the managers and the config, which the fixture resets.
+// The files are written to the temporary directory.
 //
 
-/// Writes `script` to a new file in the temporary directory and returns its path; the caller removes it.
-private func writeReloadScript(_ script: String) throws -> String {
+/// Writes `text` to a new yabai.toml in the temporary directory and returns its path; the caller removes it.
+private func writeReloadFile(_ text: String) throws -> String {
   let path = FileManager.default.temporaryDirectory.appendingPathComponent(
-    "yabairc-reload-\(UUID().uuidString)"
+    "yabai-reload-\(UUID().uuidString).toml"
   ).path
-  try script.write(toFile: path, atomically: true, encoding: .utf8)
+  try text.write(toFile: path, atomically: true, encoding: .utf8)
   return path
 }
 
-/// A yabairc with one bad value (line 1), which the check reports.
-private let badReloadScript = "yabai -m config window_gap x\n"
+/// A file with a window gap and a rule: the state that a reload puts back.
+private let reloadText = """
+  [config]
+  window_gap = 10
 
-/// A yabairc that sets one value.
-private let goodReloadScript = "yabai -m config window_gap 10\n"
+  [[rule]]
+  app = "^Keep$"
+  manage = false
 
-/// The response of a successful reload of `path`.
-private func reloadedText(_ path: String) -> [UInt8] {
-  Array("reloaded \(path)\n".utf8)
+  """
+
+/// The response of a successful reload of `path` that changed `changes` settings.
+private func reloadedText(_ path: String, changes: Int) -> [UInt8] {
+  Array("reloaded \(path): \(changes) changes\n".utf8)
 }
 
 extension DaemonState {
   @Suite
   @WM struct ConfigReloadTests {
-    /// Sets a window gap, a rule and a signal, which a successful reload resets or removes.
-    @WM private static func setSomeState() {
-      #expect(Golden.run("config window_gap 5") == [])
-      #expect(Golden.run("rule --add label=keep app=Keep manage=off") == [])
-      #expect(Golden.run("signal --add label=keep event=window_created action=true") == [])
-    }
-
     @Test func failureChangesNothing() throws {
       DaemonFixture.reset()
-      let path = try writeReloadScript(badReloadScript)
+      let text = "[config]\nwindow_gap = \"x\"\n"
+      let path = try writeReloadFile(text)
       defer { try? FileManager.default.removeItem(atPath: path) }
-      Self.setSomeState()
+      #expect(Golden.run("config window_gap 5") == [])
+      #expect(Golden.run("rule --add label=keep app=Keep manage=off") == [])
       _ = Headless.drain()
 
-      let report = configCheckReport(path: path, script: badReloadScript)
+      let report = configFileReport(path: path, source: text)
       #expect(Golden.run("config --reload \(path)") == Array("\u{07}\(report.text)".utf8))
 
       #expect(Golden.run("config window_gap") == Array("5\n".utf8))
       #expect(WindowManager.shared.rules.count == 1)
-      #expect(EventSignals.shared.table.list().count == 1)
+      #expect(Headless.drain().configEntries.isEmpty)
+    }
+
+    @Test func reloadAppliesTheFileAndPutsRuntimeChangesBack() throws {
+      DaemonFixture.reset()
+      let path = try writeReloadFile(reloadText)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      // The first load sets the gap (1 change) and the rule list (its replacement, then its one rule: 2 changes).
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
+
+      #expect(Golden.run("config window_gap 5") == [])
+      #expect(Golden.run("rule --add label=extra app=Extra manage=off") == [])
+      _ = Headless.drain()
+
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
+      #expect(Golden.run("config window_gap") == Array("10\n".utf8))
+      #expect(WindowManager.shared.rules.count == 1)
       #expect(Headless.drain().configFiles.isEmpty)
     }
 
-    @Test func successResetsTheConfigRemovesRulesAndSignalsAndRunsTheFile() throws {
+    @Test func reloadOfAnUnchangedFileChangesAndRecordsNothing() throws {
       DaemonFixture.reset()
-      let path = try writeReloadScript(goodReloadScript)
+      let path = try writeReloadFile(reloadText)
       defer { try? FileManager.default.removeItem(atPath: path) }
-      Self.setSomeState()
-      #expect(Golden.run("config window_border on") == [])
-      #expect(Golden.run("config layout float") == [])
-      #expect(Golden.run("config focus_follows_mouse autofocus") == [])
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
       _ = Headless.drain()
 
-      #expect(Golden.run("config --reload \(path)") == reloadedText(path))
-
-      #expect(Golden.run("config window_gap") == Array("0\n".utf8))
-      #expect(Golden.run("config window_border") == Array("off\n".utf8))
-      #expect(Golden.run("config layout") == Array("tree\n".utf8))
-      #expect(Golden.run("config focus_follows_mouse") == Array("disabled\n".utf8))
-      #expect(WindowManager.shared.rules.isEmpty)
-      #expect(EventSignals.shared.table.list().isEmpty)
-      #expect(Headless.drain().configFiles == [path])
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 0))
+      #expect(Headless.drain().configEntries.isEmpty)
     }
 
-    @Test func reloadWithoutAFileRunsTheConfigFileOfTheDaemon() throws {
+    @Test func reloadPutsABackRuntimeTabBarFont() throws {
       DaemonFixture.reset()
-      let path = try writeReloadScript(goodReloadScript)
+      let path = try writeReloadFile("[config]\ntab_bar_font = \"Helvetica:14\"\n")
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 1))
+
+      #expect(Golden.run("config tab_bar_font system:12") == [])
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 1))
+      #expect(Golden.run("config tab_bar_font") == Array("Helvetica:14\n".utf8))
+    }
+
+    @Test func reloadWithoutAFileReadsTheFileOfTheDaemon() throws {
+      DaemonFixture.reset()
+      let path = try writeReloadFile(reloadText)
       defer {
         try? FileManager.default.removeItem(atPath: path)
         WindowManager.shared.explicitConfigFile = nil
       }
       WindowManager.shared.explicitConfigFile = path
-      _ = Headless.drain()
 
-      #expect(Golden.run("config --reload") == reloadedText(path))
-      #expect(Headless.drain().configFiles == [path])
-    }
-
-    @Test func reloadTwiceRunsTheFileTwiceAndLeavesNoRules() throws {
-      DaemonFixture.reset()
-      let path = try writeReloadScript(goodReloadScript)
-      defer { try? FileManager.default.removeItem(atPath: path) }
-      _ = Headless.drain()
-
-      #expect(Golden.run("rule --add label=keep app=Keep manage=off") == [])
-      #expect(Golden.run("config --reload \(path)") == reloadedText(path))
-      #expect(Golden.run("rule --add label=keep app=Keep manage=off") == [])
-      #expect(Golden.run("config --reload \(path)") == reloadedText(path))
-
-      #expect(WindowManager.shared.rules.isEmpty)
-      #expect(Headless.drain().configFiles == [path, path])
+      #expect(Golden.run("config --reload") == reloadedText(path, changes: 3))
     }
 
     @Test func missingFileIsAFailureThatChangesNothing() {
       DaemonFixture.reset()
-      Self.setSomeState()
+      #expect(Golden.run("config window_gap 5") == [])
       _ = Headless.drain()
 
       #expect(
-        Golden.run("config --reload /nonexistent/yabairc")
-          == Array("\u{07}cannot read config file '/nonexistent/yabairc'\n".utf8))
+        Golden.run("config --reload /nonexistent/yabai.toml")
+          == Array("\u{07}cannot read config file '/nonexistent/yabai.toml'\n".utf8))
       #expect(Golden.run("config window_gap") == Array("5\n".utf8))
-      #expect(Headless.drain().configFiles.isEmpty)
+      #expect(Headless.drain().configEntries.isEmpty)
     }
 
     @Test func twoFilesIsAFailure() {
@@ -127,49 +129,11 @@ extension DaemonState {
             "\u{07}unknown argument 'b' given to command '--reload' for domain 'config'\n".utf8))
     }
 
-    @Test func resetRestoresTheTabBarFontDebugOutputAndExternalBar() throws {
-      DaemonFixture.reset()
-      let path = try writeReloadScript(goodReloadScript)
-      defer {
-        try? FileManager.default.removeItem(atPath: path)
-        Log.verbose.store(false, ordering: .relaxed)
-      }
-      #expect(Golden.run("config tab_bar_font Helvetica:14") == [])
-      #expect(Golden.run("config debug_output on") == [])
-      #expect(Golden.run("config external_bar main:40:0") == [])
-      #expect(Golden.run("config display_arrangement_order vertical") == [])
-      _ = Headless.drain()
-
-      #expect(Golden.run("config --reload \(path)") == reloadedText(path))
-
-      #expect(Golden.run("config tab_bar_font") == Array("system:12\n".utf8))
-      #expect(WindowManager.shared.tabBarFont == nil)
-      #expect(Log.verbose.load(ordering: .relaxed) == false)
-      #expect(Golden.run("config external_bar") == Array("off:0:0\n".utf8))
-      #expect(Golden.run("config display_arrangement_order") == Array("default\n".utf8))
-    }
-
-    // NOTE: The space layout is set on the config directly: the `config space_layout` command schedules a re-layout on the
-    // event loop, which the test must not post.
-    @Test func resetClearsSpaceLayouts() throws {
-      DaemonFixture.reset()
-      let path = try writeReloadScript(goodReloadScript)
-      defer { try? FileManager.default.removeItem(atPath: path) }
-      Config.current.space.spaceLayoutSpec = "10"
-
-      #expect(Golden.run("config --reload \(path)") == reloadedText(path))
-      #expect(Golden.run("config space_layout") == Array("off\n".utf8))
-    }
-
-    @Test func checkOfAReloadInTheYabaircIsNoted() {
-      let report = configCheckReport(path: "/fixture/yabairc", script: "yabai -m config --reload\n")
-      #expect(
-        report
-          == ConfigCheckReport(
-            text:
-              "note: /fixture/yabairc:1: reloads the yabairc, which runs it again: a bare config --reload there loops\n"
-              + "checked 0 commands, 0 failures, 1 skipped\n",
-            failures: 0))
+    @Test func checkOfAReloadIsNotNoted() {
+      var message = Golden.encode("config --reload /some/file.toml")
+      let check = checkMessage(&message)
+      #expect(check.failures.isEmpty)
+      #expect(check.notes.isEmpty)
     }
 
     @Test func checkOfAReloadWithTwoFilesIsAFailure() {
@@ -178,6 +142,58 @@ extension DaemonState {
         checkMessage(&message).failures == [
           "unknown argument 'b' given to command '--reload' for domain 'config'\n"
         ])
+    }
+
+    @Test func overridesAreEmptyWhenNothingIsSet() {
+      DaemonFixture.reset()
+      #expect(Golden.run("config --overrides") == [])
+    }
+
+    @Test func aRuntimeOptionIsListedUntilTheReloadPutsTheFileBack() throws {
+      DaemonFixture.reset()
+      let path = try writeReloadFile(reloadText)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
+
+      #expect(Golden.run("config window_gap 30") == [])
+      #expect(Golden.run("config --overrides") == Array("window_gap 30 (file: 10)\n".utf8))
+
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 1))
+      #expect(Golden.run("config window_gap") == Array("10\n".utf8))
+      #expect(Golden.run("config --overrides") == [])
+    }
+
+    @Test func rulesAndSignalsAreListedWhenTheyDifferFromTheFile() throws {
+      DaemonFixture.reset()
+      let path = try writeReloadFile("[config]\n")
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 0))
+
+      #expect(Golden.run("rule --add label=keep app=Keep manage=off") == [])
+      #expect(Golden.run("config --overrides") == Array("rules: overridden\n".utf8))
+
+      #expect(Golden.run("signal --add label=keep event=window_created action=true") == [])
+      #expect(
+        Golden.run("config --overrides") == Array("rules: overridden\nsignals: overridden\n".utf8))
+    }
+
+    @Test func overridesWithoutAFileCompareWithTheDefaults() {
+      DaemonFixture.reset()
+      // NOTE: The startup captures the defaults at its settings step, even without a file (LoadedConfig.apply).
+      LoadedConfig(path: nil, document: nil, log: [], notices: []).apply(.settings)
+
+      #expect(Golden.run("config window_gap 30") == [])
+      #expect(Golden.run("config --overrides") == Array("window_gap 30 (file: 0)\n".utf8))
+    }
+
+    @Test func overridesTakeNoArgument() {
+      DaemonFixture.reset()
+      #expect(
+        Golden.run("config --overrides a")
+          == Array(
+            "\u{07}unknown argument 'a' given to command '--overrides' for domain 'config'\n".utf8))
+      var message = Golden.encode("config --overrides a")
+      #expect(checkMessage(&message).failures.count == 1)
     }
   }
 }

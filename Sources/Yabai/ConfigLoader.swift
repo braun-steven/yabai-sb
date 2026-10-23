@@ -19,7 +19,8 @@ import YabaiCore
 
   /// The document of the last reconcile that ran every step. Nil before that: a removed setting is then not known.
   var applied: ConfigDocument?
-  /// The printed value of each option of a new daemon, captured by the first reconcile (`defaultWords`).
+  /// The printed value of each option of a new daemon, captured at the settings step of the startup (`apply`), or by the
+  /// first reconcile when the startup did not run it (`defaultWords`).
   var defaults: [ConfigName: String]?
 
   /// Forgets the applied document and the defaults, as a new daemon has them (the test fixture).
@@ -120,10 +121,14 @@ extension LoadedConfig {
   /// The messages of the file in apply order, for the log and the tests. Nil when the file is not applied.
   var entries: [ConfigEntry]? { document?.lowered() }
 
-  /// Reconciles the file with the running state for `step` (ConfigLoader.reconcile). Nothing runs when the file was not
-  /// loaded. Returns the number of messages that failed.
-  @discardableResult @WM func apply(_ step: ConfigStep) -> Int {
-    guard let document else { return 0 }
+  /// Reconciles the file with the running state for `step` (ConfigLoader.reconcile), and returns what it did. Without a
+  /// file nothing is applied, but the settings step captures the defaults of the options first: a later reload and
+  /// `config --overrides` compare with them, and a runtime message must not have changed them by then.
+  @discardableResult @WM func apply(_ step: ConfigStep) -> ConfigReconcileResult {
+    guard let document else {
+      if step == .settings { _ = ConfigLoader.shared.defaultWords() }
+      return ConfigReconcileResult()
+    }
     return ConfigLoader.shared.reconcile(to: document, step: step)
   }
 }

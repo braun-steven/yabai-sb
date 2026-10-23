@@ -7,8 +7,8 @@ import YabaiCore
 // through checkMessage. Nothing is applied and no command runs. The offline check runs the same code on the @WM queue
 // without a daemon (checkConfigOffline).
 //
-// NOTE: `config --reload [<file>]` (IPC/ConfigReload.swift) still runs a yabairc, so its check is the extractor check
-// (configCheckReport) until C3.3 replaces the reload; a TOML file is refused there (readConfigFile).
+// NOTE: `config --reload [<file>]` (IPC/ConfigReload.swift) reads and checks the file the same way, then reconciles it.
+// The yabairc report (configCheckReport) is no longer called by a handler; its tests keep it until C5.1 deletes it.
 //
 
 /// The report of a check. `text` ends with a newline; `failures` counts the failure responses in it.
@@ -109,7 +109,7 @@ private func linePrefix(_ path: String, _ line: Int?, _ keyPath: String) -> Stri
 }
 
 //
-// NOTE: The yabairc report (used only by config --reload until C3.3). Its lines are the `yabai -m` messages of the script.
+// NOTE: The yabairc report, which no handler calls since C3.3 (only its tests). Its lines are the `yabai -m` messages of the script.
 //
 
 /// The report of the yabairc `script`, read from `path`: a `<path>:<line>: <text>` line for each line of each failure, a
@@ -159,6 +159,15 @@ private func failureLines(_ failure: String) -> [String] {
   }
 }
 
+/// Rejects an argument after a config command that takes none (`config --overrides`): the failure names the command.
+@WM func noConfigArgument(_ command: String, _ message: inout Message) throws(CommandError) {
+  let extra = message.next()
+  if extra.isValid {
+    throw CommandError(
+      "unknown argument '\(extra)' given to command '\(command)' for domain 'config'\n")
+  }
+}
+
 /// The file argument of `config --check [<file>]` or `config --reload [<file>]` (`command` names it in a failure): none
 /// (nil), or one token. A further token is a failure.
 @WM func configFileArgument(_ command: String, _ message: inout Message) throws(CommandError)
@@ -175,37 +184,25 @@ private func failureLines(_ failure: String) -> [String] {
 }
 
 /// Reads the file of `config --check|--reload [<file>]` (`command`) for a message: the file given, else the file the
-/// daemon loads. Returns that path and the report. Nothing is applied.
+/// daemon loads. Returns that path and its check (configFileCheck). Nothing is applied.
 @WM func checkConfigFile(_ command: String, _ message: inout Message) throws(CommandError) -> (
-  path: String, report: ConfigCheckReport
+  path: String, check: ConfigFileCheck
 ) {
   let explicit =
     try configFileArgument(command, &message) ?? WindowManager.shared.explicitConfigFile
-  return try readConfigFile(command, explicit: explicit)
+  return try readConfigFile(explicit: explicit)
 }
 
-/// Reads and checks the file of `command` (`--check` or `--reload`): `explicit` (the -c path or a file argument) when
-/// given, else the file that the command loads. `--check` loads the yabai.toml search (Daemon.configFile); `--reload`
-/// runs the yabairc search (Daemon.configFileChoice), and a TOML file is refused there, as it cannot be run yet.
-@WM func readConfigFile(_ command: String, explicit: String?) throws(CommandError) -> (
-  path: String, report: ConfigCheckReport
+/// Reads and checks the yabai.toml of `config --check` and `config --reload`: `explicit` (the -c path or a file argument)
+/// when given, else the file the daemon loads (Daemon.configFile). Nothing is applied.
+@WM func readConfigFile(explicit: String?) throws(CommandError) -> (
+  path: String, check: ConfigFileCheck
 ) {
-  if command == "--check" {
-    guard let path = Daemon.configFile(explicit: explicit)?.chosen else {
-      throw CommandError("could not locate config file\n")
-    }
-    let text = try readConfigText(path)
-    return (path, configFileReport(path: path, source: text))
-  }
-
-  guard let path = Daemon.configFileChoice(explicit: explicit)?.chosen else {
+  guard let path = Daemon.configFile(explicit: explicit)?.chosen else {
     throw CommandError("could not locate config file\n")
   }
-  if ConfigFileSearch.isTOML(path) {
-    throw CommandError("config --reload does not read TOML files yet; '\(path)' is a yabai.toml\n")
-  }
   let text = try readConfigText(path)
-  return (path, configCheckReport(path: path, script: text))
+  return (path, configFileCheck(path: path, source: text))
 }
 
 /// The text of a config file; a file that cannot be read is a failure.
@@ -218,9 +215,9 @@ private func readConfigText(_ path: String) throws(CommandError) -> String {
 
 /// Writes `config --check [<file>]`: the report, and a failure response when the report has a failure.
 @WM func handleConfigCheck(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
-  let (_, report) = try checkConfigFile("--check", &message)
-  let text = ResponseText(stringLiteral: report.text)
-  if report.failures > 0 {
+  let (_, check) = try checkConfigFile("--check", &message)
+  let text = ResponseText(stringLiteral: check.report.text)
+  if check.report.failures > 0 {
     rsp.fail(CommandError(text))
   } else {
     rsp.write(text)
@@ -232,10 +229,10 @@ private func readConfigText(_ path: String) throws(CommandError) -> String {
 /// Called through WM.sync from main.swift, with no window server (the managers are only read for the rules' labels).
 @WM func checkConfigOffline(_ file: String?) -> Int32 {
   do {
-    let (_, report) = try readConfigFile("--check", explicit: file)
-    let fd = report.failures > 0 ? STDERR_FILENO : STDOUT_FILENO
-    Client.writeAll(fd, Array(report.text.utf8))
-    return report.failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS
+    let (_, check) = try readConfigFile(explicit: file)
+    let fd = check.report.failures > 0 ? STDERR_FILENO : STDOUT_FILENO
+    Client.writeAll(fd, Array(check.report.text.utf8))
+    return check.report.failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS
   } catch {
     Client.writeAll(STDERR_FILENO, error.text.bytes)
     return EXIT_FAILURE

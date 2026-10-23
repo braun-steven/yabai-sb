@@ -3,31 +3,43 @@ import Synchronization
 import YabaiCore
 
 //
-// NOTE: `config --reload [<file>]` checks the yabairc as `config --check` does (checkConfigFile). A failure is the failure
-// response, and nothing changes. Otherwise this one @WM handler does everything, without posting an event in between: it
-// resets the config to its startup defaults, removes every rule and signal, and runs the yabairc again
-// (Daemon.execConfigFile). The startup applies yabai.toml instead (ConfigLoader.swift). The yabairc's own messages arrive afterwards as ordinary IPC messages. Windows, trees and spaces
-// stay as they are; rules apply to new windows only.
+// NOTE: `config --reload [<file>]` reads the yabai.toml that `config --check` reads (the daemon's file, or the file given)
+// and checks it. A failure is the failure response, and nothing changes. Otherwise the handler reconciles the document with
+// the running state for each ConfigStep, in order, with nothing between the steps (ConfigLoader.reconcile): only the
+// settings whose value differs are run, so the layouts, the windows and the spaces stay as they are. Overrides made by
+// `config`, `rule --add` or `signal --add` since the last load are put back by the same reconcile. Rules apply to windows
+// created later, as before. The reply is `reloaded <file>: <n> changes`.
+//
+// `config --overrides` lists what differs from the last applied document (configOverrideLines).
 //
 
-/// Writes `config --reload [<file>]`: `reloaded <file>`, or the failures of the check, which change nothing.
+/// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, or the failures of the check, which change nothing.
 @WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
-  let (path, report) = try checkConfigFile("--reload", &message)
-  if report.failures > 0 {
-    rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
+  let (path, check) = try checkConfigFile("--reload", &message)
+  guard let document = check.document, check.report.failures == 0 else {
+    rsp.fail(CommandError(ResponseText(stringLiteral: check.report.text)))
     return
   }
 
-  resetConfigToStartupDefaults()
-  // NOTE: Rules are a plain array (WindowManager.rules) and the signals a plain table: neither keeps an index to rebuild.
-  WindowManager.shared.rules = []
-  EventSignals.shared.table = SignalTable()
-  Daemon.execConfigFile(path)
-  rsp.write("reloaded \(path)\n")
+  var result = ConfigReconcileResult()
+  for step in ConfigStep.allCases {
+    result += ConfigLoader.shared.reconcile(to: document, step: step)
+  }
+  rsp.write("reloaded \(path): \(result.changes) changes\n")
+}
+
+/// Writes `config --overrides`: the lines of configOverrideLines, or nothing when no value is overridden.
+@WM func handleConfigOverrides(_ rsp: inout Response, _ message: inout Message) throws(CommandError)
+{
+  try noConfigArgument("--overrides", &message)
+  for line in configOverrideLines() {
+    rsp.write(ResponseText(stringLiteral: line + "\n"))
+  }
 }
 
 //
-// NOTE: Reset inventory. A setting of the config domain is one of three kinds.
+// NOTE: Reset inventory of resetConfigToStartupDefaults, which the yabairc reload used. C3.3 no longer calls it; C5.1
+// deletes it. A setting of the config domain is one of three kinds.
 //
 // - In Config only, reset by Config.resetToDefaults (which applies the space defaults too): every window, tab bar,
 //   border, opacity, shadow, mouse, animation, scratchpad, window and display option, and the global space options

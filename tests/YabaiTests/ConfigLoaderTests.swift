@@ -92,17 +92,17 @@ extension DaemonState {
       #expect(loaded.entries != nil)
       #expect(loaded.notices.isEmpty)
 
-      #expect(loaded.apply(.settings) == 0)
+      #expect(loaded.apply(.settings).failures == 0)
       #expect(Golden.run("config window_gap") == Array("7\n".utf8))
       #expect(Golden.run("config tab_bar_font") == Array("system:12\n".utf8))
       #expect(WindowManager.shared.rules.isEmpty)
       #expect(Headless.drain().configEntries.map(\.arguments) == [["config", "window_gap", "7"]])
 
-      #expect(loaded.apply(.managerSettings) == 0)
+      #expect(loaded.apply(.managerSettings).failures == 0)
       #expect(Golden.run("config tab_bar_font") == Array("Helvetica:14\n".utf8))
 
-      #expect(loaded.apply(.spaces) == 0)
-      #expect(loaded.apply(.rulesAndSignals) == 0)
+      #expect(loaded.apply(.spaces).failures == 0)
+      #expect(loaded.apply(.rulesAndSignals).failures == 0)
       #expect(WindowManager.shared.rules.count == 1)
       #expect(EventSignals.shared.table.list().count == 1)
       #expect(
@@ -125,7 +125,7 @@ extension DaemonState {
       #expect(loaded.entries == nil)
       #expect(loaded.notices == ["\(path) has 1 errors; using defaults.."])
       for step in ConfigStep.allCases {
-        #expect(loaded.apply(step) == 0)
+        #expect(loaded.apply(step).failures == 0)
       }
       #expect(Golden.run("config window_gap") == Array("0\n".utf8))
       #expect(WindowManager.shared.rules.isEmpty)
@@ -140,7 +140,7 @@ extension DaemonState {
       #expect(loaded.path == path)
       #expect(loaded.entries == nil)
       #expect(loaded.notices == ["file '\(path)' does not exist.."])
-      #expect(loaded.apply(.settings) == 0)
+      #expect(loaded.apply(.settings).failures == 0)
       #expect(Golden.run("config window_gap") == Array("0\n".utf8))
     }
 
@@ -153,8 +153,8 @@ extension DaemonState {
 
       let loaded = loadStartupConfig(explicit: path)
       #expect(loaded.entries != nil)
-      #expect(loaded.apply(.settings) == 0)
-      #expect(loaded.apply(.managerSettings) == 1)
+      #expect(loaded.apply(.settings).failures == 0)
+      #expect(loaded.apply(.managerSettings).failures == 1)
       #expect(Golden.run("config window_gap") == Array("4\n".utf8))
       #expect(Golden.run("config tab_bar_font") == Array("system:12\n".utf8))
     }
@@ -171,7 +171,7 @@ extension DaemonState {
       let loaded = loadStartupConfig(explicit: url.path)
       #expect(loaded.entries?.isEmpty == false)
       for step in ConfigStep.allCases {
-        #expect(loaded.apply(step) == 0)
+        #expect(loaded.apply(step).failures == 0)
       }
     }
   }

@@ -60,7 +60,7 @@ public enum ConfigFileSearch {
     return ConfigFileChoice(chosen: chosen, ignored: Array(found.dropFirst()))
   }
 
-  /// Whether `path` names a TOML file (`.toml`). `config --reload` does not run those yet.
+  /// Whether `path` names a TOML file (`.toml`).
   public static func isTOML(_ path: String) -> Bool {
     path.hasSuffix(".toml")
   }

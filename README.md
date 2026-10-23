@@ -411,7 +411,9 @@ checked 14 settings, 1 failures
 
 Without a file, the check reads the file the daemon loads. The `[[space]]` labels and pins are not checked, since they act on the session. Nothing is applied, and the exit status is 1 when there is a failure. `yabai --check-config [<file>]` makes the same check without a running daemon.
 
-`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the yabairc as the check did before, and changes nothing when the check fails; a `.toml` file is refused for now. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the yabairc again. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
+`yabai -m config --reload [<file>]` reloads the `yabai.toml` without restarting the daemon. It checks the file as `--check` does, and changes nothing when the check fails. Otherwise it compares each setting with the running value and runs only the settings that differ, in the startup order, so a reload of an unchanged file changes nothing and the layouts, windows and spaces stay as they are. A setting that the file no longer sets goes back to its default. The reply is `reloaded <file>: <n> changes`.
+
+A value set with `yabai -m config` at runtime is an override: it lasts until the next reload or restart, which puts the file's value back. `yabai -m config --overrides` lists them, one per line as `<option> <running value> (file: <value>)`, with `rules: overridden` and `signals: overridden` when those lists differ from the file. Keep a value you want to keep in the file.
 
 ### IPC batch and subscribe
 

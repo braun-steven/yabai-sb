@@ -6,8 +6,8 @@ import YabaiCore
 
 //
 // NOTE: `config --check [<file>]` (IPC/ConfigCheck.swift) reads a yabai.toml, lowers it and checks each setting without
-// applying it (configFileReport). `config --reload` still runs a yabairc and checks it with the extractor (configCheckReport),
-// so the yabairc report is tested here too. The handler is tested with files in the temporary directory. The suite is
+// applying it (configFileReport). The yabairc report (configCheckReport) is no longer called by a handler; its tests stay here
+// until C5.1 deletes it. The handler is tested with files in the temporary directory. The suite is
 // DaemonState: the handler runs through handleMessage, and the check must leave the managers and the config as they are.
 //
 
@@ -131,20 +131,9 @@ extension DaemonState {
       let path = try writeTOMLFile(fixtureToml)
       defer { try? FileManager.default.removeItem(atPath: path) }
 
-      let (checkedPath, report) = try readConfigFile("--check", explicit: path)
+      let (checkedPath, check) = try readConfigFile(explicit: path)
       #expect(checkedPath == path)
-      #expect(report == configFileReport(path: path, source: fixtureToml))
-    }
-
-    @Test func reloadRefusesATOMLFile() throws {
-      DaemonFixture.reset()
-      let path = try writeTOMLFile(fixtureToml)
-      defer { try? FileManager.default.removeItem(atPath: path) }
-
-      #expect(
-        Golden.run("config --reload \(path)")
-          == Array(
-            "\u{07}config --reload does not read TOML files yet; '\(path)' is a yabai.toml\n".utf8))
+      #expect(check.report == configFileReport(path: path, source: fixtureToml))
     }
 
     @Test func checkWithTwoFilesIsAFailure() {

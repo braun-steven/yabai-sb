@@ -63,10 +63,7 @@ failure, as before).
 12. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), then `NSApp.run()`. The yabairc is
     not run at startup.
 
-`config --reload` (`IPC/ConfigReload.swift`) still runs the yabairc (`execConfigFile`) again, after resetting the config to
-the values of step 10 (`Config.resetToDefaults`, which applies the space defaults, and the side effects of the settings the
-daemon keeps elsewhere) and clearing the rules and signals, all inside one `@WM` handler. The reload of the TOML file
-replaces this in a later version.
+`config --reload` (`IPC/ConfigReload.swift`) checks the file the way `config --check` does (`configFileCheck`), and when there is no failure it runs `ConfigLoader.reconcile` for each step, in the same order, with nothing in between. The reconcile runs only the messages whose setting differs from the running state, so a reload of an unchanged file changes nothing. The reply counts the changes. `config --overrides` (`configOverrideLines`, `ConfigReconcile.swift`) compares the running values with the last applied document, so the overrides a runtime message made are listed until the next reconcile puts the file's values back. The yabairc is not run by any handler (`Daemon.execConfigFile` and `resetConfigToStartupDefaults` are left for C5.1 to delete).
 
 The config write in step 10 is the only call that moved. Its readers between the old and the new position are none:
 `WindowManager.initialize` does not read the space defaults. The socket path reuses the `$USER` read in step 1 instead

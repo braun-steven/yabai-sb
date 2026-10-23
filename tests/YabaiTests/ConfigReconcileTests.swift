@@ -48,7 +48,9 @@ private func document(_ text: String) -> ConfigDocument {
 
 /// Reconciles every step, as a reload does, and returns the number of messages that failed.
 @WM private func reconcileAll(_ document: ConfigDocument) -> Int {
-  ConfigStep.allCases.reduce(0) { $0 + ConfigLoader.shared.reconcile(to: document, step: $1) }
+  ConfigStep.allCases.reduce(0) {
+    $0 + ConfigLoader.shared.reconcile(to: document, step: $1).failures
+  }
 }
 
 /// What a reconcile can change: the printed value of each option, and the rules and signals in their order.
@@ -199,7 +201,7 @@ extension DaemonState {
       #expect(Headless.drain().configEntries.map(\.arguments) == [["config", "window_gap", "7"]])
     }
 
-    /// NOTE: A reload clears the font (resetConfigToStartupDefaults), so the tab bar font is set again even at its name.
+    /// NOTE: A font that is not loaded is set even at its name (the guard of optionNeedsApply).
     @Test func aTabBarFontThatIsNotLoadedIsSetEvenAtItsName() {
       DaemonFixture.reset()
       WindowManager.shared.tabBarFont = nil
@@ -261,7 +263,7 @@ extension DaemonState {
       #expect(Golden.run("config --space work window_gap 30") == [])
       #expect(SpaceManager.shared.view(for: Workspace.sid).overrides.contains(.windowGap))
 
-      #expect(ConfigLoader.shared.reconcile(to: document(""), step: .spaces) == 0)
+      #expect(ConfigLoader.shared.reconcile(to: document(""), step: .spaces).failures == 0)
 
       #expect(SpaceManager.shared.pins.isEmpty)
       #expect(SpaceManager.shared.labels.name(of: Workspace.sid) == nil)

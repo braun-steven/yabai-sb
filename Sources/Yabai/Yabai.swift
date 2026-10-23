@@ -106,9 +106,9 @@ enum Daemon {
     notify("configuration", "\(notice)..")
   }
 
-  /// Runs the yabairc: the one given (`explicit`, from -c) or else the first existing candidate, as `config --reload` does
-  /// on each reload (the startup applies yabai.toml instead, see loadStartupConfig). In headless mode the run is recorded
-  /// instead (Headless.swift).
+  /// Runs the yabairc: the one given (`explicit`, from -c) or else the first existing candidate. Nothing calls it any more:
+  /// the startup applies yabai.toml (loadStartupConfig) and `config --reload` reconciles it. C5.1 deletes it. In headless
+  /// mode the run is recorded instead (Headless.swift).
   static func execConfigFile(_ configFile: String?) {
     guard let choice = configFileChoice(explicit: configFile) else {
       Logger.daemon.warning("could not locate config file")
@@ -356,17 +356,17 @@ enum Daemon {
       Logger.daemon.debug("startup: applying the space defaults")
       Config.current.applySpaceDefaults()
       Logger.daemon.debug("startup: applying the config file settings")
-      var failures = config.apply(.settings)
+      var failures = config.apply(.settings).failures
       Logger.daemon.debug("startup: initializing the window manager")
       WindowManager.shared.initialize()
       Logger.daemon.debug("startup: beginning the space manager")
       SpaceManager.shared.begin()
       Logger.daemon.debug("startup: applying the config file manager settings")
-      failures += config.apply(.managerSettings)
+      failures += config.apply(.managerSettings).failures
       Logger.daemon.debug("startup: applying the config file spaces")
-      failures += config.apply(.spaces)
+      failures += config.apply(.spaces).failures
       Logger.daemon.debug("startup: applying the config file rules and signals")
-      failures += config.apply(.rulesAndSignals)
+      failures += config.apply(.rulesAndSignals).failures
       Logger.daemon.debug("startup: beginning the window manager")
       WindowManager.shared.begin()
       Logger.daemon.debug("startup: requesting window notifications")

@@ -96,6 +96,8 @@ public enum WindowCommand: Equatable, Sendable {
   case raise(WindowSelector?)
   case lower(WindowSelector?)
   case scratchpad(ScratchpadAction)
+  /// The label of the acting window; nil removes it.
+  case label(String?)
 
   /// The name of a command, its first token.
   public enum Name: String, CaseIterable, Sendable {
@@ -119,14 +121,15 @@ public enum WindowCommand: Equatable, Sendable {
     case lower = "--lower"
     case toggle = "--toggle"
     case scratchpad = "--scratchpad"
+    case label = "--label"
     case layout = "--layout"
     case split = "--split"
 
     /// Whether the command needs an acting window. The others select their window, or need none (a scratchpad
-    /// toggle).
+    /// toggle). A label is parsed before the window is checked, so a reserved label fails whatever the window.
     public var needsWindow: Bool {
       switch self {
-      case .focus, .close, .minimize, .deminimize, .toggle: false
+      case .focus, .close, .minimize, .deminimize, .toggle, .label: false
       default: true
       }
     }
@@ -223,6 +226,8 @@ public enum WindowCommand: Equatable, Sendable {
         return .scratchpad(.assign(label: label.string))
       }
       return .scratchpad(.remove)
+    case .label:
+      return .label(try parseLabel(value, .windowLabel)?.string)
     case .layout:
       guard let layout = WindowLayout(token: value) else {
         throw unknownValue(

@@ -237,6 +237,14 @@ window --foo
 window --resize left:10:0
 window 4242 --close
 
+# window labels: a reserved or unknown label fails before it acts, and a query of an unknown label fails
+window --label north
+window --label --focus
+window --label
+window nolabel --close
+window --focus nolabel
+query --windows --window nolabel
+
 # space and display: commands that fail before they act
 space --foo
 space nolabel --foo

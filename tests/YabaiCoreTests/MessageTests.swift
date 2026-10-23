@@ -218,6 +218,14 @@ private func parseLabelText(_ text: String, _ kind: LabelKind) -> (response: Str
 
   #expect(parseLabelText("12", .space).response == "'12' cannot be used as a label.\n")
 
+  // NOTE: a window label may be a direction word of the display and space labels, but not a window selector word
+  #expect(parseLabelText("term", .windowLabel).label == "term")
+  #expect(parseLabelText("float", .windowLabel).label == "float")
+  #expect(parseLabelText("north", .windowLabel).response.contains("reserved keyword"))
+  #expect(parseLabelText("largest", .windowLabel).response.contains("reserved keyword"))
+  #expect(parseLabelText("parent", .windowLabel).response.contains("reserved keyword"))
+  #expect(parseLabelText("stack.1", .windowLabel).response.contains("reserved keyword"))
+
   // NOTE: a missing label is valid and removes the label
   let missing = parseLabelText("", .space)
   #expect(missing.response == "" && missing.label == nil)
@@ -290,6 +298,10 @@ private let windowSelectorRows: [(String, WindowSelector?)] = [
   ("stack.0", nil),
   ("0x10", nil),
   ("", nil),
+  ("term", .label(Token("term"))),
+  ("--focus", nil),
+  ("parent", nil),
+  ("north", .direction(.north)),
 ]
 
 @Test(arguments: windowSelectorRows)
@@ -412,6 +424,8 @@ private let windowCommandRows: [(String, WindowCommand)] = [
   ("--layout\0toggle-split\0", .layout(.toggleSplit)),
   ("--split\0vertical\0", .split(.fixed(.vertical))),
   ("--insert\0stack\0", .insert(.stack)),
+  ("--label\0term\0", .label("term")),
+  ("--label\0", .label(nil)),
 ]
 
 @Test(arguments: windowCommandRows)
@@ -423,8 +437,8 @@ func windowCommandValue(_ text: String, _ command: WindowCommand) {
 
 // NOTE: an invalid optional selector stops the message, an invalid required one does not
 private let windowCommandFailureRows: [(String, String, Bool)] = [
-  ("--focus\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", true),
-  ("--swap\0bogus\0", "value 'bogus' is not a valid option for WINDOW_SEL\n", false),
+  ("--focus\0--bogus\0", "value '--bogus' is not a valid option for WINDOW_SEL\n", true),
+  ("--swap\0--bogus\0", "value '--bogus' is not a valid option for WINDOW_SEL\n", false),
   (
     "--layout\0stacked\0",
     "unknown value 'stacked' given to command '--layout' for domain 'window'; expected one of: tabbed, split, toggle, splith, splitv, toggle-split\n",
@@ -479,6 +493,10 @@ private let windowCommandFailureRows: [(String, String, Bool)] = [
     "--scratchpad\0float\0", "'float' is a reserved keyword and cannot be used as a scratchpad.\n",
     false
   ),
+  ("--label\0north\0", "'north' is a reserved keyword and cannot be used as a label.\n", false),
+  ("--label\0--focus\0", "'--focus' is a reserved keyword and cannot be used as a label.\n", false),
+  ("--label\0stack.2\0", "'stack.2' is a reserved keyword and cannot be used as a label.\n", false),
+  ("--label\012\0", "'12' cannot be used as a label.\n", false),
   ("--space\0", "value '' is not a valid option for SPACE_SEL\n", false),
 ]
 

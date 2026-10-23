@@ -128,6 +128,7 @@ extension Window {
     info.pid = application.pid
     info.app = application.name
     info.scratchpad = scratchpad ?? ""
+    info.label = wm.labels.name(of: id)
     info.frame = frame
     info.isRoot = isRoot
     info.hasFocus = id == wm.focus.focused

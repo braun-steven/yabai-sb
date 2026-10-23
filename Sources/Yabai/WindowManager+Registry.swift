@@ -25,7 +25,7 @@ extension WindowManager {
   //   removal, so they are left alone here. The lost focus event of the id is cleared below.
   // - Application.focusedWindowID: per application, read by its front-switch handler.
   // - Border.show and Border.hide (Border.swift): batch lists, emptied by endBatch, which skips an id without a border.
-  // Cleared here: the AX destroyed mark of the id (axDestroyedWindowIDs, Window.swift). Its destroyed event, queued
+  // Cleared here: the window label of the id (labels, WindowManager.swift), and the AX destroyed mark of the id (axDestroyedWindowIDs, Window.swift). Its destroyed event, queued
   // behind the mark, finds no window and clears it too, for a mark that arrives after this removal.
   //
   func forget(_ id: WindowID) {
@@ -33,6 +33,7 @@ extension WindowManager {
     Border.remove(id)
     focus.removeLostFocusedEvent(for: id)
     removeManagedWindow(id)
+    labels.remove(id: id)
 
     // NOTE: teardown clears the mouse state before it removes the window; clearing it here too keeps removeWindow
     // alone sufficient. Only the fields of this window change.

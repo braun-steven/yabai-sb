@@ -1053,5 +1053,74 @@ extension DaemonState {
       #expect(
         abs(WindowManager.ratioDelta(from: 0.25, type: .abs, ratio: 0.5, size: 1440) - 360) < 1e-3)
     }
+
+    // MARK: - Labels
+
+    @Test func labelNamesTheActingWindow() {
+      let space = row()
+
+      let result = run("--label far", in: space)
+
+      #expect(result.response == "")
+      #expect(WindowManager.shared.labels.id(named: "far") == wid(2))
+      #expect(WindowManager.shared.labels.name(of: wid(2)) == "far")
+    }
+
+    @Test func labelMovesToAnotherWindow() {
+      let space = row()
+      _ = run("w2 --label far", in: space)
+
+      let result = run("w3 --label far", in: space)
+
+      #expect(result.response == "")
+      #expect(WindowManager.shared.labels.id(named: "far") == wid(3))
+      #expect(WindowManager.shared.labels.name(of: wid(2)) == nil)
+    }
+
+    @Test func labelRemovesTheLabelOfTheWindow() {
+      let space = row()
+      _ = run("w1 --label far", in: space)
+
+      #expect(run("w1 --label", in: space).response == "")
+      #expect(WindowManager.shared.labels.id(named: "far") == nil)
+      #expect(
+        run("w1 --label", in: space).response
+          == "\u{07}the selected window was not associated with a label!\n")
+    }
+
+    @Test func labelSelectsTheWindowInSwap() {
+      let space = row()
+      _ = run("w3 --label far", in: space)
+      space.act(2)
+
+      let result = run("--swap far", in: space)
+
+      #expect(result.response == "")
+      #expect(space.order == "w1 w3 w2")
+      expectPlaced(space)
+    }
+
+    @Test(arguments: [
+      ("--swap nolabel", "could not locate window with label 'nolabel'.\n"),
+      ("nolabel --close", "could not locate window with label 'nolabel'.\n"),
+    ])
+    func unknownLabelFailsWithoutActing(_ command: String, failure: String) {
+      let space = row()
+
+      let result = run(command, in: space)
+
+      #expect(result.response == "\u{07}" + failure)
+      #expect(space.order == "w1 w2 w3")
+    }
+
+    @Test func forgetClearsTheLabel() {
+      let space = row()
+      _ = run("w3 --label far", in: space)
+
+      space.close(3)
+      WindowManager.shared.forget(wid(3))
+
+      #expect(WindowManager.shared.labels.id(named: "far") == nil)
+    }
   }
 }

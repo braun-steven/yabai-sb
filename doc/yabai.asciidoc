@@ -113,7 +113,7 @@ DIR_SEL     := north | east | south | west
 
 STACK_SEL   := stack.prev | stack.next | stack.first | stack.last | stack.recent | stack.<index (1-based)>
 
-WINDOW_SEL  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id>
+WINDOW_SEL  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id> | LABEL
 
 DISPLAY_SEL := prev | next | first | last | recent | mouse | DIR_SEL | <arrangement index (1-based)> | LABEL
 
@@ -600,6 +600,14 @@ COMMAND
     Orders the selected window below the given window, or to the back within its layer. +
     System Integrity Protection must be partially disabled.
 
+*--label* ['<LABEL>']::
+    Label the selected window, allowing that label to be used as a `WINDOW_SEL` parameter, e.g. `yabai -m window --label term`, then `yabai -m window --focus term`. +
+    A label names one window: labelling another window moves it there, and labelling a window again replaces its label. +
+    If the command is called without an argument it will try to remove the label of the window. +
+    A window label and a scratchpad (*--scratchpad*) may have the same name: they are separate namespaces. +
+    A label cannot be a window selector word (such as `north`, `prev`, `largest` or `parent`), a command name or a `stack.<index>`. +
+    The label of a window is reported by *query --windows* as `label`.
+
 *--scratchpad* ['<LABEL>|recover']::
     Unique identifier used to identify a window scratchpad. +
     An identifier may only be assigned to a single window at any given time. +
@@ -705,6 +713,7 @@ WINDOW
     "app": string,
     "title": string,
     "scratchpad": string,
+    "label": string,
     "frame": object {
         "x": number,
         "y": number,

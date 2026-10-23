@@ -84,6 +84,8 @@ extension WindowLayer {
   var tabBarFont: CTFont?
   /// The scratchpad windows by label, in the order they were assigned.
   var scratchpads: OrderedDictionary<String, Window> = [:]
+  /// The window labels of `window --label`: each window has one label, and a label names one window.
+  var labels = LabelList<WindowID>()
   /// Set while an operation moves windows without animating them; see withoutAnimations(_:).
   var animationsSuppressed = false
   // NOTE: The breaker of the AX calls to applications that do not answer (AXBreaker.swift). Only the non-essential calls

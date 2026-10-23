@@ -574,6 +574,24 @@ missing required key-value pair 'action=..'
 ### 40 window 4242 --close
 could not locate the window to act on!
 
+### 62 window --label north
+'north' is a reserved keyword and cannot be used as a label.
+
+### 64 window --label --focus
+'--focus' is a reserved keyword and cannot be used as a label.
+
+### 40 window --label
+could not locate the window to act on!
+
+### 47 window nolabel --close
+could not locate window with label 'nolabel'.
+
+### 47 window --focus nolabel
+could not locate window with label 'nolabel'.
+
+### 47 query --windows --window nolabel
+could not locate window with label 'nolabel'.
+
 ### 44 space --foo
 unknown command '--foo' for domain 'space'
 

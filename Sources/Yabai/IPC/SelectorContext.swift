@@ -47,6 +47,12 @@ import YabaiCore
     SpaceManager.shared.labels.id(named: label.string)
   }
 
+  func windowLabel(_ label: Token) -> Window? {
+    WindowManager.shared.labels.id(named: label.string).flatMap {
+      WindowManager.shared.window(for: $0)
+    }
+  }
+
   func window(_ query: WindowQuery<Window>) -> Window? {
     switch query {
     case .id(let id): WindowManager.shared.window(for: id)

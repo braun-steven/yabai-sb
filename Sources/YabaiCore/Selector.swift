@@ -222,6 +222,8 @@ public enum WindowSelector: Equatable, Sendable {
   case last
   case recent
   case stack(StackSelector)
+  /// Any other word that is a valid window label: `resolve` looks the window up by its label.
+  case label(Token)
 
   /// nil when the token is no window selector.
   public init?(_ token: Token) {
@@ -255,6 +257,8 @@ public enum WindowSelector: Equatable, Sendable {
         let stack = StackSelector(token.dropFirst(Argument.stackPrefix.count))
       {
         self = .stack(stack)
+      } else if !LabelKind.windowLabel.isReserved(token) {
+        self = .label(token)
       } else {
         return nil
       }
@@ -291,6 +295,11 @@ public enum WindowSelector: Equatable, Sendable {
         throw CommandError(
           "could not locate window with the specified id '\(Int(Int32(bitPattern: id.rawValue)))'.\n"
         )
+      }
+      return window
+    case .label(let label):
+      guard let window = context.windowLabel(label) else {
+        throw CommandError("could not locate window with label '\(label.string)'.\n")
       }
       return window
     case .direction(let direction):

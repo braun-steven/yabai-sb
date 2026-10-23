@@ -159,7 +159,7 @@ DIR_SEL\&     := north | east | south | west
 
 STACK_SEL\&   := stack.prev | stack.next | stack.first | stack.last | stack.recent | stack.<index (1\-based)>
 
-WINDOW_SEL\&  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id>
+WINDOW_SEL\&  := prev | next | first | last | recent | mouse | largest | smallest | STACK_SEL | DIR_SEL | <window id> | LABEL
 
 DISPLAY_SEL := prev | next | first | last | recent | mouse | DIR_SEL | <arrangement index (1\-based)> | LABEL
 
@@ -934,6 +934,21 @@ Orders the selected window below the given window, or to the back within its lay
 System Integrity Protection must be partially disabled.
 .RE
 .sp
+\fB\-\-label\fP [\fI<LABEL>\fP]
+.RS 4
+Label the selected window, allowing that label to be used as a \f(CRWINDOW_SEL\fP parameter, e.g. \f(CRyabai \-m window \-\-label term\fP, then \f(CRyabai \-m window \-\-focus term\fP.
+.br
+A label names one window: labelling another window moves it there, and labelling a window again replaces its label.
+.br
+If the command is called without an argument it will try to remove the label of the window.
+.br
+A window label and a scratchpad (\fB\-\-scratchpad\fP) may have the same name: they are separate namespaces.
+.br
+A label cannot be a window selector word (such as \f(CRnorth\fP, \f(CRprev\fP, \f(CRlargest\fP or \f(CRparent\fP), a command name or a \f(CRstack.<index>\fP.
+.br
+The label of a window is reported by \fBquery \-\-windows\fP as \f(CRlabel\fP.
+.RE
+.sp
 \fB\-\-scratchpad\fP [\fI<LABEL>|recover\fP]
 .RS 4
 Unique identifier used to identify a window scratchpad.
@@ -1063,6 +1078,7 @@ WINDOW
     "app": string,
     "title": string,
     "scratchpad": string,
+    "label": string,
     "frame": object {
         "x": number,
         "y": number,

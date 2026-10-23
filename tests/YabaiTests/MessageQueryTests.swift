@@ -63,6 +63,19 @@ extension DaemonState {
       #expect(window["scratchpad"] as? String == "")
     }
 
+    @Test func windowLabel() throws {
+      _ = workspace()
+      #expect(Golden.run("window \(wid(1).rawValue) --label far") == [])
+
+      let labeled = try object(Golden.run("query --windows label,id --window far"))
+      #expect(labeled.count == 2)
+      #expect(labeled["label"] as? String == "far")
+      #expect(labeled["id"] as? Int == printed(wid(1)))
+
+      let other = try object(Golden.run("query --windows label --window \(wid(2).rawValue)"))
+      #expect(other["label"] as? String == "")
+    }
+
     @Test func actingWindow() throws {
       _ = workspace()
 

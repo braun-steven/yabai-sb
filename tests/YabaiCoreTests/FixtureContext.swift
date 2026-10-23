@@ -10,6 +10,7 @@ struct FixtureContext: SelectorContext {
   var recentSpace: SpaceID? = nil
   var displayLabels: [String: DisplayID] = [:]
   var spaceLabels: [String: SpaceID] = [:]
+  var windowLabels: [String: WindowID] = [:]
   var windows: [WindowID] = []
   var stack: [WindowID] = []
 
@@ -37,6 +38,8 @@ struct FixtureContext: SelectorContext {
   }
 
   func spaceLabel(_ label: Token) -> SpaceID? { spaceLabels[label.string] }
+
+  func windowLabel(_ label: Token) -> WindowID? { windowLabels[label.string] }
 
   func window(_ query: WindowQuery<WindowID>) -> WindowID? {
     switch query {

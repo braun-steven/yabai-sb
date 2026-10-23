@@ -25,7 +25,7 @@ public enum WindowSplit: Sendable {
 public struct WindowInfo: Sendable {
   /// The properties of `query --windows`: the names that select them and their json keys, in the documented order.
   public enum Key: String, CodingKey, CaseIterable, Sendable {
-    case id, pid, app, title, scratchpad, frame, role, subrole
+    case id, pid, app, title, scratchpad, label, frame, role, subrole
     case rootWindow = "root-window"
     case display, space, level
     case subLevel = "sub-level"
@@ -57,6 +57,8 @@ public struct WindowInfo: Sendable {
   public var app: String?
   public var title: String?
   public var scratchpad: String?
+  /// The window label of `window --label`.
+  public var label: String?
   public var frame = CGRect.zero
   public var role: String?
   public var subrole: String?
@@ -222,6 +224,7 @@ extension WindowInfo: Encodable {
     try container.encode(app ?? "", forKey: .app, in: properties)
     try container.encode(title ?? "", forKey: .title, in: properties)
     try container.encode(scratchpad ?? "", forKey: .scratchpad, in: properties)
+    try container.encode(label ?? "", forKey: .label, in: properties)
     try container.encode(QueryFrame(frame), forKey: .frame, in: properties)
     try container.encode(role ?? "", forKey: .role, in: properties)
     try container.encode(subrole ?? "", forKey: .subrole, in: properties)

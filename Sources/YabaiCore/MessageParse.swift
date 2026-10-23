@@ -242,7 +242,10 @@ public enum WindowToggle: String, CaseIterable, Sendable {
 public enum LabelKind: Sendable {
   case display
   case space
+  /// The scratchpad of `window --scratchpad`; a separate namespace from the window labels of `window --label`.
   case window
+  /// The label of a window, selected by `WINDOW_SEL`.
+  case windowLabel
 
   /// The selector values that cannot be labels.
   public var reserved: [String] {
@@ -258,6 +261,12 @@ public enum LabelKind: Sendable {
         Argument.mouse,
       ]
     case .window: WindowToggle.allCases.map(\.rawValue) + [Argument.recover]
+    case .windowLabel:
+      [
+        Argument.north, Argument.east, Argument.south, Argument.west, Argument.prev, Argument.next,
+        Argument.first, Argument.last, Argument.recent, Argument.mouse, Argument.largest,
+        Argument.smallest, Argument.parent, Argument.child,
+      ]
     }
   }
 
@@ -267,7 +276,15 @@ public enum LabelKind: Sendable {
 
   /// Whether a token is one of the reserved values.
   public func isReserved(_ token: Token) -> Bool {
-    reserved.contains { token.equals($0) }
+    if reserved.contains(where: { token.equals($0) }) { return true }
+
+    //
+    // NOTE: A window label is never a command name ("--focus") or a stack selector ("stack.2"): a leading token of
+    // either kind must not be read as a selector, so both are reserved.
+    //
+
+    return self == .windowLabel
+      && (token.hasPrefix("--") || token.hasPrefix(Argument.stackPrefix))
   }
 }
 
@@ -422,6 +439,8 @@ public protocol SelectorContext {
   func space(_ query: SpaceQuery) -> SpaceID?
   /// The id of a space label.
   func spaceLabel(_ label: Token) -> SpaceID?
+  /// The window that a window label names, among the windows yabai tracks.
+  func windowLabel(_ label: Token) -> Window?
   func window(_ query: WindowQuery<Window>) -> Window?
 }
 

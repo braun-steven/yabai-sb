@@ -38,6 +38,7 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     WindowManager.shared.initialize()
     WindowManager.shared.rules = []
     WindowManager.shared.scratchpads = [:]
+    WindowManager.shared.labels = LabelList<WindowID>()
     WindowManager.shared.focus.focusChanged(to: nil)
     WindowManager.shared.focus.clearPending()
     WindowManager.shared.focus.setLast(nil)

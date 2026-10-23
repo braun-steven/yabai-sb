@@ -11,6 +11,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Exclusive scratchpads](#exclusive-scratchpads)
 - [Native window borders](#native-window-borders)
 - [Rule placement](#rule-placement)
+- [Window labels](#window-labels)
 - [Automatic space layout](#automatic-space-layout)
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
@@ -221,6 +222,19 @@ yabai -m rule --add app='^Terminal$' insert=east
 ```
 
 The placement applies to new windows, at the moment they are first tiled. Windows that already exist when yabai starts, windows that `rule --apply` matches and windows tiled later (for example after floating) are not placed by it. Rules with `manage=off` ignore it.
+
+### Window labels
+
+A window can be labelled, and the label then selects that window wherever a window selector is taken, as i3 marks do:
+
+```sh
+yabai -m window --label term   # label the focused window
+yabai -m window --focus term   # focus it
+yabai -m window --swap term    # swap the focused window with it
+yabai -m window --label        # remove the label of the focused window
+```
+
+A label names one window: labelling another window moves it there. `yabai -m query --windows` reports the label as `label`. Scratchpad names (`--scratchpad`) are a separate namespace, so a window label and a scratchpad may share a name.
 
 ### Automatic space layout
 

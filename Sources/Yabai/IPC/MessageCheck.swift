@@ -34,6 +34,8 @@ struct MessageCheck {
   func displayLabel(_ label: Token) -> DisplayID? { Self.placeholderDisplay }
   func space(_ query: SpaceQuery) -> SpaceID? { Self.placeholderSpace }
   func spaceLabel(_ label: Token) -> SpaceID? { Self.placeholderSpace }
+  // NOTE: A window is a class, not an id, so there is no placeholder window: the lookups of windows find none, as window does.
+  func windowLabel(_ label: Token) -> Window? { nil }
   func window(_ query: WindowQuery<Window>) -> Window? { nil }
 }
 

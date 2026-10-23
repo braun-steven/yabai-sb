@@ -78,7 +78,7 @@ private func json(_ value: some Encodable) throws -> String {
     try JSONSerialization.jsonObject(with: Data(try JSON.encode(windowInfoFixture())))
       as? [String: Any])
   #expect(Set(object.keys) == Set(WindowInfo.Key.allCases.map(\.rawValue)))
-  #expect(object.count == 32)
+  #expect(object.count == 33)
 }
 
 @Test func displayAndSpaceInfoEncodeSelectedKeys() throws {

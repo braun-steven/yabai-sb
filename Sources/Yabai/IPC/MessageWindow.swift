@@ -100,6 +100,8 @@ extension WindowCommand {
       try runFrame(on: try requiredWindow(acting))
     case .subLayer, .opacity, .raise, .lower, .scratchpad:
       try runProperty(on: try requiredWindow(acting))
+    case .label(let label):
+      try runLabel(label, on: try requiredWindow(acting))
     }
   }
 
@@ -339,6 +341,21 @@ extension WindowCommand {
     }
   }
 
+  //
+  // NOTE: A label is unique: setting it on a window moves it from the window that had it, and a window has one label,
+  // so the label it had is replaced. Scratchpad labels are a separate namespace.
+  //
+
+  @WM private func runLabel(_ label: String?, on window: Window) throws(CommandError) {
+    let wm = WindowManager.shared
+
+    if let label {
+      wm.labels.set(id: window.id, name: label)
+    } else if !wm.labels.remove(id: window.id) {
+      throw CommandError("the selected window was not associated with a label!\n")
+    }
+  }
+
   /// Raises or lowers the window, above or below the window a selector selects; a failing selector stops the message.
   @WM private func order(_ window: Window, raise: Bool, relativeTo selector: WindowSelector?)
     throws(CommandError)
@@ -372,7 +389,13 @@ extension WindowCommand {
   var first = message.next()
 
   if let selector = WindowSelector(first) {
-    actingWindow = try? selector.resolve(acting: actingWindow, CSelectorContext())
+    // NOTE: A leading label that names no window fails the message. The other leading selectors that find nothing are
+    // ignored, and the commands after them then act on no window.
+    if case .label = selector {
+      actingWindow = try selector.resolve(acting: actingWindow, CSelectorContext())
+    } else {
+      actingWindow = try? selector.resolve(acting: actingWindow, CSelectorContext())
+    }
     first = message.next()
   }
 

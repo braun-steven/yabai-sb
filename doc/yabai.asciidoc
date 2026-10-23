@@ -71,9 +71,7 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
     `yabai -m batch` runs several commands from stdin in one message; see *Batch* under Domains. `yabai -m subscribe` streams events to the client; see *Subscribe* under Domains.
 
 *--config*, *-c* '<config_file>'::
-    Use the specified configuration file. +
-    Executes using `/usr/bin/env sh -c <config_file>` if the exec-bit is set. +
-    Interpreted using `/usr/bin/env sh <config_file>` if the exec-bit is unset.
+    Use the specified *yabai.toml* instead of the one the daemon searches for (see CONFIGURATION).
 
 *--verbose*, *-V*::
     Output debug information to stdout. +
@@ -89,6 +87,30 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
 *--generate-completion-script* '<shell>'::
     Print a completion script for 'zsh', 'bash' or 'fish' to stdout and exit, e.g. +
     `yabai --generate-completion-script zsh > "${fpath[1]}/_yabai"`.
+
+Configuration
+-------------
+
+The daemon applies *yabai.toml* at startup, before it adopts the windows of the session. It uses the file given with *--config*, else the first existing file of `$XDG_CONFIG_HOME/yabai/yabai.toml` and `~/.config/yabai/yabai.toml`. The whole file is checked before anything is applied: `yabai --check-config [<config_file>]` checks it without a daemon, and *config --check* checks it with one. A file with an error is not applied; the daemon starts with the defaults, logs each error and sends a notification. A failure while a setting is applied is logged and notified, and the other settings are still applied. Commands sent with *yabai -m* after the start change the running daemon only, until it restarts.
+
+The file has these tables:
+
+`[daemon]`::
+    `auto_reload` and `load_scripting_addition` are read, but they take effect in a later version.
+
+`[config]`::
+    One key for each option of *config*, under the option's name, e.g. `window_gap = 10`. A boolean option takes `true` or `false`, and an option with more choices also takes its words, e.g. `window_shadow = "float"`. A color is an integer, e.g. `active_window_border_color = 0xff51afef`. `space_layout` is an array of layouts, e.g. `space_layout = ["15", "10:5"]`. Every other option takes the string that its command takes, e.g. `scratchpad_grid = "40:40:1:1:38:38"`.
+
+`[[space]]`::
+    One table for each space that has a label, a pin or its own options: `index` names the space, `label` and `pin` are those of *space*, and the other keys are the options of *config --space*, e.g. `window_gap = 0`.
+
+`[[rule]]`::
+    One table for each rule, with the keys of *rule --add* and their values as strings, e.g. `app = "^Calendar$"` and `space = 9`. A negated value is an inline table, e.g. `title = { not = "^(Copy|Move)$" }`.
+
+`[[signal]]`::
+    One table for each signal, with the keys of *signal --add*, e.g. `event = "window_focused"` and `action = "sketchybar --trigger window_focus"`.
+
+Unknown keys are errors, so a misspelled option is reported rather than ignored. The settings are applied first, then the space labels, pins and options, then the rules and the signals, and the `[[rule]]` and `[[signal]]` tables keep the order of the file. At startup the rules exist before the existing windows are adopted, so they apply to those windows too.
 
 Definitions
 -----------
@@ -159,8 +181,8 @@ Reload the Config File
 ^^^^^^^^^^^^^^^^^^^^^^
 
 yabai -m config --reload ['<config_file>']::
-    Run the config file again without restarting the daemon. Without <config_file>, reload the file the daemon loads: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabairc`, `~/.config/yabai/yabairc` and `~/.yabairc`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
-    The file is checked first, with the check of a yabairc (its `yabai -m` messages are parsed, as before). A file with the `.toml` extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is `reloaded <config_file>`. +
+    Run the yabairc again without restarting the daemon. Without <config_file>, reload the yabairc the daemon finds: the one given with *--config*, or else the first existing file of `$XDG_CONFIG_HOME/yabai/yabairc`, `~/.config/yabai/yabairc` and `~/.yabairc`. A relative <config_file> is resolved in the directory of the `yabai -m` command. +
+    The file is checked first, with the check of a yabairc (its `yabai -m` messages are parsed, as before). A file with the `.toml` extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the yabairc again. The reply is `reloaded <config_file>`. +
     Windows, trees and spaces stay as they are. A rule applies to new windows only, unless the config file runs *rule --apply*. The layout, gaps, padding and auto_padding of a space stay as they are, and so does a value set with *--space*: a reset changes the global defaults that spaces created later get. The tree options (*tree_default_orientation*, *tree_workspace_layout* and *tree_autotiling*) and the other settings that are read when they are used take their reset value from then on. *space_layout* is cleared without re-laying out the spaces, and *debug_output* returns to the value the daemon started with (*--verbose*). +
     Keep the yabairc idempotent, as it already must be for *--restart-service*: its commands run again on every reload, so a command that creates a space or a rule must not create it twice. A yabairc must not run *config --reload* itself, because the reload would run the file again; *config --check* notes such a line. An skhd binding can run `yabai -m config --reload`.
 
@@ -529,7 +551,7 @@ COMMAND
 
 *--pin* ['<DISPLAY_SEL>']::
     Pin the selected space to the given display, so that it returns to that display whenever the display is connected. The space must have a label, otherwise the command fails. +
-    The pin is kept by the uuid of the display and in memory only: a yabairc sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens. +
+    The pin is kept by the uuid of the display and in memory only: the *yabai.toml* sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens. +
     A pin to a display that is not connected leaves its space where it is, and so does a pin whose space is the last user space of its display. Without an argument, the command removes the pin of the selected space. +
     The query key *pinned-display* of a space is the arrangement index of the display the space is pinned to, and 0 when it has no pin or its display is not connected. +
     Moving a space needs the scripting addition: without it, the daemon logs one notice and leaves the spaces where they are. System Integrity Protection must be partially disabled.

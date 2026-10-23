@@ -103,11 +103,7 @@ A message longer than 1 MiB, or one that does not arrive complete, is answered w
 .sp
 \fB\-\-config\fP, \fB\-c\fP \fI<config_file>\fP
 .RS 4
-Use the specified configuration file.
-.br
-Executes using \f(CR/usr/bin/env sh \-c <config_file>\fP if the exec\-bit is set.
-.br
-Interpreted using \f(CR/usr/bin/env sh <config_file>\fP if the exec\-bit is unset.
+Use the specified \fByabai.toml\fP instead of the one the daemon searches for (see CONFIGURATION).
 .RE
 .sp
 \fB\-\-verbose\fP, \fB\-V\fP
@@ -135,6 +131,38 @@ Print a completion script for \fIzsh\fP, \fIbash\fP or \fIfish\fP to stdout and 
 .br
 \f(CRyabai \-\-generate\-completion\-script zsh > "${fpath[1]}/_yabai"\fP.
 .RE
+.SH "CONFIGURATION"
+.sp
+The daemon applies \fByabai.toml\fP at startup, before it adopts the windows of the session. It uses the file given with \fB\-\-config\fP, else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabai.toml\fP and \f(CR~/.config/yabai/yabai.toml\fP. The whole file is checked before anything is applied: \f(CRyabai \-\-check\-config [<config_file>]\fP checks it without a daemon, and \fBconfig \-\-check\fP checks it with one. A file with an error is not applied; the daemon starts with the defaults, logs each error and sends a notification. A failure while a setting is applied is logged and notified, and the other settings are still applied. Commands sent with \fByabai \-m\fP after the start change the running daemon only, until it restarts.
+.sp
+The file has these tables:
+.sp
+\f(CR[daemon]\fP
+.RS 4
+\f(CRauto_reload\fP and \f(CRload_scripting_addition\fP are read, but they take effect in a later version.
+.RE
+.sp
+\f(CR[config]\fP
+.RS 4
+One key for each option of \fBconfig\fP, under the option\(cqs name, e.g. \f(CRwindow_gap = 10\fP. A boolean option takes \f(CRtrue\fP or \f(CRfalse\fP, and an option with more choices also takes its words, e.g. \f(CRwindow_shadow = "float"\fP. A color is an integer, e.g. \f(CRactive_window_border_color = 0xff51afef\fP. \f(CRspace_layout\fP is an array of layouts, e.g. \f(CRspace_layout = ["15", "10:5"]\fP. Every other option takes the string that its command takes, e.g. \f(CRscratchpad_grid = "40:40:1:1:38:38"\fP.
+.RE
+.sp
+\f(CR[[space]]\fP
+.RS 4
+One table for each space that has a label, a pin or its own options: \f(CRindex\fP names the space, \f(CRlabel\fP and \f(CRpin\fP are those of \fBspace\fP, and the other keys are the options of \fBconfig \-\-space\fP, e.g. \f(CRwindow_gap = 0\fP.
+.RE
+.sp
+\f(CR[[rule]]\fP
+.RS 4
+One table for each rule, with the keys of \fBrule \-\-add\fP and their values as strings, e.g. \f(CRapp = "^Calendar$"\fP and \f(CRspace = 9\fP. A negated value is an inline table, e.g. \f(CRtitle = { not = "^(Copy|Move)$" }\fP.
+.RE
+.sp
+\f(CR[[signal]]\fP
+.RS 4
+One table for each signal, with the keys of \fBsignal \-\-add\fP, e.g. \f(CRevent = "window_focused"\fP and \f(CRaction = "sketchybar \-\-trigger window_focus"\fP.
+.RE
+.sp
+Unknown keys are errors, so a misspelled option is reported rather than ignored. The settings are applied first, then the space labels, pins and options, then the rules and the signals, and the \f(CR[[rule]]\fP and \f(CR[[signal]]\fP tables keep the order of the file. At startup the rules exist before the existing windows are adopted, so they apply to those windows too.
 .SH "DEFINITIONS"
 .sp
 .if n .RS 4
@@ -209,9 +237,9 @@ Check a \f(CRyabai.toml\fP file as \fByabai \-m config \-\-check\fP does, withou
 .sp
 yabai \-m config \-\-reload [\fI<config_file>\fP]
 .RS 4
-Run the config file again without restarting the daemon. Without <config_file>, reload the file the daemon loads: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabairc\fP, \f(CR~/.config/yabai/yabairc\fP and \f(CR~/.yabairc\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
+Run the yabairc again without restarting the daemon. Without <config_file>, reload the yabairc the daemon finds: the one given with \fB\-\-config\fP, or else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabairc\fP, \f(CR~/.config/yabai/yabairc\fP and \f(CR~/.yabairc\fP. A relative <config_file> is resolved in the directory of the \f(CRyabai \-m\fP command.
 .br
-The file is checked first, with the check of a yabairc (its \f(CRyabai \-m\fP messages are parsed, as before). A file with the \f(CR.toml\fP extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the config file again, as it does at startup. The reply is \f(CRreloaded <config_file>\fP.
+The file is checked first, with the check of a yabairc (its \f(CRyabai \-m\fP messages are parsed, as before). A file with the \f(CR.toml\fP extension is refused with a failure, since a yabai.toml is not reloaded yet. When the check reports a failure, the report is printed as a failure and nothing changes. Otherwise the daemon does the following in one step, with no other event in between: it resets every setting of the config domain to the value that a new daemon starts with; it removes every rule and every signal; and it runs the yabairc again. The reply is \f(CRreloaded <config_file>\fP.
 .br
 Windows, trees and spaces stay as they are. A rule applies to new windows only, unless the config file runs \fBrule \-\-apply\fP. The layout, gaps, padding and auto_padding of a space stay as they are, and so does a value set with \fB\-\-space\fP: a reset changes the global defaults that spaces created later get. The tree options (\fBtree_default_orientation\fP, \fBtree_workspace_layout\fP and \fBtree_autotiling\fP) and the other settings that are read when they are used take their reset value from then on. \fBspace_layout\fP is cleared without re\-laying out the spaces, and \fBdebug_output\fP returns to the value the daemon started with (\fB\-\-verbose\fP).
 .br
@@ -824,7 +852,7 @@ A pin follows its label: moving the label to another space moves the pin with it
 .RS 4
 Pin the selected space to the given display, so that it returns to that display whenever the display is connected. The space must have a label, otherwise the command fails.
 .br
-The pin is kept by the uuid of the display and in memory only: a yabairc sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens.
+The pin is kept by the uuid of the display and in memory only: the \fByabai.toml\fP sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens.
 .br
 A pin to a display that is not connected leaves its space where it is, and so does a pin whose space is the last user space of its display. Without an argument, the command removes the pin of the selected space.
 .br

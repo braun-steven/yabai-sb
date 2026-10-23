@@ -23,10 +23,11 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
 - [Shell completions](#shell-completions)
+- [Static config file](#static-config-file)
 - [Config check and reload](#config-check-and-reload)
 - [IPC batch and subscribe](#ipc-batch-and-subscribe)
 
-Configuration examples can go in your `yabairc`; window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
+Configuration goes in `yabai.toml` (see [Static config file](#static-config-file)); window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
 ### i3/sway container tree
 
@@ -317,7 +318,7 @@ yabai -m space web --pin 2   # display 2 in arrangement order
 yabai -m space web --pin     # remove the pin
 ```
 
-A pin is kept by the display's uuid, so it survives display index changes, and it is set in memory: put the commands in your yabairc. Pins are applied when they are set, after a display is added, removed or moved, and at startup. A pinned space is not moved back when you move it by hand, and `space_layout` never moves or destroys it. Moving a space needs the scripting addition.
+A pin is kept by the display's uuid, so it survives display index changes, and it is set in memory: put the `[[space]]` pin in your `yabai.toml`. Pins are applied when they are set, after a display is added, removed or moved, and at startup. A pinned space is not moved back when you move it by hand, and `space_layout` never moves or destroys it. Moving a space needs the scripting addition.
 
 ### Built-in display last
 
@@ -369,6 +370,32 @@ yabai --generate-completion-script fish > ~/.config/fish/completions/yabai.fish
 
 They complete the options of the process (`--start-service`, `--config <file>`, …), not the messages after `-m`.
 
+### Static config file
+
+`~/.config/yabai/yabai.toml` (or `$XDG_CONFIG_HOME/yabai/yabai.toml`) replaces the yabairc script. The daemon reads and checks the whole file before it adopts any window, and applies it in-process at startup, so the settings, the space labels, the rules and the signals are in place for the windows that are already open. Option names are the names of `yabai -m config`:
+
+```toml
+[config]
+window_gap = 10
+window_shadow = "float"
+active_window_border_color = 0xff51afef
+space_layout = ["15", "10:5"]
+
+[[space]]
+index = 11
+label = "chat"
+
+[[rule]]
+app = "^Finder$"
+manage = false
+
+[[signal]]
+event = "window_focused"
+action = "sketchybar --trigger window_focus"
+```
+
+An error in the file is reported with its line, and the file is not applied: the daemon starts with the defaults and sends a notification. `yabai --check-config [<file>]` checks a file without a daemon. `load_scripting_addition` takes effect in a later version, and so does `auto_reload`; the startup no longer runs the yabairc.
+
 ### Config check and reload
 
 `yabai -m config --check [<file>]` checks a `yabai.toml` without applying it. The whole file is decoded first, then each setting is checked as the daemon would check its message. Each failure is printed with its file, line and key, and a summary follows:
@@ -384,7 +411,7 @@ checked 14 settings, 1 failures
 
 Without a file, the check reads the file the daemon loads. The `[[space]]` labels and pins are not checked, since they act on the session. Nothing is applied, and the exit status is 1 when there is a failure. `yabai --check-config [<file>]` makes the same check without a running daemon.
 
-`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the yabairc as the check did before, and changes nothing when the check fails; a `.toml` file is refused for now. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
+`yabai -m config --reload [<file>]` runs the yabairc again without restarting the daemon. It checks the yabairc as the check did before, and changes nothing when the check fails; a `.toml` file is refused for now. Otherwise it resets the config to its startup defaults, removes every rule and signal, and runs the yabairc again. Windows and spaces stay as they are, so the yabairc must be idempotent. An skhd binding can run `yabai -m config --reload`.
 
 ### IPC batch and subscribe
 

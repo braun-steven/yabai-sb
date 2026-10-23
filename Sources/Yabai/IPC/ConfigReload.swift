@@ -5,8 +5,8 @@ import YabaiCore
 //
 // NOTE: `config --reload [<file>]` checks the yabairc as `config --check` does (checkConfigFile). A failure is the failure
 // response, and nothing changes. Otherwise this one @WM handler does everything, without posting an event in between: it
-// resets the config to its startup defaults, removes every rule and signal, and runs the file again as at startup
-// (Daemon.execConfigFile). The yabairc's own messages arrive afterwards as ordinary IPC messages. Windows, trees and spaces
+// resets the config to its startup defaults, removes every rule and signal, and runs the yabairc again
+// (Daemon.execConfigFile). The startup applies yabai.toml instead (ConfigLoader.swift). The yabairc's own messages arrive afterwards as ordinary IPC messages. Windows, trees and spaces
 // stay as they are; rules apply to new windows only.
 //
 

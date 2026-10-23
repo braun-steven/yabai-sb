@@ -37,22 +37,32 @@ failure, as before).
 6. Start the event loop's consumer (`EventLoop.start`).
 7. Begin the workspace context, the process manager, the display manager, the mouse event tap (`WM.sync`) and the
    Mission Control observer.
-8. Register the SkyLight notifications. This stays before step 9: the windows that step 9 tiles must already be
+8. Register the SkyLight notifications. This stays before step 10: the windows that step 10 tiles must already be
    subscribed (see "Subscribe before initial tiling" below).
-9. One `WM.sync` block, in this order: the space defaults (`Config.applySpaceDefaults`, which sets the tree layout
-   and the tree options that new views read; moved here from `SpaceManager.begin`, which no longer writes `Config`),
-   `WindowManager.initialize`, `SpaceManager.begin` (creates the views), `WindowManager.begin` (adopts and tiles the
-   existing windows), `updateWindowNotifications` and `ConfigObserver.start`. Nothing else runs inside the block, so the
-   space defaults are set before any reader of them.
-10. Start the message loop on the user's socket.
-11. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), run the config file
-   (`execConfigFile`), then `NSApp.run()`.
+9. Read and check `yabai.toml` (`loadStartupConfig`, `ConfigLoader.swift`, its own `WM.sync`): the file given with
+   `-c`, else the first existing file of the search. Nothing is applied yet. A file with a failure is not applied at all;
+   each failure is logged and notified, and the daemon starts with the defaults.
+10. One `WM.sync` block, in this order: the space defaults (`Config.applySpaceDefaults`, which sets the tree layout
+    and the tree options that new views read; moved here from `SpaceManager.begin`, which no longer writes `Config`),
+    the file's `settings` step (the `[config]` options and `space_layout`: the managers and views read them when they
+    start), `WindowManager.initialize`, `SpaceManager.begin` (creates the views), the `managerSettings` step
+    (`tab_bar_font`, which comes after initialize because initialize sets the default font, and `external_bar`, which
+    marks the views invalid), the `spaces` step (`[[space]]` labels, pins and per-space options), the `rulesAndSignals`
+    step (so the windows that `WindowManager.begin` adopts see the rules), `WindowManager.begin` (adopts and tiles the
+    existing windows), `updateWindowNotifications` and `ConfigObserver.start`. Nothing else runs inside the block. A
+    message that fails is logged and the others still run; the block returns the number of failures for one
+    notification. The file's messages run through `handleMessage` in-process, not through IPC.
+11. Schedule the space pin pass (one second later), then start the message loop on the user's socket. No client message
+    runs before the file is applied.
+12. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), then `NSApp.run()`. The yabairc is
+    not run at startup.
 
-`config --reload` (`IPC/ConfigReload.swift`) runs the same `execConfigFile` again, after resetting the config to the
-values of step 9 (`Config.resetToDefaults`, which applies the space defaults, and the side effects of the settings the
-daemon keeps elsewhere) and clearing the rules and signals, all inside one `@WM` handler.
+`config --reload` (`IPC/ConfigReload.swift`) still runs the yabairc (`execConfigFile`) again, after resetting the config to
+the values of step 10 (`Config.resetToDefaults`, which applies the space defaults, and the side effects of the settings the
+daemon keeps elsewhere) and clearing the rules and signals, all inside one `@WM` handler. The reload of the TOML file
+replaces this in a later version.
 
-The config write in step 9 is the only call that moved. Its readers between the old and the new position are none:
+The config write in step 10 is the only call that moved. Its readers between the old and the new position are none:
 `WindowManager.initialize` does not read the space defaults. The socket path reuses the `$USER` read in step 1 instead
 of reading it again.
 

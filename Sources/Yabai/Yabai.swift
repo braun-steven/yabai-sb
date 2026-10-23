@@ -86,7 +86,7 @@ enum Daemon {
   }
 
   /// The static config file (yabai.toml): `explicit` (from -c) when given, else the first existing candidate. Nil when no
-  /// candidate exists. Nothing applies it yet; only the leftover check below uses it.
+  /// candidate exists. The startup reads it (loadStartupConfig, ConfigLoader.swift) and the leftover check below uses it.
   static func configFile(explicit: String?) -> ConfigFileChoice? {
     let candidates = configCandidates("yabai.toml", homeDotfile: false)
     return ConfigFileSearch.choose(
@@ -106,8 +106,9 @@ enum Daemon {
     notify("configuration", "\(notice)..")
   }
 
-  /// Runs the config file: the one given (`explicit`, from -c) or else the first existing candidate, as the daemon does at
-  /// startup and `config --reload` does on each reload. In headless mode the run is recorded instead (Headless.swift).
+  /// Runs the yabairc: the one given (`explicit`, from -c) or else the first existing candidate, as `config --reload` does
+  /// on each reload (the startup applies yabai.toml instead, see loadStartupConfig). In headless mode the run is recorded
+  /// instead (Headless.swift).
   static func execConfigFile(_ configFile: String?) {
     guard let choice = configFileChoice(explicit: configFile) else {
       Logger.daemon.warning("could not locate config file")
@@ -329,24 +330,61 @@ enum Daemon {
 
     //
     // NOTE: Startup reads the process table on @WM; Carbon callbacks only post events to that queue. The space
-    // defaults come first in the sync block: SpaceManager.begin creates the views from them, and no other @WM
-    // work runs inside the block.
+    // defaults come first in the sync block: SpaceManager.begin creates the views from them. The only other work in
+    // the block is the steps of the config file, in ConfigStep order.
+    //
+    Logger.daemon.debug("startup: checking the config file")
+    let config = WM.sync { loadStartupConfig(explicit: options.config) }
+    for line in config.log {
+      if config.entries == nil {
+        Logger.daemon.warning("\(line)")
+      } else {
+        Logger.daemon.notice("\(line)")
+      }
+    }
+    for notice in config.notices {
+      notify("configuration", notice)
+    }
+
+    //
+    // NOTE: The file is applied on @WM between the manager starts (ConfigStep, doc/architecture.md "Startup sequence"),
+    // so the windows that WindowManager.begin adopts see its rules, and no client message runs before it (the message loop
+    // starts after the block). The block returns the number of messages that failed, for one notification.
     //
     Logger.daemon.debug("startup: starting the managers on the event loop")
-    WM.sync {
+    let applyFailures = WM.sync { () -> Int in
       Logger.daemon.debug("startup: applying the space defaults")
       Config.current.applySpaceDefaults()
+      Logger.daemon.debug("startup: applying the config file settings")
+      var failures = config.apply(.settings)
       Logger.daemon.debug("startup: initializing the window manager")
       WindowManager.shared.initialize()
       Logger.daemon.debug("startup: beginning the space manager")
       SpaceManager.shared.begin()
+      Logger.daemon.debug("startup: applying the config file manager settings")
+      failures += config.apply(.managerSettings)
+      Logger.daemon.debug("startup: applying the config file spaces")
+      failures += config.apply(.spaces)
+      Logger.daemon.debug("startup: applying the config file rules and signals")
+      failures += config.apply(.rulesAndSignals)
       Logger.daemon.debug("startup: beginning the window manager")
       WindowManager.shared.begin()
       Logger.daemon.debug("startup: requesting window notifications")
       WindowManager.shared.updateWindowNotifications()
       Logger.daemon.debug("startup: starting the config observer")
       ConfigObserver.shared.start()
+      return failures
     }
+    if applyFailures > 0, let path = config.path {
+      notify("configuration", "\(applyFailures) settings of \(path) did not apply..")
+    }
+
+    //
+    // NOTE: The pins of the config file are set by its `space --pin` messages, which schedule their own pass. This pass
+    // covers the displays that are connected at startup, once the config file has been applied.
+    //
+    Logger.daemon.debug("startup: reconciling the space pins")
+    EventLoop.post(.spacePinReconcile, after: .seconds(1), key: .spacePinReconcile)
 
     Logger.daemon.debug("startup: starting the message loop")
     let socketFile = "/tmp/yabai_\(user).socket"
@@ -356,15 +394,6 @@ enum Daemon {
 
     Logger.daemon.debug("startup: checking for a yabairc that is no longer read")
     warnLeftoverYabairc(explicit: options.config)
-    Logger.daemon.debug("startup: running the config file")
-    execConfigFile(options.config)
-
-    //
-    // NOTE: The pins of the config file are set by its `space --pin` messages, which schedule their own pass. This pass
-    // covers the displays that are connected at startup, once the config file has had time to run.
-    //
-    Logger.daemon.debug("startup: reconciling the space pins")
-    EventLoop.post(.spacePinReconcile, after: .seconds(1), key: .spacePinReconcile)
 
     Logger.daemon.debug("startup: running the main run loop")
     NSApp.run()

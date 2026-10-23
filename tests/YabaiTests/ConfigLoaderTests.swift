@@ -1,0 +1,178 @@
+import Foundation
+import Testing
+import YabaiCore
+
+@testable import Yabai
+
+//
+// NOTE: The startup file (ConfigLoader.swift). Daemon.run calls loadStartupConfig, then the steps of ConfigStep between the
+// manager starts. These tests call the same functions with the fixture, in the same order, except the starts themselves:
+// WindowManager.begin and SpaceManager.begin read the window server, so they are not called. Entries that need a space
+// (`[[space]]`) and `space_layout` (which posts a re-layout) are not in the fixture files.
+//
+
+/// Writes `text` to a new yabai.toml in the temporary directory and returns its path; the caller removes it.
+private func writeStartupFile(_ text: String) throws -> String {
+  let path = FileManager.default.temporaryDirectory.appendingPathComponent(
+    "yabai-startup-\(UUID().uuidString).toml"
+  ).path
+  try text.write(toFile: path, atomically: true, encoding: .utf8)
+  return path
+}
+
+/// A file with a window gap, a tab bar font, a rule and a signal.
+private let startupText = """
+  [config]
+  window_gap = 7
+  tab_bar_font = "Helvetica:14"
+
+  [[rule]]
+  app = "^Keep$"
+  manage = false
+
+  [[signal]]
+  event = "window_focused"
+  action = "true"
+  """
+
+extension DaemonState {
+  @Suite
+  @WM struct ConfigLoaderTests {
+    @Test func eachKindOfEntryRunsInItsStep() {
+      let rows: [(ConfigEntry, ConfigStep)] = [
+        (
+          ConfigEntry(arguments: ["config", "window_gap", "7"], keyPath: "", kind: .option),
+          .settings
+        ),
+        (
+          ConfigEntry(
+            arguments: ["config", "space_layout", "15"], keyPath: "", kind: .spaceLayout), .settings
+        ),
+        (
+          ConfigEntry(
+            arguments: ["config", "tab_bar_font", "system:12"], keyPath: "", kind: .option),
+          .managerSettings
+        ),
+        (
+          ConfigEntry(
+            arguments: ["config", "external_bar", "off:0:0"], keyPath: "", kind: .option),
+          .managerSettings
+        ),
+        (
+          ConfigEntry(arguments: ["space", "11", "--label", "chat"], keyPath: "", kind: .space),
+          .spaces
+        ),
+        (
+          ConfigEntry(
+            arguments: ["config", "--space", "11", "layout", "tree"], keyPath: "", kind: .space),
+          .spaces
+        ),
+        (
+          ConfigEntry(arguments: ["rule", "--add", "app=^Keep$"], keyPath: "", kind: .rule),
+          .rulesAndSignals
+        ),
+        (
+          ConfigEntry(
+            arguments: ["signal", "--add", "event=window_focused"], keyPath: "", kind: .signal),
+          .rulesAndSignals
+        ),
+      ]
+      for (entry, step) in rows {
+        #expect(configStep(of: entry) == step)
+      }
+    }
+
+    @Test func fileIsAppliedInItsSteps() throws {
+      DaemonFixture.reset()
+      let path = try writeStartupFile(startupText)
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      _ = Headless.drain()
+
+      let loaded = loadStartupConfig(explicit: path)
+      #expect(loaded.entries != nil)
+      #expect(loaded.notices.isEmpty)
+
+      #expect(loaded.apply(.settings) == 0)
+      #expect(Golden.run("config window_gap") == Array("7\n".utf8))
+      #expect(Golden.run("config tab_bar_font") == Array("system:12\n".utf8))
+      #expect(WindowManager.shared.rules.isEmpty)
+      #expect(Headless.drain().configEntries.map(\.arguments) == [["config", "window_gap", "7"]])
+
+      #expect(loaded.apply(.managerSettings) == 0)
+      #expect(Golden.run("config tab_bar_font") == Array("Helvetica:14\n".utf8))
+
+      #expect(loaded.apply(.spaces) == 0)
+      #expect(loaded.apply(.rulesAndSignals) == 0)
+      #expect(WindowManager.shared.rules.count == 1)
+      #expect(EventSignals.shared.table.list().count == 1)
+      #expect(
+        Headless.drain().configEntries.map(\.arguments)
+          == [
+            ["config", "tab_bar_font", "Helvetica:14"],
+            ["rule", "--add", "app=^Keep$", "manage=off"],
+            ["signal", "--add", "event=window_focused", "action=true"],
+          ])
+    }
+
+    @Test func invalidFileAppliesNothing() throws {
+      DaemonFixture.reset()
+      let path = try writeStartupFile(
+        "[config]\nwindow_gap = \"x\"\n\n[[rule]]\napp = \"^Keep$\"\n")
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      _ = Headless.drain()
+
+      let loaded = loadStartupConfig(explicit: path)
+      #expect(loaded.entries == nil)
+      #expect(loaded.notices == ["\(path) has 1 errors; using defaults.."])
+      for step in ConfigStep.allCases {
+        #expect(loaded.apply(step) == 0)
+      }
+      #expect(Golden.run("config window_gap") == Array("0\n".utf8))
+      #expect(WindowManager.shared.rules.isEmpty)
+      #expect(Headless.drain().configEntries.isEmpty)
+    }
+
+    @Test func missingFileUsesTheDefaults() {
+      DaemonFixture.reset()
+      let path = "/nonexistent/yabai-startup.toml"
+
+      let loaded = loadStartupConfig(explicit: path)
+      #expect(loaded.path == path)
+      #expect(loaded.entries == nil)
+      #expect(loaded.notices == ["file '\(path)' does not exist.."])
+      #expect(loaded.apply(.settings) == 0)
+      #expect(Golden.run("config window_gap") == Array("0\n".utf8))
+    }
+
+    @Test func aFailingSettingIsCountedAndTheOthersStillRun() throws {
+      DaemonFixture.reset()
+      // NOTE: A tab bar font without a size passes the check and fails when it is applied (TabBar.setFont).
+      let path = try writeStartupFile("[config]\ntab_bar_font = \"bogus\"\nwindow_gap = 4\n")
+      defer { try? FileManager.default.removeItem(atPath: path) }
+      _ = Headless.drain()
+
+      let loaded = loadStartupConfig(explicit: path)
+      #expect(loaded.entries != nil)
+      #expect(loaded.apply(.settings) == 0)
+      #expect(loaded.apply(.managerSettings) == 1)
+      #expect(Golden.run("config window_gap") == Array("4\n".utf8))
+      #expect(Golden.run("config tab_bar_font") == Array("system:12\n".utf8))
+    }
+
+    @Test func exampleAppliesWithoutAFailure() throws {
+      DaemonFixture.reset()
+      let url = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appending(path: "examples/yabai.toml")
+      _ = Headless.drain()
+
+      let loaded = loadStartupConfig(explicit: url.path)
+      #expect(loaded.entries?.isEmpty == false)
+      for step in ConfigStep.allCases {
+        #expect(loaded.apply(step) == 0)
+      }
+    }
+  }
+}

@@ -111,7 +111,7 @@ struct MessageCheck {
 
 /// The failure texts of a response. Each failure starts with the failure byte. A check writes nothing else: it never
 /// prints, so no response text is mixed in.
-private func failureTexts(_ bytes: [UInt8]) -> [String] {
+func failureTexts(_ bytes: [UInt8]) -> [String] {
   bytes.split(separator: Response.failureByte, omittingEmptySubsequences: false).dropFirst().map {
     String(decoding: $0, as: UTF8.self)
   }

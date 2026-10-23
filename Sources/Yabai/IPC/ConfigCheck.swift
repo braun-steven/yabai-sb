@@ -17,6 +17,13 @@ struct ConfigCheckReport: Equatable {
   let failures: Int
 }
 
+/// The check of a yabai.toml: its report (see configFileReport), and the messages of its settings in apply order. The
+/// entries are empty when the file does not decode. A file with a failure keeps its entries; the caller decides.
+struct ConfigFileCheck {
+  let report: ConfigCheckReport
+  let entries: [ConfigEntry]
+}
+
 /// The report of a yabai.toml read from `path`; `source` is its text. The first lines are the problems of the file, if
 /// it does not decode, and then one line for each failure of each setting, in apply order:
 /// `<path>:<line>: <keyPath>: <message>`. A message can span several lines, and each line gets the prefix. A setting that
@@ -24,6 +31,11 @@ struct ConfigCheckReport: Equatable {
 /// The summary is `checked N settings, M failures`, with `, K not checked` when K is not zero. A file that does not decode
 /// checks nothing, so its summary has `checked 0 settings`. Reads and changes nothing: the text is the caller's to read.
 @WM func configFileReport(path: String, source: String) -> ConfigCheckReport {
+  configFileCheck(path: path, source: source).report
+}
+
+/// The check of a yabai.toml (see ConfigFileCheck): configFileReport, with the entries that the startup applies.
+@WM func configFileCheck(path: String, source: String) -> ConfigFileCheck {
   var lines: [String] = []
   var checked = 0
   var notChecked = 0
@@ -38,10 +50,12 @@ struct ConfigCheckReport: Equatable {
       let prefix = linePrefix(path, problem.line, problem.keyPath)
       for line in failureLines(problem.message) { lines.append(prefix + line) }
     }
-    return withSummary(lines, checked: 0, notChecked: 0, failures: failures)
+    let report = withSummary(lines, checked: 0, notChecked: 0, failures: failures)
+    return ConfigFileCheck(report: report, entries: [])
   }
 
-  for entry in document.lowered(locator: TOMLKeyLocator(source: source)) {
+  let entries = document.lowered(locator: TOMLKeyLocator(source: source))
+  for entry in entries {
     let check = checkArguments(entry.arguments)
     let prefix = linePrefix(path, entry.line, entry.keyPath)
 
@@ -58,7 +72,8 @@ struct ConfigCheckReport: Equatable {
     }
   }
 
-  return withSummary(lines, checked: checked, notChecked: notChecked, failures: failures)
+  let report = withSummary(lines, checked: checked, notChecked: notChecked, failures: failures)
+  return ConfigFileCheck(report: report, entries: entries)
 }
 
 /// The report with its summary line appended.
@@ -80,11 +95,16 @@ private func linePrefix(_ path: String, _ line: Int?, _ keyPath: String) -> Stri
   return prefix + " "
 }
 
+/// The message of a list of words, as the daemon reads it: the words as `yabai -m` sends them, without the length prefix
+/// (MessageLoop.readMessage). The startup runs its messages from it (ConfigLoader.swift), and the check reads them.
+@WM func configMessage(_ arguments: [String]) -> Message {
+  let encoded = ClientMessage.encode(arguments.map { Array($0.utf8) })
+  return Message(Array(encoded.dropFirst(MemoryLayout<Int32>.size)))
+}
+
 /// Runs the words of one message through checkMessage, as the daemon would read them.
 @WM private func checkArguments(_ arguments: [String]) -> MessageCheck {
-  // NOTE: The daemon reads a message without its length prefix (MessageLoop.readMessage), so the prefix is dropped.
-  let encoded = ClientMessage.encode(arguments.map { Array($0.utf8) })
-  var message = Message(Array(encoded.dropFirst(MemoryLayout<Int32>.size)))
+  var message = configMessage(arguments)
   return checkMessage(&message)
 }
 

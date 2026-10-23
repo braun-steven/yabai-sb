@@ -149,7 +149,7 @@ phase: done · mode: nested
 
 ## Phase 12: Tree and window features
 
-phase: in-progress · mode: nested
+phase: done · mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
@@ -413,6 +413,7 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 11:35 · subphase agent · P12.6 · done · pins implemented as in the notes row (SpacePins/SpacePinning, `space --pin`, keyed reconcile, `pinned-display`, layout keeps pinned spaces). Golden: 2 new records, none changed. `just ci-quick` passed (0 warnings, 406 + 191 tests); `just man` run. Live check added. Deviations and one Discovered line in status.md. No deploy, sudo or live action. Next: phase agent reviews P12.6 (then phase 12 `just ci`)
 - 2026-10-23 11:40 · phase agent · P12.6 · reviewed · a615b434 reviewed (SpacePins keyed by label with display uuid, pure SpacePinning.moves/pinnedSpaces, keyed .spacePinReconcile one move per pass, space_layout never moves or destroys a pinned space so the two converge, pin follows its label, one SA notice per run, pinned-display query key). Fixed myself: the pin pass skips a space that is the last user space of its display. `just ci-quick` passed (406 + 191); next phase close
 - 2026-10-23 11:47 · phase agent · P12.5 · fix · `just ci` check-build failed: its isolated copy lacked examples/skhdrc, which SkhdRecipesTests reads through #filePath (pitfall already in doc/building.md). check-build.py now copies it; building.md updated. `just ci` passed
+- 2026-10-23 11:48 · phase agent · P12 · closed · `just ci` passed (build, 406 + 191 tests, release, 11 payload tests, check-build). Summary: P12.1 `insert=` rule effect (recorded only for new windows, applied once in View.add through the shared setInsertion core; replaces a pending window --insert); P12.2 `window --label` and LABEL in WINDOW_SEL (LabelList<WindowID>, an unknown leading word of a window command now fails as an unknown label); P12.3 lastFloatingFrame restored on float when half of it is on a display, else centered (pure FloatingFrame); P12.4 TreeSnapshot/TreeHistory and `space --undo` (one recordingTreeUndo hook per dispatcher, push only on a successful change, a window-set mismatch clears the history); P12.5 skhd resize/layout/move modes in examples/skhdrc with SkhdRecipesTests (check-build copies the file); P12.6 `space --pin` keyed by label with display uuid, keyed .spacePinReconcile, space_layout never moves or destroys a pinned space. Four live checks pending (P12.1, P12.2, P12.3, P12.6). For later phases: P13.4 reuses TreeSnapshot (Sources/YabaiCore/TreeSnapshot.swift, Con+Snapshot.swift); ConZoom moved to YabaiCore; WindowSelector has a `.label` fallback, so any non-reserved word is a window selector; tests that read repository files through #filePath must be added to scripts/check-build.py
 
 ## Discovered
 

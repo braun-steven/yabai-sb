@@ -25,6 +25,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Shell completions](#shell-completions)
 - [Static config file](#static-config-file)
 - [Config check and reload](#config-check-and-reload)
+- [Editor schema for yabai.toml](#editor-schema-for-yabaitoml)
 - [IPC batch and subscribe](#ipc-batch-and-subscribe)
 
 Configuration goes in `yabai.toml` (see [Static config file](#static-config-file)); window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
@@ -416,6 +417,10 @@ Without a file, the check reads the file the daemon loads. The `[[space]]` label
 With `auto_reload` on, the daemon does the same reload when the file is saved, and it watches the file's directory so an editor that saves by renaming a new file is seen too. A save that changes the file and has an error keeps the running config: the errors go to the log and a notification names the file. Changing `auto_reload` in the file starts or stops the watch when the file is reloaded.
 
 A value set with `yabai -m config` at runtime is an override: it lasts until the next reload or restart, which puts the file's value back. `yabai -m config --overrides` lists them, one per line as `<option> <running value> (file: <value>)`, with `rules: overridden` and `signals: overridden` when those lists differ from the file. Keep a value you want to keep in the file.
+
+### Editor schema for yabai.toml
+
+`doc/yabai.schema.json` is a JSON Schema of `yabai.toml`. Taplo, and the Even Better TOML extension of VS Code that uses it, complete the keys of every table and check the values against it. A test keeps it in step with the keys that the decoder accepts and the choices that the option handlers parse. `examples/yabai.toml` starts with `#:schema ../doc/yabai.schema.json`; for your own file, point the `#:schema` line at the raw URL of the schema on the fork's main branch, or at a local copy.
 
 ### IPC batch and subscribe
 

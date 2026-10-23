@@ -70,11 +70,12 @@ mode: nested
 
 ## Phase 6: Editor and tooling support
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C6.1 | JSON Schema for `yabai.toml` | todo | |
+| C6.1 | JSON Schema for `yabai.toml` | done | `doc/yabai.schema.json` (draft 2020-12, generated from the man page descriptions and the handler choices): `[config]` (61 options, each typed, choice `enum`s, ranges), `[[space]]`, `[[rule]]` (negatable keys take `{ not = … }`), `[[signal]]`, `[daemon]`, `additionalProperties: false` everywhere. The key lists of rules and signals moved into `ConfigTableKeys` (`ConfigDocumentDecoding.swift`), which the decoder uses. `WorkspaceLayout` is no longer private. Deviations: the test is `tests/YabaiTests/ConfigSchemaTests.swift`, not YabaiCoreTests, because the choice types are in the Yabai target; the `[daemon]` and `[[space]]` (`index`, `label`, `pin`) keys stay literal in the decoder, so the test checks them against literal sets; the rule `insert` enum is a literal (`InsertDirection` has no string raw values). Acceptance: adding `zz_schema_probe` to `ConfigCommand.Name` made the schema test fail (`configPropertiesAreTheOptionNames`), then the probe was removed. `examples/yabai.toml` has `#:schema ../doc/yabai.schema.json`; the man page CONFIGURATION section and README ("Editor schema for yabai.toml") explain it. The example validates against the schema (checked with a small validator, no jsonschema package). Gate quick passed (494 + 256 tests, 0 warnings). Live check added. |
 | C6.2 | `config --dump` prints the running config as TOML | todo | |
 
 ## Handoff log
@@ -129,6 +130,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 22:44 · subphase agent · C5.2 · started · C5.2 (docs: yabai.asciidoc CONFIGURATION/FILES, README, architecture, live-testing, AGENTS.md --check-config, CHANGELOG breaking entry, live check)
 - 2026-10-23 22:50 · subphase agent · C5.2 · done (commit pending) · C5 close (`just ci`, then phase 6); the CHANGELOG unreleased Changed lines about the yabairc warning are left as history (see Discovered)
 - 2026-10-23 22:58 · phase agent · C5 · closed, just ci passed · phase 6. Summary: no code reads, spawns or checks a yabairc any more (C5.1: execConfigFile and the sh spawn, configFileChoice, the leftover warning, resetConfigToStartupDefaults, Log.verboseAtStartup, Headless.configFiles, configCheckReport, isTOML, the ~/.<name> candidate and examples/yabairc deleted). Deviation: the sh word lexer stays in YabaiCore as ShellWords.swift because `yabai -m batch` parses stdin with it (parseBatchInput); only extractYabaiCommands moved to tests/YabaiTests/Support/ShellCommandExtractor.swift for SkhdRecipesTests. C5.2 rewrote the man page CONFIGURATION section (every table and key, value types, overrides, auto-reload, config_loaded, --check-config, apply order) and added a Files section; README, architecture, live-testing, AGENTS.md and one breaking CHANGELOG entry. Phase-agent fix: the unreleased CHANGELOG lines about the deleted yabairc warnings (C5.2 Fix). Live check C5.2 (the user deletes ~/.config/yabai/yabairc). For phase 6: `Config.resetToDefaults` has only the test fixture as caller (Discovered); the man page key lists of [[rule]]/[[signal]] are hand-written (Discovered), which the C6.1 schema test could also cover.
+- 2026-10-23 23:10 · phase agent · C6 · started (nested) · C6.1
+- 2026-10-23 23:02 · subphase agent · C6.1 · started · C6.1 (schema file, schema test, ConfigTableKeys, examples, man page, CHANGELOG, README, live check)
+- 2026-10-23 23:40 · subphase agent · C6.1 · done · C6.2 (`config --dump`); live check C6.1 added (Taplo or the VS Code TOML extension on examples/yabai.toml)
 
 ## Discovered
 
@@ -163,4 +167,4 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 - C4.2: the sudoers entry must name the path the daemon runs: `ScriptingAdditionLoader` runs the realpath of the binary, and `sudo -n` matches that path, so a Homebrew symlink in the entry may not match (`Sources/Yabai/ScriptingAdditionLoader.swift`, `init`; `scripts/install.sh` writes the link path). The live check covers it; the man page says `realpath`.
 - C5.1: `Config.resetToDefaults` (`Sources/Yabai/Config.swift`) has no production caller now; only the DaemonState test fixture uses it (`tests/YabaiTests/DaemonState.swift`). Fold it into the fixture when a later cleanup touches it.
 - C5.2: two unreleased *Changed* CHANGELOG entries describe the yabairc notices that C5.1 deleted ("Startup warns and sends a notification when a yabairc exists" and "When several yabairc files exist"); left as they are, since old CHANGELOG entries stay. Remove or rewrite them before the release (`CHANGELOG.md`, Unreleased, Changed). Fixed by C5.2 Fix: the leftover-warning line is removed, and the other now describes the two `yabai.toml` candidates (the warning still exists in `loadStartupConfig`).
-- C5.2: the man page's `[[signal]]` and `[[rule]]` keys are the `signal --add` and `rule --add` keys read by the decoder (`ConfigDocumentDecoding.swift`), not checked against the parsers by a test; a test that compares the key lists with the man page would catch drift (`Sources/YabaiCore/ConfigDocumentDecoding.swift`, `doc/yabai.asciidoc`).
+- C5.2: the man page's `[[signal]]` and `[[rule]]` keys are the `signal --add` and `rule --add` keys read by the decoder (`ConfigDocumentDecoding.swift`), not checked against the parsers by a test; a test that compares the key lists with the man page would catch drift (`Sources/YabaiCore/ConfigDocumentDecoding.swift`, `doc/yabai.asciidoc`). Fixed by C6.1: the decoder's rule and signal key sets are `ConfigTableKeys` (`ConfigDocumentDecoding.swift`), and `tests/YabaiTests/ConfigSchemaTests.swift` checks the schema against them; the man page key lists themselves are still hand-written.

@@ -1,19 +1,24 @@
 import TOMLDecoder
 
-// NOTE: The keys of `rule --add` (`parseRule` in Sources/YabaiCore/Rule.swift). `one_shot` is not in this list: it is a
-// boolean of the table, read separately.
-private let ruleKeys: Set<String> = [
-  "label", "scratchpad", "app", "title", "role", "subrole", "display", "space", "insert", "grid",
-  "opacity", "manage",
-  "sticky", "mouse_follows_focus", "native-fullscreen", "sub-layer",
-]
-private let ruleNegatableKeys: Set<String> = ["app", "title", "role", "subrole"]
+/// The keys that the decoder accepts in each table, and the keys that take `{ not = … }`. The schema test
+/// (`tests/YabaiTests/ConfigSchemaTests.swift`) checks `doc/yabai.schema.json` against these sets.
+public enum ConfigTableKeys {
+  /// The top-level tables.
+  public static let topLevel: Set<String> = ["daemon", "config", "space", "rule", "signal"]
 
-// NOTE: The keys of `signal --add` (`parseSignal` in Sources/YabaiCore/Rule.swift).
-private let signalKeys: Set<String> = ["label", "app", "title", "active", "action", "event"]
-private let signalNegatableKeys: Set<String> = ["app", "title"]
+  // NOTE: The keys of `rule --add` (`parseRule` in Sources/YabaiCore/Rule.swift). `one_shot` is not in this list: it is
+  // a boolean of the table, read separately.
+  public static let rule: Set<String> = [
+    "label", "scratchpad", "app", "title", "role", "subrole", "display", "space", "insert", "grid",
+    "opacity", "manage",
+    "sticky", "mouse_follows_focus", "native-fullscreen", "sub-layer",
+  ]
+  public static let ruleNegatable: Set<String> = ["app", "title", "role", "subrole"]
 
-private let topLevelTables: Set<String> = ["daemon", "config", "space", "rule", "signal"]
+  // NOTE: The keys of `signal --add` (`parseSignal` in Sources/YabaiCore/Rule.swift).
+  public static let signal: Set<String> = ["label", "app", "title", "active", "action", "event"]
+  public static let signalNegatable: Set<String> = ["app", "title"]
+}
 
 // NOTE: The keys of a table come from `TOMLTable.keys`, which lists its plain values first, then its arrays, then its
 // inline and sub-tables (`TOMLDocument.allKeys`). The file order across those kinds is not public, so a decoded list
@@ -71,7 +76,7 @@ struct ConfigDocumentDecoder {
 
   mutating func decode(_ root: TOMLTable) -> ConfigDocument {
     var document = ConfigDocument()
-    for name in root.keys where !topLevelTables.contains(name) {
+    for name in root.keys where !ConfigTableKeys.topLevel.contains(name) {
       fail(name, "unknown table '\(name)'")
     }
     if let table = subtable(root, "daemon") {
@@ -270,13 +275,15 @@ struct ConfigDocumentDecoder {
       oneShot = bool(table, "one_shot", "\(path).one_shot") ?? false
     }
     let keys = keyList(
-      table, path: path, allowed: ruleKeys, negatable: ruleNegatableKeys, skipping: ["one_shot"])
+      table, path: path, allowed: ConfigTableKeys.rule, negatable: ConfigTableKeys.ruleNegatable,
+      skipping: ["one_shot"])
     return RuleEntry(keys: keys, oneShot: oneShot, keyPath: path)
   }
 
   private mutating func signalEntry(_ table: TOMLTable, path: String) -> SignalEntry {
     let keys = keyList(
-      table, path: path, allowed: signalKeys, negatable: signalNegatableKeys, skipping: [])
+      table, path: path, allowed: ConfigTableKeys.signal,
+      negatable: ConfigTableKeys.signalNegatable, skipping: [])
     // NOTE: Presence in the table, not in `keys`: a required key with a bad value was reported already.
     for required in ["event", "action"] where !table.contains(key: required) {
       fail("\(path).\(required)", "missing required key '\(required)'")

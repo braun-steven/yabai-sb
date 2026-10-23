@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Editor support for *yabai.toml*: `doc/yabai.schema.json` is a JSON Schema of the file (Taplo and the Even Better TOML extension of VS Code complete and check every table and key); a test keeps it in step with the keys that the decoder and the option handlers accept, and `examples/yabai.toml` names it with a `#:schema` line
 - Commands *space --save-layout <NAME>* and *space --restore-layout <NAME>* write the tree of the selected space to `<NAME>.json` in `$XDG_CONFIG_HOME/yabai/layouts` (or `~/.config/yabai/layouts`), saving each window by its application, title, role and subrole instead of its id, and rebuild that tree from the file with the windows on the space now; the restore is undone by *space --undo*, and a window that opens later is not placed by the file
 - Config *mouse_drop_preview outline|ghost* shows a translucent copy of the dragged window in the area where a drop would land (the half or whole window, and for a swap the other window in the dragged window's place); *outline*, the default, keeps the outline only
 - Config *mouse_drag_split on|off* resizes the split between two tiled windows by dragging the gap between them with the left button; the gap follows the pointer and neither window goes below its minimum share

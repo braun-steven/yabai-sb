@@ -14,7 +14,7 @@ import YabaiCore
 typealias ConfigName = ConfigCommand.Name
 
 /// The layout of the workspace root of new trees (`config tree_workspace_layout`).
-private enum WorkspaceLayout: String, CaseIterable {
+enum WorkspaceLayout: String, CaseIterable {
   case `default`
   case tabbed
 }

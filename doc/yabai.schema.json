@@ -1,0 +1,750 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "yabai.toml",
+  "description": "The configuration file of yabai, read by the daemon at startup and on each reload.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "daemon": {
+      "description": "Settings of the daemon itself: the file watch and the scripting addition load.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto_reload": {
+          "description": "Reload the file when it is saved, as config --reload does.",
+          "type": "boolean"
+        },
+        "load_scripting_addition": {
+          "description": "Load the scripting addition at startup, after each Dock restart, and when a reload turns this on, with sudo -n.",
+          "type": "boolean"
+        }
+      }
+    },
+    "config": {
+      "description": "One key for each option of yabai -m config, under the option's name.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "debug_output": {
+          "description": "Enable output of debug information to stdout.",
+          "type": "boolean"
+        },
+        "mouse_follows_focus": {
+          "description": "When focusing a window, put the mouse at its center.",
+          "type": "boolean"
+        },
+        "focus_follows_mouse": {
+          "description": "Automatically focus the window under the mouse.",
+          "anyOf": [
+            {
+              "const": false
+            },
+            {
+              "enum": [
+                "off",
+                "autofocus",
+                "autoraise"
+              ]
+            }
+          ]
+        },
+        "display_arrangement_order": {
+          "description": "Specify how displays are ordered (determined by center point).",
+          "enum": [
+            "default",
+            "horizontal",
+            "vertical"
+          ]
+        },
+        "builtin_display_last": {
+          "description": "Order the built-in display after all other displays.",
+          "type": "boolean"
+        },
+        "window_origin_display": {
+          "description": "Specify which display a newly created window should be managed in.",
+          "enum": [
+            "default",
+            "focused",
+            "cursor"
+          ]
+        },
+        "window_opacity": {
+          "description": "Enable opacity for windows.",
+          "type": "boolean"
+        },
+        "window_opacity_duration": {
+          "description": "Duration of transition between active / normal opacity.",
+          "type": "number"
+        },
+        "window_animation_duration": {
+          "description": "Duration of window frame animation.",
+          "type": "number"
+        },
+        "window_animation_easing": {
+          "description": "Easing function to use for window animations.",
+          "enum": [
+            "ease_in_sine",
+            "ease_out_sine",
+            "ease_in_out_sine",
+            "ease_in_quad",
+            "ease_out_quad",
+            "ease_in_out_quad",
+            "ease_in_cubic",
+            "ease_out_cubic",
+            "ease_in_out_cubic",
+            "ease_in_quart",
+            "ease_out_quart",
+            "ease_in_out_quart",
+            "ease_in_quint",
+            "ease_out_quint",
+            "ease_in_out_quint",
+            "ease_in_expo",
+            "ease_out_expo",
+            "ease_in_out_expo",
+            "ease_in_circ",
+            "ease_out_circ",
+            "ease_in_out_circ"
+          ]
+        },
+        "window_shadow": {
+          "description": "Draw shadow for windows.",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "on",
+                "float",
+                "off"
+              ]
+            }
+          ]
+        },
+        "menubar_opacity": {
+          "description": "Changes the transparency of the macOS menubar.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "active_window_opacity": {
+          "description": "Opacity of the focused window.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "normal_window_opacity": {
+          "description": "Opacity of an unfocused window.",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "insert_feedback_color": {
+          "description": "Color of the window --insert message and mouse_drag selection.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "window_border": {
+          "description": "Draw a border around each window, in the active color for the focused window and in the normal color otherwise.",
+          "type": "boolean"
+        },
+        "window_border_width": {
+          "description": "Width of the window border in points.",
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "window_border_hide_single": {
+          "description": "Hide the border while a tiled window is alone on its space.",
+          "type": "boolean"
+        },
+        "active_window_border_color": {
+          "description": "Color of the border of the focused window.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "normal_window_border_color": {
+          "description": "Color of the border of every other window.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar": {
+          "description": "Draw a tab bar on top of every tabbed container, like the tabbed layout of i3.",
+          "type": "boolean"
+        },
+        "tab_bar_height": {
+          "description": "Height of the tab bar in points.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "tab_bar_offset": {
+          "description": "Space in points between the bottom of the tab bar and the windows of the container, inside the backdrop card if there is one.",
+          "type": "integer"
+        },
+        "tab_bar_backdrop": {
+          "description": "Backdrop card of the 'glass' tab bar style.",
+          "enum": [
+            "off",
+            "glass",
+            "blur"
+          ]
+        },
+        "tab_bar_backdrop_color": {
+          "description": "Optional tint of the backdrop card.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_card_padding": {
+          "description": "Space in points between the edges of the backdrop card and the tab bar and windows inside it.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tab_bar_window_radius": {
+          "description": "Corner radius in points that windows are assumed to have.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "tab_bar_style": {
+          "description": "Look of the tab bar.",
+          "enum": [
+            "glass",
+            "i3"
+          ]
+        },
+        "tab_bar_appearance": {
+          "description": "Appearance of glass tab bars.",
+          "enum": [
+            "dark",
+            "system"
+          ]
+        },
+        "tab_bar_font": {
+          "description": "Font of the tab titles, e.g. 'Menlo:12'.",
+          "type": "string"
+        },
+        "tab_bar_icons": {
+          "description": "Draw the application icon left of the title in each window tab.",
+          "type": "boolean"
+        },
+        "tab_bar_focused_color": {
+          "description": "Background and text color of the active tab of the tabbed container that holds the focused window.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_focused_text_color": {
+          "description": "Background and text color of the active tab of the tabbed container that holds the focused window.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_inactive_color": {
+          "description": "Background and text color of the active tab of every other tabbed container.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_inactive_text_color": {
+          "description": "Background and text color of the active tab of every other tabbed container.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_unfocused_color": {
+          "description": "Background and text color of the tabs that are not active.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tab_bar_unfocused_text_color": {
+          "description": "Background and text color of the tabs that are not active.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "top_padding": {
+          "description": "Padding added at the upper side of the selected space.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "bottom_padding": {
+          "description": "Padding added at the lower side of the selected space.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "left_padding": {
+          "description": "Padding added at the left side of the selected space.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "right_padding": {
+          "description": "Padding added at the right side of the selected space.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "window_gap": {
+          "description": "Size of the gap that separates windows for the selected space.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "layout": {
+          "description": "Set the layout of the selected space.",
+          "enum": [
+            "float",
+            "tree"
+          ]
+        },
+        "auto_padding": {
+          "description": "Remove padding on 'tree' spaces that hold at most one tiled container, so that it fills the whole area of the display (the menu bar, Dock and 'external_bar' are still respected).",
+          "type": "boolean"
+        },
+        "tree_default_orientation": {
+          "description": "Orientation of an empty 'tree' space when its first window opens, like i3's 'default_orientation'.",
+          "enum": [
+            "auto",
+            "horizontal",
+            "vertical"
+          ]
+        },
+        "tree_workspace_layout": {
+          "description": "Like i3's 'workspace_layout'.",
+          "enum": [
+            "default",
+            "tabbed"
+          ]
+        },
+        "tree_autotiling": {
+          "description": "Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree.",
+          "type": "boolean"
+        },
+        "focus_wrapping": {
+          "description": "What window --focus 'north|east|south|west' does at the edge of a 'tree' space, like i3's 'focus_wrapping'.",
+          "enum": [
+            "off",
+            "on",
+            "force"
+          ]
+        },
+        "mouse_modifier": {
+          "description": "Keyboard modifier used for moving and resizing windows.",
+          "enum": [
+            "alt",
+            "shift",
+            "cmd",
+            "ctrl",
+            "fn"
+          ]
+        },
+        "mouse_action1": {
+          "description": "Action performed when pressing 'mouse_modifier' + 'button1'.",
+          "enum": [
+            "move",
+            "resize"
+          ]
+        },
+        "mouse_action2": {
+          "description": "Action performed when pressing 'mouse_modifier' + 'button2'.",
+          "enum": [
+            "move",
+            "resize"
+          ]
+        },
+        "mouse_drop_action": {
+          "description": "Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.",
+          "enum": [
+            "swap",
+            "stack"
+          ]
+        },
+        "mouse_drop_preview": {
+          "description": "What a managed window dragged over another managed window shows where it would be dropped.",
+          "enum": [
+            "outline",
+            "ghost"
+          ]
+        },
+        "mouse_drag_split": {
+          "description": "Dragging with the left button, without the 'mouse_modifier' key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share.",
+          "type": "boolean"
+        },
+        "external_bar": {
+          "description": "Specify top and bottom padding for a potential custom bar that you may be running.",
+          "type": "string",
+          "pattern": "^(off|main|all):-?[0-9]+:-?[0-9]+$"
+        },
+        "skip_window_focus_animation": {
+          "description": "Bypass macOS space animation when an application or window on an inactive space is focused.",
+          "type": "boolean"
+        },
+        "space_layout": {
+          "description": "Keep a fixed number of spaces on each display.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9]"
+          }
+        },
+        "scratchpad_exclusive": {
+          "description": "Keep at most one scratchpad window shown.",
+          "type": "boolean"
+        },
+        "scratchpad_raise": {
+          "description": "When window --toggle '<LABEL>' acts on a scratchpad that is shown on the active space but does not have focus, focus and raise it instead of hiding it.",
+          "type": "boolean"
+        },
+        "scratchpad_below": {
+          "description": "Put scratchpad windows on the same stacking sub-layer as tiled windows instead of above them, so focusing a tiled window brings it in front of a shown scratchpad.",
+          "type": "boolean"
+        },
+        "scratchpad_grid": {
+          "description": "Set the frame of a scratchpad window, as with window --grid, each time window --toggle '<LABEL>' shows it while it was hidden.",
+          "anyOf": [
+            {
+              "const": "off"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9]+(:[0-9]+){5}$"
+            }
+          ]
+        }
+      }
+    },
+    "space": {
+      "description": "One table for each space that has a label, a pin or its own options.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index"
+        ],
+        "properties": {
+          "index": {
+            "description": "The Mission Control index of the space, from 1.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "label": {
+            "description": "The label of the space, as with space --label.",
+            "type": "string"
+          },
+          "pin": {
+            "description": "The display that the space is pinned to, as with space --pin.",
+            "type": "string"
+          },
+          "top_padding": {
+            "description": "Padding added at the upper side of the selected space.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "bottom_padding": {
+            "description": "Padding added at the lower side of the selected space.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "left_padding": {
+            "description": "Padding added at the left side of the selected space.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "right_padding": {
+            "description": "Padding added at the right side of the selected space.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "window_gap": {
+            "description": "Size of the gap that separates windows for the selected space.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "layout": {
+            "description": "Set the layout of the selected space.",
+            "enum": [
+              "float",
+              "tree"
+            ]
+          },
+          "auto_padding": {
+            "description": "Remove padding on 'tree' spaces that hold at most one tiled container, so that it fills the whole area of the display (the menu bar, Dock and 'external_bar' are still respected).",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "rule": {
+      "description": "One table for each rule, with the keys of rule --add.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "description": "Label used to identify the rule with a unique name.",
+            "type": "string"
+          },
+          "app": {
+            "description": "Name of application.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "title": {
+            "description": "Title of window.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "role": {
+            "description": "Accessibility role of window.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "subrole": {
+            "description": "Accessibility subrole of window.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "display": {
+            "description": "Send window to display.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "space": {
+            "description": "Send window to space.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "insert": {
+            "description": "Place a new window as window --insert does.",
+            "enum": [
+              "north",
+              "east",
+              "south",
+              "west",
+              "stack"
+            ]
+          },
+          "grid": {
+            "description": "Set window frame based on a self-defined grid.",
+            "type": "string",
+            "pattern": "^[0-9]+(:[0-9]+){5}$"
+          },
+          "opacity": {
+            "description": "Set window opacity.",
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "manage": {
+            "description": "Window should be managed (tile vs float).",
+            "type": "boolean"
+          },
+          "sticky": {
+            "description": "Window appears on all spaces.",
+            "type": "boolean"
+          },
+          "mouse_follows_focus": {
+            "description": "When focusing the window, put the mouse at its center.",
+            "type": "boolean"
+          },
+          "sub-layer": {
+            "description": "Window is ordered within the given stacking sub-layer.",
+            "enum": [
+              "auto",
+              "below",
+              "normal",
+              "above"
+            ]
+          },
+          "native-fullscreen": {
+            "description": "Window should enter native macOS fullscreen mode.",
+            "type": "boolean"
+          },
+          "scratchpad": {
+            "description": "Unique identifier used to identify a window scratchpad.",
+            "type": "string"
+          },
+          "one_shot": {
+            "description": "Apply the rule once and remove it (rule --add --one-shot).",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "signal": {
+      "description": "One table for each signal, with the keys of signal --add.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event",
+          "action"
+        ],
+        "properties": {
+          "label": {
+            "description": "Label used to identify the signal with a unique name.",
+            "type": "string"
+          },
+          "app": {
+            "description": "Name of application.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "title": {
+            "description": "Title of window.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "not": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "not"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "active": {
+            "description": "Filter on the active or focused state, yes or no in signal --add.",
+            "type": "boolean"
+          },
+          "action": {
+            "description": "Arbitrary command executed through /usr/bin/env sh -c.",
+            "type": "string"
+          },
+          "event": {
+            "description": "The event that triggers the signal.",
+            "enum": [
+              "application_launched",
+              "application_terminated",
+              "application_front_switched",
+              "application_activated",
+              "application_deactivated",
+              "application_visible",
+              "application_hidden",
+              "window_created",
+              "window_destroyed",
+              "window_focused",
+              "window_moved",
+              "window_resized",
+              "window_minimized",
+              "window_deminimized",
+              "window_title_changed",
+              "space_created",
+              "space_destroyed",
+              "space_changed",
+              "display_added",
+              "display_removed",
+              "display_moved",
+              "display_resized",
+              "display_changed",
+              "mission_control_enter",
+              "mission_control_exit",
+              "dock_did_change_pref",
+              "dock_did_restart",
+              "menu_bar_hidden_changed",
+              "system_woke",
+              "config_loaded"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

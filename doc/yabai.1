@@ -189,6 +189,8 @@ One table for each signal, with the keys of \fBsignal \-\-add\fP: \f(CRevent\fP 
 .RE
 .sp
 The settings are applied in this order: the \f(CR[config]\fP options (\fBspace_layout\fP after the others), then the \f(CR[[space]]\fP labels, pins and options, then the rules and the signals, each list in the order of the file, and \fBconfig_loaded\fP last. At startup the rules exist before the existing windows are adopted, so they apply to those windows too. A setting that fails while it is applied is logged: at startup a notification counts the failures, and the other settings are still applied.
+.sp
+Editors can check and complete the file with \f(CRdoc/yabai.schema.json\fP, a JSON Schema of the keys above. It is the schema that Taplo and the Even Better TOML extension of VS Code read, and a test keeps it in step with the keys the daemon accepts. Point the editor at it with a \f(CR#:schema\fP line as the first line of the file: \f(CR#:schema ../doc/yabai.schema.json\fP in \f(CRexamples/yabai.toml\fP (a relative path), or, for \f(CR~/.config/yabai/yabai.toml\fP, the URL \f(CRhttps://raw.githubusercontent.com/braun\-steven/yabai/main/doc/yabai.schema.json\fP (once it is on the fork\(cqs main branch), or the path of a local copy. The schema is an aid: the daemon checks the file itself, and an error is still reported by \fB\-\-check\-config\fP.
 .SH "DEFINITIONS"
 .sp
 .if n .RS 4

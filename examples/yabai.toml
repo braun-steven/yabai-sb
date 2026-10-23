@@ -1,3 +1,4 @@
+#:schema ../doc/yabai.schema.json
 # Example yabai configuration. Copy it to ~/.config/yabai/yabai.toml and change it.
 # Each [config] line is the `yabai -m config <option>` of the same name. Check a file with `yabai --check-config <file>`.
 

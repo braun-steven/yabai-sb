@@ -30,6 +30,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *config --reload [<file>]* runs the yabairc again without restarting the daemon: it checks the file as *config --check* does and, when there is no failure, resets the config to its startup defaults, removes every rule and signal, and runs the file as at startup; windows and spaces stay as they are
 - Command *batch* (`yabai -m batch`) runs many commands in one message: their words are read from stdin, one command per line, without `yabai -m`; the commands run in order, a failing one is reported with its index in the batch, and the response fails if any command failed
 - Command *subscribe* (`yabai -m subscribe [<event>…]`) streams the named events, or every event, to the client as JSON lines, after a first line that lists the subscribed events; a subscriber that does not read is dropped after 1 MiB of waiting events or a 5 second write timeout
+- Rule property *insert='<DIR_SEL>|stack'* places a new window as *window --insert* does, next to the focused window of its tree or as a tab of its container, e.g. `yabai -m rule --add app='^Terminal$' insert=stack`; *rule --list* reports it as *insert*
 
 ### Changed
 - Window animations are skipped while Reduce Motion is on: windows move at once, like the glass tab bar transitions, and *window_animation_duration* keeps its configured value

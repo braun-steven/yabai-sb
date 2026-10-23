@@ -853,6 +853,11 @@ ARGUMENT
     If this rule matches multiple windows, only the first window that matched will be assigned this scratchpad identifier. +
     System Integrity Protection must be partially disabled.
 
+*insert='<DIR_SEL>|stack'*::
+    Place a new window as *window --insert* does: next to the focused window of the tree on the given side, or as a tab of its tabbed container with *stack*. +
+    The effect applies when the window is first added to a tree. A window that is already tiled is not moved by *rule --apply*. +
+    It takes precedence over *tree_autotiling*, and has no effect on a window with (manage=off).
+
 DATAFORMAT
 ^^^^^^^^^^
 
@@ -878,6 +883,7 @@ DATAFORMAT
     "native-fullscreen": bool (optional),
     "grid": string,
     "scratchpad": string,
+    "insert": string,
     "one-shot": bool,
     "flags": string
 }

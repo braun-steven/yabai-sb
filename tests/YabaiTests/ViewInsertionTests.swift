@@ -468,6 +468,90 @@ extension DaemonState {
       #expect(space.node(2).title as String? == "iTerm2")
     }
 
+    // MARK: - insert= of a rule
+
+    // NOTE: the rule effect of a new window must place it as window --insert does: the same tree as the insertion
+    // set by hand on the focused window, here the window 1 of the tree.
+    @Test(arguments: [InsertDirection.north, .east, .south, .west, .stack])
+    func ruleInsertionGivesTheTreeOfWindowInsert(_ direction: InsertDirection) {
+      let manual = Workspace()
+      manual.open(1, focus: true)
+      manual.open(2, focus: true)
+      manual.focus(1)
+      manual.view.insertionPoint = wid(1)
+      manual.node(1).insertDirection = direction
+      manual.open(3, focus: true)
+      let expected = manual.dump
+
+      let rule = Workspace()
+      rule.open(1, focus: true)
+      rule.open(2, focus: true)
+      rule.focus(1)
+      rule.open(3, focus: true, insertByRule: direction)
+
+      #expect(rule.dump == expected)
+      #expect(rule.view.insertionPoint == nil)
+      #expect(rule.node(1).insertDirection == nil)
+    }
+
+    @Test func ruleInsertionWinsOverAutotiling() {
+      Config.current.space.treeAutotiling = true
+      let space = Workspace()
+      space.open(1, focus: true)
+      // NOTE: autotiling alone would put w2 to the east, next to w1
+      space.open(2, focus: true, insertByRule: .north)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splitv
+          w2 0.5000
+          w1 0.5000
+        """
+      }
+    }
+
+    @Test func ruleInsertionFollowsTheFocusOfTheTreeNotTheSystem() {
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      // NOTE: the system focus is a window that is not in this tree; the tree still focuses w2
+      WindowManager.shared.focus.focusChanged(to: wid(9))
+
+      space.open(3, insertByRule: .stack)
+
+      #expect(space.node(2).parent?.layout == .tabbed)
+      #expect(space.node(3).parent === space.node(2).parent)
+    }
+
+    @Test func ruleInsertionIntoAnEmptyViewIsIgnored() {
+      let space = Workspace()
+      let target = space.open(1, focus: true, insertByRule: .stack)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splith
+          w1 1.0000
+        """
+      }
+      #expect(space.view.insertionPoint == nil)
+      #expect(target.insertionByRule == nil)
+    }
+
+    // NOTE: the insertion is taken by the first add of the window and leaves nothing pending for the next window.
+    @Test func ruleInsertionAppliesOnceAndLeavesNothingPending() {
+      let space = Workspace()
+      space.open(1, focus: true)
+      let target = space.open(2, focus: true, insertByRule: .north)
+      #expect(target.insertionByRule == nil)
+      #expect(space.view.insertionPoint == nil)
+      #expect(space.node(1).insertDirection == nil)
+
+      space.open(3, focus: true)
+
+      #expect(space.view.insertionPoint == nil)
+      #expect(!space.dump.contains("tabbed"))
+    }
+
     // MARK: - View.remove
 
     @Test func removingAWindowNotInTheTreeDoesNothing() {

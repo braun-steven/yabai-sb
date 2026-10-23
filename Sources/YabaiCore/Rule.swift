@@ -160,9 +160,14 @@ public struct RuleEffects: Sendable {
   public var fullscreen: Bool?
   public var grid = Grid()
   public var scratchpad: String?
+  public var insert: InsertDirection?
   public var flags: RuleEffectsFlags = []
 
   public init() {}
+
+  /// The insertion a window gets when a rule matches it as a new window: none when the rule sets manage=off, as the
+  /// window is then not tiled.
+  public var insertionForNewWindow: InsertDirection? { manage == false ? nil : insert }
 
   /// `rule_combine_effects`: applies the effects of a later rule that matches the same window to self.
   public mutating func combine(_ effects: RuleEffects) {
@@ -190,6 +195,8 @@ public struct RuleEffects: Sendable {
     if let scratchpad = effects.scratchpad {
       self.scratchpad = scratchpad
     }
+
+    if let insert = effects.insert { self.insert = insert }
 
     if let manage = effects.manage { self.manage = manage }
     if let sticky = effects.sticky { self.sticky = sticky }
@@ -260,7 +267,7 @@ public struct RuleInfo: Encodable, Sendable {
     case mouseFollowsFocus = "mouse_follows_focus"
     case subLayer = "sub-layer"
     case fullscreen = "native-fullscreen"
-    case grid, scratchpad
+    case grid, scratchpad, insert
     case oneShot = "one-shot"
     case flags
   }
@@ -284,6 +291,8 @@ public struct RuleInfo: Encodable, Sendable {
   public var fullscreen: Bool?
   public var grid: String
   public var scratchpad: String
+  /// The side of `insert=`, "" without one ("north", "east", "south", "west" or "stack").
+  public var insert: String
   public var oneShot: Bool
   public var flags: String
 
@@ -307,6 +316,7 @@ public struct RuleInfo: Encodable, Sendable {
     try container.encode(fullscreen, forKey: .fullscreen)
     try container.encode(grid, forKey: .grid)
     try container.encode(scratchpad, forKey: .scratchpad)
+    try container.encode(insert, forKey: .insert)
     try container.encode(oneShot, forKey: .oneShot)
     try container.encode(flags, forKey: .flags)
   }
@@ -338,6 +348,7 @@ extension Rule {
       fullscreen: effects.fullscreen,
       grid: gridText,
       scratchpad: effects.scratchpad ?? "",
+      insert: effects.insert?.argument ?? "",
       oneShot: oneShot,
       flags: cFormat("0x%08x", listFlags))
   }
@@ -441,6 +452,13 @@ public func parseRule<C: SelectorContext>(
         }
       } else {
         scanner.fail(SpaceSelector.invalid(value))
+      }
+    } else if key.equals("insert") {
+      // NOTE: the same selector as window --insert: a direction or stack.
+      if let insert = try? parseInsertSelector(value) {
+        rule.effects.insert = insert
+      } else {
+        validValue = false
       }
     } else if key.equals("grid") {
       validValue = rule.effects.grid.parse(value)

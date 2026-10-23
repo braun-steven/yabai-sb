@@ -202,6 +202,11 @@ rule --add label= app=y
 rule --remove üml
 rule --list
 rule --foo
+rule --add app=Foo insert=bogus
+rule --add app=Foo insert=
+rule --add label=ins app=Terminal insert=stack
+rule --add label=ins2 app=Notes insert=west
+rule --list
 
 # signal
 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf

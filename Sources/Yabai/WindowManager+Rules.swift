@@ -125,26 +125,31 @@ extension WindowManager {
     }
   }
 
+  /// Applies the effects of the matching rules and returns them combined; nil when no rule matches.
+  @discardableResult
   func applyRules(
     to target: Window,
     title: String,
     role: String,
     subrole: String,
     includingOneShotRules: Bool
-  ) {
+  ) -> RuleEffects? {
     var effects = RuleEffects()
 
-    if combineMatchingRuleEffects(
-      for: target,
-      title: title,
-      role: role,
-      subrole: subrole,
-      includingOneShotRules: includingOneShotRules,
-      manageRound: false,
-      into: &effects
-    ) {
-      applyRuleEffects(effects, to: target)
-    }
+    guard
+      combineMatchingRuleEffects(
+        for: target,
+        title: title,
+        role: role,
+        subrole: subrole,
+        includingOneShotRules: includingOneShotRules,
+        manageRound: false,
+        into: &effects
+      )
+    else { return nil }
+
+    applyRuleEffects(effects, to: target)
+    return effects
   }
 
   func reapplyAllRules() {

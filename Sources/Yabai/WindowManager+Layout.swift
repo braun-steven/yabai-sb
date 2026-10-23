@@ -15,7 +15,16 @@ extension WindowManager {
 
     guard let node = owner.tree?.find(target.id) else { throw .invalidSourceNode }
 
-    if owner.insertionPoint != nil && owner.insertionPoint != target.id {
+    setInsertion(of: node, in: owner, direction)
+  }
+
+  //
+  // NOTE: The insertion of window --insert, shared with insert= rules. The view keeps one pending insertion: a new one
+  // replaces it, and asking for the direction the node already has cancels it. The next add to the view consumes it.
+  //
+
+  func setInsertion(of node: Con, in owner: View, _ direction: InsertDirection) {
+    if owner.insertionPoint != nil && owner.insertionPoint != node.windowID {
       if let insert = owner.tree?.find(owner.insertionPoint) {
         insert.insertDirection = nil
         insert.hideFeedback()
@@ -30,7 +39,7 @@ extension WindowManager {
     }
 
     node.insertDirection = direction
-    owner.insertionPoint = target.id
+    owner.insertionPoint = node.windowID
     if owner.sid.isVisible { node.showFeedback(direction: direction) }
   }
 

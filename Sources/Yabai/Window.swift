@@ -71,10 +71,13 @@ struct WindowAXState: Equatable, Sendable {
   var isDestroyed = false
 
   // NOTE: These record rule effects: `isManagedByRule` remains true while a rule manages the window; `isFullscreenByRule`
-  // skips floating it once at creation; `mouseFollowsFocusByRule` overrides the configured value.
+  // skips floating it once at creation; `mouseFollowsFocusByRule` overrides the configured value. `insertionByRule` is
+  // the insert= of the rule that matched the window as new: the first add of the window to a tree takes it (View.add),
+  // so it applies once, and never to a window the rules only re-apply to.
   var isManagedByRule = false
   var isFullscreenByRule = false
   var mouseFollowsFocusByRule: Bool?
+  var insertionByRule: InsertDirection?
   var opacity: Float = 0
   var layer = WindowLayer.auto
   var scratchpad: String?

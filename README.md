@@ -10,6 +10,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Tab bars and adaptive glass](#tab-bars-and-adaptive-glass)
 - [Exclusive scratchpads](#exclusive-scratchpads)
 - [Native window borders](#native-window-borders)
+- [Rule placement](#rule-placement)
 - [Automatic space layout](#automatic-space-layout)
 - [Built-in display last](#built-in-display-last)
 - [Automatic padding](#automatic-padding)
@@ -207,6 +208,19 @@ Measured with border width 3 and JankyBorders `hidpi=on`, on macOS 27 with two 4
 | CPU of WindowServer | 5.8–6.4 s | 4.9–5.5 s |
 
 </details>
+
+### Rule placement
+
+A rule can place the windows of an application in the tree when they open. `insert` takes the same side as `window --insert`, or `stack` to open the window as a tab of the focused window's container:
+
+```sh
+# Slack windows open as tabs next to the focused window
+yabai -m rule --add app='^Slack$' insert=stack
+# Terminal windows open to the east of the focused window
+yabai -m rule --add app='^Terminal$' insert=east
+```
+
+The placement applies when a window is first tiled, so it does not move windows that are already tiled. Rules with `manage=off` ignore it.
 
 ### Automatic space layout
 

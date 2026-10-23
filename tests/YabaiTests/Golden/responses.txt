@@ -457,8 +457,8 @@ main:1:2
 
 ### 0 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
 
-### 1210 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x00020001","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0.9,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
+### 1258 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x00020001","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0.9,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 21 rule --add app=Foo bogus=1
 unknown key 'bogus'
@@ -474,8 +474,8 @@ main:1:2
 ### 38 rule --remove nolabel
 rule with label 'nolabel' not found.
 
-### 905 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
+### 941 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
 
 ### 32 rule --apply 7
 rule with index '7' not found.
@@ -495,11 +495,24 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 
 ### 0 rule --remove üml
 
-### 905 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
+### 941 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
 
 ### 43 rule --foo
 unknown command '--foo' for domain 'rule'
+
+### 40 rule --add app=Foo insert=bogus
+invalid value 'bogus' for key 'insert'
+
+### 34 rule --add app=Foo insert=
+invalid key-value pair 'insert='
+
+### 0 rule --add label=ins app=Terminal insert=stack
+
+### 0 rule --add label=ins2 app=Notes insert=west
+
+### 1576 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00040001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x00000102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Terminal","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x00000001","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
 
 ### 0 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
 

@@ -205,6 +205,44 @@ private struct WindowStrings {
       includingOneShotRules: false, manageRound: true, into: &effects) == false)
 }
 
+// MARK: - insert=
+
+struct InsertionCase: CustomTestStringConvertible, Sendable {
+  var name: String
+  var manage: Bool?
+  var insert: InsertDirection?
+  var expected: InsertDirection?
+
+  var testDescription: String { name }
+}
+
+// NOTE: a rule with manage=off does not tile the window, so its insert= does not apply to it.
+@Test(arguments: [
+  InsertionCase(name: "no insert", manage: nil, insert: nil, expected: nil),
+  InsertionCase(name: "insert", manage: nil, insert: .stack, expected: .stack),
+  InsertionCase(name: "insert with manage=on", manage: true, insert: .east, expected: .east),
+  InsertionCase(name: "manage=off drops insert", manage: false, insert: .north, expected: nil),
+])
+func insertionForNewWindowFollowsManage(_ row: InsertionCase) {
+  var effects = RuleEffects()
+  effects.manage = row.manage
+  effects.insert = row.insert
+  #expect(effects.insertionForNewWindow == row.expected)
+}
+
+@Test func laterRuleInsertWinsAndAbsentInsertKeepsIt() {
+  var effects = RuleEffects()
+  effects.insert = .north
+
+  var later = RuleEffects()
+  later.insert = .stack
+  effects.combine(later)
+  #expect(effects.insert == .stack)
+
+  effects.combine(RuleEffects())
+  #expect(effects.insert == .stack)
+}
+
 // MARK: - Helpers of the daemon tests
 
 /// The response to a message, as text.
@@ -342,7 +380,7 @@ extension DaemonState {
     @Test func listShowsTheFiltersAndEffects() throws {
       #expect(
         send(
-          "rule --add --one-shot label=x app!=^Finder$ title=Doc role=AXWindow subrole=^AXStandardWindow$ opacity=0.5 sub-layer=above sticky=off mouse_follows_focus=on scratchpad=pad manage=on"
+          "rule --add --one-shot label=x app!=^Finder$ title=Doc role=AXWindow subrole=^AXStandardWindow$ opacity=0.5 sub-layer=above sticky=off mouse_follows_focus=on scratchpad=pad insert=east manage=on"
         ) == "")
 
       let response = Golden.run("rule --list")
@@ -361,6 +399,7 @@ extension DaemonState {
       #expect(rule["mouse_follows_focus"] as? Bool == true)
       #expect(rule["sub-layer"] as? String == "above")
       #expect(rule["scratchpad"] as? String == "pad")
+      #expect(rule["insert"] as? String == "east")
       #expect((rule["opacity"] as? Double).map { abs($0 - 0.5) < 1e-6 } == true)
       // NOTE: the effects flags (opacity, layer) in the high half; the four patterns, the app exclusion and
       // one-shot in the low half
@@ -393,6 +432,9 @@ extension DaemonState {
       ),
       FailureCase(
         command: "rule --add app=A opacity=1.5", failure: "invalid value '1.5' for key 'opacity'\n"),
+      FailureCase(
+        command: "rule --add app=A insert=bogus",
+        failure: "invalid value 'bogus' for key 'insert'\n"),
       FailureCase(
         command: "rule --apply nolabel",
         failure:

@@ -130,9 +130,27 @@ extension View {
     root.lastSplit = root.layout
   }
 
+  //
+  // NOTE: insert= of the rule that matched a new window acts like window --insert on the focused window of this view,
+  // the one its tree focuses, right before the window is added. The window takes it here, so it applies to its first
+  // add only, and the add below consumes the insertion that it sets. Nothing is set when the view has no window.
+  //
+
+  private func insertByRule(_ direction: InsertDirection) {
+    let focused = root.focusedDescendant
+    guard focused.windowID != nil, focused.insertDirection != direction else { return }
+
+    WindowManager.shared.setInsertion(of: focused, in: self, direction)
+  }
+
   func add(_ target: Window, insertionPoint: WindowID?) {
     let root = self.root
     if root.find(target.id) != nil { return }
+
+    if let direction = target.insertionByRule {
+      target.insertionByRule = nil
+      insertByRule(direction)
+    }
 
     let node = Con(windowID: target.id)
 

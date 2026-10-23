@@ -439,6 +439,17 @@ public enum InsertDirection: Int, Sendable {
 
   /// The side, nil for stack.
   public var direction: Direction? { Direction(rawValue: rawValue) }
+
+  /// The name of the direction in messages and in `rule --list`.
+  public var argument: String {
+    switch self {
+    case .north: Argument.north
+    case .east: Argument.east
+    case .south: Argument.south
+    case .west: Argument.west
+    case .stack: Argument.stack
+    }
+  }
 }
 
 /// The insertion side named by a token; throws when the token is neither a direction nor stack.

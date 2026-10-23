@@ -95,11 +95,16 @@ struct PlacementLine: CustomStringConvertible {
 
   func node(_ n: UInt32) -> Con { view.findWindow(wid(n))! }
 
-  /// Opens window n; it gets focus when focus is true, as when the application focuses its new window.
+  /// Opens window n; it gets focus when focus is true, as when the application focuses its new window. insertByRule is
+  /// the insert= effect of the rule that matched the new window, taken by the add.
   @discardableResult
-  func open(_ n: UInt32, insertionPoint: UInt32? = nil, focus: Bool = false) -> Window {
+  func open(
+    _ n: UInt32, insertionPoint: UInt32? = nil, focus: Bool = false,
+    insertByRule: InsertDirection? = nil
+  ) -> Window {
     let target = Window(id: wid(n))
     target.application = application
+    target.insertionByRule = insertByRule
     WindowManager.shared.window[target.id] = target
     WindowManager.shared.managedWindows[target.id] = view
     if focus { WindowManager.shared.focus.focusChanged(to: target.id) }

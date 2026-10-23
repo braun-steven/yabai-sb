@@ -62,9 +62,10 @@ extension WindowManager {
 
       if target.isEligibleForManagement {
         target.isEligible = true
-        applyRules(
+        let effects = applyRules(
           to: target, title: windowTitle, role: windowRole, subrole: windowSubrole,
           includingOneShotRules: includingOneShotRules)
+        target.insertionByRule = effects?.insertionForNewWindow
         purifyWindow(target)
         setWindowOpacity(target, to: Config.current.windowOpacity.normal)
 

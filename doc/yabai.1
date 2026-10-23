@@ -1277,6 +1277,15 @@ If this rule matches multiple windows, only the first window that matched will b
 .br
 System Integrity Protection must be partially disabled.
 .RE
+.sp
+\fBinsert=\fI<DIR_SEL>|stack\fP\fP
+.RS 4
+Place a new window as \fBwindow \-\-insert\fP does: next to the focused window of the tree on the given side, or as a tab of its tabbed container with \fBstack\fP.
+.br
+The effect applies when the window is first added to a tree. A window that is already tiled is not moved by \fBrule \-\-apply\fP.
+.br
+It takes precedence over \fBtree_autotiling\fP, and has no effect on a window with (manage=off).
+.RE
 .SS "DATAFORMAT"
 .sp
 \fB\-\-list\fP returns a JSON array of these objects on a single line, with keys in alphabetical order.
@@ -1302,6 +1311,7 @@ System Integrity Protection must be partially disabled.
     "native\-fullscreen": bool (optional),
     "grid": string,
     "scratchpad": string,
+    "insert": string,
     "one\-shot": bool,
     "flags": string
 }

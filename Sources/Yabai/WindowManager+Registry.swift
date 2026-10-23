@@ -37,7 +37,7 @@ extension WindowManager {
     // NOTE: teardown clears the mouse state before it removes the window; clearing it here too keeps removeWindow
     // alone sufficient. Only the fields of this window change.
     let mouse = MouseState.shared
-    if mouse.window?.id == id { mouse.window = nil }
+    if mouse.window?.id == id { mouse.clearWindow() }
     if mouse.ffmWindowID == id { mouse.ffmWindowID = nil }
     if mouse.feedbackWindowID == id {
       mouse.feedbackWindowID = nil

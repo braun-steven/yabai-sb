@@ -134,7 +134,7 @@ extension EventHandler {
       }
     }
 
-    if ms.window == window { ms.window = nil }
+    if ms.window == window { ms.clearWindow() }
     if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
 
     if window.isEligible {

@@ -480,15 +480,38 @@ extension AXUIElement {
   }
 }
 
+/// How a frame write treats AXEnhancedUserInterface: `write` turns it off for that write only; `drag` writes inside the
+/// EUI scope of a resize drag (`MouseState.beginFrameScope`), which has turned it off already.
+enum EUIScope {
+  case write
+  case drag
+}
+
+extension WindowManager {
+  //
+  // NOTE: The one AX frame write of a window: size, position, size (`AXUIElement.setFrame`), with EUI off around it for
+  // `.write`. The frame request is recorded first, as the animation and the layout paths read it.
+  //
+
+  func applyFrame(_ window: Window, frame: CGRect, euiScope: EUIScope) {
+    window.frameRequest = frame
+    switch euiScope {
+    case .write:
+      window.application.ref.withEnhancedUserInterfaceDisabled {
+        _ = window.ref?.setFrame(position: frame.origin, size: frame.size)
+      }
+    case .drag:
+      _ = window.ref?.setFrame(position: frame.origin, size: frame.size)
+    }
+  }
+}
+
 extension Window {
   func setFrame(x: Float, y: Float, width: Float, height: Float) {
-    frameRequest = CGRect(
-      x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height))
-    application.ref.withEnhancedUserInterfaceDisabled {
-      _ = ref?.setFrame(
-        position: CGPoint(x: CGFloat(x), y: CGFloat(y)),
-        size: CGSize(width: CGFloat(width), height: CGFloat(height)))
-    }
+    WindowManager.shared.applyFrame(
+      self,
+      frame: CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height)),
+      euiScope: .write)
   }
 }
 

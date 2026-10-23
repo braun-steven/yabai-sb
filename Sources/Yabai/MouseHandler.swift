@@ -186,6 +186,45 @@ final class MouseTapState {
   var direction: ResizeHandle = []
   var feedbackWindowID: WindowID?
   var feedbackDirection: InsertDirection?
+
+  //
+  // NOTE: The EUI scope of the resize drag in progress: EUI is off on frameApplication from the drag's first frame until
+  // endFrameScope. Every path that ends the drag or drops its window ends the scope (mouse up, a mouse down that
+  // arrives during a drag, invalid or destroyed windows, a terminated application), so EUI is never left off.
+  //
+
+  private var frameScope = EUIDragScope()
+  private var frameApplication: Application?
+
+  /// Clears the window of the drag, and closes the EUI scope of the drag.
+  func clearWindow() {
+    endFrameScope()
+    window = nil
+  }
+
+  /// Opens the EUI scope of a resize drag on its first frame. A window of another application closes the open scope first.
+  func beginFrameScope(of target: Window) {
+    let application: Application = target.application
+    if frameApplication != nil, frameApplication !== application { endFrameScope() }
+    guard frameApplication == nil, let ref = application.ref else { return }
+
+    let enabled = ref.boolAttribute(AXUIElement.enhancedUserInterfaceAttribute)
+    frameApplication = application
+    for step in frameScope.begin(enabled: enabled) {
+      ref.setAttribute(AXUIElement.enhancedUserInterfaceAttribute, to: step == .restore)
+    }
+  }
+
+  /// Closes the EUI scope of the drag, restoring EUI if the drag turned it off. Does nothing without an open scope.
+  func endFrameScope() {
+    guard let application = frameApplication else { return }
+    frameApplication = nil
+    let steps = frameScope.end()
+    guard let ref = application.ref else { return }
+    for step in steps {
+      ref.setAttribute(AXUIElement.enhancedUserInterfaceAttribute, to: step == .restore)
+    }
+  }
 }
 
 extension MouseModifiers {

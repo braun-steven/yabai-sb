@@ -29,15 +29,22 @@ extension ResizeHandle {
 }
 
 //
-// NOTE: Resizing through the AX API is slow, so a drag resizes the window at most once per throttle
-// interval. Returns false when this event was skipped.
+// NOTE: Resizing through the AX API is slow, so a drag resizes the window at most once per `dragResizeInterval`
+// (67.67 ms, about 15 Hz). Returns false when this event was skipped. The interval is fixed rather than adapted to the
+// measured latency of the AX writes: that latency differs per application, and nothing here measures it.
 //
 
-private let mouseResizeThrottleMs: Float = 67.67
+private let dragResizeInterval: Float = 67.67
 
 extension EventHandler {
   func mouseDown(_ event: CGEvent, _ modifiers: MouseModifiers) {
     let ms = MouseState.shared
+
+    //
+    // NOTE: A mouse down while a resize drag holds an EUI scope means that the mouse up of the drag was lost (the
+    // event tap was disabled), or a second button was pressed during it. The next frame of a drag opens the scope again.
+    //
+    ms.endFrameScope()
 
     if MissionControl.shared.isActive { return }
     if ms.currentAction != .none { return }
@@ -102,6 +109,9 @@ extension EventHandler {
     let wm = WindowManager.shared
     let ms = MouseState.shared
 
+    // NOTE: The drag ends here on every path below, including the ones that ignore the event.
+    ms.endFrameScope()
+
     if MissionControl.shared.isActive { return }
 
     guard let window = ms.window else {
@@ -110,7 +120,7 @@ extension EventHandler {
     }
 
     defer {
-      ms.window = nil
+      ms.clearWindow()
       ms.currentAction = .none
     }
 
@@ -166,15 +176,18 @@ extension EventHandler {
     let ms = MouseState.shared
 
     let eventTime = OSTimer.now
-    if OSTimer.milliseconds(from: ms.lastMovedTime, to: eventTime) < mouseResizeThrottleMs {
+    if OSTimer.milliseconds(from: ms.lastMovedTime, to: eventTime) < dragResizeInterval {
       return false
     }
 
     let dx = Int(point.x - ms.downLocation.x)
     let dy = Int(point.y - ms.downLocation.y)
 
+    // NOTE: The first frame of the drag turns EUI off for the application; the frames after it write inside that scope.
+    ms.beginFrameScope(of: ms.window)
     ms.window.resizeRelative(
-      frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy), animate: false)
+      frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy), animate: false,
+      euiScope: .drag)
 
     ms.lastMovedTime = eventTime
     ms.downLocation = point
@@ -197,7 +210,7 @@ extension EventHandler {
     if !window.isValid {
       Logger.events.debug(
         "mouse dragged: \(window.id) has been marked invalid by the system, ignoring event")
-      ms.window = nil
+      ms.clearWindow()
       ms.currentAction = .none
       return
     }

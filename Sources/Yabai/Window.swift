@@ -140,7 +140,10 @@ struct WindowAXState: Equatable, Sendable {
     ref?.setAttribute(kAXSizeAttribute, to: CGSize(width: CGFloat(width), height: CGFloat(height)))
   }
 
-  func resizeRelative(frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool) {
+  func resizeRelative(
+    frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool,
+    euiScope: EUIScope = .write
+  ) {
     let xMod: CGFloat = direction.contains(.left) ? -1 : direction.contains(.right) ? 1 : 0
     let yMod: CGFloat = direction.contains(.top) ? -1 : direction.contains(.bottom) ? 1 : 0
 
@@ -157,10 +160,10 @@ struct WindowAXState: Equatable, Sendable {
       WindowManager.shared.animateWindow(
         WindowPlacement(window: self, x: x, y: y, w: width, h: height))
     } else {
-      application.ref.withEnhancedUserInterfaceDisabled {
-        move(to: CGPoint(x: CGFloat(x), y: CGFloat(y)))
-        resize(width: width, height: height)
-      }
+      WindowManager.shared.applyFrame(
+        self,
+        frame: CGRect(x: CGFloat(x), y: CGFloat(y), width: CGFloat(width), height: CGFloat(height)),
+        euiScope: euiScope)
     }
   }
 

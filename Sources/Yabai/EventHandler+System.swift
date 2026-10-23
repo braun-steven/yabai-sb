@@ -160,6 +160,17 @@ extension EventHandler {
     EventSignals.shared.push(.configLoaded, .config(file: file, changes: changes))
   }
 
+  func scriptingAdditionLoaded(_ result: ScriptingAdditionLoadResult) {
+    switch result {
+    case .loaded:
+      Logger.daemon.info("scripting addition: loaded")
+    case .failed(let reason):
+      Logger.daemon.warning("scripting addition: could not load (\(reason))")
+      notify("scripting-addition", "could not load (\(reason)); see sudoers setup in the man page")
+    }
+    ScriptingAdditionLoader.shared.finished()
+  }
+
   func spaceLayoutReconcile() {
     let sm = SpaceManager.shared
 

@@ -28,6 +28,8 @@ struct HeadlessLog: Sendable {
   var configEntries: [ConfigEntry] = []
   /// The user notifications that the daemon would show, as `subtitle: text`, in order (`notify`).
   var notifications: [String] = []
+  /// The reasons of the scripting addition loads that the daemon would start, in order (`ScriptingAdditionLoader.load`).
+  var scriptingAdditionLoads: [String] = []
 }
 
 enum Headless {
@@ -74,6 +76,10 @@ enum Headless {
 
   static func record(notification: String) {
     log.withLock { $0.notifications.append(notification) }
+  }
+
+  static func record(scriptingAdditionLoad reason: String) {
+    log.withLock { $0.scriptingAdditionLoads.append(reason) }
   }
 
   /// Applies placements as the window server would at once: the frames that differ from the last request are

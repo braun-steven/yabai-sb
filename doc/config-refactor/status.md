@@ -50,11 +50,12 @@ mode: nested
 
 ## Phase 4: Built-in scripting addition loading
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C4.1 | Run `sudo -n yabai --load-sa` from the daemon | todo | |
+| C4.1 | Run `sudo -n yabai --load-sa` from the daemon | done | `ScriptingAdditionLoad` (YabaiCore: argv `sudo -n <exe> --load-sa`, `failureReason`, `ScriptingAdditionLoadQueue` for one run at a time with one queued) and `ScriptingAdditionLoader` (@WM; detached swift-subprocess run, 30 s timeout, posts `.scriptingAdditionLoaded`; `EventHandler.scriptingAdditionLoaded` logs and notifies, then starts the queued run; headless `load(reason:)` records `Headless.scriptingAdditionLoads`). Not wired: C4.2 calls `load`. Tests: `ScriptingAdditionLoadTests`, `ScriptingAdditionLoaderTests`. Architecture scripting-addition paragraph updated. Gate quick, thread and address sanitizers passed (479 + 267 tests, 0 warnings). No live check. |
 | C4.2 | Load at startup and after the Dock restarts | todo | |
 
 ## Phase 5: Remove yabairc
@@ -115,8 +116,15 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 21:54 · subphase agent · C3.5 · started · C3.5 (config_loaded event: SignalType, push from reloadConfig and the startup, tests, docs)
 - 2026-10-23 22:03 · subphase agent · C3.5 · done (commit pending) · C4.1 (run `sudo -n yabai --load-sa` from the daemon); phase 3 is complete except the close (`just ci`, phase gate); the config_loaded startup event is after the first pin pass only (Discovered)
 - 2026-10-23 22:02 · phase agent · C3 · closed, just ci passed · phase 4. Summary: setters skip equal values (no tree clear for an unchanged layout; ConfigObserver groups not notified); `ConfigLoader.reconcile(to:step:)` (ConfigReconcile.swift) applies only differences (options via their own print vs the lowered word, rounded floats formatted alike; spaces by index, a removed entry found by label; rule/signal lists replaced only when they differ) and is the startup path too; `config --reload` checks then reconciles and replies `reloaded <file>: <n> changes`; `config --overrides` lists differences from the applied document; `ConfigWatcher` reloads on save (file's directory plus a symlink target's directory, 200 ms debounce on `.configReload`, `auto_reload`); `config_loaded` fires after startup (1 s, after the pin pass) and each successful reload. Phase-agent fixes: tab_bar_font equal set re-rendered (C3.1 Fix), rounded float prints never compared equal (C3.2 Fix), symlinked yabai.toml not watched (C3.4 Fix), redundant flush in config --reload (C3.5 Fix). Deviations: `resetSpaceOption` changes views directly (no message removes an override); dead yabairc code (`resetConfigToStartupDefaults`, `execConfigFile`, `configCheckReport`, `isTOML`) kept for C5.1. For phase 4: run the scripting addition load off the event loop and after `dock_did_restart`; `[daemon]` changes come through the reconcile/`reloadConfig` path (ConfigLoader.autoReload shows how a daemon key is read).
+- 2026-10-23 22:30 · phase agent · C4 · started (nested) · C4.1
+- 2026-10-23 22:12 · subphase agent · C4.1 · started · C4.1 (ScriptingAdditionLoadQueue and argv in YabaiCore, ScriptingAdditionLoader, Event case, headless record, tests, architecture note)
+- 2026-10-23 22:20 · subphase agent · C4.1 · done (commit pending) · C4.2 (call `ScriptingAdditionLoader.shared.load(reason:)` at startup and on `dock_did_restart`; the loader's path is read when `shared` is first used, so the startup must touch it). Open: the failure notice points to a sudoers section the man page does not have (Discovered)
 
 ## Discovered
+
+- C4.1: the failure notice says "see sudoers setup in the man page", but `doc/yabai.asciidoc` has no sudoers section; C4.2 or a doc subphase adds one or the text changes (`Sources/Yabai/EventHandler+System.swift`, `scriptingAdditionLoaded`).
+- C4.1: a timeout kills only sudo; a `yabai --load-sa` that sudo started may keep running as root (`Sources/Yabai/ScriptingAdditionLoader.swift`, `execute`).
+- C4.1: the stderr of the sudo call is read with a 4096-byte limit; more output makes swift-subprocess throw, which is reported as "could not start /usr/bin/sudo" (`ScriptingAdditionLoader.execute`).
 
 Out-of-scope findings for later, one line each with the subphase ID and a file reference.
 

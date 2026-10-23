@@ -67,6 +67,7 @@ extension Event {
     case .configChanged: "configChanged"
     case .configFileChanged: "configFileChanged"
     case .configLoaded: "configLoaded"
+    case .scriptingAdditionLoaded: "scriptingAdditionLoaded"
     case .spaceLayoutReconcile: "spaceLayoutReconcile"
     case .spacePinReconcile: "spacePinReconcile"
     case .daemonMessage: "daemonMessage"

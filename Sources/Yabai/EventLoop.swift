@@ -128,6 +128,8 @@ enum Event: Sendable {
   case configFileChanged
   // NOTE: The startup posts it after the first space pin pass (`EventLoop.post(_:after:)`, no key): the config_loaded signal.
   case configLoaded(file: String, changes: Int)
+  // NOTE: The process of a built-in scripting addition load (ScriptingAdditionLoader) posts it when it has ended.
+  case scriptingAdditionLoaded(ScriptingAdditionLoadResult)
   // NOTE: Only post with `key: .spaceLayoutReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case spaceLayoutReconcile
   // NOTE: Only post with `key: .spacePinReconcile` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
@@ -348,6 +350,7 @@ extension EventHandler {
     case .configFileChanged:
       if EventLoop.claimDelivery(of: .configReload) { configFileChanged() }
     case .configLoaded(let file, let changes): configLoaded(file: file, changes: changes)
+    case .scriptingAdditionLoaded(let result): scriptingAdditionLoaded(result)
     case .spaceLayoutReconcile:
       if EventLoop.claimDelivery(of: .spaceLayoutReconcile) { spaceLayoutReconcile() }
     case .spacePinReconcile:

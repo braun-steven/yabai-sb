@@ -113,6 +113,8 @@ Signpost intervals for Instruments (one per handled event, per animation run and
 
 `osax/loader.m` uses `bootstrap.S` to inject the native adapter and Swift core into Dock. `payload.m` owns private operations; `core/swift` owns validated framing, replies and fade state. Requests on `/tmp/yabai-sa_$USER.socket` retain their length-prefixed encoding; an optional status byte distinguishes rejection from legacy EOF/unconfirmed. The daemon uses `SAConnection.swift` with absolute deadlines. macOS 27 patterns/offsets remain in `arm64_payload.m`. Bump `OSAX_VERSION` for behavior/protocol changes; see `doc/payload-updates.md` and `doc/osax-prototypes.md`.
 
+The daemon's own load (`ScriptingAdditionLoader.swift`) runs `sudo -n <its binary> --load-sa` in a detached task, with a 30 s timeout, and posts `.scriptingAdditionLoaded`; the event loop never waits for it. One run goes at a time, and a request during a run queues one more (`ScriptingAdditionLoadQueue`, pure, in `YabaiCore/ScriptingAdditionLoad.swift`). Headless mode records the request instead of spawning.
+
 ### Platform gating
 
 The supported target is macOS 27 on arm64; the injected payload is arm64e. `verify_os_version` in `osax/payload.m` accepts macOS 27 only. Add version branches only when a newer release needs different behavior.

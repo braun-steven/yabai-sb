@@ -244,10 +244,12 @@ Rules for the user's machine:
   macOS moves the spaces of the mirrored display over, but merges its visible space into space 1; on unmirror it
   moves them back and puts those windows on a new space (a new id). With `space_layout 15 10:5 10:5:1b` each
   direction takes one reconcile pass (create one space, then destroy it), seen with `debug_output on` (P9 review).
-- `space_layout` keeps the space count (15 here) by creating and destroying spaces after every space change. A
-  `space --create` followed by `space <n> --destroy` with a freshly read count destroyed the user's space 15 (its
-  window moved to space 1): the reconciler had already removed the new space. While `space_layout` is set, do not
-  create or destroy spaces by index in a probe: the reconciler undoes it and the indices shift.
+- `space_layout` (in `[config]` of `yabai.toml`, or `yabai -m config space_layout`) keeps the space count (15 here) by
+  creating and destroying spaces after every space change. A `space --create` followed by `space <n> --destroy` with a
+  freshly read count destroyed the user's space 15 (its window moved to space 1): the reconciler had already removed the
+  new space. While `space_layout` is set, do not create or destroy spaces by index in a probe: the reconciler undoes it
+  and the indices shift. The `[[space]]` tables of `yabai.toml` name their space by index too, so after a reconcile an
+  index can name another space: a probe that relies on one reads the spaces again first.
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.
@@ -323,11 +325,17 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   kept. Check with `codesign -d -r- ~/.local/bin/yabai`. That certificate is self-signed and not trusted for code
   signing (`CSSMERR_TP_NOT_TRUSTED`), so `security find-identity -v` hides it; `scripts/codesign` falls back to it
   when no identity is valid.
-- Expected noise in `/tmp/yabai_$USER.err.log` while a test build is installed:
-  `sudo: a terminal is required…` (the sudoers rule for `--load-sa` is pinned to the hash of the binary
-  that `update-yabai-fork` installed) and `yabairc: line 164: 0xff285577: command not found`.
-- `pgrep -x yabai` can list two pids for several seconds after a restart: the second is a `yabai -m` client from the
-  yabairc (e.g. `config layout tree` lays out every space again). `live.py` therefore checks the oldest, `pgrep -ox yabai`.
+- A deploy restarts yabai, which reads and applies the user's `~/.config/yabai/yabai.toml` at startup, before it adopts
+  the windows. With `--verbose` the startup lines of the file come in this order, between the space defaults and the
+  message loop: `startup: checking the config file`, `startup: applying the config file settings`, `startup: applying
+  the config file manager settings`, `startup: applying the config file spaces`, `startup: applying the config file
+  rules and signals`, then `startup: watching the config file`. A `config file:` line means a setting failed.
+- Expected noise in `/tmp/yabai_$USER.err.log` while a test build is installed: `sudo: a password is required` from the
+  daemon's own scripting-addition load (it runs `sudo -n`, and the sudoers rule for `--load-sa` is pinned to the hash of
+  the binary that `update-yabai-fork` installed), with a `could not load (…)` notification.
+- `pgrep -x yabai` can list two pids for several seconds after a restart: the second is a `yabai -m` client that is still
+  running, e.g. a `[[signal]]` action that sends `config layout tree`, which lays out every space again. `live.py`
+  therefore checks the oldest, `pgrep -ox yabai`.
 
 ## Scripting addition
 
@@ -345,12 +353,12 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   opcodes. Do it before reloading.
 - `--load-sa` installs the payload of the binary at `~/.local/bin/yabai`, so a reload of a new payload
   needs the test build installed (`deploy.sh install`) while the user runs it; `deploy.sh restore` afterwards.
-  The restored binary matches the sudoers rule, so its yabairc puts its own payload back when it starts
-  (check with `sa_version.py`).
+  The restored binary matches the sudoers rule, so with `[daemon] load_scripting_addition = true` in `yabai.toml` it
+  loads its own payload when it starts (check with `sa_version.py`).
 - Reloading takes the user two runs of `! sudo ~/.local/bin/yabai --load-sa` (full path; `sudo`'s PATH
   may not include `~/.local/bin`). The first run installs the new payload files and restarts Dock. The
-  `dock_did_restart` signal in the yabairc would inject the payload into the new Dock, but its
-  `sudo` fails, so Dock has no payload at all until the second run injects it.
+  daemon's own load after each Dock restart (`load_scripting_addition`) needs the sudoers rule to name the installed
+  binary's hash; a test build does not have it, so Dock has no payload at all until the second run injects it.
 - Verify with `python3 scripts/live-tests/sa_version.py`. On macOS 27 (arm64) the
   attributes are `0x5f`: everything in `OSAX_ATTRIB_ALL`, but not `SET_WINDOW`. The Dock function behind
   `SA_OPCODE_WINDOW_FOCUS` is not found, and nothing calls `scripting_addition_focus_window` (the disabled

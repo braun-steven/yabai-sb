@@ -372,7 +372,7 @@ They complete the options of the process (`--start-service`, `--config <file>`, 
 
 ### Static config file
 
-`~/.config/yabai/yabai.toml` (or `$XDG_CONFIG_HOME/yabai/yabai.toml`) replaces the yabairc script. The daemon reads and checks the whole file before it adopts any window, and applies it in-process at startup, so the settings, the space labels, the rules and the signals are in place for the windows that are already open. Option names are the names of `yabai -m config`:
+The config is `~/.config/yabai/yabai.toml` (or `$XDG_CONFIG_HOME/yabai/yabai.toml`); a yabairc is not read. The daemon reads and checks the whole file before it adopts any window, and applies it in-process at startup, so the settings, the space labels, the rules and the signals are in place for the windows that are already open. Option names are the names of `yabai -m config`:
 
 ```toml
 [config]
@@ -394,7 +394,7 @@ event = "window_focused"
 action = "sketchybar --trigger window_focus"
 ```
 
-An error in the file is reported with its line, and the file is not applied: the daemon starts with the defaults and sends a notification. `yabai --check-config [<file>]` checks a file without a daemon. `[daemon] load_scripting_addition = true` makes the daemon load the scripting addition itself, with the sudoers entry the man page describes; the startup no longer runs the yabairc. With `[daemon] auto_reload = true` (the default) the daemon reloads the file when you save it, so a change applies without `config --reload`; `auto_reload = false` turns that off. After each applied file, at startup and after each reload, the signal event `config_loaded` fires, so a `[[signal]]` with `event = "config_loaded"` can run once the file is in effect.
+An error in the file is reported with its line, and the file is not applied: the daemon starts with the defaults and sends a notification. `yabai --check-config [<file>]` checks a file without a daemon. `[daemon] load_scripting_addition = true` makes the daemon load the scripting addition itself, with the sudoers entry the man page describes. With `[daemon] auto_reload = true` (the default) the daemon reloads the file when you save it, so a change applies without `config --reload`; `auto_reload = false` turns that off. After each applied file, at startup and after each reload, the signal event `config_loaded` fires, so a `[[signal]]` with `event = "config_loaded"` can run once the file is in effect.
 
 ### Config check and reload
 

@@ -106,6 +106,14 @@ A message longer than 1 MiB, or one that does not arrive complete, is answered w
 Use the specified \fByabai.toml\fP instead of the one the daemon searches for (see CONFIGURATION).
 .RE
 .sp
+\fB\-\-check\-config\fP [\fI<config_file>\fP]
+.RS 4
+Check a \fByabai.toml\fP and exit, without a daemon: the report of \fByabai \-m config \-\-check\fP for <config_file>, or else for
+the file the daemon loads (see CONFIGURATION). The exit status is 0 when there is no failure, and 1 otherwise.
+.br
+\f(CRyabai \-\-check\-config ~/.config/yabai/yabai.toml\fP
+.RE
+.sp
 \fB\-\-verbose\fP, \fB\-V\fP
 .RS 4
 Output debug information to stdout.
@@ -133,13 +141,19 @@ Print a completion script for \fIzsh\fP, \fIbash\fP or \fIfish\fP to stdout and 
 .RE
 .SH "CONFIGURATION"
 .sp
-The daemon applies \fByabai.toml\fP at startup, before it adopts the windows of the session. It uses the file given with \fB\-\-config\fP, else the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabai.toml\fP and \f(CR~/.config/yabai/yabai.toml\fP. The whole file is checked before anything is applied: \f(CRyabai \-\-check\-config [<config_file>]\fP checks it without a daemon, and \fBconfig \-\-check\fP checks it with one. A file with an error is not applied; the daemon starts with the defaults, logs each error and sends a notification. A failure while a setting is applied is logged and notified, and the other settings are still applied. Commands sent with \fByabai \-m\fP after the start are overrides: they change the running daemon only, and the next \fBconfig \-\-reload\fP, a save that changes the file, or a restart puts the file\(cqs values back. \fBconfig \-\-overrides\fP lists them. A value that should last belongs in the file.
+The daemon reads \fByabai.toml\fP at startup, before it adopts the windows of the session, and applies it in\-process, so its settings, space labels, rules and signals are in place for the windows that are already open. The file is the one given with \fB\-\-config\fP; otherwise it is the first existing file of \f(CR$XDG_CONFIG_HOME/yabai/yabai.toml\fP (only when \fBXDG_CONFIG_HOME\fP is set and not empty) and \f(CR~/.config/yabai/yabai.toml\fP (see \fBFiles\fP). A file with an error is not applied: the daemon starts with the defaults, logs each error and sends a notification.
 .sp
-The file has these tables:
+The whole file is checked before anything is applied, and checking changes nothing: \f(CRyabai \-\-check\-config [<config_file>]\fP checks a file without a daemon, and \fByabai \-m config \-\-check\fP checks the file of the running daemon. Each error is reported with its file, line and key.
+.sp
+The file is applied again without a restart by \fByabai \-m config \-\-reload\fP, and by the daemon when the file is saved, if \fBauto_reload\fP is on (see below). A reload runs only the settings whose value differs from the running state, so a reload of an unchanged file changes nothing. A value set at runtime with \fByabai \-m config\fP, \fBrule\fP or \fBsignal\fP is an override: it lasts until the next reload or restart, which puts the file\(cqs value back, and \fBconfig \-\-overrides\fP lists the overrides. A value that should last belongs in the file.
+.sp
+After each applied file, at startup and after each reload, the signal event \fBconfig_loaded\fP fires (see \fBSignal\fP), so a signal with \f(CRevent = "config_loaded"\fP runs once the settings are in effect. It does not fire for a file with an error.
+.sp
+The file has these tables. Unknown tables and keys, and a value of the wrong kind, are errors, so a misspelled option is reported rather than ignored.
 .sp
 \f(CR[daemon]\fP
 .RS 4
-\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition = true|false\fP (default \f(CRfalse\fP): the daemon loads the scripting addition itself, by running \f(CRsudo \-n <yabai> \-\-load\-sa\fP at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
+\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition = true|false\fP (default \f(CRfalse\fP): the daemon loads the scripting addition itself, by running \f(CRsudo \-n <realpath of yabai> \-\-load\-sa\fP at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
 .RE
 .sp
 Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a sudoers entry that runs the binary as root without a password. As root, run \f(CRsudo visudo \-f /private/etc/sudoers.d/yabai\fP and add this line, with your user name for \f(CR<user>\fP and the path of the binary for \f(CR<path>\fP:
@@ -156,25 +170,25 @@ Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a
 .sp
 \f(CR[config]\fP
 .RS 4
-One key for each option of \fBconfig\fP, under the option\(cqs name, e.g. \f(CRwindow_gap = 10\fP. A boolean option takes \f(CRtrue\fP or \f(CRfalse\fP, and an option with more choices also takes its words, e.g. \f(CRwindow_shadow = "float"\fP. A color is an integer, e.g. \f(CRactive_window_border_color = 0xff51afef\fP. \f(CRspace_layout\fP is an array of layouts, e.g. \f(CRspace_layout = ["15", "10:5"]\fP. Every other option takes the string that its command takes, e.g. \f(CRscratchpad_grid = "40:40:1:1:38:38"\fP.
+One key for each option of \fBconfig\fP, under the option\(cqs name, e.g. \f(CRwindow_gap = 10\fP. A boolean option takes \f(CRtrue\fP or \f(CRfalse\fP, and an option with more choices also takes its words, e.g. \f(CRwindow_shadow = "float"\fP. A color is an integer, e.g. \f(CRactive_window_border_color = 0xff51afef\fP. An option that takes a number takes a TOML integer or float, e.g. \f(CRwindow_gap = 10\fP. Every other option takes the string that its command takes, e.g. \f(CRscratchpad_grid = "40:40:1:1:38:38"\fP. \f(CRspace_layout\fP is an array of layouts, e.g. \f(CRspace_layout = ["15", "10:5"]\fP; an empty array turns it off.
 .RE
 .sp
 \f(CR[[space]]\fP
 .RS 4
-One table for each space that has a label, a pin or its own options: \f(CRindex\fP names the space, \f(CRlabel\fP and \f(CRpin\fP are those of \fBspace\fP, and the other keys are the options of \fBconfig \-\-space\fP, e.g. \f(CRwindow_gap = 0\fP.
+One table for each space that has a label, a pin or its own options. \f(CRindex\fP names the space by its Mission Control index (required, at least 1, and once per space). \f(CRlabel\fP and \f(CRpin\fP are those of \fBspace \-\-label\fP and \fBspace \-\-pin\fP. The other keys are the options that take \fB\-\-space\fP: \f(CRtop_padding\fP, \f(CRbottom_padding\fP, \f(CRleft_padding\fP, \f(CRright_padding\fP, \f(CRwindow_gap\fP, \f(CRlayout\fP and \f(CRauto_padding\fP, e.g. \f(CRwindow_gap = 0\fP.
 .RE
 .sp
 \f(CR[[rule]]\fP
 .RS 4
-One table for each rule, with the keys of \fBrule \-\-add\fP and their values as strings, e.g. \f(CRapp = "^Calendar$"\fP and \f(CRspace = 9\fP. A negated value is an inline table, e.g. \f(CRtitle = { not = "^(Copy|Move)$" }\fP.
+One table for each rule, with the keys of \fBrule \-\-add\fP, e.g. \f(CRapp = "^Calendar$"\fP and \f(CRspace = 9\fP. A flag takes \f(CRtrue\fP or \f(CRfalse\fP (the \f(CRon\fP and \f(CRoff\fP of \fBrule \-\-add\fP), e.g. \f(CRmanage = false\fP. \f(CRone_shot = true|false\fP makes the rule one\-shot (\f(CR\-\-one\-shot\fP). \f(CRapp\fP, \f(CRtitle\fP, \f(CRrole\fP and \f(CRsubrole\fP can be negated with an inline table, e.g. \f(CRtitle = { not = "^(Copy|Move)$" }\fP.
 .RE
 .sp
 \f(CR[[signal]]\fP
 .RS 4
-One table for each signal, with the keys of \fBsignal \-\-add\fP, e.g. \f(CRevent = "window_focused"\fP and \f(CRaction = "sketchybar \-\-trigger window_focus"\fP.
+One table for each signal, with the keys of \fBsignal \-\-add\fP: \f(CRevent\fP and \f(CRaction\fP are required, e.g. \f(CRevent = "window_focused"\fP and \f(CRaction = "sketchybar \-\-trigger window_focus"\fP. \f(CRlabel\fP, \f(CRapp\fP and \f(CRtitle\fP (negated as in a rule) are optional, and \f(CRactive = true|false\fP is the \f(CRyes\fP or \f(CRno\fP of \fBsignal \-\-add\fP.
 .RE
 .sp
-Unknown keys are errors, so a misspelled option is reported rather than ignored. The settings are applied first, then the space labels, pins and options, then the rules and the signals, and the \f(CR[[rule]]\fP and \f(CR[[signal]]\fP tables keep the order of the file. At startup the rules exist before the existing windows are adopted, so they apply to those windows too.
+The settings are applied in this order: the \f(CR[config]\fP options (\fBspace_layout\fP after the others), then the \f(CR[[space]]\fP labels, pins and options, then the rules and the signals, each list in the order of the file, and \fBconfig_loaded\fP last. At startup the rules exist before the existing windows are adopted, so they apply to those windows too. A setting that fails while it is applied is logged: at startup a notification counts the failures, and the other settings are still applied.
 .SH "DEFINITIONS"
 .sp
 .if n .RS 4
@@ -1808,6 +1822,18 @@ The \fIstack.prev\fP, \fIstack.next\fP, \fIstack.first\fP, \fIstack.last\fP, \fI
 .SH "EXIT CODES"
 .sp
 If \fByabai\fP can\(cqt handle a message, it will return a non\-zero exit code.
+.SH "FILES"
+.sp
+\f(CR$XDG_CONFIG_HOME/yabai/yabai.toml\fP and \f(CR~/.config/yabai/yabai.toml\fP
+.RS 4
+The config file of the daemon, read at startup and on each reload: the first of the two that exists, unless the daemon
+was started with \fB\-\-config\fP (see CONFIGURATION). \f(CR$XDG_CONFIG_HOME\fP counts only when it is set and not empty.
+.RE
+.sp
+\f(CR/private/etc/sudoers.d/yabai\fP
+.RS 4
+Optional, and written by you: the sudoers entry of the built\-in scripting addition load (see CONFIGURATION, \f(CR[daemon]\fP).
+.RE
 .SH "AUTHOR"
 .sp
 Åsmund Vikane <aasvi93 at gmail.com>

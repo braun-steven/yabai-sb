@@ -37,6 +37,7 @@ commands yourself.
   Only after an intended response change: `GOLDEN_RECORD=1 swift test --filter Golden`, then review every
   changed record.
 - `just man`: regenerate `doc/yabai.1` from `doc/yabai.asciidoc` (edit only the Asciidoc).
+- `yabai --check-config [<config_file>]`: check a `yabai.toml` without a daemon (default: the file the daemon loads).
 - `./scripts/codesign ./bin/yabai`: re-sign after rebuilding to keep Accessibility permission.
 - Deploying: agents use `bash scripts/live-tests/deploy.sh install` (read `doc/live-testing.md` first).
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.

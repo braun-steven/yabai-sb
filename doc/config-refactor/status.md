@@ -13,11 +13,12 @@ Status values: `todo`, `in-progress`, `done`, `blocked`, `skipped`. Find a subph
 
 ## Phase 1: TOML document model
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C1.1 | Add the TOMLDecoder dependency | todo | |
+| C1.1 | Add the TOMLDecoder dependency | done | TOMLDecoder 0.4.5 pinned exact in Package.swift (YabaiCore; YabaiCoreTests for the smoke test). Criteria met: pure Swift, MIT, typed throws, syntax error line only in TOMLError.description. Release binary 9679832 to 10167880 bytes (+0.49 MB, before any code uses it). No live check. Convention bullet in doc/swift-conventions.md. |
 | C1.2 | `ConfigDocument` and strict decoding | todo | |
 | C1.3 | Lower a document to IPC messages | todo | |
 | C1.4 | Line numbers for key paths | todo | |
@@ -77,6 +78,8 @@ phase: todo
 Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 
 - 2026-10-23 · planner · — · plan written · orchestrator starts phase 1
+- 2026-10-23 18:57 · phase agent · C1 · started (nested) · C1.1
+- 2026-10-23 19:01 · phase agent · C1.1 · done (commit pending) · C1.2 (ConfigDocument); the TOML line is only in the description, so C1.2 must parse it or use C1.4 for the line
 
 ## Discovered
 

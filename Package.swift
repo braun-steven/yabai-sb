@@ -41,6 +41,8 @@ let package = Package(
       url: "https://github.com/apple/swift-collections.git", exact: "1.7.3",
       traits: ["UnstableSortedCollections"]),
     .package(url: "https://github.com/apple/swift-log.git", from: "1.16.1"),
+    // NOTE: exact like swift-collections. Pure Swift (no C or unsafeFlags), MIT. Read by YabaiCore only (config files).
+    .package(url: "https://github.com/dduan/TOMLDecoder.git", exact: "0.4.5"),
     // NOTE: Without the default SubprocessFoundation trait: the commands yabai runs need no Data input or output.
     .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.1", traits: []),
     // the test targets only: property-based tests, diffs of large values, and snapshots
@@ -76,6 +78,9 @@ let package = Package(
     // NOTE: strict memory safety (SE-0458) is on for this target only: every unsafe construct is spelled `unsafe`.
     .target(
       name: "YabaiCore",
+      dependencies: [
+        .product(name: "TOMLDecoder", package: "TOMLDecoder")
+      ],
       swiftSettings: swiftSettings + [.strictMemorySafety()]
     ),
     .executableTarget(
@@ -126,6 +131,7 @@ let package = Package(
         "YabaiTestSupport",
         .product(name: "CustomDump", package: "swift-custom-dump"),
         .product(name: "PropertyBased", package: "swift-property-based"),
+        .product(name: "TOMLDecoder", package: "TOMLDecoder"),
       ],
       path: "tests/YabaiCoreTests",
       swiftSettings: swiftSettings

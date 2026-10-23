@@ -39,8 +39,8 @@ import YabaiCore
   return path
 }
 
-/// The matcher of a window, or nil when the window manager does not know it.
-@WM private func layoutMatcher(for windowID: WindowID) -> LayoutMatcher? {
+/// The matcher of a window, or nil when the window manager does not know it. space --restore-layout matches the same facts.
+@WM func layoutMatcher(for windowID: WindowID) -> LayoutMatcher? {
   guard let window = WindowManager.shared.window(for: windowID),
     let application = window.application
   else { return nil }

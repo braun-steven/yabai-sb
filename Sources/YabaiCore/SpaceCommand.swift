@@ -21,11 +21,12 @@ public enum SpaceCommand: Equatable, Sendable {
   case pin(DisplaySelector?)
   case undo
   case saveLayout(String)
+  case restoreLayout(String)
 
   /// Whether the command changes the tree of the space, so `--undo` can restore the tree before it.
   public var changesTree: Bool {
     switch self {
-    case .equalize, .balance, .mirror, .rotate: true
+    case .equalize, .balance, .mirror, .rotate, .restoreLayout: true
     default: false
     }
   }
@@ -50,12 +51,13 @@ public enum SpaceCommand: Equatable, Sendable {
     case pin = "--pin"
     case undo = "--undo"
     case saveLayout = "--save-layout"
+    case restoreLayout = "--restore-layout"
 
     /// Layout and appearance commands fail before parsing a value when the acting space is missing.
     public var needsActingSpace: Bool {
       switch self {
       case .equalize, .balance, .mirror, .rotate, .padding, .gap, .toggle, .layout, .label, .pin,
-        .undo, .saveLayout:
+        .undo, .saveLayout, .restoreLayout:
         true
       default: false
       }
@@ -125,18 +127,25 @@ public enum SpaceCommand: Equatable, Sendable {
     case .label: return .label(value)
     case .pin: return .pin(try optionalDisplay(value))
     case .undo: return .undo
-    case .saveLayout:
-      // NOTE: The name is checked here, before the daemon writes anything: a name with a slash or a dot-dot never reaches
-      // the file system.
-      guard value.isValid else {
-        throw CommandError(
-          "missing value for '\(name.rawValue)'; expected \(LayoutStore.nameDescription)\n")
-      }
-      guard LayoutStore.isValidName(value.string) else {
-        throw unknownValue(name, value, expected: LayoutStore.nameDescription)
-      }
-      return .saveLayout(value.string)
+    case .saveLayout: return .saveLayout(try layoutName(value, name))
+    case .restoreLayout: return .restoreLayout(try layoutName(value, name))
     }
+  }
+
+  //
+  // NOTE: The name is checked here, before the daemon reads or writes anything: a name with a slash or a dot-dot never
+  // reaches the file system.
+  //
+
+  private static func layoutName(_ value: Token, _ name: Name) throws(CommandError) -> String {
+    guard value.isValid else {
+      throw CommandError(
+        "missing value for '\(name.rawValue)'; expected \(LayoutStore.nameDescription)\n")
+    }
+    guard LayoutStore.isValidName(value.string) else {
+      throw unknownValue(name, value, expected: LayoutStore.nameDescription)
+    }
+    return value.string
   }
 
   private static func optionalDisplay(_ token: Token) throws(CommandError) -> DisplaySelector? {

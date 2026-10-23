@@ -314,6 +314,15 @@ extension SpaceCommand {
       }
       let path = try saveSpaceLayout(name: name, on: sid, directory: directory)
       rsp.write("\(path)\n")
+    case .restoreLayout(let name):
+      guard let sid else {
+        throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
+      }
+      guard let directory = layoutDirectory() else {
+        throw CommandError("could not locate the layout directory: HOME is not set.\n")
+      }
+      let reply = try restoreSpaceLayout(name: name, on: sid, directory: directory)
+      rsp.write("\(reply)")
     }
     return true
   }

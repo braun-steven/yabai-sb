@@ -49,6 +49,9 @@ class BuildCheck:
         # NOTE: Tests read files of examples/ (skhdrc, yabai.toml, batch.sh), located through #filePath, so the
         # whole directory is copied.
         shutil.copytree(repository / "examples", self.root / "examples")
+        # NOTE: ConfigSchemaTests reads doc/yabai.schema.json the same way.
+        (self.root / "doc").mkdir()
+        shutil.copy2(repository / "doc/yabai.schema.json", self.root / "doc/yabai.schema.json")
         (self.root / "scripts").mkdir()
         for name in ("build-osax.sh", "osax-toolchain.sh"):
             shutil.copy2(repository / "scripts" / name, self.root / "scripts" / name)

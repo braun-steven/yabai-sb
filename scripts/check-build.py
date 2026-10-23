@@ -63,9 +63,15 @@ class BuildCheck:
         text = log.read_text(errors="replace")
         # NOTE: A diagnostic starts its line, optionally after a location (`file:12:5: `) or a tool name (`ld: `).
         # Test names and arguments that contain `error:` (e.g. a TOML `Syntax error:` fixture) are not diagnostics.
-        diagnostics = re.findall(
-            r"^(?:\S+?:(?:\d+:)*\s+)?(?:warning|error):.*$", text, flags=re.I | re.M
-        )
+        # SwiftPM's dependency-cache recovery (`warning: 'pkg': skipping cache due to an error: …`) is not a build
+        # diagnostic: it is transient (a missing `maintenance.lock`) and the package is fetched without the cache.
+        diagnostics = [
+            line
+            for line in re.findall(
+                r"^(?:\S+?:(?:\d+:)*\s+)?(?:warning|error):.*$", text, flags=re.I | re.M
+            )
+            if not re.match(r"warning: '[^']+': skipping cache due to an error:", line)
+        ]
         require(
             result.returncode == 0 and not diagnostics,
             f"{name} failed (exit {result.returncode}); see {log}\n"

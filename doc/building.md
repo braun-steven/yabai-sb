@@ -145,9 +145,10 @@ Successful checks remove their temporary copy. Failures retain it with per-step 
 inspection, run `python3 scripts/check-build.py --keep`; `--swift 'xcrun swift'` selects the outer
 driver using the same scope described above. The runner uses Python 3's standard library.
 
-A check can fail with exit status 0 when SwiftPM logs a dependency-cache recovery warning (for example,
-a missing `maintenance.lock`). Inspect the warning in the retained step log; the final build lines can
-still report success. Resolve the cache issue and rerun without weakening the warning-free gate.
+SwiftPM sometimes logs a dependency-cache recovery warning (`warning: 'swift-collections': skipping cache due to
+an error: The file “maintenance.lock” doesn’t exist.`) and fetches the package without the cache. The check ignores
+exactly these `skipping cache` lines: they failed two phase closes of the static config plan, and a rerun passed each
+time. Every other warning still fails the step.
 
 ## Settings and verification
 

@@ -24,6 +24,13 @@ func fileExists(_ filename: String) -> Bool {
   return true
 }
 
+/// The path with symlinks resolved (realpath), or the path itself when it cannot be resolved.
+func resolvedPath(_ filename: String) -> String {
+  guard let resolved = realpath(filename, nil) else { return filename }
+  defer { free(resolved) }
+  return String(cString: resolved)
+}
+
 func directoryExists(_ filename: String) -> Bool {
   var buffer = stat()
 
@@ -61,15 +68,42 @@ enum Daemon {
   // reported like a failed fork.
   //
 
-  /// The config file the daemon loads: `explicit` (from -c) when given, else the first existing candidate. Nil when no
+  /// The search paths of `filename` from $XDG_CONFIG_HOME and $HOME (see ConfigFileSearch.candidates).
+  private static func configCandidates(_ filename: String, homeDotfile: Bool) -> [String] {
+    return ConfigFileSearch.candidates(
+      filename: filename,
+      xdgConfigHome: getenv("XDG_CONFIG_HOME").map { String(cString: $0) },
+      home: getenv("HOME").map { String(cString: $0) },
+      homeDotfile: homeDotfile)
+  }
+
+  /// The yabairc the daemon runs: `explicit` (from -c) when given, else the first existing candidate. Nil when no
   /// candidate exists. The daemon and `config --check` without a file both use it.
   static func configFileChoice(explicit: String?) -> ConfigFileChoice? {
-    let candidates = ConfigFileSearch.candidates(
-      filename: "yabairc",
-      xdgConfigHome: getenv("XDG_CONFIG_HOME").map { String(cString: $0) },
-      home: getenv("HOME").map { String(cString: $0) })
+    let candidates = configCandidates("yabairc", homeDotfile: true)
+    return ConfigFileSearch.choose(
+      explicit: explicit, candidates: candidates, exists: fileExists, resolve: resolvedPath)
+  }
 
-    return ConfigFileSearch.choose(explicit: explicit, candidates: candidates, exists: fileExists)
+  /// The static config file (yabai.toml): `explicit` (from -c) when given, else the first existing candidate. Nil when no
+  /// candidate exists. Nothing applies it yet; only the leftover check below uses it.
+  static func configFile(explicit: String?) -> ConfigFileChoice? {
+    let candidates = configCandidates("yabai.toml", homeDotfile: false)
+    return ConfigFileSearch.choose(
+      explicit: explicit, candidates: candidates, exists: fileExists, resolve: resolvedPath)
+  }
+
+  /// Warns, and notifies, at startup when a yabairc exists and no yabai.toml does. See
+  /// ConfigFileSearch.leftoverYabaircNotice for the decision.
+  static func warnLeftoverYabairc(explicit: String?) {
+    let notice = ConfigFileSearch.leftoverYabaircNotice(
+      toml: configFile(explicit: explicit),
+      yabairc: configFileChoice(explicit: explicit),
+      tomlCandidates: configCandidates("yabai.toml", homeDotfile: false))
+    guard let notice else { return }
+
+    Logger.daemon.warning("\(notice)")
+    notify("configuration", "\(notice)..")
   }
 
   /// Runs the config file: the one given (`explicit`, from -c) or else the first existing candidate, as the daemon does at
@@ -320,6 +354,8 @@ enum Daemon {
       Logger.daemon.fatal("could not start message loop")
     }
 
+    Logger.daemon.debug("startup: checking for a yabairc that is no longer read")
+    warnLeftoverYabairc(explicit: options.config)
     Logger.daemon.debug("startup: running the config file")
     execConfigFile(options.config)
 

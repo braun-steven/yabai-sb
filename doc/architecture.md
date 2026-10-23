@@ -45,7 +45,8 @@ failure, as before).
    existing windows), `updateWindowNotifications` and `ConfigObserver.start`. Nothing else runs inside the block, so the
    space defaults are set before any reader of them.
 10. Start the message loop on the user's socket.
-11. Run the config file (`execConfigFile`), then `NSApp.run()`.
+11. Warn when a yabairc exists but no `yabai.toml` does (`warnLeftoverYabairc`, once), run the config file
+   (`execConfigFile`), then `NSApp.run()`.
 
 `config --reload` (`IPC/ConfigReload.swift`) runs the same `execConfigFile` again, after resetting the config to the
 values of step 9 (`Config.resetToDefaults`, which applies the space defaults, and the side effects of the settings the

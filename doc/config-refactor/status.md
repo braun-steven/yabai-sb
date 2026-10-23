@@ -25,11 +25,12 @@ mode: nested
 
 ## Phase 2: Check and load at startup
 
-phase: todo
+phase: in-progress
+mode: nested
 
 | ID | Title | Status | Notes |
 |---|---|---|---|
-| C2.1 | Find `yabai.toml` | todo | |
+| C2.1 | Find `yabai.toml` | done | `ConfigFileSearch.candidates` takes `homeDotfile` (no `~/.yabai.toml`); `choose` takes `resolve` (realpath via `resolvedPath` in Yabai.swift), so a link to the chosen file is not ignored; `Daemon.configFile(explicit:)` is the yabai.toml search (not applied yet); startup calls `Daemon.warnLeftoverYabairc` before `execConfigFile`, which still runs the yabairc. The notice names the first yabai.toml candidate as the target. Tests: 17 in `tests/YabaiCoreTests/ConfigFileSearchTests.swift` (both candidates, `-c`, symlinks, the notice decision). CHANGELOG Changed line; architecture "Startup sequence" step 11. Discovered P9.2 marked obsolete in `doc/refactor/status.md`. Gate quick passed (431 + 257 tests, 0 warnings). No live check. |
 | C2.2 | Check a `yabai.toml`: `config --check` and `yabai --check-config` | todo | |
 | C2.3 | Convert the example and the user's config | todo | |
 | C2.4 | Apply the file at startup, before windows are adopted | todo | |
@@ -87,6 +88,9 @@ Append only. Format: `YYYY-MM-DD HH:MM · role · ID · event · next step`.
 - 2026-10-23 19:19 · phase agent · C1.4 · started · C1.4 (TOMLKeyLocator.swift, line in ConfigDocumentError and ConfigEntry)
 - 2026-10-23 19:24 · subphase agent · C1.4 · done · C2.1 (find yabai.toml); the locator is `TOMLKeyLocator(source:).line(for:)`, lowering takes `lowered(locator:)`
 - 2026-10-23 19:27 · phase agent · C1 · closed, just ci passed · phase 2. Summary: YabaiCore now decodes yabai.toml (`ConfigDocument.decode`, all problems collected, lines via `TOMLKeyLocator`), lowers it to `yabai -m` words in apply order (`lowered(locator:)`), no daemon change. For phase 2: build the locator from the same text that was decoded; value ranges and per-option types (e.g. a bool option given an integer, out-of-range colors written in decimal) are left to the handlers in C2.2; keys inside a table follow `TOMLTable.keys` order, not file order (see Discovered).
+- 2026-10-23 19:33 · phase agent · C2 · started (nested) · C2.1
+- 2026-10-23 19:36 · subphase agent · C2.1 · started · C2.1 (ConfigFileSearch homeDotfile and resolve, Daemon.configFile, leftover warning, tests)
+- 2026-10-23 19:37 · subphase agent · C2.1 · done · C2.2 (configFileReport on the yabai.toml search). Open: the leftover notice says "no longer read" while the yabairc still runs until C2.4 (text as the plan gives it)
 
 ## Discovered
 
@@ -95,3 +99,4 @@ Out-of-scope findings for later, one line each with the subphase ID and a file r
 - C1.2/C1.4: keys inside a table are decoded in `TOMLTable.keys` order (plain values, arrays, inline tables), not file order; sorting by `TOMLKeyLocator` lines would restore it (`Sources/YabaiCore/ConfigDocumentDecoding.swift`).
 - C1.4: array elements (`config.space_layout[2]`) report the key's line, and quoted keys decode only `\"` and `\\` (`Sources/YabaiCore/TOMLKeyLocator.swift`).
 - C1 close (orchestrator): `just check-build` once failed its clean build on SwiftPM cache lines (`warning: 'swift-collections': skipping cache due to an error: The file “maintenance.lock” doesn’t exist.`); `scripts/check-build.py` fails any `warning:` line, even from SwiftPM itself. A rerun passed. Decide whether to ignore SwiftPM cache lines there (`scripts/check-build.py`).
+- C2.1: the leftover-yabairc notice (`yabairc is no longer read; convert it to <path>`) is shown while the yabairc still runs, until C2.4 applies yabai.toml; the wording is the plan's. Consider a "still run" variant for the C2.1 to C2.3 window (`Sources/YabaiCore/ConfigFileSearch.swift`, `leftoverYabaircNotice`).

@@ -25,7 +25,10 @@ struct ScriptingAdditionLoadTests {
       (ScriptingAdditionLoadExit.exited(2), "", "exit status 2"),
       (ScriptingAdditionLoadExit.signaled(9), "", "killed by signal 9"),
       (ScriptingAdditionLoadExit.timedOut, "", "timed out after 30 s"),
-      (ScriptingAdditionLoadExit.notStarted, "", "could not start /usr/bin/sudo"),
+      (
+        ScriptingAdditionLoadExit.notStarted("posix_spawn failed"), "",
+        "could not start /usr/bin/sudo: posix_spawn failed"
+      ),
     ] as [(ScriptingAdditionLoadExit, String, String?)])
   func failureReason(exit: ScriptingAdditionLoadExit, stderr: String, expected: String?) {
     #expect(ScriptingAdditionLoad.failureReason(exit, stderr: stderr) == expected)

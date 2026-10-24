@@ -386,6 +386,10 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   layout (Swift classes, e.g. `DockCore.DisplaySpaces`) is "unretained" for `object_setInstanceVariable`,
   which then only stores the pointer, although Swift owns a reference in the field. The payload therefore
   writes `_currentSpace` itself and retains the new value and releases the old one (`set_current_space`).
+- The daemon's built-in load (`[daemon] load_scripting_addition`, and after each `dock_did_restart`) starts `sudo -n <binary> --load-sa`
+  itself. On 2026-10-24 it failed at every daemon start and after a Dock restart with `could not load (could not start /usr/bin/sudo)`,
+  while the same command run by hand in a terminal worked. The reason now names the error that starting the process threw; read
+  it before debugging further.
 - The payload is built without ARC (`#error` guard at the top of `payload.m`). Its socket thread has an
   `@autoreleasepool` per message; never `release` literals or other autoreleased objects.
 

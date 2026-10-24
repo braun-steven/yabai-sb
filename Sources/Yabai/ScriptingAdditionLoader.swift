@@ -40,7 +40,8 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
       return
     }
     let path = buffer.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
-    executablePath = path.hasPrefix("/") ? path : FileManager.default.currentDirectoryPath + "/" + path
+    executablePath =
+      path.hasPrefix("/") ? path : FileManager.default.currentDirectoryPath + "/" + path
   }
 
   /// Loads the scripting addition in a new process, or queues one more run behind the run in progress. In headless mode
@@ -94,7 +95,7 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
           .gracefulShutDown(
             allowedDurationToNextStep: .seconds(ScriptingAdditionLoad.terminationGraceSeconds))
         ]
-        var exitStatus = ScriptingAdditionLoadExit.notStarted
+        let exitStatus: ScriptingAdditionLoadExit
         var stderr = ""
         do {
           let result = try await Subprocess.run(
@@ -110,7 +111,7 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
           exitStatus = ScriptingAdditionLoader.loadExit(of: result.terminationStatus)
           stderr = result.closureResult
         } catch {
-          exitStatus = .notStarted
+          exitStatus = .notStarted("\(error)")
         }
         return ScriptingAdditionLoader.loadResult(of: exitStatus, stderr: stderr)
       }

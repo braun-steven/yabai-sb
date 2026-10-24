@@ -12,8 +12,8 @@ public enum ScriptingAdditionLoadExit: Equatable, Sendable {
   case signaled(Int32)
   /// The process was still running when the timeout passed and was killed.
   case timedOut
-  /// The process could not be started.
-  case notStarted
+  /// The process could not be started; the text is the error that starting it threw.
+  case notStarted(String)
 }
 
 /// Pure functions of the built-in load of the scripting addition.
@@ -52,8 +52,8 @@ public enum ScriptingAdditionLoad {
       return "killed by signal \(signal)"
     case .timedOut:
       return "timed out after \(timeoutSeconds) s"
-    case .notStarted:
-      return "could not start \(sudoPath)"
+    case .notStarted(let error):
+      return "could not start \(sudoPath): \(error)"
     }
   }
 

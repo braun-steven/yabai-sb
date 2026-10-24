@@ -42,6 +42,7 @@ commands yourself.
 - Deploying: agents use `bash scripts/live-tests/deploy.sh install` (read `doc/live-testing.md` first).
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: payload history.
+- `just bump-version major|minor|patch`: raise `Daemon.version` and move the CHANGELOG's Unreleased entries under it; commits nothing.
 - `just brew-release`: GitHub release of HEAD plus a commit to the tap checkout (`../homebrew-tap`); the user runs it.
   The version is `Daemon.version` in `Sources/Yabai/Yabai.swift` (yabai-sb's own semver, not upstream's). See `RELEASE.md`.
 - `scripts/live-tests/missioncontrol state|open|close|toggle`: opens and closes Mission Control through the user's

@@ -93,6 +93,29 @@ archive: man install sign icon
     tar -cvzf bin/$(bin/yabai --version).tar.gz archive
     rm -rf archive
 
+# Raise Daemon.version by a major, minor or patch step and move the CHANGELOG's Unreleased entries under it; commits nothing.
+bump-version level:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    level={{ quote(level) }}
+    file=Sources/Yabai/Yabai.swift
+    changelog=CHANGELOG.md
+    [[ -z "$(git status --porcelain --untracked-files=no -- "$file" "$changelog")" ]] || { echo "Commit or stash $file and $changelog first" >&2; exit 1; }
+    grep -qx '## \[Unreleased\]' "$changelog" || { echo "No '## [Unreleased]' heading in $changelog" >&2; exit 1; }
+    current="$(sed -n 's/^  static let version = "yabai-sb-v\([0-9.]*\)"$/\1/p' "$file")"
+    [[ -n "$current" ]] || { echo "No version in $file" >&2; exit 1; }
+    IFS=. read -r major minor patch <<< "$current"
+    case "$level" in
+        major) major=$((major + 1)); minor=0; patch=0 ;;
+        minor) minor=$((minor + 1)); patch=0 ;;
+        patch) patch=$((patch + 1)) ;;
+        *) echo "Usage: just bump-version major|minor|patch" >&2; exit 1 ;;
+    esac
+    version="$major.$minor.$patch"
+    sed -i '' -e "s/^  static let version = \"yabai-sb-v[0-9.]*\"$/  static let version = \"yabai-sb-v$version\"/" "$file"
+    sed -i '' -e "s/^## \[Unreleased\]$/&\n\n## [$version] - $(date +%Y-%m-%d)/" "$changelog"
+    echo "Bumped $current to $version; review with: git diff -- $file $changelog"
+
 # Archive HEAD, publish it as a GitHub release and point the Homebrew tap formula at it (commits the tap, never pushes).
 brew-release: _brew-release-check archive
     #!/usr/bin/env bash
@@ -117,6 +140,9 @@ _brew-release-check:
     [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "Commit or stash local changes first" >&2; exit 1; }
     git fetch -q origin main
     git merge-base --is-ancestor HEAD origin/main || { echo "Push HEAD to origin/main first" >&2; exit 1; }
+    tag="$(sed -n 's/^  static let version = "yabai-sb-v\([^"]*\)"$/\1/p' Sources/Yabai/Yabai.swift)"
+    remote_tag="$(git ls-remote --tags origin "refs/tags/v$tag")"
+    [[ -z "$remote_tag" ]] || { echo "Tag v$tag is already on origin: bump the version first (just bump-version)" >&2; exit 1; }
 
 # Sign the built executable with the named signing identity.
 sign:

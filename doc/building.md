@@ -27,6 +27,7 @@ Requirements: Xcode with the macOS 27 SDK and Swift 6.4, plus just (`brew instal
 | `just check-build` | Isolated clean/incremental/toolchain upgrade checks and Swift tests |
 | `just clean` | Remove `bin/`, both packages' build caches and generated C sources |
 | `just archive` | Signed release tarball `bin/yabai-sb-v<version>.tar.gz` (binary, man page, schema, examples) |
+| `just bump-version major\|minor\|patch` | Raise `Daemon.version` and move `[Unreleased]` in `CHANGELOG.md` under the new version; commits nothing |
 | `just brew-release` | `archive`, a GitHub release of HEAD (must be on `origin/main`) and a commit bumping `url`/`sha256` in the tap checkout (`YABAI_TAP_DIR`, default `../homebrew-tap`); push the tap yourself |
 
 Every daemon variant publishes to `bin/yabai` after a successful build. Copying to a temporary sibling

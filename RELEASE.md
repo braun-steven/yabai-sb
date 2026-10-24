@@ -9,26 +9,27 @@ user cuts releases: creating a release and pushing are outward-facing, so agents
 - yabai-sb has its own [semantic version](https://semver.org), independent of upstream yabai's (which has used 1.x
   to 7.x itself). The project and formula are named `yabai-sb`; the binary stays `yabai`.
 - The version is `Daemon.version` in `Sources/Yabai/Yabai.swift`, printed as `yabai-sb-v<major>.<minor>.<patch>`.
-  Tags are `v<version>` and archives `yabai-sb-v<version>.tar.gz`.
+  Tags are `v<version>` and archives `yabai-sb-v<version>.tar.gz`. Change it with `just bump-version`, not by hand.
 - Major: a `yabai.toml` key or `-m` command is removed or changes meaning. Minor: new features, including ported
   upstream features. Patch: fixes, including ported upstream fixes.
 - The upstream release the fork has caught up with is recorded in `doc/upstream-sync.md`, never in the version.
 
 ## Cutting a release
 
-1. Bump `Daemon.version` in `Sources/Yabai/Yabai.swift`.
-2. In `CHANGELOG.md`, move the `[Unreleased]` entries under `## [<version>] - <date>`.
-3. Run `just ci`, then commit and `git push` (the release must point at a commit GitHub has).
-4. `just brew-release` (see below).
-5. `git -C ~/projects/homebrew-tap push`. Push the tap only after the release exists, or installs fail on a missing
+1. `just bump-version major|minor|patch`, the level the change calls for (see Versioning). It raises `Daemon.version` in
+   `Sources/Yabai/Yabai.swift` and moves the `[Unreleased]` entries of `CHANGELOG.md` under `## [<version>] - <date>`.
+   It refuses uncommitted changes to those two files and commits nothing: review the diff.
+2. Run `just ci`, then commit and `git push` (the release must point at a commit GitHub has).
+3. `just brew-release` (see below).
+4. `git -C ~/projects/homebrew-tap push`. Push the tap only after the release exists, or installs fail on a missing
    download.
-6. Optional: `git fetch --tags` to get the new tag locally.
+5. Optional: `git fetch --tags` to get the new tag locally.
 
 ## What `just brew-release` does
 
 1. `_brew-release-check` stops unless: the tap checkout exists (`YABAI_TAP_DIR`, default `../homebrew-tap`) with
-   `Formula/yabai-sb.rb`; there are no uncommitted changes to tracked files; and HEAD is on `origin/main` (after a
-   fetch).
+   `Formula/yabai-sb.rb`; there are no uncommitted changes to tracked files; HEAD is on `origin/main` (after a
+   fetch); and `origin` has no tag `v<version>` yet, so an unbumped version stops here rather than after the build.
 2. `just archive`: `man`, a release build (`install`), `sign` (identity `yabai-cert`), `icon` (sets the logo shown in
    the Accessibility list; `scripts/seticon.swift`), then packs `bin/yabai-sb-v<version>.tar.gz` with `bin/yabai`,
    `doc/yabai.1`, `doc/yabai.schema.json` and `examples/`.
@@ -68,5 +69,6 @@ user cuts releases: creating a release and pushing are outward-facing, so agents
 - The launchd label is `com.braun-steven.yabai-sb`. `yabai --start-service` removes an old `com.asmvik.yabai` service
   only when it runs the same binary. The user's `update-yabai-fork` deploy removes the service under either label
   with `launchctl` itself, since an installed binary only knows its own label.
-- A release cannot be re-cut under the same tag: delete the GitHub release and tag first (`gh release delete
-  v<version> --cleanup-tag`), or bump the patch version.
+- A release cannot be re-cut under the same tag: `_brew-release-check` refuses a tag that is still on origin. Delete
+  the GitHub release and tag first (`gh release delete v<version> --cleanup-tag`), or bump with
+  `just bump-version patch`.

@@ -1,13 +1,11 @@
 import Foundation
 import Logging
-import Subprocess
-import System
 import YabaiCore
 
 //
 // NOTE: The built-in load of the scripting addition (`[daemon] load_scripting_addition`). The daemon runs
 // `sudo -n <its own binary> --load-sa` (ScriptingAdditionLoad.arguments), the command a user runs by hand.
-// The process runs in a detached task that only posts its result back as `.scriptingAdditionLoaded`, so the event loop
+// The process runs on a dispatch thread and only posts its result back as `.scriptingAdditionLoaded`, so the event loop
 // never waits for it. The state of the runs is @WM: ScriptingAdditionLoadQueue lets one run go at a time, and a request
 // during a run becomes one more run after it. In headless mode a request is only recorded, and no process starts.
 //
@@ -70,74 +68,133 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
       return
     }
     let arguments = ScriptingAdditionLoad.arguments(executable: executablePath)
+    let socketPath = ScriptingAddition.shared.socketPath
     Task.detached {
-      let result = await ScriptingAdditionLoader.execute(arguments)
+      let result = await ScriptingAdditionLoader.execute(arguments, socketPath: socketPath)
       EventLoop.post(.scriptingAdditionLoaded(result))
     }
   }
 
   //
-  // NOTE: Runs the argv and waits for it, for at most `timeout`. Cancelling the run of swift-subprocess runs the
-  // teardown sequence: SIGTERM, which sudo relays to `--load-sa`, then SIGKILL after
-  // ScriptingAdditionLoad.terminationGraceSeconds. The group cancels the other child once one of them has its result.
-  // stderr is streamed and only its tail kept (OutputTail): a capped `.string(limit:)` throws on longer output, which
-  // ends the run as if the process had not started. This waits for the process to end, so it runs on the concurrent
-  // executor, never on the event loop.
+  // NOTE: Runs the argv on a dispatch thread, for at most `timeout`. The daemon ignores SIGCHLD (Yabai.swift), so the
+  // kernel reaps the process and its exit status cannot be read. A run therefore ends when its stderr ends, which is when
+  // sudo and the `--load-sa` it runs have closed it; then the payload decides whether the load worked (result(of:)). A
+  // timeout sends SIGTERM, which sudo relays to `--load-sa`, and SIGKILL after ScriptingAdditionLoad.terminationGraceSeconds
+  // if the stderr has not ended. The process starts with posix_spawn, since Swift cannot fork (EventSignal.swift). stderr
+  // is read as it comes and only its tail kept (OutputTail).
   //
 
   nonisolated static func execute(
-    _ arguments: [String], timeout: Duration = .seconds(ScriptingAdditionLoad.timeoutSeconds)
+    _ arguments: [String], socketPath: String? = nil,
+    timeout: TimeInterval = TimeInterval(ScriptingAdditionLoad.timeoutSeconds)
   ) async -> ScriptingAdditionLoadResult {
-    await withTaskGroup(of: ScriptingAdditionLoadResult.self) { group in
-      group.addTask {
-        var options = PlatformOptions()
-        options.teardownSequence = [
-          .gracefulShutDown(
-            allowedDurationToNextStep: .seconds(ScriptingAdditionLoad.terminationGraceSeconds))
-        ]
-        let exitStatus: ScriptingAdditionLoadExit
-        var stderr = ""
-        do {
-          let result = try await Subprocess.run(
-            .path(FilePath(arguments[0])), arguments: Arguments(Array(arguments.dropFirst())),
-            platformOptions: options, input: .none, output: .discarded, error: .sequence
-          ) { execution in
-            var tail = OutputTail(limit: ScriptingAdditionLoad.stderrLimit)
-            for try await chunk in execution.standardError {
-              chunk.withUnsafeBytes { tail.append($0) }
-            }
-            return tail.text
-          }
-          exitStatus = ScriptingAdditionLoader.loadExit(of: result.terminationStatus)
-          stderr = result.closureResult
-        } catch {
-          exitStatus = .notStarted("\(error)")
-        }
-        return ScriptingAdditionLoader.loadResult(of: exitStatus, stderr: stderr)
+    await withCheckedContinuation { continuation in
+      DispatchQueue.global().async {
+        continuation.resume(returning: run(arguments, socketPath: socketPath, timeout: timeout))
       }
-      group.addTask {
-        try? await Task.sleep(for: timeout)
-        return ScriptingAdditionLoader.loadResult(of: .timedOut, stderr: "")
-      }
-      let first = await group.next() ?? .failed("no result")
-      group.cancelAll()
-      return first
     }
   }
 
-  nonisolated static func loadExit(of status: TerminationStatus) -> ScriptingAdditionLoadExit {
-    switch status {
-    case .exited(let code): .exited(code)
-    case .signaled(let signal): .signaled(signal)
+  nonisolated private static func run(
+    _ arguments: [String], socketPath: String?, timeout: TimeInterval
+  ) -> ScriptingAdditionLoadResult {
+    var ends: [Int32] = [-1, -1]
+    guard pipe(&ends) == 0 else {
+      return result(
+        of: .notStarted(String(cString: strerror(errno))), stderr: "", socketPath: socketPath)
     }
+    let (reader, writer) = (ends[0], ends[1])
+    _ = fcntl(reader, F_SETFD, FD_CLOEXEC)
+    _ = fcntl(writer, F_SETFD, FD_CLOEXEC)
+    var pid: pid_t = 0
+    let status = spawn(&pid, arguments, stderr: writer)
+    close(writer)
+    guard status == 0 else {
+      close(reader)
+      return result(
+        of: .notStarted(String(cString: strerror(status))), stderr: "", socketPath: socketPath)
+    }
+    var tail = OutputTail(limit: ScriptingAdditionLoad.stderrLimit)
+    if drain(reader, until: Date().addingTimeInterval(timeout), into: &tail) {
+      close(reader)
+      return result(of: .ended, stderr: tail.text, socketPath: socketPath)
+    }
+    kill(pid, SIGTERM)
+    let grace = Date().addingTimeInterval(
+      TimeInterval(ScriptingAdditionLoad.terminationGraceSeconds))
+    if !drain(reader, until: grace, into: &tail) {
+      kill(pid, SIGKILL)
+    }
+    close(reader)
+    return result(of: .timedOut, stderr: tail.text, socketPath: socketPath)
   }
 
-  nonisolated static func loadResult(of outcome: ScriptingAdditionLoadExit, stderr: String)
-    -> ScriptingAdditionLoadResult
+  /// Starts the argv with stdin and stdout on /dev/null and its stderr on `stderr`. Returns 0, or the error number.
+  nonisolated private static func spawn(_ pid: inout pid_t, _ arguments: [String], stderr: Int32)
+    -> Int32
   {
-    guard let reason = ScriptingAdditionLoad.failureReason(outcome, stderr: stderr) else {
-      return .loaded
+    var actions: posix_spawn_file_actions_t?
+    posix_spawn_file_actions_init(&actions)
+    defer { posix_spawn_file_actions_destroy(&actions) }
+    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
+    posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0)
+    posix_spawn_file_actions_adddup2(&actions, stderr, STDERR_FILENO)
+    //
+    // NOTE: The child starts with the daemon's signal mask and dispositions, which ignore SIGCHLD and SIGPIPE. sudo needs
+    // SIGCHLD to wait for `--load-sa`, so the child gets the same as swift-subprocess gives: all signals at their default,
+    // and an empty mask.
+    //
+    var attributes: posix_spawnattr_t?
+    posix_spawnattr_init(&attributes)
+    defer { posix_spawnattr_destroy(&attributes) }
+    var everySignal = sigset_t()
+    var noSignal = sigset_t()
+    sigfillset(&everySignal)
+    sigemptyset(&noSignal)
+    posix_spawnattr_setsigdefault(&attributes, &everySignal)
+    posix_spawnattr_setsigmask(&attributes, &noSignal)
+    posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
+    var cArguments: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) } + [nil]
+    defer { for argument in cArguments { free(argument) } }
+    return posix_spawn(&pid, cArguments[0], &actions, &attributes, &cArguments, environ)
+  }
+
+  /// Reads `fd` into `tail` until its output ends (true), or until `deadline` passes (false).
+  nonisolated private static func drain(
+    _ fd: Int32, until deadline: Date, into tail: inout OutputTail
+  ) -> Bool {
+    var buffer = [UInt8](repeating: 0, count: 4096)
+    while true {
+      let left = deadline.timeIntervalSinceNow
+      guard left > 0 else { return false }
+      var descriptor = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+      let ready = poll(&descriptor, 1, Int32(left * 1000) + 1)
+      if ready < 0 && errno == EINTR { continue }
+      if ready < 0 { return true }
+      guard ready > 0 else { continue }
+      let count = read(fd, &buffer, buffer.count)
+      if count < 0 && errno == EINTR { continue }
+      guard count > 0 else { return true }
+      tail.append(Array(buffer[..<count]))
     }
-    return .failed(reason)
+  }
+
+  //
+  // NOTE: A run that reported no reason is a load only if the payload that answers is this build's. sudo -n fails with
+  // its own line when it cannot run, and `--load-sa` writes its own line when it cannot inject or validate the payload,
+  // so a reason here is the failure; without one the payload's version is the check that `--load-sa` itself makes.
+  //
+
+  /// The result of a run that ended as `exit` with `stderr`.
+  nonisolated static func result(
+    of exit: ScriptingAdditionLoadExit, stderr: String, socketPath: String?
+  ) -> ScriptingAdditionLoadResult {
+    if let reason = ScriptingAdditionLoad.failureReason(exit, stderr: stderr) {
+      return .failed(reason)
+    }
+    guard let socketPath, ScriptingAddition.shared.payloadMatches(socketPath: socketPath) else {
+      return .failed("the payload is not current after the load")
+    }
+    return .loaded
   }
 }

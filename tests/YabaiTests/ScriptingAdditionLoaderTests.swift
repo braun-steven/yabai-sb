@@ -171,8 +171,14 @@ extension DaemonState {
     let script = "trap 'echo term > \"$0\"; kill $p; exit 0' TERM; sleep 10 & p=$!; wait $p"
 
     let result = await ScriptingAdditionLoader.execute(
-      ["/bin/sh", "-c", script, marker], timeout: .milliseconds(300))
+      ["/bin/sh", "-c", script, marker], timeout: 1)
     #expect(result == .failed("timed out after \(ScriptingAdditionLoad.timeoutSeconds) s"))
     #expect(try String(contentsOfFile: marker, encoding: .utf8) == "term\n")
+  }
+
+  @Test func aSilentRunWithoutAPayloadToAskIsAFailure() async {
+    // NOTE: Without a socket path there is no payload to ask, so a run that reports nothing is not a load.
+    let result = await ScriptingAdditionLoader.execute(["/bin/sh", "-c", "exit 0"])
+    #expect(result == .failed("the payload is not current after the load"))
   }
 }

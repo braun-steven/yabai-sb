@@ -6,11 +6,9 @@
 
 /// How the process of a load ended.
 public enum ScriptingAdditionLoadExit: Equatable, Sendable {
-  /// The process exited with this status.
-  case exited(Int32)
-  /// The process was killed by this signal.
-  case signaled(Int32)
-  /// The process was still running when the timeout passed and was killed.
+  /// The process ended with its stderr. Its exit status is not read: the daemon ignores SIGCHLD, so the kernel reaps it.
+  case ended
+  /// The process was still running when the timeout passed and was stopped.
   case timedOut
   /// The process could not be started; the text is the error that starting it threw.
   case notStarted(String)
@@ -40,16 +38,13 @@ public enum ScriptingAdditionLoad {
     [sudoPath, "-n", executable, "--load-sa"]
   }
 
-  /// The reason a load failed, or nil when it succeeded. The reason is the last non-blank line that the process wrote to
-  /// stderr (sudo's "a password is required", or yabai's own message), or the exit status when there is none.
+  /// The reason a load failed, or nil when its process reported no error. The reason is the last non-blank line that the
+  /// process wrote to stderr (sudo's "a password is required", or yabai's own message). A timeout or a start failure has
+  /// its own reason. A nil reason leaves the answer to the payload (ScriptingAdditionLoader.result).
   public static func failureReason(_ exit: ScriptingAdditionLoadExit, stderr: String) -> String? {
     switch exit {
-    case .exited(0):
-      return nil
-    case .exited(let status):
-      return lastLine(of: stderr) ?? "exit status \(status)"
-    case .signaled(let signal):
-      return "killed by signal \(signal)"
+    case .ended:
+      return lastLine(of: stderr)
     case .timedOut:
       return "timed out after \(timeoutSeconds) s"
     case .notStarted(let error):

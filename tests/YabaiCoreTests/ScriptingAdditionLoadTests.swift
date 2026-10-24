@@ -11,19 +11,17 @@ struct ScriptingAdditionLoadTests {
   }
 
   @Test(
-    "the failure reason is the last stderr line, else the exit status, else the kind of failure",
+    "the failure reason is the last stderr line; a run without one leaves it to the payload, a timeout has its own",
     arguments: [
-      (ScriptingAdditionLoadExit.exited(0), "", nil),
-      (ScriptingAdditionLoadExit.exited(0), "warning\n", nil),
+      (ScriptingAdditionLoadExit.ended, "", nil),
+      (ScriptingAdditionLoadExit.ended, "warning\n", "warning"),
       (
-        ScriptingAdditionLoadExit.exited(1), "sudo: a password is required\n",
+        ScriptingAdditionLoadExit.ended, "sudo: a password is required\n",
         "sudo: a password is required"
       ),
-      (ScriptingAdditionLoadExit.exited(1), "first\n\n  second line  \n \n", "second line"),
-      (ScriptingAdditionLoadExit.exited(1), "first\r\nlast\r\n", "last"),
-      (ScriptingAdditionLoadExit.exited(1), "  \n", "exit status 1"),
-      (ScriptingAdditionLoadExit.exited(2), "", "exit status 2"),
-      (ScriptingAdditionLoadExit.signaled(9), "", "killed by signal 9"),
+      (ScriptingAdditionLoadExit.ended, "first\n\n  second line  \n \n", "second line"),
+      (ScriptingAdditionLoadExit.ended, "first\r\nlast\r\n", "last"),
+      (ScriptingAdditionLoadExit.ended, "  \n", nil),
       (ScriptingAdditionLoadExit.timedOut, "", "timed out after 30 s"),
       (
         ScriptingAdditionLoadExit.notStarted("posix_spawn failed"), "",
@@ -40,7 +38,7 @@ struct ScriptingAdditionLoadTests {
     #expect(tail.text == "first\n")
     tail.append(Array("second\nlast\n".utf8))
     #expect(tail.text == "nd\nlast\n")
-    #expect(ScriptingAdditionLoad.failureReason(.exited(1), stderr: tail.text) == "last")
+    #expect(ScriptingAdditionLoad.failureReason(.ended, stderr: tail.text) == "last")
   }
 
   @Test func theOutputTailReplacesACutCharacter() {

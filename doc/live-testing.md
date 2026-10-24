@@ -388,8 +388,9 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   writes `_currentSpace` itself and retains the new value and releases the old one (`set_current_space`).
 - The daemon's built-in load (`[daemon] load_scripting_addition`, and after each `dock_did_restart`) starts `sudo -n <binary> --load-sa`
   itself. On 2026-10-24 it failed at every daemon start and after a Dock restart with `could not load (could not start /usr/bin/sudo)`,
-  while the same command run by hand in a terminal worked. The reason now names the error that starting the process threw; read
-  it before debugging further.
+  while the same command run by hand in a terminal worked. The cause was `SIGCHLD` set to `SIG_IGN` (`Yabai.swift`), which keeps the
+  kernel from handing a child's exit status to the process wait, so the daemon cannot read the exit status of a load. A load now
+  counts as done when its stderr ends, and as loaded when the payload that answers is this build's.
 - The payload is built without ARC (`#error` guard at the top of `payload.m`). Its socket thread has an
   `@autoreleasepool` per message; never `release` literals or other autoreleased objects.
 

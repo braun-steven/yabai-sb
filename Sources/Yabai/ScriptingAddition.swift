@@ -216,6 +216,13 @@ final class ScriptingAddition: Sendable {
     return connection.handshake()
   }
 
+  /// Whether the payload that answers at `socketPath` is the one this build embeds. It waits on the socket, so it runs
+  /// off the event loop (ScriptingAdditionLoader).
+  func payloadMatches(socketPath: String) -> Bool {
+    guard let handshake = requestHandshake(socketPath: socketPath) else { return false }
+    return handshake.version.elementsEqual(saVersion.utf8)
+  }
+
   enum AttributeVerdict: Equatable {
     case supported
     case missingAnimation

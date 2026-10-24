@@ -14,6 +14,7 @@ frameworks (SkyLight, AX, CoreDock) through the `CPrivate` C target, and injects
 | change build scripts, the justfile or toolchain handling | `doc/building.md` |
 | touch the scripting addition or reload a payload | `doc/payload-updates.md`, `doc/osax-prototypes.md` |
 | port upstream yabai changes | `doc/upstream-sync.md` |
+| bump the version, cut a release or change the Homebrew formula or release recipes | `RELEASE.md` |
 
 When something costs real time, record the pitfall in the matching doc in the same commit.
 
@@ -42,7 +43,7 @@ commands yourself.
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: payload history.
 - `just brew-release`: GitHub release of HEAD plus a commit to the tap checkout (`../homebrew-tap`); the user runs it.
-  The version is `Daemon.version` in `Sources/Yabai/Yabai.swift` (yabai-sb's own semver, not upstream's).
+  The version is `Daemon.version` in `Sources/Yabai/Yabai.swift` (yabai-sb's own semver, not upstream's). See `RELEASE.md`.
 - `scripts/live-tests/missioncontrol state|open|close|toggle`: opens and closes Mission Control through the user's
   shortcut, so its handling can be tested without the user (outside the command sandbox; see `doc/live-testing.md`).
 - After a CPrivate change, also run `just install`: some link errors only appear in release.

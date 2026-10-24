@@ -158,11 +158,11 @@ extension DaemonState {
       #expect(Headless.drain().configEntries.isEmpty)
     }
 
-    @Test func aFloatThePrintRoundsRecordsNothingOnTheSecondReconcile() {
+    @Test func aFloatRecordsNothingOnTheSecondReconcile() {
       DaemonFixture.reset()
       let text = "[config]\nwindow_border_width = 2.123456\n"
       #expect(reconcileAll(document(text)) == 0)
-      #expect(Golden.run("config window_border_width") == Array("2.1235\n".utf8))
+      #expect(Golden.run("config window_border_width") == Array("2.123456\n".utf8))
       _ = Headless.drain()
 
       #expect(reconcileAll(document(text)) == 0)
@@ -296,9 +296,9 @@ extension DaemonState {
 
     @Test func sameValuesCompareAsTheyPrint() {
       let rows: [(printed: String, word: String, same: Bool)] = [
-        ("0.000000", "0.0", true),
-        ("4.0000", "4.0", true),
-        ("4.0000", "4.5", false),
+        ("0.0", "0", true),
+        ("4.0", "4.0", true),
+        ("4.0", "4.5", false),
         ("0xff0000", "0x00ff0000", true),
         ("0xffe1e3e4", "0xffe1e3e4", true),
         ("0xff0000", "0x00fe0000", false),
@@ -306,9 +306,9 @@ extension DaemonState {
         ("system:12", "system:14", false),
         ("tree", "float", false),
         ("", "0", false),
-        ("2.1235", "2.123456", true),
-        ("2.1235", "2.2", false),
-        ("0.250000", "0.25", true),
+        ("2.123456", "2.123456", true),
+        ("2.123456", "2.2", false),
+        ("0.1", "0.100000001", true),
       ]
       for row in rows {
         #expect(sameConfigValue(row.printed, row.word) == row.same, "\(row)")

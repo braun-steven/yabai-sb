@@ -353,7 +353,7 @@ extension Rule {
       scratchpad: effects.scratchpad ?? "",
       insert: effects.insert?.argument ?? "",
       oneShot: oneShot,
-      flags: cFormat("0x%08x", listFlags))
+      flags: "0x" + String(listFlags, radix: 16))
   }
 }
 

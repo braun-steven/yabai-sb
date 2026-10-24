@@ -54,10 +54,9 @@ struct ConfigReconcileResult: Equatable, Sendable {
     .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-/// Whether a printed value and a lowered word name the same value. A color prints without leading zeros (0xff...), so
-/// colors are compared as numbers. A float prints with fixed decimals (4.0000, or 0.250000 for %f), so the word is
-/// formatted with the same number of decimals and the strings are compared: a file value with more decimals than the
-/// print is then equal to the running value. Other values must be equal.
+/// Whether a printed value and a lowered word name the same value. Colors (0xff...) and numbers are compared as
+/// numbers; a float option holds a Float, so 0.1 in the file equals the running value that prints as 0.1. Other values
+/// must be equal.
 func sameConfigValue(_ printed: String, _ word: String) -> Bool {
   if printed == word { return true }
   // NOTE: focus_follows_mouse prints the disabled mode as `disabled` (focusFollowsMouseOption), and takes it as `off`. No
@@ -70,11 +69,7 @@ func sameConfigValue(_ printed: String, _ word: String) -> Bool {
     return a == b
   }
   guard let a = Double(printed), let b = Double(word) else { return false }
-
-  guard let point = printed.firstIndex(of: ".") else { return a == b }
-  let digits = printed[printed.index(after: point)...]
-  guard !digits.isEmpty, digits.allSatisfy({ $0 >= "0" && $0 <= "9" }) else { return a == b }
-  return cFormat("%.\(digits.count)f", b) == printed
+  return a == b || Float(a) == Float(b)
 }
 
 /// Runs one message through handleMessage, as the daemon runs a `yabai -m` message, and returns what it did: one change when

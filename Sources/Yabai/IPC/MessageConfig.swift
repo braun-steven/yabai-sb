@@ -91,12 +91,12 @@ enum ConfigOptionKind: Sendable {
 }
 
 @WM private func floatOption(
-  _ name: ConfigName, get: @escaping @WM () -> Float, printValue: @escaping @WM (Float) -> String,
+  _ name: ConfigName, get: @escaping @WM () -> Float,
   parseValue: @escaping @WM (Token) -> Float?, expected: String, set: @escaping @WM (Float) -> Void
 ) -> ConfigOption {
   ConfigOption(
     kind: .float,
-    name: name, print: { rsp, _ in rsp.write("\(printValue(get()))\n") },
+    name: name, print: { rsp, _ in rsp.write("\(String(get()))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
       guard token.isValid else { return nil }
@@ -263,7 +263,7 @@ enum ConfigOptionKind: Sendable {
   ConfigOption(
     kind: .float,
     name: .windowAnimationDuration,
-    print: { rsp, _ in rsp.write("\(cFormat("%f", Double(Config.current.animation.duration)))\n") },
+    print: { rsp, _ in rsp.write("\(String(Config.current.animation.duration))\n") },
     parse: { (domain, command, message, _) throws(CommandError) in
       let token = message.next()
       guard token.isValid else { return nil }
@@ -543,7 +543,6 @@ enum ConfigOptionKind: Sendable {
     set: { Config.current.tabBar.backdrop = $0 }),
   floatOption(
     .windowBorderWidth, get: { Config.current.border.width },
-    printValue: { cFormat("%.4f", Double($0)) },
     parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 ? $0 : nil } },
     expected: "a number above 0.0", set: { Config.current.border.width = $0 }),
   colorOption(
@@ -630,23 +629,20 @@ enum ConfigOptionKind: Sendable {
     isCustom: { Config.current.tabBar.backdropColorIsCustom }),
   floatOption(
     .windowOpacityDuration, get: { Config.current.window.opacityDuration },
-    printValue: { cFormat("%f", Double($0)) }, parseValue: { $0.value.floatValue },
+    parseValue: { $0.value.floatValue },
     expected: "a number of seconds", set: { Config.current.window.opacityDuration = $0 }),
-  // NOTE: An opacity is printed with 4 decimals. Only the menubar accepts 0, windows need an opacity above 0.
+  // NOTE: Only the menubar accepts an opacity of 0, windows need an opacity above 0.
   floatOption(
     .menubarOpacity, get: { Config.current.menuBar.opacity },
-    printValue: { cFormat("%.4f", Double($0)) },
     parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } },
     expected: "a number from 0.0 to 1.0", set: { Config.current.menuBar.opacity = $0 }),
   floatOption(
     .activeWindowOpacity, get: { Config.current.windowOpacity.active },
-    printValue: { cFormat("%.4f", Double($0)) },
     parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } },
     expected: "a number above 0.0 and at most 1.0",
     set: { Config.current.windowOpacity.active = $0 }),
   floatOption(
     .normalWindowOpacity, get: { Config.current.windowOpacity.normal },
-    printValue: { cFormat("%.4f", Double($0)) },
     parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } },
     expected: "a number above 0.0 and at most 1.0",
     set: { Config.current.windowOpacity.normal = $0 }),

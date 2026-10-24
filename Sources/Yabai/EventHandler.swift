@@ -257,7 +257,7 @@ extension EventHandler {
     let delay = Process.launchRetryDelay(process.launchAttempts)
     process.launchAttempts += 1
     Logger.events.debug(
-      "retrying the launch of \(process.nameAndPID) in \(cFormat("%.1f", delay / .seconds(1)))s (attempt \(process.launchAttempts))"
+      "retrying the launch of \(process.nameAndPID) in \(delay) (attempt \(process.launchAttempts))"
     )
 
     let key = ProcessKey(process.psn)

@@ -1009,10 +1009,3 @@ func messageClientEncoding() {
   #expect(!tokens.next().isValid)
   #expect(message.suffix(6) == Array("east\0\0".utf8))
 }
-
-@Test func cFormatMatchesPrintf() {
-  #expect(cFormat("%f", 0.25) == "0.250000")
-  #expect(cFormat("%.4f", 1.0) == "1.0000")
-  #expect(cFormat("%d:%u", Int32(-7), UInt32(7)) == "-7:7")
-  #expect(cFormat("%100d", Int32(1)) == String(repeating: " ", count: 99) + "1")
-}

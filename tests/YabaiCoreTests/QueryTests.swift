@@ -122,7 +122,7 @@ private func json(_ value: some Encodable) throws -> String {
   rule.effects.grid = Grid(4, 4, 0, 0, 2, 2)
   #expect(
     try json(rule.info(index: 0, display: 0, space: 2))
-      == "{\"app\":\"\",\"display\":0,\"flags\":\"0x00000000\",\"follow_space\":false,\"grid\":\"4:4:0:0:2:2\",\"index\":0,\"insert\":\"\",\"label\":\"a/b\",\"manage\":false,\"mouse_follows_focus\":null,\"native-fullscreen\":null,\"one-shot\":false,\"opacity\":0,\"role\":\"\",\"scratchpad\":\"\",\"space\":2,\"sticky\":null,\"sub-layer\":\"\",\"subrole\":\"\",\"title\":\"\"}"
+      == "{\"app\":\"\",\"display\":0,\"flags\":\"0x0\",\"follow_space\":false,\"grid\":\"4:4:0:0:2:2\",\"index\":0,\"insert\":\"\",\"label\":\"a/b\",\"manage\":false,\"mouse_follows_focus\":null,\"native-fullscreen\":null,\"one-shot\":false,\"opacity\":0,\"role\":\"\",\"scratchpad\":\"\",\"space\":2,\"sticky\":null,\"sub-layer\":\"\",\"subrole\":\"\",\"title\":\"\"}"
   )
 }
 

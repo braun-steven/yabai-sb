@@ -62,7 +62,7 @@ extension EventHandler {
     if ms.currentAction != .none { return }
 
     let point = event.location
-    Logger.events.debug("mouse down: \(cFormat("%.2f, %.2f", point.x, point.y))")
+    Logger.events.debug("mouse down: \(point.x), \(point.y)")
 
     guard let window = WindowManager.shared.window(at: point), !window.isFullscreen else { return }
 
@@ -149,7 +149,7 @@ extension EventHandler {
     }
 
     let point = event.location
-    Logger.events.debug("mouse up: \(cFormat("%.2f, %.2f", point.x, point.y))")
+    Logger.events.debug("mouse up: \(point.x), \(point.y)")
 
     guard let srcView = wm.managedView(for: window) else { return }
 
@@ -228,7 +228,7 @@ extension EventHandler {
     }
 
     let point = event.location
-    Logger.events.debug("mouse dragged: \(cFormat("%.2f, %.2f", point.x, point.y))")
+    Logger.events.debug("mouse dragged: \(point.x), \(point.y)")
 
     if ms.currentAction == .move {
       mouseDragMoveWindow(point)

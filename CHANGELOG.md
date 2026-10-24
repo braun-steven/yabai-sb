@@ -50,6 +50,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- Command *config* prints a float option in its shortest form (`0.25`, `1.0`) instead of with fixed decimals (`0.250000`, `1.0000`), and *rule --list* prints *flags* without leading zeros (`0x6011f`)
 - The *app*, *title*, *role* and *subrole* patterns of rules and signals use Swift Regex syntax, not POSIX extended regular expressions: they match characters, not bytes (`.` takes a whole "é" or emoji), and they add `(?i)`, `\d`, `\b` and lookaround. Anchors, literals, `.*` and bracket expressions match as before
 - Window borders are hidden while Mission Control is open and come back when it closes. On macOS 27 Mission Control is detected by the Dock's full-screen overlay window, since the Dock no longer posts its AXExpose notifications; the *mission_control_enter* and *mission_control_exit* signals fire again
 - Glass tab bars no longer show up as windows of their own in Mission Control

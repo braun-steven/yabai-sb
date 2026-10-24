@@ -142,22 +142,22 @@ extension DaemonState {
         option: "window_origin_display", value: "cursor", printed: "cursor", invalid: "mouse"),
       ConfigCase(option: "window_opacity", value: "on", printed: "on", invalid: "ON"),
       ConfigCase(
-        option: "window_opacity_duration", value: "0.5", printed: "0.500000", invalid: "fast"),
+        option: "window_opacity_duration", value: "0.5", printed: "0.5", invalid: "fast"),
       ConfigCase(
-        option: "window_animation_duration", value: "0.0", printed: "0.000000", invalid: "0.5s",
+        option: "window_animation_duration", value: "0.0", printed: "0.0", invalid: "0.5s",
         isDefault: true),
       ConfigCase(
         option: "window_animation_easing", value: "ease_in_out_quad", printed: "ease_in_out_quad",
         invalid: "linear"),
       ConfigCase(option: "window_shadow", value: "float", printed: "float", invalid: "managed"),
-      ConfigCase(option: "menubar_opacity", value: "0", printed: "0.0000", invalid: "1.5"),
-      ConfigCase(option: "active_window_opacity", value: "0.5", printed: "0.5000", invalid: "0"),
+      ConfigCase(option: "menubar_opacity", value: "0", printed: "0.0", invalid: "1.5"),
+      ConfigCase(option: "active_window_opacity", value: "0.5", printed: "0.5", invalid: "0"),
       ConfigCase(
-        option: "normal_window_opacity", value: "0.25", printed: "0.2500", invalid: "1.01"),
+        option: "normal_window_opacity", value: "0.25", printed: "0.25", invalid: "1.01"),
       ConfigCase(
         option: "insert_feedback_color", value: "0xff123456", printed: "0xff123456", invalid: "0"),
       ConfigCase(option: "window_border", value: "on", printed: "on", invalid: "enabled"),
-      ConfigCase(option: "window_border_width", value: "2.5", printed: "2.5000", invalid: "0"),
+      ConfigCase(option: "window_border_width", value: "2.5", printed: "2.5", invalid: "0"),
       ConfigCase(option: "window_border_hide_single", value: "on", printed: "on", invalid: "x"),
       ConfigCase(
         option: "active_window_border_color", value: "0x0", printed: "0x0", invalid: "red"),
@@ -577,14 +577,14 @@ extension DaemonState {
         runConfig("scratchpad_grid\0-1:4:1:1:2:2\0scratchpad_grid\0") == "4294967295:4:1:1:2:2\n")
 
       #expect(
-        runConfig("window_animation_duration\00\0window_animation_duration\0") == "0.000000\n")
+        runConfig("window_animation_duration\00\0window_animation_duration\0") == "0.0\n")
       #expect(runConfig("window_animation_duration\0fast\0").contains("unknown value 'fast'"))
 
       #expect(runConfig("layout\0bsp\0").contains("unknown value 'bsp'"))
       #expect(runConfig("external_bar\0some:1:2\0").contains("unknown mode 'some'"))
 
       // NOTE: float options also take integers
-      #expect(runConfig("window_opacity_duration\01\0window_opacity_duration\0") == "1.000000\n")
+      #expect(runConfig("window_opacity_duration\01\0window_opacity_duration\0") == "1.0\n")
 
       // NOTE: only the menubar accepts an opacity of 0
       #expect(runConfig("active_window_opacity\00\0").contains("unknown value '0'"))
@@ -609,7 +609,7 @@ extension DaemonState {
         Config.current.tabBar.focusedColorIsCustom = focusedColorIsCustom
       }
 
-      #expect(runConfig("window_opacity_duration\00.25\0window_opacity_duration\0") == "0.250000\n")
+      #expect(runConfig("window_opacity_duration\00.25\0window_opacity_duration\0") == "0.25\n")
       #expect(Config.current.window.opacityDuration == 0.25)
       #expect(runConfig("window_opacity_duration\0fast\0").contains("unknown value 'fast'"))
       #expect(Config.current.window.opacityDuration == 0.25)

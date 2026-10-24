@@ -95,7 +95,8 @@ struct StandardLogHandler: LogHandler {
     var buffer = [CChar](repeating: 0, count: 32)
     let length = strftime(&buffer, buffer.count, "%Y-%m-%d %H:%M:%S", &local)
     let date = String(decoding: buffer[..<length].map { UInt8(bitPattern: $0) }, as: UTF8.self)
-    return date + cFormat(".%03d", Int32(now.tv_nsec / 1_000_000))
+    let milliseconds = String(now.tv_nsec / 1_000_000)
+    return date + "." + String(repeating: "0", count: 3 - milliseconds.count) + milliseconds
   }
 }
 

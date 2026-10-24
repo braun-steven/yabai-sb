@@ -226,21 +226,6 @@ public enum Domain {
   public static let subscribe = "subscribe"
 }
 
-/// printf: the arguments formatted as the C version's fprintf did, e.g. `cFormat("%.4f", Double(value))`.
-public func cFormat(_ format: String, _ arguments: any CVarArg...) -> String {
-  // NOTE: vsnprintf takes a C va_list and writes into a C buffer. The buffer is sized again when the output is truncated.
-  var buffer = [CChar](repeating: 0, count: 64)
-  let length = unsafe Int(
-    withVaList(arguments) { unsafe vsnprintf(&buffer, buffer.count, format, $0) })
-
-  if length >= buffer.count {
-    buffer = [CChar](repeating: 0, count: length + 1)
-    _ = unsafe withVaList(arguments) { unsafe vsnprintf(&buffer, buffer.count, format, $0) }
-  }
-
-  return String(decoding: buffer[0..<max(length, 0)].map { UInt8(bitPattern: $0) }, as: UTF8.self)
-}
-
 /// The text of a response, built with string interpolation. A number is written as "%d" would.
 public struct ResponseText: ExpressibleByStringInterpolation, Sendable {
   public var bytes: [UInt8] = []

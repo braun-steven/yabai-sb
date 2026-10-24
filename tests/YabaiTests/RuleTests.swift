@@ -403,7 +403,7 @@ extension DaemonState {
       #expect((rule["opacity"] as? Double).map { abs($0 - 0.5) < 1e-6 } == true)
       // NOTE: the effects flags (opacity, layer) in the high half; the four patterns, the app exclusion and
       // one-shot in the low half
-      #expect(rule["flags"] as? String == "0x0006011f")
+      #expect(rule["flags"] as? String == "0x6011f")
     }
 
     struct FailureCase: CustomTestStringConvertible, Sendable {

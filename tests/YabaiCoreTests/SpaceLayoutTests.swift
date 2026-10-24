@@ -86,3 +86,76 @@ private func moveCandidate(_ mask: String, _ visible: SpaceID, _ fromEnd: Bool) 
   #expect(moveCandidate("-u--", 2, false) == 2)
   #expect(moveCandidate("----", 2, false) == nil)
 }
+
+// NOTE: Display i holds the spaces 10i+1..10i+n, one per character of its mask, and 'u' marks a user space. isEmpty
+// records each space it is asked about.
+private func reconcileStep(
+  _ masks: [String], target: [Int], visible: [SpaceID?] = [], pinned: Set<SpaceID> = [],
+  empty: Set<SpaceID> = [], asked: inout [SpaceID]
+) -> SpaceLayoutStep {
+  let spaces = masks.indices.map { i in
+    (0..<masks[i].count).map { SpaceID(UInt64(10 * i + $0 + 1)) }
+  }
+  var queries: [SpaceID] = []
+  defer { asked = queries }
+  return SpaceLayout.reconcileStep(
+    target: target, spaces: spaces, user: masks.map { $0.map { $0 == "u" } }, pinned: pinned,
+    visible: { $0 < visible.count ? visible[$0] : nil },
+    isEmpty: { sid in
+      queries.append(sid)
+      return empty.contains(sid)
+    })
+}
+
+private func reconcileStep(
+  _ masks: [String], target: [Int], visible: [SpaceID?] = [], pinned: Set<SpaceID> = [],
+  empty: Set<SpaceID> = []
+) -> SpaceLayoutStep {
+  var asked: [SpaceID] = []
+  return reconcileStep(
+    masks, target: target, visible: visible, pinned: pinned, empty: empty, asked: &asked)
+}
+
+@Test func spaceLayoutReconcileMovesAndCreates() {
+  #expect(reconcileStep(["u", "u"], target: [1, 1]) == .done)
+
+  // The first unpinned, non-visible user space moves towards a later display.
+  #expect(
+    reconcileStep(["uuu-", "u"], target: [2, 2], visible: [2], pinned: [1])
+      == .move(3, from: 0, to: 1))
+  #expect(
+    reconcileStep(["u", "uuu"], target: [2, 2], visible: [nil, 13]) == .move(11, from: 1, to: 0))
+
+  #expect(reconcileStep(["u", "u"], target: [1, 2]) == .create(on: 1, pinnedDisplay: nil))
+  #expect(
+    reconcileStep(["uu", "u"], target: [1, 2], visible: [1], pinned: [1, 2])
+      == .create(on: 1, pinnedDisplay: 0))
+}
+
+@Test func spaceLayoutReconcileDestroysTheLastEmptySpaceAndAsksTheVisibleOneLast() {
+  var asked: [SpaceID] = []
+  #expect(
+    reconcileStep(
+      ["uuuu-"], target: [1], visible: [4], pinned: [2], empty: [1, 3, 4], asked: &asked)
+      == .destroy(3, on: 0))
+  #expect(asked == [3])
+
+  #expect(
+    reconcileStep(["uuu"], target: [1], visible: [3], empty: [3], asked: &asked)
+      == .destroy(3, on: 0))
+  #expect(asked == [2, 1, 3])
+
+  #expect(reconcileStep(["uuu"], target: [1], visible: [3], asked: &asked) == .keep(display: 0))
+  #expect(asked == [2, 1, 3])
+}
+
+@Test func spaceLayoutReconcileKeepsTheLastUserSpaceAndPinnedSpaces() {
+  var asked: [SpaceID] = []
+  #expect(reconcileStep(["-u-"], target: [0], empty: [2], asked: &asked) == .keep(display: 0))
+  #expect(asked.isEmpty)
+
+  #expect(
+    reconcileStep(["uu"], target: [1], pinned: [1, 2], empty: [1, 2], asked: &asked)
+      == .keep(display: 0))
+  #expect(asked.isEmpty)
+}

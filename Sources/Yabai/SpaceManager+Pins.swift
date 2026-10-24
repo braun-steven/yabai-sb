@@ -7,19 +7,6 @@ import YabaiCore
 // pure decisions are in YabaiCore; the events are in EventHandler+System.swift (spacePinReconcile).
 //
 
-/// A move to make the first pinned space that is not its display's last user space. Moving a last user space is
-/// rejected by the window server, so it waits for another change instead of failing every reconcile pass.
-struct SpacePinMoveState: Sendable {
-  var move: SpacePinMove
-  var isLastUserSpace: Bool
-}
-
-enum SpacePinReconciler {
-  static func nextMove(candidates: [SpacePinMoveState]) -> SpacePinMove? {
-    return candidates.first { !$0.isLastUserSpace }?.move
-  }
-}
-
 extension SpaceManager {
   /// The connected displays by uuid.
   func connectedDisplays() -> [String: DisplayID] {
@@ -107,13 +94,7 @@ extension SpaceManager {
     // NOTE: The last user space of a display cannot move (moveSpace refuses it), so its pin waits for the next change
     // instead of failing every pass and holding back the pins after it.
     //
-    var candidates: [SpacePinMoveState] = []
-    for move in spacePinMoves() {
-      let isLastUserSpace = move.sid.isLastUserSpace
-      candidates.append(SpacePinMoveState(move: move, isLastUserSpace: isLastUserSpace))
-      if !isLastUserSpace { break }
-    }
-    guard let move = SpacePinReconciler.nextMove(candidates: candidates) else { return .done }
+    guard let move = spacePinMoves().first(where: { !$0.sid.isLastUserSpace }) else { return .done }
 
     Logger.spaces.debug(
       "move pinned space \(Int64(bitPattern: move.sid.rawValue)) to display \(move.did)")

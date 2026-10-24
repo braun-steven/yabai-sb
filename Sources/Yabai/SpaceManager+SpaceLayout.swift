@@ -17,86 +17,6 @@ enum ReconcileResult: Sendable {
   case failed
 }
 
-/// The space properties used to decide the next layout reconcile step. Window-server queries are resolved before the
-/// planner is called, so its choice is deterministic and can be tested without a live display.
-struct SpaceLayoutSpaceState: Sendable {
-  var sid: SpaceID
-  var isUser: Bool
-  var isLastUserSpace: Bool
-}
-
-struct SpaceLayoutDisplayState: Sendable {
-  var did: DisplayID
-  var spaces: [SpaceLayoutSpaceState]
-  var visible: SpaceID?
-}
-
-enum SpaceLayoutReconcileAction: Equatable, Sendable {
-  case done
-  case move(space: SpaceID, from: DisplayID, to: DisplayID)
-  case create(on: DisplayID)
-  case destroy(space: SpaceID, on: DisplayID)
-}
-
-/// Plans one space layout reconcile step from a snapshot of display and space state.
-enum SpaceLayoutReconciler {
-  static func nextAction(
-    target: [Int], displays: [SpaceLayoutDisplayState], pinned: Set<SpaceID>,
-    emptySpaces: Set<SpaceID>
-  ) -> SpaceLayoutReconcileAction {
-    guard !displays.isEmpty, target.count == displays.count else { return .done }
-
-    let actual = displays.map { $0.spaces.filter(\.isUser).count }
-    let surplus = actual.indices.first { actual[$0] > target[$0] }
-    let deficit = actual.indices.first { actual[$0] < target[$0] }
-
-    switch (surplus, deficit) {
-    case (let surplus?, let deficit?):
-      let display = displays[surplus]
-      let sid = SpaceLayout.moveCandidate(
-        spaces: display.spaces.map(\.sid), user: display.spaces.map(\.isUser),
-        visible: display.visible, fromEnd: deficit > surplus, pinned: pinned)
-
-      if let sid {
-        return .move(space: sid, from: display.did, to: displays[deficit].did)
-      }
-
-      return .create(on: displays[deficit].did)
-    case (nil, let deficit?):
-      return .create(on: displays[deficit].did)
-    case (let surplus?, nil):
-      let display = displays[surplus]
-      guard
-        let sid = destroyCandidate(
-          on: display, pinned: pinned, emptySpaces: emptySpaces)
-      else { return .done }
-
-      return .destroy(space: sid, on: display.did)
-    case (nil, nil):
-      return .done
-    }
-  }
-
-  /// Potential destroy candidates in the order the live pass should query them. It checks non-visible spaces first and
-  /// puts the visible space last, matching the destroy preference without eagerly querying every space's windows.
-  static func destroyCandidateOrder(
-    on display: SpaceLayoutDisplayState, pinned: Set<SpaceID>
-  ) -> [SpaceID] {
-    let candidates = display.spaces.reversed().filter {
-      $0.isUser && !$0.isLastUserSpace && !pinned.contains($0.sid)
-    }
-    let nonVisible = candidates.filter { $0.sid != display.visible }.map(\.sid)
-    let visible = candidates.first(where: { $0.sid == display.visible }).map { [$0.sid] } ?? []
-    return nonVisible + visible
-  }
-
-  private static func destroyCandidate(
-    on display: SpaceLayoutDisplayState, pinned: Set<SpaceID>, emptySpaces: Set<SpaceID>
-  ) -> SpaceID? {
-    return destroyCandidateOrder(on: display, pinned: pinned).first { emptySpaces.contains($0) }
-  }
-}
-
 extension SpaceManager {
   /// Performs one step that moves the user spaces towards the layout of the displays.
   func reconcileSpaceLayout() -> ReconcileResult {
@@ -126,83 +46,49 @@ extension SpaceManager {
 
     let target = layout.targets(builtin: builtin)
 
-    var spaceLists: [[SpaceID]] = []
+    var spaces: [[SpaceID]] = []
     for did in didList {
-      guard let spaces = did.spaces else { return .failed }
-      spaceLists.append(spaces)
+      guard let list = did.spaces else { return .failed }
+      spaces.append(list)
     }
-
-    let userSpacesByDisplay = spaceLists.map { spaces in spaces.map(\.isUser) }
-    let userCounts = userSpacesByDisplay.map { $0.filter { $0 }.count }
-    let surplus = userCounts.indices.first { userCounts[$0] > target[$0] }
-    let deficit = userCounts.indices.first { userCounts[$0] < target[$0] }
+    let user = spaces.map { $0.map(\.isUser) }
 
     //
     // NOTE: The pinned spaces (see SpacePinning.pinnedSpaces) are never moved or destroyed here. The pin reconcile moves
     // them to their displays, so a layout move of one would be undone by its pin, and the two would ping-pong.
     //
-    let pinned = pinnedSpaces()
+    let step = SpaceLayout.reconcileStep(
+      target: target, spaces: spaces, user: user, pinned: pinnedSpaces(),
+      visible: { didList[$0].currentSpace },
+      isEmpty: { $0.windows(includingMinimized: true)?.isEmpty ?? false })
 
-    let displayStates = didList.indices.map { index in
-      let spaces = spaceLists[index]
-      let userCount = userCounts[index]
-      return SpaceLayoutDisplayState(
-        did: didList[index],
-        spaces: spaces.enumerated().map { spaceIndex, sid in
-          let isUser = userSpacesByDisplay[index][spaceIndex]
-          return SpaceLayoutSpaceState(
-            sid: sid, isUser: isUser, isLastUserSpace: isUser && userCount == 1)
-        },
-        visible: index == surplus ? didList[index].currentSpace : nil)
-    }
+    /// The user spaces and the target of a display, for the log.
+    func counts(_ i: Int) -> String { "\(user[i].count(where: { $0 }))/\(target[i])" }
 
-    var emptySpaces: Set<SpaceID> = []
-    if let surplus, deficit == nil {
-      for sid in SpaceLayoutReconciler.destroyCandidateOrder(
-        on: displayStates[surplus], pinned: pinned)
-      {
-        guard let windows = sid.windows(includingMinimized: true) else { continue }
-        if windows.isEmpty {
-          emptySpaces.insert(sid)
-          break
-        }
-      }
-    }
-
-    let action = SpaceLayoutReconciler.nextAction(
-      target: target, displays: displayStates, pinned: pinned, emptySpaces: emptySpaces)
-
-    switch action {
+    switch step {
     case .done:
-      if let surplus, deficit == nil {
-        Logger.spaces.debug(
-          "display \(surplus + 1) has \(userCounts[surplus])/\(target[surplus]) spaces, but no empty space can be destroyed"
-        )
-      }
+      return .done
+    case .keep(let i):
+      Logger.spaces.debug(
+        "display \(i + 1) has \(counts(i)) spaces, but no empty space can be destroyed")
       return .done
     case .move(let sid, let from, let to):
-      let fromIndex = didList.firstIndex(of: from)!
-      let toIndex = didList.firstIndex(of: to)!
       Logger.spaces.debug(
-        "move space \(Int64(bitPattern: sid.rawValue)) from display \(fromIndex + 1) to display \(toIndex + 1)"
+        "move space \(Int64(bitPattern: sid.rawValue)) from display \(from + 1) to display \(to + 1)"
       )
-      do { try moveSpace(sid, toDisplay: to) } catch { return .failed }
-    case .create(let did):
-      let index = didList.firstIndex(of: did)!
-      if let surplus {
+      do { try moveSpace(sid, toDisplay: didList[to]) } catch { return .failed }
+    case .create(let i, let pinnedDisplay):
+      if let pinnedDisplay {
         Logger.spaces.debug(
-          "display \(surplus + 1) has only pinned spaces; create space on display \(index + 1) (\(userCounts[index])/\(target[index]))"
+          "display \(pinnedDisplay + 1) has only pinned spaces; create space on display \(i + 1) (\(counts(i)))"
         )
       } else {
-        Logger.spaces.debug(
-          "create space on display \(index + 1) (\(userCounts[index])/\(target[index]))")
+        Logger.spaces.debug("create space on display \(i + 1) (\(counts(i)))")
       }
-      do { try addSpace(onDisplayOf: did.currentSpace) } catch { return .failed }
-    case .destroy(let sid, let did):
-      let index = didList.firstIndex(of: did)!
+      do { try addSpace(onDisplayOf: didList[i].currentSpace) } catch { return .failed }
+    case .destroy(let sid, let i):
       Logger.spaces.debug(
-        "destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(index + 1) (\(userCounts[index])/\(target[index]))"
-      )
+        "destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(i + 1) (\(counts(i)))")
       do { try destroySpace(sid) } catch { return .failed }
     }
 

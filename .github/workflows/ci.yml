@@ -1,0 +1,59 @@
+# Tests on GitHub-hosted macOS 27 runners. The package needs the macOS 27 SDK and Swift 6.4, which only the
+# `xcode-27` image provides (a public preview). Standard hosted runners are free for public repositories.
+#
+# Not run here: `just install`, `just check-build` and the live harness. They need the release build's
+# upgrade checks or a real desktop session, SIP and Dock, which a hosted VM does not have.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer run of the same ref cancels the older one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The image's default is Xcode 27.0. Xcode 27.1 (build 27A9275) is the toolchain of the development machine.
+  DEVELOPER_DIR: /Applications/Xcode_27.1_Release_Candidate.app/Contents/Developer
+  HOMEBREW_NO_AUTO_UPDATE: 1
+
+jobs:
+  # scripts/ci.sh quick: debug build, CLI smoke checks, Python harness tests, then the Swift tests.
+  quick:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install just
+        run: brew install just
+      - name: Show toolchain
+        run: |
+          xcrun swift --version
+          xcrun --sdk macosx --show-sdk-version
+      - name: Build and test
+        run: just ci-quick
+      - name: Upload logs of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-logs
+          path: .build/ci/
+          if-no-files-found: ignore
+
+  # Payload and loader tests in osax/testing. They use a recording adapter and never reach Dock.
+  osax:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install just
+        run: brew install just
+      - name: Run the payload and loader tests
+        run: just osax-test

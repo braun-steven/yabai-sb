@@ -469,7 +469,7 @@ def launch(label):
                         seen.append((time.perf_counter() - start, line.strip()))
         finally:
             if te_pid:
-                sh(f"kill -CONT {te_pid}", check=True)
+                sh(f"kill -CONT {te_pid}")
                 te_pid = None
         retries = [t for t, l in seen if "retrying" in l]
         gave_up = any("giving up" in l for t, l in seen)
@@ -477,11 +477,10 @@ def launch(label):
         gaps = [round(b - a, 1) for a, b in zip(tries, tries[1:])]
         record("launch retries back off and stop", gave_up and len(retries) <= 12,
                f"{len(tries)} attempts in {LAUNCH_WATCH:.0f}s, gaps between attempts {gaps}, gave up {gave_up}")
-        qms = [ms for ms in query_ms]
         query_summary = (
-            f"max {max(qms):.0f} ms, median {sorted(qms)[len(qms)//2]:.0f} ms over {len(qms)} queries"
-            if qms else "no query samples")
-        record("queries while the frozen app is retried", bool(qms), query_summary)
+            f"max {max(query_ms):.0f} ms, median {sorted(query_ms)[len(query_ms)//2]:.0f} ms over {len(query_ms)} queries"
+            if query_ms else "no query samples")
+        record("queries while the frozen app is retried", bool(query_ms), query_summary)
         time.sleep(1.0)
         sh("open -a TextEdit", check=True); time.sleep(2.5)
         managed = [w for w in (q("--windows") or []) if w["app"] == "TextEdit"]
@@ -490,7 +489,7 @@ def launch(label):
     finally:
         try:
             if te_pid:
-                sh(f"kill -CONT {te_pid}", check=True)
+                sh(f"kill -CONT {te_pid}")
         finally:
             if original_debug_output is not None:
                 y(f"config debug_output {original_debug_output}", check=True)

@@ -1,5 +1,4 @@
 import Foundation
-import Synchronization
 import Testing
 import YabaiCore
 
@@ -36,37 +35,6 @@ private let startupText = """
   action = "true"
   """
 
-private enum RecordedStartupStep: Equatable, Sendable {
-  case notificationRegistration
-  case manager(StartupManagerStep)
-}
-
-private final class StartupLifecycleRecorder: Sendable {
-  private struct State: Sendable {
-    var events: [RecordedStartupStep] = []
-  }
-
-  private let state = Mutex(State())
-
-  func registerNotifications() {
-    state.withLock { $0.events.append(.notificationRegistration) }
-  }
-
-  func run(_ step: StartupManagerStep) -> ConfigReconcileResult {
-    state.withLock { current in
-      current.events.append(.manager(step))
-      switch step {
-      case .settings, .managerSettings, .spaces, .rulesAndSignals:
-        return ConfigReconcileResult(changes: 1)
-      default:
-        return ConfigReconcileResult()
-      }
-    }
-  }
-
-  var events: [RecordedStartupStep] { state.withLock { $0.events } }
-}
-
 extension DaemonState {
   @Suite
   @WM struct ConfigLoaderTests {
@@ -85,34 +53,6 @@ extension DaemonState {
       for (target, step) in rows {
         #expect(configStep(of: target) == step, "\(target)")
       }
-    }
-
-    @Test func notificationsAndRulesAreReadyBeforeWindowTiling() {
-      let recorder = StartupLifecycleRecorder()
-
-      registerStartupNotifications {
-        recorder.registerNotifications()
-      }
-      let result = startStartupManagerLifecycle { recorder.run($0) }
-
-      #expect(
-        recorder.events == [
-          .notificationRegistration,
-          .manager(.spaceDefaults),
-          .manager(.settings),
-          .manager(.initializeWindowManager),
-          .manager(.beginSpaceManager),
-          .manager(.managerSettings),
-          .manager(.spaces),
-          .manager(.rulesAndSignals),
-          .manager(.beginWindowManager),
-          .manager(.updateWindowNotifications),
-          .manager(.startConfigObserver),
-          .manager(.applyMenuBarAlpha),
-          .manager(.requestScriptingAdditionLoad),
-          .manager(.syncConfigWatcher),
-        ])
-      #expect(result.changes == ConfigStep.allCases.count)
     }
 
     @Test func fileIsAppliedInItsSteps() throws {

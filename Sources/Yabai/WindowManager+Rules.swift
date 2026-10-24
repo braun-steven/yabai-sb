@@ -159,15 +159,36 @@ extension WindowManager {
       let role = target.ax.role ?? ""
       let subrole = target.ax.subrole ?? ""
 
-      applyManageRules(
+      applyWindowRules(
         to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
-
-      if target.isEligibleForManagement {
-        target.isEligible = true
-        applyRules(
-          to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
-      }
     }
+  }
+
+  /// Applies both rule rounds to a root window and returns whether it is eligible for management. The manage round
+  /// runs first, so a rule can make a window that misreports its role eligible for the effects round.
+  @discardableResult
+  func applyWindowRules(
+    to target: Window,
+    title: String,
+    role: String,
+    subrole: String,
+    includingOneShotRules: Bool
+  ) -> Bool {
+    applyManageRules(
+      to: target, title: title, role: role, subrole: subrole,
+      includingOneShotRules: includingOneShotRules)
+
+    guard target.isEligibleForManagement else { return false }
+
+    target.isEligible = true
+    let effects = applyRules(
+      to: target, title: title, role: role, subrole: subrole,
+      includingOneShotRules: includingOneShotRules)
+    // NOTE: insert= places a window only as it is created, so it is recorded only for a new window (added with
+    // one-shot rules included). Windows that exist when yabai starts, or that a later discovery or reapply finds,
+    // keep their place: recording it for them would stack or split windows that are already tiled.
+    if includingOneShotRules { target.insertionByRule = effects?.insertionForNewWindow }
+    return true
   }
 
   func reapplyRule(at index: Int) -> Bool {

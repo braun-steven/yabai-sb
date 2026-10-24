@@ -79,10 +79,7 @@ enum MessageLoop {
       setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
       setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
-      receiveClient(sockfd) { message in
-        EventLoop.post(.daemonMessage(message))
-        return nil
-      }
+      receiveClient(sockfd) { EventLoop.post(.daemonMessage($0)) }
     }
   }
 
@@ -134,9 +131,9 @@ enum MessageLoop {
     return message
   }
 
-  /// Reads one client request and passes it to its handler. A response is written and closes the socket; a nil
-  /// response transfers the socket to the handler, as the event loop does for messages and subscriptions.
-  static func receiveClient(_ sockfd: Int32, handler: (DaemonMessage) -> Response?) {
+  /// Reads one client request and passes it, with its socket, to the handler. A request that cannot be read is
+  /// rejected and its socket closed without calling the handler.
+  static func receiveClient(_ sockfd: Int32, handler: (DaemonMessage) -> Void) {
     let bytes: [UInt8]
     do {
       bytes = try readMessage(sockfd)
@@ -146,9 +143,7 @@ enum MessageLoop {
       return
     }
 
-    if let response = handler(DaemonMessage(sockfd: sockfd, bytes: bytes)) {
-      send(response, to: sockfd)
-    }
+    handler(DaemonMessage(sockfd: sockfd, bytes: bytes))
   }
 
   /// The response to a message that could not be read: the failure byte, then "invalid message".

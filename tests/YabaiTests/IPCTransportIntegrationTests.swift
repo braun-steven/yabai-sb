@@ -4,8 +4,8 @@ import YabaiCore
 
 @testable import Yabai
 
-// A socket pair exercises encoded request framing, a controlled handler, response writing and EOF without starting
-// the daemon listener or touching window-server state.
+// NOTE: A socket pair exercises the encoded request, server framing, command dispatch, queued response write and EOF
+// without starting the daemon listener or connecting to the user's yabai process.
 
 private enum InvalidIPCRequest: String, CaseIterable, Sendable, CustomStringConvertible {
   case negativeLength
@@ -75,29 +75,32 @@ private func readToEnd(_ fd: Int32) throws -> [UInt8] {
   }
 }
 
-@Test func encodedRequestUsesFramingAndWritesHandlerResponseBeforeEOF() throws {
-  let (server, client) = try ipcSocketPair()
-  defer { Darwin.close(client) }
-  var serverSocketTransferred = false
-  defer {
-    if !serverSocketTransferred { Darwin.close(server) }
+extension DaemonState {
+  @Suite @WM struct IPCTransportIntegrationTests {
+    @Test func requestPassesThroughFramingDispatchAndResponseWrite() throws {
+      let (server, client) = try ipcSocketPair()
+      defer { Darwin.close(client) }
+      var serverSocketTransferred = false
+      defer {
+        if !serverSocketTransferred { Darwin.close(server) }
+      }
+
+      let request = ClientMessage.encode([Array("unknown_test_domain".utf8)])
+      try writeAndFinish(request, to: client)
+
+      var receivedBytes: [UInt8] = []
+      serverSocketTransferred = true
+      MessageLoop.receiveClient(server) { message in
+        receivedBytes = message.bytes
+        MessageLoop.handle(message)
+      }
+
+      #expect(receivedBytes == Array(request.dropFirst(MemoryLayout<Int32>.size)) + [0, 0])
+      #expect(
+        try readToEnd(client)
+          == [Response.failureByte] + Array("unknown domain 'unknown_test_domain'\n".utf8))
+    }
   }
-
-  let request = ClientMessage.encode([Array("test".utf8), Array("ping".utf8)])
-  try writeAndFinish(request, to: client)
-
-  var receivedBytes: [UInt8] = []
-  serverSocketTransferred = true
-  MessageLoop.receiveClient(server) { message in
-    receivedBytes = message.bytes
-    var tokens = Message(message.bytes)
-    var response = Response()
-    response.write("handled \(tokens.next()) \(tokens.next())\n")
-    return response
-  }
-
-  #expect(receivedBytes == Array(request.dropFirst(MemoryLayout<Int32>.size)) + [0, 0])
-  #expect(try readToEnd(client) == Array("handled test ping\n".utf8))
 }
 
 @Test(arguments: InvalidIPCRequest.allCases)
@@ -115,7 +118,6 @@ private func invalidRequestReceivesRejectionAndEOF(_ request: InvalidIPCRequest)
   serverSocketTransferred = true
   MessageLoop.receiveClient(server) { _ in
     handlerWasCalled = true
-    return Response()
   }
 
   #expect(!handlerWasCalled)

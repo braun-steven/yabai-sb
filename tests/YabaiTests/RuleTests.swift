@@ -644,10 +644,9 @@ extension DaemonState {
       #expect(drainPayloadCalls() == [])
     }
 
-    // NOTE: createAndAddWindow records the insert= of a rule only for a window it adds as new, with one-shot rules
-    // included, so the caller relies on applyRules returning the insert of a one-shot rule only when they are included.
-    // createAndAddWindow and windowCreated need AX windows, so the recording itself is not reachable headless.
-    @Test func applyRulesReturnsTheInsertOfTheMatchingRules() throws {
+    // NOTE: applyWindowRules is the rule step of createAndAddWindow (one-shot rules included for a new window) and of
+    // reapplyAllRules (never one-shot). createAndAddWindow needs AX windows, so it is called here directly.
+    @Test func windowRulesRecordInsertOnlyForNewWindows() throws {
       let space = Workspace()
       let windows = space.openForRules(2)
 
@@ -656,15 +655,65 @@ extension DaemonState {
 
       let wm = WindowManager.shared
       func insertion(of target: Window, oneShotRules: Bool) -> InsertDirection? {
-        wm.applyRules(
-          to: target, title: "", role: "AXWindow", subrole: "AXStandardWindow",
-          includingOneShotRules: oneShotRules)?.insertionForNewWindow
+        target.insertionByRule = nil
+        #expect(
+          wm.applyWindowRules(
+            to: target, title: "", role: "AXWindow", subrole: "AXStandardWindow",
+            includingOneShotRules: oneShotRules))
+        return target.insertionByRule
       }
 
-      #expect(insertion(of: windows[0], oneShotRules: false) == .stack)
+      #expect(insertion(of: windows[0], oneShotRules: false) == nil)
       #expect(insertion(of: windows[1], oneShotRules: false) == nil)
       #expect(insertion(of: windows[1], oneShotRules: true) == .east)
       #expect(insertion(of: windows[0], oneShotRules: true) == .stack)
+
+      // A reapply keeps the insert a new window has not used yet.
+      wm.reapplyAllRules()
+      #expect(windows[0].insertionByRule == .stack)
+    }
+
+    @Test func windowRulesApplyManageBeforeOtherEffects() throws {
+      let space = Workspace()
+      let windows = space.openForRules(2)
+      windows[1].ax.role = "AXSheet"
+
+      // NOTE: sticky= skips a nonstandard window unless the manage round has already marked it managed.
+      #expect(send("rule --add app=^Mail$ role=^AXSheet$ manage=on") == "")
+      #expect(send("rule --add app=^Mail$ sticky=on") == "")
+      _ = drainPayloadCalls()
+
+      #expect(
+        WindowManager.shared.applyWindowRules(
+          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
+          includingOneShotRules: true))
+      #expect(windows[1].isManagedByRule)
+      #expect(windows[1].isEligible)
+      #expect(windows[1].isSticky)
+      #expect(drainPayloadCalls().contains("sticky w2"))
+    }
+
+    @Test func oneShotManageRuleOnlyAppliesToNewWindows() throws {
+      let space = Workspace()
+      let windows = space.openForRules(2)
+      windows[1].ax.role = "AXSheet"
+
+      #expect(send("rule --add --one-shot app=^Mail$ role=^AXSheet$ manage=on") == "")
+
+      let wm = WindowManager.shared
+      #expect(
+        !wm.applyWindowRules(
+          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
+          includingOneShotRules: false))
+      #expect(!windows[1].isManagedByRule)
+      #expect(wm.rules.first?.matched == false)
+
+      #expect(
+        wm.applyWindowRules(
+          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
+          includingOneShotRules: true))
+      #expect(windows[1].isManagedByRule)
+      #expect(wm.rules.first?.matched == true)
     }
 
     @Test func manageOnOfAManagedWindowKeepsItTiled() throws {

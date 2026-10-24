@@ -38,42 +38,6 @@ func directoryExists(_ filename: String) -> Bool {
   return buffer.st_mode & S_IFMT == S_IFDIR
 }
 
-/// Registers the window-server notifications the managers need before they tile windows. The closure keeps that ordering
-/// testable without registering real notifications.
-func registerStartupNotifications(_ register: @Sendable () -> Void) {
-  Logger.daemon.debug("startup: registering the SkyLight notifications")
-  register()
-}
-
-/// The ordered steps of startup after the notification registration and config check.
-enum StartupManagerStep: String, CaseIterable, Equatable, Sendable {
-  case spaceDefaults
-  case settings
-  case initializeWindowManager
-  case beginSpaceManager
-  case managerSettings
-  case spaces
-  case rulesAndSignals
-  case beginWindowManager
-  case updateWindowNotifications
-  case startConfigObserver
-  case applyMenuBarAlpha
-  case requestScriptingAdditionLoad
-  case syncConfigWatcher
-}
-
-/// Runs the ordered startup steps through an injected lifecycle closure. Headless tests can record the sequence without
-/// starting managers, querying the window server or registering notifications.
-@WM func startStartupManagerLifecycle(
-  _ run: @WM (StartupManagerStep) -> ConfigReconcileResult
-) -> ConfigReconcileResult {
-  var total = ConfigReconcileResult()
-  for step in StartupManagerStep.allCases {
-    total += run(step)
-  }
-  return total
-}
-
 /// The daemon and its startup, and the options that run instead of it.
 enum Daemon {
   private static let major = 7
@@ -265,14 +229,12 @@ enum Daemon {
     MissionControl.shared.observe()
 
     //
-    // NOTE: Registration order is the declaration order of SLSNotification (see SLSNotification.swift). Register before
-    // the config read and manager startup; WindowManager.begin must tile only after these notifications are subscribed.
+    // NOTE: Registration order is the declaration order of SLSNotification (see SLSNotification.swift).
     //
-    registerStartupNotifications {
-      for kind in SLSNotification.allCases {
-        SLS.registerNotification(
-          SLS.connection, kind.rawValue, handler: connectionNotificationHandler)
-      }
+    Logger.daemon.debug("startup: registering the SkyLight notifications")
+    for kind in SLSNotification.allCases {
+      SLS.registerNotification(
+        SLS.connection, kind.rawValue, handler: connectionNotificationHandler)
     }
 
     //
@@ -313,68 +275,48 @@ enum Daemon {
     // starts after the block). The block returns the number of messages that failed, for one notification.
     //
     Logger.daemon.debug("startup: starting the managers on the event loop")
-    let applied = WM.sync {
-      startStartupManagerLifecycle { step in
-        switch step {
-        case .spaceDefaults:
-          Logger.daemon.debug("startup: applying the space defaults")
-          Config.current.applySpaceDefaults()
-          return ConfigReconcileResult()
-        case .settings:
-          Logger.daemon.debug("startup: applying the config file settings")
-          return config.apply(.settings)
-        case .initializeWindowManager:
-          Logger.daemon.debug("startup: initializing the window manager")
-          WindowManager.shared.initialize()
-          return ConfigReconcileResult()
-        case .beginSpaceManager:
-          Logger.daemon.debug("startup: beginning the space manager")
-          SpaceManager.shared.begin()
-          return ConfigReconcileResult()
-        case .managerSettings:
-          Logger.daemon.debug("startup: applying the config file manager settings")
-          return config.apply(.managerSettings)
-        case .spaces:
-          Logger.daemon.debug("startup: applying the config file spaces")
-          return config.apply(.spaces)
-        case .rulesAndSignals:
-          Logger.daemon.debug("startup: applying the config file rules and signals")
-          return config.apply(.rulesAndSignals)
-        case .beginWindowManager:
-          Logger.daemon.debug("startup: beginning the window manager")
-          WindowManager.shared.begin()
-          return ConfigReconcileResult()
-        case .updateWindowNotifications:
-          Logger.daemon.debug("startup: requesting window notifications")
-          WindowManager.shared.updateWindowNotifications()
-          return ConfigReconcileResult()
-        case .startConfigObserver:
-          Logger.daemon.debug("startup: starting the config observer")
-          ConfigObserver.shared.start()
-          return ConfigReconcileResult()
-        case .applyMenuBarAlpha:
-          // NOTE: The file is applied before ConfigObserver.start, and the observer only reacts to later sets. Window
-          // adoption covers the shadow, opacity, border and tab bar groups of the file. The menu bar alpha is not covered
-          // by any step, so it is applied here once, with the fullscreen rule of EventHandler+Space.swift.
-          if Config.current.menuBar.opacity != 1.0 {
-            Logger.daemon.debug("startup: applying the menu bar alpha")
-            let isFullscreen = SpaceManager.shared.currentSpaceID.map { $0.isFullscreen } ?? false
-            SLS.setMenuBarAlpha(SLS.connection, isFullscreen ? 1.0 : Config.current.menuBar.opacity)
-          }
-          return ConfigReconcileResult()
-        case .requestScriptingAdditionLoad:
-          // The load is requested after the file is applied, so it sees the applied document. It runs in a child process,
-          // and config_loaded (posted below) does not wait for it.
-          requestScriptingAdditionLoad(reason: "startup")
-          return ConfigReconcileResult()
-        case .syncConfigWatcher:
-          // The watch starts last, after the file is applied, so its first change is compared with the loaded text. It is
-          // on unless the applied file sets `[daemon] auto_reload = false`.
-          Logger.daemon.debug("startup: watching the config file")
-          ConfigWatcher.shared.sync()
-          return ConfigReconcileResult()
-        }
+    let applied = WM.sync { () -> ConfigReconcileResult in
+      Logger.daemon.debug("startup: applying the space defaults")
+      Config.current.applySpaceDefaults()
+      Logger.daemon.debug("startup: applying the config file settings")
+      var total = config.apply(.settings)
+      Logger.daemon.debug("startup: initializing the window manager")
+      WindowManager.shared.initialize()
+      Logger.daemon.debug("startup: beginning the space manager")
+      SpaceManager.shared.begin()
+      Logger.daemon.debug("startup: applying the config file manager settings")
+      total += config.apply(.managerSettings)
+      Logger.daemon.debug("startup: applying the config file spaces")
+      total += config.apply(.spaces)
+      Logger.daemon.debug("startup: applying the config file rules and signals")
+      total += config.apply(.rulesAndSignals)
+      Logger.daemon.debug("startup: beginning the window manager")
+      WindowManager.shared.begin()
+      Logger.daemon.debug("startup: requesting window notifications")
+      WindowManager.shared.updateWindowNotifications()
+      Logger.daemon.debug("startup: starting the config observer")
+      ConfigObserver.shared.start()
+      //
+      // NOTE: The file is applied before ConfigObserver.start, and the observer only reacts to later sets. Window
+      // adoption covers the shadow, opacity, border and tab bar groups of the file. The menu bar alpha is not covered
+      // by any step, so it is applied here once, with the fullscreen rule of EventHandler+Space.swift.
+      //
+      if Config.current.menuBar.opacity != 1.0 {
+        Logger.daemon.debug("startup: applying the menu bar alpha")
+        let isFullscreen = SpaceManager.shared.currentSpaceID.map { $0.isFullscreen } ?? false
+        SLS.setMenuBarAlpha(SLS.connection, isFullscreen ? 1.0 : Config.current.menuBar.opacity)
       }
+      //
+      // NOTE: The watch starts last, after the file is applied, so the first change it sees is compared with the text that
+      // was loaded (ConfigLoader.lastContents). It is on unless the applied file sets `[daemon] auto_reload = false`.
+      //
+      // NOTE: The built-in load of the scripting addition is requested once the file is applied, so the load sees the
+      // applied document. It runs in a child process, and config_loaded (posted below) does not wait for it.
+      //
+      requestScriptingAdditionLoad(reason: "startup")
+      Logger.daemon.debug("startup: watching the config file")
+      ConfigWatcher.shared.sync()
+      return total
     }
     if applied.failures > 0, let path = config.path {
       notify("configuration", "\(applied.failures) settings of \(path) did not apply..")

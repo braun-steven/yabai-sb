@@ -9,7 +9,8 @@ import YabaiCore
 // main.swift runs the client (Sources/Yabai/IPC/Client.swift).
 //
 
-/// False for a directory.
+/// Whether `filename` is a regular file, after symlinks: false for a directory, a FIFO or a device, which a read could
+/// block on or never end.
 func fileExists(_ filename: String) -> Bool {
   var buffer = stat()
 
@@ -17,11 +18,7 @@ func fileExists(_ filename: String) -> Bool {
     return false
   }
 
-  if buffer.st_mode & S_IFDIR != 0 {
-    return false
-  }
-
-  return true
+  return buffer.st_mode & S_IFMT == S_IFREG
 }
 
 /// The path with symlinks resolved (realpath), or the path itself when it cannot be resolved.

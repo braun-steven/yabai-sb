@@ -1174,7 +1174,7 @@ Batch
 
 yabai -m batch::
     Run several commands in one message, with one round trip to the daemon. The commands are read from stdin, one per line, and each line holds the words that follow `yabai -m`, e.g. `window --focus east`. A line that starts with `yabai -m` (or `yabai --message`) has that prefix removed. +
-    Words follow the quoting of sh: single and double quotes and backslash escapes, and `''` is an empty argument. Blank lines and lines that start with `#` are skipped. A line is not run by a shell, so a line that a shell would compute is an error and nothing is sent: `$VARIABLE`, `$(...)`, backticks, `;`, `&`, `|`, `<`, `>`, parentheses, globs (`*`, `?`, `[`) and a leading `~`. An unterminated quote and a line with no command are errors too. Each error names its line, e.g. `yabai-msg: batch: line 3: dynamic shell, nothing sent`. +
+    Words follow the quoting of sh: single and double quotes and backslash escapes, and `''` is an empty argument. Blank lines and lines that start with `#` are skipped. A line is not run by a shell, so a line that a shell would compute is an error and nothing is sent: `$VARIABLE`, `$(...)`, backticks, `;`, `&`, `|`, `<`, `>`, parentheses, globs (`*`, `?`, `[`), a leading `~`, and an unquoted reserved word such as `if`, `then`, `fi`, `while`, `done` or `{` at the start of a line. An unterminated quote and a line with no command are errors too. Each error names its line, e.g. `yabai-msg: batch: line 3: dynamic shell, nothing sent`. +
     The commands run in order, each as a message of its own: a command that fails does not stop the others, and a batch cannot contain a batch. *config --check* does not check the commands of a batch; they are checked when the batch runs. +
 +
 ----

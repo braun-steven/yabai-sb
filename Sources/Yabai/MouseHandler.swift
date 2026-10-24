@@ -137,6 +137,20 @@ final class MouseTapState {
   var dragDetected = false
   var consumedEvent: CGEvent?
 
+  //
+  // NOTE: A mouse down while a consumed click is pending means that its mouse up was lost (the tap was disabled), as for
+  // the split drag. The pending click is forgotten: its stale mouse down is not replayed with the next mouse up, and the
+  // next mouse up and drags of a tab click are not swallowed. A tab click is only a left click.
+  //
+
+  /// Forgets the consumed click whose mouse up was lost, before the mouse down of type `type` is handled.
+  func forgetLostClick(before type: CGEventType) {
+    if type == .leftMouseDown { consumeTabClick = false }
+    consumeMouseClick = false
+    consumedEvent = nil
+    dragDetected = false
+  }
+
   var modifier: MouseModifierKey
   {
     get { modifierLock.withLock { $0 } }
@@ -317,6 +331,7 @@ private func mouseHandler(
       tap.splitDragActive = false
       EventLoop.post(.splitDragEnded(event.location))
     }
+    tap.forgetLostClick(before: type)
     let mod = MouseModifiers(event.flags)
     var tabWid: WindowID?
     if type == .leftMouseDown && mod != tap.modifier.modifiers

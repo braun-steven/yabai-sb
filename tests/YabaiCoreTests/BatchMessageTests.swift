@@ -84,6 +84,10 @@ private func bytes(_ strings: [String]) -> [[UInt8]] {
       (["1"], .countExceedsTokens(command: 1, count: 1, remaining: 0)),
       (["2", "a"], .countExceedsTokens(command: 1, count: 2, remaining: 1)),
       (["1", "a", "3", "b", "c"], .countExceedsTokens(command: 2, count: 3, remaining: 2)),
+      (
+        ["9223372036854775807", "a"],
+        .countExceedsTokens(command: 1, count: Int.max, remaining: 1)
+      ),
     ] as [([String], BatchError)])
   func malformedBatchesAreRefused(_ row: ([String], BatchError)) {
     do throws(BatchError) {
@@ -153,6 +157,7 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
       (["3", "a", "b", "", ""], ["3", "a", "b", ""]),
       (["x", "a"], ["x"]),
       (["1", "a", "", "x"], ["1", "a"]),
+      (["9223372036854775807", "a", "", ""], ["9223372036854775807", "a"]),
     ] as [([String], [String])])
   func terminatedEndsAtTheEmptyCount(_ row: ([String], [String])) {
     #expect(BatchMessage.terminated(bytes(row.0)) == bytes(row.1))
@@ -233,6 +238,8 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
         [["rule", "--add", "app=^Safari$", "title=a \"b\""]]
       ),
       ("", [[String]]()),
+      // NOTE: a reserved word that is quoted, or not the first word, is a plain word.
+      ("window --label fi\n'if' x\n", [["window", "--label", "fi"], ["if", "x"]]),
     ] as [(String, [[String]])])
   func linesBecomeCommands(_ row: (String, [[String]])) {
     #expect(parsedInput(row.0) == .success(row.1))
@@ -250,6 +257,10 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
       ("yabai -m\n", 1, "no command"),
       ("# note\n\nyabai --message\n", 3, "no command"),
       ("space --focus 1\nspace --focus $1\nspace --focus 3\n", 2, "dynamic shell"),
+      ("if true\nthen\nspace --focus 2\nfi\n", 1, "dynamic shell"),
+      ("space --focus 1\nfi\n", 2, "dynamic shell"),
+      ("{\nspace --focus 1\n}\n", 1, "dynamic shell"),
+      ("! space --focus 1\n", 1, "dynamic shell"),
     ] as [(String, Int, String)])
   func aLineTheShellWouldComputeIsAnErrorNamingIt(_ row: (String, Int, String)) {
     #expect(parsedInput(row.0) == .failure(BatchInputError(line: row.1, reason: row.2)))

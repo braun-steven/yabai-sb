@@ -116,6 +116,23 @@ extension DaemonState {
       #expect(check.report == configFileReport(path: path, source: fixtureToml))
     }
 
+    // NOTE: a FIFO with no writer would block the read forever, so only a regular file is read.
+    @Test func checkOfAFIFOIsRefusedWithoutReadingIt() throws {
+      DaemonFixture.reset()
+      let path = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "yabai-\(UUID().uuidString).toml"
+      ).path
+      try #require(mkfifo(path, 0o600) == 0)
+      defer { unlink(path) }
+
+      #expect(
+        Golden.run("config --check \(path)")
+          == Array("\u{07}cannot read config file '\(path)'\n".utf8))
+      #expect(throws: ConfigFileReadError.unreadable(path)) {
+        try readConfigFile(ConfigFileChoice(chosen: path, ignored: []))
+      }
+    }
+
     @Test func checkWithTwoFilesIsAFailure() {
       DaemonFixture.reset()
       #expect(

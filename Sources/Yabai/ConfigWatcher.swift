@@ -174,8 +174,8 @@ private let configWatchDebounce: Duration = .milliseconds(200)
   }
 }
 
-/// The text of the watched file, or nil when it cannot be read (it does not exist).
+/// The text of the watched file, or nil when it cannot be read (it does not exist, or is not a regular file).
 private func readWatchedText(_ path: String) -> String? {
-  guard let data = FileManager.default.contents(atPath: path) else { return nil }
+  guard fileExists(path), let data = FileManager.default.contents(atPath: path) else { return nil }
   return String(decoding: data, as: UTF8.self)
 }

@@ -67,4 +67,25 @@ extension DaemonState {
     #expect(modifiers == [.alt, .shift, .cmd, .ctrl, .fn])
     #expect(modifiers.map(\.rawValue).reduce(0, |).nonzeroBitCount == modifiers.count)
   }
+
+  // NOTE: a mouse down while a consumed click is pending means its mouse up was lost; the click is forgotten, and a
+  // tab click only by a left mouse down.
+  @Test(arguments: [
+    (CGEventType.leftMouseDown, false),
+    (CGEventType.rightMouseDown, true),
+  ])
+  func mouseDownForgetsALostClick(_ type: CGEventType, _ keepsTabClick: Bool) {
+    let tap = MouseTapState()
+    tap.consumeMouseClick = true
+    tap.consumeTabClick = true
+    tap.dragDetected = true
+    tap.consumedEvent = CGEvent(source: nil)
+
+    tap.forgetLostClick(before: type)
+
+    #expect(!tap.consumeMouseClick)
+    #expect(tap.consumedEvent == nil)
+    #expect(!tap.dragDetected)
+    #expect(tap.consumeTabClick == keepsTabClick)
+  }
 }

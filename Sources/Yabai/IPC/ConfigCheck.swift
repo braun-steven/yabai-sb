@@ -160,7 +160,7 @@ enum ConfigFileReadError: Error, Equatable {
   case notFound
   /// The chosen file does not exist (a file given with -c or as an argument).
   case missing(String)
-  /// The chosen file exists and cannot be read.
+  /// The chosen path exists and is not a regular file (a directory, a FIFO, a device), or cannot be read.
   case unreadable(String)
 }
 
@@ -170,9 +170,11 @@ enum ConfigFileReadError: Error, Equatable {
 @WM func readConfigFile(_ choice: ConfigFileChoice?) throws(ConfigFileReadError) -> ConfigFileCheck
 {
   guard let path = choice?.chosen else { throw .notFound }
-  guard let data = FileManager.default.contents(atPath: path) else {
-    throw fileExists(path) ? .unreadable(path) : .missing(path)
+  // NOTE: Only a regular file is read, so a FIFO or a device cannot block yabai.wm.
+  guard fileExists(path) else {
+    throw access(path, F_OK) == 0 ? .unreadable(path) : .missing(path)
   }
+  guard let data = FileManager.default.contents(atPath: path) else { throw .unreadable(path) }
   return configFileCheck(path: path, source: String(decoding: data, as: UTF8.self))
 }
 

@@ -166,7 +166,7 @@ extension WindowManager {
     var windowList: [WindowID?] = []
 
     var leaf = node.firstLeaf
-    while let current = leaf, windowList.count < 256 {
+    while let current = leaf {
       windowList.append(current.windowID)
       if current == node.lastLeaf { break }
       leaf = current.nextLeaf

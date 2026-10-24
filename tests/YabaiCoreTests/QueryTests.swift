@@ -81,6 +81,21 @@ private func json(_ value: some Encodable) throws -> String {
   #expect(object.count == 33)
 }
 
+// NOTE: every property that `query --displays` and `query --spaces` can select is written under its own name.
+@Test func displayAndSpaceInfoEncodeEveryKey() throws {
+  let display = try #require(
+    try JSONSerialization.jsonObject(with: Data(try JSON.encode(DisplayInfo(id: 1))))
+      as? [String: Any])
+  #expect(Set(display.keys) == Set(DisplayInfo.Key.allCases.map(\.rawValue)))
+  #expect(display.count == 7)
+
+  let space = try #require(
+    try JSONSerialization.jsonObject(with: Data(try JSON.encode(SpaceInfo(id: 3))))
+      as? [String: Any])
+  #expect(Set(space.keys) == Set(SpaceInfo.Key.allCases.map(\.rawValue)))
+  #expect(space.count == 13)
+}
+
 @Test func displayAndSpaceInfoEncodeSelectedKeys() throws {
   var display = DisplayInfo(id: 1, properties: [.id, .spaces, .hasFocus])
   display.spaces = [1, 2]

@@ -71,13 +71,13 @@ public enum BatchMessage {
       if pieces[index].isEmpty { break }
       guard let count = decimalCount(pieces[index]) else { return Array(pieces[...index]) }
 
-      let next = index + 1 + count
-      if next > pieces.count {
+      // NOTE: The count is compared with the pieces left before it is added, so a count near Int.max cannot overflow.
+      if count > pieces.count - index - 1 {
         var end = pieces.count
         while end > index + 1 && pieces[end - 1].isEmpty { end -= 1 }
         return Array(pieces[..<end])
       }
-      index = next
+      index += 1 + count
     }
     return Array(pieces[..<index])
   }

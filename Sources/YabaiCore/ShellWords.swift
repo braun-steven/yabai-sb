@@ -277,6 +277,14 @@ struct ScriptLexer {
   }
 }
 
+/// The reserved words of sh and bash that can start a command. Unquoted, they make the command a compound command (or a
+/// negated pipeline), which only a shell runs.
+private let reservedWords: Set<String> = [
+  "if", "then", "else", "elif", "fi", "do", "done", "case", "esac", "while", "until", "for",
+  "select",
+  "function", "{", "}", "!", "[[", "]]",
+]
+
 /// Why the stdin of `yabai -m batch` could not be read: the 1-based line where the command starts, and the reason, which
 /// is one of the reasons the lexer gives (`dynamic shell`, `unterminated quote`) or `no command`.
 public struct BatchInputError: Error, Equatable, Sendable {
@@ -292,8 +300,8 @@ public struct BatchInputError: Error, Equatable, Sendable {
 /// The commands on the stdin of `yabai -m batch`, in order, each as its words after `-m`. One command per line, read
 /// with the sh quoting of the lexer (ScriptLexer). Blank lines and comments (`#` at the start of a word) are skipped, and
 /// a leading `yabai -m` (or `--message`) is stripped. Nothing is run by a shell, so a line that the shell would compute
-/// (variables, substitutions, lists, pipes, redirections, globs, compound commands) is an error naming its line, and so
-/// is a line with no command after `-m`.
+/// (variables, substitutions, lists, pipes, redirections, globs, an unquoted reserved word such as `if` or `fi` that
+/// starts a command) is an error naming its line, and so is a line with no command after `-m`.
 public func parseBatchInput(_ input: String) throws(BatchInputError) -> [[String]] {
   var commands: [[String]] = []
   var lexer = ScriptLexer(input)
@@ -304,6 +312,9 @@ public func parseBatchInput(_ input: String) throws(BatchInputError) -> [[String
     }
 
     guard let segment = scriptLine.segments.first else { continue }
+    if let first = segment.words.first, !first.quoted, reservedWords.contains(first.string) {
+      throw BatchInputError(line: scriptLine.line, reason: "dynamic shell")
+    }
 
     var words = segment.words.map(\.string)
     if words.count >= 2, isYabai(words[0]), words[1] == "-m" || words[1] == "--message" {

@@ -44,6 +44,8 @@ class BuildCheck:
                 ),
             )
         shutil.copy2(repository / "Package.swift", self.root / "Package.swift")
+        # NOTE: The lockfile is copied too, so the check resolves the dependency versions of the checkout.
+        shutil.copy2(repository / "Package.resolved", self.root / "Package.resolved")
         (self.root / "assets").mkdir()
         shutil.copy2(repository / "assets/Info.plist", self.root / "assets/Info.plist")
         # NOTE: Tests read files of examples/ (skhdrc, yabai.toml, batch.sh), located through #filePath, so the

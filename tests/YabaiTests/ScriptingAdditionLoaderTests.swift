@@ -38,7 +38,7 @@ private func loadText(_ value: Bool) -> String {
 /// Applies `text` to `path` the way `config --reload` does, and discards the signals the reload pushes.
 @WM private func reloadFile(_ path: String, _ text: String) throws {
   try text.write(toFile: path, atomically: true, encoding: .utf8)
-  _ = reloadConfig(path: path, check: configFileCheck(path: path, source: text))
+  _ = reloadConfig(configFileCheck(path: path, source: text))
   EventSignals.shared.discardPending()
 }
 

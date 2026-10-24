@@ -19,6 +19,8 @@ struct ConfigCheckReport: Equatable {
 /// The check of a yabai.toml: its report (see configFileReport), and the document it decodes to. The document is nil when
 /// the file does not decode. A file with a failure keeps its document; the caller decides.
 struct ConfigFileCheck {
+  /// The file that was checked.
+  let path: String
   let report: ConfigCheckReport
   let document: ConfigDocument?
   /// The text that was checked (the reload keeps it as the last loaded contents).
@@ -52,7 +54,7 @@ struct ConfigFileCheck {
       for line in failureLines(problem.message) { lines.append(prefix + line) }
     }
     let report = withSummary(lines, checked: 0, notChecked: 0, failures: failures)
-    return ConfigFileCheck(report: report, document: nil, source: source)
+    return ConfigFileCheck(path: path, report: report, document: nil, source: source)
   }
 
   let entries = document.lowered(locator: TOMLKeyLocator(source: source))
@@ -74,7 +76,7 @@ struct ConfigFileCheck {
   }
 
   let report = withSummary(lines, checked: checked, notChecked: notChecked, failures: failures)
-  return ConfigFileCheck(report: report, document: document, source: source)
+  return ConfigFileCheck(path: path, report: report, document: document, source: source)
 }
 
 /// The report with its summary line appended.
@@ -143,38 +145,55 @@ private func failureLines(_ failure: String) -> [String] {
 }
 
 /// Reads the file of `config --check|--reload [<file>]` (`command`) for a message: the file given, else the file the
-/// daemon loads. Returns that path and its check (configFileCheck). Nothing is applied.
-@WM func checkConfigFile(_ command: String, _ message: inout Message) throws(CommandError) -> (
-  path: String, check: ConfigFileCheck
-) {
+/// daemon loads, and checks it (configFileCheck). Nothing is applied.
+@WM func checkConfigFile(_ command: String, _ message: inout Message) throws(CommandError)
+  -> ConfigFileCheck
+{
   let explicit =
     try configFileArgument(command, &message) ?? WindowManager.shared.explicitConfigFile
   return try readConfigFile(explicit: explicit)
 }
 
-/// Reads and checks the yabai.toml of `config --check` and `config --reload`: `explicit` (the -c path or a file argument)
-/// when given, else the file the daemon loads (Daemon.configFile). Nothing is applied.
-@WM func readConfigFile(explicit: String?) throws(CommandError) -> (
-  path: String, check: ConfigFileCheck
-) {
-  guard let path = Daemon.configFile(explicit: explicit)?.chosen else {
-    throw CommandError("could not locate config file\n")
-  }
-  let text = try readConfigText(path)
-  return (path, configFileCheck(path: path, source: text))
+/// Why the yabai.toml of a search could not be checked (readConfigFile).
+enum ConfigFileReadError: Error, Equatable {
+  /// No file was given and no candidate of the search exists.
+  case notFound
+  /// The chosen file does not exist (a file given with -c or as an argument).
+  case missing(String)
+  /// The chosen file exists and cannot be read.
+  case unreadable(String)
 }
 
-/// The text of a config file; a file that cannot be read is a failure.
-private func readConfigText(_ path: String) throws(CommandError) -> String {
+/// Reads and checks the yabai.toml that `choice` names (Daemon.configFile). It is the one read of the startup
+/// (loadStartupConfig), `config --check`, `config --reload` and `yabai --check-config`; each words the error itself.
+/// Nothing is applied.
+@WM func readConfigFile(_ choice: ConfigFileChoice?) throws(ConfigFileReadError) -> ConfigFileCheck
+{
+  guard let path = choice?.chosen else { throw .notFound }
   guard let data = FileManager.default.contents(atPath: path) else {
-    throw CommandError("cannot read config file '\(path)'\n")
+    throw fileExists(path) ? .unreadable(path) : .missing(path)
   }
-  return String(decoding: data, as: UTF8.self)
+  return configFileCheck(path: path, source: String(decoding: data, as: UTF8.self))
+}
+
+/// Reads and checks the yabai.toml of `config --check` and `config --reload`: `explicit` (the -c path or a file argument)
+/// when given, else the file the daemon loads (Daemon.configFile). A file that cannot be found or read is a failure.
+@WM func readConfigFile(explicit: String?) throws(CommandError) -> ConfigFileCheck {
+  do throws(ConfigFileReadError) {
+    return try readConfigFile(Daemon.configFile(explicit: explicit))
+  } catch {
+    switch error {
+    case .notFound:
+      throw CommandError("could not locate config file\n")
+    case .missing(let path), .unreadable(let path):
+      throw CommandError("cannot read config file '\(path)'\n")
+    }
+  }
 }
 
 /// Writes `config --check [<file>]`: the report, and a failure response when the report has a failure.
 @WM func handleConfigCheck(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
-  let (_, check) = try checkConfigFile("--check", &message)
+  let check = try checkConfigFile("--check", &message)
   let text = ResponseText(stringLiteral: check.report.text)
   if check.report.failures > 0 {
     rsp.fail(CommandError(text))
@@ -188,7 +207,7 @@ private func readConfigText(_ path: String) throws(CommandError) -> String {
 /// Called through WM.sync from main.swift, with no window server (the managers are only read for the rules' labels).
 @WM func checkConfigOffline(_ file: String?) -> Int32 {
   do {
-    let (_, check) = try readConfigFile(explicit: file)
+    let check = try readConfigFile(explicit: file)
     let fd = check.report.failures > 0 ? STDERR_FILENO : STDOUT_FILENO
     Client.writeAll(fd, Array(check.report.text.utf8))
     return check.report.failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS

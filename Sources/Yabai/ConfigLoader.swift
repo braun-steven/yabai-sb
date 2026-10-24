@@ -37,6 +37,14 @@ import YabaiCore
   /// `[daemon] load_scripting_addition` of the applied document. Off when no document is applied.
   var loadScriptingAddition: Bool { applied?.daemon.loadScriptingAddition ?? false }
 
+  /// Records the text of `check` as the last loaded contents when it is the daemon's file (filePath). The startup and
+  /// every reload call it, whatever the check found; a reload of another file leaves the contents alone.
+  func recordContents(of check: ConfigFileCheck) {
+    if check.path == filePath {
+      lastContents = Array(check.source.utf8)
+    }
+  }
+
   /// Forgets the applied document, the defaults and the file state, as a new daemon has them (the test fixture).
   func reset() {
     applied = nil
@@ -94,50 +102,48 @@ struct LoadedConfig: Sendable {
 }
 
 /// Finds and checks the startup file: `explicit` (from -c) when given, else the first yabai.toml of the search
-/// (Daemon.configFile). The check is the one of `config --check` (configFileCheck). Nothing is applied here.
+/// (Daemon.configFile). The read and the check are the ones of `config --check` (readConfigFile). Nothing is applied here.
 @WM func loadStartupConfig(explicit: String?) -> LoadedConfig {
   ConfigLoader.shared.filePath = Daemon.configFileWatchPath(explicit: explicit)
   ConfigLoader.shared.lastContents = nil
 
-  guard let choice = Daemon.configFile(explicit: explicit) else {
-    return LoadedConfig(
-      path: nil, document: nil, log: ["could not locate config file"],
-      notices: ["could not locate config file.."])
-  }
-
-  let path = choice.chosen
-  var log = ["using config file '\(path)'"]
+  let choice = Daemon.configFile(explicit: explicit)
+  var log: [String] = []
   var notices: [String] = []
-  if !choice.ignored.isEmpty {
-    let ignored = choice.ignored.map { "'\($0)'" }.joined(separator: ", ")
-    log.append("using '\(path)'; ignoring \(ignored)")
-    notices.append("using '\(path)'; ignoring \(ignored)..")
+  if let choice {
+    log.append("using config file '\(choice.chosen)'")
+    if !choice.ignored.isEmpty {
+      let ignored = choice.ignored.map { "'\($0)'" }.joined(separator: ", ")
+      log.append("using '\(choice.chosen)'; ignoring \(ignored)")
+      notices.append("using '\(choice.chosen)'; ignoring \(ignored)..")
+    }
   }
 
-  guard fileExists(path) else {
+  let check: ConfigFileCheck
+  do throws(ConfigFileReadError) {
+    check = try readConfigFile(choice)
+  } catch {
+    let (line, notice) =
+      switch error {
+      case .notFound: ("could not locate config file", "could not locate config file..")
+      case .missing(let path):
+        ("configuration file '\(path)' does not exist", "file '\(path)' does not exist..")
+      case .unreadable(let path):
+        ("cannot read config file '\(path)'", "cannot read file '\(path)'..")
+      }
     return LoadedConfig(
-      path: path, document: nil,
-      log: log + ["configuration file '\(path)' does not exist"],
-      notices: notices + ["file '\(path)' does not exist.."])
+      path: choice?.chosen, document: nil, log: log + [line], notices: notices + [notice])
   }
 
-  guard let data = FileManager.default.contents(atPath: path) else {
-    return LoadedConfig(
-      path: path, document: nil, log: log + ["cannot read config file '\(path)'"],
-      notices: notices + ["cannot read file '\(path)'.."])
-  }
-
-  let source = String(decoding: data, as: UTF8.self)
-  ConfigLoader.shared.lastContents = Array(source.utf8)
-  let check = configFileCheck(path: path, source: source)
+  ConfigLoader.shared.recordContents(of: check)
   let failures = check.report.failures
   guard failures == 0 else {
     let report = check.report.text.split(separator: "\n").map(String.init)
-    notices.append("\(path) has \(failures) errors; using defaults..")
-    return LoadedConfig(path: path, document: nil, log: log + report, notices: notices)
+    notices.append("\(check.path) has \(failures) errors; using defaults..")
+    return LoadedConfig(path: check.path, document: nil, log: log + report, notices: notices)
   }
 
-  return LoadedConfig(path: path, document: check.document, log: log, notices: notices)
+  return LoadedConfig(path: check.path, document: check.document, log: log, notices: notices)
 }
 
 extension LoadedConfig {

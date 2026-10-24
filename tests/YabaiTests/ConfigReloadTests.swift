@@ -194,7 +194,7 @@ extension DaemonState {
       defer { try? FileManager.default.removeItem(atPath: path) }
       _ = Headless.drain()
 
-      let outcome = reloadConfig(path: path, check: configFileCheck(path: path, source: text))
+      let outcome = reloadConfig(configFileCheck(path: path, source: text))
       guard case .reloaded(_, let result) = outcome else {
         Issue.record("the reload of a valid file failed")
         return
@@ -219,7 +219,7 @@ extension DaemonState {
       _ = Headless.drain()
 
       guard
-        case .failed = reloadConfig(path: path, check: configFileCheck(path: path, source: text))
+        case .failed = reloadConfig(configFileCheck(path: path, source: text))
       else {
         Issue.record("the check of an invalid file passed")
         return

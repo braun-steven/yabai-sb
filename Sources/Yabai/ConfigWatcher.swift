@@ -134,7 +134,7 @@ private let configWatchDebounce: Duration = .milliseconds(200)
     }
     guard let text else { return }
 
-    switch reloadConfig(path: path, check: configFileCheck(path: path, source: text)) {
+    switch reloadConfig(configFileCheck(path: path, source: text)) {
     case .failed(let report):
       for line in report.text.split(separator: "\n") {
         Logger.daemon.warning("config watch: \(line)")

@@ -28,13 +28,12 @@ enum ConfigReloadOutcome {
 }
 
 /// The one reload path, of `config --reload` and of the watch. It records `check.source` as the last loaded contents when
-/// `path` is the daemon's file (ConfigLoader.filePath), whatever the outcome. A failed check changes nothing. Otherwise it
+/// the check is of the daemon's file (ConfigLoader.recordContents), whatever the outcome. A failed check changes nothing. Otherwise it
 /// reconciles each ConfigStep in order, with nothing between the steps, and then syncs the watch with the applied
 /// `auto_reload` (ConfigWatcher.sync).
-@WM func reloadConfig(path: String, check: ConfigFileCheck) -> ConfigReloadOutcome {
-  if path == ConfigLoader.shared.filePath {
-    ConfigLoader.shared.lastContents = Array(check.source.utf8)
-  }
+@WM func reloadConfig(_ check: ConfigFileCheck) -> ConfigReloadOutcome {
+  ConfigLoader.shared.recordContents(of: check)
+  let path = check.path
 
   guard let document = check.document, check.report.failures == 0 else {
     return .failed(check.report)
@@ -60,8 +59,7 @@ enum ConfigReloadOutcome {
 /// Writes `config --reload [<file>]`: `reloaded <file>: <n> changes`, the failures of the check, which change nothing, or
 /// as a failure the settings that failed while they ran (configReloadFailureText).
 @WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
-  let (path, check) = try checkConfigFile("--reload", &message)
-  switch reloadConfig(path: path, check: check) {
+  switch reloadConfig(try checkConfigFile("--reload", &message)) {
   case .failed(let report):
     rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
   case .reloaded(let path, let result) where result.failures > 0:

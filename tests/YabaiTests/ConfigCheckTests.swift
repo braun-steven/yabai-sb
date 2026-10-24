@@ -111,8 +111,8 @@ extension DaemonState {
       let path = try writeTOMLFile(fixtureToml)
       defer { try? FileManager.default.removeItem(atPath: path) }
 
-      let (checkedPath, check) = try readConfigFile(explicit: path)
-      #expect(checkedPath == path)
+      let check = try readConfigFile(explicit: path)
+      #expect(check.path == path)
       #expect(check.report == configFileReport(path: path, source: fixtureToml))
     }
 

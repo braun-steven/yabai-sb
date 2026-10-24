@@ -54,41 +54,71 @@ struct ConfigReconcileResult: Equatable, Sendable {
     .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-/// Whether a printed value and a lowered word name the same value. Colors (0xff...) and numbers are compared as
-/// numbers; a float option holds a Float, so 0.1 in the file equals the running value that prints as 0.1. Other values
-/// must be equal.
-func sameConfigValue(_ printed: String, _ word: String) -> Bool {
-  if printed == word { return true }
-  // NOTE: focus_follows_mouse prints the disabled mode as `disabled` (focusFollowsMouseOption), and takes it as `off`. No
-  // other option prints `disabled`.
-  if printed == FocusFollowsMouse.disabled.rawValue && word == Argument.off { return true }
-  if printed.hasPrefix("0x") && word.hasPrefix("0x") {
-    guard let a = UInt64(printed.dropFirst(2), radix: 16),
-      let b = UInt64(word.dropFirst(2), radix: 16)
-    else { return false }
-    return a == b
+/// The kind of each option's value (ConfigOption.kind).
+@WM private let configOptionKinds = Dictionary(
+  uniqueKeysWithValues: configOptions.map { ($0.name, $0.kind) })
+
+/// A word of an option of `kind`, printed or lowered, read as a document value: on and off as booleans, numbers and
+/// `0x` colors by value, `space_layout` as its words (`off` is none). Nil when the word does not read as that kind.
+func configValue(_ word: String, kind: ConfigOptionKind) -> ConfigValue? {
+  switch kind {
+  case .bool:
+    if word == Argument.on { return .bool(true) }
+    if word == Argument.off { return .bool(false) }
+    return nil
+  case .integer:
+    return Int(word).map { ConfigValue.integer($0) }
+  case .color:
+    guard word.hasPrefix("0x"), let value = UInt32(word.dropFirst(2), radix: 16) else {
+      return nil
+    }
+    return .integer(Int(value))
+  case .float:
+    return Double(word).map { ConfigValue.float($0) }
+  case .text:
+    return .string(word)
+  case .strings:
+    if word == Argument.off { return .strings([]) }
+    return .strings(word.split(separator: " ").map(String.init))
   }
-  guard let a = Double(printed), let b = Double(word) else { return false }
-  return a == b || Float(a) == Float(b)
+}
+
+/// The printed value of option `name` as a document value (configValue), in the form the option takes back.
+@WM func printedValue(_ printed: String, of name: ConfigName) -> ConfigValue? {
+  // NOTE: focus_follows_mouse prints the disabled mode as `disabled` (focusFollowsMouseOption), and takes it as `off`. No
+  // other option prints a value it does not take.
+  if name == .focusFollowsMouse && printed == FocusFollowsMouse.disabled.rawValue {
+    return .string(Argument.off)
+  }
+  return configOptionKinds[name].flatMap { configValue(printed, kind: $0) }
+}
+
+/// Whether the printed value of option `name` and a lowered word name the same value. Both are read as the option's kind
+/// (printedValue, configValue), so colors and numbers compare by value; a float option holds a Float, so 0.1 in the file
+/// equals the running value that prints as 0.1. A word that does not read as the kind must equal the print.
+@WM func sameConfigValue(_ name: ConfigName, printed: String, word: String) -> Bool {
+  if printed == word { return true }
+  guard let kind = configOptionKinds[name], let running = printedValue(printed, of: name),
+    let file = configValue(word, kind: kind)
+  else { return false }
+  if case .float(let a) = running, case .float(let b) = file { return Float(a) == Float(b) }
+  return running == file
 }
 
 /// Runs one message through handleMessage, as the daemon runs a `yabai -m` message, and returns what it did: one change when
 /// it ran without a failure, and its failures. Each failure is logged with the key path of its setting, or with the message
 /// when it has none (a reset).
-@WM @discardableResult func runConfigMessage(
-  _ arguments: [String], keyPath: String, kind: ConfigEntry.Kind
-) -> ConfigReconcileResult {
+@WM @discardableResult func runConfigMessage(_ entry: ConfigEntry) -> ConfigReconcileResult {
   if Headless.isEnabled {
-    Headless.record(configEntries: [ConfigEntry(arguments: arguments, keyPath: keyPath, kind: kind)]
-    )
+    Headless.record(configEntries: [entry])
   }
 
   var response = Response()
-  var message = configMessage(arguments)
+  var message = configMessage(entry.arguments)
   handleMessage(&response, &message)
 
   let texts = failureTexts(response.bytes)
-  let source = keyPath.isEmpty ? arguments.joined(separator: " ") : keyPath
+  let source = entry.keyPath.isEmpty ? entry.arguments.joined(separator: " ") : entry.keyPath
   let lines = texts.map { "\(source): \($0.trimmingCharacters(in: .newlines))" }
   for line in lines {
     Logger.daemon.warning("config file: \(line)")
@@ -114,13 +144,15 @@ extension ConfigLoader {
   /// step records the document as applied.
   @WM func reconcile(to document: ConfigDocument, step: ConfigStep) -> ConfigReconcileResult {
     let defaults = defaultWords()
+    let entries = document.lowered().filter { configStep(of: $0.target) == step }
 
     let result: ConfigReconcileResult
     switch step {
     case .settings, .managerSettings:
-      result = reconcileOptions(document, step: step, applied: applied, defaults: defaults)
-    case .spaces: result = reconcileSpaces(document, applied: applied)
-    case .rulesAndSignals: result = reconcileRulesAndSignals(document, applied: applied)
+      result = reconcileOptions(
+        document, entries, step: step, applied: applied, defaults: defaults)
+    case .spaces: result = reconcileSpaces(document, entries, applied: applied)
+    case .rulesAndSignals: result = reconcileRulesAndSignals(entries, applied: applied)
     }
 
     if step == ConfigStep.allCases.last { applied = document }
@@ -133,38 +165,33 @@ extension ConfigLoader {
 @WM private func optionNeedsApply(_ name: ConfigName, word: String) -> Bool {
   if name == .tabBarFont && WindowManager.shared.tabBarFont == nil { return true }
   guard let printed = printedConfigValue(["config", name.rawValue]) else { return true }
-  return !sameConfigValue(printed, word)
+  return !sameConfigValue(name, printed: printed, word: word)
 }
 
-/// The global options of one step: the ones the document sets and the ones that the applied document set but it does not,
-/// which go back to their default.
+/// The global options of one step (`entries`, the document's entries of the step): the ones the document sets and the
+/// ones that the applied document set but it does not, which go back to their default.
 @WM private func reconcileOptions(
-  _ document: ConfigDocument, step: ConfigStep, applied: ConfigDocument?,
-  defaults: [ConfigName: String]
+  _ document: ConfigDocument, _ entries: [ConfigEntry], step: ConfigStep,
+  applied: ConfigDocument?, defaults: [ConfigName: String]
 ) -> ConfigReconcileResult {
   var result = ConfigReconcileResult()
 
   if let applied {
     let kept = Set(document.options.map(\.name))
     for option in applied.options where !kept.contains(option.name) {
-      let entry = ConfigEntry(
-        arguments: ["config", option.name.rawValue], keyPath: option.keyPath, kind: .option)
-      guard configStep(of: entry) == step, let word = defaults[option.name] else { continue }
+      guard configStep(of: .option(option.name)) == step, let word = defaults[option.name] else {
+        continue
+      }
       if optionNeedsApply(option.name, word: word) {
-        result += runConfigMessage(
-          ["config", option.name.rawValue, word], keyPath: option.keyPath, kind: .option)
+        result += runConfigMessage(.option(option.name, word, keyPath: option.keyPath))
       }
     }
   }
 
-  for entry in document.lowered() where entry.kind == .option || entry.kind == .spaceLayout {
-    guard configStep(of: entry) == step, entry.arguments.count > 1,
-      let name = ConfigName(rawValue: entry.arguments[1])
-    else { continue }
-
-    let word = entry.arguments.dropFirst(2).joined(separator: " ")
-    if optionNeedsApply(name, word: word) {
-      result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
+  for entry in entries {
+    guard case .option(let name) = entry.target else { continue }
+    if optionNeedsApply(name, word: entry.value) {
+      result += runConfigMessage(entry)
     }
   }
   return result
@@ -217,7 +244,7 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
   guard let printed = printedConfigValue(["config", "--space", "\(index)", name.rawValue]) else {
     return true
   }
-  return !sameConfigValue(printed, word)
+  return !sameConfigValue(name, printed: printed, word: word)
 }
 
 /// Gives a per-space option back to the global value: its override is removed and the space follows the defaults again.
@@ -265,11 +292,16 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
     manager.pins.display(of: label) != nil
   {
     result += runConfigMessage(
-      ["space", label, "--pin"], keyPath: "\(old.keyPath).pin", kind: .space)
+      ConfigEntry(
+        target: .spacePin(index: old.index), value: "", arguments: ["space", label, "--pin"],
+        keyPath: "\(old.keyPath).pin"))
   }
   if let label = old.label, kept?.label != label, manager.labels.name(of: sid) == label {
     result += runConfigMessage(
-      ["space", selector, "--label"], keyPath: "\(old.keyPath).label", kind: .space)
+      ConfigEntry(
+        target: .spaceLabel(index: old.index), value: "",
+        arguments: ["space", selector, "--label"],
+        keyPath: "\(old.keyPath).label"))
   }
   for option in old.options where !(kept?.options.contains { $0.name == option.name } ?? false) {
     result.changes += 1
@@ -278,47 +310,44 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
   return result
 }
 
-/// The messages of one [[space]] entry, its label, pin and per-space options in that order, each only when it differs.
-@WM private func reconcileSpace(_ space: SpaceEntry, _ entries: [ConfigEntry])
-  -> ConfigReconcileResult
-{
+/// The messages of the [[space]] entry with `index`, its label, pin and per-space options in that order, each only when it
+/// differs.
+@WM private func reconcileSpace(index: Int, _ entries: [ConfigEntry]) -> ConfigReconcileResult {
   let manager = SpaceManager.shared
 
-  guard let sid = spaceID(atIndex: space.index) else {
+  guard let sid = spaceID(atIndex: index) else {
     // NOTE: No space has the index. The messages run as they are, so their failures are reported; none creates a space.
     var result = ConfigReconcileResult()
     for entry in entries {
-      result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
+      result += runConfigMessage(entry)
     }
     return result
   }
 
   var result = ConfigReconcileResult()
   for entry in entries {
-    let value = entry.arguments.last ?? ""
-
-    if entry.keyPath == "\(space.keyPath).label" {
-      if manager.labels.name(of: sid) != value {
-        result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
-      }
-    } else if entry.keyPath == "\(space.keyPath).pin" {
+    let needsApply: Bool
+    switch entry.target {
+    case .spaceLabel:
+      needsApply = manager.labels.name(of: sid) != entry.value
+    case .spacePin:
       let current = manager.labels.name(of: sid).flatMap { manager.pins.display(of: $0) }
-      if current == nil || current != pinnedDisplayUUID(value) {
-        result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
-      }
-    } else if entry.arguments.count > 3, let name = ConfigName(rawValue: entry.arguments[3]) {
-      let word = entry.arguments.dropFirst(4).joined(separator: " ")
-      if spaceOptionNeedsApply(name, word: word, index: space.index, sid: sid) {
-        result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
-      }
+      needsApply = current == nil || current != pinnedDisplayUUID(entry.value)
+    case .spaceOption(_, let name):
+      needsApply = spaceOptionNeedsApply(name, word: entry.value, index: index, sid: sid)
+    case .option, .rule, .signal:
+      needsApply = false
+    }
+    if needsApply {
+      result += runConfigMessage(entry)
     }
   }
   return result
 }
 
-@WM private func reconcileSpaces(_ document: ConfigDocument, applied: ConfigDocument?)
-  -> ConfigReconcileResult
-{
+@WM private func reconcileSpaces(
+  _ document: ConfigDocument, _ entries: [ConfigEntry], applied: ConfigDocument?
+) -> ConfigReconcileResult {
   var result = ConfigReconcileResult()
 
   if let applied {
@@ -327,12 +356,20 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
     }
   }
 
-  let spaceEntries = document.lowered().filter { $0.kind == .space }
   for space in document.spaces {
-    let entries = spaceEntries.filter { $0.keyPath.hasPrefix(space.keyPath + ".") }
-    result += reconcileSpace(space, entries)
+    result += reconcileSpace(index: space.index, entries.filter { $0.spaceIndex == space.index })
   }
   return result
+}
+
+extension ConfigEntry {
+  /// The space index of a [[space]] entry's message; nil for the other messages.
+  fileprivate var spaceIndex: Int? {
+    switch target {
+    case .spaceLabel(let index), .spacePin(let index), .spaceOption(let index, _): index
+    case .option, .rule, .signal: nil
+    }
+  }
 }
 
 /// The rules that the entries add, as `rule --add` stores them: a rule replaces the rule with its label and is appended.
@@ -372,23 +409,23 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
 
   let fileOneShot = fileRules.filter(\.oneShot)
   if fileOneShot == running.filter({ $0.oneShot && !$0.matched }) { return true }
-  let appliedRules = applied.flatMap { parsedRules($0.lowered().filter { $0.kind == .rule }) } ?? []
+  let appliedRules =
+    applied.flatMap { parsedRules($0.lowered().filter { $0.target == .rule }) } ?? []
   return fileOneShot == appliedRules.filter(\.oneShot)
 }
 
-@WM private func reconcileRulesAndSignals(_ document: ConfigDocument, applied: ConfigDocument?)
+@WM private func reconcileRulesAndSignals(_ entries: [ConfigEntry], applied: ConfigDocument?)
   -> ConfigReconcileResult
 {
   var result = ConfigReconcileResult()
-  let entries = document.lowered()
-  let ruleEntries = entries.filter { $0.kind == .rule }
-  let signalEntries = entries.filter { $0.kind == .signal }
+  let ruleEntries = entries.filter { $0.target == .rule }
+  let signalEntries = entries.filter { $0.target == .signal }
 
   if !rulesMatchFile(parsedRules(ruleEntries), applied: applied) {
     WindowManager.shared.rules = []
     result.changes += 1
     for entry in ruleEntries {
-      result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
+      result += runConfigMessage(entry)
     }
   }
 
@@ -396,7 +433,7 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
     EventSignals.shared.table = SignalTable()
     result.changes += 1
     for entry in signalEntries {
-      result += runConfigMessage(entry.arguments, keyPath: entry.keyPath, kind: entry.kind)
+      result += runConfigMessage(entry)
     }
   }
   return result
@@ -418,14 +455,10 @@ func appliedWords(_ entries: [ConfigEntry])
   var fileWords: [ConfigName: String] = [:]
   var spaceWords: [Int: [ConfigName: String]] = [:]
   for entry in entries {
-    if entry.kind == .option || entry.kind == .spaceLayout, entry.arguments.count > 1,
-      let name = ConfigName(rawValue: entry.arguments[1])
-    {
-      fileWords[name] = entry.arguments.dropFirst(2).joined(separator: " ")
-    } else if entry.kind == .space, entry.arguments.count > 3, entry.arguments[1] == "--space",
-      let index = Int(entry.arguments[2]), let name = ConfigName(rawValue: entry.arguments[3])
-    {
-      spaceWords[index, default: [:]][name] = entry.arguments.dropFirst(4).joined(separator: " ")
+    switch entry.target {
+    case .option(let name): fileWords[name] = entry.value
+    case .spaceOption(let index, let name): spaceWords[index, default: [:]][name] = entry.value
+    case .spaceLabel, .spacePin, .rule, .signal: break
     }
   }
   return (fileWords, spaceWords)
@@ -442,7 +475,8 @@ func appliedWords(_ entries: [ConfigEntry])
   var lines: [String] = []
   for name in ConfigName.allCases {
     guard let running = printedConfigValue(["config", name.rawValue]),
-      let word = fileWords[name] ?? defaults[name], !sameConfigValue(running, word)
+      let word = fileWords[name] ?? defaults[name],
+      !sameConfigValue(name, printed: running, word: word)
     else { continue }
     lines.append("\(name.rawValue) \(running) (file: \(word))")
   }
@@ -464,17 +498,17 @@ func appliedWords(_ entries: [ConfigEntry])
     for name in ConfigName.allCases where perSpace[index]?.contains(name) == true {
       guard let running = printedConfigValue(["config", "--space", "\(index)", name.rawValue]),
         let word = spaceWords[index]?[name] ?? fileWords[name] ?? defaults[name],
-        !sameConfigValue(running, word)
+        !sameConfigValue(name, printed: running, word: word)
       else { continue }
       lines.append("space \(index) \(name.rawValue) \(running) (file: \(word))")
     }
   }
 
-  let fileRules = parsedRules(entries.filter { $0.kind == .rule }) ?? []
+  let fileRules = parsedRules(entries.filter { $0.target == .rule }) ?? []
   if !rulesMatchFile(fileRules, applied: ConfigLoader.shared.applied) {
     lines.append("rules: overridden")
   }
-  let fileSignals = parsedSignals(entries.filter { $0.kind == .signal }) ?? SignalTable()
+  let fileSignals = parsedSignals(entries.filter { $0.target == .signal }) ?? SignalTable()
   if fileSignals != EventSignals.shared.table {
     lines.append("signals: overridden")
   }

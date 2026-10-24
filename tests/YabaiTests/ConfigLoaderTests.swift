@@ -39,46 +39,19 @@ extension DaemonState {
   @Suite
   @WM struct ConfigLoaderTests {
     @Test func eachKindOfEntryRunsInItsStep() {
-      let rows: [(ConfigEntry, ConfigStep)] = [
-        (
-          ConfigEntry(arguments: ["config", "window_gap", "7"], keyPath: "", kind: .option),
-          .settings
-        ),
-        (
-          ConfigEntry(
-            arguments: ["config", "space_layout", "15"], keyPath: "", kind: .spaceLayout), .settings
-        ),
-        (
-          ConfigEntry(
-            arguments: ["config", "tab_bar_font", "system:12"], keyPath: "", kind: .option),
-          .managerSettings
-        ),
-        (
-          ConfigEntry(
-            arguments: ["config", "external_bar", "off:0:0"], keyPath: "", kind: .option),
-          .managerSettings
-        ),
-        (
-          ConfigEntry(arguments: ["space", "11", "--label", "chat"], keyPath: "", kind: .space),
-          .spaces
-        ),
-        (
-          ConfigEntry(
-            arguments: ["config", "--space", "11", "layout", "tree"], keyPath: "", kind: .space),
-          .spaces
-        ),
-        (
-          ConfigEntry(arguments: ["rule", "--add", "app=^Keep$"], keyPath: "", kind: .rule),
-          .rulesAndSignals
-        ),
-        (
-          ConfigEntry(
-            arguments: ["signal", "--add", "event=window_focused"], keyPath: "", kind: .signal),
-          .rulesAndSignals
-        ),
+      let rows: [(ConfigEntry.Target, ConfigStep)] = [
+        (.option(.windowGap), .settings),
+        (.option(.spaceLayout), .settings),
+        (.option(.tabBarFont), .managerSettings),
+        (.option(.externalBar), .managerSettings),
+        (.spaceLabel(index: 11), .spaces),
+        (.spacePin(index: 11), .spaces),
+        (.spaceOption(index: 11, .layout), .spaces),
+        (.rule, .rulesAndSignals),
+        (.signal, .rulesAndSignals),
       ]
-      for (entry, step) in rows {
-        #expect(configStep(of: entry) == step)
+      for (target, step) in rows {
+        #expect(configStep(of: target) == step, "\(target)")
       }
     }
 

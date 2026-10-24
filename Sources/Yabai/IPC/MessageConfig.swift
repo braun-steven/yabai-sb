@@ -19,7 +19,8 @@ enum WorkspaceLayout: String, CaseIterable {
   case tabbed
 }
 
-/// The kind of an option's value, which `config --dump` reads back as a document value (ConfigDump.swift).
+/// The kind of an option's value. The reconcile compares values by it, and `config --dump` reads the print back as a
+/// document value with it (configValue, ConfigReconcile.swift).
 enum ConfigOptionKind: Sendable {
   case bool, integer, float, color, text, strings
 }

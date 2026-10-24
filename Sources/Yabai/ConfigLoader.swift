@@ -70,21 +70,14 @@ enum ConfigStep: CaseIterable, Sendable {
 }
 
 /// The options that act on a manager's state, so they run in the managerSettings step.
-private let managerSettingNames: Set<String> = [
-  ConfigName.tabBarFont.rawValue,
-  ConfigName.externalBar.rawValue,
-]
+private let managerSettingNames: Set<ConfigName> = [.tabBarFont, .externalBar]
 
-/// The step that applies `entry`.
-func configStep(of entry: ConfigEntry) -> ConfigStep {
-  switch entry.kind {
-  case .option, .spaceLayout:
-    let name = entry.arguments.count > 1 ? entry.arguments[1] : ""
-    return managerSettingNames.contains(name) ? .managerSettings : .settings
-  case .space:
-    return .spaces
-  case .rule, .signal:
-    return .rulesAndSignals
+/// The step that applies an entry with `target`.
+func configStep(of target: ConfigEntry.Target) -> ConfigStep {
+  switch target {
+  case .option(let name): managerSettingNames.contains(name) ? .managerSettings : .settings
+  case .spaceLabel, .spacePin, .spaceOption: .spaces
+  case .rule, .signal: .rulesAndSignals
   }
 }
 

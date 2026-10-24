@@ -295,23 +295,31 @@ extension DaemonState {
     }
 
     @Test func sameValuesCompareAsTheyPrint() {
-      let rows: [(printed: String, word: String, same: Bool)] = [
-        ("0.0", "0", true),
-        ("4.0", "4.0", true),
-        ("4.0", "4.5", false),
-        ("0xff0000", "0x00ff0000", true),
-        ("0xffe1e3e4", "0xffe1e3e4", true),
-        ("0xff0000", "0x00fe0000", false),
-        ("off", "on", false),
-        ("system:12", "system:14", false),
-        ("tree", "float", false),
-        ("", "0", false),
-        ("2.123456", "2.123456", true),
-        ("2.123456", "2.2", false),
-        ("0.1", "0.100000001", true),
+      let rows: [(name: ConfigName, printed: String, word: String, same: Bool)] = [
+        (.windowGap, "0", "0", true),
+        (.windowGap, "6", "06", true),
+        (.windowGap, "6", "6.0", false),
+        (.windowOpacityDuration, "0.0", "0", true),
+        (.windowOpacityDuration, "4.0", "4.0", true),
+        (.windowOpacityDuration, "4.0", "4.5", false),
+        (.windowOpacityDuration, "2.123456", "2.123456", true),
+        (.windowOpacityDuration, "2.123456", "2.2", false),
+        (.windowOpacityDuration, "0.1", "0.100000001", true),
+        (.activeWindowBorderColor, "0xff0000", "0x00ff0000", true),
+        (.activeWindowBorderColor, "0xffe1e3e4", "0xffe1e3e4", true),
+        (.activeWindowBorderColor, "0xff0000", "0x00fe0000", false),
+        (.mouseFollowsFocus, "off", "on", false),
+        (.focusFollowsMouse, "disabled", "off", true),
+        (.focusFollowsMouse, "autofocus", "off", false),
+        (.tabBarFont, "system:12", "system:14", false),
+        (.layout, "tree", "float", false),
+        (.layout, "", "0", false),
+        (.spaceLayout, "15 10:5", "15 10:5", true),
+        (.spaceLayout, "off", "off", true),
       ]
       for row in rows {
-        #expect(sameConfigValue(row.printed, row.word) == row.same, "\(row)")
+        #expect(
+          sameConfigValue(row.name, printed: row.printed, word: row.word) == row.same, "\(row)")
       }
     }
   }

@@ -4,7 +4,7 @@ import YabaiCore
 
 //
 // NOTE: `config --dump` prints the running config as a yabai.toml (runningConfigDump, ConfigDocument.toml). Each value is
-// the option's own print, read back by its kind (ConfigOptionKind), so the file gives the values a reconcile compares
+// the option's own print, read back by its kind (printedValue, ConfigReconcile.swift), so the file gives the values a reconcile compares
 // with: the dump checks clean, and a reconcile of it runs nothing that the running state does not already differ in. The
 // per-space values, the labels and the pins are read by Mission Control index, which reads the window server, so they
 // are only written for the spaces that have one. The rules and signals are written from their stored values.
@@ -13,35 +13,15 @@ import YabaiCore
 // configOverrideLines) and the ones that have the built-in default (`# default`).
 //
 
-/// The value of an option from its printed text, by its kind; nil when the text does not read as that kind.
-@WM private func dumpValue(_ printed: String, kind: ConfigOptionKind) -> ConfigValue? {
-  switch kind {
-  case .bool:
-    if printed == Argument.on { return .bool(true) }
-    if printed == Argument.off { return .bool(false) }
-    return nil
-  case .integer:
-    return Int(printed).map { ConfigValue.integer($0) }
-  case .color:
-    guard printed.hasPrefix("0x"), let value = UInt32(printed.dropFirst(2), radix: 16) else {
-      return nil
-    }
-    return .integer(Int(value))
-  case .float:
-    return Double(printed).map { ConfigValue.float($0) }
-  case .text:
-    return .string(printed)
-  case .strings:
-    if printed == Argument.off { return .strings([]) }
-    return .strings(printed.split(separator: " ").map(String.init))
-  }
-}
-
-/// The comment of an option line: `override` when the running word is not the one the file gives (`expected`), else
-/// `default` when it is the built-in default.
-private func dumpComment(printed: String, expected: String?, builtIn: String?) -> String? {
-  if let expected, !sameConfigValue(printed, expected) { return "override" }
-  if let builtIn, sameConfigValue(printed, builtIn) { return "default" }
+/// The comment of the line of option `name`: `override` when the running word is not the one the file gives
+/// (`expected`), else `default` when it is the built-in default.
+@WM private func dumpComment(
+  _ name: ConfigName, printed: String, expected: String?, builtIn: String?
+)
+  -> String?
+{
+  if let expected, !sameConfigValue(name, printed: printed, word: expected) { return "override" }
+  if let builtIn, sameConfigValue(name, printed: printed, word: builtIn) { return "default" }
   return nil
 }
 
@@ -57,21 +37,14 @@ private func dumpComment(printed: String, expected: String?, builtIn: String?) -
   var comments: [String: String] = [:]
 
   var options: [ConfigOptionEntry] = []
-  for option in configOptions {
-    let name = option.name
+  for name in configOptionNames {
     guard let printed = printedConfigValue(["config", name.rawValue]),
-      let value = dumpValue(printed, kind: option.kind)
+      let value = printedValue(printed, of: name)
     else { continue }
     let keyPath = "config.\(name.rawValue)"
-    // NOTE: The disabled mode of focus_follows_mouse prints as `disabled`, which the option does not take; it is written
-    // as `off`, which the option takes, and sameConfigValue compares the two as equal.
-    if name == .focusFollowsMouse, printed == FocusFollowsMouse.disabled.rawValue {
-      options.append(ConfigOptionEntry(name: name, value: .string(Argument.off), keyPath: keyPath))
-    } else {
-      options.append(ConfigOptionEntry(name: name, value: value, keyPath: keyPath))
-    }
+    options.append(ConfigOptionEntry(name: name, value: value, keyPath: keyPath))
     comments[keyPath] = dumpComment(
-      printed: printed, expected: fileWords[name] ?? builtIn[name], builtIn: builtIn[name])
+      name, printed: printed, expected: fileWords[name] ?? builtIn[name], builtIn: builtIn[name])
   }
   // NOTE: TOML lists the arrays of a table after its plain values, and the decoder keeps that order.
   document.options = options.filter { !$0.value.isList } + options.filter { $0.value.isList }
@@ -91,16 +64,16 @@ private func dumpComment(printed: String, expected: String?, builtIn: String?) -
 
     let view = manager.views[sid]
     var scoped: [ConfigOptionEntry] = []
-    for option in configOptions where ConfigName.spaceScoped.contains(option.name) {
-      let name = option.name
+    for name in configOptionNames where ConfigName.spaceScoped.contains(name) {
       guard let override = spaceOverride(name), view?.overrides.contains(override) == true,
         let printed = printedConfigValue(["config", "--space", "\(index)", name.rawValue]),
-        let value = dumpValue(printed, kind: option.kind)
+        let value = printedValue(printed, of: name)
       else { continue }
       let keyPath = "\(path).\(name.rawValue)"
       scoped.append(ConfigOptionEntry(name: name, value: value, keyPath: keyPath))
       comments[keyPath] = dumpComment(
-        printed: printed, expected: spaceWords[index]?[name] ?? fileWords[name] ?? builtIn[name],
+        name, printed: printed,
+        expected: spaceWords[index]?[name] ?? fileWords[name] ?? builtIn[name],
         builtIn: builtIn[name])
     }
 

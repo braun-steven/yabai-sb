@@ -25,8 +25,8 @@ private struct ConfigWatchSchedule: Equatable, Sendable {
   let key: EventLoop.DelayedEventKey
 }
 
-/// A directory source and virtual delayed-event queue for lifecycle tests. It uses the same DelayedQueue as EventLoop,
-/// with synthetic instants, so a burst can be drained without sleeping.
+/// A fake directory source for lifecycle tests: it records the watches it opens and cancels, and the delayed changes the
+/// watcher posts. Superseding a keyed delayed event is EventLoop's job (DelayedQueueTests), so nothing here delivers them.
 private final class ConfigWatcherTestDriver: @unchecked Sendable {
   private struct Watch: Sendable {
     let path: String
@@ -35,13 +35,11 @@ private final class ConfigWatcherTestDriver: @unchecked Sendable {
   }
 
   private struct State: Sendable {
-    let origin = ContinuousClock.now
     var watches: [Int: Watch] = [:]
     var nextWatchID = 0
     var openedPaths: [String] = []
     var cancelledPaths: [String] = []
     var schedules: [ConfigWatchSchedule] = []
-    var delayed = DelayedQueue<Event, EventLoop.DelayedEventKey>()
   }
 
   private let state = Mutex(State())
@@ -86,11 +84,7 @@ private final class ConfigWatcherTestDriver: @unchecked Sendable {
   }
 
   func schedule(delay: Duration, key: EventLoop.DelayedEventKey) {
-    state.withLock { current in
-      current.schedules.append(ConfigWatchSchedule(delay: delay, key: key))
-      let time = current.origin.advanced(by: .milliseconds(current.schedules.count)) + delay
-      current.delayed.insert(.configFileChanged, at: time, key: key)
-    }
+    state.withLock { $0.schedules.append(ConfigWatchSchedule(delay: delay, key: key)) }
   }
 
   func emitEvents(in directory: String) {
@@ -101,12 +95,6 @@ private final class ConfigWatcherTestDriver: @unchecked Sendable {
     }
     for handler in handlers {
       handler()
-    }
-  }
-
-  func deliverDueEvents() -> [Event] {
-    state.withLock { current in
-      current.delayed.removeDue(at: current.origin.advanced(by: .seconds(10))).map(\.element)
     }
   }
 
@@ -229,7 +217,7 @@ extension DaemonState {
       #expect(ConfigLoader.shared.lastContents == Array("[config]\nwindow_gap = 12\n".utf8))
     }
 
-    @Test func atomicReplacementCoalescesEventsAndAppliesTheLatestContents() throws {
+    @Test func atomicReplacementPostsKeyedDebouncedChangesAndAppliesTheLatestContents() throws {
       DaemonFixture.reset()
       let directory = FileManager.default.temporaryDirectory
         .appendingPathComponent("yabai-watch-\(UUID().uuidString)", isDirectory: true)
@@ -256,22 +244,13 @@ extension DaemonState {
       driver.emitEvents(in: directory.path)
       driver.emitEvents(in: directory.path)
 
+      // Each event posts the debounced change under one key, so the event loop keeps only the last of the burst.
       #expect(
         driver.schedules
           == Array(
             repeating: ConfigWatchSchedule(delay: .milliseconds(200), key: .configReload),
             count: 3))
-      let due = driver.deliverDueEvents()
-      #expect(due.count == 1)
-      guard let event = due.first else {
-        Issue.record("the coalesced directory events should deliver a config file change")
-        return
-      }
-      if case .configFileChanged = event {
-        watcher.fileChanged()
-      } else {
-        Issue.record("the coalesced directory events should deliver a config file change")
-      }
+      watcher.fileChanged()
 
       #expect(Golden.run("config window_gap") == Array("14\n".utf8))
       #expect(ConfigLoader.shared.lastContents == Array(replacement.utf8))
@@ -383,20 +362,11 @@ extension DaemonState {
         driver.schedules == [
           ConfigWatchSchedule(delay: .seconds(5), key: .configReload)
         ])
-      let due = driver.deliverDueEvents()
-      #expect(due.count == 1)
-      guard let event = due.first else {
-        Issue.record("the missing directory should schedule a config watch retry")
-        return
-      }
-      if case .configFileChanged = event {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
-        try "[config]\nwindow_gap = 17\n".write(
-          toFile: path, atomically: true, encoding: .utf8)
-        watcher.fileChanged()
-      } else {
-        Issue.record("the missing directory should schedule a config watch retry")
-      }
+
+      // The retry is the change event: by then the directory and the file exist.
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+      try "[config]\nwindow_gap = 17\n".write(toFile: path, atomically: true, encoding: .utf8)
+      watcher.fileChanged()
 
       #expect(driver.activePaths == [directory.path])
       #expect(driver.openedPaths == [directory.path])

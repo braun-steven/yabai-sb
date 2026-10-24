@@ -125,22 +125,22 @@ enum MachOParser {
       let stringEndIndex = Int(exactly: stringStart + stringBytes)
     else { return nil }
 
+    let strings = UnsafeRawBufferPointer(rebasing: linkedit[stringStartIndex..<stringEndIndex])
     let target = Array(name.utf8)
     for index in 0..<Int(table.symbols.nsyms) {
       let symbol = linkedit.loadUnaligned(
         fromByteOffset: symbolStartIndex + index * MemoryLayout<nlist_64>.size,
         as: nlist_64.self)
+
+      // NOTE: n_strx comes from the file. A match needs the name and its NUL inside the string table, so only entries
+      // with room for both are compared, and memcmp never reads outside the table.
       let nameOffset = Int(symbol.n_un.n_strx)
-      guard nameOffset < stringEndIndex - stringStartIndex else { continue }
-      let nameStart = stringStartIndex + nameOffset
-      var nameEnd = nameStart
-      while nameEnd < stringEndIndex, linkedit[nameEnd] != 0 {
-        nameEnd += 1
-      }
-      guard nameEnd < stringEndIndex, nameEnd - nameStart == target.count else { continue }
-      if target.indices.allSatisfy({ linkedit[nameStart + $0] == target[$0] }) {
-        return symbol.n_value
-      }
+      guard nameOffset < strings.count - target.count,
+        memcmp(strings.baseAddress! + nameOffset, target, target.count) == 0,
+        strings[nameOffset + target.count] == 0
+      else { continue }
+
+      return symbol.n_value
     }
 
     return nil

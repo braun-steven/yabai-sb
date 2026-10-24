@@ -55,7 +55,6 @@ extension DaemonState {
       wm.reconcileWindows(on: workspace.view, against: [target.id])
 
       #expect(workspace.view.windowIDs == [target.id])
-      #expect(workspace.view.windowIDs.filter { $0 == target.id }.count == 1)
       #expect(wm.managedView(for: target) === workspace.view)
       #expect(workspace.view.isDirty)
 
@@ -64,7 +63,6 @@ extension DaemonState {
       wm.reconcileWindows(on: workspace.view, against: [target.id])
 
       #expect(workspace.view.windowIDs == [target.id])
-      #expect(workspace.view.windowIDs.filter { $0 == target.id }.count == 1)
       #expect(wm.managedView(for: target) === workspace.view)
       #expect(!workspace.view.isDirty)
     }
@@ -86,8 +84,6 @@ extension DaemonState {
 
       #expect(source.view.windowIDs.isEmpty)
       #expect(destination.windowIDs == [target.id])
-      #expect(source.view.windowIDs.filter { $0 == target.id }.isEmpty)
-      #expect(destination.windowIDs.filter { $0 == target.id }.count == 1)
       #expect(wm.managedView(for: target) === destination)
       #expect(source.view.isDirty)
       #expect(destination.isDirty)
@@ -99,7 +95,6 @@ extension DaemonState {
 
       #expect(source.view.windowIDs.isEmpty)
       #expect(destination.windowIDs == [target.id])
-      #expect(destination.windowIDs.filter { $0 == target.id }.count == 1)
       #expect(wm.managedView(for: target) === destination)
       #expect(!source.view.isDirty)
       #expect(!destination.isDirty)

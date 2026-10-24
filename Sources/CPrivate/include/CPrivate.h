@@ -20,12 +20,10 @@
 //
 
 #include <ApplicationServices/ApplicationServices.h>
-#include <crt_externs.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #ifdef __OBJC__
 #include <AppKit/AppKit.h>
@@ -128,17 +126,6 @@ static inline void CGEnableEventStateCombiningC(bool combine) {
   CGEnableEventStateCombining(combine);
 }
 #pragma clang diagnostic pop
-
-//
-// NOTE: Swift 6 rejects references to the C globals stdout, stderr and environ
-// (_NSGetEnviron is unavailable to Swift).
-//
-
-static inline FILE *stdout_global(void) { return stdout; }
-static inline FILE *stderr_global(void) { return stderr; }
-static inline char *_Nullable *_Nonnull environ_global(void) {
-  return *_NSGetEnviron();
-}
 
 // a user notification titled yabai (Notify.m)
 void NotifyC(const char *subtitle, const char *text);

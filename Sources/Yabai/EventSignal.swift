@@ -1,5 +1,4 @@
 import AppKit
-import CPrivate
 import Carbon
 import Darwin
 import Logging
@@ -131,7 +130,7 @@ enum SignalSubject {
     }
 
     var pid: pid_t = 0
-    _ = posix_spawn(&pid, cArguments[0], nil, nil, &cArguments, environ_global())
+    _ = posix_spawn(&pid, cArguments[0], nil, nil, &cArguments, environ)
   }
 }
 

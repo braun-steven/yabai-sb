@@ -162,7 +162,7 @@ enum Daemon {
   /// Runs the daemon, or prints the version.
   @MainActor static func run(_ options: YabaiOptions) -> Int32 {
     if options.version {
-      fputs("yabai-v\(major).\(minor).\(patch)\n", stdout_global())
+      fputs("yabai-v\(major).\(minor).\(patch)\n", stdout)
       return EXIT_SUCCESS
     }
 

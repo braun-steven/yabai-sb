@@ -79,7 +79,7 @@ struct StandardLogHandler: LogHandler {
     line += "\n"
 
     // one fputs per line, so the lines of concurrent threads do not interleave
-    let stream = event.level >= .warning ? stderr_global() : stdout_global()
+    let stream = event.level >= .warning ? stderr : stdout
     fputs(line, stream)
     fflush(stream)
   }

@@ -4,10 +4,8 @@
 //
 // NOTE: The private functions of SkyLight, HIServices and the mach runtime that
 // yabai calls. Swift imports this header as the module CPrivate;
-// Sources/Yabai/Platform wraps it. CPrivate.c holds the function pointers that
-// are resolved at runtime and SLSGetWindowSubLevelBounded, Notify.m the user
-// notifications. The inline wrappers below keep the calls that Swift cannot
-// make itself.
+// Sources/Yabai/Platform wraps it. Notify.m holds the user notifications. The
+// inline wrappers below keep the calls that Swift cannot make itself.
 //
 // Ownership: inside CF_IMPLICIT_BRIDGING_ENABLED, functions with Copy or Create
 // in their name return a +1 object, the others a +0 one. A private function
@@ -21,7 +19,6 @@
 
 #include <ApplicationServices/ApplicationServices.h>
 #include <mach/mach.h>
-#include <mach/mach_time.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -35,28 +32,6 @@ typedef void connection_callback(uint32_t type, void *_Nullable data,
 
 CF_IMPLICIT_BRIDGING_ENABLED
 CF_ASSUME_NONNULL_BEGIN
-
-// not exported by SkyLight: Daemon.run resolves them with
-// MachOSymbol.address(of:inImage:), and they stay NULL if that fails
-// (CPrivate.c)
-extern mach_port_t (*_Nullable CGSGetConnectionPortById)(int cid);
-extern int64_t (
-        *_Nullable SLSPerformAsynchronousBridgedWindowManagementOperation)(
-    void *operation);
-
-//
-// NOTE: Swift reads the function pointer above through these functions: Swift 6
-// rejects references to a C global variable. The caller checks
-// SLSHasBridgedWindowOperation first (`SLS.bridgedMoveWindows`).
-//
-
-static inline bool SLSHasBridgedWindowOperation(void) {
-  return SLSPerformAsynchronousBridgedWindowManagementOperation != NULL;
-}
-
-static inline int64_t SLSPerformBridgedWindowOperation(void *operation) {
-  return SLSPerformAsynchronousBridgedWindowManagementOperation(operation);
-}
 
 //
 // NOTE: The focus click of a display or space is a CGEvent (`postFocusClick`,
@@ -130,11 +105,6 @@ static inline void CGEnableEventStateCombiningC(bool combine) {
 // a user notification titled yabai (Notify.m)
 void NotifyC(const char *subtitle, const char *text);
 
-// stores the functions that Daemon.run (Sources/Yabai/Yabai.swift) resolved
-// with MachOSymbol.address(of:inImage:) (CPrivate.c)
-void CPrivateSetResolvedFunctions(void *_Nullable get_connection_port_by_id,
-                                  void *_Nullable bridged_operation);
-
 #ifdef __OBJC__
 //
 // NOTE: Removing a key-value observation that is not registered throws an
@@ -161,18 +131,6 @@ extern int csr_get_active_config(uint32_t *config);
 extern mach_port_t mig_get_special_reply_port(void);
 extern void mig_dealloc_special_reply_port(mach_port_t port);
 
-//
-// NOTE: The sub-level of a window, asked from the window server with the
-// message that SLSGetWindowSubLevel sends, but with a bounded wait. False when
-// CGSGetConnectionPortById was not resolved or the message failed;
-// `WindowID.subLevel` (Sources/Yabai/Window.swift) then falls back to
-// SLSGetWindowSubLevel. A C function in CPrivate.c, because Swift can neither
-// lay out the packed message nor read NDR_record and the function pointer (C
-// globals); a static inline body here made Swift emit its own NDR_record, a
-// duplicate symbol in the release link.
-//
-
-bool SLSGetWindowSubLevelBounded(int cid, uint32_t wid, int *sub_level);
 extern AXUIElementRef _Nullable _AXUIElementCreateWithRemoteToken(
     CFDataRef data);
 extern AXError _AXUIElementGetWindow(AXUIElementRef ref, uint32_t *wid);

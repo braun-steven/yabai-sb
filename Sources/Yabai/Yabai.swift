@@ -82,18 +82,12 @@ enum Daemon {
     return AXIsProcessTrustedWithOptions(options)
   }
 
-  /// A function of SkyLight that it does not export, found in its symbol table.
-  private static func skyLightSymbol(_ name: String) -> UnsafeMutableRawPointer? {
-    return MachOSymbol.address(
-      of: name, inImage: "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight")
-  }
-
   /// Logs the private symbols that did not resolve, each with the feature that needs it, as one notice line.
   /// When all of them resolved, logs one debug line.
   private static func logSymbolAvailability(
-    _ symbols: [(name: String, feature: String, address: UnsafeMutableRawPointer?)]
+    _ symbols: [(name: String, feature: String, resolved: Bool)]
   ) {
-    let missing = symbols.filter { $0.address == nil }
+    let missing = symbols.filter { !$0.resolved }
     guard !missing.isEmpty else {
       Logger.daemon.debug("all private symbols resolved")
       return
@@ -113,15 +107,18 @@ enum Daemon {
 
   /// Resolves the two SkyLight functions that the daemon takes from its symbol table, and logs the unresolved ones.
   @MainActor private static func resolvePrivateSymbols() {
-    let connectionPortName = "_CGSGetConnectionPortById"
-    let bridgedOperationName =
-      "__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"
-    let connectionPort = skyLightSymbol(connectionPortName)
-    let bridgedOperation = skyLightSymbol(bridgedOperationName)
-    CPrivateSetResolvedFunctions(connectionPort, bridgedOperation)
+    // the reads resolve the functions now, connection port first, so that a missing symbol is logged at startup
+    let connectionPortResolved = SLS.connectionPortFunction != nil
+    let bridgedOperationResolved = SLS.bridgedOperationFunction != nil
     logSymbolAvailability([
-      (name: connectionPortName, feature: "window sub-level query", address: connectionPort),
-      (name: bridgedOperationName, feature: "bridged window move", address: bridgedOperation),
+      (
+        name: SLS.connectionPortSymbol, feature: "window sub-level query",
+        resolved: connectionPortResolved
+      ),
+      (
+        name: SLS.bridgedOperationSymbol, feature: "bridged window move",
+        resolved: bridgedOperationResolved
+      ),
     ])
   }
 

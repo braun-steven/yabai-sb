@@ -51,8 +51,8 @@ let package = Package(
     .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git", from: "1.19.6"),
   ],
   targets: [
-    // the declarations of the private functions yabai calls, the pointers to the ones it resolves at runtime, and the
-    // wrappers of the calls that Swift cannot make (Notify.m uses manual retain/release)
+    // the declarations of the private functions yabai calls and the wrappers of the calls that Swift cannot make;
+    // Notify.m is its only source file (manual retain/release)
     .target(
       name: "CPrivate",
       cSettings: [

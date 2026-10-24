@@ -10,7 +10,7 @@ the scripting addition.
 - `Sources/Yabai/IPC/`: client, daemon socket and domain handlers (`Message*.swift`), plus the query response values in `Serialize.swift`.
 - `Sources/Yabai/Platform/`: private SkyLight, AX and CoreDock wrappers, plus runtime symbol lookup in `MachO.swift`.
 - `Sources/YabaiCore/`: pure logic without window server access: geometry, labels, space-layout math, query response types and `JSON.encode`, message tokens, values, selectors and rule/signal parsing.
-- `Sources/CPrivate/`: C/ObjC target with private framework declarations, runtime-resolved function pointers, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`.
+- `Sources/CPrivate/`: C/ObjC target with private framework declarations, wrappers for APIs unavailable to Swift and MRR notifications in `Notify.m`. Private functions that are not exported are resolved in Swift (`SLS` in `Sources/Yabai/Platform/SkyLight.swift`).
 - `osax/`: Swift scripting-addition core, native adapter and bootstrap/loader. `Plugins/OSAXEmbed/` invokes `scripts/build-osax.sh` to build arm64e binaries and generate `payload_bin.c` / `loader_bin.c` in its work directory; the SwiftPM `OSAX` target embeds those arrays. Its standalone package tests the core with recording/Mach mocks, outside Dock. Shared native socket helpers live in `core/IO.h`.
 - `tests/YabaiCoreTests/` and `tests/YabaiTests/`: Swift Testing; the latter uses `@testable import Yabai` and holds the golden IPC snapshot in `Golden/`. Use `tests/`, not `Tests/`, on the case-insensitive filesystem.
 - `doc/`: Asciidoc, generated manpage, payload and live-testing notes.

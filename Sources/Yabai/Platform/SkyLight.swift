@@ -1,5 +1,6 @@
 import CPrivate
 import CoreGraphics
+import Darwin
 import Foundation
 import YabaiCore
 
@@ -316,10 +317,77 @@ enum SLS {
     SLSRequestNotificationsForWindows(cid, &rawWindows, Int32(rawWindows.count))
   }
 
-  /// `SLSGetWindowSubLevelBounded` (CPrivate.c): the sub-level with a bounded wait; nil if it failed.
+  //
+  // NOTE: The bounded wait keeps a message that the window server does not answer (e.g. an unknown msgh_id on a new
+  // macOS release) from blocking the event loop forever. Like MIG-generated code, the special reply port is destroyed on
+  // failure, so that a late reply cannot be received by the next call on this thread.
+  //
+  // NOTE: Swift cannot read the NDR_record global of mach/ndr.h (Swift 6 rejects a reference to it as not
+  // concurrency-safe), so the request writes the eight bytes of NDR_record as constants
+  // (SubLevelMessage.ndrRecordBytes).
+  //
+
+  /// The sub-level of the window, asked from the window server like `SLSGetWindowSubLevel` but with a bounded wait for
+  /// the reply; nil if `connectionPortFunction` did not resolve or the message failed.
   static func windowSubLevelBounded(_ cid: Int32, _ wid: WindowID) -> Int32? {
-    var subLevel: Int32 = 0
-    return SLSGetWindowSubLevelBounded(cid, wid.rawValue, &subLevel) ? subLevel : nil
+    guard let connectionPort = connectionPortFunction else { return nil }
+
+    return withUnsafeTemporaryAllocation(byteCount: SubLevelMessage.size, alignment: 8) {
+      message -> Int32? in
+      message.initializeMemory(as: UInt8.self, repeating: 0)
+      message.storeBytes(
+        of: SubLevelMessage.bits, toByteOffset: SubLevelMessage.bitsOffset, as: UInt32.self)
+      message.storeBytes(
+        of: connectionPort(cid), toByteOffset: SubLevelMessage.remotePortOffset, as: UInt32.self)
+      let replyPort = mig_get_special_reply_port()
+      message.storeBytes(
+        of: replyPort, toByteOffset: SubLevelMessage.localPortOffset, as: UInt32.self)
+      message.storeBytes(
+        of: SubLevelMessage.messageID, toByteOffset: SubLevelMessage.messageIDOffset, as: Int32.self
+      )
+      for (index, byte) in SubLevelMessage.ndrRecordBytes.enumerated() {
+        message.storeBytes(
+          of: byte, toByteOffset: SubLevelMessage.ndrRecordOffset + index, as: UInt8.self)
+      }
+      message.storeBytes(
+        of: wid.rawValue, toByteOffset: SubLevelMessage.windowIDOffset, as: UInt32.self)
+
+      let header = message.baseAddress!.assumingMemoryBound(to: mach_msg_header_t.self)
+      let result = mach_msg(
+        header, MACH_SEND_MSG | MACH_RCV_MSG | MACH_RCV_TIMEOUT, SubLevelMessage.sendSize,
+        SubLevelMessage.receiveSize, replyPort, SubLevelMessage.timeout, 0)
+      guard result == MACH_MSG_SUCCESS else {
+        mig_dealloc_special_reply_port(replyPort)
+        return nil
+      }
+
+      return message.load(fromByteOffset: SubLevelMessage.subLevelOffset, as: Int32.self)
+    }
+  }
+
+  /// The message of `windowSubLevelBounded`: a `mach_msg_header_t` at offset 0, then the NDR record, the window id,
+  /// the sub-level that the reply fills in and two paddings. Swift writes and reads the fields at these byte offsets
+  /// in a raw buffer of `size` bytes, not through a struct with the same layout.
+  private enum SubLevelMessage {
+    static let size = 48
+    static let bits: UInt32 = 0x1513
+    static let messageID: Int32 = 0x76E3
+    static let sendSize: UInt32 = 0x24
+    static let receiveSize: UInt32 = 0x30
+    /// Milliseconds.
+    static let timeout: UInt32 = 100
+
+    static let bitsOffset = 0
+    static let remotePortOffset = 8
+    static let localPortOffset = 12
+    static let messageIDOffset = 20
+    static let ndrRecordOffset = 24
+    static let windowIDOffset = 32
+    static let subLevelOffset = 36
+
+    /// The bytes of NDR_record: mig_vers, if_vers, reserved1, mig_encoding, int_rep (1: little endian), char_rep,
+    /// float_rep, reserved2.
+    static let ndrRecordBytes: [UInt8] = [0, 0, 0, 0, 1, 0, 0, 0]
   }
 
   /// Turns the shadow of the window off by setting its shadow density to zero.
@@ -344,13 +412,49 @@ enum SLS {
   }
 
   //
-  // NOTE: The bridged operation moves windows asynchronously, and the window server has it on macOS 27. Daemon.run
-  // resolves its function pointer; Swift reads it through the accessors of CPrivate.h.
+  // NOTE: SkyLight does not export two functions that yabai calls. They are in its symbol table, so they are found with
+  // MachOSymbol.address(of:inImage:). Each one resolves on first use, and Daemon.run reads both at startup to log the
+  // ones that did not resolve. Swift calls them through @convention(c) types made from the addresses: a C
+  // function-pointer variable is rejected as a Swift 6 global, so the pointers are not in CPrivate.
   //
+
+  /// `CGSGetConnectionPortById`: the Mach port of a connection id.
+  typealias ConnectionPortFunction = @convention(c) (Int32) -> mach_port_t
+
+  /// `SLSPerformAsynchronousBridgedWindowManagementOperation`: runs an operation object; the result is not used.
+  typealias BridgedOperationFunction = @convention(c) (UnsafeMutableRawPointer) -> Int64
+
+  /// The image of SkyLight whose symbol table holds the two functions.
+  static let skyLightImage =
+    "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight"
+
+  /// The symbol of `CGSGetConnectionPortById`.
+  static let connectionPortSymbol = "_CGSGetConnectionPortById"
+
+  /// The mangled symbol of `SLSPerformAsynchronousBridgedWindowManagementOperation`.
+  static let bridgedOperationSymbol =
+    "__ZL54SLSPerformAsynchronousBridgedWindowManagementOperationP47SLSAsynchronousBridgedWindowManagementOperation"
+
+  /// `CGSGetConnectionPortById`, resolved on first use; nil if the symbol did not resolve.
+  static let connectionPortFunction: ConnectionPortFunction? = {
+    guard let address = skyLightSymbol(connectionPortSymbol) else { return nil }
+    return unsafeBitCast(address, to: ConnectionPortFunction.self)
+  }()
+
+  /// `SLSPerformAsynchronousBridgedWindowManagementOperation`, resolved on first use; nil if it did not resolve.
+  static let bridgedOperationFunction: BridgedOperationFunction? = {
+    guard let address = skyLightSymbol(bridgedOperationSymbol) else { return nil }
+    return unsafeBitCast(address, to: BridgedOperationFunction.self)
+  }()
+
+  /// A function of SkyLight that it does not export, found in its symbol table.
+  private static func skyLightSymbol(_ name: String) -> UnsafeMutableRawPointer? {
+    return MachOSymbol.address(of: name, inImage: skyLightImage)
+  }
 
   /// Whether `SLSPerformAsynchronousBridgedWindowManagementOperation` is resolved.
   static var hasBridgedWindowOperation: Bool {
-    return SLSHasBridgedWindowOperation()
+    return bridgedOperationFunction != nil
   }
 
   /// `[[SLSBridgedMoveWindowsToManagedSpaceOperation alloc] initWithWindows:spaceID:]`, run through
@@ -358,7 +462,8 @@ enum SLS {
   /// The Objective-C messages go through objc_msgSend, cast to the signature of each call.
   static func bridgedMoveWindows(_ windows: [WindowID], toSpace sid: SpaceID) {
     guard let cls = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation"),
-      let send = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "objc_msgSend")
+      let send = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "objc_msgSend"),
+      let perform = bridgedOperationFunction
     else { return }
 
     typealias Alloc =
@@ -384,7 +489,7 @@ enum SLS {
     else { return }
 
     withExtendedLifetime(windowList) {
-      _ = SLSPerformBridgedWindowOperation(operation)
+      _ = perform(operation)
     }
 
     Unmanaged<AnyObject>.fromOpaque(operation).release()

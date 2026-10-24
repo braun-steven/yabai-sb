@@ -138,7 +138,7 @@ Definitions
 
 [subs=+macros]
 ----
-REGEX       := https://www.gnu.org/software/findutils/manual/html_node/find_html/posix_002dextended-regular-expression-syntax.html[POSIX extended regular expression syntax]
+REGEX       := https://developer.apple.com/documentation/swift/regex[Swift Regex syntax], matched anywhere in the text; e.g. ^Safari$ or (?i)^settings
 
 LABEL       := arbitrary string/text used as an identifier
 

@@ -6,31 +6,26 @@ import Darwin
 // rules that match a window combine. Ported from parse_rule and parse_signal (src/message.c) and src/rule.c.
 //
 
-// NOTE: The class owns a `regex_t` that only regcomp fills and regfree releases, so its raw pointer never escapes;
-// the public API is safe, hence `@safe`.
-/// A POSIX extended regular expression (`regcomp` with `REG_EXTENDED`), freed with the last reference.
-@safe
-public final class POSIXRegex {
-  private let pointer: UnsafeMutablePointer<regex_t>
+//
+// NOTE: A pattern uses Swift Regex syntax, not POSIX extended regular expressions (regcomp). It matches characters, not
+// the bytes that regexec matched in the C locale, so `.` takes a whole "é" or emoji, and it adds (?i), \d, \b and
+// lookaround. `^` and `$` stay anchored at the start and end of the text. About 4 µs per match in a release build,
+// 16 times regexec, which is small next to the AX calls around a rule check.
+//
 
+/// A regular expression in Swift `Regex` syntax, matched anywhere in the text.
+public struct PatternRegex {
+  private let regex: Regex<AnyRegexOutput>
+
+  /// Nil when the pattern is not a valid regular expression.
   public init?(_ pattern: String) {
-    let regex = UnsafeMutablePointer<regex_t>.allocate(capacity: 1)
-    guard unsafe regcomp(regex, pattern, REG_EXTENDED) == 0 else {
-      unsafe regex.deallocate()
-      return nil
-    }
-
-    unsafe pointer = regex
+    guard let regex = try? Regex(pattern) else { return nil }
+    self.regex = regex
   }
 
-  /// Whether the text matches the pattern anywhere (`regexec` without match data).
+  /// Whether the text matches the pattern anywhere.
   public func matches(_ text: String) -> Bool {
-    unsafe regexec(pointer, text, 0, nil, 0) == 0
-  }
-
-  deinit {
-    unsafe regfree(pointer)
-    unsafe pointer.deallocate()
+    text.contains(regex)
   }
 }
 
@@ -38,12 +33,12 @@ public final class POSIXRegex {
 public struct RulePattern: Equatable {
   public var text: String
   public var exclude: Bool
-  public var regex: POSIXRegex?
+  public var regex: PatternRegex?
 
   public init(_ value: Token, exclude: Bool) {
     self.text = value.string
     self.exclude = exclude
-    self.regex = POSIXRegex(text)
+    self.regex = PatternRegex(text)
   }
 
   /// Whether text passes the filter: it matches the pattern, or does not match an excluding one. An invalid pattern
@@ -54,7 +49,7 @@ public struct RulePattern: Equatable {
   }
 
   //
-  // NOTE: The regex is compiled from the text, so the text and the exclusion are the pattern. POSIXRegex has no equality.
+  // NOTE: The regex is compiled from the text, so the text and the exclusion are the pattern. PatternRegex has no equality.
   //
 
   public static func == (lhs: RulePattern, rhs: RulePattern) -> Bool {

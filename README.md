@@ -23,6 +23,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
 - [Shell completions](#shell-completions)
+- [Swift Regex patterns](#swift-regex-patterns)
 - [Static config file](#static-config-file)
 - [Config check and reload](#config-check-and-reload)
 - [Editor schema for yabai.toml](#editor-schema-for-yabaitoml)
@@ -370,6 +371,16 @@ yabai --generate-completion-script fish > ~/.config/fish/completions/yabai.fish
 ```
 
 They complete the options of the process (`--start-service`, `--config <file>`, …), not the messages after `-m`.
+
+### Swift Regex patterns
+
+The `app`, `title`, `role` and `subrole` patterns of rules and signals use [Swift Regex](https://developer.apple.com/documentation/swift/regex) syntax instead of POSIX extended regular expressions. Patterns match characters rather than bytes, so `.` takes a whole "é" or emoji, and they accept `(?i)` for case-insensitive matching, `\d`, `\b` and lookaround:
+
+```toml
+[[rule]]
+title = "(?i)^settings"
+manage = false
+```
 
 ### Static config file
 

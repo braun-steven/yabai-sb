@@ -10,8 +10,8 @@ import Testing
 
 @Suite struct ServiceTests {
   static let uid: uid_t = 501
-  static let plistPath = "/Users/steven/Library/LaunchAgents/com.asmvik.yabai.plist"
-  static let target = "gui/501/com.asmvik.yabai"
+  static let plistPath = "/Users/steven/Library/LaunchAgents/com.braun-steven.yabai-sb.plist"
+  static let target = "gui/501/com.braun-steven.yabai-sb"
   static let domain = "gui/501"
 
   @Test("the property list keeps the layout of the service file, tabs included")
@@ -22,7 +22,7 @@ import Testing
       "<plist version=\"1.0\">",
       "<dict>",
       "    <key>Label</key>",
-      "    <string>com.asmvik.yabai</string>",
+      "    <string>com.braun-steven.yabai-sb</string>",
       "    <key>ProgramArguments</key>",
       "    <array>",
       "        <string>/usr/local/bin/yabai</string>",
@@ -65,7 +65,7 @@ import Testing
     let value = try PropertyListSerialization.propertyList(from: Data(contents.utf8), format: nil)
     let dictionary = try #require(value as? [String: Any])
 
-    #expect(dictionary["Label"] as? String == "com.asmvik.yabai")
+    #expect(dictionary["Label"] as? String == "com.braun-steven.yabai-sb")
     #expect(dictionary["ProgramArguments"] as? [String] == ["/usr/local/bin/yabai"])
     #expect(dictionary["StandardOutPath"] as? String == "/tmp/yabai_steven.out.log")
     #expect(dictionary["StandardErrorPath"] as? String == "/tmp/yabai_steven.err.log")
@@ -113,7 +113,7 @@ import Testing
 
   @Test("the targets of the GUI domain of the user")
   func targets() {
-    #expect(Service.serviceTarget(uid: 0) == "gui/0/com.asmvik.yabai")
+    #expect(Service.serviceTarget(uid: 0) == "gui/0/com.braun-steven.yabai-sb")
     #expect(Service.domainTarget(uid: 0) == "gui/0")
   }
 
@@ -130,5 +130,25 @@ import Testing
     #expect(
       ServiceError.plistNotWritten(path: "/p").message == "service file '/p' could not be installed"
     )
+  }
+
+  @Test(
+    "a legacy service file is removed only when it runs this executable",
+    arguments: [
+      ("/Users/steven/.local/bin/yabai", true),
+      ("/opt/homebrew/bin/yabai", false),
+    ])
+  func legacyService(executable: String, removed: Bool) {
+    let contents = Service.plist(
+      executable: "/Users/steven/.local/bin/yabai", path: "/usr/bin:/bin", user: "steven")
+    #expect(
+      Service.isLegacyService(plistContents: Data(contents.utf8), executable: executable) == removed
+    )
+  }
+
+  @Test("a legacy service file that is no property list is left alone")
+  func legacyServiceUnreadable() {
+    #expect(
+      !Service.isLegacyService(plistContents: Data("not a plist".utf8), executable: "/bin/yabai"))
   }
 }

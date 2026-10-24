@@ -1,8 +1,10 @@
-# Personal fork
+# yabai-sb
 
-This is my personal fork of [yabai](https://github.com/asmvik/yabai) by Åsmund Vikane, maintained by me, where I (mostly via coding agents) implement features and bug fixes that I need and then some more.
+yabai-sb is my personal fork of [yabai](https://github.com/asmvik/yabai) by Åsmund Vikane, maintained by me, where I (mostly via coding agents) implement features and bug fixes that I need and then some more.
 
 This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, with C/Objective-C retained for private macOS APIs and the scripting addition's native adapter and loader.
+
+It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and `yabai.toml` replaces `yabairc`), so it has its own name and its own [semantic version](https://semver.org), starting at 1.0.0. The binary is still called `yabai`, so skhd bindings and `yabai -m` scripts keep working. Upstream changes are ported by hand; [doc/upstream-sync.md](doc/upstream-sync.md) records the last upstream release reviewed. This project is not affiliated with upstream yabai; report its issues here, not upstream.
 
 ## Fork changes
 
@@ -28,6 +30,7 @@ This fork ports yabai from C to Swift. The daemon and CLI are written in Swift, 
 - [Config check and reload](#config-check-and-reload)
 - [Editor schema for yabai.toml](#editor-schema-for-yabaitoml)
 - [IPC batch and subscribe](#ipc-batch-and-subscribe)
+- [Homebrew tap](#homebrew-tap)
 
 Configuration goes in `yabai.toml` (see [Static config file](#static-config-file)); window commands act on the focused window unless a selector is given. See the [command reference][yabai-docs] for all options.
 
@@ -453,6 +456,10 @@ The commands run in order, each as it would on its own. A failing command is rep
 
 ---
 
+### Homebrew tap
+
+Releases are installed from the fork's own tap: `brew install braun-steven/tap/yabai-sb`. It installs the `yabai` binary, the man page, shell completions, the examples and the `yabai.toml` schema, and conflicts with upstream's formula. The launchd service has its own label, `com.braun-steven.yabai-sb`; `yabai --start-service` removes a `com.asmvik.yabai` service that runs the same binary.
+
 <!-- Please be careful editing the below HTML, as GitHub is quite finicky with anything that looks like an HTML tag in GitHub Flavored Markdown. -->
 <p align="center">
   <img width="75%" src="assets/banner/banner.svg" alt="Banner">
@@ -461,19 +468,19 @@ The commands run in order, each as it would on its own. A failing command is rep
   <b>Tiling window management for the Mac.</b>
 </p>
 <p align="center">
-  <a href="https://github.com/braun-steven/yabai/blob/main/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/braun-steven/yabai.svg?color=green" alt="License Badge">
+  <a href="https://github.com/braun-steven/yabai-sb/blob/main/LICENSE.txt">
+    <img src="https://img.shields.io/github/license/braun-steven/yabai-sb.svg?color=green" alt="License Badge">
   </a>
-  <a href="https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc">
+  <a href="https://github.com/braun-steven/yabai-sb/blob/main/doc/yabai.asciidoc">
     <img src="https://img.shields.io/badge/view-documentation-green.svg" alt="Documentation Badge">
   </a>
   <a href="https://github.com/asmvik/yabai/wiki">
     <img src="https://img.shields.io/badge/view-upstream_wiki-green.svg" alt="Upstream Wiki Badge">
   </a>
-  <a href="https://github.com/braun-steven/yabai/blob/main/CHANGELOG.md">
+  <a href="https://github.com/braun-steven/yabai-sb/blob/main/CHANGELOG.md">
     <img src="https://img.shields.io/badge/view-changelog-green.svg" alt="Changelog Badge">
   </a>
-  <a href="https://github.com/braun-steven/yabai/releases">
+  <a href="https://github.com/braun-steven/yabai-sb/releases">
     <img src="https://img.shields.io/badge/view-releases-green.svg" alt="Releases Badge">
   </a>
 </p>
@@ -490,7 +497,7 @@ Additional features of yabai include focus-follows-mouse, disabling animations f
 
 ## Installation and Configuration
 
-- The [&nearr;&nbsp;upstream&nbsp;wiki][yabai-wiki] has installation and uninstallation instructions for upstream yabai. For this fork, use the build instructions below; upstream packages do not include the fork changes.
+- Install this fork with `brew install braun-steven/tap/yabai-sb` (see [Homebrew tap](#homebrew-tap)) or the build instructions below; upstream packages do not include the fork changes. The [&nearr;&nbsp;upstream&nbsp;wiki][yabai-wiki] covers upstream yabai, and its SIP and scripting addition steps also apply here.
 - Sample configuration files can be found in the [&nearr;&nbsp;examples][yabai-examples] directory. Refer to the [&nearr;&nbsp;documentation][yabai-docs] or the wiki for further information.
 - Keyboard shortcuts can be defined with [&nearr;&nbsp;skhd][gh-skhd] or any other suitable software you may prefer.
 
@@ -561,9 +568,9 @@ You acknowledge that you understand the potential risk that may come from disabl
 
 <!-- Project internal links -->
 [yabai-license]: LICENSE.txt
-[yabai-examples]: https://github.com/braun-steven/yabai/tree/main/examples
+[yabai-examples]: https://github.com/braun-steven/yabai-sb/tree/main/examples
 [yabai-wiki]: https://github.com/asmvik/yabai/wiki
-[yabai-docs]: https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc
+[yabai-docs]: https://github.com/braun-steven/yabai-sb/blob/main/doc/yabai.asciidoc
 
 <!-- Links to other GitHub projects/users -->
 [gh-skhd]: https://github.com/asmvik/skhd

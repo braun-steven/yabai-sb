@@ -82,11 +82,6 @@ man:
 icon:
     python3 scripts/seticon.py assets/icon/2x/icon-512px@2x.png bin/yabai
 
-# Update the install script's version and release archive hash.
-publish:
-    sed -i '' "s/^VERSION=.*/VERSION=\"$(bin/yabai --version | cut -d v -f 2)\"/" scripts/install.sh
-    sed -i '' "s/^EXPECTED_HASH=.*/EXPECTED_HASH=\"$(shasum -a 256 bin/$(bin/yabai --version).tar.gz | cut -d ' ' -f 1)\"/" scripts/install.sh
-
 # Build the release archive after generating docs, building, signing and setting the icon.
 archive: man install sign icon
     rm -rf archive
@@ -106,19 +101,19 @@ brew-release: _brew-release-check archive
     version="$(bin/yabai --version)"
     tarball="bin/$version.tar.gz"
     sha="$(shasum -a 256 "$tarball" | cut -d ' ' -f 1)"
-    gh release create "${version#yabai-}" "$tarball" --repo braun-steven/yabai \
-        --target "$(git rev-parse HEAD)" --title "${version#yabai-}" --notes "See CHANGELOG.md."
-    url="https://github.com/braun-steven/yabai/releases/download/${version#yabai-}/$version.tar.gz"
-    sed -i '' -e "s|^  url \".*\"|  url \"$url\"|" -e "s|^  sha256 \".*\"|  sha256 \"$sha\"|" "$tap/Formula/yabai.rb"
-    git -C "$tap" commit -q -m "yabai ${version#yabai-}" -- Formula/yabai.rb
-    echo "Released ${version#yabai-}; push the tap with: git -C $tap push"
+    gh release create "${version#yabai-sb-}" "$tarball" --repo braun-steven/yabai-sb \
+        --target "$(git rev-parse HEAD)" --title "${version#yabai-sb-}" --notes "See CHANGELOG.md."
+    url="https://github.com/braun-steven/yabai-sb/releases/download/${version#yabai-sb-}/$version.tar.gz"
+    sed -i '' -e "s|^  url \".*\"|  url \"$url\"|" -e "s|^  sha256 \".*\"|  sha256 \"$sha\"|" "$tap/Formula/yabai-sb.rb"
+    git -C "$tap" commit -q -m "yabai-sb ${version#yabai-sb-}" -- Formula/yabai-sb.rb
+    echo "Released ${version#yabai-sb-}; push the tap with: git -C $tap push"
 
 [private]
 _brew-release-check:
     #!/usr/bin/env bash
     set -euo pipefail
     tap="${YABAI_TAP_DIR:-../homebrew-tap}"
-    [[ -f "$tap/Formula/yabai.rb" ]] || { echo "No tap checkout at $tap (set YABAI_TAP_DIR)" >&2; exit 1; }
+    [[ -f "$tap/Formula/yabai-sb.rb" ]] || { echo "No tap checkout at $tap (set YABAI_TAP_DIR)" >&2; exit 1; }
     [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "Commit or stash local changes first" >&2; exit 1; }
     git fetch -q origin main
     git merge-base --is-ancestor HEAD origin/main || { echo "Push HEAD to origin/main first" >&2; exit 1; }

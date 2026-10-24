@@ -2,7 +2,7 @@
 
 yabai is a tiling window manager for macOS 27 on arm64, written in Swift 6.4. It talks to private macOS
 frameworks (SkyLight, AX, CoreDock) through the `CPrivate` C target, and injects a scripting addition
-(Swift core + manual retain/release ObjC adapter) into Dock. This is a personal fork.
+(Swift core + manual retain/release ObjC adapter) into Dock. This is a personal fork, released as yabai-sb (the binary stays `yabai`).
 
 ## Read first, by topic
 
@@ -15,6 +15,7 @@ frameworks (SkyLight, AX, CoreDock) through the `CPrivate` C target, and injects
 | touch the scripting addition or reload a payload | `doc/payload-updates.md`, `doc/osax-prototypes.md` |
 | work on the refactor plan | `doc/refactor/overview.md`, `doc/refactor/status.md` |
 | work on the static config plan (`yabai.toml`) | `doc/config-refactor/overview.md`, `doc/config-refactor/status.md` |
+| port upstream yabai changes | `doc/upstream-sync.md` |
 
 When something costs real time, record the pitfall in the matching doc in the same commit.
 
@@ -42,6 +43,8 @@ commands yourself.
 - Deploying: agents use `bash scripts/live-tests/deploy.sh install` (read `doc/live-testing.md` first).
   `update-yabai-fork` needs sudo in a real terminal; the user runs it, after you commit.
 - `bash scripts/payload-history.sh [--grep <re>] [--show <rev>]`: payload history.
+- `just brew-release`: GitHub release of HEAD plus a commit to the tap checkout (`../homebrew-tap`); the user runs it.
+  The version is `Daemon.version` in `Sources/Yabai/Yabai.swift` (yabai-sb's own semver, not upstream's).
 - `scripts/live-tests/missioncontrol state|open|close|toggle`: opens and closes Mission Control through the user's
   shortcut, so its handling can be tested without the user (outside the command sandbox; see `doc/live-testing.md`).
 - After a CPrivate change, also run `just install`: some link errors only appear in release.

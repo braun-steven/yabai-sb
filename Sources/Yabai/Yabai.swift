@@ -40,9 +40,8 @@ func directoryExists(_ filename: String) -> Bool {
 
 /// The daemon and its startup, and the options that run instead of it.
 enum Daemon {
-  private static let major = 7
-  private static let minor = 1
-  private static let patch = 25
+  /// yabai-sb has its own semantic version, independent of upstream's (doc/upstream-sync.md).
+  static let version = "yabai-sb-v1.0.0"
 
   /// Whether the process runs as root, real or effective.
   static var isRoot: Bool {
@@ -156,7 +155,7 @@ enum Daemon {
   /// Runs the daemon, or prints the version.
   @MainActor static func run(_ options: YabaiOptions) -> Int32 {
     if options.version {
-      fputs("yabai-v\(major).\(minor).\(patch)\n", stdout)
+      fputs("\(version)\n", stdout)
       return EXIT_SUCCESS
     }
 

@@ -41,7 +41,25 @@ enum ServiceAction: Equatable {
 /// The launchd service of the daemon: its property list and the launchctl commands that install, start and stop it.
 enum Service {
   private static let launchctlExecutable: Executable = .path("/bin/launchctl")
-  private static let yabaiPlistName = "com.asmvik.yabai"
+  private static let yabaiPlistName = "com.braun-steven.yabai-sb"
+
+  //
+  // NOTE: The label of the service before the fork had its own. --start-service removes a service of this label when
+  // it runs this executable, so that both labels do not start a daemon at login; a service that runs another binary,
+  // such as an upstream install, is left alone.
+  //
+
+  private static let legacyPlistName = "com.asmvik.yabai"
+
+  /// Whether a property list of the legacy label runs the executable at the path.
+  static func isLegacyService(plistContents: Data, executable: String) -> Bool {
+    guard
+      let value = try? PropertyListSerialization.propertyList(from: plistContents, format: nil),
+      let dictionary = value as? [String: Any],
+      let arguments = dictionary["ProgramArguments"] as? [String]
+    else { return false }
+    return arguments.first == executable
+  }
 
   /// The launchd property list for the executable, the PATH and the user (the user is in the log paths too).
   static func plist(executable: String, path: String, user: String) -> String {
@@ -146,10 +164,22 @@ enum Service {
   }
 
   /// The path of the property list in the LaunchAgents directory of the user.
-  private static func plistPath() throws(ServiceError) -> String {
+  private static func plistPath(name: String = yabaiPlistName) throws(ServiceError) -> String {
     guard let home = NSHomeDirectoryForUser(nil) else { throw .homeDirectoryUnavailable }
 
-    return "\(home)/Library/LaunchAgents/\(yabaiPlistName).plist"
+    return "\(home)/Library/LaunchAgents/\(name).plist"
+  }
+
+  /// Unloads and removes the service of the legacy label when it runs this executable (see the NOTE above).
+  private static func removeLegacyService(uid: uid_t) async throws(ServiceError) {
+    let legacyPath = try plistPath(name: legacyPlistName)
+    guard let contents = FileManager.default.contents(atPath: legacyPath),
+      isLegacyService(plistContents: contents, executable: try executablePath())
+    else { return }
+
+    Logger.daemon.warning("removing service file '\(legacyPath)' of the old label")
+    _ = await launchctl(["bootout", domainTarget(uid: uid), legacyPath], suppressOutput: true)
+    unlink(legacyPath)
   }
 
   /// The path of this executable.
@@ -249,6 +279,7 @@ enum Service {
     let uid = getuid()
 
     do {
+      try await removeLegacyService(uid: uid)
       let yabaiPlistPath = try plistPath()
       if !fileExists(yabaiPlistPath) {
         Logger.daemon.warning(

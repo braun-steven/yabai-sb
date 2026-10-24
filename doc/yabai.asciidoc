@@ -48,11 +48,11 @@ must be given alone. Option values may also be attached, e.g. *--config=*'<confi
 
 *--install-service*::
     Writes a launchd service file to disk. +
-    Path is ~/Library/LaunchAgents/com.asmvik.yabai.plist.
+    Path is ~/Library/LaunchAgents/com.braun-steven.yabai-sb.plist.
 
 *--uninstall-service*::
     Removes a launchd service file from disk. +
-    Path is ~/Library/LaunchAgents/com.asmvik.yabai.plist.
+    Path is ~/Library/LaunchAgents/com.braun-steven.yabai-sb.plist.
 
 *--start-service*::
     Enables, loads, and starts the launchd service. +
@@ -131,7 +131,7 @@ Sudoers setup: the load runs `sudo -n` as your user, so your user needs a sudoer
 
 The settings are applied in this order: the `[config]` options (*space_layout* after the others), then the `[[space]]` labels, pins and options, then the rules and the signals, each list in the order of the file, and *config_loaded* last. At startup the rules exist before the existing windows are adopted, so they apply to those windows too. A setting that fails while it is applied is logged: at startup a notification counts the failures, and the other settings are still applied.
 
-Editors can check and complete the file with `doc/yabai.schema.json`, a JSON Schema of the keys above. It is the schema that Taplo and the Even Better TOML extension of VS Code read, and a test keeps it in step with the keys the daemon accepts. Point the editor at it with a `#:schema` line as the first line of the file: `#:schema ../doc/yabai.schema.json` in `examples/yabai.toml` (a relative path), or, for `~/.config/yabai/yabai.toml`, the URL `https://raw.githubusercontent.com/braun-steven/yabai/main/doc/yabai.schema.json` (once it is on the fork's main branch), or the path of a local copy. The schema is an aid: the daemon checks the file itself, and an error is still reported by *--check-config*.
+Editors can check and complete the file with `doc/yabai.schema.json`, a JSON Schema of the keys above. It is the schema that Taplo and the Even Better TOML extension of VS Code read, and a test keeps it in step with the keys the daemon accepts. Point the editor at it with a `#:schema` line as the first line of the file: `#:schema ../doc/yabai.schema.json` in `examples/yabai.toml` (a relative path), or, for `~/.config/yabai/yabai.toml`, the URL `https://raw.githubusercontent.com/braun-steven/yabai-sb/main/doc/yabai.schema.json` (once it is on the fork's main branch), or the path of a local copy. The schema is an aid: the daemon checks the file itself, and an error is still reported by *--check-config*.
 
 Definitions
 -----------
@@ -1243,4 +1243,4 @@ Author
 
 Åsmund Vikane <aasvi93 at gmail.com>
 
-Fork maintained by Steven Braun <https://github.com/braun-steven/yabai>.
+Fork maintained by Steven Braun <https://github.com/braun-steven/yabai-sb>.

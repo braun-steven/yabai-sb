@@ -32,7 +32,7 @@ def check(binary):
     version = run(binary, "--version")
     require(version.returncode == 0, f"--version exited {version.returncode}: {version.stderr!r}")
     require(
-        re.fullmatch(r"yabai-v\S+\n?", version.stdout) is not None,
+        re.fullmatch(r"yabai-sb-v\S+\n?", version.stdout) is not None,
         f"unexpected --version output: {version.stdout!r}",
     )
     require(version.stderr == "", f"unexpected --version stderr: {version.stderr!r}")

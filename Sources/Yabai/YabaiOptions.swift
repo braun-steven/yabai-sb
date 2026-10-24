@@ -17,7 +17,7 @@ struct YabaiOptions: ParsableCommand {
       Without options, yabai runs the window manager. An action (--load-sa through --stop-service), --message, --version \
       and --check-config must be given alone.
       Type `man yabai` for more information, or visit: \
-      https://github.com/braun-steven/yabai/blob/main/doc/yabai.asciidoc
+      https://github.com/braun-steven/yabai-sb/blob/main/doc/yabai.asciidoc
       """
   )
 

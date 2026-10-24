@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The fork is versioned as yabai-sb from 1.0.0; the releases up to 7.1.25 below are upstream yabai's.
 
 ## [Unreleased]
 ### Added
@@ -50,6 +50,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- The fork is named yabai-sb with its own version, starting at 1.0.0: `yabai --version` prints `yabai-sb-v1.0.0`; the binary is still `yabai`. Releases are installed with `brew install braun-steven/tap/yabai-sb`
+- The launchd service has the label `com.braun-steven.yabai-sb` (`~/Library/LaunchAgents/com.braun-steven.yabai-sb.plist`); *--start-service* removes a `com.asmvik.yabai` service that runs the same binary
+- The built-in scripting addition load (`load_scripting_addition`) runs sudo on the path yabai was started from instead of its realpath, so the sudoers entry names `which yabai`, e.g. the Homebrew link, as upstream's does
 - Command *signal --add* fails for a filter that its event does not report, e.g. `signal --add event=config_loaded app=Finder ...` or *active* on *window_focused*, instead of accepting the filter and running the signal whatever it says; each event of the man page lists the filters it takes
 - Command *rule --remove* keeps the order of the other rules, and *rule --add* with the label of an existing rule replaces it at its index; both moved the last rule into the freed slot before. A later rule overrides an earlier one, so the move could change which rule wins
 - Command *config* prints a float option in its shortest form (`0.25`, `1.0`) instead of with fixed decimals (`0.250000`, `1.0000`), and *rule --list* prints *flags* without leading zeros (`0x6011f`)
@@ -106,6 +109,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - When both `$XDG_CONFIG_HOME/yabai/yabai.toml` and `~/.config/yabai/yabai.toml` exist, the daemon warns and sends a notification naming the file it uses and the ones it ignores; the file it loads is logged at startup in every case
 
 ### Removed
+- `scripts/install.sh` and the *publish* recipe, which installed upstream's release; use the Homebrew tap
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*
 - Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model

@@ -111,7 +111,7 @@ class BuildCheck:
         require(not (self.root / "osax/loader_bin.c").exists(), "Generated C leaked into sources")
         binary_directory = Path(self.run("02-product-path", self.swift + ["build", "--show-bin-path"]))
         version = self.run("03-version", [str(binary_directory / "yabai"), "--version"])
-        require(version.startswith("yabai-v"), "Built executable did not report its version")
+        require(version.startswith("yabai-sb-v"), "Built executable did not report its version")
         print("PASS clean build and embedded C linkage", flush=True)
 
         before = snapshot(self.artifacts)

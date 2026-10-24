@@ -29,7 +29,7 @@ class CliSmokeTests(unittest.TestCase):
             def fake_run(command, **options):
                 calls.append((command, options))
                 if command[1:] == ["--version"]:
-                    return subprocess.CompletedProcess(command, 0, "yabai-v7.1.16\n", "")
+                    return subprocess.CompletedProcess(command, 0, "yabai-sb-v1.0.0\n", "")
                 self.assertEqual(command[1], "--check-config")
                 self.assertTrue(Path(command[2]).is_file())
                 return subprocess.CompletedProcess(command, 0, "checked 1 settings, 0 failures\n", "")

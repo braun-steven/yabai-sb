@@ -264,6 +264,7 @@ extension DaemonState {
     @Test func runtimeFailureKeepsSuccessfulRulesAndTheChangedFileAsApplied() throws {
       DaemonFixture.reset()
       let path = try writeReloadFile(reloadText)
+      ConfigLoader.shared.filePath = path
       defer { try? FileManager.default.removeItem(atPath: path) }
       #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
       #expect(WindowManager.shared.rules.map { $0.app?.text } == ["^Keep$"])

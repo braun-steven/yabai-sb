@@ -101,7 +101,7 @@ private func readToEnd(_ fd: Int32) throws -> [UInt8] {
 }
 
 @Test(arguments: InvalidIPCRequest.allCases)
-func invalidRequestReceivesRejectionAndEOF(_ request: InvalidIPCRequest) throws {
+private func invalidRequestReceivesRejectionAndEOF(_ request: InvalidIPCRequest) throws {
   let (server, client) = try ipcSocketPair()
   defer { Darwin.close(client) }
   var serverSocketTransferred = false

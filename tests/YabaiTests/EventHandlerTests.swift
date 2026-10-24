@@ -64,26 +64,26 @@ extension DaemonState {
       let psn = ProcessSerialNumber(highLongOfPSN: 0xFFFF_FFFE, lowLongOfPSN: 0xFFFF_FFFD)
       let key = ProcessKey(psn)
       let pm = ProcessManager.shared
-      let focus = WindowManager.shared.focus
+      let manager = WindowManager.shared
       let previousProcess = pm.processes[key]
-      let previouslyLost = focus.hasLostFrontSwitchedEvent(for: pid)
+      let previouslyLost = manager.focus.hasLostFrontSwitchedEvent(for: pid)
 
       defer {
         pm.processes[key] = previousProcess
         if previouslyLost {
-          focus.addLostFrontSwitchedEvent(for: pid)
+          manager.focus.addLostFrontSwitchedEvent(for: pid)
         } else {
-          focus.removeLostFrontSwitchedEvent(for: pid)
+          manager.focus.removeLostFrontSwitchedEvent(for: pid)
         }
       }
 
       pm.processes[key] = Process(psn: psn, pid: pid, name: "termination-test")
-      focus.addLostFrontSwitchedEvent(for: pid)
+      manager.focus.addLostFrontSwitchedEvent(for: pid)
 
       EventHandler.shared.carbonProcessTerminated(key)
 
       #expect(pm.processes[key] == nil)
-      #expect(!focus.hasLostFrontSwitchedEvent(for: pid))
+      #expect(!manager.focus.hasLostFrontSwitchedEvent(for: pid))
     }
   }
 }
@@ -94,61 +94,61 @@ extension DaemonState {
     @Test func missingTargetRecordsLostFocusAndKeepsPendingRequest() {
       let requestedWindow = wid(30)
       let missingWindow = wid(31)
-      let focus = WindowManager.shared.focus
-      focus.setPending(requestedWindow, at: 1)
+      WindowManager.shared.focus.setPending(requestedWindow, at: 1)
       pendingWindowFocus.store(true, ordering: .releasing)
       defer {
-        focus.clearPending()
-        focus.removeLostFocusedEvent(for: missingWindow)
+        WindowManager.shared.focus.clearPending()
+        WindowManager.shared.focus.removeLostFocusedEvent(for: missingWindow)
         pendingWindowFocus.store(false, ordering: .releasing)
       }
 
       EventHandler.shared.windowFocused(missingWindow)
 
-      #expect(focus.hasLostFocusedEvent(for: missingWindow))
-      #expect(focus.pending?.windowID == requestedWindow)
-      #expect(!pendingWindowFocus.load(ordering: .acquiring))
+      #expect(WindowManager.shared.focus.hasLostFocusedEvent(for: missingWindow))
+      #expect(WindowManager.shared.focus.pending?.windowID == requestedWindow)
+      let isPending = pendingWindowFocus.load(ordering: .acquiring)
+      #expect(!isPending)
     }
 
     @Test func minimizedTargetRecordsLostFocusAndKeepsPendingRequest() {
       let workspace = Workspace()
       let minimized = workspace.open(1)
       let requestedWindow = wid(32)
-      let focus = WindowManager.shared.focus
       minimized.isMinimized = true
-      focus.setPending(requestedWindow, at: 1)
+      WindowManager.shared.focus.setPending(requestedWindow, at: 1)
       pendingWindowFocus.store(true, ordering: .releasing)
       defer {
-        focus.clearPending()
-        focus.removeLostFocusedEvent(for: minimized.id)
+        WindowManager.shared.focus.clearPending()
+        WindowManager.shared.focus.removeLostFocusedEvent(for: minimized.id)
         pendingWindowFocus.store(false, ordering: .releasing)
       }
 
       EventHandler.shared.windowFocused(minimized.id)
 
-      #expect(focus.hasLostFocusedEvent(for: minimized.id))
-      #expect(focus.pending?.windowID == requestedWindow)
-      #expect(!pendingWindowFocus.load(ordering: .acquiring))
+      #expect(WindowManager.shared.focus.hasLostFocusedEvent(for: minimized.id))
+      #expect(WindowManager.shared.focus.pending?.windowID == requestedWindow)
+      let isPending = pendingWindowFocus.load(ordering: .acquiring)
+      #expect(!isPending)
     }
 
     @Test func staleTargetIsIgnoredAndKeepsPendingRequest() {
       let workspace = Workspace()
       let stale = workspace.open(1)
       let requestedWindow = wid(33)
-      let focus = WindowManager.shared.focus
       #expect(stale.invalidate())
-      focus.setPending(requestedWindow, at: 1)
+      WindowManager.shared.focus.setPending(requestedWindow, at: 1)
       pendingWindowFocus.store(true, ordering: .releasing)
       defer {
-        focus.clearPending()
+        WindowManager.shared.focus.clearPending()
         pendingWindowFocus.store(false, ordering: .releasing)
       }
 
       EventHandler.shared.windowFocused(stale.id)
 
-      #expect(!focus.hasLostFocusedEvent(for: stale.id))
-      #expect(focus.pending?.windowID == requestedWindow)
-      #expect(!pendingWindowFocus.load(ordering: .acquiring))
+      #expect(!WindowManager.shared.focus.hasLostFocusedEvent(for: stale.id))
+      #expect(WindowManager.shared.focus.pending?.windowID == requestedWindow)
+      let isPending = pendingWindowFocus.load(ordering: .acquiring)
+      #expect(!isPending)
     }
 
     @Test func lateFocusDoesNotClearAnotherWindowPendingFocus() {
@@ -156,31 +156,29 @@ extension DaemonState {
       let late = workspace.open(1, focus: true)
       _ = workspace.open(2)
       let requestedWindow = workspace.open(3)
-      let focus = WindowManager.shared.focus
       late.mouseFollowsFocusByRule = false
       MouseState.shared.ffmWindowID = late.id
-      focus.setPending(requestedWindow.id, at: 1)
-      defer { focus.clearPending() }
+      WindowManager.shared.focus.setPending(requestedWindow.id, at: 1)
+      defer { WindowManager.shared.focus.clearPending() }
 
       EventHandler.shared.windowDidReceiveFocus(late)
 
-      #expect(focus.focused == late.id)
-      #expect(focus.pending?.windowID == requestedWindow.id)
+      #expect(WindowManager.shared.focus.focused == late.id)
+      #expect(WindowManager.shared.focus.pending?.windowID == requestedWindow.id)
       #expect(MouseState.shared.ffmWindowID == nil)
     }
 
     @Test func reportedFocusClearsItsMatchingPendingRequest() {
       let workspace = Workspace()
       let target = workspace.open(1)
-      let focus = WindowManager.shared.focus
       target.mouseFollowsFocusByRule = false
       MouseState.shared.ffmWindowID = target.id
-      focus.setPending(target.id, at: 1)
-      defer { focus.clearPending() }
+      WindowManager.shared.focus.setPending(target.id, at: 1)
+      defer { WindowManager.shared.focus.clearPending() }
 
       EventHandler.shared.windowDidReceiveFocus(target)
 
-      #expect(focus.pending == nil)
+      #expect(WindowManager.shared.focus.pending == nil)
     }
   }
 }

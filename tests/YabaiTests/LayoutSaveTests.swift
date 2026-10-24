@@ -1,11 +1,68 @@
 import Foundation
 import InlineSnapshotTesting
+import PropertyBased
 import SortedCollections
 import Testing
 import YabaiCore
 import YabaiTestSupport
 
 @testable import Yabai
+
+private func layoutFile(from input: [Int]) -> LayoutFile {
+  let values = input.isEmpty ? [0] : input
+  let groups = stride(from: 0, to: values.count, by: 2).map { start in
+    Array(values[start..<min(start + 2, values.count)])
+  }
+  let children = groups.enumerated().map { index, group in
+    let leaves = group.enumerated().map { leafIndex, value in
+      let matcher = LayoutMatcher(
+        bundleID: value.isMultiple(of: 2) ? "com.example.app\(value)" : nil,
+        app: ["Terminal", "Notes", "Safari", "Éditeur"][value % 4],
+        title: value.isMultiple(of: 3) ? nil : "Window \(value) / \(value % 17)",
+        role: value.isMultiple(of: 5) ? nil : "AXWindow",
+        subrole: value.isMultiple(of: 7) ? nil : "AXStandardWindow")
+      return LayoutFile.Node(
+        layout: .splitH, lastSplit: .splitV,
+        percent: group.count == 1 ? 1 : 0.5, zoom: zoom(value), focusOrder: [],
+        window: value.isMultiple(of: 6) ? nil : matcher, children: [])
+    }
+    if leaves.count == 1 {
+      var leaf = leaves[0]
+      leaf.percent = 1 / Float(groups.count)
+      return leaf
+    }
+    return LayoutFile.Node(
+      layout: layout(group[0]), lastSplit: split(group[0]), percent: 1 / Float(groups.count),
+      zoom: zoom(group[0]), focusOrder: index.isMultiple(of: 2) ? [0, 1] : [1, 0], window: nil,
+      children: leaves)
+  }
+  return LayoutFile(
+    tree: LayoutFile.Node(
+      layout: layout(values[0]), lastSplit: split(values[0]), percent: 1, zoom: zoom(values[0]),
+      focusOrder: values[0].isMultiple(of: 2)
+        ? Array(children.indices) : Array(children.indices.reversed()),
+      window: nil, children: children))
+}
+
+private func layout(_ value: Int) -> ConLayout {
+  switch value % 3 {
+  case 0: .splitH
+  case 1: .splitV
+  default: .tabbed
+  }
+}
+
+private func split(_ value: Int) -> ConLayout {
+  value.isMultiple(of: 2) ? .splitH : .splitV
+}
+
+private func zoom(_ value: Int) -> ConZoom {
+  switch value % 3 {
+  case 0: .none
+  case 1: .parent
+  default: .fullscreen
+  }
+}
 
 //
 // NOTE: space --save-layout. The encoding is a snapshot of the JSON of a fixture tree. The save writes into a temporary
@@ -129,6 +186,16 @@ extension DaemonState {
         }
 
         """
+      }
+    }
+
+    @Test func generatedLayoutFilesEncodeAndDecode() async {
+      await propertyCheck(count: 300, input: Gen<Int>.int(in: 0...1_000_000).array(of: 0...40)) {
+        values in
+        let file = layoutFile(from: values)
+        let encoded = try LayoutFile.encode(file)
+        let decoded = try LayoutFile.decode(encoded)
+        #expect(decoded == file, "\(String(decoding: encoded, as: UTF8.self))")
       }
     }
 

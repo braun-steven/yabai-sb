@@ -148,15 +148,6 @@ void NotifyC(const char *subtitle, const char *text);
 void CPrivateSetResolvedFunctions(void *_Nullable get_connection_port_by_id,
                                   void *_Nullable bridged_operation);
 
-//
-// NOTE: Swift cannot call variadic sscanf. Keep the exact C numeric parsing
-// behavior through a fixed-signature wrapper.
-//
-
-static inline int sscanfUIntC(const char *text, unsigned int *value) {
-  return sscanf(text, "%u", value);
-}
-
 #ifdef __OBJC__
 //
 // NOTE: Removing a key-value observation that is not registered throws an

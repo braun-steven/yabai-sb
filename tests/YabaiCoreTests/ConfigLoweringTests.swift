@@ -178,6 +178,14 @@ private let optionValueRows: [(line: String, words: [String])] = [
     ["config", "active_window_border_color", "0xff51afef"]
   ),
   ("normal_window_border_color = 0x1", ["config", "normal_window_border_color", "0x00000001"]),
+  (
+    "active_window_border_color = \"rgba(81, 175, 239, 0.8)\"",
+    ["config", "active_window_border_color", "0xcc51afef"]
+  ),
+  (
+    "active_window_border_color = \"0xff51afef\"",
+    ["config", "active_window_border_color", "0xff51afef"]
+  ),
   // NOTE: A color outside 32 bits is written in decimal, and the handler rejects it.
   ("insert_feedback_color = -1", ["config", "insert_feedback_color", "-1"]),
   ("space_layout = []", ["config", "space_layout", "off"]),

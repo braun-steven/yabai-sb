@@ -174,6 +174,39 @@ private func key(_ name: String, _ value: ConfigValue, _ keyPath: String, negate
     ])
 }
 
+@Test(
+  arguments: [
+    ("rgb(81, 175, 239)", 0xff51_afef),
+    ("rgba(81,175,239,0.5)", 0x8051_afef),
+    ("RGBA( 0 , 0 , 0 , 0 )", 0x0000_0000),
+    ("rgba(255, 255, 255, 1)", 0xffff_ffff),
+  ] as [(String, Int)])
+func rgbColorStringsDecodeToTheirInteger(_ text: String, _ color: Int) throws {
+  let document = try ConfigDocument.decode("[config]\nactive_window_border_color = \"\(text)\"\n")
+  #expect(document.options.map(\.value) == [.integer(color)])
+}
+
+@Test func hexColorStringAndRGBStringOfAnotherOptionStayStrings() throws {
+  let document = try ConfigDocument.decode(
+    """
+    [config]
+    active_window_border_color = "0xff51afef"
+    tab_bar_font = "rgb(1, 2, 3)"
+    """)
+  #expect(document.options.map(\.value) == [.string("0xff51afef"), .string("rgb(1, 2, 3)")])
+}
+
+@Test(
+  arguments: [
+    "rgb(256, 0, 0)", "rgb(1, 2)", "rgb(1, 2, 3, 4)", "rgba(1, 2, 3)", "rgba(1, 2, 3, 1.5)",
+    "rgba(1, 2, 3, nan)", "rgb(-1, 0, 0)", "rgb(1.5, 0, 0)", "rgb(1, 2, 3", "rgbx(1, 2, 3)",
+    "rgb(1, , 3)",
+  ])
+func malformedRGBColorIsAProblemOfItsKey(_ text: String) {
+  let errors = decodeErrors("[config]\nnormal_window_border_color = \"\(text)\"\n")
+  #expect(errors.map(\.keyPath) == ["config.normal_window_border_color"])
+}
+
 @Test(arguments: ConfigCommand.Name.spaceScoped.sorted { $0.rawValue < $1.rawValue })
 func everySpaceScopedOptionDecodesInASpace(_ name: ConfigCommand.Name) throws {
   let document = try ConfigDocument.decode("[[space]]\nindex = 1\n\(name.rawValue) = 1\n")

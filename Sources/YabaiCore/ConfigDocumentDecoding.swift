@@ -186,14 +186,27 @@ struct ConfigDocumentDecoder {
     return result
   }
 
-  /// The value of an option. `space_layout` takes an array of strings, every other option a scalar.
+  /// The value of an option. `space_layout` takes an array of strings, every other option a scalar. A color given as
+  /// `rgb(…)` or `rgba(…)` is decoded to its integer; any other string goes to the handler as it is (e.g. `"0xff51afef"`).
   private mutating func optionValue(
     _ table: TOMLTable, _ key: String, _ path: String, name: ConfigCommand.Name
   ) -> ConfigValue? {
     guard name == .spaceLayout else {
-      if let value = scalar(table, key) { return value }
-      fail(path, "expected a boolean, integer, float or string")
-      return nil
+      guard let value = scalar(table, key) else {
+        fail(path, "expected a boolean, integer, float or string")
+        return nil
+      }
+      guard name.rawValue.hasSuffix("_color"), case .string(let text) = value,
+        text.lowercased().hasPrefix("rgb")
+      else { return value }
+      guard let color = rgbColor(text) else {
+        fail(
+          path,
+          "expected rgb(r, g, b) or rgba(r, g, b, a), with r, g and b from 0 to 255 and a from 0 to 1"
+        )
+        return nil
+      }
+      return .integer(Int(color))
     }
     guard let array = try? table.array(forKey: key) else {
       fail(path, "expected an array of strings")
@@ -331,4 +344,38 @@ struct ConfigDocumentDecoder {
     }
     return ConfigKey(name: name, negated: false, value: value, keyPath: keyPath)
   }
+}
+
+/// The color of `rgb(r, g, b)` or `rgba(r, g, b, a)` as 0xAARRGGBB, as CSS writes them: r, g and b are integers from 0
+/// to 255 and a is a number from 0 to 1 (`rgb` is opaque). The function name is case-insensitive and spaces may surround
+/// the components. Nil for any other text.
+func rgbColor(_ text: String) -> UInt32? {
+  let lowered = text.lowercased()
+  let hasAlpha: Bool
+  if lowered.hasPrefix("rgba(") {
+    hasAlpha = true
+  } else if lowered.hasPrefix("rgb(") {
+    hasAlpha = false
+  } else {
+    return nil
+  }
+  guard lowered.hasSuffix(")") else { return nil }
+  let inner = lowered.dropFirst(hasAlpha ? 5 : 4).dropLast()
+  let components = inner.split(separator: ",", omittingEmptySubsequences: false).map {
+    String($0.drop(while: \.isWhitespace).reversed().drop(while: \.isWhitespace).reversed())
+  }
+  guard components.count == (hasAlpha ? 4 : 3) else { return nil }
+  var color: UInt32 = 0
+  for component in components.prefix(3) {
+    guard let channel = UInt8(component) else { return nil }
+    color = color << 8 | UInt32(channel)
+  }
+  var alpha: UInt32 = 0xff
+  if hasAlpha {
+    guard let value = Double(components[3]), value.isFinite, (0...1).contains(value) else {
+      return nil
+    }
+    alpha = UInt32((value * 255).rounded())
+  }
+  return alpha << 24 | color
 }

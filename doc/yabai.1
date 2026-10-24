@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-23
+.\"      Date: 2026-10-24
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-23" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-24" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -170,7 +170,7 @@ Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a
 .sp
 \f(CR[config]\fP
 .RS 4
-One key for each option of \fBconfig\fP, under the option\(cqs name, e.g. \f(CRwindow_gap = 10\fP. A boolean option takes \f(CRtrue\fP or \f(CRfalse\fP, and an option with more choices also takes its words, e.g. \f(CRwindow_shadow = "float"\fP. A color is an integer, e.g. \f(CRactive_window_border_color = 0xff51afef\fP. An option that takes a number takes a TOML integer or float, e.g. \f(CRwindow_gap = 10\fP. Every other option takes the string that its command takes, e.g. \f(CRscratchpad_grid = "40:40:1:1:38:38"\fP. \f(CRspace_layout\fP is an array of layouts, e.g. \f(CRspace_layout = ["15", "10:5"]\fP; an empty array turns it off.
+One key for each option of \fBconfig\fP, under the option\(cqs name, e.g. \f(CRwindow_gap = 10\fP. A boolean option takes \f(CRtrue\fP or \f(CRfalse\fP, and an option with more choices also takes its words, e.g. \f(CRwindow_shadow = "float"\fP. A color is an integer, e.g. \f(CRactive_window_border_color = 0xff51afef\fP, or a string: the same hex digits (\f(CR"0xff51afef"\fP), \f(CRrgb(r, g, b)\fP or \f(CRrgba(r, g, b, a)\fP with r, g and b from 0 to 255 and a from 0 to 1, e.g. \f(CR"rgba(81, 175, 239, 0.8)"\fP. An option that takes a number takes a TOML integer or float, e.g. \f(CRwindow_gap = 10\fP. Every other option takes the string that its command takes, e.g. \f(CRscratchpad_grid = "40:40:1:1:38:38"\fP. \f(CRspace_layout\fP is an array of layouts, e.g. \f(CRspace_layout = ["15", "10:5"]\fP; an empty array turns it off.
 .RE
 .sp
 \f(CR[[space]]\fP

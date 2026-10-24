@@ -372,6 +372,10 @@ extension EventHandler {
 
     let wm = WindowManager.shared
 
+    // NOTE: A process can terminate after its front-switched event was recorded but before yabai could observe it.
+    // In that case there is no Application to clean up below, so discard the marker here for both paths.
+    wm.focus.removeLostFrontSwitchedEvent(for: process.pid)
+
     guard let application = wm.application(for: process.pid) else {
       Logger.events.debug("application terminated: \(process.nameAndPID) (not observed)")
       return

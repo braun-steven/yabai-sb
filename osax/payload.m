@@ -187,17 +187,16 @@ static uint64_t hex_find_seq(uint64_t address, const char *pattern) {
   size_t length = (size_t)(text_end - address);
   if (length > 0x1286a0)
     length = 0x1286a0;
-  size_t offset;
-  size_t count =
-      sa_pattern_scan((uint8_t *)address, length, pattern, &offset, 1);
-  if (count != 1) {
+  size_t offset, count;
+  if (!sa_pattern_find_unique_aligned((uint8_t *)address, length, pattern,
+                                      address, &offset, &count)) {
+    if (count == 1) {
+      NSLog(@"[yabai-sa] rejecting unaligned instruction match");
+      return 0;
+    }
     NSLog(@"[yabai-sa] pattern at 0x%llx has %zu matches; rejecting "
           @"missing/ambiguous function",
           address, count);
-    return 0;
-  }
-  if ((address + offset) & 3) {
-    NSLog(@"[yabai-sa] rejecting unaligned instruction match");
     return 0;
   }
   return address + offset;
@@ -299,7 +298,7 @@ static bool verify_os_version(NSOperatingSystemVersion os_version) {
         os_version.majorVersion, os_version.minorVersion,
         os_version.patchVersion);
 
-  if (os_version.majorVersion == 27)
+  if (sa_os_version_supported(os_version.majorVersion))
     return true;
 
   NSLog(@"[yabai-sa] spaces functionality is only supported on macOS 27");

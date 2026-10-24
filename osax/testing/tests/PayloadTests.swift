@@ -242,4 +242,48 @@ import Testing
     #expect(!sa_decode_adrp_add(0, 0, 0, &target))
     #expect(!sa_decode_adrp_add(0xb000_1ec8, 0x912e_c109, 0, &target))
   }
+
+  @Test(arguments: [Int64(26), Int64(27), Int64(28)])
+  func osVersionSupportIsLimitedToMajor27(_ majorVersion: Int64) {
+    #expect(sa_os_version_supported(majorVersion) == (majorVersion == 27))
+  }
+
+  @Test func uniquePatternMustBeAligned() {
+    var offset = 0
+    var matchCount = 0
+
+    let alignedBytes: [UInt8] = [0xaa, 0xbb, 0]
+    let aligned = alignedBytes.withUnsafeBufferPointer {
+      sa_pattern_find_unique_aligned(
+        $0.baseAddress, $0.count, "AA BB", 0x1000, &offset, &matchCount)
+    }
+    #expect(aligned && offset == 0 && matchCount == 1)
+
+    let offsetBytes: [UInt8] = [0, 0xaa, 0xbb]
+    let alignedOffset = offsetBytes.withUnsafeBufferPointer {
+      sa_pattern_find_unique_aligned(
+        $0.baseAddress, $0.count, "AA BB", 0x1003, &offset, &matchCount)
+    }
+    #expect(alignedOffset && offset == 1 && matchCount == 1)
+
+    let unaligned = offsetBytes.withUnsafeBufferPointer {
+      sa_pattern_find_unique_aligned(
+        $0.baseAddress, $0.count, "AA BB", 0x1000, &offset, &matchCount)
+    }
+    #expect(!unaligned && offset == 1 && matchCount == 1)
+
+    let ambiguousBytes: [UInt8] = [0xaa, 0xbb, 0xaa, 0xbb]
+    let ambiguous = ambiguousBytes.withUnsafeBufferPointer {
+      sa_pattern_find_unique_aligned(
+        $0.baseAddress, $0.count, "AA BB", 0x1000, &offset, &matchCount)
+    }
+    #expect(!ambiguous && matchCount == 2)
+
+    let missingBytes: [UInt8] = [0]
+    let missing = missingBytes.withUnsafeBufferPointer {
+      sa_pattern_find_unique_aligned(
+        $0.baseAddress, $0.count, "AA BB", 0x1000, &offset, &matchCount)
+    }
+    #expect(!missing && matchCount == 0)
+  }
 }

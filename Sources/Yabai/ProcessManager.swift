@@ -199,16 +199,27 @@ private func processHandler(
     return -1
   }
 
-  switch Int(GetEventKind(event)) {
-  case kEventAppLaunched:
-    EventLoop.post(.carbonProcessLaunched(ProcessKey(psn)))
-  case kEventAppTerminated:
-    EventLoop.post(.carbonProcessTerminated(ProcessKey(psn)))
-  case kEventAppFrontSwitched:
-    EventLoop.post(.carbonProcessFrontSwitched(ProcessKey(psn)))
-  default:
-    break
+  guard
+    let processEvent = carbonProcessEvent(
+      kind: Int(GetEventKind(event)), key: ProcessKey(psn))
+  else {
+    return noErr
   }
 
+  EventLoop.post(processEvent)
   return noErr
+}
+
+/// The event produced for a Carbon process notification, or nil for an unrelated event kind.
+func carbonProcessEvent(kind: Int, key: ProcessKey) -> Event? {
+  switch kind {
+  case kEventAppLaunched:
+    return .carbonProcessLaunched(key)
+  case kEventAppTerminated:
+    return .carbonProcessTerminated(key)
+  case kEventAppFrontSwitched:
+    return .carbonProcessFrontSwitched(key)
+  default:
+    return nil
+  }
 }

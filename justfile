@@ -45,6 +45,14 @@ lint:
 ci-quick:
     bash scripts/ci.sh quick
 
+# Smoke-test the built CLI without starting the daemon.
+cli-smoke:
+    python3 scripts/cli-smoke.py bin/yabai
+
+# Run unit tests for the Python live-test and OSAX harness helpers.
+script-test:
+    python3 -m unittest discover -s scripts/tests -v
+
 # Run all CI gates, including release, payload tests and build checks.
 ci:
     bash scripts/ci.sh full

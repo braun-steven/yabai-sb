@@ -16,8 +16,8 @@ def sh(cmd, check=False, timeout=60):
         raise RuntimeError(f"{cmd}: {r.stderr.strip()}")
     return r
 
-def y(args, timeout=60):
-    return sh(f"yabai -m {args}", timeout=timeout)
+def y(args, timeout=60, check=False):
+    return sh(f"yabai -m {args}", timeout=timeout, check=check)
 
 def q(args):
     r = y(f"query {args}")
@@ -436,42 +436,64 @@ def launch(label):
     # An application that cannot be observed after launch: retries with growing gaps, then gives up,
     # and is managed once it responds and is activated. Run with no test application running.
     print(f"== {label} (launch) ==")
-    if sh("pgrep -x TextEdit").returncode == 0: record("TextEdit not running", False); return
-    log = f"/tmp/yabai_{os.environ['USER']}.out.log"
-    y("config debug_output on")
-    offset = os.path.getsize(log)
-    # Stopping the application before it finished launching only parks it on the finishedLaunching
-    # observation; the retries happen when it is stopped right after, before it can be observed.
-    r = sh(f"{TOOLS}/freeze com.apple.TextEdit")
-    te_pid = r.stdout.split()[0] if r.returncode == 0 and r.stdout.strip() else None
-    print("frozen", r.stdout.strip())
-    seen = []; query_ms = []
+    te_pid = None
+    original_debug_output = None
     try:
-        start = time.perf_counter(); pos = offset
-        while time.perf_counter() - start < LAUNCH_WATCH:
-            time.sleep(0.25)
-            ms, r = timed("query --spaces --space"); query_ms.append(ms)
-            with open(log) as f:
-                f.seek(pos); new = f.read(); pos = f.tell()
-            for line in new.splitlines():
-                if "TextEdit" in line and ("retrying" in line or "giving up" in line or "could not observe" in line):
-                    seen.append((time.perf_counter() - start, line.strip()))
+        if sh("pgrep -x TextEdit").returncode == 0:
+            record("TextEdit not running", False)
+            return
+        log = f"/tmp/yabai_{os.environ['USER']}.out.log"
+        original_debug_output = y("config debug_output", check=True).stdout.strip()
+        if original_debug_output not in {"on", "off"}:
+            raise RuntimeError(f"unexpected debug_output value: {original_debug_output!r}")
+        y("config debug_output on", check=True)
+        offset = os.path.getsize(log)
+        # Stopping the application before it finished launching only parks it on the finishedLaunching
+        # observation; the retries happen when it is stopped right after, before it can be observed.
+        r = sh(f"{TOOLS}/freeze com.apple.TextEdit")
+        te_pid = r.stdout.split()[0] if r.returncode == 0 and r.stdout.strip() else None
+        print("frozen", r.stdout.strip())
+        if te_pid is None:
+            record("TextEdit frozen for launch retry", False, r.stderr.strip() or "freeze helper returned no pid")
+            return
+        seen = []; query_ms = []
+        try:
+            start = time.perf_counter(); pos = offset
+            while time.perf_counter() - start < LAUNCH_WATCH:
+                time.sleep(0.25)
+                ms, r = timed("query --spaces --space"); query_ms.append(ms)
+                with open(log) as f:
+                    f.seek(pos); new = f.read(); pos = f.tell()
+                for line in new.splitlines():
+                    if "TextEdit" in line and ("retrying" in line or "giving up" in line or "could not observe" in line):
+                        seen.append((time.perf_counter() - start, line.strip()))
+        finally:
+            if te_pid:
+                sh(f"kill -CONT {te_pid}", check=True)
+                te_pid = None
+        retries = [t for t, l in seen if "retrying" in l]
+        gave_up = any("giving up" in l for t, l in seen)
+        tries = [t for t, l in seen if "could not observe" in l]
+        gaps = [round(b - a, 1) for a, b in zip(tries, tries[1:])]
+        record("launch retries back off and stop", gave_up and len(retries) <= 12,
+               f"{len(tries)} attempts in {LAUNCH_WATCH:.0f}s, gaps between attempts {gaps}, gave up {gave_up}")
+        qms = [ms for ms in query_ms]
+        query_summary = (
+            f"max {max(qms):.0f} ms, median {sorted(qms)[len(qms)//2]:.0f} ms over {len(qms)} queries"
+            if qms else "no query samples")
+        record("queries while the frozen app is retried", bool(qms), query_summary)
+        time.sleep(1.0)
+        sh("open -a TextEdit", check=True); time.sleep(2.5)
+        managed = [w for w in (q("--windows") or []) if w["app"] == "TextEdit"]
+        record("activated application gets managed", len(managed) > 0, f"{len(managed)} windows")
+        osa('tell application "TextEdit" to quit saving no')
     finally:
-        if te_pid: sh(f"kill -CONT {te_pid}")
-    retries = [t for t, l in seen if "retrying" in l]
-    gave_up = any("giving up" in l for t, l in seen)
-    tries = [t for t, l in seen if "could not observe" in l]
-    gaps = [round(b - a, 1) for a, b in zip(tries, tries[1:])]
-    record("launch retries back off and stop", gave_up and len(retries) <= 12,
-           f"{len(tries)} attempts in {LAUNCH_WATCH:.0f}s, gaps between attempts {gaps}, gave up {gave_up}")
-    qms = [ms for ms in query_ms]
-    record("queries while the frozen app is retried", True, f"max {max(qms):.0f} ms, median {sorted(qms)[len(qms)//2]:.0f} ms over {len(qms)} queries")
-    time.sleep(1.0)
-    sh("open -a TextEdit"); time.sleep(2.5)
-    managed = [w for w in (q("--windows") or []) if w["app"] == "TextEdit"]
-    record("activated application gets managed", len(managed) > 0, f"{len(managed)} windows")
-    osa('tell application "TextEdit" to quit saving no')
-    y("config debug_output off")
+        try:
+            if te_pid:
+                sh(f"kill -CONT {te_pid}", check=True)
+        finally:
+            if original_debug_output is not None:
+                y(f"config debug_output {original_debug_output}", check=True)
 
 def cleanup():
     osa('tell application "TextEdit" to quit saving no')
@@ -482,7 +504,9 @@ def cleanup():
     y(f"space --focus {RESTORE_OTHER}"); time.sleep(0.4)
     if os.path.exists(STATE):
         wid = open(STATE).read().strip()
-        y(f"window --focus {wid}")
+        result = y(f"window --focus {wid}")
+        if result.returncode != 0:
+            raise RuntimeError(f"could not restore focus to checkpoint window {wid}: {result.stderr.strip()}")
         os.remove(STATE)
 
 def topology_counts(displays, spaces):
@@ -645,20 +669,32 @@ def topology(label):
                         for name, actual, pinned, expected in pin_states))
         if os.path.exists(stop_path): os.remove(stop_path)
 
-if __name__ == "__main__":
-    cmd = sys.argv[1]
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv or argv[0] not in {"setup", "run", "extra", "launch", "topology", "cleanup"}:
+        print("usage: live.py setup | run <label> | extra <label> | launch <label> | topology <label> | cleanup", file=sys.stderr)
+        return 2
+    cmd = argv[0]
+    needs_label = cmd in {"run", "extra", "launch", "topology"}
+    if len(argv) != (2 if needs_label else 1):
+        print("usage: live.py setup | run <label> | extra <label> | launch <label> | topology <label> | cleanup", file=sys.stderr)
+        return 2
+
+    results.clear()
     build_helpers(include_mirror=cmd == "topology")
-    if cmd == "setup": setup()
-    elif cmd == "run":
-        run(sys.argv[2])
-        fails = [r for r in results if not r[1]]
-        print(f"-- {len(results) - len(fails)}/{len(results)} passed")
-    elif cmd in ("extra", "launch"):
-        (extra if cmd == "extra" else launch)(sys.argv[2])
-        fails = [r for r in results if not r[1]]
-        print(f"-- {len(results) - len(fails)}/{len(results)} passed")
-    elif cmd == "topology":
-        topology(sys.argv[2])
-        fails = [r for r in results if not r[1]]
-        print(f"-- {len(results) - len(fails)}/{len(results)} passed")
-    elif cmd == "cleanup": cleanup()
+    if cmd == "setup":
+        setup()
+        return 0
+    if cmd == "cleanup":
+        cleanup()
+        return 0
+
+    action = {"run": run, "extra": extra, "launch": launch, "topology": topology}[cmd]
+    action(argv[1])
+    failures = [result for result in results if not result[1]]
+    print(f"-- {len(results) - len(failures)}/{len(results)} passed")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

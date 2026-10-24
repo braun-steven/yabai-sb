@@ -47,6 +47,23 @@ size_t sa_pattern_scan(const uint8_t *bytes, size_t length, const char *pattern,
   return found;
 }
 
+bool sa_pattern_find_unique_aligned(const uint8_t *bytes, size_t length,
+                                    const char *pattern, uintptr_t base,
+                                    size_t *offset, size_t *match_count) {
+  size_t found_offset = 0;
+  size_t count = sa_pattern_scan(bytes, length, pattern, &found_offset, 1);
+  if (match_count)
+    *match_count = count;
+  if (offset)
+    *offset = found_offset;
+  return count == 1 && base <= UINTPTR_MAX - found_offset &&
+         ((base + found_offset) & 3) == 0;
+}
+
+bool sa_os_version_supported(int64_t major_version) {
+  return major_version == 27;
+}
+
 bool sa_decode_adrp_add(uint32_t adrp, uint32_t add, uint64_t pc,
                         uint64_t *target) {
   if (!target || (adrp & 0x9f000000) != 0x90000000 ||

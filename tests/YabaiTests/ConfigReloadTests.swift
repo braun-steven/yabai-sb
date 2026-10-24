@@ -261,18 +261,58 @@ extension DaemonState {
       #expect(wm.rules.map(\.oneShot) == [false, true])
     }
 
-    @Test func settingThatFailsWhileItRunsMakesTheReplyAFailure() throws {
+    @Test func runtimeFailureKeepsSuccessfulRulesAndTheChangedFileAsApplied() throws {
       DaemonFixture.reset()
-      let text = reloadText + "[[rule]]\napp = \"^Far$\"\nspace = 99\n"
-      let path = try writeReloadFile(text)
+      let path = try writeReloadFile(reloadText)
       defer { try? FileManager.default.removeItem(atPath: path) }
-      #expect(configFileReport(path: path, source: text).failures == 0)
+      #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 3))
+      #expect(WindowManager.shared.rules.map { $0.app?.text } == ["^Keep$"])
+      _ = Headless.drain()
+      EventSignals.shared.discardPending()
+
+      let changed = """
+        [config]
+        window_gap = 11
+
+        [[rule]]
+        app = "^Near$"
+        manage = false
+
+        [[rule]]
+        app = "^Far$"
+        space = 99
+        """
+      try changed.write(toFile: path, atomically: true, encoding: .utf8)
+      let check = configFileCheck(path: path, source: changed)
+      #expect(check.report.failures == 0)
 
       let failure = "rule[1]: could not locate space with mission-control index '99'."
       #expect(
         Golden.run("config --reload \(path)")
           == Array("\u{07}reloaded \(path): 3 changes, 1 failures\n\(failure)\n".utf8))
-      #expect(Golden.run("config window_gap") == Array("10\n".utf8))
+      #expect(Golden.run("config window_gap") == Array("11\n".utf8))
+      #expect(WindowManager.shared.rules.count == 1)
+      #expect(WindowManager.shared.rules.first?.app?.text == "^Near$")
+      #expect(WindowManager.shared.rules.first?.effects.manage == false)
+      #expect(ConfigLoader.shared.applied == check.document)
+      #expect(ConfigLoader.shared.lastContents == Array(changed.utf8))
+
+      let appliedEntries = Headless.drain().configEntries
+      #expect(
+        appliedEntries.map(\.arguments) == [
+          ["config", "window_gap", "11"],
+          ["rule", "--add", "app=^Near$", "manage=off"],
+          ["rule", "--add", "app=^Far$", "space=99"],
+        ])
+      let pendingSignalCount = EventSignals.shared.pending.count
+
+      // fileChanged is the watcher event path; equal text must not try the failed rule again.
+      ConfigWatcher.shared.fileChanged()
+
+      #expect(Headless.drain().configEntries.isEmpty)
+      #expect(EventSignals.shared.pending.count == pendingSignalCount)
+      #expect(WindowManager.shared.rules.first?.app?.text == "^Near$")
+      #expect(Golden.run("config window_gap") == Array("11\n".utf8))
     }
 
     @Test func overridesTakeNoArgument() {

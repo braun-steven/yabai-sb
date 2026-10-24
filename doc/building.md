@@ -17,6 +17,7 @@ Requirements: Xcode with the macOS 27 SDK and Swift 6.4, plus just (`brew instal
 | `swift run yabai --version` | Build and run the CLI's version command |
 | `just` / `just build` | Debug executable at `bin/yabai` |
 | `just install` | Release executable at `bin/yabai`; no installation or service restart |
+| `just cli-smoke` | Version and temporary-config CLI checks; does not start the daemon |
 | `just asan` / `just tsan` | Debug executable with Address/ThreadSanitizer and C UndefinedBehaviorSanitizer |
 | `just test` | Daemon/core tests, including golden IPC replay |
 | `just osax-test` | Isolated payload/loader tests, outside Dock |
@@ -47,8 +48,9 @@ because macOS `awk -v` consumes backslashes, which can change a literal `+` in a
 
 ## CI gates
 
-`just ci-quick` (debug build, then `just test`) and `just ci` (adds `just install`, `just osax-test` and
-`just check-build`) run `scripts/ci.sh`. Each step prints one `PASS|FAIL <step> <seconds>s <log>` line; the full
+`just ci-quick` (debug build, CLI smoke checks, Python harness unit tests, then `just test`) and `just ci` (adds
+`just install`, `just osax-test` and `just check-build`) run `scripts/ci.sh`. Run the Python harness tests alone with
+`just script-test`. Each CI step prints one `PASS|FAIL <step> <seconds>s <log>` line; the full
 output goes to `.build/ci/<step>.log`. The first failing step stops the run and prints its `error:` lines, its
 unlisted warning lines and the last 40 log lines. A compiler or linker warning fails a step too, unless its text is
 in `scripts/ci-warning-allowlist.txt` (one fixed string per line; each entry needs a reason comment above it).

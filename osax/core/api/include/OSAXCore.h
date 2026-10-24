@@ -17,6 +17,10 @@ bool sa_native_set_alpha(uint32_t wid, float alpha);
 uint64_t sa_clock_ns(void);
 size_t sa_pattern_scan(const uint8_t *bytes, size_t length, const char *pattern,
                        size_t *offsets, size_t capacity);
+bool sa_pattern_find_unique_aligned(const uint8_t *bytes, size_t length,
+                                    const char *pattern, uintptr_t base,
+                                    size_t *offset, size_t *match_count);
+bool sa_os_version_supported(int64_t major_version);
 bool sa_decode_adrp_add(uint32_t adrp, uint32_t add, uint64_t pc,
                         uint64_t *target);
 

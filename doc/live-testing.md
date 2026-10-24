@@ -145,6 +145,9 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
+`run`, `extra`, `launch` and `topology` return a failure status when a recorded check fails; documented `SKIP`
+conditions remain successful skips.
+
 Builds from before and after the JSONEncoder queries format query json differently; normalize both outputs with `jq -S .` per response before diffing.
 
 `live.py topology` is opt-in and requires exactly two connected displays, `space_layout` entries for one and two

@@ -1014,10 +1014,18 @@ func messageClientEncoding() {
   let argument = "café 💻"
   let message = ClientMessage.encode([Array("window".utf8), Array(argument.utf8)])
 
-  let payloadLength = message.prefix(4).withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
   let body = Array("window\0\(argument)\0\0".utf8)
+  let expectedPrefix = withUnsafeBytes(of: Int32(body.count)) { Array($0) }
+  #expect(message.prefix(MemoryLayout<Int32>.size).elementsEqual(expectedPrefix))
+
+  let payloadLength = message.prefix(MemoryLayout<Int32>.size).withUnsafeBytes {
+    $0.loadUnaligned(as: Int32.self)
+  }
   #expect(payloadLength == Int32(body.count))
-  #expect(message.dropFirst(MemoryLayout<Int32>.size).elementsEqual(body))
+  #expect(
+    message.dropFirst(MemoryLayout<Int32>.size).elementsEqual(body),
+    "The length-prefixed body must preserve the full UTF-8 bytes and double-null terminator."
+  )
 
   var tokens = Message(Array(message.dropFirst(MemoryLayout<Int32>.size)))
   #expect(tokens.next() == Token("window"))

@@ -34,10 +34,11 @@ import YabaiCore
   private var bundleIDIsRead = false
   private var bundleIDValue: String?
   var icon: CGImage?
+  private var observerLifecycle = ApplicationObserverLifecycle<AXObserver, CFRunLoopSource>()
   /// The AX observer of the application; nil until `observe()` creates one, and again after `unobserve()`.
-  var observerRef: AXObserver?
-  var notifications: ApplicationNotifications = []
-  var isObserving = false
+  var observerRef: AXObserver? { observerLifecycle.observer }
+  var notifications: ApplicationNotifications { observerLifecycle.notifications }
+  var isObserving: Bool { observerLifecycle.isObserving }
   var isHidden = false
   var axRetry = false
 
@@ -58,45 +59,42 @@ import YabaiCore
 
   /// The AX notifications that `observe()` registered for this application.
   func observe() -> Bool {
-    if let observer = AXObserver.create(pid: pid, callback: applicationNotificationHandler) {
-      observerRef = observer
+    guard let observer = AXObserver.create(pid: pid, callback: applicationNotificationHandler)
+    else {
+      return false
+    }
 
-      for notification in axApplicationNotifications {
-        let result = observer.add(
-          notification.name, for: ref, context: Unmanaged.passUnretained(self).toOpaque())
-        if result == .success || result == .notificationAlreadyRegistered {
-          notifications.insert(notification.notification)
-        } else {
-          Logger.processes.debug(
-            "\(name): observing \(notification.text) failed with \(result.name)")
+    let reference = ref!
+    let context = Unmanaged.passUnretained(self).toOpaque()
+    let failures = observerLifecycle.begin(
+      observer: observer,
+      registrations: axApplicationNotifications,
+      add: { observer, name in observer.add(name, for: reference, context: context) },
+      makeSource: { $0.runLoopSource },
+      installSource: { CFRunLoopAddSource(CFRunLoopGetMain(), $0, .defaultMode) })
 
-          // NOTE: Once an application times out, each remaining AX notification would wait for the same timeout.
-          if result == .cannotComplete {
-            axRetry = true
-            break
-          }
-        }
+    for failure in failures {
+      let notification = failure.registration
+      Logger.processes.debug(
+        "\(name): observing \(notification.text) failed with \(failure.error.name)")
+
+      // NOTE: Once an application times out, each remaining AX notification would wait for the same timeout.
+      if failure.error == .cannotComplete {
+        axRetry = true
       }
-
-      isObserving = true
-      CFRunLoopAddSource(CFRunLoopGetMain(), observer.runLoopSource, .defaultMode)
     }
 
     return notifications.isSuperset(of: .required)
   }
 
   func unobserve() {
-    guard isObserving, let observer = observerRef else { return }
+    guard isObserving, observerRef != nil else { return }
 
-    for notification in axApplicationNotifications
-    where notifications.contains(notification.notification) {
-      observer.remove(notification.name, for: ref)
-      notifications.remove(notification.notification)
-    }
-
-    isObserving = false
-    CFRunLoopSourceInvalidate(observer.runLoopSource)
-    observerRef = nil
+    let reference = ref!
+    observerLifecycle.end(
+      registrations: axApplicationNotifications,
+      remove: { observer, name in _ = observer.remove(name, for: reference) },
+      invalidateSource: { CFRunLoopSourceInvalidate($0) })
   }
 
   /// The id of this application's focused window, or nil.
@@ -144,20 +142,145 @@ struct ApplicationNotifications: OptionSet, Sendable {
   ]
 }
 
-private let axApplicationNotifications:
-  [(notification: ApplicationNotifications, name: String, text: String)] =
-    [
-      (.created, kAXCreatedNotification, "kAXCreatedNotification"),
-      (
-        .focusedWindowChanged, kAXFocusedWindowChangedNotification,
-        "kAXFocusedWindowChangedNotification"
-      ),
-      (.windowMoved, kAXWindowMovedNotification, "kAXWindowMovedNotification"),
-      (.windowResized, kAXWindowResizedNotification, "kAXWindowResizedNotification"),
-      (.titleChanged, kAXTitleChangedNotification, "kAXTitleChangedNotification"),
-      (.menuOpened, kAXMenuOpenedNotification, "kAXMenuOpenedNotification"),
-      (.menuClosed, kAXMenuClosedNotification, "kAXMenuClosedNotification"),
-    ]
+struct ApplicationObserverRegistration: Sendable {
+  let notification: ApplicationNotifications
+  let name: String
+  let text: String
+}
+
+let axApplicationNotifications: [ApplicationObserverRegistration] = [
+  ApplicationObserverRegistration(
+    notification: .created, name: kAXCreatedNotification, text: "kAXCreatedNotification"),
+  ApplicationObserverRegistration(
+    notification: .focusedWindowChanged,
+    name: kAXFocusedWindowChangedNotification,
+    text: "kAXFocusedWindowChangedNotification"),
+  ApplicationObserverRegistration(
+    notification: .windowMoved, name: kAXWindowMovedNotification, text: "kAXWindowMovedNotification"
+  ),
+  ApplicationObserverRegistration(
+    notification: .windowResized, name: kAXWindowResizedNotification,
+    text: "kAXWindowResizedNotification"),
+  ApplicationObserverRegistration(
+    notification: .titleChanged, name: kAXTitleChangedNotification,
+    text: "kAXTitleChangedNotification"),
+  ApplicationObserverRegistration(
+    notification: .menuOpened, name: kAXMenuOpenedNotification, text: "kAXMenuOpenedNotification"),
+  ApplicationObserverRegistration(
+    notification: .menuClosed, name: kAXMenuClosedNotification, text: "kAXMenuClosedNotification"),
+]
+
+struct ApplicationObserverFailure {
+  let registration: ApplicationObserverRegistration
+  let error: AXError
+}
+
+/// The registration and run-loop source state shared by the live observer and deterministic lifecycle tests.
+@WM struct ApplicationObserverLifecycle<Observer, Source> {
+  private(set) var observer: Observer? = nil
+  private(set) var source: Source? = nil
+  private(set) var notifications: ApplicationNotifications = []
+  private(set) var isObserving = false
+
+  init() {}
+
+  mutating func begin(
+    observer: Observer,
+    registrations: [ApplicationObserverRegistration],
+    add: (Observer, String) -> AXError,
+    makeSource: (Observer) -> Source,
+    installSource: (Source) -> Void
+  ) -> [ApplicationObserverFailure] {
+    guard case .none = self.observer, !isObserving else { return [] }
+
+    self.observer = observer
+    var failures: [ApplicationObserverFailure] = []
+
+    for registration in registrations {
+      let error = add(observer, registration.name)
+      if error == .success || error == .notificationAlreadyRegistered {
+        notifications.insert(registration.notification)
+      } else {
+        failures.append(ApplicationObserverFailure(registration: registration, error: error))
+
+        // NOTE: Once an application times out, every remaining AX notification can wait for the same timeout.
+        if error == .cannotComplete { break }
+      }
+    }
+
+    let source = makeSource(observer)
+    self.source = source
+    isObserving = true
+    installSource(source)
+    return failures
+  }
+
+  mutating func end(
+    registrations: [ApplicationObserverRegistration],
+    remove: (Observer, String) -> Void,
+    invalidateSource: (Source) -> Void
+  ) {
+    guard isObserving, let observer else { return }
+
+    for registration in registrations where notifications.contains(registration.notification) {
+      remove(observer, registration.name)
+      notifications.remove(registration.notification)
+    }
+
+    isObserving = false
+    if let source {
+      invalidateSource(source)
+      self.source = nil
+    }
+    self.observer = nil
+  }
+}
+
+enum AXApplicationEvent: Equatable, Sendable {
+  case windowCreated
+  case windowFocused(WindowID?)
+  case windowMoved(WindowID)
+  case windowResized(WindowID)
+  case windowTitleChanged(WindowID)
+  case menuOpened(WindowID?)
+  case menuClosed
+  case windowMinimized(WindowID)
+  case windowDeminimized(WindowID)
+  case windowDestroyed(WindowID)
+}
+
+/// Maps an AX notification snapshot into its event-loop value. `windowID` is lazy because several notifications carry
+/// their id in the observer context or do not need a window id at all.
+func axApplicationEvent(
+  _ notification: String,
+  contextWindowID: WindowID?,
+  windowID: () -> WindowID?
+) -> AXApplicationEvent? {
+  switch notification {
+  case kAXCreatedNotification:
+    return .windowCreated
+  case kAXFocusedWindowChangedNotification:
+    return .windowFocused(windowID())
+  case kAXWindowMovedNotification:
+    return windowID().map(AXApplicationEvent.windowMoved)
+  case kAXWindowResizedNotification:
+    return windowID().map(AXApplicationEvent.windowResized)
+  case kAXTitleChangedNotification:
+    return windowID().map(AXApplicationEvent.windowTitleChanged)
+  case kAXMenuOpenedNotification:
+    return .menuOpened(windowID())
+  case kAXMenuClosedNotification:
+    return .menuClosed
+  case kAXWindowMiniaturizedNotification:
+    return contextWindowID.map(AXApplicationEvent.windowMinimized)
+  case kAXWindowDeminiaturizedNotification:
+    return contextWindowID.map(AXApplicationEvent.windowDeminimized)
+  case kAXUIElementDestroyedNotification:
+    return contextWindowID.map(AXApplicationEvent.windowDestroyed)
+  default:
+    return nil
+  }
+}
 
 // NOTE: The callback runs on the main run loop and never touches a window; it only records and posts. The context is
 // the application (unretained) for application notifications, which do not read it, and the window id for those of
@@ -171,36 +294,37 @@ private func applicationNotificationHandler(
   _ observer: AXObserver, _ element: AXUIElement, _ notification: CFString,
   _ context: UnsafeMutableRawPointer?
 ) {
-  switch notification as String {
-  case kAXCreatedNotification:
+  let notification = notification as String
+  let contextWindowID = WindowID(notificationContext: context)
+  guard
+    let event = axApplicationEvent(
+      notification, contextWindowID: contextWindowID, windowID: { element.windowID })
+  else { return }
+
+  switch event {
+  case .windowCreated:
     EventLoop.post(.windowCreated(Handoff(value: Unmanaged.passRetained(element))))
-  case kAXFocusedWindowChangedNotification:
+  case .windowFocused(let windowID):
     pendingWindowFocus.store(true, ordering: .releasing)
-    EventLoop.post(.windowFocused(windowID: element.windowID))
-  case kAXWindowMovedNotification:
-    if let windowID = element.windowID { EventLoop.post(.windowMoved(windowID: windowID)) }
-  case kAXWindowResizedNotification:
-    if let windowID = element.windowID { EventLoop.post(.windowResized(windowID: windowID)) }
-  case kAXTitleChangedNotification:
-    if let windowID = element.windowID { EventLoop.post(.windowTitleChanged(windowID: windowID)) }
-  case kAXMenuOpenedNotification:
-    EventLoop.post(.menuOpened(windowID: element.windowID))
-  case kAXMenuClosedNotification:
+    EventLoop.post(.windowFocused(windowID: windowID))
+  case .windowMoved(let windowID):
+    EventLoop.post(.windowMoved(windowID: windowID))
+  case .windowResized(let windowID):
+    EventLoop.post(.windowResized(windowID: windowID))
+  case .windowTitleChanged(let windowID):
+    EventLoop.post(.windowTitleChanged(windowID: windowID))
+  case .menuOpened(let windowID):
+    EventLoop.post(.menuOpened(windowID: windowID))
+  case .menuClosed:
     EventLoop.post(.menuClosed)
-  case kAXWindowMiniaturizedNotification:
-    if let windowID = WindowID(notificationContext: context) {
-      EventLoop.post(.windowMinimized(windowID: windowID))
-    }
-  case kAXWindowDeminiaturizedNotification:
-    if let windowID = WindowID(notificationContext: context) {
-      EventLoop.post(.windowDeminimized(windowID: windowID))
-    }
-  case kAXUIElementDestroyedNotification:
-    guard let windowID = WindowID(notificationContext: context), markAXDestroyed(windowID) else {
+  case .windowMinimized(let windowID):
+    EventLoop.post(.windowMinimized(windowID: windowID))
+  case .windowDeminimized(let windowID):
+    EventLoop.post(.windowDeminimized(windowID: windowID))
+  case .windowDestroyed(let windowID):
+    guard markAXDestroyed(windowID) else {
       return
     }
     EventLoop.post(.windowDestroyed(windowID: windowID))
-  default:
-    break
   }
 }

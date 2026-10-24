@@ -6,6 +6,14 @@ import Logging
 import OrderedCollections
 import YabaiCore
 
+struct DiscoveryRulePlan {
+  let rulesAfterApplication: [Rule]
+  let manageEffects: RuleEffects?
+  let effects: RuleEffects?
+  let isEligible: Bool
+  let insertion: InsertDirection?
+}
+
 // NOTE: Discovering the windows of an application: creating a window applies the rules and decides whether
 // it floats. Windows on other spaces are missing from the accessibility list of an application; they are
 // resolved later, or found by element id.
@@ -53,22 +61,10 @@ extension WindowManager {
 
     // NOTE: Only root windows are eligible for management.
     if target.isRoot {
-      // NOTE: Many windows misreport their accessibility role, so rules let users mark these windows
-      // for management. Apply this rule before other rule properties. Without a matching rule, ignore
-      // windows whose role is not kAXWindowRole.
-      applyManageRules(
+      if applyDiscoveryRules(
         to: target, title: windowTitle, role: windowRole, subrole: windowSubrole,
         includingOneShotRules: includingOneShotRules)
-
-      if target.isEligibleForManagement {
-        target.isEligible = true
-        let effects = applyRules(
-          to: target, title: windowTitle, role: windowRole, subrole: windowSubrole,
-          includingOneShotRules: includingOneShotRules)
-        // NOTE: insert= places a window only as it is created, so it is recorded only for a new window (added with
-        // one-shot rules included). Windows that exist when yabai starts, or that a later discovery finds, keep their
-        // place: recording it for them would stack or split windows that are already tiled.
-        if includingOneShotRules { target.insertionByRule = effects?.insertionForNewWindow }
+      {
         purifyWindow(target)
         setWindowOpacity(target, to: Config.current.windowOpacity.normal)
 
@@ -99,6 +95,81 @@ extension WindowManager {
     }
 
     return target
+  }
+
+  /// Applies the discovery rule policy to a root window from its immutable AX strings. Manage rules run first so a
+  /// rule can make a nonstandard window eligible for the effects round. Returns whether the window is eligible.
+  func applyDiscoveryRules(
+    to target: Window,
+    title: String,
+    role: String,
+    subrole: String,
+    includingOneShotRules: Bool
+  ) -> Bool {
+    let plan = discoveryRulePlan(
+      for: target, title: title, role: role, subrole: subrole,
+      includingOneShotRules: includingOneShotRules)
+    rules = plan.rulesAfterApplication
+
+    if let manageEffects = plan.manageEffects {
+      applyManageRuleEffects(manageEffects, to: target)
+    }
+
+    guard plan.isEligible else { return false }
+
+    target.isEligible = true
+    if let effects = plan.effects { applyRuleEffects(effects, to: target) }
+    target.insertionByRule = plan.insertion
+    return true
+  }
+
+  /// Plans the discovery rule rounds without applying rule effects or retaining one-shot matches in the manager.
+  /// Production commits the returned rule state and applies the effects in order; tests can inspect the same policy
+  /// without reaching AX, SkyLight or the scripting addition.
+  func discoveryRulePlan(
+    for target: Window,
+    title: String,
+    role: String,
+    subrole: String,
+    includingOneShotRules: Bool
+  ) -> DiscoveryRulePlan {
+    let originalRules = rules
+    defer { rules = originalRules }
+
+    // NOTE: Many windows misreport their accessibility role, so rules let users mark these windows
+    // for management. Apply this rule before other rule properties. Without a matching rule, ignore
+    // windows whose role is not kAXWindowRole.
+    var manageEffects = RuleEffects()
+    let hasManageMatches = combineMatchingRuleEffects(
+      for: target, title: title, role: role, subrole: subrole,
+      includingOneShotRules: includingOneShotRules, manageRound: true, into: &manageEffects)
+
+    let managedByRule = manageEffects.manage ?? target.isManagedByRule
+    let originalManagedByRule = target.isManagedByRule
+    defer { target.isManagedByRule = originalManagedByRule }
+    target.isManagedByRule = managedByRule
+    let isEligible = target.isEligibleForManagement
+
+    var effects: RuleEffects?
+    if isEligible {
+      var combinedEffects = RuleEffects()
+      if combineMatchingRuleEffects(
+        for: target, title: title, role: role, subrole: subrole,
+        includingOneShotRules: includingOneShotRules, manageRound: false, into: &combinedEffects)
+      {
+        effects = combinedEffects
+      }
+    }
+
+    // NOTE: insert= places a window only as it is created, so it is recorded only for a new window (added with
+    // one-shot rules included). Windows that exist when yabai starts, or that a later discovery finds, keep their
+    // place: recording it for them would stack or split windows that are already tiled.
+    return DiscoveryRulePlan(
+      rulesAfterApplication: rules,
+      manageEffects: hasManageMatches ? manageEffects : nil,
+      effects: effects,
+      isEligible: isEligible,
+      insertion: includingOneShotRules ? effects?.insertionForNewWindow : nil)
   }
 
   // NOTE: The space a new window is managed on, as selected by window_origin_display.

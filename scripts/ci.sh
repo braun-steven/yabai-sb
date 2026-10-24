@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# CI gates. `scripts/ci.sh quick` runs the debug build and the Swift tests; `scripts/ci.sh full` adds the release
-# build, the payload tests and the upgrade checks. Each step writes its full output to .build/ci/<step>.log and
-# prints one line: PASS|FAIL <step> <seconds>s <log>. A step also fails on a compiler or linker warning that is not
-# listed in scripts/ci-warning-allowlist.txt. The first failing step stops the run and prints its details.
+# CI gates. `scripts/ci.sh quick` runs the debug build, CLI smoke checks and the Swift tests; `scripts/ci.sh full`
+# adds the release build, payload tests and upgrade checks. Each step writes .build/ci/<step>.log and prints
+# one PASS|FAIL <step> <seconds>s <log> line. A step also fails on an unlisted compiler or linker warning.
+# The first failing step stops the run and prints its details.
 # SWIFT and SWIFT_FLAGS come from the justfile (`just ci-quick`, `just ci`); they default like the justfile.
 #
 
@@ -86,6 +86,8 @@ run_step() {
 }
 
 run_step build build
+run_step cli-smoke cli-smoke
+run_step script-test script-test
 run_step test test
 if [[ $mode == full ]]; then
     run_step install install

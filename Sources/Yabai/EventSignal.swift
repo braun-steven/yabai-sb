@@ -56,6 +56,23 @@ enum SignalSubject {
 @WM final class EventSignals {
   static let shared = EventSignals()
 
+  private let runCommand: @WM (String, [(name: String, value: String)]) -> Void
+  private let publish: @WM (SignalType, [(name: String, value: String)]) -> Void
+
+  init() {
+    runCommand = { command, arguments in Self.spawn(command, arguments) }
+    publish = { type, arguments in EventSubscribers.shared.publish(type, arguments: arguments) }
+  }
+
+  /// Injects the command and subscriber boundaries so dispatch can be tested without shell processes or sockets.
+  init(
+    runCommand: @escaping @WM (String, [(name: String, value: String)]) -> Void,
+    publish: @escaping @WM (SignalType, [(name: String, value: String)]) -> Void
+  ) {
+    self.runCommand = runCommand
+    self.publish = publish
+  }
+
   /// The signals of each event type, in the order they were added.
   var table = SignalTable()
 
@@ -107,11 +124,11 @@ enum SignalSubject {
       Logger.signals.debug("transmitting \(es.type.name) to \(subscribers.count) subscriber(s)")
 
       for signal in subscribers where !es.filters(signal) {
-        spawn(signal.command ?? "", es.arguments)
+        runCommand(signal.command ?? "", es.arguments)
       }
 
       // NOTE: Event subscribers get every event of their types; the app and title filters of the signals do not apply.
-      EventSubscribers.shared.publish(es.type, arguments: es.arguments)
+      publish(es.type, es.arguments)
     }
   }
 
@@ -121,7 +138,7 @@ enum SignalSubject {
   // command directly; env sets the variables of the event and runs the command.
   //
 
-  private func spawn(_ command: String, _ arguments: [(name: String, value: String)]) {
+  private static func spawn(_ command: String, _ arguments: [(name: String, value: String)]) {
     let argv =
       ["/usr/bin/env"] + arguments.map { "\($0.name)=\($0.value)" } + ["sh", "-c", command]
     var cArguments: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) } + [nil]

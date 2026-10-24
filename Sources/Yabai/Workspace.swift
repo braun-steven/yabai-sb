@@ -21,8 +21,16 @@ private enum KeyPath {
 //
 
 final class Workspace: NSObject, Sendable {
-  override init() {
+  private let postEvent: @Sendable (Event) -> Void
+
+  init(
+    registerObservers: Bool = true,
+    postEvent: @escaping @Sendable (Event) -> Void = EventLoop.post
+  ) {
+    self.postEvent = postEvent
     super.init()
+
+    guard registerObservers else { return }
 
     NSWorkspace.shared.notificationCenter.addObserver(
       self,
@@ -102,7 +110,7 @@ final class Workspace: NSObject, Sendable {
 
         process.policy.store(result, ordering: .relaxed)
         Logger.processes.debug("activation policy changed for \(process.nameAndPID)")
-        EventLoop.post(.applicationLaunched(process))
+        postEvent(.applicationLaunched(process))
       }
     }
 
@@ -124,33 +132,33 @@ final class Workspace: NSObject, Sendable {
         NSObjectRemoveObserverC(object as! NSObject, self, KeyPath.finishedLaunching, context)
 
         Logger.processes.debug("\(process.nameAndPID) finished launching")
-        EventLoop.post(.applicationLaunched(process))
+        postEvent(.applicationLaunched(process))
       }
     }
   }
 
   @objc func didWake(_ notification: Notification) {
-    EventLoop.post(.systemWoke)
+    postEvent(.systemWoke)
   }
 
   @objc func didChangeMenuBarHiding(_ notification: Notification) {
-    EventLoop.post(.menuBarHiddenChanged)
+    postEvent(.menuBarHiddenChanged)
   }
 
   @objc func didRestartDock(_ notification: Notification) {
-    EventLoop.post(.dockDidRestart)
+    postEvent(.dockDidRestart)
   }
 
   @objc func didChangeDockPref(_ notification: Notification) {
-    EventLoop.post(.dockDidChangePref)
+    postEvent(.dockDidChangePref)
   }
 
   @objc func activeDisplayDidChange(_ notification: Notification) {
-    EventLoop.post(.displayChanged)
+    postEvent(.displayChanged)
   }
 
   @objc func activeSpaceDidChange(_ notification: Notification) {
-    EventLoop.post(.spaceChanged)
+    postEvent(.spaceChanged)
   }
 
   //
@@ -164,7 +172,7 @@ final class Workspace: NSObject, Sendable {
         (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
         .processIdentifier
     else { return }
-    EventLoop.post(.applicationHidden(pid: pid))
+    postEvent(.applicationHidden(pid: pid))
   }
 
   @objc func didUnhideApplication(_ notification: Notification) {
@@ -173,7 +181,7 @@ final class Workspace: NSObject, Sendable {
         (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
         .processIdentifier
     else { return }
-    EventLoop.post(.applicationVisible(pid: pid))
+    postEvent(.applicationVisible(pid: pid))
   }
 
   /// Created by `begin()`, and alive as long as the daemon.

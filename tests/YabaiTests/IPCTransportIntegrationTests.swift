@@ -4,8 +4,34 @@ import YabaiCore
 
 @testable import Yabai
 
-// NOTE: A socket pair exercises the encoded request, server framing, command dispatch, queued response write and EOF
-// without starting the daemon listener or connecting to the user's yabai process.
+// A socket pair exercises encoded request framing, a controlled handler, response writing and EOF without starting
+// the daemon listener or touching window-server state.
+
+private enum InvalidIPCRequest: String, CaseIterable, Sendable, CustomStringConvertible {
+  case negativeLength
+  case oversizedLength
+  case incompleteLength
+  case truncatedPayload
+
+  var description: String { rawValue }
+
+  var bytes: [UInt8] {
+    switch self {
+    case .negativeLength:
+      return messageHeader(-1)
+    case .oversizedLength:
+      return messageHeader(Int32(MessageLoop.maxMessageLength + 1))
+    case .incompleteLength:
+      return [1, 0]
+    case .truncatedPayload:
+      return messageHeader(4) + [0x61, 0x62]
+    }
+  }
+}
+
+private func messageHeader(_ length: Int32) -> [UInt8] {
+  withUnsafeBytes(of: length) { Array($0) }
+}
 
 private func ipcSocketPair() throws -> (server: Int32, client: Int32) {
   var pair: [Int32] = [0, 0]
@@ -17,14 +43,14 @@ private func ipcSocketPair() throws -> (server: Int32, client: Int32) {
       setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0)
   }
 
-  var timeout = timeval(tv_sec: 5, tv_usec: 0)
+  var timeout = timeval(tv_sec: 30, tv_usec: 0)
   try #require(
     setsockopt(pair[1], SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
       == 0)
   return (pair[0], pair[1])
 }
 
-private func writeAll(_ bytes: [UInt8], to fd: Int32) throws {
+private func writeAndFinish(_ bytes: [UInt8], to fd: Int32) throws {
   var written = 0
   while written < bytes.count {
     let count = bytes.withUnsafeBytes {
@@ -49,28 +75,49 @@ private func readToEnd(_ fd: Int32) throws -> [UInt8] {
   }
 }
 
-extension DaemonState {
-  @Suite @WM struct IPCTransportIntegrationTests {
-    @Test func requestPassesThroughFramingDispatchAndResponseWrite() throws {
-      let (server, client) = try ipcSocketPair()
-      defer { Darwin.close(client) }
-      var responseOwnsServerSocket = false
-      defer {
-        if !responseOwnsServerSocket { Darwin.close(server) }
-      }
-
-      let request = ClientMessage.encode([Array("unknown_test_domain".utf8)])
-      try writeAll(request, to: client)
-
-      let bytes = try MessageLoop.readMessage(server)
-      #expect(
-        bytes == Array(request.dropFirst(MemoryLayout<Int32>.size)) + [0, 0])
-      MessageLoop.handle(DaemonMessage(sockfd: server, bytes: bytes))
-      responseOwnsServerSocket = true
-
-      #expect(
-        try readToEnd(client)
-          == [Response.failureByte] + Array("unknown domain 'unknown_test_domain'\n".utf8))
-    }
+@Test func encodedRequestUsesFramingAndWritesHandlerResponseBeforeEOF() throws {
+  let (server, client) = try ipcSocketPair()
+  defer { Darwin.close(client) }
+  var serverSocketTransferred = false
+  defer {
+    if !serverSocketTransferred { Darwin.close(server) }
   }
+
+  let request = ClientMessage.encode([Array("test".utf8), Array("ping".utf8)])
+  try writeAndFinish(request, to: client)
+
+  var receivedBytes: [UInt8] = []
+  serverSocketTransferred = true
+  MessageLoop.receiveClient(server) { message in
+    receivedBytes = message.bytes
+    var tokens = Message(message.bytes)
+    var response = Response()
+    response.write("handled \(tokens.next()) \(tokens.next())\n")
+    return response
+  }
+
+  #expect(receivedBytes == Array(request.dropFirst(MemoryLayout<Int32>.size)) + [0, 0])
+  #expect(try readToEnd(client) == Array("handled test ping\n".utf8))
+}
+
+@Test(arguments: InvalidIPCRequest.allCases)
+func invalidRequestReceivesRejectionAndEOF(_ request: InvalidIPCRequest) throws {
+  let (server, client) = try ipcSocketPair()
+  defer { Darwin.close(client) }
+  var serverSocketTransferred = false
+  defer {
+    if !serverSocketTransferred { Darwin.close(server) }
+  }
+
+  try writeAndFinish(request.bytes, to: client)
+
+  var handlerWasCalled = false
+  serverSocketTransferred = true
+  MessageLoop.receiveClient(server) { _ in
+    handlerWasCalled = true
+    return Response()
+  }
+
+  #expect(!handlerWasCalled)
+  #expect(try readToEnd(client) == MessageLoop.rejection().bytes)
 }

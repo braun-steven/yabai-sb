@@ -59,6 +59,18 @@ extension EventHandler {
     ms.releaseDropGhosts()
 
     if MissionControl.shared.isActive { return }
+
+    //
+    // NOTE: A mouse down of the button that holds a drag means that the mouse up of the drag was lost (the event tap was
+    // disabled, or Mission Control was open at the mouse up). The drag ends where it was last dragged to, as the mouse
+    // up would have ended it, so a later plain drag does not move its window. A mouse down of another button during the
+    // drag is ignored.
+    //
+    let button = event.getIntegerValueField(.mouseEventButtonNumber)
+    if ms.isLostDrag(button: button) {
+      Logger.events.debug("mouse down: the mouse up of the drag was lost, ending the drag")
+      endDrag(at: ms.dragLocation)
+    }
     if ms.currentAction != .none { return }
 
     let point = event.location
@@ -69,9 +81,9 @@ extension EventHandler {
     ms.window = window
     ms.windowFrame = window.frame
     ms.downLocation = point
+    ms.dragLocation = point
+    ms.actionButton = button
     ms.direction = []
-
-    let button = event.getIntegerValueField(.mouseEventButtonNumber)
 
     let config = Config.current.mouse
     if button == Int64(CGMouseButton.left.rawValue) && config.modifier.modifiers == modifiers {
@@ -118,13 +130,21 @@ extension EventHandler {
   }
 
   func mouseUp(_ event: CGEvent) {
-    let wm = WindowManager.shared
-    let ms = MouseState.shared
-
     // NOTE: The drag ends here on every path below, including the ones that ignore the event.
-    ms.endFrameScope()
+    MouseState.shared.endFrameScope()
 
     if MissionControl.shared.isActive { return }
+
+    let point = event.location
+    Logger.events.debug("mouse up: \(point.x), \(point.y)")
+    endDrag(at: point)
+  }
+
+  /// Ends the drag at point: drops a moved window there, or applies the resize. Clears the window and the action of the
+  /// drag on every path.
+  private func endDrag(at point: CGPoint) {
+    let wm = WindowManager.shared
+    let ms = MouseState.shared
 
     guard let window = ms.window else {
       ms.currentAction = .none
@@ -147,9 +167,6 @@ extension EventHandler {
         "mouse up: \(window.id) is transitioning into native-fullscreen mode, ignoring event")
       return
     }
-
-    let point = event.location
-    Logger.events.debug("mouse up: \(point.x), \(point.y)")
 
     guard let srcView = wm.managedView(for: window) else { return }
 
@@ -229,6 +246,7 @@ extension EventHandler {
 
     let point = event.location
     Logger.events.debug("mouse dragged: \(point.x), \(point.y)")
+    ms.dragLocation = point
 
     if ms.currentAction == .move {
       mouseDragMoveWindow(point)

@@ -203,7 +203,11 @@ final class MouseTapState {
   var runLoopSource: CFRunLoopSource?
 
   var currentAction = MouseAction.none
+  /// The button number of the mouse down that started currentAction.
+  var actionButton: Int64 = 0
   var downLocation = CGPoint.zero
+  /// Where the drag was last: the mouse down, then each handled drag event. A drag whose mouse up was lost ends here.
+  var dragLocation = CGPoint.zero
   var lastMovedTime: UInt64 = 0
   var window: Window!
   var windowFrame = CGRect.zero
@@ -247,6 +251,12 @@ final class MouseTapState {
 
   private var frameScope = EUIDragScope()
   private var frameApplication: Application?
+
+  /// Whether a mouse down of `button` means that the mouse up of the drag in progress was lost: a button cannot go down
+  /// twice without a mouse up between.
+  func isLostDrag(button: Int64) -> Bool {
+    currentAction != .none && window != nil && button == actionButton
+  }
 
   /// Clears the window of the drag, closes the EUI scope of the drag and releases the drop preview of the drag.
   func clearWindow() {

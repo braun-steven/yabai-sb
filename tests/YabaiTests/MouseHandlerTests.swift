@@ -24,6 +24,25 @@ extension DaemonState {
       Config.current.mouse.dropAction = .stack
       #expect(ms.resolveDrop(onto: target, at: CGPoint(x: 200, y: 150)) == .stack)
     }
+
+    // NOTE: a mouse down of the button that holds a drag means its mouse up was lost; another button does not.
+    @Test func mouseDownOfTheDragButtonMeansALostMouseUp() {
+      let ms = MouseState()
+      let left = Int64(CGMouseButton.left.rawValue)
+      let right = Int64(CGMouseButton.right.rawValue)
+      #expect(!ms.isLostDrag(button: left))
+
+      ms.window = Window(id: 0xFFFF_0001)
+      ms.actionButton = left
+      #expect(!ms.isLostDrag(button: left))
+
+      ms.currentAction = .move
+      #expect(ms.isLostDrag(button: left))
+      #expect(!ms.isLostDrag(button: right))
+
+      ms.window = nil
+      #expect(!ms.isLostDrag(button: left))
+    }
   }
 }
 

@@ -214,9 +214,11 @@ rule --list
 # signal
 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
 signal --add event=config_loaded action='echo $YABAI_CONFIG_FILE' label=cl
+signal --add event=application_launched action='echo hi' app=^Finder$
 signal --add event=space_changed action='echo hi' app=^Finder$
 signal --add event=bogus action=x
 signal --add label=x
+signal --add event=window_moved action=true title!=^Untitled$ active=no
 signal --add event=window_created action=true title!=^Untitled$ active=no
 signal --list
 signal --remove wf

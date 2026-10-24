@@ -195,7 +195,7 @@ Add `tests/YabaiTests/WindowCommandTests.swift`.
 
 - **Rules:** add `tests/YabaiTests/RuleTests.swift` and move the rule parts of `WindowManagerTests` into it. Cover:
   - `addRule` with label replacement.
-  - `removeRule` by label and by index (the swap-remove order shows in `--list`).
+  - `removeRule` by label and by index (the other rules keep their order in `--list`).
   - `removeOneShotRules`, `queryWindowRules`.
   - Precedence in `combineMatchingRuleEffects`: exclusions, regex, role and subrole.
   - Direct tests of `handleDomainRule` / `handleDomainSignal` (`IPC/MessageQuery.swift`).
@@ -486,7 +486,7 @@ Template:
   - `DaemonFixture.reset()` also resets `Log.verbose` and the event tap's mouse modifier.
   - `tests/YabaiTests/RuleTests.swift`: the rule tests of `WindowManagerTests` (moved), a 7-row table of
     `removeOneShotRules` (the swapped-in rule is checked again), and in DaemonState:
-    - The rule list through `rule` messages: `--add` replacing a label (swap-remove, then append), `--remove` by index
+    - The rule list through `rule` messages: `--add` replacing a label (in place), `--remove` by index
       and label (the order shows in `--list`), labels comparing canonically (é), the `--list` json and its flags, 11
       failure rows.
     - `combineMatchingRuleEffects` with rules parsed from messages: a 23-row table (later rules override, exclusions,

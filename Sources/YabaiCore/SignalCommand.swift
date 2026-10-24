@@ -30,6 +30,7 @@ public enum SignalCommand {
       var event: SignalType?
       try parseSignal(&message, &signal, &event) { SignalType(name: $0) }
       guard let event else { throw CommandError("missing required key-value pair 'event=..'\n") }
+      try checkFilters(signal, event)
       return .add(signal, event)
 
     case .remove:
@@ -42,6 +43,20 @@ public enum SignalCommand {
 
     case .list:
       return .list
+    }
+  }
+
+  /// Throws for a filter that the event never reports: such a signal would run whatever its filter says.
+  private static func checkFilters(_ signal: EventSignal, _ event: SignalType)
+    throws(CommandError)
+  {
+    let given: [(SignalFilters, String, Bool)] = [
+      (.app, "app", signal.app != nil),
+      (.title, "title", signal.title != nil),
+      (.active, "active", signal.active != nil),
+    ]
+    for (filter, key, isSet) in given where isSet && !event.filters.contains(filter) {
+      throw CommandError("event '\(event.name)' does not support the '\(key)' filter\n")
     }
   }
 }

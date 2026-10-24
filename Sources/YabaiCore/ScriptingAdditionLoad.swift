@@ -21,8 +21,19 @@ public enum ScriptingAdditionLoad {
   /// The sudo that runs `--load-sa`. The sudoers entry of the user names this path.
   public static let sudoPath = "/usr/bin/sudo"
 
-  /// How long a load may run before its process is killed.
+  /// How long a load may run before its process is stopped.
   public static let timeoutSeconds = 30
+
+  //
+  // NOTE: A load that times out gets SIGTERM, and SIGKILL only if it has not ended after this many seconds. sudo relays
+  // SIGTERM to the `--load-sa` it runs as root, which the daemon cannot signal itself; sudo cannot relay SIGKILL.
+  //
+
+  /// How long a stopped load has between SIGTERM and SIGKILL.
+  public static let terminationGraceSeconds = 2
+
+  /// How many bytes of the stderr of a load are kept: the last ones, which hold the line that failureReason reports.
+  public static let stderrLimit = 4096
 
   /// The argv of a load: `sudo -n <executable> --load-sa`. `-n` makes sudo fail instead of asking for a password.
   public static func arguments(executable: String) -> [String] {
@@ -60,6 +71,24 @@ public enum ScriptingAdditionLoad {
     }
     return last
   }
+}
+
+/// The last `limit` bytes of an output that arrives in chunks, so output of any length keeps its last line.
+public struct OutputTail: Equatable, Sendable {
+  public let limit: Int
+  public private(set) var bytes: [UInt8] = []
+
+  public init(limit: Int) {
+    self.limit = limit
+  }
+
+  public mutating func append(_ chunk: some Collection<UInt8>) {
+    bytes.append(contentsOf: chunk)
+    if bytes.count > limit { bytes.removeFirst(bytes.count - limit) }
+  }
+
+  /// The kept bytes as UTF-8; a character cut at the start becomes U+FFFD.
+  public var text: String { String(decoding: bytes, as: UTF8.self) }
 }
 
 /// The state of the runs of the load: at most one run at a time, and a request that arrives during a run asks for one

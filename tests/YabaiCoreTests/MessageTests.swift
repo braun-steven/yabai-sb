@@ -858,12 +858,12 @@ func ruleParseFailureText(_ text: String, _ expected: String) {
 }
 
 @Test func signalCommandsParseOperationsAndPayloads() throws(CommandError) {
-  var add = Message("--add\0event=window_focused\0app=Finder\0active=yes\0action=echo hi\0")
+  var add = Message("--add\0event=window_moved\0app=Finder\0active=yes\0action=echo hi\0")
   guard case .add(let signal, let event) = try SignalCommand.parse(&add) else {
     Issue.record("expected a parsed add command")
     return
   }
-  #expect(event == .windowFocused)
+  #expect(event == .windowMoved)
   #expect(signal.app?.text == "Finder")
   #expect(signal.active == true)
   #expect(signal.command == "echo hi")
@@ -880,6 +880,30 @@ func ruleParseFailureText(_ text: String, _ expected: String) {
     Issue.record("expected a list command")
     return
   }
+}
+
+@Test(
+  "signal --add rejects a filter that the event does not report",
+  arguments: [
+    ("config_loaded", "app=Finder", "event 'config_loaded' does not support the 'app' filter\n"),
+    ("system_woke", "title=x", "event 'system_woke' does not support the 'title' filter\n"),
+    ("space_changed", "active=no", "event 'space_changed' does not support the 'active' filter\n"),
+    (
+      "window_focused", "active=yes",
+      "event 'window_focused' does not support the 'active' filter\n"
+    ),
+    (
+      "application_launched", "title!=x",
+      "event 'application_launched' does not support the 'title' filter\n"
+    ),
+    ("window_moved", "app=A\0title=B\0active=yes", nil),
+    ("application_hidden", "app=A\0active=no", nil),
+    ("config_loaded", "label=x", nil),
+  ] as [(String, String, String?)])
+func signalFiltersMustBeReportedByTheEvent(event: String, filters: String, expected: String?) {
+  var message = Message("--add\0event=\(event)\0\(filters)\0action=true\0")
+  #expect(
+    thrownText { () throws(CommandError) in _ = try SignalCommand.parse(&message) } == expected)
 }
 
 private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String) {

@@ -107,7 +107,7 @@ After each applied file, at startup and after each reload, the signal event *con
 The file has these tables. Unknown tables and keys, and a value of the wrong kind, are errors, so a misspelled option is reported rather than ignored.
 
 `[daemon]`::
-    `auto_reload = true|false` (default `true`): the daemon watches the directory of *yabai.toml* (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as *config --reload* does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. `auto_reload = false` turns the watch off; *config --reload* still works. A reload that changes this value starts or stops the watch. `load_scripting_addition = true|false` (default `false`): the daemon loads the scripting addition itself, by running `sudo -n <realpath of yabai> --load-sa` at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
+    `auto_reload = true|false` (default `true`): the daemon watches the directory of *yabai.toml* (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as *config --reload* does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. `auto_reload = false` turns the watch off; *config --reload* still works. A reload that changes this value starts or stops the watch. `load_scripting_addition = true|false` (default `false`): the daemon loads the scripting addition itself, by running `sudo -n <path of yabai> --load-sa` (the path it was started from, with links kept) at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
 
 Sudoers setup: the load runs `sudo -n` as your user, so your user needs a sudoers entry that runs the binary as root without a password. As root, run `sudo visudo -f /private/etc/sudoers.d/yabai` and add this line, with your user name for `<user>` and the path of the binary for `<path>`:
 
@@ -115,7 +115,7 @@ Sudoers setup: the load runs `sudo -n` as your user, so your user needs a sudoer
 <user> ALL=(root) NOPASSWD: sha256:<digest> <path> --load-sa
 ----
 
-`<path>` is the binary's path with links resolved (`realpath "$(which yabai)"`), since the daemon runs the binary at that path. `<digest>` is the SHA-256 of that file (`shasum -a 256 <path>`). The digest changes with each build, so update the line after an upgrade. Without the entry the load fails with `sudo: a password is required`.
+`<path>` is the path yabai is started from (`which yabai`), e.g. the link `/opt/homebrew/bin/yabai` of a Homebrew install, since the daemon runs the binary at that path. `<digest>` is the SHA-256 of the file it points to (`shasum -a 256 <path>`). The digest changes with each build, so update the line after an upgrade. Without the entry the load fails with `sudo: a password is required`.
 
 `[config]`::
     One key for each option of *config*, under the option's name, e.g. `window_gap = 10`. A boolean option takes `true` or `false`, and an option with more choices also takes its words, e.g. `window_shadow = "float"`. A color is an integer, e.g. `active_window_border_color = 0xff51afef`, or a string: the same hex digits (`"0xff51afef"`), `rgb(r, g, b)` or `rgba(r, g, b, a)` with r, g and b from 0 to 255 and a from 0 to 1, e.g. `"rgba(81, 175, 239, 0.8)"`. An option that takes a number takes a TOML integer or float, e.g. `window_gap = 10`. Every other option takes the string that its command takes, e.g. `scratchpad_grid = "40:40:1:1:38:38"`. `space_layout` is an array of layouts, e.g. `space_layout = ["15", "10:5"]`; an empty array turns it off.
@@ -874,7 +874,8 @@ COMMAND
 
 *--add [--one-shot] ['<ARGUMENT>']*::
     Add a new rule. Rules apply to windows that spawn after said rule has been added. +
-    If '--one-shot' is present it will apply once and automatically remove itself.
+    If '--one-shot' is present it will apply once and automatically remove itself. +
+    A rule with the *label* of an existing rule replaces that rule at its index.
 
 *--apply ['<RULE_SEL>' | '<ARGUMENT>']*::
     Apply a rule to currently known windows. +
@@ -884,7 +885,7 @@ COMMAND
     Existing `--one-shot` rules that have yet to apply will be ignored by this command.
 
 *--remove '<RULE_SEL>'*::
-    Remove an existing rule with the given index or label.
+    Remove an existing rule with the given index or label. The rules after it move up one index and keep their order.
 
 *--list*::
     Output list of registered rules.
@@ -1002,7 +1003,8 @@ COMMAND
 
 *--add event='<EVENT>' action='<ACTION>' [label='<LABEL>'] [app[!]='<REGEX>'] [title[!]='<REGEX>'] [active='yes|no']*::
     Add an optionally labelled signal to execute an action after processing an event of the given type. +
-    Some signals can be specified to trigger based on the application name and/or window title, and its active/focused state.
+    Some signals can be specified to trigger based on the application name and/or window title, and its active/focused state. +
+    Each event below lists the filters it is eligible for; a filter that the event is not eligible for is an error.
 
 *--remove '<SIGNAL_SEL>'*::
     Remove an existing signal with the given index or label.

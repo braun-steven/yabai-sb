@@ -143,7 +143,7 @@ extension DaemonState {
       #expect(Golden.run("rule --add --one-shot title=x manage=on") == [])
       #expect(Golden.run("rule --add app!=Finder manage=off scratchpad=notes") == [])
       #expect(
-        Golden.run("signal --add event=window_focused app=^Foo$ active=yes action=echo_hi") == [])
+        Golden.run("signal --add event=window_moved app=^Foo$ active=yes action=echo_hi") == [])
       let before = runningRules()
 
       let text = dumpText()

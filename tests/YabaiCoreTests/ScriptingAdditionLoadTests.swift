@@ -31,6 +31,21 @@ struct ScriptingAdditionLoadTests {
     #expect(ScriptingAdditionLoad.failureReason(exit, stderr: stderr) == expected)
   }
 
+  @Test func theOutputTailKeepsTheLastBytes() {
+    var tail = OutputTail(limit: 8)
+    tail.append(Array("first\n".utf8))
+    #expect(tail.text == "first\n")
+    tail.append(Array("second\nlast\n".utf8))
+    #expect(tail.text == "nd\nlast\n")
+    #expect(ScriptingAdditionLoad.failureReason(.exited(1), stderr: tail.text) == "last")
+  }
+
+  @Test func theOutputTailReplacesACutCharacter() {
+    var tail = OutputTail(limit: 3)
+    tail.append(Array("\u{E9}ab".utf8))
+    #expect(tail.text == "\u{FFFD}ab")
+  }
+
   @Test func aRequestWithNoRunStartsOne() {
     var queue = ScriptingAdditionLoadQueue()
     #expect(queue.request() == .start)

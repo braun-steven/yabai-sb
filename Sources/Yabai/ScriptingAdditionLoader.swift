@@ -23,8 +23,9 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
   static let shared = ScriptingAdditionLoader()
 
   //
-  // NOTE: The path of this binary, resolved once when the loader is created. The daemon creates it at startup, so the
-  // load runs the binary that the daemon runs, even when the file is replaced later. Nil when the path is unknown.
+  // NOTE: The path this binary was started from, made absolute once when the loader is created. Links are kept, as
+  // with `sudo yabai --load-sa`, so a sudoers line can name a stable link such as /opt/homebrew/bin/yabai instead of a
+  // versioned file behind it; the sha256 pin in sudoers decides which binary may run. Nil when the path is unknown.
   //
 
   let executablePath: String?
@@ -39,7 +40,7 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
       return
     }
     let path = buffer.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
-    executablePath = resolvedPath(path)
+    executablePath = path.hasPrefix("/") ? path : FileManager.default.currentDirectoryPath + "/" + path
   }
 
   /// Loads the scripting addition in a new process, or queues one more run behind the run in progress. In headless mode
@@ -75,29 +76,46 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
   }
 
   //
-  // NOTE: Runs the argv and waits for it, for at most ScriptingAdditionLoad.timeoutSeconds. Cancelling the run of
-  // swift-subprocess kills the process, so the group cancels the other child once one of them has its result. This
-  // waits for the process to end, so it runs on the concurrent executor, never on the event loop.
+  // NOTE: Runs the argv and waits for it, for at most `timeout`. Cancelling the run of swift-subprocess runs the
+  // teardown sequence: SIGTERM, which sudo relays to `--load-sa`, then SIGKILL after
+  // ScriptingAdditionLoad.terminationGraceSeconds. The group cancels the other child once one of them has its result.
+  // stderr is streamed and only its tail kept (OutputTail): a capped `.string(limit:)` throws on longer output, which
+  // ends the run as if the process had not started. This waits for the process to end, so it runs on the concurrent
+  // executor, never on the event loop.
   //
 
-  nonisolated static func execute(_ arguments: [String]) async -> ScriptingAdditionLoadResult {
+  nonisolated static func execute(
+    _ arguments: [String], timeout: Duration = .seconds(ScriptingAdditionLoad.timeoutSeconds)
+  ) async -> ScriptingAdditionLoadResult {
     await withTaskGroup(of: ScriptingAdditionLoadResult.self) { group in
       group.addTask {
+        var options = PlatformOptions()
+        options.teardownSequence = [
+          .gracefulShutDown(
+            allowedDurationToNextStep: .seconds(ScriptingAdditionLoad.terminationGraceSeconds))
+        ]
         var exitStatus = ScriptingAdditionLoadExit.notStarted
         var stderr = ""
         do {
           let result = try await Subprocess.run(
             .path(FilePath(arguments[0])), arguments: Arguments(Array(arguments.dropFirst())),
-            output: .discarded, error: .string(limit: 4096))
+            platformOptions: options, input: .none, output: .discarded, error: .sequence
+          ) { execution in
+            var tail = OutputTail(limit: ScriptingAdditionLoad.stderrLimit)
+            for try await chunk in execution.standardError {
+              chunk.withUnsafeBytes { tail.append($0) }
+            }
+            return tail.text
+          }
           exitStatus = ScriptingAdditionLoader.loadExit(of: result.terminationStatus)
-          stderr = result.standardError
+          stderr = result.closureResult
         } catch {
           exitStatus = .notStarted
         }
         return ScriptingAdditionLoader.loadResult(of: exitStatus, stderr: stderr)
       }
       group.addTask {
-        try? await Task.sleep(for: .seconds(ScriptingAdditionLoad.timeoutSeconds))
+        try? await Task.sleep(for: timeout)
         return ScriptingAdditionLoader.loadResult(of: .timedOut, stderr: "")
       }
       let first = await group.next() ?? .failed("no result")

@@ -153,7 +153,7 @@ The file has these tables. Unknown tables and keys, and a value of the wrong kin
 .sp
 \f(CR[daemon]\fP
 .RS 4
-\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition = true|false\fP (default \f(CRfalse\fP): the daemon loads the scripting addition itself, by running \f(CRsudo \-n <realpath of yabai> \-\-load\-sa\fP at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
+\f(CRauto_reload = true|false\fP (default \f(CRtrue\fP): the daemon watches the directory of \fByabai.toml\fP (and, when it is a symlink, the directory of its target) and reloads the file when it is saved, as \fBconfig \-\-reload\fP does, so a change applies without a restart. A save that leaves the text unchanged changes nothing. A save of a file with an error keeps the running config: the errors are logged, and a notification names the file and their number. The watch is also on when the file was not valid at startup, so fixing it applies it. \f(CRauto_reload = false\fP turns the watch off; \fBconfig \-\-reload\fP still works. A reload that changes this value starts or stops the watch. \f(CRload_scripting_addition = true|false\fP (default \f(CRfalse\fP): the daemon loads the scripting addition itself, by running \f(CRsudo \-n <path of yabai> \-\-load\-sa\fP (the path it was started from, with links kept) at startup, after each Dock restart, and when a reload turns this setting on (a reload that turns it off does nothing). The load runs in a child process, so the daemon does not wait for it. A failed load is notified, and it needs the sudoers setup below.
 .RE
 .sp
 Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a sudoers entry that runs the binary as root without a password. As root, run \f(CRsudo visudo \-f /private/etc/sudoers.d/yabai\fP and add this line, with your user name for \f(CR<user>\fP and the path of the binary for \f(CR<path>\fP:
@@ -166,7 +166,7 @@ Sudoers setup: the load runs \f(CRsudo \-n\fP as your user, so your user needs a
 .fi
 .if n .RE
 .sp
-\f(CR<path>\fP is the binary\(cqs path with links resolved (\f(CRrealpath "$(which yabai)"\fP), since the daemon runs the binary at that path. \f(CR<digest>\fP is the SHA\-256 of that file (\f(CRshasum \-a 256 <path>\fP). The digest changes with each build, so update the line after an upgrade. Without the entry the load fails with \f(CRsudo: a password is required\fP.
+\f(CR<path>\fP is the path yabai is started from (\f(CRwhich yabai\fP), e.g. the link \f(CR/opt/homebrew/bin/yabai\fP of a Homebrew install, since the daemon runs the binary at that path. \f(CR<digest>\fP is the SHA\-256 of the file it points to (\f(CRshasum \-a 256 <path>\fP). The digest changes with each build, so update the line after an upgrade. Without the entry the load fails with \f(CRsudo: a password is required\fP.
 .sp
 \f(CR[config]\fP
 .RS 4
@@ -1302,6 +1302,8 @@ yabai \-m rule \fI<COMMAND>\fP
 Add a new rule. Rules apply to windows that spawn after said rule has been added.
 .br
 If \fI\-\-one\-shot\fP is present it will apply once and automatically remove itself.
+.br
+A rule with the \fBlabel\fP of an existing rule replaces that rule at its index.
 .RE
 .sp
 \fB\-\-apply [\fI<RULE_SEL>\fP | \fI<ARGUMENT>\fP]\fP
@@ -1319,7 +1321,7 @@ Existing \f(CR\-\-one\-shot\fP rules that have yet to apply will be ignored by t
 .sp
 \fB\-\-remove \fI<RULE_SEL>\fP\fP
 .RS 4
-Remove an existing rule with the given index or label.
+Remove an existing rule with the given index or label. The rules after it move up one index and keep their order.
 .RE
 .sp
 \fB\-\-list\fP
@@ -1486,6 +1488,8 @@ yabai \-m signal \fI<COMMAND>\fP
 Add an optionally labelled signal to execute an action after processing an event of the given type.
 .br
 Some signals can be specified to trigger based on the application name and/or window title, and its active/focused state.
+.br
+Each event below lists the filters it is eligible for; a filter that the event is not eligible for is an error.
 .RE
 .sp
 \fB\-\-remove \fI<SIGNAL_SEL>\fP\fP

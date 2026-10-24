@@ -543,7 +543,7 @@ auto_padding = false # default
 rule with label 'nolabel' not found.
 
 ### 926 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 32 rule --apply 7
 rule with index '7' not found.
@@ -564,7 +564,7 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 ### 0 rule --remove üml
 
 ### 926 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"}]
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 43 rule --foo
 unknown command '--foo' for domain 'rule'
@@ -580,13 +580,16 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 ### 0 rule --add label=ins2 app=Notes insert=west
 
 ### 1547 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":1,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
 
 ### 0 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
 
 ### 0 signal --add event=config_loaded action='echo $YABAI_CONFIG_FILE' label=cl
 
-### 0 signal --add event=space_changed action='echo hi' app=^Finder$
+### 0 signal --add event=application_launched action='echo hi' app=^Finder$
+
+### 57 signal --add event=space_changed action='echo hi' app=^Finder$
+event 'space_changed' does not support the 'app' filter
 
 ### 39 signal --add event=bogus action=x
 invalid value 'bogus' for key 'event'
@@ -595,10 +598,13 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 missing required key-value pair 'event=..'
 missing required key-value pair 'action=..'
 
-### 0 signal --add event=window_created action=true title!=^Untitled$ active=no
+### 0 signal --add event=window_moved action=true title!=^Untitled$ active=no
 
-### 454 signal --list
-[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":2,"label":"","title":""},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":3,"label":"cl","title":""}]
+### 61 signal --add event=window_created action=true title!=^Untitled$ active=no
+event 'window_created' does not support the 'active' filter
+
+### 459 signal --list
+[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":2,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":3,"label":"cl","title":""}]
 
 ### 0 signal --remove wf
 
@@ -608,8 +614,8 @@ missing required key-value pair 'action=..'
 ### 40 signal --remove nolabel
 signal with label 'nolabel' not found.
 
-### 337 signal --list
-[{"action":"true","active":false,"app":"","event":"window_created","index":0,"label":"","title":"^Untitled$"},{"action":"echo hi","active":null,"app":"^Finder$","event":"space_changed","index":1,"label":"","title":""},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":2,"label":"cl","title":""}]
+### 342 signal --list
+[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":1,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":2,"label":"cl","title":""}]
 
 ### 45 signal --foo
 unknown command '--foo' for domain 'signal'

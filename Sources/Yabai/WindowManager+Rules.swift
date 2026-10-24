@@ -232,10 +232,13 @@ extension WindowManager {
     }
   }
 
-  /// Replaces any rule with the same label, then appends the new rule.
+  /// Replaces the rule with the same label in its place, or appends the new rule.
   func addRule(_ candidate: Rule) {
-    if let label = candidate.label { _ = removeRule(label: label) }
-    rules.append(candidate)
+    if let label = candidate.label, let index = ruleIndex(label: label) {
+      rules[index] = candidate
+    } else {
+      rules.append(candidate)
+    }
   }
 
   func removeRule(at index: Int) -> Bool {
@@ -252,14 +255,13 @@ extension WindowManager {
     return true
   }
 
-  /// Removes by moving the last rule into its place, preserving the existing list behavior.
+  /// Removes the rule and keeps the order of the others: a later rule overrides an earlier one.
   private func removeRule(_ index: Int) {
-    rules.swapAt(index, rules.count - 1)
-    rules.removeLast()
+    rules.remove(at: index)
   }
 
   // NOTE: One-shot rules are marked when applied to a window, then removed once all windows created together
-  // have been checked. Unlike `rule --remove`, this keeps the order of the other rules: a reload compares the running
+  // have been checked. This keeps the order of the other rules, as `rule --remove` does: a reload compares the running
   // rules with the file's in order (rulesMatchFile in ConfigReconcile.swift), so a used-up one-shot rule must not reorder
   // them.
   func removeOneShotRules() {

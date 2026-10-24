@@ -334,16 +334,16 @@ extension DaemonState {
       #expect(send("rule --add app=C") == "")
       #expect(try listed("rule", key: "app") == ["0 a:A", "1 b:B", "2 :C"])
 
-      // NOTE: the old rule is swap-removed, and the new one appended
+      // NOTE: the new rule takes the old one's index
       #expect(send("rule --add label=a app=D") == "")
-      #expect(try listed("rule", key: "app") == ["0 :C", "1 b:B", "2 a:D"])
+      #expect(try listed("rule", key: "app") == ["0 a:D", "1 b:B", "2 :C"])
     }
 
-    @Test func removeByIndexMovesTheLastRuleIntoItsPlace() throws {
+    @Test func removeByIndexKeepsTheOrderOfTheOthers() throws {
       for app in ["A", "B", "C", "D"] { _ = send("rule --add app=\(app)") }
 
       #expect(send("rule --remove 1") == "")
-      #expect(try listed("rule", key: "app") == ["0 :A", "1 :D", "2 :C"])
+      #expect(try listed("rule", key: "app") == ["0 :A", "1 :C", "2 :D"])
       #expect(send("rule --remove 0") == "")
       #expect(try listed("rule", key: "app") == ["0 :C", "1 :D"])
       #expect(send("rule --remove 1") == "")
@@ -356,16 +356,16 @@ extension DaemonState {
       #expect(send("rule --list") == "[]\n")
     }
 
-    @Test func removeByLabelMovesTheLastRuleIntoItsPlace() throws {
+    @Test func removeByLabelKeepsTheOrderOfTheOthers() throws {
       for label in ["a", "b", "c"] {
         _ = send("rule --add label=\(label) app=\(label.uppercased())")
       }
 
       #expect(send("rule --remove a") == "")
-      #expect(try listed("rule", key: "app") == ["0 c:C", "1 b:B"])
+      #expect(try listed("rule", key: "app") == ["0 b:B", "1 c:C"])
       #expect(send("rule --remove a") == failure("rule with label 'a' not found.\n"))
-      #expect(send("rule --remove c") == "")
-      #expect(try listed("rule", key: "app") == ["0 b:B"])
+      #expect(send("rule --remove b") == "")
+      #expect(try listed("rule", key: "app") == ["0 c:C"])
     }
 
     @Test func labelsCompareAsStrings() throws {

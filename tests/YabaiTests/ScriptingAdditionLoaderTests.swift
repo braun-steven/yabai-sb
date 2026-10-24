@@ -146,3 +146,33 @@ extension DaemonState {
     }
   }
 }
+
+//
+// NOTE: The process of a load, with /bin/sh in place of sudo. These start real processes but touch no manager, so they
+// are outside DaemonState.
+//
+
+@Suite struct ScriptingAdditionLoaderProcessTests {
+  @Test func stderrLongerThanTheLimitReportsItsLastLine() async {
+    let script = """
+      i=0; while [ $i -lt 1000 ]; do echo "noise noise noise" >&2; i=$((i+1)); done
+      echo "the real failure" >&2; exit 1
+      """
+    let result = await ScriptingAdditionLoader.execute(["/bin/sh", "-c", script])
+    #expect(result == .failed("the real failure"))
+  }
+
+  @Test func aTimeoutSendsSIGTERM() async throws {
+    let marker = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "yabai-load-term-\(UUID().uuidString)"
+    ).path
+    defer { try? FileManager.default.removeItem(atPath: marker) }
+    // NOTE: `wait` returns on a signal, so the trap runs at once; `sleep` in the foreground would delay it.
+    let script = "trap 'echo term > \"$0\"; kill $p; exit 0' TERM; sleep 10 & p=$!; wait $p"
+
+    let result = await ScriptingAdditionLoader.execute(
+      ["/bin/sh", "-c", script, marker], timeout: .milliseconds(300))
+    #expect(result == .failed("timed out after \(ScriptingAdditionLoad.timeoutSeconds) s"))
+    #expect(try String(contentsOfFile: marker, encoding: .utf8) == "term\n")
+  }
+}

@@ -82,11 +82,40 @@ public enum SignalType: Int, CaseIterable, Sendable {
     }
   }
 
+  /// The properties that the signals of this type can filter on. `signal --add` rejects any other filter.
+  public var filters: SignalFilters {
+    switch self {
+    case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:
+      [.app]
+    case .applicationTerminated, .applicationHidden, .windowDestroyed:
+      [.app, .active]
+    case .windowCreated, .windowFocused, .windowDeminimized:
+      [.app, .title]
+    case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
+      [.app, .title, .active]
+    default:
+      []
+    }
+  }
+
   /// `signal_type_from_string`
   public init?(name: Token) {
     guard let type = SignalType.allCases.first(where: { name.equals($0.name) }) else { return nil }
     self = type
   }
+}
+
+/// The properties of an event that a signal can filter on.
+public struct SignalFilters: OptionSet, Sendable {
+  public let rawValue: Int
+
+  public init(rawValue: Int) {
+    self.rawValue = rawValue
+  }
+
+  public static let app = SignalFilters(rawValue: 1 << 0)
+  public static let title = SignalFilters(rawValue: 1 << 1)
+  public static let active = SignalFilters(rawValue: 1 << 2)
 }
 
 /// `struct event_signal`: a signal pushed while an event is handled. It holds the environment variables of the
@@ -120,35 +149,18 @@ public struct PendingSignal {
 
   //
   // NOTE: Returns true when the signal does not apply to the event. Each event type only reports the
-  // properties (app, title, active) that its signals can filter on.
+  // properties (app, title, active) that its signals can filter on (SignalType.filters).
   //
 
   /// `event_signal_filter`
   public func filters(_ signal: EventSignal) -> Bool {
-    var app = false
-    var title = false
-    var active = false
+    let supported = type.filters
 
-    switch type {
-    case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:
-      app = true
-    case .applicationTerminated, .applicationHidden, .windowDestroyed:
-      app = true
-      active = true
-    case .windowCreated, .windowFocused, .windowDeminimized:
-      app = true
-      title = true
-    case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
-      app = true
-      title = true
-      active = true
-    default:
-      return false
+    if supported.contains(.app) && PendingSignal.regexMismatch(signal.app, app) { return true }
+    if supported.contains(.title) && PendingSignal.regexMismatch(signal.title, title) {
+      return true
     }
-
-    if app && PendingSignal.regexMismatch(signal.app, self.app) { return true }
-    if title && PendingSignal.regexMismatch(signal.title, self.title) { return true }
-    if active && activeMismatch(signal) { return true }
+    if supported.contains(.active) && activeMismatch(signal) { return true }
 
     return false
   }

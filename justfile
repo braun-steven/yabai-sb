@@ -92,10 +92,36 @@ archive: man install sign icon
     rm -rf archive
     mkdir -p archive/bin
     cp bin/yabai archive/bin/
-    cp -r doc archive/
+    mkdir -p archive/doc
+    cp doc/yabai.1 doc/yabai.schema.json archive/doc/
     cp -r examples archive/
     tar -cvzf bin/$(bin/yabai --version).tar.gz archive
     rm -rf archive
+
+# Archive HEAD, publish it as a GitHub release and point the Homebrew tap formula at it (commits the tap, never pushes).
+brew-release: _brew-release-check archive
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tap="${YABAI_TAP_DIR:-../homebrew-tap}"
+    version="$(bin/yabai --version)"
+    tarball="bin/$version.tar.gz"
+    sha="$(shasum -a 256 "$tarball" | cut -d ' ' -f 1)"
+    gh release create "${version#yabai-}" "$tarball" --repo braun-steven/yabai \
+        --target "$(git rev-parse HEAD)" --title "${version#yabai-}" --notes "See CHANGELOG.md."
+    url="https://github.com/braun-steven/yabai/releases/download/${version#yabai-}/$version.tar.gz"
+    sed -i '' -e "s|^  url \".*\"|  url \"$url\"|" -e "s|^  sha256 \".*\"|  sha256 \"$sha\"|" "$tap/Formula/yabai.rb"
+    git -C "$tap" commit -q -m "yabai ${version#yabai-}" -- Formula/yabai.rb
+    echo "Released ${version#yabai-}; push the tap with: git -C $tap push"
+
+[private]
+_brew-release-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tap="${YABAI_TAP_DIR:-../homebrew-tap}"
+    [[ -f "$tap/Formula/yabai.rb" ]] || { echo "No tap checkout at $tap (set YABAI_TAP_DIR)" >&2; exit 1; }
+    [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "Commit or stash local changes first" >&2; exit 1; }
+    git fetch -q origin main
+    git merge-base --is-ancestor HEAD origin/main || { echo "Push HEAD to origin/main first" >&2; exit 1; }
 
 # Sign the built executable with the named signing identity.
 sign:

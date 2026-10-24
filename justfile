@@ -80,7 +80,7 @@ man:
 
 # Set the icon on the built executable.
 icon:
-    python3 scripts/seticon.py assets/icon/2x/icon-512px@2x.png bin/yabai
+    $SWIFT scripts/seticon.swift assets/icon/2x/icon-512px@2x.png bin/yabai
 
 # Build the release archive after generating docs, building, signing and setting the icon.
 archive: man install sign icon

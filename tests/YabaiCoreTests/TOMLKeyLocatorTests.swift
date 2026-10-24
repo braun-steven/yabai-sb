@@ -65,7 +65,7 @@ func aPathNotInTheFileWithoutAnEnclosingKeyHasNoLine(_ keyPath: String) {
   #expect(TOMLKeyLocator(source: "a = 1\n").line(for: keyPath) == nil)
 }
 
-// The key paths of the "Target format" document of doc/config-refactor/overview.md, with their lines.
+// The key paths of targetFormat (ConfigDocumentTests.swift), with their lines.
 private let targetFormatLines: [(String, Int)] = [
   ("daemon", 3),
   ("daemon.auto_reload", 4),

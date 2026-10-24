@@ -8,7 +8,7 @@ import YabaiTestSupport
 // NOTE: `config --dump` (Sources/Yabai/IPC/ConfigDump.swift): the running config written as a yabai.toml. The dump reads back
 // with ConfigDocument.decode, and reconciling the read-back document to the running state changes nothing. The per-space
 // entries, the labels and the pins need a Mission Control index, which reads the window server, so the fixture (no
-// displays, no spaces) cannot show them: they are checked live (doc/config-refactor/live-checks.md, C6.2). The suite is
+// displays, no spaces) cannot show them: they are checked live (the C6.2 live check of the static config plan). The suite is
 // DaemonState, so the fixture resets the managers and the ConfigLoader before each test.
 //
 

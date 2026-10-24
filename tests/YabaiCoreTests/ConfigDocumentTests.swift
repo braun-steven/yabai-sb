@@ -2,7 +2,7 @@ import Testing
 
 @testable import YabaiCore
 
-/// The "Target format" document of doc/config-refactor/overview.md.
+/// A yabai.toml in the target format of the static config plan.
 let targetFormat = """
   #:schema ./yabai.schema.json
 

@@ -72,13 +72,12 @@ private func key(_ name: String, _ value: ConfigValue, _ keyPath: String, negate
     ConfigOptionEntry(
       name: .tabBarFont, value: .string("system:12"), keyPath: "config.tab_bar_font"),
     ConfigOptionEntry(
+      name: .spaceLayout, value: .strings(["15", "10:5", "10:5:1b"]), keyPath: "config.space_layout"
+    ),
+    ConfigOptionEntry(
       name: .scratchpadGrid, value: .string("40:40:1:1:38:38"), keyPath: "config.scratchpad_grid"),
     ConfigOptionEntry(
       name: .externalBar, value: .string("all:0:0"), keyPath: "config.external_bar"),
-    // the array comes after the plain values (see the key order in ConfigDocumentDecoding.swift)
-    ConfigOptionEntry(
-      name: .spaceLayout, value: .strings(["15", "10:5", "10:5:1b"]), keyPath: "config.space_layout"
-    ),
   ]
   expected.spaces = [
     SpaceEntry(
@@ -100,9 +99,8 @@ private func key(_ name: String, _ value: ConfigValue, _ keyPath: String, negate
       keys: [
         key("label", .string("Finder"), "rule[1].label"),
         key("app", .string("^Finder$"), "rule[1].app"),
-        key("manage", .bool(false), "rule[1].manage"),
-        // the inline table comes after the plain values
         key("title", .string("^(Copy|Move)$"), "rule[1].title", negated: true),
+        key("manage", .bool(false), "rule[1].manage"),
       ],
       oneShot: false, keyPath: "rule[1]"),
   ]
@@ -139,18 +137,18 @@ private func key(_ name: String, _ value: ConfigValue, _ keyPath: String, negate
     action = "echo"
     """)
   #expect(document.rules.map(\.oneShot) == [true])
-  // NOTE: The inline tables (`title`, `app`) come after the plain values in the key order.
+  // NOTE: The keys keep the file order, the inline tables (`title`, `app`) included.
   #expect(
     document.rules[0].keys == [
-      key("label", .string("once"), "rule[0].label"),
       key("title", .string("^Copy$"), "rule[0].title", negated: true),
+      key("label", .string("once"), "rule[0].label"),
     ])
   #expect(
     document.signals[0].keys == [
       key("event", .string("window_focused"), "signal[0].event"),
+      key("app", .string("^Finder$"), "signal[0].app", negated: true),
       key("active", .bool(true), "signal[0].active"),
       key("action", .string("echo"), "signal[0].action"),
-      key("app", .string("^Finder$"), "signal[0].app", negated: true),
     ])
 }
 

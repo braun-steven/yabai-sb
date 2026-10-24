@@ -505,6 +505,7 @@ active_window_opacity = 0.9 # override
 normal_window_opacity = 0.5 # override
 insert_feedback_color = 0xff112233 # override
 scratchpad_grid = "off" # default
+space_layout = [] # default
 window_animation_duration = 0.0 # default
 tab_bar_font = "Menlo:14" # override
 external_bar = "main:1:2" # override
@@ -515,7 +516,6 @@ right_padding = 6 # override
 window_gap = 8 # override
 layout = "tree" # default
 auto_padding = false # default
-space_layout = [] # default
 
 ### 0 rule --add app=^Calculator$ manage=off
 

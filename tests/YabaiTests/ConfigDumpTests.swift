@@ -153,7 +153,7 @@ extension DaemonState {
           "\n[[rule]]\nlabel = \"term\"\napp = \"Terminal\"\nopacity = 0.9\nsticky = true\n"))
       #expect(
         text.contains(
-          "\n[[rule]]\nmanage = false\nscratchpad = \"notes\"\napp = { not = \"Finder\" }\n"))
+          "\n[[rule]]\napp = { not = \"Finder\" }\nmanage = false\nscratchpad = \"notes\"\n"))
       #expect(text.contains("active = true\n"))
 
       let document = try ConfigDocument.decode(text)

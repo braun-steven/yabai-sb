@@ -20,10 +20,9 @@ public enum ConfigTableKeys {
   public static let signalNegatable: Set<String> = ["app", "title"]
 }
 
-// NOTE: The keys of a table come from `TOMLTable.keys`, which lists its plain values first, then its arrays, then its
-// inline and sub-tables (`TOMLDocument.allKeys`). The file order across those kinds is not public, so a decoded list
-// keeps that order, which is deterministic. The lines of `TOMLKeyLocator` could restore the file order; that is not
-// done.
+// NOTE: `TOMLTable.keys` lists the plain values of a table first, then its arrays, then its inline and sub-tables
+// (`TOMLDocument.allKeys`); the file order across those kinds is not public. The decoder sorts the keys of each table
+// by their line in the file (`TOMLKeyLocator`), so a decoded list is in file order.
 
 extension ConfigDocument {
   /// Decodes the text of a `yabai.toml` file. Every problem is collected, in the order they are found, and the document
@@ -39,11 +38,11 @@ extension ConfigDocument {
       ])
     }
 
-    var decoder = ConfigDocumentDecoder()
+    let locator = TOMLKeyLocator(source: source)
+    var decoder = ConfigDocumentDecoder(locator: locator)
     let document = decoder.decode(root)
     if !decoder.errors.isEmpty {
       // NOTE: The parser reports no line for a semantic problem, so its line comes from the key path.
-      let locator = TOMLKeyLocator(source: source)
       let errors = decoder.errors.map { error in
         var error = error
         if error.keyPath.isEmpty == false { error.line = locator.line(for: error.keyPath) }
@@ -72,7 +71,19 @@ private func splitTOMLErrorLine(_ description: String) -> (line: Int?, message: 
 /// Walks a parsed file and records the problems. Each helper reports a problem at its key path and returns nil, so the
 /// walk goes on and the whole file is checked in one run.
 struct ConfigDocumentDecoder {
+  /// The lines of the source, which give the file order of the keys of a table.
+  let locator: TOMLKeyLocator
   private(set) var errors: [ConfigDocumentError] = []
+
+  /// The keys of `table`, whose key path is `path`, in file order. A key without a line keeps its place after them.
+  private func keys(_ table: TOMLTable, path: String) -> [String] {
+    table.keys.enumerated()
+      .map {
+        (position: $0.offset, key: $0.element, line: locator.line(for: "\(path).\($0.element)"))
+      }
+      .sorted { ($0.line ?? .max, $0.position) < ($1.line ?? .max, $1.position) }
+      .map(\.key)
+  }
 
   mutating func decode(_ root: TOMLTable) -> ConfigDocument {
     var document = ConfigDocument()
@@ -144,7 +155,7 @@ struct ConfigDocumentDecoder {
 
   private mutating func daemonSettings(_ table: TOMLTable) -> DaemonSettings {
     var settings = DaemonSettings()
-    for key in table.keys {
+    for key in keys(table, path: "daemon") {
       let path = "daemon.\(key)"
       switch key {
       case "auto_reload":
@@ -173,7 +184,7 @@ struct ConfigDocumentDecoder {
   /// The options of `[config]`; `prefix` is its key path.
   private mutating func configOptions(_ table: TOMLTable, prefix: String) -> [ConfigOptionEntry] {
     var result: [ConfigOptionEntry] = []
-    for key in table.keys {
+    for key in keys(table, path: prefix) {
       let path = "\(prefix).\(key)"
       guard let name = ConfigCommand.Name(rawValue: key) else {
         fail(path, "unknown option '\(key)'")
@@ -230,7 +241,7 @@ struct ConfigDocumentDecoder {
     var label: String?
     var pin: String?
     var options: [ConfigOptionEntry] = []
-    for key in table.keys {
+    for key in keys(table, path: path) {
       let keyPath = "\(path).\(key)"
       switch key {
       case "index":
@@ -309,7 +320,7 @@ struct ConfigDocumentDecoder {
     skipping: Set<String>
   ) -> [ConfigKey] {
     var result: [ConfigKey] = []
-    for name in table.keys where !skipping.contains(name) {
+    for name in keys(table, path: path) where !skipping.contains(name) {
       let keyPath = "\(path).\(name)"
       guard allowed.contains(name) else {
         fail(keyPath, "unknown key '\(name)'")

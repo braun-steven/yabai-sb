@@ -73,11 +73,12 @@ public struct ConfigEntry: Equatable, Sendable {
 }
 
 extension ConfigDocument {
-  /// The messages of the document, in apply order (`ConfigEntry.Kind`): the `[config]` options (`space_layout` after the others), then each
-  /// `[[space]]` (its label, its pin, its options), then the rules, then the signals. Every entry has at least one word.
+  /// The messages of the document, in apply order (`ConfigEntry.Kind`): the `[config]` options (`space_layout` after the
+  /// others), then each `[[space]]` (its label, its pin, its options), then the rules, then the signals. Every entry has
+  /// at least one word.
   ///
-  /// Within a table the entries keep the key order of `ConfigDocumentDecoding.swift`. Within a rule or signal, the key
-  /// order does not change its meaning.
+  /// Within a table the entries keep the document's order (file order). Within a rule or signal, the key order does not
+  /// change its meaning.
   ///
   /// The document does not keep the file, so the lines come only from `locator`, the locator of the same source text.
   /// Without one, every entry has no line.

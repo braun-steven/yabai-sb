@@ -36,18 +36,15 @@ import YabaiCore
   document.daemon.loadScriptingAddition = loader.loadScriptingAddition
   var comments: [String: String] = [:]
 
-  var options: [ConfigOptionEntry] = []
   for name in configOptionNames {
     guard let printed = printedConfigValue(["config", name.rawValue]),
       let value = printedValue(printed, of: name)
     else { continue }
     let keyPath = "config.\(name.rawValue)"
-    options.append(ConfigOptionEntry(name: name, value: value, keyPath: keyPath))
+    document.options.append(ConfigOptionEntry(name: name, value: value, keyPath: keyPath))
     comments[keyPath] = dumpComment(
       name, printed: printed, expected: fileWords[name] ?? builtIn[name], builtIn: builtIn[name])
   }
-  // NOTE: TOML lists the arrays of a table after its plain values, and the decoder keeps that order.
-  document.options = options.filter { !$0.value.isList } + options.filter { $0.value.isList }
 
   let manager = SpaceManager.shared
   for sid in SpaceID.all {
@@ -114,17 +111,12 @@ import YabaiCore
             name: name, negated: pattern.exclude, value: .string(pattern.text),
             keyPath: "\(path).\(name)"))
       }
-      signals.append(SignalEntry(keys: negatedLast(keys), keyPath: path))
+      signals.append(SignalEntry(keys: keys, keyPath: path))
     }
   }
   document.signals = signals
 
   return (document, comments)
-}
-
-/// The keys of a rule or signal in the order the decoder gives them: the plain values, then the exclusions.
-private func negatedLast(_ keys: [ConfigKey]) -> [ConfigKey] {
-  keys.filter { !$0.negated } + keys.filter { $0.negated }
 }
 
 /// The `[[rule]]` table of a rule, with the keys that `rule --add` would take to make it. A display or space written
@@ -178,7 +170,7 @@ private func negatedLast(_ keys: [ConfigKey]) -> [ConfigKey] {
   if effects.flags.contains(.layer) { add("sub-layer", .string(effects.layer.rawValue)) }
   if let scratchpad = effects.scratchpad { add("scratchpad", .string(scratchpad)) }
 
-  return RuleEntry(keys: negatedLast(keys), oneShot: rule.oneShot, keyPath: path)
+  return RuleEntry(keys: keys, oneShot: rule.oneShot, keyPath: path)
 }
 
 /// Writes `config --dump`: the running config as yabai.toml text.

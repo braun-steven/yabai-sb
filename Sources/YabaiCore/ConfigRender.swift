@@ -1,9 +1,7 @@
 //
-// NOTE: ConfigDocument.toml() writes a document as yabai.toml text, the form that ConfigDocument.decode reads back. The
-// keys of a table are written in the order that decoding gives them: the plain values first, then the arrays, then the
-// inline tables (`{ not = … }`), which is the order `TOMLTable.keys` lists them in. A document in that order decodes to
-// the same document (`decode(toml()) == self`); the options and the rule and signal keys of ConfigDocument are kept in
-// that order by the decoder, and the renderer puts any other document in it too.
+// NOTE: ConfigDocument.toml() writes a document as yabai.toml text, the form that ConfigDocument.decode reads back. The keys
+// of each table are written in the document's order, and the decoder reads them in file order, so a document decodes to
+// the same document (`decode(toml()) == self`).
 //
 
 extension ConfigDocument {
@@ -23,29 +21,25 @@ extension ConfigDocument {
     sections.append(
       section(
         "[config]",
-        lines: plainFirst(options, isList: \.value.isList).map { option in
-          optionLine(option, comments: comments)
-        }))
+        lines: options.map { option in optionLine(option, comments: comments) }))
 
     for space in spaces {
       var lines: [String] = ["index = \(space.index)"]
       if let label = space.label { lines.append("label = \(quoted(label))") }
       if let pin = space.pin { lines.append("pin = \(quoted(pin))") }
-      lines += plainFirst(space.options, isList: \.value.isList).map { option in
-        optionLine(option, comments: comments)
-      }
+      lines += space.options.map { option in optionLine(option, comments: comments) }
       sections.append(section("[[space]]", lines: lines))
     }
 
     for rule in rules {
-      var lines = plainFirst(rule.keys, isList: \.negated).map(keyLine)
+      var lines = rule.keys.map(keyLine)
       if rule.oneShot { lines.append("one_shot = true") }
       sections.append(section("[[rule]]", lines: lines))
     }
 
     for signal in signals {
       sections.append(
-        section("[[signal]]", lines: plainFirst(signal.keys, isList: \.negated).map(keyLine)))
+        section("[[signal]]", lines: signal.keys.map(keyLine)))
     }
 
     return sections.joined(separator: "\n\n") + "\n"
@@ -54,11 +48,6 @@ extension ConfigDocument {
 
 private func section(_ header: String, lines: [String]) -> String {
   ([header] + lines).joined(separator: "\n")
-}
-
-/// The elements that do not match `isList`, then the ones that do, each in their order.
-private func plainFirst<Element>(_ elements: [Element], isList: (Element) -> Bool) -> [Element] {
-  elements.filter { !isList($0) } + elements.filter(isList)
 }
 
 /// One option line. An integer named `*_color` is written as the hex color it is (`0xff51afef`), as the file gives it.
@@ -131,12 +120,4 @@ private func quoted(_ text: String) -> String {
 private func hexDigits(_ value: UInt32) -> String {
   let digits = String(value, radix: 16)
   return String(repeating: "0", count: 8 - digits.count) + digits
-}
-
-extension ConfigValue {
-  /// Whether the value is an array, which TOML writes after the plain values of its table.
-  public var isList: Bool {
-    if case .strings = self { return true }
-    return false
-  }
 }

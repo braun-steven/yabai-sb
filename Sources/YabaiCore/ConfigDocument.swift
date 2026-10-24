@@ -2,7 +2,7 @@
 /// the keys and the types; the values themselves are checked by the handlers that the lowered messages reach (C2.2).
 public struct ConfigDocument: Equatable, Sendable {
   public var daemon = DaemonSettings()
-  /// The `[config]` options, in the key order of `ConfigDocumentDecoding.swift`.
+  /// The `[config]` options, in file order.
   public var options: [ConfigOptionEntry] = []
   /// The `[[space]]` tables, in file order.
   public var spaces: [SpaceEntry] = []
@@ -51,7 +51,7 @@ public struct SpaceEntry: Equatable, Sendable {
   public var index: Int
   public var label: String?
   public var pin: String?
-  /// The options of the table, in the key order of `ConfigDocumentDecoding.swift`.
+  /// The options of the table, in file order.
   public var options: [ConfigOptionEntry]
   /// The key path of the table, e.g. `space[1]`.
   public var keyPath: String
@@ -84,7 +84,7 @@ public struct ConfigKey: Equatable, Sendable {
   }
 }
 
-/// One `[[rule]]` table: its keys in the key order of `ConfigDocumentDecoding.swift`, and `one_shot`.
+/// One `[[rule]]` table: its keys in file order, and `one_shot`.
 public struct RuleEntry: Equatable, Sendable {
   public var keys: [ConfigKey]
   public var oneShot: Bool
@@ -98,8 +98,7 @@ public struct RuleEntry: Equatable, Sendable {
   }
 }
 
-/// One `[[signal]]` table: its keys in the key order of `ConfigDocumentDecoding.swift`. `event` and `action` are among
-/// them.
+/// One `[[signal]]` table: its keys in file order. `event` and `action` are among them.
 public struct SignalEntry: Equatable, Sendable {
   public var keys: [ConfigKey]
   /// The key path of the table, e.g. `signal[0]`.

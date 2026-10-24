@@ -5,8 +5,8 @@ import Testing
 
 //
 // NOTE: Tests of the renderer of a ConfigDocument (`ConfigRender.swift`, `toml()`): the text it writes reads back as the same
-// document. The sections follow the order the decoder gives the keys of a table (plain values, then arrays, then inline
-// tables), so a document is written and read back as it is.
+// document. The keys are written in the document's order, and the decoder reads them in file order, so a document is
+// written and read back as it is.
 //
 
 // MARK: - Samples
@@ -14,7 +14,6 @@ import Testing
 @Test func rendersEachSectionAndReadsItBack() throws {
   var document = ConfigDocument()
   document.daemon.loadScriptingAddition = true
-  // NOTE: The arrays come after the plain values in the decoded document, as in the file.
   document.options = [
     ConfigOptionEntry(name: .windowGap, value: .integer(10), keyPath: "config.window_gap"),
     ConfigOptionEntry(
@@ -85,8 +84,6 @@ import Testing
       """)
 
   let decoded = try ConfigDocument.decode(text)
-  // NOTE: The rule and signal keys are read in the order of the table: the plain values, then the exclusions. The
-  // document above is written in that order, so it reads back equal.
   #expect(decoded == document)
 }
 
@@ -164,7 +161,7 @@ private func randomScalar(_ picks: inout RenderPicks) -> ConfigValue {
   }
 }
 
-/// A document in the order the decoder gives: the plain values of each table, then the arrays and the exclusions.
+/// A random document: options, spaces, rules and signals with random values.
 private func randomNormalizedDocument(_ picks: inout RenderPicks) -> ConfigDocument {
   var document = ConfigDocument()
   document.daemon.autoReload = picks.bool()
@@ -183,7 +180,7 @@ private func randomNormalizedDocument(_ picks: inout RenderPicks) -> ConfigDocum
     }
     options.append(ConfigOptionEntry(name: name, value: value, keyPath: "config.\(name.rawValue)"))
   }
-  document.options = options.filter { !$0.value.isList } + options.filter { $0.value.isList }
+  document.options = options
 
   let scoped = ConfigCommand.Name.spaceScoped.sorted { $0.rawValue < $1.rawValue }
   for position in 0..<picks.next(3) {

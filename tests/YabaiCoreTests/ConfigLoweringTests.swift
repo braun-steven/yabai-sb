@@ -210,7 +210,7 @@ private let ruleAndSignalRows: [(source: String, words: [String])] = [
   ),
   (
     "[[rule]]\none_shot = true\ntitle = { not = \"^Copy$\" }\nlabel = \"once\"",
-    ["rule", "--add", "--one-shot", "label=once", "title!=^Copy$"]
+    ["rule", "--add", "--one-shot", "title!=^Copy$", "label=once"]
   ),
   (
     "[[rule]]\nspace = 9\nopacity = 0.5\nsub-layer = \"above\"\ngrid = \"4:4:0:0:1:1\"",
@@ -241,14 +241,13 @@ func ruleAndSignalKeysLowerToTheirWords(_ row: (source: String, words: [String])
     window_gap = 0
     auto_padding = false
     """)
-  // NOTE: The pin comes first; the options follow in the key order of the table.
-  #expect(entries.first?.arguments == ["space", "4", "--pin", "2"])
+  // NOTE: The pin comes first; the options follow in file order.
   #expect(
-    Set(entries.dropFirst().map(\.arguments)) == [
+    entries.map(\.arguments) == [
+      ["space", "4", "--pin", "2"],
       ["config", "--space", "4", "window_gap", "0"],
       ["config", "--space", "4", "auto_padding", "off"],
     ])
-  #expect(entries.count == 3)
 }
 
 // MARK: - Properties

@@ -9,38 +9,23 @@ enum MachOSymbol {
   /// The address of the symbol in the loaded image at the path; nil if the image is not loaded or has no such symbol.
   static func address(of symbol: String, inImage imagePath: String) -> UnsafeMutableRawPointer? {
     guard let image = imageHeader(at: imagePath) else { return nil }
-    guard let segment = linkeditSegment(image.header) else { return nil }
-    guard let symtab = symtabCommand(image.header) else { return nil }
+    let header = image.header
+    let commands = UnsafeRawBufferPointer(
+      start: UnsafeRawPointer(header) + MemoryLayout<mach_header_64>.size,
+      count: Int(header.pointee.sizeofcmds))
+    guard
+      let table = MachOParser.symbolTable(
+        in: commands, commandCount: header.pointee.ncmds)
+    else { return nil }
 
-    let linkedit = UInt(segment.vmaddr &- segment.fileoff) &+ image.slide
-    guard let symbolStr = UnsafeRawPointer(bitPattern: linkedit &+ UInt(symtab.stroff)) else {
-      return nil
-    }
-    guard let symbolSym = UnsafeRawPointer(bitPattern: linkedit &+ UInt(symtab.symoff)) else {
-      return nil
-    }
-
-    return symbol.withCString { target -> UnsafeMutableRawPointer? in
-      for i in 0..<Int(symtab.nsyms) {
-        let list = symbolSym.load(
-          fromByteOffset: i * MemoryLayout<nlist_64>.size, as: nlist_64.self)
-
-        // NOTE: n_strx comes from the file. Skip an entry that points past the string table, and one whose name
-        // has no NUL before the end of the table, so strcmp never reads outside the table.
-        let offset = Int(list.n_un.n_strx)
-        let remaining = Int(symtab.strsize) - offset
-        guard offset < Int(symtab.strsize), memchr(symbolStr + offset, 0, remaining) != nil else {
-          continue
-        }
-
-        let symbolName = (symbolStr + offset).assumingMemoryBound(to: CChar.self)
-        if strcmp(symbolName, target) == 0 {
-          return UnsafeMutableRawPointer(bitPattern: UInt(list.n_value) &+ image.slide)
-        }
-      }
-
-      return nil
-    }
+    guard
+      let linkeditAddress = UnsafeRawPointer(
+        bitPattern: UInt(table.linkedit.vmaddr) &+ image.slide)
+    else { return nil }
+    guard let linkeditSize = Int(exactly: table.linkedit.filesize) else { return nil }
+    let linkedit = UnsafeRawBufferPointer(start: linkeditAddress, count: linkeditSize)
+    guard let value = MachOParser.value(of: symbol, in: linkedit, table: table) else { return nil }
+    return UnsafeMutableRawPointer(bitPattern: UInt(value) &+ image.slide)
   }
 
   private static func imageHeader(at path: String) -> (
@@ -64,34 +49,100 @@ enum MachOSymbol {
     }
   }
 
-  private static func loadCommand(
-    _ header: UnsafePointer<mach_header_64>, _ match: (UnsafeRawPointer, UInt32) -> Bool
-  ) -> UnsafeRawPointer? {
-    var cursor = UnsafeRawPointer(header) + MemoryLayout<mach_header_64>.size
+}
 
-    for _ in 0..<header.pointee.ncmds {
-      let cmd = cursor.load(as: load_command.self)
-      if match(cursor, cmd.cmd) { return cursor }
-      cursor += Int(cmd.cmdsize)
-    }
-
-    return nil
+/// Bounds-checked parsing for the parts of a loaded image needed to find a symbol.
+enum MachOParser {
+  struct SymbolTable {
+    let linkedit: segment_command_64
+    let symbols: symtab_command
   }
 
-  private static func linkeditSegment(_ header: UnsafePointer<mach_header_64>)
-    -> segment_command_64?
+  static func symbolTable(in commands: UnsafeRawBufferPointer, commandCount: UInt32)
+    -> SymbolTable?
   {
-    let segment = loadCommand(header) { cmd, type in
-      guard type == LC_SEGMENT_64 else { return false }
-      return withUnsafeBytes(of: cmd.load(as: segment_command_64.self).segname) {
-        strncmp($0.baseAddress!.assumingMemoryBound(to: CChar.self), SEG_LINKEDIT, $0.count) == 0
+    var linkedit: segment_command_64?
+    var symbols: symtab_command?
+    var offset = 0
+    let commandHeaderSize = MemoryLayout<load_command>.size
+
+    for _ in 0..<Int(commandCount) {
+      guard offset <= commands.count, commandHeaderSize <= commands.count - offset else {
+        return nil
+      }
+      let command = commands.loadUnaligned(fromByteOffset: offset, as: load_command.self)
+      guard let commandSize = Int(exactly: command.cmdsize),
+        commandSize >= commandHeaderSize, commandSize <= commands.count - offset
+      else { return nil }
+
+      switch command.cmd {
+      case UInt32(LC_SEGMENT_64):
+        guard commandSize >= MemoryLayout<segment_command_64>.size else { return nil }
+        let segment = commands.loadUnaligned(
+          fromByteOffset: offset, as: segment_command_64.self)
+        let isLinkedit = withUnsafeBytes(of: segment.segname) { bytes in
+          String(decoding: bytes.prefix(while: { $0 != 0 }), as: UTF8.self) == "__LINKEDIT"
+        }
+        if isLinkedit {
+          guard linkedit == nil else { return nil }
+          linkedit = segment
+        }
+      case UInt32(LC_SYMTAB):
+        guard commandSize >= MemoryLayout<symtab_command>.size, symbols == nil else {
+          return nil
+        }
+        symbols = commands.loadUnaligned(fromByteOffset: offset, as: symtab_command.self)
+      default:
+        break
+      }
+
+      offset += commandSize
+    }
+
+    guard offset == commands.count, let linkedit, let symbols else { return nil }
+    return SymbolTable(linkedit: linkedit, symbols: symbols)
+  }
+
+  static func value(of name: String, in linkedit: UnsafeRawBufferPointer, table: SymbolTable)
+    -> UInt64?
+  {
+    let fileOffset = table.linkedit.fileoff
+    let symbolOffset = UInt64(table.symbols.symoff)
+    let stringOffset = UInt64(table.symbols.stroff)
+    guard symbolOffset >= fileOffset, stringOffset >= fileOffset else { return nil }
+
+    let symbolStart = symbolOffset - fileOffset
+    let symbolBytes = UInt64(table.symbols.nsyms).multipliedReportingOverflow(
+      by: UInt64(MemoryLayout<nlist_64>.size))
+    let stringStart = stringOffset - fileOffset
+    let stringBytes = UInt64(table.symbols.strsize)
+    let linkeditBytes = UInt64(linkedit.count)
+    guard !symbolBytes.overflow,
+      symbolStart <= linkeditBytes, symbolBytes.partialValue <= linkeditBytes - symbolStart,
+      stringStart <= linkeditBytes, stringBytes <= linkeditBytes - stringStart,
+      let symbolStartIndex = Int(exactly: symbolStart),
+      let stringStartIndex = Int(exactly: stringStart),
+      let stringEndIndex = Int(exactly: stringStart + stringBytes)
+    else { return nil }
+
+    let target = Array(name.utf8)
+    for index in 0..<Int(table.symbols.nsyms) {
+      let symbol = linkedit.loadUnaligned(
+        fromByteOffset: symbolStartIndex + index * MemoryLayout<nlist_64>.size,
+        as: nlist_64.self)
+      let nameOffset = Int(symbol.n_un.n_strx)
+      guard nameOffset < stringEndIndex - stringStartIndex else { continue }
+      let nameStart = stringStartIndex + nameOffset
+      var nameEnd = nameStart
+      while nameEnd < stringEndIndex, linkedit[nameEnd] != 0 {
+        nameEnd += 1
+      }
+      guard nameEnd < stringEndIndex, nameEnd - nameStart == target.count else { continue }
+      if target.indices.allSatisfy({ linkedit[nameStart + $0] == target[$0] }) {
+        return symbol.n_value
       }
     }
 
-    return segment?.load(as: segment_command_64.self)
-  }
-
-  private static func symtabCommand(_ header: UnsafePointer<mach_header_64>) -> symtab_command? {
-    return loadCommand(header) { _, type in type == LC_SYMTAB }?.load(as: symtab_command.self)
+    return nil
   }
 }

@@ -130,6 +130,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `live.py run <label>` | 28 checks: relayout, tabs (incl. front-to-back order), rapid focus, cross-display send, focus follows mouse, alt-drag, stalled client, frozen app, animations, native fullscreen |
 | `live.py extra <label>` | 50 SA space switches (Dock pid, footprint), space focus with a frozen front app, tabbed container warped to display 2 and back, swap across displays |
 | `live.py launch <label>` | launch-retry backoff for an app frozen right after launch; needs every test app closed |
+| `live.py topology <label>` | opt-in mirror-based display removal/re-add check for `space_layout` counts and pinned-space placement |
 | `live.py cleanup` | quits the test apps, resets config, shows space 11 on display 2, focuses the window recorded by `setup` |
 | `bench.py <label>` | medians for tab focus, rotate, split focus |
 | `perf.py <label> --samples 50 --out <file>` | repeated CLI/socket latency, observed completion, binary identity and process memory |
@@ -138,13 +139,21 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `border_geometry.swift` | read-only check that four border edges surround each supplied untabbed window at its actual WindowServer frame |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `missioncontrol.swift` | `state\|open\|close\|toggle`: posts the user's Mission Control shortcut (symbolic hotkey 32) and waits for the Dock overlay; compile it with `xcrun swiftc -O missioncontrol.swift -o missioncontrol` (the binary is ignored by git) |
-| `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); compile it with `xcrun swiftc -O mirror.swift -o mirror` (the binary is ignored by git) |
+| `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); `live.py topology` compiles it when needed (the binary is ignored by git) |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
 | `crashes.py [n]` | summarizes the newest yabai crash reports |
 
 Builds from before and after the JSONEncoder queries format query json differently; normalize both outputs with `jq -S .` per response before diffing.
+
+`live.py topology` is opt-in and requires exactly two connected displays, `space_layout` entries for one and two
+displays without a builtin (`b`) suffix, a labelled space pinned to display 2, and no native fullscreen spaces. The
+check also requires display space indices to match the `query --spaces` indices. It mirrors display 2 onto display 1,
+waits for each display's user-space count in arrangement order to match the configured target, then unmirrors and
+checks that the two-display counts converge and the pinned label is back on its target display. It never creates or
+destroys spaces by index. The mirror procedure briefly changes the connected-display topology; macOS can assign a new
+id to a space when the display returns.
 
 ### Comparing performance builds
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Live checks of the yabai daemon for window moving, layout flushing and focus.
-# usage: live.py setup | run <label> | extra <label> | launch <label> | cleanup
-import json, os, subprocess, sys, time
+# usage: live.py setup | run <label> | extra <label> | launch <label> | topology <label> | cleanup
+import json, os, select, subprocess, sys, tempfile, time
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(TOOLS, ".focused-window")  # the user's focused window, recorded by setup
@@ -113,9 +113,10 @@ def focused_id():
     w = q("--windows --window")
     return w["id"] if w else None
 
-def build_helpers():
+def build_helpers(include_mirror=False):
     # Compile the Swift helpers when they are missing or older than their source.
-    for name in ("bounds", "mouse", "freeze"):
+    helpers = ("bounds", "mouse", "freeze") + (("mirror",) if include_mirror else ())
+    for name in helpers:
         src, out = os.path.join(TOOLS, name + ".swift"), os.path.join(TOOLS, name)
         if not os.path.exists(out) or os.path.getmtime(out) < os.path.getmtime(src):
             sh(f"swiftc -O '{src}' -o '{out}'", check=True, timeout=300)
@@ -484,9 +485,169 @@ def cleanup():
         y(f"window --focus {wid}")
         os.remove(STATE)
 
+def topology_counts(displays, spaces):
+    if not isinstance(displays, list) or not isinstance(spaces, list): return None
+    if any(space.get("is-native-fullscreen") for space in spaces): return None
+    indices = [display.get("index") for display in displays]
+    if any(not isinstance(index, int) for index in indices): return None
+    if sorted(indices) != list(range(1, len(displays) + 1)): return None
+    counts = []
+    for display in sorted(displays, key=lambda display: display["index"]):
+        display_spaces = display.get("spaces")
+        if not isinstance(display_spaces, list): return None
+        reported = [
+            space.get("index") for space in spaces if space.get("display") == display.get("index")]
+        if any(not isinstance(index, int) for index in display_spaces + reported): return None
+        reported.sort()
+        if sorted(display_spaces) != reported: return None
+        counts.append(len(display_spaces))
+    return counts
+
+def expected_layout_counts(spec, display_count):
+    layouts = spec.split()
+    if len(layouts) < display_count: return None
+    fields = layouts[display_count - 1].split(":")
+    if any(value.endswith("b") for value in fields): return None
+    try:
+        counts = [int(value) for value in fields]
+    except ValueError:
+        return None
+    if len(counts) != display_count or any(count < 1 for count in counts): return None
+    return counts
+
+def wait_for_topology(display_count, expected_counts, timeout=45):
+    deadline = time.monotonic() + timeout
+    last = None
+    while time.monotonic() < deadline:
+        displays = q("--displays")
+        spaces = q("--spaces")
+        counts = topology_counts(displays, spaces)
+        last = (len(displays), counts) if isinstance(displays, list) else None
+        if isinstance(displays, list) and len(displays) == display_count and counts == expected_counts:
+            return True, f"{display_count} display(s), space counts {counts}"
+        time.sleep(0.5)
+    return False, f"last topology {last}, expected {display_count} display(s) with counts {expected_counts}"
+
+def topology(label):
+    # Opt-in display hotplug simulation. This never creates or destroys spaces by index.
+    print(f"== {label} (topology) ==")
+    displays = q("--displays")
+    if not isinstance(displays, list) or len(displays) != 2:
+        print("SKIP  topology check: exactly two connected displays are required")
+        return
+
+    displays_by_index = {d.get("index"): d for d in displays}
+    first = displays_by_index.get(1)
+    second = displays_by_index.get(2)
+    if not first or not second:
+        print("SKIP  topology check: display arrangement indices 1 and 2 are required")
+        return
+
+    layout_result = y("config space_layout")
+    if layout_result.returncode != 0:
+        print(f"SKIP  topology check: could not read space_layout: {layout_result.stderr.strip()}")
+        return
+    spec = layout_result.stdout.strip()
+    one_display_counts = expected_layout_counts(spec, 1)
+    two_display_counts = expected_layout_counts(spec, 2)
+    if one_display_counts is None or two_display_counts is None:
+        print("SKIP  topology check: space_layout needs one- and two-display layouts without a builtin suffix")
+        return
+
+    spaces = q("--spaces") or []
+    if any(space.get("is-native-fullscreen") for space in spaces):
+        print("SKIP  topology check: close native fullscreen spaces first")
+        return
+    labels = [space.get("label") for space in spaces
+              if space.get("pinned-display") == 2 and space.get("label")]
+    if not labels:
+        print("SKIP  topology check: pin at least one labelled space to display 2 first")
+        return
+
+    initial_counts = topology_counts(displays, spaces)
+    if initial_counts is None:
+        print("SKIP  topology check: display and space query indices do not agree")
+        return
+    if initial_counts != two_display_counts:
+        record(
+            "two-display baseline space counts",
+            False,
+            f"got {initial_counts}, expected {two_display_counts} from space_layout")
+        return
+    record("two-display baseline space counts", True, f"{initial_counts}")
+
+    mirrored_id = int(second["id"]) & 0xFFFFFFFF
+    master_id = int(first["id"]) & 0xFFFFFFFF
+    target_uuid = second.get("uuid")
+    file_descriptor, stop_path = tempfile.mkstemp(prefix="yabai-topology-stop-")
+    os.close(file_descriptor)
+    os.unlink(stop_path)
+
+    mirror_process = None
+    mirror_started = False
+    mirror_line = ""
+    removal_ok = False
+    try:
+        mirror_path = os.path.join(TOOLS, "mirror")
+        mirror_process = subprocess.Popen(
+            [mirror_path, str(mirrored_id), str(master_id), stop_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True)
+        ready, _, _ = select.select([mirror_process.stdout], [], [], 5)
+        if not ready:
+            raise TimeoutError("mirror helper did not report its initial display configuration")
+        mirror_line = mirror_process.stdout.readline().strip()
+        mirror_started = mirror_line == "mirror: 0"
+        record("mirror second display onto first", mirror_started, mirror_line)
+        if mirror_started:
+            removal_ok, detail = wait_for_topology(1, one_display_counts)
+            record("space counts converge after display removal", removal_ok, detail)
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+        record("display removal mirror", False, str(error))
+    finally:
+        if mirror_process is not None:
+            with open(stop_path, "w"):
+                pass
+            try:
+                mirror_output, _ = mirror_process.communicate(timeout=15)
+            except subprocess.TimeoutExpired:
+                mirror_process.terminate()
+                mirror_output, _ = mirror_process.communicate(timeout=10)
+            unmirror_ok = "unmirror: 0" in mirror_output
+            readd_ok, detail = wait_for_topology(2, two_display_counts)
+            record("mirror second display back", unmirror_ok, mirror_output.strip())
+            record("space counts converge after display re-add", readd_ok, detail)
+
+            if readd_ok and target_uuid:
+                restored_displays = q("--displays") or []
+                target_display = next(
+                    (display for display in restored_displays if display.get("uuid") == target_uuid),
+                    None)
+                spaces = q("--spaces") or []
+                pin_states = []
+                for label_name in labels:
+                    space = next((s for s in spaces if s.get("label") == label_name), None)
+                    expected_index = target_display.get("index") if target_display else None
+                    pin_states.append(
+                        (label_name, space.get("display") if space else None,
+                         space.get("pinned-display") if space else None, expected_index))
+                pins_ok = target_display is not None and bool(pin_states) and all(
+                    expected_index is not None
+                    and actual_display == expected_index
+                    and pinned_display == expected_index
+                    for _, actual_display, pinned_display, expected_index in pin_states)
+                record(
+                    "pinned spaces return to their display",
+                    pins_ok,
+                    "; ".join(
+                        f"{name}: display {actual}, pin {pinned}, expected {expected}"
+                        for name, actual, pinned, expected in pin_states))
+        if os.path.exists(stop_path): os.remove(stop_path)
+
 if __name__ == "__main__":
-    build_helpers()
     cmd = sys.argv[1]
+    build_helpers(include_mirror=cmd == "topology")
     if cmd == "setup": setup()
     elif cmd == "run":
         run(sys.argv[2])
@@ -494,6 +655,10 @@ if __name__ == "__main__":
         print(f"-- {len(results) - len(fails)}/{len(results)} passed")
     elif cmd in ("extra", "launch"):
         (extra if cmd == "extra" else launch)(sys.argv[2])
+        fails = [r for r in results if not r[1]]
+        print(f"-- {len(results) - len(fails)}/{len(results)} passed")
+    elif cmd == "topology":
+        topology(sys.argv[2])
         fails = [r for r in results if not r[1]]
         print(f"-- {len(results) - len(fails)}/{len(results)} passed")
     elif cmd == "cleanup": cleanup()

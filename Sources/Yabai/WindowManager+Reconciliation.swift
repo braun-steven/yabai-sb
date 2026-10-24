@@ -70,13 +70,21 @@ extension WindowManager {
     }
   }
 
+  // NOTE: Internal so tests can exercise reconciliation with an explicit window list, without querying the window
+  // server for the space's current windows.
+  func reconcileWindows(on owner: View, against windowList: [WindowID]) {
+    guard owner.layout != .float else { return }
+
+    validateWindows(on: owner, against: windowList)
+    checkForWindows(on: owner, in: windowList)
+  }
+
   func validateAndCheckForWindows(on sid: SpaceID) {
     let owner = SpaceManager.shared.view(for: sid)
     if owner.layout == .float { return }
 
     let windowList = windows(onSpace: sid) ?? []
-    validateWindows(on: owner, against: windowList)
-    checkForWindows(on: owner, in: windowList)
+    reconcileWindows(on: owner, against: windowList)
 
     //
     // @cleanup

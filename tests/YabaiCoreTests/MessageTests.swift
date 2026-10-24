@@ -1009,3 +1009,18 @@ func messageClientEncoding() {
   #expect(!tokens.next().isValid)
   #expect(message.suffix(6) == Array("east\0\0".utf8))
 }
+
+@Test func messageClientEncodingCountsMultibyteArgumentsAsUTF8Bytes() {
+  let argument = "café 💻"
+  let message = ClientMessage.encode([Array("window".utf8), Array(argument.utf8)])
+
+  let payloadLength = message.prefix(4).withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
+  let body = Array("window\0\(argument)\0\0".utf8)
+  #expect(payloadLength == Int32(body.count))
+  #expect(message.dropFirst(MemoryLayout<Int32>.size).elementsEqual(body))
+
+  var tokens = Message(Array(message.dropFirst(MemoryLayout<Int32>.size)))
+  #expect(tokens.next() == Token("window"))
+  #expect(tokens.next() == Token(argument))
+  #expect(!tokens.next().isValid)
+}

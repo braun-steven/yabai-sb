@@ -43,6 +43,93 @@ import YabaiTestSupport
 extension DaemonState {
   @Suite
   @WM struct UnmanageTests {
+    @Test func reconciliationAddsAnIncomingWindowToATiledView() {
+      let workspace = Workspace()
+      let wm = WindowManager.shared
+      let target = Window(id: wid(4))
+      target.application = workspace.application
+      target.isRoot = true
+      target.isManagedByRule = true
+      wm.window[target.id] = target
+
+      wm.reconcileWindows(on: workspace.view, against: [target.id])
+
+      #expect(workspace.view.windowIDs == [target.id])
+      #expect(workspace.view.windowIDs.filter { $0 == target.id }.count == 1)
+      #expect(wm.managedView(for: target) === workspace.view)
+      #expect(workspace.view.isDirty)
+
+      // A second pass sees the existing membership and leaves the tree clean.
+      workspace.view.isDirty = false
+      wm.reconcileWindows(on: workspace.view, against: [target.id])
+
+      #expect(workspace.view.windowIDs == [target.id])
+      #expect(workspace.view.windowIDs.filter { $0 == target.id }.count == 1)
+      #expect(wm.managedView(for: target) === workspace.view)
+      #expect(!workspace.view.isDirty)
+    }
+
+    @Test func reconciliationMovesAWindowBetweenTiledViews() {
+      let source = Workspace()
+      let target = source.open(1)
+      target.isRoot = true
+      target.isManagedByRule = true
+      source.view.isDirty = false
+
+      let destination = View(sid: SpaceID(0xFFFF_0101))
+      destination.layout = .tree
+      destination.area = Area(x: 0, y: 0, w: 1200, h: 800)
+      SpaceManager.shared.views[destination.sid] = destination
+
+      let wm = WindowManager.shared
+      wm.reconcileWindows(on: destination, against: [target.id])
+
+      #expect(source.view.windowIDs.isEmpty)
+      #expect(destination.windowIDs == [target.id])
+      #expect(source.view.windowIDs.filter { $0 == target.id }.isEmpty)
+      #expect(destination.windowIDs.filter { $0 == target.id }.count == 1)
+      #expect(wm.managedView(for: target) === destination)
+      #expect(source.view.isDirty)
+      #expect(destination.isDirty)
+
+      // Repeating the destination pass neither duplicates the window nor dirties either view again.
+      source.view.isDirty = false
+      destination.isDirty = false
+      wm.reconcileWindows(on: destination, against: [target.id])
+
+      #expect(source.view.windowIDs.isEmpty)
+      #expect(destination.windowIDs == [target.id])
+      #expect(destination.windowIDs.filter { $0 == target.id }.count == 1)
+      #expect(wm.managedView(for: target) === destination)
+      #expect(!source.view.isDirty)
+      #expect(!destination.isDirty)
+    }
+
+    @Test func reconciliationSkipsWindowsThatShouldNotBeManaged() {
+      let workspace = Workspace()
+      let wm = WindowManager.shared
+
+      let unrooted = Window(id: wid(4))
+      unrooted.application = workspace.application
+      unrooted.isManagedByRule = true
+      wm.window[unrooted.id] = unrooted
+
+      let floating = Window(id: wid(5))
+      floating.application = workspace.application
+      floating.isRoot = true
+      floating.isManagedByRule = true
+      floating.isFloating = true
+      wm.window[floating.id] = floating
+
+      wm.reconcileWindows(on: workspace.view, against: [unrooted.id, floating.id, wid(6)])
+
+      #expect(workspace.view.windowIDs.isEmpty)
+      #expect(wm.managedView(for: unrooted) == nil)
+      #expect(wm.managedView(for: floating) == nil)
+      #expect(!workspace.view.isDirty)
+      #expect(Headless.drain().messages.isEmpty)
+    }
+
     @Test func reconciliationUntilesAWindowGoneFromItsSpace() {
       let workspace = tiledWorkspace()
       let wm = WindowManager.shared

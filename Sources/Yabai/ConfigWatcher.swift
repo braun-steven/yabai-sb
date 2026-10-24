@@ -19,30 +19,40 @@ import YabaiCore
 // The watch is off while the applied document sets `auto_reload = false`, and on when no document is applied (the startup
 // file was invalid or missing, so fixing it applies it; ConfigLoader.autoReload).
 //
-// In headless mode (the tests) the watch never opens a file: the tests call fileChanged, which does the same work.
+// In headless mode the shared watch never opens a directory. Lifecycle tests inject a directory source and scheduler,
+// then call fileChanged after advancing their virtual delayed-event queue.
 //
 
 /// The queue of the directory events. It only posts events, and it closes the descriptor of a cancelled watch.
 private let configWatchQueue = DispatchQueue(label: "yabai.config.watch")
 
 /// The device and inode of a directory: a directory that was removed and created again has another one.
-private struct DirectoryIdentity: Equatable {
+struct ConfigWatchDirectoryIdentity: Equatable, Sendable {
   let device: dev_t
   let inode: ino_t
+
+  init(device: dev_t, inode: ino_t) {
+    self.device = device
+    self.inode = inode
+  }
+
+  init?(at path: String) {
+    var info = stat()
+    guard stat(path, &info) == 0 else { return nil }
+    self.init(device: info.st_dev, inode: info.st_ino)
+  }
 }
 
-/// The identity of the directory at `path`, or nil when it does not exist.
-private func directoryIdentity(at path: String) -> DirectoryIdentity? {
-  var info = stat()
-  guard stat(path, &info) == 0 else { return nil }
-  return DirectoryIdentity(device: info.st_dev, inode: info.st_ino)
+/// A directory event source and its cancellation. The identity comes from the opened descriptor.
+struct ConfigWatchRegistration {
+  let identity: ConfigWatchDirectoryIdentity
+  let cancel: () -> Void
 }
 
 /// A directory the watch is open on.
 private struct OpenWatch {
   let path: String
-  let identity: DirectoryIdentity
-  let source: any DispatchSourceFileSystemObject
+  let registration: ConfigWatchRegistration
 }
 
 /// How long a directory that cannot be opened waits before it is tried again.
@@ -55,14 +65,43 @@ private let configWatchDebounce: Duration = .milliseconds(200)
 @WM final class ConfigWatcher {
   static let shared = ConfigWatcher()
 
+  private let allowsWatchingInHeadless: Bool
+  private let watchDirectory:
+    @WM (
+      String, @escaping @Sendable () -> Void
+    ) -> ConfigWatchRegistration?
+  private let postDelayedChange: @Sendable (Duration, EventLoop.DelayedEventKey) -> Void
+
   /// The open watches: one per directory of ConfigWatch.directories, at most two.
   private var watches: [OpenWatch] = []
+
+  init() {
+    allowsWatchingInHeadless = false
+    watchDirectory = { path, onEvent in Self.openWatch(path, onEvent: onEvent) }
+    postDelayedChange = { delay, key in
+      EventLoop.post(.configFileChanged, after: delay, key: key)
+    }
+  }
+
+  /// The injected source and scheduler let lifecycle tests run in headless mode without waiting for timers.
+  init(
+    allowsWatchingInHeadless: Bool,
+    watchDirectory:
+      @escaping @WM (
+        String, @escaping @Sendable () -> Void
+      ) -> ConfigWatchRegistration?,
+    postDelayedChange: @escaping @Sendable (Duration, EventLoop.DelayedEventKey) -> Void
+  ) {
+    self.allowsWatchingInHeadless = allowsWatchingInHeadless
+    self.watchDirectory = watchDirectory
+    self.postDelayedChange = postDelayedChange
+  }
 
   /// Opens the watches on the directories of the daemon's file when auto-reload is on, and closes them when it is off. It
   /// also reopens a directory after it was removed or replaced, and moves the second watch when a symlink is re-pointed.
   /// Called after each load and each event; a directory that cannot be opened is retried later.
   func sync() {
-    guard !Headless.isEnabled else { return }
+    guard allowsWatchingInHeadless || !Headless.isEnabled else { return }
 
     guard ConfigLoader.shared.autoReload, let path = ConfigLoader.shared.filePath else {
       stop()
@@ -74,25 +113,33 @@ private let configWatchDebounce: Duration = .milliseconds(200)
     // Keep the open watches whose directory is still wanted and still the same directory; close the others.
     var kept: [OpenWatch] = []
     for watch in watches {
-      if wanted.contains(watch.path), directoryIdentity(at: watch.path) == watch.identity {
+      if wanted.contains(watch.path),
+        ConfigWatchDirectoryIdentity(at: watch.path) == watch.registration.identity
+      {
         kept.append(watch)
       } else {
-        watch.source.cancel()
+        watch.registration.cancel()
       }
     }
 
     var retry = false
     for directoryPath in wanted where !kept.contains(where: { $0.path == directoryPath }) {
       // Two spellings of one directory (a relative path and its target) share one watch.
-      guard let identity = directoryIdentity(at: directoryPath) else {
+      guard let identity = ConfigWatchDirectoryIdentity(at: directoryPath) else {
         Logger.daemon.debug("config watch: \(directoryPath) does not exist; retrying")
         retry = true
         continue
       }
-      if kept.contains(where: { $0.identity == identity }) { continue }
+      if kept.contains(where: { $0.registration.identity == identity }) { continue }
 
-      if let opened = openWatch(directoryPath) {
-        kept.append(opened)
+      let postDelayedChange = postDelayedChange
+      if let registration = watchDirectory(
+        directoryPath,
+        {
+          postDelayedChange(configWatchDebounce, .configReload)
+        })
+      {
+        kept.append(OpenWatch(path: directoryPath, registration: registration))
       } else {
         retry = true
       }
@@ -100,14 +147,14 @@ private let configWatchDebounce: Duration = .milliseconds(200)
 
     watches = kept
     if retry {
-      EventLoop.post(.configFileChanged, after: configWatchRetry, key: .configReload)
+      postDelayedChange(configWatchRetry, .configReload)
     }
   }
 
   /// Closes the watches, if any are open. The cancel handlers close the descriptors.
   func stop() {
     for watch in watches {
-      watch.source.cancel()
+      watch.registration.cancel()
     }
     watches = []
   }
@@ -149,7 +196,9 @@ private let configWatchDebounce: Duration = .milliseconds(200)
   }
 
   /// Opens a directory and watches its writes, renames and deletes. Nil when it cannot be opened.
-  private func openWatch(_ directoryPath: String) -> OpenWatch? {
+  private static func openWatch(
+    _ directoryPath: String, onEvent: @escaping @Sendable () -> Void
+  ) -> ConfigWatchRegistration? {
     let descriptor = open(directoryPath, O_EVTONLY)
     guard descriptor >= 0 else {
       Logger.daemon.debug("config watch: cannot open \(directoryPath); retrying")
@@ -157,20 +206,20 @@ private let configWatchDebounce: Duration = .milliseconds(200)
     }
 
     var info = stat()
-    fstat(descriptor, &info)
+    guard fstat(descriptor, &info) == 0 else {
+      close(descriptor)
+      return nil
+    }
 
     let source = DispatchSource.makeFileSystemObjectSource(
       fileDescriptor: descriptor, eventMask: [.write, .rename, .delete], queue: configWatchQueue)
-    source.setEventHandler {
-      EventLoop.post(.configFileChanged, after: configWatchDebounce, key: .configReload)
-    }
+    source.setEventHandler(handler: onEvent)
     source.setCancelHandler { close(descriptor) }
     source.resume()
 
-    return OpenWatch(
-      path: directoryPath,
-      identity: DirectoryIdentity(device: info.st_dev, inode: info.st_ino),
-      source: source)
+    return ConfigWatchRegistration(
+      identity: ConfigWatchDirectoryIdentity(device: info.st_dev, inode: info.st_ino),
+      cancel: { source.cancel() })
   }
 }
 

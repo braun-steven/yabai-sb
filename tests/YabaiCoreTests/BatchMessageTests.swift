@@ -228,6 +228,9 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
       ("# a comment\n\n   \n  space --focus 1 # tail\n", [["space", "--focus", "1"]]),
       ("window --label ''\n", [["window", "--label", ""]]),
       ("window --label a\\ b 'c d' \"e\"\n", [["window", "--label", "a b", "c d", "e"]]),
+      ("window --label ';*?['\n", [["window", "--label", ";*?["]]),
+      ("window --label \\;\\*\\?\\[\n", [["window", "--label", ";*?["]]),
+      ("window --label \"\\$HOME\"\n", [["window", "--label", "$HOME"]]),
       ("config \\\n    layout bsp\n", [["config", "layout", "bsp"]]),
       (
         "space --focus 1\r\nspace --focus 2",
@@ -248,6 +251,7 @@ private func parsedInput(_ text: String) -> Result<[[String]], BatchInputError> 
   @Test(
     arguments: [
       ("space --focus $ID\n", 1, "dynamic shell"),
+      ("window --label \"$HOME\"\n", 1, "dynamic shell"),
       ("space --focus 1\n\nspace --focus `id`\n", 3, "dynamic shell"),
       ("space --focus 1; space --focus 2\n", 1, "dynamic shell"),
       ("window --label *\n", 1, "dynamic shell"),

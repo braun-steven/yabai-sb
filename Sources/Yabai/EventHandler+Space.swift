@@ -5,6 +5,16 @@ import Logging
 import SortedCollections
 import YabaiCore
 
+struct SpaceChangeSnapshot: Sendable {
+  var activeSpace: SpaceID?
+}
+
+struct DisplayChangeSnapshot: Sendable {
+  var activeDisplay: DisplayID?
+  var currentSpace: SpaceID?
+  var currentSpaceDisplay: DisplayID?
+}
+
 //
 // NOTE: The handlers of space and display events: spaces created, destroyed and changed, and displays
 // added, removed, moved and resized.
@@ -75,24 +85,67 @@ extension EventHandler {
   }
 
   func spaceChanged() {
-    DisplayManager.shared.invalidateSpaceCaches()
+    spaceChanged(
+      snapshot: { SpaceChangeSnapshot(activeSpace: SpaceID.active) },
+      invalidateSpaceCaches: { DisplayManager.shared.invalidateSpaceCaches() },
+      refreshCurrentSpace: { refreshCurrentSpace() },
+      pushSignal: { EventSignals.shared.push($0) })
+  }
+
+  /// Applies a space change using an injectable snapshot and effects so headless tests do not query SkyLight.
+  func spaceChanged(
+    snapshot: () -> SpaceChangeSnapshot,
+    invalidateSpaceCaches: () -> Void,
+    refreshCurrentSpace: () -> Void,
+    pushSignal: (SignalType) -> Void
+  ) {
+    invalidateSpaceCaches()
+    let change = snapshot()
     let sm = SpaceManager.shared
 
     sm.lastSpaceID = sm.currentSpaceID
-    sm.currentSpaceID = SpaceID.active
+    sm.currentSpaceID = change.activeSpace
 
     Logger.events.debug("space changed: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))")
     refreshCurrentSpace()
 
-    EventSignals.shared.push(.spaceChanged)
+    pushSignal(.spaceChanged)
   }
 
   func displayChanged() {
-    DisplayManager.shared.invalidateSpaceCaches()
+    displayChanged(
+      snapshot: {
+        let dm = DisplayManager.shared
+        let activeDisplay = DisplayID.active
+        guard dm.currentDisplayID != activeDisplay else {
+          return DisplayChangeSnapshot(
+            activeDisplay: activeDisplay, currentSpace: nil, currentSpaceDisplay: nil)
+        }
+
+        let currentSpace = activeDisplay.flatMap { $0.currentSpace }
+        return DisplayChangeSnapshot(
+          activeDisplay: activeDisplay,
+          currentSpace: currentSpace,
+          currentSpaceDisplay: currentSpace.flatMap { $0.display })
+      },
+      invalidateSpaceCaches: { DisplayManager.shared.invalidateSpaceCaches() },
+      refreshCurrentSpace: { refreshCurrentSpace() },
+      pushSignal: { EventSignals.shared.push($0) })
+  }
+
+  /// Applies a display change from a sampled snapshot; injected effects keep headless tests off SkyLight.
+  func displayChanged(
+    snapshot: () -> DisplayChangeSnapshot,
+    invalidateSpaceCaches: () -> Void,
+    refreshCurrentSpace: () -> Void,
+    pushSignal: (SignalType) -> Void
+  ) {
+    invalidateSpaceCaches()
+    let change = snapshot()
     let dm = DisplayManager.shared
     let sm = SpaceManager.shared
 
-    let newDid = DisplayID.active
+    let newDid = change.activeDisplay
     if dm.currentDisplayID == newDid {
       Logger.events.debug(
         "display changed: newly activated display \(dm.currentDisplayID?.rawValue ?? 0) was already active (\(newDid?.rawValue ?? 0)), ignoring event"
@@ -104,9 +157,9 @@ extension EventHandler {
     dm.currentDisplayID = newDid
 
     sm.lastSpaceID = sm.currentSpaceID
-    sm.currentSpaceID = dm.currentDisplayID.flatMap { $0.currentSpace }
+    sm.currentSpaceID = change.currentSpace
 
-    let expectedDisplayID = sm.currentSpaceID.flatMap { $0.display }
+    let expectedDisplayID = change.currentSpaceDisplay
     if dm.currentDisplayID != expectedDisplayID {
       Logger.events.debug(
         "display changed: \(dm.currentDisplayID?.rawValue ?? 0) \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0)) did not match \(expectedDisplayID?.rawValue ?? 0), ignoring event"
@@ -119,7 +172,7 @@ extension EventHandler {
     )
     refreshCurrentSpace()
 
-    EventSignals.shared.push(.displayChanged)
+    pushSignal(.displayChanged)
   }
 
   func displayAdded(_ did: DisplayID) {

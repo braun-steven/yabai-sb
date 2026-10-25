@@ -29,7 +29,7 @@ jobs:
   # scripts/ci.sh quick: debug build, CLI smoke checks, Python harness tests, then the Swift tests.
   quick:
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Install just
@@ -40,8 +40,9 @@ jobs:
           xcrun --sdk macosx --show-sdk-version
       - name: Build and test
         run: just ci-quick
-      - name: Upload logs of a failed run
-        if: failure()
+      # Runs after a timeout or cancel too: the step logs are the only record of which test was running.
+      - name: Upload step logs
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ci-logs

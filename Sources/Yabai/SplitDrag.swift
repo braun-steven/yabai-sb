@@ -43,11 +43,7 @@ enum SplitDragCache {
   nonisolated static func startsSplitDrag(at point: CGPoint) -> Bool {
     guard let tiledWindowIDs = gapTiledWindowIDs(at: point) else { return false }
 
-    var (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: nil, order: 1)
-    while let current = found, owner == SLS.connection {
-      (found, owner) = SLS.findWindow(SLS.connection, at: point, startingAt: current, order: -1)
-    }
-
+    let found = SLS.topWindow(at: point, skipping: SLS.connection)
     return startsDrag(windowUnderPoint: found, level: found?.level, tiledWindowIDs: tiledWindowIDs)
   }
 

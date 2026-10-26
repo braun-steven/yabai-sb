@@ -411,6 +411,16 @@ enum SLS {
     return (WindowID(nonzero: wid), owner)
   }
 
+  /// The topmost window at the point that another connection than `cid` owns: the windows of `cid` (yabai's borders
+  /// and tab bars) are skipped. Nil when there is none.
+  static func topWindow(at point: CGPoint, skipping cid: Int32) -> WindowID? {
+    var (found, owner) = findWindow(cid, at: point, startingAt: nil, order: 1)
+    while let current = found, owner == cid {
+      (found, owner) = findWindow(cid, at: point, startingAt: current, order: -1)
+    }
+    return found
+  }
+
   //
   // NOTE: SkyLight does not export two functions that yabai calls. They are in its symbol table, so they are found with
   // MachOSymbol.address(of:inImage:). Each one resolves on first use, and Daemon.run reads both at startup to log the

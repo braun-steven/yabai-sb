@@ -389,6 +389,14 @@ extension EventHandler {
     return ids
   }
 
+  /// Warps the cursor back to where it was before the focus click of an empty display (`DisplayID.focusDesktop`).
+  func focusClickCursorRestore() {
+    let ms = MouseState.shared
+    guard let point = ms.focusClickRestorePoint else { return }
+    ms.focusClickRestorePoint = nil
+    CGWarpMouseCursorPosition(point)
+  }
+
   func mouseMoved(_ event: CGEvent) {
     let wm = WindowManager.shared
 

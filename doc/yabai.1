@@ -315,7 +315,7 @@ The menubar will automatically become fully opaque upon entering a native\-fulls
 .sp
 \fBmouse_follows_focus\fP [\fI<BOOL_SEL>\fP]
 .RS 4
-When focusing a window, put the mouse at its center.
+When focusing a window, put the mouse at its center. When focusing a display or space without a window to focus, put the mouse at the center of the display.
 .RE
 .sp
 \fBfocus_follows_mouse\fP [\fIautofocus|autoraise|off\fP]
@@ -740,7 +740,7 @@ yabai \-m display [\fI<DISPLAY_SEL\fP>] \fI<COMMAND>\fP
 .RS 4
 Focus the given display.
 .br
-Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway\(cqs \fIfocus output\fP. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself.
+Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway\(cqs \fIfocus output\fP. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself: yabai clicks its desktop (the centre, or another point when a window covers it; no click when every point is covered or the space is already focused), so Finder becomes the frontmost application. The cursor returns to where it was, or stays at the centre of the display with \fBmouse_follows_focus\fP on.
 .RE
 .sp
 \fB\-\-space\fP \fI<SPACE_SEL>\fP

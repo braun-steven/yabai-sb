@@ -70,6 +70,7 @@ extension Event {
     case .scriptingAdditionLoaded: "scriptingAdditionLoaded"
     case .spaceLayoutReconcile: "spaceLayoutReconcile"
     case .spacePinReconcile: "spacePinReconcile"
+    case .focusClickCursorRestore: "focusClickCursorRestore"
     case .daemonMessage: "daemonMessage"
     case .eventSubscriberRemoved: "eventSubscriberRemoved"
     }

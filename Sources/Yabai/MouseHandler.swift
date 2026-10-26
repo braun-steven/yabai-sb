@@ -97,6 +97,14 @@ enum SyntheticClick {
   static let userData: Int64 = 0x7961_6261_69
 }
 
+/// Whether the desktop is under point: no window of another connection, or one below the normal window level (the
+/// desktop picture and icons). The focus click (`FocusClick`) is only posted at such a point, so it never reaches a
+/// floating or sticky window, the Dock or a panel.
+func desktopIsUnder(_ point: CGPoint) -> Bool {
+  guard let wid = SLS.topWindow(at: point, skipping: SLS.connection) else { return true }
+  return wid.level < CGWindowLevelForKey(.normalWindow)
+}
+
 /// Clicks the left button at point, to focus a display or a space. The caller has moved the cursor to point.
 func postFocusClick(at point: CGPoint) {
   for type in [CGEventType.leftMouseDown, CGEventType.leftMouseUp] {
@@ -203,6 +211,10 @@ final class MouseTapState {
   var runLoopSource: CFRunLoopSource?
 
   var currentAction = MouseAction.none
+  /// Where the cursor goes back once the focus click of an empty display is handled (`FocusClick`); nil when no
+  /// restore is pending. A focus click while one is pending keeps this point, so the cursor returns to where it was
+  /// before the first one.
+  var focusClickRestorePoint: CGPoint?
   /// The button number of the mouse down that started currentAction.
   var actionButton: Int64 = 0
   var downLocation = CGPoint.zero

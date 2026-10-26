@@ -126,6 +126,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
+### Fixed
+- Focusing a display or space with no window to focus (*display --focus*, *space --focus*, *window --focus <dir>* across displays) puts the cursor back where it was after the click on its desktop, unless *mouse_follows_focus* is on; it was left at the centre of the display. The click goes to a point of the desktop that no window covers, and is skipped when there is none
+
 ## [7.1.25] - 2026-05-08
 ### Changed
 - Functionality for moving windows between spaces works with SIP enabled again [#2788](https://github.com/asmvik/yabai/issues/2788)

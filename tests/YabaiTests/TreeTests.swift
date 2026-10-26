@@ -36,6 +36,56 @@ import YabaiTestSupport
   return target
 }
 
+/// Builds a tree from a sketch like `V[1 H[2 3]]` (H splith, V splitv, T tabbed, n the window `wid(n)`).
+@WM private func treeSketch(_ sketch: String) -> Con {
+  var tokens = sketch.replacingOccurrences(of: "[", with: "[ ").replacingOccurrences(
+    of: "]", with: " ]"
+  )
+  .split(separator: " ").map(String.init)[...]
+  let layouts: [String: ConLayout] = ["H[": .splitH, "V[": .splitV, "T[": .tabbed]
+  let root = Con(layout: layouts[tokens.removeFirst()]!)
+  var stack = [root]
+
+  for token in tokens {
+    if token == "]" {
+      stack.removeLast()
+    } else if let layout = layouts[token] {
+      stack.append(treeTestSplit(stack.last!, layout))
+    } else {
+      treeTestLeaf(stack.last!, wid(UInt32(token)!))
+    }
+  }
+
+  return root
+}
+
+/// The sketch of a tree, in the notation of treeSketch.
+@WM private func treeSketch(of node: Con) -> String {
+  if let windowID = node.windowID { return String(windowID.rawValue - treeTestWindowBase) }
+  let name = node.layout == .splitH ? "H" : node.layout == .splitV ? "V" : "T"
+  return name + "[" + node.children.map { treeSketch(of: $0) }.joined(separator: " ") + "]"
+}
+
+/// The leaf of the window `wid(n)` in the tree.
+@WM private func treeLeaf(_ node: Con, _ n: UInt32) -> Con? {
+  if node.windowID == wid(n) { return node }
+  return node.children.lazy.compactMap { treeLeaf($0, n) }.first
+}
+
+/// A directional move from a sketched tree: the moved window, whether a display lies that way, and the result.
+struct TreeMoveRow: Sendable, CustomTestStringConvertible {
+  var tree: String
+  var window: UInt32
+  var direction: Direction
+  var hasOutput: Bool
+  var result: TreeResult
+  var expected: String
+
+  var testDescription: String {
+    "\(tree) \(window) \(direction)\(hasOutput ? " output" : ""): \(result) \(expected)"
+  }
+}
+
 extension DaemonState {
   @Suite
   @WM struct TreeTests {
@@ -287,6 +337,72 @@ extension DaemonState {
       #expect(root.children.count == 1)
       #expect(treeTestChild(root.children[0], 0) == 1)
       #expect(treeTestChild(root.children[0], 1) == 2)
+
+      root.destroy()
+    }
+
+    //
+    // NOTE: sway container_move_in_direction. A move across the layout of the workspace re-orients it and
+    // places the window next to the wrapped children (first moving west or north, last moving east or south),
+    // even with a display that way. Only a move along the layout at the edge of the workspace, or the lone child
+    // of the workspace or of a container at its edge, goes to the display.
+    //
+
+    @Test(
+      "tree_move_edge",
+      arguments: [
+        TreeMoveRow(
+          tree: "V[1 2]", window: 1, direction: .west, hasOutput: true, result: .done,
+          expected: "H[1 V[2]]"),
+        TreeMoveRow(
+          tree: "V[1 2]", window: 1, direction: .east, hasOutput: true, result: .done,
+          expected: "H[V[2] 1]"),
+        TreeMoveRow(
+          tree: "V[1 2]", window: 2, direction: .west, hasOutput: false, result: .done,
+          expected: "H[2 V[1]]"),
+        TreeMoveRow(
+          tree: "H[1 2]", window: 1, direction: .north, hasOutput: true, result: .done,
+          expected: "V[1 H[2]]"),
+        TreeMoveRow(
+          tree: "H[1 2]", window: 2, direction: .south, hasOutput: true, result: .done,
+          expected: "V[H[1] 2]"),
+        TreeMoveRow(
+          tree: "T[1 2]", window: 1, direction: .north, hasOutput: true, result: .done,
+          expected: "V[1 T[2]]"),
+        TreeMoveRow(
+          tree: "V[1 H[2 3]]", window: 3, direction: .east, hasOutput: true, result: .done,
+          expected: "H[V[1 H[2]] 3]"),
+        TreeMoveRow(
+          tree: "H[1 V[2 3]]", window: 3, direction: .east, hasOutput: true, result: .done,
+          expected: "H[1 V[2] 3]"),
+        TreeMoveRow(
+          tree: "V[1]", window: 1, direction: .west, hasOutput: true, result: .output,
+          expected: "V[1]"),
+        TreeMoveRow(
+          tree: "V[1]", window: 1, direction: .west, hasOutput: false, result: .none,
+          expected: "V[1]"),
+        TreeMoveRow(
+          tree: "H[1 V[2]]", window: 2, direction: .east, hasOutput: true, result: .output,
+          expected: "H[1 V[2]]"),
+        TreeMoveRow(
+          tree: "H[1 2]", window: 2, direction: .east, hasOutput: true, result: .output,
+          expected: "H[1 2]"),
+        TreeMoveRow(
+          tree: "H[1 2]", window: 1, direction: .west, hasOutput: false, result: .none,
+          expected: "H[1 2]"),
+        TreeMoveRow(
+          tree: "V[1 2]", window: 2, direction: .south, hasOutput: true, result: .output,
+          expected: "V[1 2]"),
+        TreeMoveRow(
+          tree: "T[1 2]", window: 2, direction: .east, hasOutput: true, result: .output,
+          expected: "T[1 2]"),
+      ])
+    func treeMoveEdge(row: TreeMoveRow) throws {
+      let root = treeSketch(row.tree)
+      let node = try #require(treeLeaf(root, row.window))
+
+      #expect(node.move(row.direction, in: root, hasOutput: row.hasOutput) == row.result)
+      #expect(treeSketch(of: root) == row.expected)
 
       root.destroy()
     }

@@ -876,10 +876,13 @@ extension Con {
   // container_move_in_direction. Walks up from the container to the closest ancestor that is laid out
   // in the direction and has a neighbour there. The container swaps with a sibling window, moves into
   // a neighbouring container, or leaves its container at the edge and is placed next to the ancestor.
-  // When no ancestor is laid out in the direction, the workspace is re-oriented (ws_force_orientation).
-  // The result asks the caller to move the container to the display in that direction when it
-  // cannot move any further on this workspace, which is tried before re-orienting. A window zoomed
-  // to the whole view only moves to that display, like a fullscreen container in sway.
+  // When no ancestor is laid out in the direction, the workspace is re-oriented (ws_force_orientation)
+  // and the container is placed next to the wrapped children, even when there is a display that way,
+  // like sway does it. The result asks the caller to move the container to the display in that
+  // direction only when a move along the layout of the workspace reaches its edge, or for the lone
+  // child of the workspace or of a container at its edge, like i3 (sway first re-orients a workspace
+  // whose lone window moves across its layout).
+  // A window zoomed to the whole view only moves to that display, like a fullscreen container in sway.
   //
 
   func move(_ direction: Direction, in root: Con, hasOutput: Bool) -> TreeResult {
@@ -898,7 +901,6 @@ extension Con {
 
     while true {
       guard let parent = current.parent else {
-        if hasOutput { return .output }
         current = root.forceOrientation(orientation)
         wrapped = true
         continue

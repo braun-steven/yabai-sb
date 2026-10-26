@@ -972,6 +972,8 @@ Send the selected window to the given space, placed and with focus as for \fB\-\
 \fB\-\-swap\fP \fI<WINDOW_SEL>\fP
 .RS 4
 Swap position of the selected window and the given window.
+.br
+When one of the two has focus and they are on different spaces, focus goes to the other one, which now takes its place, so focus stays on the same space and display, like sway; on the same space the focused window keeps focus. A window swapped in for the active tab of a tabbed container becomes the active tab. The same holds for a window dropped on the center of another with \fBmouse_drop_action\fP \fIswap\fP.
 .RE
 .sp
 \fB\-\-warp\fP \fI<WINDOW_SEL>\fP

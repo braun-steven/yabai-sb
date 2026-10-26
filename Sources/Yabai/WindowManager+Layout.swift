@@ -127,6 +127,21 @@ extension WindowManager {
     }
   }
 
+  //
+  // NOTE: sway swap_focus. When the focused window swaps with a window of another space, focus goes to the partner,
+  // which now sits where the focused window was, so focus stays on the same space and display. Within one space focus
+  // stays on the focused window, which moves with it. Con.swap gives the swapped-in container the slot of the other
+  // in the focus order of its parent, so in a tabbed container it shows as the active tab when the other was, as sway
+  // does by focusing it first; treeApply then makes the focused window the active tab of its new container.
+  //
+
+  func swapFocusTarget(_ a: WindowID, _ b: WindowID, acrossSpaces: Bool) -> WindowID? {
+    guard acrossSpaces else { return nil }
+    if focus.focused == a { return b }
+    if focus.focused == b { return a }
+    return nil
+  }
+
   func swapWindow(_ a: Window, _ b: Window) throws(WindowOperationError) {
     if a.id == b.id { throw .sameWindow }
 
@@ -140,6 +155,7 @@ extension WindowManager {
     guard let aCon else { throw .invalidSourceNode }
     guard let bCon else { throw .invalidDestinationNode }
 
+    let focusTarget = swapFocusTarget(a.id, b.id, acrossSpaces: aView != bView)
     guard aCon.swap(with: bCon) else { throw .invalidDestinationNode }
 
     if aView != bView {
@@ -151,5 +167,6 @@ extension WindowManager {
     }
 
     treeApply(aView)
+    focusWindow(id: focusTarget)
   }
 }

@@ -132,3 +132,26 @@ import YabaiTestSupport
   var emptyParent: [WindowID?] = []
   #expect(WindowManager.collectChildWindows(1, parents: &emptyParent, children: []).isEmpty)
 }
+
+//
+// NOTE: sway swap_focus: a swap across spaces hands focus to the partner, which takes the focused window's place; a
+// swap within a space, or one that leaves the focused window out, keeps the focus where it is.
+//
+
+@Test(
+  "window_swap_focus_target",
+  arguments: [
+    (focused: WindowID?(0xFFFF_0001), acrossSpaces: true, expected: WindowID?(0xFFFF_0002)),
+    (focused: WindowID?(0xFFFF_0002), acrossSpaces: true, expected: WindowID?(0xFFFF_0001)),
+    (focused: WindowID?(0xFFFF_0003), acrossSpaces: true, expected: nil),
+    (focused: nil, acrossSpaces: true, expected: nil),
+    (focused: WindowID?(0xFFFF_0001), acrossSpaces: false, expected: nil),
+    (focused: WindowID?(0xFFFF_0002), acrossSpaces: false, expected: nil),
+  ])
+@WM func windowSwapFocusTarget(focused: WindowID?, acrossSpaces: Bool, expected: WindowID?) {
+  let wm = windowManagerCreate()
+  defer { windowManagerFree(wm) }
+
+  wm.focus.focusChanged(to: focused)
+  #expect(wm.swapFocusTarget(0xFFFF_0001, 0xFFFF_0002, acrossSpaces: acrossSpaces) == expected)
+}

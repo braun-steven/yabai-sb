@@ -606,6 +606,24 @@ extension DaemonState {
       root.destroy()
     }
 
+    @Test("tree_swap_takes_active_tab")
+    func treeSwapTakesActiveTab() {
+      // H[ T[ 1 2 ] 3 ]: the window swapped in for the active tab is the active tab, as sway's swap_focus shows it
+      let root = Con(layout: .splitH)
+      let t = treeTestSplit(root, .tabbed)
+      let a = treeTestLeaf(t, 1)
+      let b = treeTestLeaf(t, 2)
+      let c = treeTestLeaf(root, 3)
+
+      b.focus()
+      a.focus()
+      #expect(a.swap(with: c))
+      #expect(treeTestWindow(t.focusedDescendant) == 3)
+      #expect(t.children == [c, b])
+
+      root.destroy()
+    }
+
     @Test("tree_focus_candidate")
     func treeFocusCandidate() {
       // H[ 1 T[ 2 3 ] ]: closing the active tab focuses the tab focused before it

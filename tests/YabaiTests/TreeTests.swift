@@ -86,6 +86,19 @@ struct TreeMoveRow: Sendable, CustomTestStringConvertible {
   }
 }
 
+/// A container arriving from another display: the tree there, its focused window, the direction of the move, and the
+/// result.
+struct TreeAttachRow: Sendable, CustomTestStringConvertible {
+  var tree: String
+  var focus: UInt32?
+  var direction: Direction
+  var expected: String
+
+  var testDescription: String {
+    "\(tree) \(focus.map(String.init) ?? "-") \(direction): \(expected)"
+  }
+}
+
 extension DaemonState {
   @Suite
   @WM struct TreeTests {
@@ -799,12 +812,12 @@ extension DaemonState {
       root.attach(t, from: .west)
       #expect(root.children[2] == t)
 
-      // across it, it arrives next to the window focused there
+      // across it, it arrives next to the window focused there, before it moving south
       t.detach()
       x.focus()
       root.attach(t, from: .south)
       #expect(root.children.count == 3)
-      #expect(root.children[1] == t)
+      #expect(root.children[0] == t)
 
       // an empty workspace takes it as it is
       let empty = Con(layout: .splitH)
@@ -814,6 +827,45 @@ extension DaemonState {
       #expect(percent(t) == 100)
 
       empty.destroy()
+      root.destroy()
+    }
+
+    //
+    // NOTE: sway container_move_to_workspace_from_direction. Window 9 arrives from another display, moving in the
+    // direction, after window `focus` was focused. Along a layout it is first moving east or south and last moving
+    // west or north; next to a window it is before it moving east or south and after it moving west or north.
+    //
+
+    @Test(
+      "tree_attach_from_direction_position",
+      arguments: [
+        TreeAttachRow(tree: "H[1 2]", focus: 2, direction: .east, expected: "H[9 1 2]"),
+        TreeAttachRow(tree: "H[1 2]", focus: 1, direction: .west, expected: "H[1 2 9]"),
+        TreeAttachRow(tree: "V[1 2]", focus: 2, direction: .east, expected: "V[1 9 2]"),
+        TreeAttachRow(tree: "V[1 2]", focus: 1, direction: .west, expected: "V[1 9 2]"),
+        TreeAttachRow(tree: "H[1 2]", focus: 1, direction: .south, expected: "H[9 1 2]"),
+        TreeAttachRow(tree: "H[1 2]", focus: 2, direction: .north, expected: "H[1 2 9]"),
+        TreeAttachRow(tree: "V[T[1 2] 3]", focus: 1, direction: .west, expected: "V[T[1 2 9] 3]"),
+        TreeAttachRow(tree: "H[T[1 2] 3]", focus: 1, direction: .south, expected: "H[T[9 1 2] 3]"),
+        TreeAttachRow(tree: "H[T[1 2] 3]", focus: 1, direction: .north, expected: "H[T[1 9 2] 3]"),
+        TreeAttachRow(
+          tree: "V[1 H[V[2 3] 4]]", focus: 2, direction: .east, expected: "V[1 H[9 V[2 3] 4]]"),
+        TreeAttachRow(
+          tree: "V[1 H[4 V[2 3]]]", focus: 2, direction: .west, expected: "V[1 H[4 V[2 3] 9]]"),
+        TreeAttachRow(
+          tree: "H[T[H[1 2] 3] 4]", focus: 2, direction: .south, expected: "H[T[H[1 9 2] 3] 4]"),
+        TreeAttachRow(
+          tree: "H[T[H[1 2] 3] 4]", focus: 2, direction: .north, expected: "H[T[H[1 2 9] 3] 4]"),
+        TreeAttachRow(tree: "H[]", focus: nil, direction: .east, expected: "H[9]"),
+        TreeAttachRow(tree: "V[]", focus: nil, direction: .west, expected: "V[9]"),
+      ])
+    func treeAttachFromDirectionPosition(row: TreeAttachRow) throws {
+      let root = treeSketch(row.tree)
+      if let focus = row.focus { try #require(treeLeaf(root, focus)).focus() }
+
+      root.attach(treeTestCon(wid(9)), from: row.direction)
+      #expect(treeSketch(of: root) == row.expected)
+
       root.destroy()
     }
 

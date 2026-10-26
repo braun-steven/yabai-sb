@@ -1059,9 +1059,11 @@ extension Con {
 
   //
   // NOTE: sway container_move_to_workspace_from_direction. A container that moves here from the display
-  // in the opposite direction keeps its structure and arrives on the near side: first or last on a
-  // workspace laid out in the direction, and otherwise next to the window focused there, entered
-  // from that side like a neighbouring container in move(_:in:hasOutput:).
+  // in the opposite direction keeps its structure and arrives on the near side: first (moving east or
+  // south) or last (moving west or north) in the workspace when it is laid out in the direction.
+  // Otherwise it follows the focus history down to the first container laid out in the direction
+  // (tabbed counts as horizontal), and arrives first or last in it, or to a window, and arrives before
+  // it moving east or south and after it moving west or north (container_move_to_container_from_direction).
   //
   // A window zoomed to the whole view arrives like a fullscreen container in sway
   // (container_move_to_workspace): it is appended to the workspace and stays zoomed, and a window
@@ -1076,21 +1078,20 @@ extension Con {
       return
     }
 
-    if children.count == 0 || orientation == direction.orientation {
-      node.percent = 0.0
-      insert(node, at: direction.isBackward ? nil : 0, focusIndex: Con.focusHead)
-      fixPercent()
-      node.applyWorkspaceLayout()
-      return
+    var parent = self
+    while parent.children.count != 0 && parent.orientation != direction.orientation {
+      let child = parent.focusOrder[0]
+      if child.isLeaf {
+        node.place(direction.isBackward ? .after : .before, of: child)
+        return
+      }
+      parent = child
     }
 
-    let target = descend(direction)
-    guard let targetParent = target.parent else {
-      Logger.tree.error("container to enter is missing from the tree")
-      return
-    }
-    let after = targetParent.orientation != direction.orientation || direction.isBackward
-    node.place(after ? .after : .before, of: target)
+    node.percent = 0.0
+    parent.insert(node, at: direction.isBackward ? nil : 0, focusIndex: Con.focusHead)
+    parent.fixPercent()
+    node.applyWorkspaceLayout()
   }
 
   //

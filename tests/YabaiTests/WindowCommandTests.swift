@@ -894,9 +894,8 @@ extension DaemonState {
       CommandCase(command: "--warp w1", failure: "the acting window is not managed.\n", result: ""),
       CommandCase(
         command: "w1 --warp w9", failure: "the selected window is not managed.\n", result: ""),
-      CommandCase(
-        command: "--warp east", failure: "could not locate an eastward managed window.\n",
-        result: ""),
+      // NOTE: `--warp <direction>` sends a window outside a tree to another display through the window server, so it
+      // has no row here (`CrossingDisplayTests` checks the display it picks).
       CommandCase(
         command: "--layout splitv", failure: "the acting window is not managed.\n", result: ""),
       CommandCase(

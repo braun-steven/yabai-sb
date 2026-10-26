@@ -210,10 +210,31 @@ extension WindowManager {
       break
     }
 
-    guard let did = DisplayID.active?.closestDisplay(in: direction) else {
+    guard let did = DisplayID.active?.crossingDisplay(in: direction) else {
       throw .invalidDestinationNode
     }
     focusDisplay(did, from: direction)
+  }
+
+  //
+  // NOTE: `window --warp <direction>` of a window outside a tree (floating, not yet tiled, on a float space, or one yabai
+  // could not manage) sends it to the current space of the display in the direction of its own display, as
+  // `window --display` does, and keeps it focused. There is no wrap, and a display showing a fullscreen space is refused
+  // as in the tree (`DisplayID.crossingDisplay(in:)`). sway moves a floating window by pixels instead
+  // (`move <direction>`) and gives it to the output under its center; here one binding warps tiled windows in the tree
+  // and every other window across displays.
+  //
+
+  /// Sends a window outside a tree to the display in a direction from its own display and focuses it. Throws when there
+  /// is no display in the direction, or it shows a fullscreen space or no space.
+  func warpToDisplay(_ target: Window, in direction: Direction) throws(WindowOperationError) {
+    guard let source = target.id.displayID else { throw .invalidSourceView }
+    guard let did = source.crossingDisplay(in: direction), let sid = did.currentSpace else {
+      throw .invalidDestinationNode
+    }
+    sendWindow(target, to: sid, movedByRule: false)
+    focusWithRaise(target)
+    setPendingFocus(target.id)
   }
 
   /// The window that commands act on: the pending focus, or else the focused window.

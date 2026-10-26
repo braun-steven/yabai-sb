@@ -1,4 +1,6 @@
 import Testing
+import YabaiCore
+import YabaiTestSupport
 
 @testable import Yabai
 
@@ -49,5 +51,39 @@ import Testing
   @Test(arguments: rows)
   func routeOutsideTree(_ row: Row) {
     #expect(WindowManager.directionalFocus(window: row.window, layout: row.layout) == row.route)
+  }
+}
+
+//
+// NOTE: Which display a directional command crosses to (`DisplayID.crossingDisplay(_:showsFullscreenSpace:)`): tree
+// focus and moves, `window --focus <direction>` and `window --warp <direction>` outside a tree all refuse a display
+// showing a fullscreen space, and none looks past it.
+//
+
+@Suite struct CrossingDisplayTests {
+  struct Row: Sendable, CustomTestStringConvertible {
+    let closest: DisplayID?
+    let fullscreen: Set<DisplayID>
+    let crossing: DisplayID?
+    let testDescription: String
+  }
+
+  static let rows: [Row] = [
+    Row(closest: nil, fullscreen: [], crossing: nil, testDescription: "no display that way"),
+    Row(
+      closest: 0xFFFF_0002, fullscreen: [], crossing: 0xFFFF_0002,
+      testDescription: "display with a user space"),
+    Row(
+      closest: 0xFFFF_0002, fullscreen: [0xFFFF_0002], crossing: nil,
+      testDescription: "display showing a fullscreen space"),
+    Row(
+      closest: 0xFFFF_0002, fullscreen: [0xFFFF_0003], crossing: 0xFFFF_0002,
+      testDescription: "a farther display shows a fullscreen space"),
+  ]
+
+  @Test(arguments: rows)
+  func crossingDisplay(_ row: Row) {
+    let crossing = DisplayID.crossingDisplay(row.closest) { row.fullscreen.contains($0) }
+    #expect(crossing == row.crossing)
   }
 }

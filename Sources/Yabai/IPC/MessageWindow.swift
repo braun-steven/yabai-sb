@@ -224,6 +224,13 @@ extension WindowCommand {
       } catch {
         throw CommandError("could not move the container in that direction.\n", stopsMessage: true)
       }
+    case .warp(.direction(let direction)):
+      do {
+        try wm.warpToDisplay(window, in: direction)
+      } catch {
+        throw CommandError(
+          "could not locate \(directionDescription(direction)) display.\n", stopsMessage: true)
+      }
     case .warp(let selector):
       let target = try selector.resolve(acting: window, context)
       do {

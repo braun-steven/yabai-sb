@@ -160,6 +160,27 @@ extension DisplayID {
     return Area(CGDisplayBounds(rawValue)).closest(in: direction, among: areas).map { others[$0] }
   }
 
+  //
+  // NOTE: The commands that cross to the display in a direction (tree focus and moves at the edge of a tree, and
+  // `window --focus <dir>` and `window --warp <dir>` outside a tree) refuse a display whose current space is a macOS
+  // fullscreen space, because that space cannot receive a moved window. They do not look past it to a farther display.
+  //
+
+  /// The display in a direction that a directional command crosses to: the nearest one, nil if there is none or when
+  /// its current space is a macOS fullscreen space.
+  func crossingDisplay(in direction: Direction) -> DisplayID? {
+    Self.crossingDisplay(closestDisplay(in: direction)) { $0.currentSpace?.isFullscreen == true }
+  }
+
+  /// The display that a directional command crosses to, given the nearest display in the direction (see
+  /// `crossingDisplay(in:)`).
+  static func crossingDisplay(
+    _ closest: DisplayID?, showsFullscreenSpace: (DisplayID) -> Bool
+  ) -> DisplayID? {
+    guard let closest, !showsFullscreenSpace(closest) else { return nil }
+    return closest
+  }
+
   /// The menu bar of the display: its bounds with the height of the menu bar.
   var menuBarRect: CGRect {
     //

@@ -5,16 +5,12 @@ import YabaiCore
 
 extension WindowManager {
   //
-  // NOTE: Tree navigation and moves can cross to a neighboring display. Fullscreen spaces are
-  // excluded because they cannot receive a moved container.
+  // NOTE: Tree navigation and moves can cross to a neighboring display, never to one showing a fullscreen space
+  // (`DisplayID.crossingDisplay(in:)`).
   //
 
   private func treeDisplay(in direction: Direction, from owner: View) -> DisplayID? {
-    guard let sourceDid = owner.sid.display,
-      let did = sourceDid.closestDisplay(in: direction)
-    else { return nil }
-    if let sid = did.currentSpace, sid.isFullscreen { return nil }
-    return did
+    owner.sid.display?.crossingDisplay(in: direction)
   }
 
   func treeActingCon(in owner: View, for target: Window) -> Con? {

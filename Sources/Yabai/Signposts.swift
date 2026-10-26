@@ -74,6 +74,7 @@ extension Event {
     case .spaceMoveFocusCheck: "spaceMoveFocusCheck"
     case .spaceMoveRefreshCheck: "spaceMoveRefreshCheck"
     case .displaySpacesRefresh: "displaySpacesRefresh"
+    case .ffmRecheck: "ffmRecheck"
     case .daemonMessage: "daemonMessage"
     case .eventSubscriberRemoved: "eventSubscriberRemoved"
     }

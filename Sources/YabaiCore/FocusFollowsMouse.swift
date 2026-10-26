@@ -64,3 +64,52 @@ public struct FFMDecision: Sendable, Equatable {
     !otherFrames.contains { $0.intersects(hitFrame) }
   }
 }
+
+//
+// NOTE: A move that a pending request holds is not looked at again by itself: when the pointer stops during a fast
+// sweep, its last move can be one of them, and focus stays on a window it only passed over. The first held move of a
+// request schedules one re-check of the pointer for the request timeout; when the request resolves first (its focus
+// event, or it is cleared), the re-check moves to at once. A move that goes on to its own checks makes the re-check
+// unnecessary. So a pending request causes at most one re-check, which looks at where the pointer is then.
+//
+
+/// The re-check of the pointer after a pending focus follows mouse request held a move.
+public struct FFMRecheck: Sendable, Equatable {
+  public enum State: Sendable, Equatable {
+    /// No held move waits for a re-check.
+    case idle
+    /// A held move waits; the re-check is scheduled for the request timeout.
+    case waiting
+    /// The request resolved; the re-check is scheduled at once.
+    case resolved
+  }
+
+  public private(set) var state = State.idle
+
+  public init() {}
+
+  /// A move is held by the request made at `requestedAt`. Returns the delay to schedule the re-check after for the
+  /// first held move of the request, nil when one is already scheduled.
+  public mutating func hold(
+    requestedAt: ContinuousClock.Instant, now: ContinuousClock.Instant
+  ) -> ContinuousClock.Duration? {
+    guard state == .idle else { return nil }
+    state = .waiting
+    return max(.zero, now.duration(to: requestedAt.advanced(by: ffmRequestTimeout)))
+  }
+
+  /// The pending request resolved. Returns the delay to schedule the re-check after (at once) when a held move waits
+  /// for it, nil otherwise.
+  public mutating func resolve() -> ContinuousClock.Duration? {
+    guard state == .waiting else { return nil }
+    state = .resolved
+    return .zero
+  }
+
+  /// A move went on to its own checks, or the re-check runs. Returns whether a re-check was scheduled: the move
+  /// cancels it, the re-check runs only then.
+  public mutating func finish() -> Bool {
+    defer { state = .idle }
+    return state != .idle
+  }
+}

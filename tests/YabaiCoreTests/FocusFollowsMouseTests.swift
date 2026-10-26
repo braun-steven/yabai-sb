@@ -149,3 +149,65 @@ struct FocusFollowsMouseTests {
     #expect(FFMDecision.isCacheable(hitFrame: hitFrame, otherFrames: otherFrames) == expected)
   }
 }
+
+@Suite("FFMRecheck")
+struct FFMRecheckTests {
+  private static let base = ContinuousClock.now
+
+  private static func instant(_ ms: Int) -> ContinuousClock.Instant {
+    base.advanced(by: .milliseconds(ms))
+  }
+
+  // NOTE: #expect cannot call a mutating method, so every result is taken first.
+
+  @Test("the first held move schedules the re-check for the rest of the request timeout")
+  func firstHoldSchedules() {
+    var recheck = FFMRecheck()
+    let first = recheck.hold(requestedAt: Self.base, now: Self.instant(120))
+    #expect(first == .milliseconds(380))
+    #expect(recheck.state == .waiting)
+    let second = recheck.hold(requestedAt: Self.base, now: Self.instant(200))
+    #expect(second == nil)
+    #expect(recheck.state == .waiting)
+  }
+
+  @Test("a hold past the timeout schedules at once")
+  func holdPastTimeout() {
+    var recheck = FFMRecheck()
+    let delay = recheck.hold(requestedAt: Self.base, now: Self.instant(700))
+    #expect(delay == .zero)
+  }
+
+  @Test("the resolved request brings the re-check forward once")
+  func resolveOnce() {
+    var recheck = FFMRecheck()
+    let unheld = recheck.resolve()
+    #expect(unheld == nil)
+    #expect(recheck.state == .idle)
+
+    _ = recheck.hold(requestedAt: Self.base, now: Self.base)
+    let resolved = recheck.resolve()
+    #expect(resolved == .zero)
+    #expect(recheck.state == .resolved)
+    let again = recheck.resolve()
+    #expect(again == nil)
+    let held = recheck.hold(requestedAt: Self.base, now: Self.base)
+    #expect(held == nil)
+  }
+
+  // Columns: a move was held, the request resolved, expected result of finish.
+  @Test(
+    "finish reports a scheduled re-check and goes idle",
+    arguments: [(false, false, false), (true, false, true), (true, true, true)]
+  )
+  func finish(held: Bool, resolved: Bool, expected: Bool) {
+    var recheck = FFMRecheck()
+    if held { _ = recheck.hold(requestedAt: Self.base, now: Self.base) }
+    if resolved { _ = recheck.resolve() }
+    let first = recheck.finish()
+    #expect(first == expected)
+    #expect(recheck.state == .idle)
+    let second = recheck.finish()
+    #expect(!second)
+  }
+}

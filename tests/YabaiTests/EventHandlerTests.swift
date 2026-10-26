@@ -573,3 +573,58 @@ func missionControlOverlay(owner: String, layer: Int, bounds: CGRect, expected: 
   let displays = [CGRect(x: 0, y: 0, width: 1512, height: 982)]
   #expect(MissionControl.containsOverlay([info], displays: displays) == expected)
 }
+
+extension DaemonState {
+  @Suite
+  @WM struct FocusFollowsMouseRecheckTests {
+    //
+    // NOTE: A move that a pending focus follows mouse request holds schedules one re-check, and the focus event of the
+    // request brings it forward. Only the held moves are driven here: a move that goes on hit tests the window server.
+    //
+
+    @Test func heldMoveWaitsAndTheFocusEventResolvesIt() {
+      let workspace = Workspace()
+      let target = workspace.open(1)
+      target.mouseFollowsFocusByRule = false
+      Config.current.window.focusFollowsMouse = .autofocus
+      MouseState.shared.ffmWindowID = target.id
+      defer { EventLoop.cancel(key: .ffmRecheck) }
+
+      EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 50, y: 50))
+      #expect(MouseState.shared.ffmRecheck.state == .waiting)
+
+      // a second held move of the same request schedules nothing new
+      EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 60, y: 50))
+      #expect(MouseState.shared.ffmRecheck.state == .waiting)
+
+      EventHandler.shared.windowDidReceiveFocus(target)
+      #expect(MouseState.shared.ffmWindowID == nil)
+      #expect(MouseState.shared.ffmRecheck.state == .resolved)
+    }
+
+    @Test func requestWithoutHeldMoveSchedulesNoRecheck() {
+      let workspace = Workspace()
+      let target = workspace.open(1)
+      target.mouseFollowsFocusByRule = false
+      Config.current.window.focusFollowsMouse = .autofocus
+      MouseState.shared.ffmWindowID = target.id
+
+      EventHandler.shared.windowDidReceiveFocus(target)
+      #expect(MouseState.shared.ffmRecheck.state == .idle)
+    }
+
+    @Test func disabledModeHoldsNothing() {
+      let workspace = Workspace()
+      let target = workspace.open(1)
+      MouseState.shared.ffmWindowID = target.id
+
+      EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 50, y: 50))
+      #expect(MouseState.shared.ffmRecheck.state == .idle)
+
+      // a re-check without a held move does nothing (and asks the window server nothing)
+      EventHandler.shared.ffmRecheck()
+      #expect(MouseState.shared.ffmRecheck.state == .idle)
+      MouseState.shared.ffmWindowID = nil
+    }
+  }
+}

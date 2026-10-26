@@ -226,12 +226,20 @@ final class MouseTapState {
   //
   // NOTE: The window of the focus follows mouse request in flight. Its time is stamped by the setter, so every place that
   // sets or clears the window (a focus event, teardown, forget, the front switch) also sets or clears the time.
+  // The end of a request also brings forward the re-check of a move it held (FFMRecheck).
   //
   var ffmWindowID: WindowID? {
-    didSet { ffmRequestTime = ffmWindowID == nil ? nil : ContinuousClock.now }
+    didSet {
+      ffmRequestTime = ffmWindowID == nil ? nil : ContinuousClock.now
+      if ffmWindowID == nil, let delay = ffmRecheck.resolve() {
+        EventLoop.post(.ffmRecheck, after: delay, key: .ffmRecheck)
+      }
+    }
   }
   /// When the focus follows mouse request in flight was made; nil when none is pending.
   private(set) var ffmRequestTime: ContinuousClock.Instant?
+  /// The re-check of the pointer after the request in flight held a move.
+  var ffmRecheck = FFMRecheck()
   /// Bumped by every event but a mouse move (EventHandler.handle); the hit cache is valid only in the generation it was stored.
   var ffmGeneration: UInt64 = 0
   /// The frame of the last focus follows mouse hit test, when no other window could cover it.

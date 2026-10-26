@@ -398,26 +398,61 @@ extension EventHandler {
   }
 
   func mouseMoved(_ event: CGEvent) {
-    let wm = WindowManager.shared
-
     if EventHandler.isStale(pendingMouseMoved) { return }
+
+    ffmPointerMoved(to: event.location)
+  }
+
+  //
+  // NOTE: The re-check of a move that a pending focus request held (FFMRecheck) looks at the pointer where it is now,
+  // not where the held move was. It takes the guards the event tap applies to a move first: no move reaches yabai
+  // while a mouse button is down (it is a drag) or while the mouse modifier alone is held.
+  //
+
+  func ffmRecheck() {
+    let ms = MouseState.shared
+    if !ms.ffmRecheck.finish() { return }
+
+    if !ms.tap.tracksFocus.load(ordering: .relaxed) { return }
+    if ms.currentAction != .none { return }
+    let buttons: [CGMouseButton] = [.left, .right, .center]
+    if buttons.contains(where: { CGEventSource.buttonState(.combinedSessionState, button: $0) }) {
+      return
+    }
+    let modifiers = MouseModifiers(CGEventSource.flagsState(.combinedSessionState))
+    if modifiers == ms.tap.modifier.modifiers { return }
+
+    let point = SLS.cursorLocation(SLS.connection)
+    Logger.events.debug("focus follows mouse: re-check at \(point.x), \(point.y)")
+    ffmPointerMoved(to: point)
+  }
+
+  func ffmPointerMoved(to point: CGPoint) {
+    let wm = WindowManager.shared
 
     if focusFollowsMouse == .disabled { return }
     if MissionControl.shared.isActive { return }
 
     let ms = MouseState.shared
-    let point = event.location
+    let now = ContinuousClock.now
 
     let decision = FFMDecision.decide(
       pointer: point, lastHit: ms.ffmHit, generation: ms.ffmGeneration,
-      requestedAt: ms.ffmRequestTime, now: ContinuousClock.now)
+      requestedAt: ms.ffmRequestTime, now: now)
+    if ms.ffmWindowID != nil, !decision.clearPending, let requestedAt = ms.ffmRequestTime {
+      if let delay = ms.ffmRecheck.hold(requestedAt: requestedAt, now: now) {
+        EventLoop.post(.ffmRecheck, after: delay, key: .ffmRecheck)
+      }
+      return
+    }
+    if ms.ffmRecheck.finish() { EventLoop.cancel(key: .ffmRecheck) }
     if decision.clearPending {
       Logger.events.debug(
         "focus follows mouse: no focus event for window \(ms.ffmWindowID?.rawValue ?? 0) before the request timeout, dropping it"
       )
       ms.ffmWindowID = nil
     }
-    if ms.ffmWindowID != nil || !decision.hitTest { return }
+    if !decision.hitTest { return }
 
     if pendingGesture.load(ordering: .relaxed) { return }
     let dt = OSTimer.milliseconds(from: lastGestureTime.load(ordering: .relaxed), to: OSTimer.now)

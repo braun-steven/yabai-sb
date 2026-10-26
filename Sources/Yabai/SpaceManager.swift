@@ -176,9 +176,9 @@ enum SpaceOperationError: Error, Sendable {
   func refreshDisplaySpaces(includingHidden: Bool) {
     if MissionControl.shared.isActive { return }
 
-    let ms = MouseState.shared
-    let dragged = ms.currentAction == .none ? nil : ms.window?.id
-    refreshSpaces(spaceRefreshEntries(includingHidden: includingHidden), dragged: dragged)
+    refreshSpaces(
+      spaceRefreshEntries(includingHidden: includingHidden),
+      dragged: MouseState.shared.draggedWindowID)
   }
 
   /// How long after a display is added, removed, moved or resized the refresh pass runs: the window server moves the

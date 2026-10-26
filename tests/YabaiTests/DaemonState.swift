@@ -38,6 +38,8 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     MouseState.shared.tap.dragSplit.store(Config.current.mouse.dragSplit, ordering: .relaxed)
     MouseState.shared.tap.splitDragActive = false
     MouseState.shared.splitDrag = nil
+    MouseState.shared.currentAction = .none
+    MouseState.shared.window = nil
     SplitDragCache.reset()
     WindowManager.shared.initialize()
     WindowManager.shared.rules = []

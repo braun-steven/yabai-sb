@@ -6,11 +6,19 @@ extension WindowManager {
     sid.windows(includingMinimized: false)
   }
 
+  //
+  // NOTE: Reconciliation leaves the window of a mouse drag (`dragged`, `MouseState.draggedWindowID`) in its tree until
+  // the drop, like sway's seatop_move_tiling, which re-arranges nothing before the drop. The window server puts a
+  // dragged window on the space of the display it is over, and the display change that a drag across displays causes
+  // reconciles the space there (`displayChanged`): it took the window out of the source tree before the drop, so the
+  // drop found it in the target view and missed every drop action (#2843).
+  //
+
   // NOTE: Internal, not private, so that tests can reconcile a view against a window list without the window server.
-  func validateWindows(on owner: View, against windowList: [WindowID]) {
+  func validateWindows(on owner: View, against windowList: [WindowID], dragged: WindowID? = nil) {
     let onSpace = Set(windowList)
 
-    for windowID in owner.windowIDs where !onSpace.contains(windowID) {
+    for windowID in owner.windowIDs where !onSpace.contains(windowID) && windowID != dragged {
       guard let target = window(for: windowID) else { continue }
 
       //
@@ -29,8 +37,14 @@ extension WindowManager {
     }
   }
 
-  private func checkForWindows(on owner: View, in windowList: [WindowID]) {
-    for windowID in windowList {
+  /// Adds the windows of windowList that owner does not manage to owner, taking them out of the tiled view that manages
+  /// them. Returns those source views: they are dirty until the caller flushes them.
+  @discardableResult
+  private func checkForWindows(on owner: View, in windowList: [WindowID], dragged: WindowID?)
+    -> [View]
+  {
+    var sources: [View] = []
+    for windowID in windowList where windowID != dragged {
       guard let target = window(for: windowID), target.shouldBeManaged else { continue }
 
       let existingView = managedView(for: target)
@@ -48,6 +62,7 @@ extension WindowManager {
 
         unmanage(target, from: existingView, options: .purify)
         existingView.isDirty = true
+        if !sources.contains(existingView) { sources.append(existingView) }
       }
 
       if existingView == nil || (existingView!.layout != .float && existingView != owner) {
@@ -68,15 +83,19 @@ extension WindowManager {
         owner.isDirty = true
       }
     }
+    return sources
   }
 
   // NOTE: Internal so tests can exercise reconciliation with an explicit window list, without querying the window
-  // server for the space's current windows.
-  func reconcileWindows(on owner: View, against windowList: [WindowID]) {
-    guard owner.layout != .float else { return }
+  // server for the space's current windows. Returns the other views that windows were taken from.
+  @discardableResult
+  func reconcileWindows(on owner: View, against windowList: [WindowID], dragged: WindowID? = nil)
+    -> [View]
+  {
+    guard owner.layout != .float else { return [] }
 
-    validateWindows(on: owner, against: windowList)
-    checkForWindows(on: owner, in: windowList)
+    validateWindows(on: owner, against: windowList, dragged: dragged)
+    return checkForWindows(on: owner, in: windowList, dragged: dragged)
   }
 
   func validateAndCheckForWindows(on sid: SpaceID) {
@@ -84,7 +103,14 @@ extension WindowManager {
     if owner.layout == .float { return }
 
     let windowList = windows(onSpace: sid) ?? []
-    reconcileWindows(on: owner, against: windowList)
+    reconcileAndFlush(owner, against: windowList, dragged: MouseState.shared.draggedWindowID)
+  }
+
+  /// Reconciles owner with windowList (`reconcileWindows`), then flushes owner when it is shown and the views that
+  /// windows were taken from.
+  // NOTE: Internal so tests can reconcile and flush against an explicit window list.
+  func reconcileAndFlush(_ owner: View, against windowList: [WindowID], dragged: WindowID?) {
+    let sources = reconcileWindows(on: owner, against: windowList, dragged: dragged)
 
     //
     // @cleanup
@@ -97,6 +123,16 @@ extension WindowManager {
 
     if owner.sid.isVisible && owner.isDirty {
       owner.flush()
+    }
+
+    //
+    // NOTE: A view that a window was taken from re-tiles its tree without the window, so it is flushed too (a hidden one
+    // stays dirty until it is shown). Only the owner was flushed before: a window that moved to another display left the
+    // frames of the source display stale, with a gap where the window was (#2843).
+    //
+
+    for source in sources where source.isDirty {
+      source.flush()
     }
   }
 
@@ -125,8 +161,11 @@ extension WindowManager {
     for space in spaceList where space.isUser {
       if let windowList = windows(onSpace: space) {
         let owner = SpaceManager.shared.view(for: space)
+        // NOTE: The views that windows were taken from are flushed by the refresh pass after the display change
+        // (`SpaceManager.scheduleDisplaySpacesRefresh`), which flushes the dirty views that are shown.
         if owner.layout != .float {
-          checkForWindows(on: owner, in: windowList)
+          checkForWindows(
+            on: owner, in: windowList, dragged: MouseState.shared.draggedWindowID)
         }
       }
       break

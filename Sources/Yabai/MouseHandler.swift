@@ -270,6 +270,12 @@ final class MouseTapState {
     currentAction != .none && window != nil && button == actionButton
   }
 
+  /// The window of the drag in progress, nil without one. Reconciliation and the refresh pass of the spaces leave it
+  /// in its tree until the drop: its frame crosses displays during the drag.
+  var draggedWindowID: WindowID? {
+    currentAction == .none ? nil : window?.id
+  }
+
   /// Clears the window of the drag, closes the EUI scope of the drag and releases the drop preview of the drag.
   func clearWindow() {
     endFrameScope()

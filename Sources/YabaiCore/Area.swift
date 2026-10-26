@@ -104,4 +104,38 @@ public struct Area: Equatable, Sendable, Encodable {
 
     return best
   }
+
+  /// The index of the area in candidates whose center is nearest in a direction, measured along the direction only, as
+  /// sway picks a floating window (`node_get_in_direction_floating`): an area counts when its center lies past the
+  /// center of this one, however far it is off to the side. When none does and `wrapping` is set, the area whose center
+  /// lies farthest the other way. Of areas at the same distance, the first one wins; nil without candidates.
+  public func closestCenter(in direction: Direction, among candidates: [Area], wrapping: Bool)
+    -> Int?
+  {
+    var closest: Int? = nil
+    var closestDistance = Float.greatestFiniteMagnitude
+    var furthest: Int? = nil
+    var furthestDistance: Float = 1
+
+    for (index, candidate) in candidates.enumerated() {
+      var distance: Float =
+        switch direction {
+        case .east, .west: (candidate.x + candidate.w / 2) - (x + w / 2)
+        case .north, .south: (candidate.y + candidate.h / 2) - (y + h / 2)
+        }
+      if direction == .west || direction == .north { distance = -distance }
+
+      if distance <= 0 {
+        if distance < furthestDistance {
+          furthest = index
+          furthestDistance = distance
+        }
+      } else if distance < closestDistance {
+        closest = index
+        closestDistance = distance
+      }
+    }
+
+    return closest ?? (wrapping ? furthest : nil)
+  }
 }

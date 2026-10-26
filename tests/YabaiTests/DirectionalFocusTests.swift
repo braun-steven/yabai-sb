@@ -11,7 +11,7 @@ import Testing
   struct Row: Sendable, CustomTestStringConvertible {
     let window: (isEligible: Bool, isFloating: Bool)?
     let layout: ViewType?
-    let route: WindowManager.DirectionalFocus?
+    let route: WindowManager.DirectionalFocus
     let testDescription: String
   }
 
@@ -33,13 +33,17 @@ import Testing
       window: (true, true), layout: .float, route: .space,
       testDescription: "floating window on a float space"),
     Row(
-      window: (true, true), layout: .tree, route: nil,
+      window: (true, true), layout: .tree, route: .floating,
       testDescription: "floating window on a tree space"),
+    Row(
+      window: (true, true), layout: .default, route: .floating,
+      testDescription: "floating window on a default space"),
     Row(
       window: (true, false), layout: .tree, route: .display,
       testDescription: "untiled window on a tree space"),
     Row(
-      window: (true, true), layout: nil, route: nil, testDescription: "floating window, no space"),
+      window: (true, true), layout: nil, route: .floating,
+      testDescription: "floating window, no space"),
   ]
 
   @Test(arguments: rows)

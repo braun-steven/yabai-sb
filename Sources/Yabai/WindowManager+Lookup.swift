@@ -103,6 +103,22 @@ extension WindowManager {
     }
   }
 
+  /// The floating window nearest to a window in a direction among the floating windows of a space that yabai could
+  /// manage, by the centers along the direction as sway does (`Area.closestCenter`); windows on every space are skipped.
+  /// With `focus_wrapping` on, no window in the direction gives the one farthest the other way. Nil when there is none.
+  func closestFloatingWindow(on sid: SpaceID, to target: Window, in direction: Direction) -> Window?
+  {
+    guard let windowList = sid.windows(includingMinimized: false) else { return nil }
+
+    let candidates = windowList.compactMap { window(for: $0) }.filter {
+      $0 != target && $0.isFloating && !$0.isSticky && $0.isEligibleForManagement
+    }
+    let wrapping = Config.current.window.focusWrapping != .off
+    return Area(target.frame).closestCenter(
+      in: direction, among: candidates.map { Area($0.frame) }, wrapping: wrapping
+    ).map { candidates[$0] }
+  }
+
   private func activeTreeView() -> View? {
     guard let sid = Headless.isEnabled ? Headless.activeSpace : SpaceID.active else { return nil }
     let owner = SpaceManager.shared.view(for: sid)

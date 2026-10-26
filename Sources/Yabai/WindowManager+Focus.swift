@@ -156,13 +156,16 @@ extension WindowManager {
   // empty space), or one yabai could not manage (a system dialog), focus goes to the display in the direction of the
   // focused display, as sway does from an empty workspace. On a float space it goes to the nearest window in the
   // direction there, and to that display only when there is none: sway has no float layout, and this lets one binding
-  // move across the windows and then the displays. A floating window on a tree space keeps the window selector (nil),
-  // which looks in the tree. An eligible window outside a tree on a tree space (not yet tiled) crosses as well.
+  // move across the windows and then the displays. A floating window on any other space moves to the nearest floating
+  // window in the direction on its space and never to a display, as sway does (`node_get_in_direction_floating`). An
+  // eligible window outside a tree on a tree space (not yet tiled) crosses as well.
   //
 
   enum DirectionalFocus: Equatable {
     /// The nearest window in the direction on the space of the acting window, else the display in the direction.
     case space
+    /// The nearest floating window in the direction on the space of the acting window, else nothing.
+    case floating
     /// The display in the direction.
     case display
   }
@@ -171,29 +174,40 @@ extension WindowManager {
   /// `layout` the layout of its space.
   nonisolated static func directionalFocus(
     window: (isEligible: Bool, isFloating: Bool)?, layout: ViewType?
-  ) -> DirectionalFocus? {
+  ) -> DirectionalFocus {
     guard let window, window.isEligible else { return .display }
     if layout == .float { return .space }
-    return window.isFloating ? nil : .display
+    return window.isFloating ? .floating : .display
   }
 
   /// How `window --focus <direction>` moves from an acting window outside a tree (see `directionalFocus(window:layout:)`).
-  func directionalFocus(from target: Window?) -> DirectionalFocus? {
+  func directionalFocus(from target: Window?) -> DirectionalFocus {
     let layout = target?.id.space.map { SpaceManager.shared.view(for: $0).layout }
     return Self.directionalFocus(
       window: target.map { ($0.isEligibleForManagement, $0.isFloating) }, layout: layout)
   }
 
   /// Moves focus in a direction from an acting window outside a tree, as `route` says. Throws when there is no window
-  /// and no display in the direction.
+  /// and, unless the route is `.floating`, no display in the direction.
   func focus(_ direction: Direction, from target: Window?, by route: DirectionalFocus)
     throws(WindowOperationError)
   {
-    if route == .space, let target, let sid = target.id.space,
-      let found = closestWindow(on: sid, to: target, in: direction)
-    {
+    switch route {
+    case .floating:
+      guard let target, let sid = target.id.space,
+        let found = closestFloatingWindow(on: sid, to: target, in: direction)
+      else { throw .invalidDestinationNode }
       focusWindow(id: found.id)
       return
+    case .space:
+      if let target, let sid = target.id.space,
+        let found = closestWindow(on: sid, to: target, in: direction)
+      {
+        focusWindow(id: found.id)
+        return
+      }
+    case .display:
+      break
     }
 
     guard let did = DisplayID.active?.closestDisplay(in: direction) else {

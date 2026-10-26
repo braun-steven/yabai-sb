@@ -48,7 +48,7 @@ public enum WindowFocusTarget: Equatable, Sendable {
   case container(TreeFocus)
 
   /// What the target selects when the acting window is in no tree: a direction selects the window in that direction,
-  /// parent and child are no window selectors.
+  /// parent and child are no window selectors. The daemon routes a direction by `directionalFocus` instead.
   public func windowSelector() throws(CommandError) -> WindowSelector? {
     switch self {
     case .window(let selector): return selector

@@ -80,3 +80,43 @@ private func closestDisplayInDirection(_ source: Int, _ direction: Direction) ->
   // an area that only touches the edge of the source does not lie in its direction
   #expect(center.closest(in: .east, among: [Area(x: 100, y: 100, w: 100, h: 100)]) == nil)
 }
+
+//
+// NOTE: Floating focus picks by the centers along the direction only, like sway's node_get_in_direction_floating.
+//
+
+@Test func closestCenterMeasuresAlongTheDirectionOnly() {
+  let source = Area(x: 0, y: 0, w: 100, h: 100)
+  // 0 lies far off to the side but its center is nearest to the east; 1 overlaps the source and lies further
+  let offside = Area(x: 60, y: 900, w: 100, h: 100)
+  let overlapping = Area(x: 80, y: 0, w: 100, h: 100)
+  let west = Area(x: -500, y: 0, w: 100, h: 100)
+  let candidates = [offside, overlapping, west]
+
+  #expect(source.closestCenter(in: .east, among: candidates, wrapping: false) == 0)
+  #expect(source.closestCenter(in: .west, among: candidates, wrapping: false) == 2)
+  #expect(source.closestCenter(in: .south, among: candidates, wrapping: false) == 0)
+  #expect(source.closestCenter(in: .north, among: candidates, wrapping: false) == nil)
+  #expect(source.closestCenter(in: .east, among: [], wrapping: true) == nil)
+}
+
+@Test func closestCenterWrapsToTheFurthestAreaTheOtherWay() {
+  let source = Area(x: 0, y: 0, w: 100, h: 100)
+  let near = Area(x: -200, y: 0, w: 100, h: 100)
+  let far = Area(x: -800, y: 0, w: 100, h: 100)
+  // a center on the source's center lies in no direction, and only wraps
+  let same = Area(x: 25, y: 25, w: 50, h: 50)
+
+  #expect(source.closestCenter(in: .east, among: [near, far], wrapping: false) == nil)
+  #expect(source.closestCenter(in: .east, among: [near, far, same], wrapping: true) == 1)
+  #expect(source.closestCenter(in: .north, among: [same], wrapping: false) == nil)
+  #expect(source.closestCenter(in: .north, among: [same], wrapping: true) == 0)
+}
+
+@Test func closestCenterPrefersTheFirstOfEqualDistances() {
+  let source = Area(x: 0, y: 0, w: 100, h: 100)
+  let upper = Area(x: 300, y: -400, w: 100, h: 100)
+  let lower = Area(x: 300, y: 400, w: 100, h: 100)
+  #expect(source.closestCenter(in: .east, among: [upper, lower], wrapping: false) == 0)
+  #expect(source.closestCenter(in: .east, among: [lower, upper], wrapping: false) == 0)
+}

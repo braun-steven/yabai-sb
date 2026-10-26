@@ -701,6 +701,68 @@ extension DaemonState {
       root.destroy()
     }
 
+    @Test("tree_zoom_fullscreen_goes_to_output")
+    func treeZoomFullscreenGoesToOutput() {
+      // H[ 1 2 3 ], 2 zoomed to the whole view
+      let root = Con(layout: .splitH)
+      treeTestLeaf(root, 1)
+      let b = treeTestLeaf(root, 2)
+      treeTestLeaf(root, 3)
+      b.zoom = .fullscreen
+
+      // focus skips the siblings and goes to the display in the direction, never wraps
+      #expect(b.neighbor(.east, wrapping: .on, hasOutput: true) == .output)
+      #expect(b.neighbor(.west, wrapping: .force, hasOutput: true) == .output)
+      #expect(b.neighbor(.east, wrapping: .force, hasOutput: false) == TreeNeighbor.none)
+
+      // a move only goes to that display; without one, nothing changes
+      #expect(b.move(.east, in: root, hasOutput: true) == .output)
+      #expect(b.move(.east, in: root, hasOutput: false) == .none)
+      #expect(b.move(.north, in: root, hasOutput: false) == .none)
+      #expect(treeTestChild(root, 1) == 2)
+      #expect(root.children.count == 3)
+
+      // zoom-parent keeps walking the tree
+      b.zoom = .parent
+      #expect(treeTestWindow(b.neighbor(.east, wrapping: .on, hasOutput: true).target) == 3)
+      #expect(b.move(.east, in: root, hasOutput: true) == .done)
+      #expect(treeTestChild(root, 2) == 2)
+
+      root.destroy()
+    }
+
+    @Test("tree_attach_zoom_fullscreen")
+    func treeAttachZoomFullscreen() {
+      // V[ 1 H[ 2 3 ] ] receives 4, zoomed to the whole view, from the display to the west
+      let root = Con(layout: .splitV)
+      let a = treeTestLeaf(root, 1)
+      let h = treeTestSplit(root, .splitH)
+      treeTestLeaf(h, 2)
+      let c = treeTestLeaf(h, 3)
+      c.zoom = .fullscreen
+      a.focus()
+      let d = Con(windowID: 4)
+      d.zoom = .fullscreen
+
+      // it is appended to the workspace and stays zoomed, the window zoomed there before is not
+      root.attach(d, from: .west)
+      #expect(root.children.count == 3)
+      #expect(root.children[2] == d)
+      #expect(d.zoom == .fullscreen)
+      #expect(c.zoom == ConZoom.none)
+      #expect(percent(d) == 33)
+
+      // an empty workspace takes it as its only child
+      let empty = Con(layout: .splitH)
+      d.detach()
+      empty.attach(d, from: .east)
+      #expect(empty.children == [d])
+      #expect(d.zoom == .fullscreen)
+
+      empty.destroy()
+      root.destroy()
+    }
+
     @Test("tree_window_order_collect")
     func treeWindowOrderCollect() {
       func orderIs(

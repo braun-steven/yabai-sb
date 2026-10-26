@@ -847,6 +847,28 @@ extension DaemonState {
       expectPlaced(space)
     }
 
+    @Test func zoomFullscreenFocusAndWarpOnlyLeaveTheDisplay() {
+      let space = row()
+      _ = run("--toggle zoom-fullscreen", in: space)
+      let before = space.dump
+
+      // NOTE: The headless space has no display in any direction, so both commands fail instead of acting on the
+      // siblings of the zoomed window.
+      let focus = CommandCase(
+        command: "--focus east", failure: "could not locate a container to focus.\n", result: before
+      )
+      let warp = CommandCase(
+        command: "--warp east", failure: "could not move the container in that direction.\n",
+        result: before)
+
+      for row in [focus, warp] {
+        let result = run(row.command, in: space)
+        #expect(result.response == row.response)
+        #expect(result.tree == row.result)
+      }
+      #expect(space.node(2).zoom == .fullscreen)
+    }
+
     // MARK: - Failures
 
     nonisolated static let onlyWindowCases: [CommandCase] = [

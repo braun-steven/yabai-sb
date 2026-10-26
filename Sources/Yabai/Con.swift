@@ -648,6 +648,15 @@ extension Con {
     return child.focusedDescendant
   }
 
+  private func unzoomFullscreenLeaves() {
+    if isLeaf {
+      if zoom == .fullscreen { zoom = .none }
+      return
+    }
+
+    for child in children { child.unzoomFullscreenLeaves() }
+  }
+
   /// The most recently focused window zoomed to the whole view, or nil when there is none.
   private var fullscreenZoomedLeaf: Con? {
     if isLeaf { return zoom == .fullscreen ? self : nil }
@@ -665,9 +674,13 @@ extension Con {
   // focuses that child, descending along its focus history. At the edge of the workspace the result
   // says to try the display in that direction. Wrapping goes around the innermost container laid out
   // in the direction: right away with 'force', and with 'on' only when there is no display either.
+  // A window zoomed to the whole view hides its siblings, so like a fullscreen container in sway
+  // (node_get_in_direction_tiling) it goes straight to the display in the direction, and never wraps.
   //
 
   func neighbor(_ direction: Direction, wrapping: FocusWrapping, hasOutput: Bool) -> TreeNeighbor {
+    if zoom == .fullscreen { return hasOutput ? .output : .none }
+
     let orientation = direction.orientation
     let backward = direction.isBackward
     var wrap: Con?
@@ -865,11 +878,13 @@ extension Con {
   // a neighbouring container, or leaves its container at the edge and is placed next to the ancestor.
   // When no ancestor is laid out in the direction, the workspace is re-oriented (ws_force_orientation).
   // The result asks the caller to move the container to the display in that direction when it
-  // cannot move any further on this workspace, which is tried before re-orienting.
+  // cannot move any further on this workspace, which is tried before re-orienting. A window zoomed
+  // to the whole view only moves to that display, like a fullscreen container in sway.
   //
 
   func move(_ direction: Direction, in root: Con, hasOutput: Bool) -> TreeResult {
     if self == root || parent == nil { return .none }
+    if zoom == .fullscreen { return hasOutput ? .output : .none }
 
     let edge: TreeResult = hasOutput ? .output : .none
     if parent == root && root.children.count == 1 { return edge }
@@ -1046,8 +1061,19 @@ extension Con {
   // workspace laid out in the direction, and otherwise next to the window focused there, entered
   // from that side like a neighbouring container in move(_:in:hasOutput:).
   //
+  // A window zoomed to the whole view arrives like a fullscreen container in sway
+  // (container_move_to_workspace): it is appended to the workspace and stays zoomed, and a window
+  // zoomed to the whole view there before is unzoomed (container_handle_fullscreen_reparent).
+  //
 
   func attach(_ node: Con, from direction: Direction) {
+    if node.zoom == .fullscreen {
+      unzoomFullscreenLeaves()
+      attach(node, at: nil)
+      node.applyWorkspaceLayout()
+      return
+    }
+
     if children.count == 0 || orientation == direction.orientation {
       node.percent = 0.0
       insert(node, at: direction.isBackward ? nil : 0, focusIndex: Con.focusHead)

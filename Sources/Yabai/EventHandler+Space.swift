@@ -64,7 +64,7 @@ extension EventHandler {
     if !MissionControl.shared.isActive, let sid = sm.currentSpaceID, sid.isUser {
       wm.validateAndCheckForWindows(on: sid)
 
-      if let view, view.isInvalid {
+      if let view, view.needsUpdate {
         view.update()
       }
 
@@ -83,6 +83,7 @@ extension EventHandler {
 
     Logger.events.debug("space changed: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))")
     refreshCurrentSpace()
+    sm.refreshDisplaySpaces(includingHidden: false)
     sm.resolvePendingSpaceFocus()
 
     EventSignals.shared.push(.spaceChanged)
@@ -91,6 +92,18 @@ extension EventHandler {
   /// Checks whether a space moved by `space --display` has arrived on its display, and focuses it then.
   func spaceMoveFocusCheck() {
     SpaceManager.shared.resolvePendingSpaceMove()
+  }
+
+  /// Checks whether the spaces moved by `SpaceManager.moveSpace(_:toDisplay:)` have arrived on their displays, and
+  /// refreshes the spaces then.
+  func spaceMoveRefreshCheck() {
+    SpaceManager.shared.resolveSpaceMoveRefresh()
+  }
+
+  /// The refresh pass of the spaces of every display after a display change, hidden ones included.
+  func displaySpacesRefresh() {
+    DisplayManager.shared.invalidateSpaceCaches()
+    SpaceManager.shared.refreshDisplaySpaces(includingHidden: true)
   }
 
   func displayChanged() {
@@ -133,6 +146,7 @@ extension EventHandler {
     Logger.events.debug("display added: \(did)")
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
+    SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayAdded, .display(did))
@@ -143,6 +157,7 @@ extension EventHandler {
     Logger.events.debug("display removed: \(did)")
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
+    SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayRemoved, .display(did))
@@ -152,6 +167,7 @@ extension EventHandler {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display moved: \(did)")
     SpaceManager.shared.markSpacesInvalid()
+    SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayMoved, .display(did))
@@ -161,6 +177,7 @@ extension EventHandler {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display resized: \(did)")
     SpaceManager.shared.markSpacesInvalid(on: did)
+    SpaceManager.shared.scheduleDisplaySpacesRefresh()
     EventSignals.shared.push(.displayResized, .display(did))
   }
 }

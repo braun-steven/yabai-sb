@@ -58,7 +58,8 @@ enum ViewSpacing: CaseIterable, Sendable {
 }
 
 /// isValid is false once the area of the view must be recomputed, isDirty while its tree has not been laid out since it
-/// changed, and isUnpadded while auto padding removes its padding.
+/// changed, and isUnpadded while auto padding removes its padding. layoutFrame is the display frame of the last update:
+/// a view whose display frame is another one now is stale (`isStale(for:)`).
 @WM final class View {
   var uuid: CFString?
   var sid: SpaceID
@@ -80,6 +81,7 @@ enum ViewSpacing: CaseIterable, Sendable {
   var isValid = false
   var isDirty = false
   var isUnpadded = false
+  var layoutFrame: CGRect?
 
   init(sid: SpaceID) {
     self.sid = sid
@@ -139,6 +141,55 @@ enum ViewSpacing: CaseIterable, Sendable {
     flush()
   }
 
+  /// The frame that `update` lays the view out in: its display's (`Headless.displayFrame` in headless mode); nil while
+  /// the window server reports no display for the space.
+  var displayFrame: CGRect? {
+    if Headless.isEnabled { return Headless.displayFrame }
+    return sid.display?.constrainedBounds(ignoringExternalBar: false)
+  }
+
+  /// Whether the view must be updated to be laid out in `frame`, its display frame now: it is invalid, or its last
+  /// update was for another frame (its space moved to another display, or the display's frame changed).
+  func isStale(for frame: CGRect) -> Bool {
+    isInvalid || layoutFrame != frame
+  }
+
+  /// Whether the view must be updated for the display the window server has for its space now (`isStale(for:)`).
+  var needsUpdate: Bool {
+    guard let frame = displayFrame else { return false }
+    return isStale(for: frame)
+  }
+
+  //
+  // NOTE: The window server moves the windows of a space that moves to another display with it, and reports those moves
+  // after the space is on its new display (the window moved and resized events of the space's windows). A stale view is
+  // updated before that flush, so the windows are laid out for the new display instead of being put back where the tree
+  // had them on the old one.
+  //
+
+  /// Flushes the view after the window server moved or resized one of its windows; a stale view is updated first.
+  func flushAfterWindowChange() {
+    if needsUpdate { update() }
+    flush()
+  }
+
+  /// What a refresh pass of the spaces does with a view (`refreshStep(frame:isVisible:)`).
+  enum RefreshStep: Equatable {
+    case none
+    /// Flush the tree: the view is shown and dirty.
+    case flush
+    /// Update and flush: the view is stale. A hidden one keeps its windows and stays dirty until it is shown.
+    case update
+  }
+
+  /// The step of a refresh pass for the view, given its display frame now (`frame`, nil without a display) and whether
+  /// its display shows it. A float view is never laid out.
+  func refreshStep(frame: CGRect?, isVisible: Bool) -> RefreshStep {
+    guard layout != .float, let frame else { return .none }
+    if isStale(for: frame) { return .update }
+    return isVisible && isDirty ? .flush : .none
+  }
+
   func clear() {
     insertionPoint = nil
     clearTree()
@@ -153,14 +204,9 @@ enum ViewSpacing: CaseIterable, Sendable {
   private func updateWithAutoPadding(_ unpadded: Bool) {
     isUnpadded = unpadded
 
-    let frame: CGRect
-    if Headless.isEnabled {
-      frame = Headless.displayFrame
-    } else {
-      guard let did = sid.display else { return }
-      frame = did.constrainedBounds(ignoringExternalBar: false)
-    }
+    guard let frame = displayFrame else { return }
     area = rootArea(in: frame)
+    layoutFrame = frame
 
     updateTree()
     isValid = true

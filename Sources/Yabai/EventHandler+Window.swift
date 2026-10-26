@@ -180,7 +180,7 @@ extension EventHandler {
         if let view = wm.managedView(for: window),
           view.needsFlush(windowID: window.id, frame: window.frame)
         {
-          view.flush()
+          view.flushAfterWindowChange()
         }
       }
     }
@@ -255,7 +255,7 @@ extension EventHandler {
           if let view = wm.managedView(for: window),
             view.needsFlush(windowID: window.id, frame: newFrame)
           {
-            view.flush()
+            view.flushAfterWindowChange()
           }
         }
       }

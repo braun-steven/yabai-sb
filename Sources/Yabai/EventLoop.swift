@@ -138,6 +138,10 @@ enum Event: Sendable {
   case focusClickCursorRestore
   // NOTE: Only post with `key: .spaceMoveFocusCheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case spaceMoveFocusCheck
+  // NOTE: Only post with `key: .spaceMoveRefresh` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case spaceMoveRefreshCheck
+  // NOTE: Only post with `key: .displaySpacesRefresh` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case displaySpacesRefresh
   case daemonMessage(DaemonMessage)
   // NOTE: Posted by an EventSubscriber when it ends (a closed peer, a failed write or a full backlog). It only removes
   // the subscriber from EventSubscribers, which runs on @WM.
@@ -180,7 +184,8 @@ enum EventLoop {
 
   /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
   /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile`, `.missionControlCheckForExit`,
-  /// `.configFileChanged` and `.focusClickCursorRestore` with their key.
+  /// `.configFileChanged`, `.focusClickCursorRestore`, `.spaceMoveFocusCheck`, `.spaceMoveRefreshCheck` and
+  /// `.displaySpacesRefresh` with their key.
   enum DelayedEventKey: Hashable, Sendable {
     case spaceLayoutReconcile
     case spacePinReconcile
@@ -188,6 +193,8 @@ enum EventLoop {
     case configReload
     case focusClickCursorRestore
     case spaceMoveFocusCheck
+    case spaceMoveRefresh
+    case displaySpacesRefresh
   }
 
   private struct DelayedState: Sendable {
@@ -365,6 +372,10 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .focusClickCursorRestore) { focusClickCursorRestore() }
     case .spaceMoveFocusCheck:
       if EventLoop.claimDelivery(of: .spaceMoveFocusCheck) { spaceMoveFocusCheck() }
+    case .spaceMoveRefreshCheck:
+      if EventLoop.claimDelivery(of: .spaceMoveRefresh) { spaceMoveRefreshCheck() }
+    case .displaySpacesRefresh:
+      if EventLoop.claimDelivery(of: .displaySpacesRefresh) { displaySpacesRefresh() }
     case .daemonMessage(let message): MessageLoop.handle(message)
     case .eventSubscriberRemoved(let id): EventSubscribers.shared.remove(id)
     }

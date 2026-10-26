@@ -217,6 +217,9 @@ extension SpaceManager {
       sid, toDisplayOf: dSid, previous: replacementSid, focus: isActive)
     {
       markViewInvalid(for: sid)
+      recordSpaceMove(sid, to: did, at: OSTimer.now)
+      EventLoop.post(
+        .spaceMoveRefreshCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveRefresh)
       if focusing {
         setPendingSpaceFocus(sid, on: did, at: OSTimer.now)
         EventLoop.post(

@@ -130,6 +130,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 - *space --focus* of a hidden space on the same display focuses its window (the one *display --focus* picks, like sway's *workspace*) once macOS reports the switch, also through the gesture fallback without the scripting addition; no window got focus and Finder often stayed frontmost
 - Focusing a display or space with no window to focus (*display --focus*, *space --focus*, *window --focus <dir>* across displays) puts the cursor back where it was after the click on its desktop, unless *mouse_follows_focus* is on; it was left at the centre of the display. The click goes to a point of the desktop that no window covers, and is skipped when there is none
+- A space that moves to another display (*space --display*, *space_layout*, a space pin, or a display that is unplugged, plugged in or rearranged) is laid out for its new display once macOS reports the move, and a space that a display shows without the focus moving there (*display --space*) is laid out when it is shown; both kept the frames of the old display until the space was focused
 
 ## [7.1.25] - 2026-05-08
 ### Changed

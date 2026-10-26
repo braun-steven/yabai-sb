@@ -45,6 +45,9 @@ enum SpaceOperationError: Error, Sendable {
   /// (`resolvePendingSpaceFocus`), or a space that `space --display` moved, focused once the move is reported
   /// (`resolvePendingSpaceMove`).
   var pendingSpaceFocus: PendingSpaceFocus?
+  /// The spaces `moveSpace(_:toDisplay:)` moved that the window server has not reported on their new display yet
+  /// (`resolveSpaceMoveRefresh`).
+  var pendingSpaceMoves: [PendingSpaceMove] = []
 
   /// A space focus request, made at `time` on the OSTimer clock.
   struct PendingSpaceFocus: Equatable {
@@ -113,6 +116,119 @@ enum SpaceOperationError: Error, Sendable {
     }
   }
 
+  //
+  // NOTE: A space that moves to another display keeps the tree of its old display until it is updated: `moveSpace` only
+  // marks its view invalid, the window server sends no space or display event for a move of a hidden space, and
+  // `refreshCurrentSpace` updates only the active space. A refresh pass brings every shown space up to date for its
+  // display (and, with `includingHidden`, lays out the hidden stale ones without moving their windows: `View.flush`
+  // keeps a hidden view dirty until it is shown). It runs after a space change (a display can show another space without
+  // the focus moving: `display --space`), once the window server has a space moved by `moveSpace` on its new display
+  // (`resolveSpaceMoveRefresh`), and after a display is added, removed, moved or resized (`displaySpacesRefresh`). The
+  // view that holds the window of a mouse drag is left alone: its windows move between displays during the drag.
+  //
+
+  /// A space of a refresh pass: the frame of its display now (nil without one) and whether the display shows it.
+  struct SpaceRefreshEntry: Equatable {
+    var sid: SpaceID
+    var frame: CGRect?
+    var isVisible: Bool
+  }
+
+  /// Brings the known views of `entries` up to date (`View.refreshStep(frame:isVisible:)`), except the view that holds
+  /// `dragged`.
+  func refreshSpaces(_ entries: [SpaceRefreshEntry], dragged: WindowID?) {
+    for entry in entries {
+      guard let target = views[entry.sid] else { continue }
+      if let dragged, target.findWindow(dragged) != nil { continue }
+
+      switch target.refreshStep(frame: entry.frame, isVisible: entry.isVisible) {
+      case .update: target.updateAndFlush()
+      case .flush: target.flush()
+      case .none: break
+      }
+    }
+  }
+
+  /// The user spaces of every display for a refresh pass: the shown ones, and with `includingHidden` all of them. In
+  /// headless mode the seeded views, shown when they are `Headless.activeSpace`.
+  func spaceRefreshEntries(includingHidden: Bool) -> [SpaceRefreshEntry] {
+    if Headless.isEnabled {
+      return views.keys.compactMap { sid in
+        let isVisible = sid == Headless.activeSpace
+        guard isVisible || includingHidden else { return nil }
+        return SpaceRefreshEntry(sid: sid, frame: Headless.displayFrame, isVisible: isVisible)
+      }
+    }
+
+    var entries: [SpaceRefreshEntry] = []
+    for did in DisplayID.all {
+      let frame = did.constrainedBounds(ignoringExternalBar: false)
+      let current = did.currentSpace
+      let spaceList = includingHidden ? did.spaces ?? [] : current.map { [$0] } ?? []
+      for sid in spaceList where sid.isUser {
+        entries.append(SpaceRefreshEntry(sid: sid, frame: frame, isVisible: sid == current))
+      }
+    }
+    return entries
+  }
+
+  /// Runs a refresh pass of the spaces of every display, unless Mission Control is active.
+  func refreshDisplaySpaces(includingHidden: Bool) {
+    if MissionControl.shared.isActive { return }
+
+    let ms = MouseState.shared
+    let dragged = ms.currentAction == .none ? nil : ms.window?.id
+    refreshSpaces(spaceRefreshEntries(includingHidden: includingHidden), dragged: dragged)
+  }
+
+  /// How long after a display is added, removed, moved or resized the refresh pass runs: the window server moves the
+  /// spaces of a removed or returning display after the display event.
+  static let displaySpacesRefreshDelay: Duration = .milliseconds(500)
+
+  /// Schedules the refresh pass after a display change; a newer change replaces the pending one.
+  func scheduleDisplaySpacesRefresh() {
+    EventLoop.post(
+      .displaySpacesRefresh, after: Self.displaySpacesRefreshDelay, key: .displaySpacesRefresh)
+  }
+
+  /// A space moved by `moveSpace(_:toDisplay:)` at `time` (OSTimer clock), whose views are refreshed once the window
+  /// server has it on `display`.
+  struct PendingSpaceMove: Equatable {
+    var sid: SpaceID
+    var display: DisplayID
+    var time: UInt64
+  }
+
+  /// Records a moved space; a newer move of the same space replaces the older one.
+  func recordSpaceMove(_ sid: SpaceID, to display: DisplayID, at time: UInt64) {
+    pendingSpaceMoves.removeAll { $0.sid == sid }
+    pendingSpaceMoves.append(PendingSpaceMove(sid: sid, display: display, time: time))
+  }
+
+  /// Drops the moves whose space the window server has on its new display (`display`), and the moves older than
+  /// `pendingSpaceFocusTimeoutMs` at `now`. Returns whether it dropped one: the spaces need a refresh pass then.
+  func consumeSpaceMoves(display: (SpaceID) -> DisplayID?, now: UInt64) -> Bool {
+    let count = pendingSpaceMoves.count
+    pendingSpaceMoves.removeAll { move in
+      display(move.sid) == move.display
+        || OSTimer.milliseconds(from: move.time, to: now) >= Self.pendingSpaceFocusTimeoutMs
+    }
+    return pendingSpaceMoves.count != count
+  }
+
+  /// Refreshes the spaces once the window server has a moved space on its new display; until then it checks again on
+  /// the event loop.
+  func resolveSpaceMoveRefresh() {
+    DisplayManager.shared.invalidateSpaceCaches()
+
+    let arrived = consumeSpaceMoves(display: { $0.display }, now: OSTimer.now)
+    if !pendingSpaceMoves.isEmpty {
+      EventLoop.post(
+        .spaceMoveRefreshCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveRefresh)
+    }
+    if arrived { refreshDisplaySpaces(includingHidden: true) }
+  }
+
   func refreshApplicationWindows() -> Bool {
     let wm = WindowManager.shared
 
@@ -167,6 +283,7 @@ enum SpaceOperationError: Error, Sendable {
     labels = LabelList<SpaceID>()
     pins = SpacePins()
     pendingSpaceFocus = nil
+    pendingSpaceMoves = []
     //
     // NOTE: The views are keyed by space id.
     //

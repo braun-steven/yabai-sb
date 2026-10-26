@@ -72,6 +72,8 @@ extension Event {
     case .spacePinReconcile: "spacePinReconcile"
     case .focusClickCursorRestore: "focusClickCursorRestore"
     case .spaceMoveFocusCheck: "spaceMoveFocusCheck"
+    case .spaceMoveRefreshCheck: "spaceMoveRefreshCheck"
+    case .displaySpacesRefresh: "displaySpacesRefresh"
     case .daemonMessage: "daemonMessage"
     case .eventSubscriberRemoved: "eventSubscriberRemoved"
     }

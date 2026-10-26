@@ -90,6 +90,19 @@ extension WindowManager {
     return result.windowID.flatMap { window(for: $0) }
   }
 
+  /// The window nearest to a window in a direction among the windows of a space that yabai could manage (by
+  /// `Area.closest`); windows on every space are skipped. Nil when none lies in the direction.
+  func closestWindow(on sid: SpaceID, to target: Window, in direction: Direction) -> Window? {
+    guard let windowList = sid.windows(includingMinimized: false) else { return nil }
+
+    let candidates = windowList.compactMap { window(for: $0) }.filter {
+      $0 != target && !$0.isSticky && $0.isEligibleForManagement
+    }
+    return Area(target.frame).closest(in: direction, among: candidates.map { Area($0.frame) }).map {
+      candidates[$0]
+    }
+  }
+
   private func activeTreeView() -> View? {
     guard let sid = Headless.isEnabled ? Headless.activeSpace : SpaceID.active else { return nil }
     let owner = SpaceManager.shared.view(for: sid)

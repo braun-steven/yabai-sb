@@ -43,7 +43,8 @@ public enum SplitOrientation: Equatable, Sendable {
 /// What `window --focus` selects: a window, or a container of the tree of the acting window.
 public enum WindowFocusTarget: Equatable, Sendable {
   case window(WindowSelector?)
-  /// A direction, parent or child; the daemon focuses a container when the acting window is in a tree.
+  /// A direction, parent or child; the daemon focuses a container when the acting window is in a tree. Outside a tree,
+  /// a direction can also focus a display (`WindowManager.directionalFocus(window:layout:)`).
   case container(TreeFocus)
 
   /// What the target selects when the acting window is in no tree: a direction selects the window in that direction,

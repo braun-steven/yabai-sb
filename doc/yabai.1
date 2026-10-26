@@ -917,6 +917,8 @@ If none specified, focus the selected window instead.
 .br
 A direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies. Focus enters that display like sway does: at a window zoomed to the whole space, else, when the tree of its space is laid out in the direction, at the child on the near side (the first one moving east or south, the last one moving west or north), else at the window focused there last.
 .br
+Without a focused window in a tree, a direction still moves focus: with no focused window (an empty space), or with one yabai could not manage (a system dialog), it focuses the display in that direction from the focused display, entered as above. On a \fBfloat\fP space it focuses the nearest window in that direction on the space, and the display in that direction when there is none. It fails when there is no display in that direction; it does not wrap. So one binding, e.g. \f(CRyabai \-m window \-\-focus east\fP, moves across windows and displays.
+.br
 \fIparent\fP and \fIchild\fP select the container around the focused window, or go back down, like i3\(cqs \fIfocus parent|child\fP. The selected container is outlined, and \fB\-\-warp\fP and \fB\-\-layout\fP act on it until focus changes.
 .RE
 .sp

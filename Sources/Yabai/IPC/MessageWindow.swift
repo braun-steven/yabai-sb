@@ -131,6 +131,18 @@ extension WindowCommand {
         throw CommandError("could not locate a container to focus.\n", stopsMessage: true)
       }
     case .focus(let target):
+      if case .container(.direction(let direction)) = target,
+        let route = wm.directionalFocus(from: acting)
+      {
+        do {
+          try wm.focus(direction, from: acting, by: route)
+        } catch {
+          throw CommandError(
+            "could not locate \(directionDescription(direction)) display.\n", stopsMessage: true)
+        }
+        return
+      }
+
       let selector: WindowSelector?
       do {
         selector = try target.windowSelector()

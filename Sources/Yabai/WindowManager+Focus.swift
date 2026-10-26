@@ -232,7 +232,7 @@ extension WindowManager {
     guard let did = source.crossingDisplay(in: direction), let sid = did.currentSpace else {
       throw .invalidDestinationNode
     }
-    sendWindow(target, to: sid, movedByRule: false)
+    sendWindow(target, to: sid, movedByRule: false, besideFocus: true, refocusingSource: false)
     focusWithRaise(target)
     setPendingFocus(target.id)
   }

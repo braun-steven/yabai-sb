@@ -202,13 +202,13 @@ extension WindowCommand {
       if sid.isFullscreen {
         throw CommandError("can not move window to a macOS fullscreen space!\n")
       }
-      wm.sendWindow(window, to: sid, movedByRule: false)
+      wm.sendWindow(window, to: sid, movedByRule: false, besideFocus: true)
     case .space(let selector):
       guard let sid = try selector.resolve(acting: SpaceID.active, context) else { return }
       if sid.isFullscreen {
         throw CommandError("can not move window to a macOS fullscreen space!\n")
       }
-      wm.sendWindow(window, to: sid, movedByRule: false)
+      wm.sendWindow(window, to: sid, movedByRule: false, besideFocus: true)
     case .swap(let selector):
       let target = try selector.resolve(acting: window, context)
       do {

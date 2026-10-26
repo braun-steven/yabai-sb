@@ -115,6 +115,11 @@ extension View {
 // mouse drop places it on that side of its window instead, and the insertion point passed in is
 // used for windows that are restored or moved here, so they open next to that window.
 //
+// A window that `window --display` or `window --space` moves here (`besideFocus`) becomes the sibling after the
+// window this tree focuses, inside its container (a tab after the focused tab), like sway's cmd_move_container
+// (container_add_sibling): no tree_autotiling split and no selected container. On a tree without windows it is
+// appended to the root. An insertion point set with 'window --insert' still wins, like a split made in sway first.
+//
 
 extension View {
   private func focusNewWindow(_ node: Con, windowID: WindowID) {
@@ -146,7 +151,7 @@ extension View {
     WindowManager.shared.setInsertion(of: focused, in: self, direction)
   }
 
-  func add(_ target: Window, insertionPoint: WindowID?) {
+  func add(_ target: Window, insertionPoint: WindowID?, besideFocus: Bool = false) {
     let root = self.root
     if root.find(target.id) != nil { return }
 
@@ -167,6 +172,9 @@ extension View {
       self.insertionPoint = nil
 
       anchor.insert(node, toward: direction)
+      focusNewWindow(node, windowID: target.id)
+    } else if besideFocus {
+      root.open(node, after: root.focusedDescendant, autotile: false)
       focusNewWindow(node, windowID: target.id)
     } else {
       var anchor = root.find(insertionPoint)

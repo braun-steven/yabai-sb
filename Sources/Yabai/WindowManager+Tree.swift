@@ -153,7 +153,7 @@ extension WindowManager {
 
     for windowID in windowList {
       if let windowID, let target = window(for: windowID) {
-        sendWindow(target, to: sid, movedByRule: false)
+        sendWindow(target, to: sid, movedByRule: false, refocusingSource: false)
       }
     }
 

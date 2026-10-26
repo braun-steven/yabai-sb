@@ -176,12 +176,14 @@ extension SpaceManager {
     return true
   }
 
-  func tile(_ win: Window, on sid: SpaceID, insertionPoint: WindowID? = nil) -> View {
+  func tile(
+    _ win: Window, on sid: SpaceID, insertionPoint: WindowID? = nil, besideFocus: Bool = false
+  ) -> View {
     let target = view(for: sid)
     if target.layout == .float { return target }
 
     win.adjustLayer(to: .below)
-    target.add(win, insertionPoint: insertionPoint)
+    target.add(win, insertionPoint: insertionPoint, besideFocus: besideFocus)
     target.flush()
 
     return target

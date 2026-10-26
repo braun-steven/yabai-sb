@@ -4,20 +4,35 @@ import CoreGraphics
 import YabaiCore
 
 extension WindowManager {
-  func sendWindow(_ target: Window, to destination: SpaceID, movedByRule: Bool) {
+  //
+  // NOTE: sway cmd_move_container (`move container to output|workspace`). The window leaves its view first, so that the
+  // focus left behind on a visible source is the window its tree focuses now, the most recently focused one there
+  // (displayFocusTarget(on:from:excluding:), as sway takes the focus-inactive container of the old parent and then of
+  // the old workspace), not the frontmost window of the space, which can be a dialog yabai does not manage. A source
+  // without such a window activates Finder. A caller that focuses the moved window right afterwards passes
+  // `refocusingSource: false`, so the source does not take the focus in between. With `besideFocus` the window becomes
+  // the sibling after the window the destination's tree focuses, without tree_autotiling (View.add); a window moved by
+  // a rule opens like a new window instead.
+  //
+
+  func sendWindow(
+    _ target: Window, to destination: SpaceID, movedByRule: Bool, besideFocus: Bool = false,
+    refocusingSource: Bool = true
+  ) {
     let source = target.id.space
     if source == destination { return }
 
-    if let source, source.isVisible && (movedByRule || focus.focused == target.id) {
-      if let next = window(on: source, byRank: 1, excluding: target.id) {
+    let wasFocused = focus.focused == target.id
+    if let owner = managedView(for: target) {
+      unmanageWindow(target, from: owner)
+    }
+
+    if refocusingSource, let source, source.isVisible && (movedByRule || wasFocused) {
+      if let next = displayFocusTarget(on: source, from: nil, excluding: target.id) {
         focusWithRaise(next)
       } else {
         SLS.setFrontProcess(ProcessManager.shared.finderPSN, window: nil, mode: .noWindows)
       }
-    }
-
-    if let owner = managedView(for: target) {
-      unmanageWindow(target, from: owner)
     }
 
     destination.moveWindow(target)
@@ -25,7 +40,7 @@ extension WindowManager {
     SLS.setFrontProcess(SLS.connection, target.application.psn, forSpace: destination)
 
     if target.shouldBeManaged {
-      manageWindow(target, on: destination, inserting: nil)
+      manageWindow(target, on: destination, inserting: nil, besideFocus: besideFocus)
     }
 
     Border.refresh(space: source)

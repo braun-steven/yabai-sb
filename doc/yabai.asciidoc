@@ -621,10 +621,12 @@ COMMAND
     Note that you can also '--focus' a minimized window to restore it as the focused window.
 
 *--display* '<DISPLAY_SEL>'::
-    Send the selected window to the given display.
+    Send the selected window to the given display. +
+    On a *tree* space it is added right after the window focused last there, in that window's container (a tab after the focused tab), without *tree_autotiling*; a split set with *--insert* still applies. +
+    When the selected window had focus, focus stays on its old space, at the window focused last there.
 
 *--space* '<SPACE_SEL>'::
-    Send the selected window to the given space.
+    Send the selected window to the given space, placed and with focus as for *--display*.
 
 *--swap* '<WINDOW_SEL>'::
     Swap position of the selected window and the given window.

@@ -265,6 +265,23 @@ extension DaemonState {
       #expect(wm.displayFocusTarget(on: Workspace.sid, from: nil)?.id == wid(2))
     }
 
+    @Test func sourceFocusAfterAMoveIsTheFocusedWindowOfTheOldParent() {
+      // NOTE: sway cmd_move_container focuses the focus-inactive container of the old parent first: moving w2 out of
+      // H[w1 V[w2 w3]] focuses w3, although w1 was focused after w3
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.node(2).split(.vertical)
+      space.open(3, focus: true)
+      space.focus(1)
+      space.focus(2)
+
+      space.close(2)
+
+      let wm = WindowManager.shared
+      #expect(wm.displayFocusTarget(on: Workspace.sid, from: nil, excluding: wid(2))?.id == wid(3))
+    }
+
     @Test("tree_focus_tabbed")
     func treeFocusTabbed() {
       // H[ 1 T[ 2 3 ] ]

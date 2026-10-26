@@ -371,6 +371,92 @@ extension DaemonState {
       }
     }
 
+    // MARK: - A window moved here (window --display, window --space)
+
+    @Test func movedWindowIsTheSiblingAfterTheFocusedWindowWithoutAutotiling() {
+      // NOTE: sway cmd_move_container: V[T B] with T focused last takes R as V[T R B]; autotiling would nest H[T R]
+      Config.current.space.treeAutotiling = true
+      let space = Workspace(area: Area(x: 0, y: 0, w: 800, h: 1200))
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.focus(1)
+      WindowManager.shared.focus.focusChanged(to: wid(99))
+
+      space.open(3, besideFocus: true)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splitv focus=1,0,2
+          w1 0.3333
+          w3 0.3333
+          w2 0.3333
+        """
+      }
+    }
+
+    @Test func movedWindowBecomesTheTabAfterTheFocusedTab() {
+      Config.current.space.treeAutotiling = true
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.open(3, focus: true)
+      space.node(2).setLayout(.tabbed)
+      space.focus(2)
+      WindowManager.shared.focus.focusChanged(to: wid(99))
+
+      space.open(4, besideFocus: true)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splith focus=1,0
+          w1 0.5000
+          tabbed(splitv) 0.5000 focus=1,0,2
+            w2 0.3333
+            w4 0.3333
+            w3 0.3333
+        """
+      }
+    }
+
+    @Test func movedWindowIgnoresTheSelectedContainer() {
+      let space = Workspace()
+      // NOTE: a new window opens after the selected container (focus parent), a moved window after the focused window
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.node(2).split(.vertical)
+      space.open(3, focus: true)
+      space.focus(2)
+      space.view.root.select(space.node(2).parent)
+      WindowManager.shared.focus.focusChanged(to: wid(99))
+
+      space.open(4, besideFocus: true)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splith focus=1,0
+          w1 0.5000
+          splitv 0.5000 focus=1,0,2 *
+            w2 0.3333
+            w4 0.3333
+            w3 0.3333
+        """
+      }
+    }
+
+    @Test func movedWindowFillsAnEmptyView() {
+      Config.current.space.treeAutotiling = true
+      let space = Workspace()
+
+      space.open(1, besideFocus: true)
+
+      assertInlineSnapshot(of: space.dump, as: .lines) {
+        """
+        splith
+          w1 1.0000
+        """
+      }
+    }
+
     @Test(arguments: [
       (TreeOrientation.auto, Area(x: 0, y: 0, w: 1200, h: 800), ConLayout.splitH),
       (.auto, Area(x: 0, y: 0, w: 800, h: 1200), .splitV),

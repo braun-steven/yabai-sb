@@ -229,14 +229,15 @@ extension DisplayID {
     SLS.setActiveMenuBarDisplay(SLS.connection, uuid)
   }
 
-  /// Focuses the display, through its frontmost window on the space, or its cursor.
-  @WM func focus(space: SpaceID?) {
+  /// Focuses the display, through the window `WindowManager.displayFocusTarget(on:from:)` picks on the space, or its
+  /// cursor when there is none.
+  @WM func focus(space: SpaceID?, from direction: Direction? = nil) {
     DisplayManager.shared.invalidateSpaceCaches()
 
     let wm = WindowManager.shared
 
-    if let sid = space, let window = wm.window(on: sid, byRank: 1, excluding: nil) {
-      WindowManager.shared.focusWithRaise(window)
+    if let sid = space, let window = wm.displayFocusTarget(on: sid, from: direction) {
+      wm.focusWindow(id: window.id)
       wm.centerMouse(on: window)
       activate()
     } else {

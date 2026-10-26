@@ -145,6 +145,12 @@ extension WindowManager {
     return target
   }
 
+  /// Focuses a display, coming from the display in the opposite direction or from no direction (nil): the window of
+  /// `displayFocusTarget(on:from:)` on its current space, or the display itself when the space has none.
+  func focusDisplay(_ did: DisplayID, from direction: Direction?) {
+    did.focus(space: did.currentSpace, from: direction)
+  }
+
   /// The window that commands act on: the pending focus, or else the focused window.
   func actingWindow() -> Window? {
     consumePendingFocusWindow(now: OSTimer.now) ?? focusedWindow

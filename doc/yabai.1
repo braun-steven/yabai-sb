@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-24
+.\"      Date: 2026-10-26
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-24" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-26" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -728,6 +728,8 @@ yabai \-m display [\fI<DISPLAY_SEL\fP>] \fI<COMMAND>\fP
 \fB\-\-focus\fP \fI<DISPLAY_SEL>\fP
 .RS 4
 Focus the given display.
+.br
+Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway\(cqs \fIfocus output\fP. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself.
 .RE
 .sp
 \fB\-\-space\fP \fI<SPACE_SEL>\fP
@@ -913,7 +915,7 @@ Focus the given window.
 .br
 If none specified, focus the selected window instead.
 .br
-A direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies.
+A direction moves focus like i3\(cqs \fIfocus left|right|up|down\fP: it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise \fBfocus_wrapping\fP applies. Focus enters that display like sway does: at a window zoomed to the whole space, else, when the tree of its space is laid out in the direction, at the child on the near side (the first one moving east or south, the last one moving west or north), else at the window focused there last.
 .br
 \fIparent\fP and \fIchild\fP select the container around the focused window, or go back down, like i3\(cqs \fIfocus parent|child\fP. The selected container is outlined, and \fB\-\-warp\fP and \fB\-\-layout\fP act on it until focus changes.
 .RE

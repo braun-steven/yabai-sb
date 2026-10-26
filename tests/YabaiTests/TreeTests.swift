@@ -138,6 +138,70 @@ extension DaemonState {
       root.destroy()
     }
 
+    @Test(
+      "tree_entry_from_direction",
+      arguments: [
+        (Direction?.some(.east), UInt32(1)), (.west, 4), (.north, 3), (.south, 3), (nil, 3),
+      ])
+    func treeEntryFromDirection(direction: Direction?, expected: UInt32) {
+      // H[ 1 V[ 2 3 ] 4 ], 3 focused last
+      let root = Con(layout: .splitH)
+      treeTestLeaf(root, 1)
+      let v = treeTestSplit(root, .splitV)
+      treeTestLeaf(v, 2)
+      let c = treeTestLeaf(v, 3)
+      let d = treeTestLeaf(root, 4)
+      c.focus()
+
+      // along the layout the near-side child, across it (or with no direction) the window focused last
+      #expect(treeTestWindow(root.entry(from: direction)) == WindowID(rawValue: expected))
+
+      // a window zoomed to the whole view comes first, from any direction
+      d.zoom = .fullscreen
+      #expect(treeTestWindow(root.entry(from: direction)) == 4)
+
+      root.destroy()
+    }
+
+    @Test("tree_entry_descends_focus_history")
+    func treeEntryDescendsFocusHistory() {
+      // V[ H[ 1 2 ] 3 ], 2 focused last in the split, 3 focused last on the workspace
+      let root = Con(layout: .splitV)
+      let h = treeTestSplit(root, .splitH)
+      treeTestLeaf(h, 1)
+      let b = treeTestLeaf(h, 2)
+      let c = treeTestLeaf(root, 3)
+      b.focus()
+      c.focus()
+
+      // the near-side child is entered at the window focused there last
+      #expect(treeTestWindow(root.entry(from: .south)) == 2)
+      #expect(treeTestWindow(root.entry(from: .north)) == 3)
+      #expect(treeTestWindow(root.entry(from: .east)) == 3)
+
+      // an empty workspace has no window to enter at
+      let empty = Con(layout: .splitH)
+      #expect(!empty.entry(from: .east).isLeaf)
+
+      empty.destroy()
+      root.destroy()
+    }
+
+    @Test("display_focus_target_tree_entry")
+    func displayFocusTargetTreeEntry() {
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.open(3, focus: true)
+      space.focus(2)
+
+      let wm = WindowManager.shared
+      #expect(wm.displayFocusTarget(on: Workspace.sid, from: .east)?.id == wid(1))
+      #expect(wm.displayFocusTarget(on: Workspace.sid, from: .west)?.id == wid(3))
+      #expect(wm.displayFocusTarget(on: Workspace.sid, from: .south)?.id == wid(2))
+      #expect(wm.displayFocusTarget(on: Workspace.sid, from: nil)?.id == wid(2))
+    }
+
     @Test("tree_focus_tabbed")
     func treeFocusTabbed() {
       // H[ 1 T[ 2 3 ] ]

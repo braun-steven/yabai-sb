@@ -31,7 +31,8 @@ extension DisplayCommand {
     case .focus(let selector):
       if let target = try selector.resolve(acting: did, context) {
         if did != target {
-          target.focus(space: target.currentSpace)
+          // NOTE: Like sway's 'focus output', a direction only picks the display; focus enters it with no direction.
+          WindowManager.shared.focusDisplay(target, from: nil)
         } else {
           throw CommandError("cannot focus an already focused display.\n")
         }

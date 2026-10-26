@@ -477,7 +477,8 @@ COMMAND
 ^^^^^^^
 
 *--focus* '<DISPLAY_SEL>'::
-    Focus the given display.
+    Focus the given display. +
+    Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway's 'focus output'. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself.
 
 *--space* '<SPACE_SEL>'::
     The given space will become visible on the selected display, without changing focus. +
@@ -598,7 +599,7 @@ COMMAND
 *--focus* ['<WINDOW_SEL>']::
     Focus the given window. +
     If none specified, focus the selected window instead. +
-    A direction moves focus like i3's 'focus left|right|up|down': it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise *focus_wrapping* applies. +
+    A direction moves focus like i3's 'focus left|right|up|down': it walks up to the closest container laid out in that direction (tabbed counts as side by side) and focuses the neighbouring child, entering it at the window focused there last. At the edge of the space it focuses the display in that direction, otherwise *focus_wrapping* applies. Focus enters that display like sway does: at a window zoomed to the whole space, else, when the tree of its space is laid out in the direction, at the child on the near side (the first one moving east or south, the last one moving west or north), else at the window focused there last. +
     'parent' and 'child' select the container around the focused window, or go back down, like i3's 'focus parent|child'. The selected container is outlined, and *--warp* and *--layout* act on it until focus changes.
 
 *--close* ['<WINDOW_SEL>']::

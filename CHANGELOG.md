@@ -50,6 +50,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- Command *display --focus* focuses the window focused last in the tree of the display's space (or a window zoomed to the whole space), and on other spaces the frontmost window yabai could manage, instead of the frontmost window of any kind, which could be a system dialog; *window --focus <dir>* that crosses to a display whose tree is laid out in the direction enters it at the child on the near side, like sway
 - The fork is named yabai-sb with its own version, starting at 1.0.0: `yabai --version` prints `yabai-sb-v1.0.0`; the binary is still `yabai`. Releases are installed with `brew install braun-steven/tap/yabai-sb`
 - The launchd service has the label `com.braun-steven.yabai-sb` (`~/Library/LaunchAgents/com.braun-steven.yabai-sb.plist`); *--start-service* removes a `com.asmvik.yabai` service that runs the same binary
 - The built-in scripting addition load (`load_scripting_addition`) runs sudo on the path yabai was started from instead of its realpath, so the sudoers entry names `which yabai`, e.g. the Homebrew link, as upstream's does

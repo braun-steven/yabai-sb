@@ -631,6 +631,35 @@ extension Con {
   }
 
   //
+  // NOTE: sway get_node_in_output_direction. The container focus enters the workspace at when it comes from the
+  // display in the opposite direction, or from no direction (nil): a window zoomed to the whole view, else, when the
+  // workspace is laid out in the direction, its child on the near side, else its most recently focused child. Each is
+  // entered along its focus history.
+  //
+
+  func entry(from direction: Direction?) -> Con {
+    if let zoomed = fullscreenZoomedLeaf { return zoomed }
+
+    guard let direction, !isLeaf, children.count != 0, orientation == direction.orientation else {
+      return focusedDescendant
+    }
+
+    let child = direction.isBackward ? children[children.count - 1] : children[0]
+    return child.focusedDescendant
+  }
+
+  /// The most recently focused window zoomed to the whole view, or nil when there is none.
+  private var fullscreenZoomedLeaf: Con? {
+    if isLeaf { return zoom == .fullscreen ? self : nil }
+
+    for child in focusOrder {
+      if let leaf = child.fullscreenZoomedLeaf { return leaf }
+    }
+
+    return nil
+  }
+
+  //
   // NOTE: i3 get_tree_next, for 'focus left/right/up/down'. Walks up to the closest ancestor that is
   // laid out in the direction (tabbed counts as horizontal) and has a neighbouring child there, and
   // focuses that child, descending along its focus history. At the edge of the workspace the result

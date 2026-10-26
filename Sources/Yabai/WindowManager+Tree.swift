@@ -17,23 +17,6 @@ extension WindowManager {
     return did
   }
 
-  //
-  // NOTE: Focusing a neighboring display selects the last focused window on its tree space;
-  // otherwise macOS chooses which window to focus there.
-  //
-
-  private func treeFocusDisplay(_ did: DisplayID) {
-    let sid = did.currentSpace
-    let owner = sid.map { SpaceManager.shared.view(for: $0) }
-    let leaf = owner?.layout == .tree && owner?.tree != nil ? owner?.tree?.focusedDescendant : nil
-
-    if let leaf, leaf.isLeaf {
-      focusWindow(id: leaf.windowID)
-    } else {
-      did.focus(space: sid)
-    }
-  }
-
   func treeActingCon(in owner: View, for target: Window) -> Con? {
     if let selected = owner.tree?.findSelected(), target.id == focus.focused { return selected }
     return owner.tree?.find(target.id)
@@ -96,7 +79,7 @@ extension WindowManager {
     case .output:
       owner.tree?.select(nil)
       guard let did else { throw .invalidDestinationNode }
-      treeFocusDisplay(did)
+      focusDisplay(did, from: direction)
     case .none:
       throw .invalidDestinationNode
     }

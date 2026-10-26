@@ -26,6 +26,32 @@ extension WindowManager {
     return nil
   }
 
+  //
+  // NOTE: The window that gets focus when focus moves to a space on another display, coming from the display in the
+  // opposite direction or from no direction (nil). On a tree space it is the window the tree enters at
+  // (Con.entry(from:)). Elsewhere, and on a tree space without tiled windows, it is the frontmost window that yabai
+  // could manage there: windows on every space and windows of other roles, such as system dialogs, are skipped. Nil
+  // when there is no such window.
+  //
+
+  func displayFocusTarget(on sid: SpaceID, from direction: Direction?) -> Window? {
+    let owner = SpaceManager.shared.view(for: sid)
+    if owner.layout == .tree, let leaf = owner.tree?.entry(from: direction), leaf.isLeaf,
+      let target = leaf.windowID.flatMap({ window(for: $0) })
+    {
+      return target
+    }
+
+    guard let windowList = sid.windows(includingMinimized: false) else { return nil }
+    for id in windowList {
+      guard let target = window(for: id) else { continue }
+      if target.isSticky || !target.isEligibleForManagement { continue }
+      return target
+    }
+
+    return nil
+  }
+
   // NOTE: The window at a point, starting below `startID` (order -1) or from the top (nil, order 1). Windows of our
   // own connection (borders, tab bars) are skipped.
   private func window(at point: CGPoint, startingBelow startID: WindowID?, order: Int32) -> Window?

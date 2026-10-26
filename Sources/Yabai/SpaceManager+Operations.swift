@@ -271,7 +271,18 @@ extension SpaceManager {
     return true
   }
 
-  func focusSpace(_ sid: SpaceID) throws(SpaceOperationError) {
+  //
+  // NOTE: On a switch within one display, macOS activates no window of the new space when yabai never focused one
+  // there: the previous application (often Finder) stays frontmost. Like sway's `workspace N`, which focuses the
+  // focus-inactive window of N, `space --focus` (`focusingWindow`) focuses `WindowManager.displayFocusTarget(on:from:)`
+  // of the space. The switch is asynchronous, and a window focused before macOS has finished it can lose to the
+  // activation of the switch, so the focus waits for the space change event (`resolvePendingSpaceFocus`). A switch to
+  // another display focuses its window at once through `DisplayID.focus(space:)`, as before, and records nothing.
+  //
+
+  /// Focuses a space. With `focusingWindow`, a space on the same display also gets its focus-inactive window focused
+  /// once the switch is reported.
+  func focusSpace(_ sid: SpaceID, focusingWindow: Bool = false) throws(SpaceOperationError) {
     defer { DisplayManager.shared.invalidateSpaceCaches() }
     if MissionControl.shared.isActive { throw .inMissionControl }
 
@@ -282,12 +293,60 @@ extension SpaceManager {
     let newDid = sid.display
     let focusDisplay = curDid != newDid
 
+    pendingSpaceFocus = nil
+
     if ScriptingAddition.shared.focusSpace(sid) {
       if focusDisplay, let newDid {
         newDid.focus(space: sid)
+      } else if focusingWindow {
+        setPendingSpaceFocus(sid, at: OSTimer.now)
       }
     } else if let newDid {
-      _ = focusSpaceUsingGesture(sid, on: newDid)
+      if focusSpaceUsingGesture(sid, on: newDid), !focusDisplay, focusingWindow {
+        setPendingSpaceFocus(sid, at: OSTimer.now)
+      }
+    }
+  }
+
+  /// How long a pending space focus waits for its space change event, in milliseconds.
+  static let pendingSpaceFocusTimeoutMs: Float = 2000.0
+
+  func setPendingSpaceFocus(_ sid: SpaceID, at time: UInt64) {
+    pendingSpaceFocus = PendingSpaceFocus(sid: sid, time: time)
+  }
+
+  //
+  // NOTE: The gesture fallback can report the spaces it passes on the way, so a change to another space keeps the
+  // pending focus. It is dropped once its space is reached, or when it has expired: strictly less than
+  // `pendingSpaceFocusTimeoutMs` since the request keeps it, as for `FocusState.consumePending(now:)`.
+  //
+
+  /// The space whose window gets focus after a change to `active` at `now`, or nil. Drops the pending space focus when
+  /// it is returned or has expired.
+  func consumePendingSpaceFocus(active: SpaceID?, now: UInt64) -> SpaceID? {
+    guard let pending = pendingSpaceFocus else { return nil }
+
+    if OSTimer.milliseconds(from: pending.time, to: now) >= Self.pendingSpaceFocusTimeoutMs {
+      pendingSpaceFocus = nil
+      return nil
+    }
+
+    guard active == pending.sid else { return nil }
+    pendingSpaceFocus = nil
+    return pending.sid
+  }
+
+  /// Focuses the focus-inactive window of the space a `space --focus` switched to, once the switch is reported. An
+  /// empty space focuses nothing, and the cursor stays: the display did not change.
+  func resolvePendingSpaceFocus() {
+    guard let sid = consumePendingSpaceFocus(active: currentSpaceID, now: OSTimer.now) else {
+      return
+    }
+    if MissionControl.shared.isActive { return }
+
+    let wm = WindowManager.shared
+    if let target = wm.displayFocusTarget(on: sid, from: nil) {
+      wm.focusWindow(id: target.id)
     }
   }
 

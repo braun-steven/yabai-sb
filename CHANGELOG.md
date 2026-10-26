@@ -127,6 +127,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- *space --focus* of a hidden space on the same display focuses its window (the one *display --focus* picks, like sway's *workspace*) once macOS reports the switch, also through the gesture fallback without the scripting addition; no window got focus and Finder often stayed frontmost
 - Focusing a display or space with no window to focus (*display --focus*, *space --focus*, *window --focus <dir>* across displays) puts the cursor back where it was after the click on its desktop, unless *mouse_follows_focus* is on; it was left at the centre of the display. The click goes to a point of the desktop that no window covers, and is skipped when there is none
 
 ## [7.1.25] - 2026-05-08

@@ -509,6 +509,7 @@ COMMAND
 
 *--focus* '<SPACE_SEL>'::
     Focus the given space. +
+    Focus goes to the window that *display --focus* picks there, like sway's 'workspace': on the same display once macOS reports the switch, without moving the cursor. A space without such a window focuses no window. +
     With *space_auto_back_and_forth* on, the index or label of the focused space focuses the recent space instead.
 
 *--switch* '<SPACE_SEL>'::

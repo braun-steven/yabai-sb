@@ -768,6 +768,8 @@ yabai \-m space [\fI<SPACE_SEL>\fP] \fI<COMMAND>\fP
 .RS 4
 Focus the given space.
 .br
+Focus goes to the window that \fBdisplay \-\-focus\fP picks there, like sway\(cqs \fIworkspace\fP: on the same display once macOS reports the switch, without moving the cursor. A space without such a window focuses no window.
+.br
 With \fBspace_auto_back_and_forth\fP on, the index or label of the focused space focuses the recent space instead.
 .RE
 .sp

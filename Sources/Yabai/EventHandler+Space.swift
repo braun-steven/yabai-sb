@@ -83,6 +83,7 @@ extension EventHandler {
 
     Logger.events.debug("space changed: \(Int64(bitPattern: sm.currentSpaceID?.rawValue ?? 0))")
     refreshCurrentSpace()
+    sm.resolvePendingSpaceFocus()
 
     EventSignals.shared.push(.spaceChanged)
   }

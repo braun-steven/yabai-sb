@@ -108,7 +108,8 @@ extension SpaceCommand {
             try sm.focusSpace(
               selector.focusTarget(
                 target, autoBackAndForth: Config.current.space.autoBackAndForth,
-                focused: SpaceID.active, recent: sm.lastSpaceID))
+                focused: SpaceID.active, recent: sm.lastSpaceID),
+              focusingWindow: true)
           } else {
             try sm.switchSpace(to: target)
           }

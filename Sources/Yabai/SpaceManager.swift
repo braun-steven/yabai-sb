@@ -41,6 +41,15 @@ enum SpaceOperationError: Error, Sendable {
   var spacePinPasses = 0
   /// Whether the notice about the pins without the scripting addition was logged (once per daemon run).
   var spacePinNoticeLogged = false
+  /// A space that `space --focus` switched to on the same display, whose window gets focus once the switch is reported
+  /// (`resolvePendingSpaceFocus`).
+  var pendingSpaceFocus: PendingSpaceFocus?
+
+  /// A space focus request, made at `time` on the OSTimer clock.
+  struct PendingSpaceFocus: Equatable {
+    var sid: SpaceID
+    var time: UInt64
+  }
 
   /// The view of a space; before `begin()` only a known one, after it the view is created when the space is new.
   func queryView(for sid: SpaceID) -> View? {
@@ -154,6 +163,7 @@ enum SpaceOperationError: Error, Sendable {
   func resetViews() {
     labels = LabelList<SpaceID>()
     pins = SpacePins()
+    pendingSpaceFocus = nil
     //
     // NOTE: The views are keyed by space id.
     //

@@ -130,8 +130,8 @@ extension WindowManager {
   // acts on the window that was asked to be focused, instead of the one the application still reports.
   //
 
-  func setPendingFocus(_ windowID: WindowID) {
-    focus.setPending(windowID, at: OSTimer.now)
+  func setPendingFocus(_ windowID: WindowID, warpsMouse: Bool = true) {
+    focus.setPending(windowID, at: OSTimer.now, warpsMouse: warpsMouse)
   }
 
   /// The window of the pending focus, when it has not expired and its window exists. Consuming it drops an expired
@@ -234,7 +234,7 @@ extension WindowManager {
     }
     sendWindow(target, to: sid, movedByRule: false, besideFocus: true, refocusingSource: false)
     focusWithRaise(target)
-    setPendingFocus(target.id)
+    setPendingFocus(target.id, warpsMouse: false)
   }
 
   /// The window that commands act on: the pending focus, or else the focused window.

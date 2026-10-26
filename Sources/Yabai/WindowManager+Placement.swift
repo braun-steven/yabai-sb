@@ -30,6 +30,7 @@ extension WindowManager {
     if refocusingSource, let source, source.isVisible && (movedByRule || wasFocused) {
       if let next = displayFocusTarget(on: source, from: nil, excluding: target.id) {
         focusWithRaise(next)
+        setPendingFocus(next.id, warpsMouse: false)
       } else {
         SLS.setFrontProcess(ProcessManager.shared.finderPSN, window: nil, mode: .noWindows)
       }

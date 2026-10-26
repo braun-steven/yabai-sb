@@ -207,7 +207,7 @@ extension EventHandler {
     wm.setWindowOpacity(window, to: Config.current.windowOpacity.active)
 
     if wm.focus.focused != window.id {
-      if ms.ffmWindowID != window.id {
+      if ms.ffmWindowID != window.id, !wm.focus.keepsMouse(for: window.id, now: OSTimer.now) {
         wm.centerMouse(on: window)
       }
 

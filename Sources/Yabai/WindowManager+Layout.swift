@@ -167,6 +167,6 @@ extension WindowManager {
     }
 
     treeApply(aView)
-    focusWindow(id: focusTarget)
+    focusWindow(id: focusTarget, warpsMouse: false)
   }
 }

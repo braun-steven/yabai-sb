@@ -42,14 +42,11 @@ extension WindowManager {
 
     guard let did = target.id.displayID else { return }
 
-    let center = CGPoint(
-      x: target.frame.origin.x + target.frame.size.width / 2,
-      y: target.frame.origin.y + target.frame.size.height / 2)
-
-    let bounds = CGDisplayBounds(did.rawValue)
-    if !bounds.contains(center) { return }
-
-    CGWarpMouseCursorPosition(center)
+    if let center = MouseFollowsFocus.warpPoint(
+      cursor: cursor, frame: target.frame, displayBounds: CGDisplayBounds(did.rawValue))
+    {
+      CGWarpMouseCursorPosition(center)
+    }
   }
 
   func managedView(for target: Window) -> View? {
@@ -107,11 +104,13 @@ extension WindowManager {
     return owner.tree != nil ? owner : nil
   }
 
-  func focusWindow(id windowID: WindowID?) {
+  /// Focuses and raises a window, as the pending focus. With `warpsMouse` false its focus event does not move the
+  /// cursor (`MouseFollowsFocus`).
+  func focusWindow(id windowID: WindowID?, warpsMouse: Bool = true) {
     guard let windowID else { return }
     if let target = window(for: windowID) {
       focusWithRaise(target)
-      setPendingFocus(target.id)
+      setPendingFocus(target.id, warpsMouse: warpsMouse)
     }
   }
 }

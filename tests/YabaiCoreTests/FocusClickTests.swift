@@ -8,6 +8,7 @@ struct FocusClickTests {
   private static let bounds = CGRect(x: 1920, y: 0, width: 1800, height: 1200)
   private static let center = CGPoint(x: 2820, y: 600)
   private static let cursor = CGPoint(x: 100, y: 200)
+  private static let onDisplay = CGPoint(x: 2000, y: 1100)
 
   @Test func candidatesStartAtTheCenterAndCoverTheGrid() {
     let points = FocusClick.candidates(in: Self.bounds)
@@ -91,6 +92,26 @@ struct FocusClickTests {
       bounds: Self.bounds, cursor: Self.center, needsClick: true, mouseFollowsFocus: false,
       isDesktop: { _ in true })
     #expect(atClick == FocusClickPlan(warp: Self.center, click: Self.center, restore: nil))
+  }
+
+  // Columns: needs a click, the points covered by a window, expected plan. The cursor is on the display, so
+  // mouse_follows_focus leaves it there, like sway's 'mouse_warping output'.
+  @Test(
+    "mouse_follows_focus leaves a cursor that is already on the display",
+    arguments: [
+      (true, [CGPoint](), FocusClickPlan(warp: center, click: center, restore: onDisplay)),
+      (
+        true, FocusClick.candidates(in: bounds), FocusClickPlan(warp: nil, click: nil, restore: nil)
+      ),
+      (false, [CGPoint](), FocusClickPlan(warp: nil, click: nil, restore: nil)),
+    ])
+  func planWithTheCursorOnTheDisplay(
+    needsClick: Bool, covered: [CGPoint], expected: FocusClickPlan
+  ) {
+    let plan = FocusClick.plan(
+      bounds: Self.bounds, cursor: Self.onDisplay, needsClick: needsClick, mouseFollowsFocus: true,
+      isDesktop: { !covered.contains($0) })
+    #expect(plan == expected)
   }
 
   // Columns: needs a click, the desktop is under the cursor, expected plan.

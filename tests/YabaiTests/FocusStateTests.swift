@@ -42,6 +42,23 @@ private func focusStateID(_ n: UInt32) -> WindowID {
     #expect(focus.pending == nil)
   }
 
+  @Test func pendingFocusOfAMoveKeepsTheMouseUntilItExpires() {
+    var focus = FocusState()
+    #expect(!focus.keepsMouse(for: focusStateID(1), now: start))
+
+    focus.setPending(focusStateID(1), at: start)
+    #expect(!focus.keepsMouse(for: focusStateID(1), now: start))
+
+    focus.setPending(focusStateID(1), at: start, warpsMouse: false)
+    #expect(focus.keepsMouse(for: focusStateID(1), now: start + 499_000_000))
+    #expect(!focus.keepsMouse(for: focusStateID(2), now: start))
+    #expect(!focus.keepsMouse(for: focusStateID(1), now: start + 500_000_000))
+    #expect(focus.pending?.warpsMouse == false)
+
+    focus.setPending(focusStateID(1), at: start)
+    #expect(focus.pending?.warpsMouse == true)
+  }
+
   @Test func clearPendingForOtherWindowKeepsIt() {
     var focus = FocusState()
     focus.setPending(focusStateID(5), at: start)

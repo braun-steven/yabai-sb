@@ -233,7 +233,9 @@ Global Settings
     The menubar will automatically become fully opaque upon entering a native-fullscreen space, and adjusted down afterwards.
 
 *mouse_follows_focus* ['<BOOL_SEL>']::
-    When focusing a window, put the mouse at its center. When focusing a display or space without a window to focus, put the mouse at the center of the display.
+    When focus goes to another display than the one under the mouse, put the mouse at the center of the focused window, or at the center of the display when it has no window to focus, like sway's 'mouse_warping output'. Focus that stays on the display under the mouse never moves it. +
+    The commands that move a window (*window --warp*, *--swap*, *--display* and *--space*) do not move the mouse, also when the moved window keeps focus on another display. +
+    Unlike upstream yabai, focusing a window on the display under the mouse no longer puts the mouse at its center.
 
 *focus_follows_mouse* ['autofocus|autoraise|off']::
     Automatically focus the window under the mouse. +
@@ -486,7 +488,7 @@ COMMAND
 
 *--focus* '<DISPLAY_SEL>'::
     Focus the given display. +
-    Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway's 'focus output'. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself: yabai clicks its desktop (the centre, or another point when a window covers it; no click when every point is covered or the space is already focused), so Finder becomes the frontmost application. The cursor returns to where it was, or stays at the centre of the display with *mouse_follows_focus* on.
+    Focus goes to a window zoomed to the whole space, else to the window focused last in the tree of its current space, like sway's 'focus output'. On a space without tiled windows it goes to the frontmost window yabai could manage there: windows on every space and system dialogs are skipped. A space with no such window focuses the display itself: yabai clicks its desktop (the centre, or another point when a window covers it; no click when every point is covered or the space is already focused), so Finder becomes the frontmost application. The cursor returns to where it was, or stays at the centre of the display with *mouse_follows_focus* on when it was on another display.
 
 *--space* '<SPACE_SEL>'::
     The given space will become visible on the selected display, without changing focus. +
@@ -943,7 +945,7 @@ ARGUMENT
     System Integrity Protection must be partially disabled.
 
 *mouse_follows_focus='<BOOL_SEL>'*::
-    When focusing the window, put the mouse at its center. Overrides the global *mouse_follows_focus* setting.
+    When focus goes to the window from another display, put the mouse at its center. Overrides the global *mouse_follows_focus* setting.
 
 *sub-layer='<LAYER>'*::
     Window is ordered within the given stacking sub-layer. +

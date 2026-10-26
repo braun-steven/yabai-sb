@@ -138,7 +138,7 @@ extension WindowManager {
       treeApply(owner)
       treeApply(dstView)
 
-      if focus.isLeaf { focusWindow(id: focus.windowID) }
+      if focus.isLeaf { focusWindow(id: focus.windowID, warpsMouse: false) }
       return
     }
 
@@ -159,6 +159,7 @@ extension WindowManager {
 
     if let focus = (windowList.first ?? nil).flatMap({ window(for: $0) }) {
       WindowManager.shared.focusWithRaise(focus)
+      setPendingFocus(focus.id, warpsMouse: false)
     }
   }
 

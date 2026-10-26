@@ -11,10 +11,12 @@ import YabaiCore
 /// request that the application has not reported yet, and the focus events that arrived before their window or
 /// application was known.
 struct FocusState {
-  /// A focus request, made at `time` on the OSTimer clock.
+  /// A focus request, made at `time` on the OSTimer clock. `warpsMouse` is false for the focus of a window a command
+  /// moved, whose focus event does not move the cursor (`MouseFollowsFocus`).
   struct PendingFocus: Equatable {
     var windowID: WindowID
     var time: UInt64
+    var warpsMouse = true
   }
 
   /// How long a pending focus stays valid, in milliseconds.
@@ -57,8 +59,8 @@ struct FocusState {
     focusedPSN = psn
   }
 
-  mutating func setPending(_ windowID: WindowID, at time: UInt64) {
-    pending = PendingFocus(windowID: windowID, time: time)
+  mutating func setPending(_ windowID: WindowID, at time: UInt64, warpsMouse: Bool = true) {
+    pending = PendingFocus(windowID: windowID, time: time, warpsMouse: warpsMouse)
   }
 
   /// Drops the pending focus, whatever its window.
@@ -86,6 +88,14 @@ struct FocusState {
 
     self.pending = nil
     return nil
+  }
+
+  /// Whether the focus of this window, reported at `now`, leaves the cursor: a pending focus of it that has not expired
+  /// and was made with `warpsMouse` false. An expired one no longer counts, so a later focus of the window can move the
+  /// cursor again when the moved window reported no focus.
+  func keepsMouse(for windowID: WindowID, now: UInt64) -> Bool {
+    guard let pending, pending.windowID == windowID, !pending.warpsMouse else { return false }
+    return OSTimer.milliseconds(from: pending.time, to: now) < Self.pendingTimeoutMs
   }
 
   func hasLostFocusedEvent(for windowID: WindowID) -> Bool {

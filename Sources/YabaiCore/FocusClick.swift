@@ -8,9 +8,9 @@ import CoreGraphics
 // half and five sixths of the display's width and height. A floating or sticky window, the Dock or a panel can cover
 // the centre; with every point covered there is no click, so it never reaches another application's window.
 //
-// The cursor is warped to the click point, since the click is posted at it. Afterwards it goes back where it was with
-// mouse_follows_focus off, and to the centre of the display with it on. Without a click the cursor stays with
-// mouse_follows_focus off and goes to the centre with it on.
+// The cursor is warped to the click point, since the click is posted at it. Afterwards it goes back where it was, or to
+// the centre of the display with mouse_follows_focus on and the cursor on another display (`MouseFollowsFocus`).
+// Without a click the cursor stays, or goes to the centre in that case.
 //
 // Focus follows mouse focuses an empty display whose desktop the cursor is on (`FFMDisplayFocus`), so its click goes
 // to the cursor (`planAtCursor`) and the cursor never moves: a warp would fight the user's own movement, and the
@@ -71,13 +71,14 @@ public enum FocusClick {
   ) -> FocusClickPlan {
     let center = center(of: bounds)
     let click = needsClick ? candidates(in: bounds).first(where: isDesktop) : nil
+    let follows = mouseFollowsFocus && MouseFollowsFocus.warps(cursor: cursor, to: bounds)
 
     guard let click else {
-      let warp = mouseFollowsFocus && cursor != center ? center : nil
+      let warp = follows ? center : nil
       return FocusClickPlan(warp: warp, click: nil, restore: nil)
     }
 
-    let final = mouseFollowsFocus ? center : cursor
+    let final = follows ? center : cursor
     return FocusClickPlan(warp: click, click: click, restore: final == click ? nil : final)
   }
 

@@ -136,6 +136,8 @@ enum Event: Sendable {
   case spacePinReconcile
   // NOTE: Only post with `key: .focusClickCursorRestore` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case focusClickCursorRestore
+  // NOTE: Only post with `key: .spaceMoveFocusCheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case spaceMoveFocusCheck
   case daemonMessage(DaemonMessage)
   // NOTE: Posted by an EventSubscriber when it ends (a closed peer, a failed write or a full backlog). It only removes
   // the subscriber from EventSubscribers, which runs on @WM.
@@ -185,6 +187,7 @@ enum EventLoop {
     case missionControlCheck
     case configReload
     case focusClickCursorRestore
+    case spaceMoveFocusCheck
   }
 
   private struct DelayedState: Sendable {
@@ -360,6 +363,8 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .spacePinReconcile) { spacePinReconcile() }
     case .focusClickCursorRestore:
       if EventLoop.claimDelivery(of: .focusClickCursorRestore) { focusClickCursorRestore() }
+    case .spaceMoveFocusCheck:
+      if EventLoop.claimDelivery(of: .spaceMoveFocusCheck) { spaceMoveFocusCheck() }
     case .daemonMessage(let message): MessageLoop.handle(message)
     case .eventSubscriberRemoved(let id): EventSubscribers.shared.remove(id)
     }

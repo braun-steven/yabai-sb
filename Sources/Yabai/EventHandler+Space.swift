@@ -88,6 +88,11 @@ extension EventHandler {
     EventSignals.shared.push(.spaceChanged)
   }
 
+  /// Checks whether a space moved by `space --display` has arrived on its display, and focuses it then.
+  func spaceMoveFocusCheck() {
+    SpaceManager.shared.resolvePendingSpaceMove()
+  }
+
   func displayChanged() {
     DisplayManager.shared.invalidateSpaceCaches()
     let dm = DisplayManager.shared

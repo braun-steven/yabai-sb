@@ -542,6 +542,7 @@ COMMAND
 
 *--display* '<DISPLAY_SEL>'::
     Send the selected space to the given display. +
+    Once macOS reports the move, the space is shown and focused there: the window focused last on it, or the display itself when the space is empty. The cursor moves only as *mouse_follows_focus* says. The moves of *--pin* and *space_layout* keep the focus. +
     System Integrity Protection must be partially disabled.
 
 *--balance* ['x-axis|y-axis']::

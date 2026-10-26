@@ -2,6 +2,7 @@ import ApplicationServices
 import CPrivate
 import CoreGraphics
 import Foundation
+import Logging
 import SortedCollections
 import YabaiCore
 
@@ -170,7 +171,18 @@ extension SpaceManager {
     if !success { throw .scriptingAdditionFailed }
   }
 
-  func moveSpace(_ sid: SpaceID?, toDisplay did: DisplayID) throws(SpaceOperationError) {
+  //
+  // NOTE: Like sway's `move workspace to output`, a move the user asked for (`focusing`, `space --display`) focuses the
+  // moved space on its new display: its focus-inactive window, or the display itself when the space is empty
+  // (`DisplayID.focus(space:)`, which moves the cursor as `mouse_follows_focus` says). The window server reports the move
+  // after the scripting addition has answered, so the focus waits for it (`resolvePendingSpaceMove`). The moves of the
+  // space pins and of `space_layout` keep the focus where it is.
+  //
+
+  /// Moves a space to another display. With `focusing`, the space gets focus once the window server reports the move.
+  func moveSpace(_ sid: SpaceID?, toDisplay did: DisplayID, focusing: Bool = false)
+    throws(SpaceOperationError)
+  {
     defer { DisplayManager.shared.invalidateSpaceCaches() }
     if MissionControl.shared.isActive { throw .inMissionControl }
     guard let sid else { throw .missingSource }
@@ -205,7 +217,11 @@ extension SpaceManager {
       sid, toDisplayOf: dSid, previous: replacementSid, focus: isActive)
     {
       markViewInvalid(for: sid)
-      if isActive {
+      if focusing {
+        setPendingSpaceFocus(sid, on: did, at: OSTimer.now)
+        EventLoop.post(
+          .spaceMoveFocusCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveFocusCheck)
+      } else if isActive {
         try? focusSpace(sid)
       }
       return
@@ -311,8 +327,12 @@ extension SpaceManager {
   /// How long a pending space focus waits for its space change event, in milliseconds.
   static let pendingSpaceFocusTimeoutMs: Float = 2000.0
 
-  func setPendingSpaceFocus(_ sid: SpaceID, at time: UInt64) {
-    pendingSpaceFocus = PendingSpaceFocus(sid: sid, time: time)
+  /// How often a pending space move focus asks the window server whether the move is done.
+  static let pendingSpaceMoveInterval: Duration = .milliseconds(25)
+
+  /// Records a space to focus: after a switch on its display, or with `display`, after a move to that display.
+  func setPendingSpaceFocus(_ sid: SpaceID, on display: DisplayID? = nil, at time: UInt64) {
+    pendingSpaceFocus = PendingSpaceFocus(sid: sid, time: time, display: display)
   }
 
   //
@@ -331,7 +351,7 @@ extension SpaceManager {
       return nil
     }
 
-    guard active == pending.sid else { return nil }
+    guard pending.display == nil, active == pending.sid else { return nil }
     pendingSpaceFocus = nil
     return pending.sid
   }
@@ -347,6 +367,73 @@ extension SpaceManager {
     let wm = WindowManager.shared
     if let target = wm.displayFocusTarget(on: sid, from: nil) {
       wm.focusWindow(id: target.id)
+    }
+  }
+
+  /// What a pending space move focus does after a check (`consumePendingSpaceMove`).
+  enum PendingSpaceMoveStep: Equatable {
+    /// Nothing is pending for a move, or it expired.
+    case none
+    /// The move is not reported yet: check again.
+    case wait
+    /// The space is on its new display and shown there: focus it there.
+    case focus(SpaceID, on: DisplayID)
+    /// The space is on its new display but hidden: switch to it.
+    case show(SpaceID, on: DisplayID)
+  }
+
+  //
+  // NOTE: A move of the active space asks the scripting addition to show the space on its new display; any other move
+  // leaves it hidden there, after the visible space, so that one is switched to (`show`). Like the pending focus of a
+  // switch, the request is dropped once it is used, or when `pendingSpaceFocusTimeoutMs` has passed.
+  //
+
+  /// The step of a pending space move focus, given the display the window server has for its space (`display`) and
+  /// the space shown on its new display (`current`), at `now`. Drops the pending focus unless the step is `wait`.
+  func consumePendingSpaceMove(display: DisplayID?, current: SpaceID?, now: UInt64)
+    -> PendingSpaceMoveStep
+  {
+    guard let pending = pendingSpaceFocus, let did = pending.display else { return .none }
+
+    if OSTimer.milliseconds(from: pending.time, to: now) >= Self.pendingSpaceFocusTimeoutMs {
+      pendingSpaceFocus = nil
+      return .none
+    }
+
+    guard display == did else { return .wait }
+    pendingSpaceFocus = nil
+    return current == pending.sid ? .focus(pending.sid, on: did) : .show(pending.sid, on: did)
+  }
+
+  /// Focuses the space a `space --display` moved, once the window server has it on its new display; until then it
+  /// checks again on the event loop.
+  func resolvePendingSpaceMove() {
+    guard let pending = pendingSpaceFocus, let did = pending.display else { return }
+    DisplayManager.shared.invalidateSpaceCaches()
+
+    let step = consumePendingSpaceMove(
+      display: pending.sid.display, current: did.currentSpace, now: OSTimer.now)
+    if case .wait = step {
+      EventLoop.post(
+        .spaceMoveFocusCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveFocusCheck)
+      return
+    }
+    if MissionControl.shared.isActive { return }
+
+    switch step {
+    case .focus(let sid, let did):
+      did.focus(space: sid)
+    case .show(let sid, let did):
+      do {
+        try focusSpace(sid, focusingWindow: true)
+      } catch .sameSpace {
+        did.focus(space: sid)
+      } catch {
+        Logger.events.debug(
+          "space move focus: could not focus \(Int64(bitPattern: sid.rawValue)): \(error)")
+      }
+    case .none, .wait:
+      break
     }
   }
 

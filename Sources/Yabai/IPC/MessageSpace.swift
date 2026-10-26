@@ -151,7 +151,7 @@ extension SpaceCommand {
     case .display(let selector):
       if let target = try selector.resolve(acting: DisplayID.active, context) {
         do {
-          try sm.moveSpace(sid, toDisplay: target)
+          try sm.moveSpace(sid, toDisplay: target, focusing: true)
         } catch .missingSource {
           throw CommandError("could not locate the space to act on.\n")
         } catch .missingDestination {

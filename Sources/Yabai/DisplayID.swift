@@ -281,14 +281,22 @@ extension DisplayID {
   // space of the menu bar display, which would then always be this display's.
   //
 
-  /// Focuses the display without a window, through a click on its desktop as `FocusClick.plan` decides.
-  @WM private func focusDesktop() {
+  /// Focuses the display without a window, through a click on its desktop as `FocusClick.plan` decides. With
+  /// `pointer` (focus follows mouse, the cursor on this display) the click goes there as `FocusClick.planAtCursor`
+  /// decides, and the cursor stays.
+  @WM func focusDesktop(at pointer: CGPoint? = nil) {
     let mouse = MouseState.shared
     let needsClick = SpaceID.active != currentSpace
-    let cursor = mouse.focusClickRestorePoint ?? SLS.cursorLocation(SLS.connection)
-    let plan = FocusClick.plan(
-      bounds: CGDisplayBounds(rawValue), cursor: cursor, needsClick: needsClick,
-      mouseFollowsFocus: Config.current.window.mouseFollowsFocus, isDesktop: desktopIsUnder)
+    let plan: FocusClickPlan
+    if let pointer {
+      plan = FocusClick.planAtCursor(
+        cursor: pointer, needsClick: needsClick, isDesktop: desktopIsUnder)
+    } else {
+      let cursor = mouse.focusClickRestorePoint ?? SLS.cursorLocation(SLS.connection)
+      plan = FocusClick.plan(
+        bounds: CGDisplayBounds(rawValue), cursor: cursor, needsClick: needsClick,
+        mouseFollowsFocus: Config.current.window.mouseFollowsFocus, isDesktop: desktopIsUnder)
+    }
 
     if let warp = plan.warp { CGWarpMouseCursorPosition(warp) }
     activate()

@@ -211,3 +211,61 @@ struct FFMRecheckTests {
     #expect(!second)
   }
 }
+
+@Suite("FFMDisplayFocus")
+struct FFMDisplayFocusTests {
+  private static let left = DisplayID(rawValue: 0xFFFF_0001)
+  private static let right = DisplayID(rawValue: 0xFFFF_0002)
+  private static let third = DisplayID(rawValue: 0xFFFF_0003)
+
+  // Columns: display under the pointer (nil: off its usable area), focused display, expected display to focus.
+  @Test(
+    "a move over the desktop focuses the pointer's display only when focus is on another one",
+    arguments: [
+      (Optional(right), Optional(left), Optional(right)),
+      (Optional(left), Optional(left), nil),
+      (nil, Optional(left), nil),
+      (Optional(right), nil, nil),
+    ] as [(DisplayID?, DisplayID?, DisplayID?)]
+  )
+  func decide(pointer: DisplayID?, focused: DisplayID?, expected: DisplayID?) {
+    var focus = FFMDisplayFocus()
+    #expect(focus.decide(pointerDisplay: pointer, focusedDisplay: focused) == expected)
+    #expect(focus.attempt?.target == expected)
+  }
+
+  @Test("a pair is tried once, until a display change resets it")
+  func onceUntilReset() {
+    var focus = FFMDisplayFocus()
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == Self.right)
+    // later moves on the same desktop, the focus not yet (or never) moved
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == nil)
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == nil)
+    // the focus moved there: nothing to do
+    focus.reset()
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.right) == nil)
+    // keyboard focus went back to the left display: the next move focuses the right one again
+    focus.reset()
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == Self.right)
+  }
+
+  @Test("another pair is tried without a reset")
+  func otherPair() {
+    var focus = FFMDisplayFocus()
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == Self.right)
+    // the pointer goes on to a third display before the focus of the first attempt arrived
+    #expect(focus.decide(pointerDisplay: Self.third, focusedDisplay: Self.left) == Self.third)
+    // and back: the right display is tried again
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left) == Self.right)
+    // focus moved to the third display without a reset: the right display is tried from there
+    #expect(focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.third) == Self.right)
+  }
+
+  @Test("a move over the focused display keeps the attempt")
+  func focusedDisplayKeepsAttempt() {
+    var focus = FFMDisplayFocus()
+    _ = focus.decide(pointerDisplay: Self.right, focusedDisplay: Self.left)
+    #expect(focus.decide(pointerDisplay: Self.left, focusedDisplay: Self.left) == nil)
+    #expect(focus.attempt == FFMDisplayFocus.Attempt(target: Self.right, from: Self.left))
+  }
+}

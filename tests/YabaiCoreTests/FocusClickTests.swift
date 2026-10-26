@@ -92,4 +92,24 @@ struct FocusClickTests {
       isDesktop: { _ in true })
     #expect(atClick == FocusClickPlan(warp: Self.center, click: Self.center, restore: nil))
   }
+
+  // Columns: needs a click, the desktop is under the cursor, expected plan.
+  @Test(
+    "focus follows mouse clicks at the cursor on the desktop and never moves it",
+    arguments: [
+      (true, true, FocusClickPlan(warp: nil, click: cursor, restore: nil)),
+      (true, false, FocusClickPlan(warp: nil, click: nil, restore: nil)),
+      (false, true, FocusClickPlan(warp: nil, click: nil, restore: nil)),
+    ])
+  func planAtCursor(needsClick: Bool, desktop: Bool, expected: FocusClickPlan) {
+    var asked: [CGPoint] = []
+    let plan = FocusClick.planAtCursor(
+      cursor: Self.cursor, needsClick: needsClick,
+      isDesktop: { point in
+        asked.append(point)
+        return desktop
+      })
+    #expect(plan == expected)
+    #expect(asked == (needsClick ? [Self.cursor] : []))
+  }
 }

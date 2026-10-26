@@ -342,17 +342,53 @@ extension EventHandler {
     }
   }
 
+  //
+  // NOTE: Over no window yabai knows, focus goes to the display under the pointer when focus is on another display, once
+  // per pair of displays (`FFMDisplayFocus`). A window under the pointer that yabai does not track is focused as
+  // before. Otherwise the focus target of the display's space takes focus like a hit window: without a raise for
+  // autofocus, with one for autoraise (the floating occlusion check is skipped, since the pointer is not over it), and
+  // as the request in flight, so its focus event does not warp the cursor with mouse_follows_focus. An empty space
+  // gets the focus click at the pointer (`DisplayID.focusDesktop(at:)`), which never warps the cursor; while the cursor
+  // restore of an earlier focus click is pending, nothing is tried, since the cursor is not where the user put it.
+  //
+
   private func ffmFocusDisplayAtPoint(_ point: CGPoint) {
-    let cursorDid = DisplayID(containing: point)
-    if DisplayManager.shared.currentDisplayID == cursorDid { return }
-    guard let did = cursorDid else { return }
+    let ms = MouseState.shared
+    if ms.focusClickRestorePoint != nil { return }
 
-    let bounds = did.constrainedBounds(ignoringExternalBar: false)
-    if !bounds.containsIncludingEdges(point) { return }
+    let cursorDid = DisplayID(containing: point).flatMap { did in
+      did.constrainedBounds(ignoringExternalBar: false).containsIncludingEdges(point) ? did : nil
+    }
+    guard
+      let did = ms.ffmDisplayFocus.decide(
+        pointerDisplay: cursorDid, focusedDisplay: DisplayManager.shared.currentDisplayID)
+    else { return }
 
-    let wid = DisplayManager.shared.focusWindow(at: point)
-    if wid == nil { did.activate() }
-    MouseState.shared.ffmWindowID = wid
+    if let wid = DisplayManager.shared.focusWindow(at: point) {
+      Logger.events.debug("focus follows mouse: focusing untracked window \(wid.rawValue)")
+      ms.ffmWindowID = wid
+      return
+    }
+
+    let wm = WindowManager.shared
+    DisplayManager.shared.invalidateSpaceCaches()
+    guard let sid = did.currentSpace, let window = wm.displayFocusTarget(on: sid, from: nil) else {
+      Logger.events.debug("focus follows mouse: focusing empty display \(did.rawValue)")
+      did.focusDesktop(at: point)
+      return
+    }
+
+    Logger.events.debug(
+      "focus follows mouse: focusing display \(did.rawValue) through window \(window.id.rawValue)")
+    if focusFollowsMouse == .autofocus {
+      let target = ffmWindowToFocus(window)
+      wm.focusWithoutRaise(target)
+      ms.ffmWindowID = target.id
+    } else {
+      wm.focusWithRaise(window)
+      ms.ffmWindowID = window.id
+    }
+    did.activate()
   }
 
   /// Records the hit window's frame for the current generation, when no other window on a visible space can cover it.

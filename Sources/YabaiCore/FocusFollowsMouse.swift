@@ -113,3 +113,50 @@ public struct FFMRecheck: Sendable, Equatable {
     return state != .idle
   }
 }
+
+//
+// NOTE: Over no window (the desktop or a gap), focus follows mouse focuses the display under the pointer when focus
+// is on another display, as sway does over a workspace (`check_focus_follows_mouse`): the focus target of its space
+// (`WindowManager.displayFocusTarget(on:from:)`, sway's focus-inactive window), or the display itself when the space
+// has none. Over the desktop of the focused display nothing happens. sway asks again on every move while the two
+// displays differ; here a pair of pointer display and focused display is tried once, so a focus the window server does
+// not carry out (no display change follows) is not tried again on every move. A display change ends the attempt
+// (`reset()`), so the desktop of a display that keyboard focus left later focuses it again, as in sway.
+//
+
+/// The display focus follows mouse focuses for the desktop under the pointer, tried once per pair of displays.
+public struct FFMDisplayFocus: Sendable, Equatable {
+  /// The last attempt: the display under the pointer, and the focused display it was made from.
+  public struct Attempt: Sendable, Equatable {
+    public let target: DisplayID
+    public let from: DisplayID
+
+    public init(target: DisplayID, from: DisplayID) {
+      self.target = target
+      self.from = from
+    }
+  }
+
+  public private(set) var attempt: Attempt?
+
+  public init() {}
+
+  /// Decides a move over no window. `pointerDisplay` is the display under the pointer, nil when the pointer is off its
+  /// usable area (the menu bar or the Dock); `focusedDisplay` the display that has focus. Returns the display to focus
+  /// and records the attempt; nil when the pointer is on the focused display, or this pair was tried already.
+  public mutating func decide(pointerDisplay: DisplayID?, focusedDisplay: DisplayID?) -> DisplayID?
+  {
+    guard let pointerDisplay, let focusedDisplay, pointerDisplay != focusedDisplay else {
+      return nil
+    }
+    let next = Attempt(target: pointerDisplay, from: focusedDisplay)
+    if attempt == next { return nil }
+    attempt = next
+    return pointerDisplay
+  }
+
+  /// The focused display changed: the next move over the desktop of another display tries again.
+  public mutating func reset() {
+    attempt = nil
+  }
+}

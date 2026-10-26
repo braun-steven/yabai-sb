@@ -236,6 +236,8 @@ final class MouseTapState {
       }
     }
   }
+  /// The display focus follows mouse last tried to focus over the desktop; reset by each display change.
+  var ffmDisplayFocus = FFMDisplayFocus()
   /// When the focus follows mouse request in flight was made; nil when none is pending.
   private(set) var ffmRequestTime: ContinuousClock.Instant?
   /// The re-check of the pointer after the request in flight held a move.

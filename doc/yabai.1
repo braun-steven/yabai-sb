@@ -321,6 +321,8 @@ When focusing a window, put the mouse at its center. When focusing a display or 
 \fBfocus_follows_mouse\fP [\fIautofocus|autoraise|off\fP]
 .RS 4
 Automatically focus the window under the mouse.
+.br
+When the mouse moves onto the desktop or a gap of a display without focus, focus goes to that display, like sway: to the window focused last on its space (\fIautofocus\fP does not raise it, \fIautoraise\fP does), or to the display itself when the space has no window to focus, through a click on the desktop under the mouse. This happens once each time focus is on another display than the one under the mouse; the desktop of the focused display, the menu bar and the Dock do not move focus. The mouse is never moved, also with \fBmouse_follows_focus\fP on.
 .RE
 .sp
 \fBdisplay_arrangement_order\fP [\fIdefault|vertical|horizontal\fP]

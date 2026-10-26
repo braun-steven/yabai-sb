@@ -236,7 +236,8 @@ Global Settings
     When focusing a window, put the mouse at its center. When focusing a display or space without a window to focus, put the mouse at the center of the display.
 
 *focus_follows_mouse* ['autofocus|autoraise|off']::
-    Automatically focus the window under the mouse.
+    Automatically focus the window under the mouse. +
+    When the mouse moves onto the desktop or a gap of a display without focus, focus goes to that display, like sway: to the window focused last on its space ('autofocus' does not raise it, 'autoraise' does), or to the display itself when the space has no window to focus, through a click on the desktop under the mouse. This happens once each time focus is on another display than the one under the mouse; the desktop of the focused display, the menu bar and the Dock do not move focus. The mouse is never moved, also with *mouse_follows_focus* on.
 
 *display_arrangement_order* ['default|vertical|horizontal']::
     Specify how displays are ordered (determined by center point). +

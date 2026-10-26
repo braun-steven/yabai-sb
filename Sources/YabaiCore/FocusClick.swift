@@ -12,6 +12,11 @@ import CoreGraphics
 // mouse_follows_focus off, and to the centre of the display with it on. Without a click the cursor stays with
 // mouse_follows_focus off and goes to the centre with it on.
 //
+// Focus follows mouse focuses an empty display whose desktop the cursor is on (`FFMDisplayFocus`), so its click goes
+// to the cursor (`planAtCursor`) and the cursor never moves: a warp would fight the user's own movement, and the
+// restore would put the cursor back where it was 0.1 s earlier. With something else than the desktop under the cursor
+// (the Dock, a window yabai does not know) there is no click and only the menu bar moves.
+//
 // NOTE: The click is posted at the HID event tap, so it passes yabai's own mouse tap (on the main run loop) before the
 // window server handles it, and a posted mouse event can move the cursor to its point when it is handled. A warp back
 // right after posting could run first and be undone, so the restore waits `restoreDelay` on the event loop
@@ -74,5 +79,14 @@ public enum FocusClick {
 
     let final = mouseFollowsFocus ? center : cursor
     return FocusClickPlan(warp: click, click: click, restore: final == click ? nil : final)
+  }
+
+  /// What focusing an empty display does for focus follows mouse, with the cursor on its desktop: the click goes to
+  /// the cursor when `needsClick` and the desktop is under it, and the cursor stays.
+  public static func planAtCursor(
+    cursor: CGPoint, needsClick: Bool, isDesktop: (CGPoint) -> Bool
+  ) -> FocusClickPlan {
+    let click = needsClick && isDesktop(cursor) ? cursor : nil
+    return FocusClickPlan(warp: nil, click: click, restore: nil)
   }
 }

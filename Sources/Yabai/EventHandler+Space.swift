@@ -121,6 +121,7 @@ extension EventHandler {
 
     dm.lastDisplayID = dm.currentDisplayID
     dm.currentDisplayID = newDid
+    MouseState.shared.ffmDisplayFocus.reset()
 
     sm.lastSpaceID = sm.currentSpaceID
     sm.currentSpaceID = dm.currentDisplayID.flatMap { $0.currentSpace }

@@ -17,7 +17,7 @@ import YabaiCore
   func display(_ query: DisplayQuery) -> DisplayID? {
     switch query {
     case .arrangement(let index): DisplayID(arrangement: index)
-    case .inDirection(let direction, let did): did.closestDisplay(in: direction)
+    case .inDirection(let direction, let did): did.selectedDisplay(in: direction)
     case .prev(let did): did.previous
     case .next(let did): did.next
     case .first: DisplayID.first

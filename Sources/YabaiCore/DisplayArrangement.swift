@@ -40,4 +40,42 @@ public enum DisplayArrangement {
 
     return order.map { placements[$0].uuid }
   }
+
+  //
+  // NOTE: A display selector in a direction with no display that way wraps around, like sway's 'focus output <dir>'
+  // and 'move container|workspace to output <dir>' (wlr_output_layout_farthest_output in the opposite direction): of
+  // the displays lying wholly on the other side of the reference, the one whose nearest point is farthest from the
+  // reference's center, measured in both axes. Of displays at the same distance, the first one wins.
+  //
+
+  /// The index of the frame in candidates that a selector in a direction wraps around to: the one lying farthest the
+  /// other way from reference, nil if none lies wholly that way.
+  public static func wrapped(
+    in direction: Direction, from reference: CGRect, among candidates: [CGRect]
+  ) -> Int? {
+    let center = CGPoint(x: reference.midX, y: reference.midY)
+    var farthest: Int? = nil
+    var farthestDistance: CGFloat = 0
+
+    for (index, frame) in candidates.enumerated() {
+      let isBehind =
+        switch direction {
+        case .north: frame.minY >= reference.maxY
+        case .east: frame.maxX <= reference.minX
+        case .south: frame.maxY <= reference.minY
+        case .west: frame.minX >= reference.maxX
+        }
+      guard isBehind else { continue }
+
+      let dx = min(max(center.x, frame.minX), frame.maxX) - center.x
+      let dy = min(max(center.y, frame.minY), frame.maxY) - center.y
+      let distance = dx * dx + dy * dy
+      if distance > farthestDistance {
+        farthest = index
+        farthestDistance = distance
+      }
+    }
+
+    return farthest
+  }
 }

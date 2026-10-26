@@ -232,6 +232,8 @@ EASING\&      := ease_in_sine\&  | ease_out_sine\&  | ease_in_out_sine\&  |
 .fam
 .fi
 .if n .RE
+.sp
+A \f(CRDIR_SEL\fP in a \f(CRDISPLAY_SEL\fP selects the nearest display in that direction. When there is none that way, it wraps around to the display lying farthest the other way, measured from the center of the acting display to the nearest point of each display, like sway\(cqs \fIfocus output <dir>\fP and \fImove container|workspace to output <dir>\fP: with three displays side by side, \f(CReast\fP from the eastmost one selects the westmost one. It fails only when no other display lies that way or wholly the other way. The directions of \fBwindow \-\-focus\fP and \fBwindow \-\-warp\fP (\f(CRWINDOW_SEL\fP and the tree) do not wrap to another display.
 .SH "DOMAINS"
 .SS "Config"
 .SS "General Syntax"

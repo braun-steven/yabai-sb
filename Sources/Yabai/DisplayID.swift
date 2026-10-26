@@ -160,6 +160,16 @@ extension DisplayID {
     return Area(CGDisplayBounds(rawValue)).closest(in: direction, among: areas).map { others[$0] }
   }
 
+  /// The display that a display selector in a direction picks: the nearest one in the direction, else the farthest one
+  /// the other way (see `DisplayArrangement.wrapped`); nil if there is no other display.
+  func selectedDisplay(in direction: Direction) -> DisplayID? {
+    if let closest = closestDisplay(in: direction) { return closest }
+    let others = DisplayID.all.filter { $0 != self }
+    let frames = others.map { CGDisplayBounds($0.rawValue) }
+    return DisplayArrangement.wrapped(in: direction, from: CGDisplayBounds(rawValue), among: frames)
+      .map { others[$0] }
+  }
+
   //
   // NOTE: The commands that cross to the display in a direction (tree focus and moves at the edge of a tree, and
   // `window --focus <dir>` and `window --warp <dir>` outside a tree) refuse a display whose current space is a macOS

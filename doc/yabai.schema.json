@@ -408,6 +408,10 @@
             "force"
           ]
         },
+        "space_auto_back_and_forth": {
+          "description": "Like sway's 'workspace_auto_back_and_forth': space --focus with the index or label of the focused space focuses the recent space instead.",
+          "type": "boolean"
+        },
         "mouse_modifier": {
           "description": "Keyboard modifier used for moving and resizing windows.",
           "enum": [

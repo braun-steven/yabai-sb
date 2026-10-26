@@ -120,6 +120,20 @@ extension DaemonState {
       #expect(reconcileSteps(document) == ConfigReconcileResult())
     }
 
+    @Test func spaceAutoBackAndForthReadsBackFromTheDump() throws {
+      DaemonFixture.reset()
+      #expect(dumpText().contains("\nspace_auto_back_and_forth = false # default\n"))
+
+      _ = reconcileSteps(try ConfigDocument.decode("[config]\nspace_auto_back_and_forth = true\n"))
+      _ = Headless.drain()
+      #expect(Config.current.space.autoBackAndForth)
+
+      let text = dumpText()
+      expectCleanDump(text)
+      #expect(text.contains("\nspace_auto_back_and_forth = true\n"))
+      #expect(reconcileSteps(try ConfigDocument.decode(text)) == ConfigReconcileResult())
+    }
+
     /// NOTE: A value that the file does not give, changed at runtime, is an override; the others say default.
     @Test func aRuntimeChangeIsMarkedAsAnOverride() throws {
       DaemonFixture.reset()

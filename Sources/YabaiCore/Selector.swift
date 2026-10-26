@@ -177,6 +177,27 @@ public enum SpaceSelector: Equatable, Sendable {
       return sid
     }
   }
+
+  // NOTE: `space_auto_back_and_forth` is sway's `workspace_auto_back_and_forth` (`workspace_auto_back_and_forth` in
+  // sway/tree/workspace.c): sway applies it to `workspace <name>` and `workspace number <n>` only, not to
+  // next/prev, so here it applies to an index and a label only. Without a recent space, or when the recent space is the
+  // selected one, the selected space stays and its focus fails as already focused.
+
+  /// The space `space --focus` focuses for the selected space `target`: the recent space when back-and-forth is on, the
+  /// selector is an index or a label, and `target` is the focused space; else `target`. `focused` is read only then.
+  public func focusTarget<ID: Equatable>(
+    _ target: ID, autoBackAndForth: Bool, focused: @autoclosure () -> ID?, recent: ID?
+  ) -> ID {
+    switch self {
+    case .missionControl, .label:
+      guard autoBackAndForth, let recent, recent != target, focused() == target else {
+        return target
+      }
+      return recent
+    case .prev, .next, .first, .last, .recent, .mouse:
+      return target
+    }
+  }
 }
 
 /// A window of the stack (tabbed container) of the acting window: `stack.<value>`.

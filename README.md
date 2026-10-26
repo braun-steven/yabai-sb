@@ -22,6 +22,7 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 - [Automatic space layout](#automatic-space-layout)
 - [Space pins](#space-pins)
 - [Built-in display last](#built-in-display-last)
+- [Space back and forth](#space-back-and-forth)
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
 - [Shell completions](#shell-completions)
@@ -334,6 +335,16 @@ yabai -m config builtin_display_last on
 ```
 
 For example, with 10 spaces on the first external display, 5 on the second, and 1 on the laptop, the external displays are indices 1 and 2 with spaces 1–15. The laptop is display 3 with space 16. This works with `space_layout 10:5:1b` to keep external workspace numbers stable while the laptop display is also connected.
+
+### Space back and forth
+
+Like sway's `workspace_auto_back_and_forth`, focusing the space that is already focused goes back to the recent space, which can be on another display:
+
+```sh
+yabai -m config space_auto_back_and_forth on
+```
+
+`yabai -m space --focus 3` from space 3 then focuses the space focused before it, so one binding per space toggles between two spaces. It applies to a mission-control index or a label only; `prev`, `next`, `first`, `last`, `recent` and `mouse` are unchanged, as in sway.
 
 ### Automatic padding
 

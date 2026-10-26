@@ -499,6 +499,9 @@ enum ConfigOptionKind: Sendable {
   choiceOption(
     .focusWrapping, choices: FocusWrapping.allCases, get: { Config.current.window.focusWrapping },
     set: { Config.current.window.focusWrapping = $0 }),
+  boolOption(
+    .spaceAutoBackAndForth, get: { Config.current.space.autoBackAndForth },
+    set: { Config.current.space.autoBackAndForth = $0 }),
   choiceOption(
     .mouseModifier, choices: MouseModifierKey.allCases, get: { Config.current.mouse.modifier },
     set: {

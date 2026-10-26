@@ -94,7 +94,7 @@ func tokenValue(_ text: String, _ value: String) {
 
 @Test("Config command names cover the daemon options and preserve their CLI spellings")
 func configCommandNames() {
-  #expect(ConfigCommand.Name.allCases.count == 61)
+  #expect(ConfigCommand.Name.allCases.count == 62)
   #expect(ConfigCommand.Name(token: Token("window_border")) == .windowBorder)
   #expect(ConfigCommand.Name(token: Token("tree_default_orientation")) == .treeDefaultOrientation)
   #expect(ConfigCommand.Name(token: Token("unknown_option")) == nil)
@@ -319,6 +319,46 @@ private let spaceSelectorRows: [(String, SpaceSelector?)] = [
 @Test(arguments: spaceSelectorRows)
 func spaceSelectorParsesWithoutLookups(_ text: String, _ selector: SpaceSelector?) {
   #expect(SpaceSelector(Token(text)) == selector)
+}
+
+/// A row of `space --focus` back-and-forth: the selector, whether the option is on, the selected, focused and recent
+/// spaces, and the space it focuses.
+private let focusTargetRows: [(SpaceSelector, Bool, Int, Int?, Int?, Int)] = [
+  (.missionControl(2), true, 2, 2, 1, 1),
+  (.label(Token("code")), true, 2, 2, 1, 1),
+  (.missionControl(2), false, 2, 2, 1, 2),
+  (.missionControl(2), true, 2, 3, 1, 2),
+  (.missionControl(2), true, 2, 2, nil, 2),
+  (.missionControl(2), true, 2, 2, 2, 2),
+  (.next, true, 2, 2, 1, 2),
+  (.prev, true, 2, 2, 1, 2),
+  (.first, true, 2, 2, 1, 2),
+  (.last, true, 2, 2, 1, 2),
+  (.recent, true, 2, 2, 1, 2),
+  (.mouse, true, 2, 2, 1, 2),
+]
+
+// NOTE: Like sway's workspace_auto_back_and_forth, only an index or a label of the focused space goes back.
+@Test(arguments: focusTargetRows)
+func spaceFocusTargetGoesBackAndForth(
+  _ row: (SpaceSelector, Bool, Int, Int?, Int?, Int)
+) {
+  let (selector, enabled, target, focused, recent, expected) = row
+  #expect(
+    selector.focusTarget(target, autoBackAndForth: enabled, focused: focused, recent: recent)
+      == expected)
+}
+
+@Test func spaceFocusTargetReadsTheFocusedSpaceOnlyWhenOn() {
+  var reads = 0
+  func focused() -> Int? {
+    reads += 1
+    return 2
+  }
+  _ = SpaceSelector.missionControl(2).focusTarget(
+    2, autoBackAndForth: false, focused: focused(), recent: 1)
+  _ = SpaceSelector.next.focusTarget(2, autoBackAndForth: true, focused: focused(), recent: 1)
+  #expect(reads == 0)
 }
 
 @Test func displaySelectorsParseWithoutLookups() {

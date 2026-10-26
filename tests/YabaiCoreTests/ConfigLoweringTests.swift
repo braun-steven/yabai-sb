@@ -65,6 +65,7 @@ private let optionSamples: [OptionSample] = [
   OptionSample(name: .treeWorkspaceLayout, toml: "\"tabbed\"", words: ["tabbed"]),
   OptionSample(name: .treeAutotiling, toml: "false", words: ["off"]),
   OptionSample(name: .focusWrapping, toml: "\"force\"", words: ["force"]),
+  OptionSample(name: .spaceAutoBackAndForth, toml: "true", words: ["on"]),
   OptionSample(name: .mouseModifier, toml: "\"alt\"", words: ["alt"]),
   OptionSample(name: .mouseAction1, toml: "\"resize\"", words: ["resize"]),
   OptionSample(name: .mouseAction2, toml: "\"move\"", words: ["move"]),

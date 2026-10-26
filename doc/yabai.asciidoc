@@ -268,6 +268,11 @@ Global Settings
     You should only enable this if you do NOT use the scripting addition. +
     The scripting addition implements the same functionality in a more robust way.
 
+*space_auto_back_and_forth* ['<BOOL_SEL>']::
+    Like sway's 'workspace_auto_back_and_forth': *space --focus* with the mission-control index or the label of the focused space focuses the recent space instead, which can be on another display. +
+    Only an index or a label goes back; 'prev', 'next', 'first', 'last', 'recent' and 'mouse' are unchanged, as sway applies it to 'workspace <name>' and 'workspace number <n>' only. +
+    Without a recent space the command fails as before. Default is 'off'.
+
 *window_shadow* ['<BOOL_SEL>|float']::
     Draw shadow for windows. +
     System Integrity Protection must be partially disabled.
@@ -503,7 +508,8 @@ COMMAND
 ^^^^^^^
 
 *--focus* '<SPACE_SEL>'::
-    Focus the given space.
+    Focus the given space. +
+    With *space_auto_back_and_forth* on, the index or label of the focused space focuses the recent space instead.
 
 *--switch* '<SPACE_SEL>'::
     The selected space will always be the currently focused space. +

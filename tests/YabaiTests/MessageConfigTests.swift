@@ -97,6 +97,7 @@ private let configExpectations: [String: String] = [
   "tree_workspace_layout": "one of: default, tabbed",
   "tree_autotiling": "on or off",
   "focus_wrapping": "one of: off, on, force",
+  "space_auto_back_and_forth": "on or off",
   "mouse_modifier": "one of: alt, shift, cmd, ctrl, fn",
   "mouse_action1": "one of: move, resize",
   "mouse_action2": "one of: move, resize",
@@ -213,6 +214,7 @@ extension DaemonState {
         option: "tree_workspace_layout", value: "tabbed", printed: "tabbed", invalid: "stacked"),
       ConfigCase(option: "tree_autotiling", value: "on", printed: "on", invalid: "x"),
       ConfigCase(option: "focus_wrapping", value: "off", printed: "off", invalid: "wrap"),
+      ConfigCase(option: "space_auto_back_and_forth", value: "on", printed: "on", invalid: "x"),
       ConfigCase(option: "mouse_modifier", value: "cmd", printed: "cmd", invalid: "hyper"),
       ConfigCase(option: "mouse_action1", value: "resize", printed: "resize", invalid: "swap"),
       ConfigCase(option: "mouse_action2", value: "move", printed: "move", invalid: "stack"),
@@ -480,7 +482,8 @@ extension DaemonState {
         "tab_bar_unfocused_text_color", "tab_bar_backdrop_color", "top_padding", "bottom_padding",
         "left_padding", "right_padding", "window_gap", "layout", "auto_padding",
         "tree_default_orientation",
-        "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "mouse_modifier",
+        "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "space_auto_back_and_forth",
+        "mouse_modifier",
         "mouse_action1",
         "mouse_action2", "mouse_drop_action", "mouse_drop_preview", "mouse_drag_split",
         "external_bar",
@@ -491,8 +494,8 @@ extension DaemonState {
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 61)
-      #expect(actual.count == 61)
+      #expect(ConfigName.allCases.count == 62)
+      #expect(actual.count == 62)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }

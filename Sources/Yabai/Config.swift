@@ -70,6 +70,8 @@ struct SpaceDefaults {
   var treeWorkspaceTabbed = false
   var treeAutotiling = false
   var skipWindowFocusAnimation = false
+  /// Whether `space --focus` of the focused space focuses the recent space (`space_auto_back_and_forth`).
+  var autoBackAndForth = false
   var spaceLayouts: [SpaceLayout] = []
   var spaceLayoutSpec: String?
 }

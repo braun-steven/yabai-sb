@@ -378,6 +378,15 @@ You should only enable this if you do NOT use the scripting addition.
 The scripting addition implements the same functionality in a more robust way.
 .RE
 .sp
+\fBspace_auto_back_and_forth\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+Like sway\(cqs \fIworkspace_auto_back_and_forth\fP: \fBspace \-\-focus\fP with the mission\-control index or the label of the focused space focuses the recent space instead, which can be on another display.
+.br
+Only an index or a label goes back; \fIprev\fP, \fInext\fP, \fIfirst\fP, \fIlast\fP, \fIrecent\fP and \fImouse\fP are unchanged, as sway applies it to \fIworkspace <name>\fP and \fIworkspace number <n>\fP only.
+.br
+Without a recent space the command fails as before. Default is \fIoff\fP.
+.RE
+.sp
 \fBwindow_shadow\fP [\fI<BOOL_SEL>|float\fP]
 .RS 4
 Draw shadow for windows.
@@ -758,6 +767,8 @@ yabai \-m space [\fI<SPACE_SEL>\fP] \fI<COMMAND>\fP
 \fB\-\-focus\fP \fI<SPACE_SEL>\fP
 .RS 4
 Focus the given space.
+.br
+With \fBspace_auto_back_and_forth\fP on, the index or label of the focused space focuses the recent space instead.
 .RE
 .sp
 \fB\-\-switch\fP \fI<SPACE_SEL>\fP

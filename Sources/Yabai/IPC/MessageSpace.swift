@@ -105,7 +105,10 @@ extension SpaceCommand {
       if let target = try selector.resolve(acting: sid, context) {
         do {
           if case .focus = self {
-            try sm.focusSpace(target)
+            try sm.focusSpace(
+              selector.focusTarget(
+                target, autoBackAndForth: Config.current.space.autoBackAndForth,
+                focused: SpaceID.active, recent: sm.lastSpaceID))
           } else {
             try sm.switchSpace(to: target)
           }

@@ -35,12 +35,16 @@ extension SpaceManager {
     }
 
     var didList: [DisplayID] = []
+    var arrangement: [String] = []
     var builtin: Int?
 
     for i in 0..<displayCount {
-      guard let did = DisplayID(arrangement: i + 1) else { return .failed }
+      guard let uuid = DisplayManager.shared.arrangedDisplayUUID(i + 1),
+        let did = DisplayID(uuid: uuid)
+      else { return .failed }
 
       didList.append(did)
+      arrangement.append(uuid)
       if builtin == nil && CGDisplayIsBuiltin(did.rawValue) != 0 { builtin = i }
     }
 
@@ -54,21 +58,45 @@ extension SpaceManager {
     let user = spaces.map { $0.map(\.isUser) }
 
     //
+    // NOTE: The spaces whose display went away go back to it when it is connected again (SpaceHomes): the layout
+    // takes them first for that display. The homes are recorded once the counts match, and by every space move.
+    //
+    var spaceUUID: [SpaceID: String] = [:]
+    for (i, list) in spaces.enumerated() {
+      for (j, sid) in list.enumerated() where user[i][j] {
+        spaceUUID[sid] = SLS.spaceName(SLS.connection, sid)
+      }
+    }
+    let home = spaceHomes.homeIndices(
+      of: Array(spaceUUID.keys), spaceUUID: { spaceUUID[$0] }, arrangement: arrangement)
+
+    //
     // NOTE: The pinned spaces (see SpacePinning.pinnedSpaces) are never moved or destroyed here. The pin reconcile moves
     // them to their displays, so a layout move of one would be undone by its pin, and the two would ping-pong.
     //
     let step = SpaceLayout.reconcileStep(
-      target: target, spaces: spaces, user: user, pinned: pinnedSpaces(),
+      target: target, spaces: spaces, user: user, pinned: pinnedSpaces(), home: home,
       visible: { didList[$0].currentSpace },
       isEmpty: { $0.windows(includingMinimized: true)?.isEmpty ?? false })
 
     /// The user spaces and the target of a display, for the log.
     func counts(_ i: Int) -> String { "\(user[i].count(where: { $0 }))/\(target[i])" }
 
+    /// Records the display of every user space as its home, once the pass has nothing left to do.
+    func recordHomes() {
+      var located: [String: String] = [:]
+      for (i, list) in spaces.enumerated() {
+        for sid in list { if let uuid = spaceUUID[sid] { located[uuid] = arrangement[i] } }
+      }
+      spaceHomes.record(located, connected: Set(arrangement))
+    }
+
     switch step {
     case .done:
+      recordHomes()
       return .done
     case .keep(let i):
+      recordHomes()
       Logger.spaces.debug(
         "display \(i + 1) has \(counts(i)) spaces, but no empty space can be destroyed")
       return .done
@@ -93,6 +121,15 @@ extension SpaceManager {
     }
 
     return .performed
+  }
+
+  /// Records the display a space moved to as its home, unless its home display is not connected (SpaceHomes).
+  func recordSpaceHome(_ sid: SpaceID, on did: DisplayID) {
+    guard let space = SLS.spaceName(SLS.connection, sid), let display = did.uuid,
+      let connected = DisplayManager.shared.arrangedDisplays
+    else { return }
+
+    spaceHomes.record(space: space, display: display, connected: Set(connected))
   }
 
   //

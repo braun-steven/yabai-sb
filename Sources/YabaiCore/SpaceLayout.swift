@@ -87,14 +87,22 @@ public struct SpaceLayout: Equatable, Sendable {
   /// `space_layout_move_candidate`: the space a reconcile pass moves off a display with too many spaces. It is
   /// the first user space from the given edge that is not visible, else the visible space when it is the only
   /// user space, else nil. A pinned space is never a candidate (see SpacePinning.pinnedSpaces), so the pin keeps it.
+  /// A space in `atHome` (its home display is this one, see SpaceHomes) is only taken when no other hidden space is left.
   public static func moveCandidate(
-    spaces: [SpaceID], user: [Bool], visible: SpaceID?, fromEnd: Bool, pinned: Set<SpaceID> = []
+    spaces: [SpaceID], user: [Bool], visible: SpaceID?, fromEnd: Bool, pinned: Set<SpaceID> = [],
+    atHome: Set<SpaceID> = []
   ) -> SpaceID? {
     let count = spaces.count
 
-    for k in 0..<count {
-      let i = fromEnd ? count - 1 - k : k
-      if user[i] && spaces[i] != visible && !pinned.contains(spaces[i]) { return spaces[i] }
+    for keepHome in [true, false] {
+      for k in 0..<count {
+        let i = fromEnd ? count - 1 - k : k
+        if user[i] && spaces[i] != visible && !pinned.contains(spaces[i])
+          && !(keepHome && atHome.contains(spaces[i]))
+        {
+          return spaces[i]
+        }
+      }
     }
 
     for i in 0..<count {
@@ -104,14 +112,53 @@ public struct SpaceLayout: Equatable, Sendable {
     return nil
   }
 
+  //
+  // NOTE: Like sway's output priority (tree/output.c, restore_workspaces): a space whose display went away remembers
+  // that display (SpaceHomes), and when the display is back, the spaces whose home it is return to it first. The
+  // layout only moves spaces into a display with too few, so the counts decide how many return; the spaces that fill
+  // the rest come from the displays with too many, as before. A pinned space is never moved, so a pin wins over a home.
+  //
+
+  /// A space to send back to display `to`, which has too few user spaces: an unpinned user space of another display
+  /// whose home is `to` (`home` gives the arrangement index of the home display of a space). Hidden spaces come first;
+  /// a display keeps its last user space.
+  static func homeCandidate(
+    to: Int, spaces: [[SpaceID]], user: [[Bool]], actual: [Int], pinned: Set<SpaceID>,
+    home: [SpaceID: Int], visible: (Int) -> SpaceID?
+  ) -> (SpaceID, from: Int)? {
+    for from in spaces.indices where from != to && actual[from] > 1 {
+      let returning = spaces[from].indices.filter { i in
+        user[from][i] && home[spaces[from][i]] == to && !pinned.contains(spaces[from][i])
+      }.map { spaces[from][$0] }
+      if returning.isEmpty { continue }
+
+      let shown = visible(from)
+      return (returning.first { $0 != shown } ?? returning[0], from)
+    }
+
+    return nil
+  }
+
   /// The next step of a reconcile pass, for the space lists of the displays in arrangement order (`spaces`, with `user`
   /// marking the user spaces) and their targets. `visible` and `isEmpty` query the window server, so they are only
-  /// called for the display and the spaces the step looks at. A pinned space is never moved or destroyed.
+  /// called for the display and the spaces the step looks at. A pinned space is never moved or destroyed. `home` gives
+  /// the arrangement index of the home display of a space (SpaceHomes); a display with too few takes its own spaces back
+  /// first.
   public static func reconcileStep(
     target: [Int], spaces: [[SpaceID]], user: [[Bool]], pinned: Set<SpaceID>,
-    visible: (Int) -> SpaceID?, isEmpty: (SpaceID) -> Bool
+    home: [SpaceID: Int] = [:], visible: (Int) -> SpaceID?, isEmpty: (SpaceID) -> Bool
   ) -> SpaceLayoutStep {
     let actual = user.map { $0.count(where: { $0 }) }
+
+    for to in target.indices where actual[to] < target[to] {
+      if let (sid, from) = homeCandidate(
+        to: to, spaces: spaces, user: user, actual: actual, pinned: pinned, home: home,
+        visible: visible)
+      {
+        return .move(sid, from: from, to: to)
+      }
+    }
+
     let surplus = actual.indices.first { actual[$0] > target[$0] }
     let deficit = actual.indices.first { actual[$0] < target[$0] }
 
@@ -120,7 +167,8 @@ public struct SpaceLayout: Equatable, Sendable {
       guard
         let sid = moveCandidate(
           spaces: spaces[surplus], user: user[surplus], visible: visible(surplus),
-          fromEnd: deficit > surplus, pinned: pinned)
+          fromEnd: deficit > surplus, pinned: pinned,
+          atHome: Set(spaces[surplus].filter { home[$0] == surplus }))
       else { return .create(on: deficit, pinnedDisplay: surplus) }
 
       return .move(sid, from: surplus, to: deficit)
@@ -167,7 +215,8 @@ public enum SpaceLayoutStep: Equatable, Sendable {
   case done
   /// The display has too many user spaces, but none of them is empty, unpinned and not its last user space.
   case keep(display: Int)
-  /// Move the space from the first display with too many user spaces to the first one with too few.
+  /// Move the space from the first display with too many user spaces to the first one with too few, or a space back to
+  /// its home display when that display has too few.
   case move(SpaceID, from: Int, to: Int)
   /// Create a space on the first display with too few user spaces. `pinnedDisplay` is the display with too many when all
   /// of its user spaces are pinned.

@@ -36,6 +36,8 @@ enum SpaceOperationError: Error, Sendable {
   var didBegin = false
   var labels = LabelList<SpaceID>()
   var spaceLayoutPasses = 0
+  /// The display each space was last seen on (SpaceHomes), for the space layout. Kept in memory, like the pins.
+  var spaceHomes = SpaceHomes()
   /// The pins of the labels (SpacePins), kept in memory: the config file sets them again at startup.
   var pins = SpacePins()
   var spacePinPasses = 0
@@ -282,6 +284,7 @@ enum SpaceOperationError: Error, Sendable {
   func resetViews() {
     labels = LabelList<SpaceID>()
     pins = SpacePins()
+    spaceHomes = SpaceHomes()
     pendingSpaceFocus = nil
     pendingSpaceMoves = []
     //

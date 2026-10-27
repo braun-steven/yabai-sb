@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-10-26
+.\"      Date: 2026-10-27
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-10-26" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-10-27" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -353,6 +353,10 @@ An entry suffixed with \fIb\fP belongs to the built\-in display, and the remaini
 After displays are added, removed or moved, and after spaces are created or destroyed, spaces are moved between displays, created or destroyed until every display matches its target.
 .br
 Spaces that contain windows are never destroyed. Spaces pinned to a connected display (see \fB\-\-pin\fP) are never moved or destroyed by this.
+.br
+Like sway\(cqs output priority, a space whose display goes away remembers that display, and when the display is connected again, the spaces that came from it return to it first, as many as its target takes; the rest of its target is filled from the displays with too many spaces. A pin wins over the remembered display. The remembered displays are kept until the daemon quits.
+.br
+A pinned space counts towards the target of its display: when a pin brings a space to a display that already has its target, another unpinned space leaves that display, the visible one when no other is left.
 .br
 System Integrity Protection must be partially disabled.
 .RE

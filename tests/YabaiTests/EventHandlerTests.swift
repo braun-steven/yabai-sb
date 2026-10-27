@@ -196,6 +196,54 @@ func mouseResizeHandle() {
   #expect(ResizeHandle(at: CGPoint(x: 200, y: 150), in: frame) == [])
 }
 
+//
+// NOTE: A window of a hidden application keeps its cached frame current: a `window --move` while the application is
+// hidden used to leave `query --windows` on the old frame. The fake window has no AX element, so its AX frame is zero.
+//
+
+extension DaemonState {
+  @Suite
+  @WM struct HiddenApplicationFrameTests {
+    @WM private func hiddenFloatingWindow() -> Window {
+      let application = Application()
+      application.isHidden = true
+      let target = Window(id: wid(40))
+      target.application = application
+      target.isFloating = true
+      target.frame = CGRect(x: 2982, y: 520, width: 440, height: 418)
+      WindowManager.shared.window[target.id] = target
+
+      var signal = EventSignal()
+      signal.command = "true"
+      EventSignals.shared.table.add(signal, .windowMoved)
+      EventSignals.shared.table.add(signal, .windowResized)
+      return target
+    }
+
+    @Test func movedUpdatesTheCachedOriginWithoutASignal() async {
+      let target = hiddenFloatingWindow()
+      let before = EventSignals.shared.pending.count
+
+      await EventHandler.shared.handle(.windowMoved(windowID: target.id))
+
+      #expect(target.frame == CGRect(x: 0, y: 0, width: 440, height: 418))
+      #expect(target.lastFloatingFrame == target.frame)
+      #expect(EventSignals.shared.pending.count == before)
+    }
+
+    @Test func resizedUpdatesTheCachedFrameWithoutASignal() async {
+      let target = hiddenFloatingWindow()
+      let before = EventSignals.shared.pending.count
+
+      await EventHandler.shared.handle(.windowResized(windowID: target.id))
+
+      #expect(target.frame == .zero)
+      #expect(target.lastFloatingFrame == .zero)
+      #expect(EventSignals.shared.pending.count == before)
+    }
+  }
+}
+
 extension DaemonState {
   @Suite
   @WM struct TerminatedApplicationTests {

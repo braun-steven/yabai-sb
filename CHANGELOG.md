@@ -131,6 +131,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- *query --windows* reports the new frame of a window that was moved or resized while its application is hidden (e.g. *window --move* of a hidden floating dialog); the cached frame used to keep the frame from before
 - *focus_follows_mouse* focuses the window under the pointer after a fast sweep: a move made while the focus of a window passed over was still pending is checked again once that focus is reported (or its request times out), at the pointer's position then, like sway
 - *space --focus* of a hidden space on the same display focuses its window (the one *display --focus* picks, like sway's *workspace*) once macOS reports the switch, also through the gesture fallback without the scripting addition; no window got focus and Finder often stayed frontmost
 - Focusing a display or space with no window to focus (*display --focus*, *space --focus*, *window --focus <dir>* across displays) puts the cursor back where it was after the click on its desktop, unless *mouse_follows_focus* is on; it was left at the centre of the display. The click goes to a point of the desktop that no window covers, and is skipped when there is none

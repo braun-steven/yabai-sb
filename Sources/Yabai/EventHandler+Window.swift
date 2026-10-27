@@ -155,9 +155,17 @@ extension EventHandler {
       return
     }
 
+    //
+    // NOTE: A window of a hidden application is not in a tree (`applicationHidden` unmanages it), so its move signals
+    // and flushes nothing. Its cached frame still follows the move, or `query --windows` keeps reporting the old
+    // frame after a `window --move` of a hidden floating dialog. `applyResize` does the same.
+    //
     if window.application.isHidden {
       Logger.events.debug(
-        "window moved: \(windowID) was moved while the application is hidden, ignoring event")
+        "window moved: \(windowID) was moved while the application is hidden, updating its frame only"
+      )
+      window.frame.origin = window.axOrigin
+      window.rememberFloatingFrame()
       return
     }
 
@@ -209,7 +217,10 @@ extension EventHandler {
 
     if window.application.isHidden {
       Logger.events.debug(
-        "window resized: \(windowID) was resized while the application is hidden, ignoring event")
+        "window resized: \(windowID) was resized while the application is hidden, updating its frame only"
+      )
+      window.frame = window.axFrame
+      window.rememberFloatingFrame()
       return nil
     }
 

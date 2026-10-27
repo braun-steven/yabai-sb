@@ -526,6 +526,7 @@ COMMAND
 
 *--create*  ['<DISPLAY_SEL>']::
     Create a new space on the given display. +
+    A direction, 'prev' and 'next' are measured from the display of a space selected by a 'SPACE_SEL', as for *--display*. +
     If none specified, use the display of the active space instead. +
     System Integrity Protection must be partially disabled.
 
@@ -547,6 +548,7 @@ COMMAND
 
 *--display* '<DISPLAY_SEL>'::
     Send the selected space to the given display. +
+    A direction, 'prev' and 'next' are measured from the display of a space selected by a 'SPACE_SEL', like sway's 'move workspace to output <dir>', and from the active display for the active space. +
     Once macOS reports the move, the space is shown and focused there: the window focused last on it, or the display itself when the space is empty. The cursor moves only as *mouse_follows_focus* says. The moves of *--pin* and *space_layout* keep the focus. +
     System Integrity Protection must be partially disabled.
 
@@ -595,6 +597,7 @@ COMMAND
 
 *--pin* ['<DISPLAY_SEL>']::
     Pin the selected space to the given display, so that it returns to that display whenever the display is connected. The space must have a label, otherwise the command fails. +
+    A direction, 'prev' and 'next' are measured from the display of a space selected by a 'SPACE_SEL', as for *--display*. +
     The pin is kept by the uuid of the display and in memory only: the *yabai.toml* sets it again at startup. A pin moves its space when it is set, when a display is added, removed or moved, and at startup. A space that is moved by hand to another display stays there until one of these happens. +
     A pin to a display that is not connected leaves its space where it is, and so does a pin whose space is the last user space of its display. Without an argument, the command removes the pin of the selected space. +
     The query key *pinned-display* of a space is the arrangement index of the display the space is pinned to, and 0 when it has no pin or its display is not connected. +

@@ -94,9 +94,9 @@ extension DisplayCommand {
 extension SpaceCommand {
   /// Runs the command on the acting space. Returns false to stop the message silently, when the optional selector of
   /// --create or --destroy found nothing ('recent'). --create and --destroy make the space they act on the acting
-  /// space of the commands that follow it.
-  @WM fileprivate func run(acting sid: inout SpaceID?, _ rsp: inout Response) throws(CommandError)
-    -> Bool
+  /// space of the commands that follow it. `focused` is the space the message acts on without a selector.
+  @WM fileprivate func run(acting sid: inout SpaceID?, focused: SpaceID?, _ rsp: inout Response)
+    throws(CommandError) -> Bool
   {
     let context = CSelectorContext()
     let sm = SpaceManager.shared
@@ -149,7 +149,9 @@ extension SpaceCommand {
         }
       }
     case .display(let selector):
-      if let target = try selector.resolve(acting: DisplayID.active, context) {
+      if let target = try selector.resolve(
+        acting: displayOrigin(of: sid, focused: focused), context)
+      {
         do {
           try sm.moveSpace(sid, toDisplay: target, focusing: true)
         } catch .missingSource {
@@ -169,7 +171,7 @@ extension SpaceCommand {
       if let selector {
         let target: DisplayID?
         do {
-          target = try selector.resolve(acting: DisplayID.active, context)
+          target = try selector.resolve(acting: displayOrigin(of: sid, focused: focused), context)
         } catch {
           throw error.stoppingMessage
         }
@@ -292,7 +294,7 @@ extension SpaceCommand {
       if let selector {
         let target: DisplayID?
         do {
-          target = try selector.resolve(acting: DisplayID.active, context)
+          target = try selector.resolve(acting: displayOrigin(of: sid, focused: focused), context)
         } catch {
           throw error.stoppingMessage
         }
@@ -332,6 +334,18 @@ extension SpaceCommand {
     return true
   }
 
+  // NOTE: `space <SPACE_SEL> --display` measures a direction, 'prev' and 'next' from the display of the selected space,
+  // like sway's `move workspace to output <dir>` (`cmd_move_workspace` in sway/commands/move.c starts from the
+  // workspace's own output). --create and --pin measure their display selector from the same origin, so
+  // `space work --pin east` pins to the display east of the space; sway has no equivalent for these. Without a
+  // selector, or with one that names the active space, the origin stays the active display, as before.
+
+  /// The display a relative display selector of the command is measured from (see `DisplaySelector.placementOrigin`).
+  @WM private func displayOrigin(of sid: SpaceID?, focused: SpaceID?) -> DisplayID? {
+    DisplaySelector.placementOrigin(
+      selected: sid != focused, windowDisplay: { sid?.display }, active: { DisplayID.active })
+  }
+
   /// Whether the command equalizes, rather than balances, the space.
   fileprivate var isEqualize: Bool {
     if case .equalize = self { true } else { false }
@@ -343,6 +357,7 @@ extension SpaceCommand {
 ) throws(CommandError) {
   let command: Token
   var actingSid = SpaceID.active
+  let focused = actingSid
   let selectorToken = message.next()
   let context = CSelectorContext()
   if let selector = SpaceSelector(selectorToken) {
@@ -377,7 +392,7 @@ extension SpaceCommand {
     let view = command.changesTree ? actingSid.flatMap { SpaceManager.shared.views[$0] } : nil
     var proceed = true
     try recordingTreeUndo(on: view) { () throws(CommandError) in
-      proceed = try command.run(acting: &actingSid, &response)
+      proceed = try command.run(acting: &actingSid, focused: focused, &response)
     }
     return proceed
   }

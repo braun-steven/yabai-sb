@@ -387,6 +387,23 @@ func windowDisplayOriginIsTheSelectedWindowsDisplay(
   #expect(windowReads == (selected ? 1 : 0))
 }
 
+// NOTE: `space <sid> --display west` (and --create, --pin) measures from the selected space's display, like sway's
+// `move workspace to output`; the space acted on without a selector, or a selector naming the active space, keeps the
+// active display.
+@Test(arguments: [
+  (acting: SpaceID?(10), space: DisplayID?(1), want: DisplayID?(2)),
+  (acting: SpaceID?(11), space: DisplayID?(3), want: DisplayID?(3)),
+  (acting: SpaceID?(11), space: DisplayID?.none, want: DisplayID?(2)),
+])
+func spaceDisplayOriginIsTheSelectedSpacesDisplay(
+  acting: SpaceID?, space: DisplayID?, want: DisplayID?
+) {
+  let focused = SpaceID?(10)
+  let origin = DisplaySelector.placementOrigin(
+    selected: acting != focused, windowDisplay: { space }, active: { DisplayID?(2) })
+  #expect(origin == want)
+}
+
 @Test func typedSelectorsResolveThroughTheContext() throws {
   let context = FixtureContext(
     activeDisplay: 1, acting: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2],

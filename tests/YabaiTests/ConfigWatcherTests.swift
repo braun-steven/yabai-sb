@@ -44,11 +44,14 @@ private final class ConfigWatcherTestDriver: @unchecked Sendable {
 
   private let state = Mutex(State())
 
-  @WM func makeWatcher() -> ConfigWatcher {
+  @WM func makeWatcher(fileDriver: ConfigWatcherTestDriver = ConfigWatcherTestDriver())
+    -> ConfigWatcher
+  {
     ConfigWatcher(
       allowsWatchingInHeadless: true,
       watchDirectory: { [self] path, onEvent in open(path, onEvent: onEvent) },
-      postDelayedChange: { [self] delay, key in schedule(delay: delay, key: key) })
+      postDelayedChange: { [self] delay, key in schedule(delay: delay, key: key) },
+      watchFile: { path, onEvent in fileDriver.open(path, onEvent: onEvent) })
   }
 
   var activePaths: [String] {
@@ -111,6 +114,43 @@ private final class ConfigWatcherTestDriver: @unchecked Sendable {
 extension DaemonState {
   @Suite
   @WM struct ConfigWatcherTests {
+    @Test func symlinkTargetInPlaceWriteAndReplacementReopenTheFileWatch() throws {
+      DaemonFixture.reset()
+      let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("yabai-watch-\(UUID().uuidString)", isDirectory: true)
+      let links = root.appendingPathComponent("links")
+      let targets = root.appendingPathComponent("targets")
+      try FileManager.default.createDirectory(at: links, withIntermediateDirectories: true)
+      try FileManager.default.createDirectory(at: targets, withIntermediateDirectories: true)
+      defer { try? FileManager.default.removeItem(at: root) }
+      let link = links.appendingPathComponent("yabai.toml")
+      let target = targets.appendingPathComponent("yabai.toml")
+      let initial = "[config]\nwindow_gap = 11\n"
+      try initial.write(to: target, atomically: true, encoding: .utf8)
+      try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+      ConfigLoader.shared.filePath = link.path
+      ConfigLoader.shared.lastContents = Array(initial.utf8)
+      let driver = ConfigWatcherTestDriver()
+      let fileDriver = ConfigWatcherTestDriver()
+      let watcher = driver.makeWatcher(fileDriver: fileDriver)
+      defer { watcher.stop() }
+      watcher.sync()
+      #expect(fileDriver.activePaths == [link.path])
+
+      try "[config]\nwindow_gap = 12\n".write(to: target, atomically: false, encoding: .utf8)
+      fileDriver.emitEvents(in: link.path)
+      #expect(
+        driver.schedules.last == ConfigWatchSchedule(delay: .milliseconds(200), key: .configReload))
+      watcher.fileChanged()
+      #expect(Golden.run("config window_gap") == Array("12\n".utf8))
+      #expect(fileDriver.openedPaths.count == 1)
+
+      try "[config]\nwindow_gap = 13\n".write(to: target, atomically: true, encoding: .utf8)
+      watcher.fileChanged()
+      #expect(Golden.run("config window_gap") == Array("13\n".utf8))
+      #expect(fileDriver.cancelledPaths == [link.path])
+      #expect(fileDriver.openedPaths == [link.path, link.path])
+    }
     @Test func changedFileIsApplied() async throws {
       DaemonFixture.reset()
       let path = try writeWatchedFile("[config]\nwindow_gap = 12\n")

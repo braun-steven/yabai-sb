@@ -4,10 +4,11 @@ import Logging
 import YabaiCore
 
 //
-// NOTE: The watch of the daemon's yabai.toml (`[daemon] auto_reload`). It watches directories, not the file, so an editor
+// NOTE: The watch of the daemon's yabai.toml (`[daemon] auto_reload`). It watches directories so an editor
 // that saves by writing a new file and renaming it is seen too. Two directories are watched (ConfigWatch.directories): the
 // file's directory as given, which sees a symlink being replaced, and, when the file is a symlink into another directory,
-// the directory of its target, which sees an edit of the target. sync recomputes both on each call, so a re-pointed link
+// the directory of its target. A file watch catches in-place writes, which do not notify its directory. sync recomputes the
+// watches on each call, so a re-pointed link
 // moves the second watch, and it reopens only the directories whose identity (device and inode) changed. Each event of a
 // directory posts `.configFileChanged`
 // 200 ms later under the `.configReload` key, so a burst of writes is one reload. fileChanged reads the file, decides with
@@ -26,7 +27,7 @@ import YabaiCore
 /// The queue of the directory events. It only posts events, and it closes the descriptor of a cancelled watch.
 private let configWatchQueue = DispatchQueue(label: "yabai.config.watch")
 
-/// The device and inode of a directory: a directory that was removed and created again has another one.
+/// The device and inode of a watched object, used to detect replacement.
 struct ConfigWatchDirectoryIdentity: Equatable, Sendable {
   let device: dev_t
   let inode: ino_t
@@ -71,13 +72,16 @@ private let configWatchDebounce: Duration = .milliseconds(200)
       String, @escaping @Sendable () -> Void
     ) -> ConfigWatchRegistration?
   private let postDelayedChange: @Sendable (Duration, EventLoop.DelayedEventKey) -> Void
+  private let watchFile: @WM (String, @escaping @Sendable () -> Void) -> ConfigWatchRegistration?
 
   /// The open watches: one per directory of ConfigWatch.directories, at most two.
   private var watches: [OpenWatch] = []
+  private var fileWatch: OpenWatch?
 
   init() {
     allowsWatchingInHeadless = false
     watchDirectory = { path, onEvent in Self.openWatch(path, onEvent: onEvent) }
+    watchFile = { path, onEvent in Self.openWatch(path, onEvent: onEvent) }
     postDelayedChange = { delay, key in
       EventLoop.post(.configFileChanged, after: delay, key: key)
     }
@@ -90,16 +94,17 @@ private let configWatchDebounce: Duration = .milliseconds(200)
       @escaping @WM (
         String, @escaping @Sendable () -> Void
       ) -> ConfigWatchRegistration?,
-    postDelayedChange: @escaping @Sendable (Duration, EventLoop.DelayedEventKey) -> Void
+    postDelayedChange: @escaping @Sendable (Duration, EventLoop.DelayedEventKey) -> Void,
+    watchFile: @escaping @WM (String, @escaping @Sendable () -> Void) -> ConfigWatchRegistration?
   ) {
     self.allowsWatchingInHeadless = allowsWatchingInHeadless
     self.watchDirectory = watchDirectory
     self.postDelayedChange = postDelayedChange
+    self.watchFile = watchFile
   }
 
-  /// Opens the watches on the directories of the daemon's file when auto-reload is on, and closes them when it is off. It
-  /// also reopens a directory after it was removed or replaced, and moves the second watch when a symlink is re-pointed.
-  /// Called after each load and each event; a directory that cannot be opened is retried later.
+  /// Opens watches on the file and its directories when auto-reload is on, and closes them when it is off. Reopens
+  /// replaced objects and follows a re-pointed symlink. Failed opens are retried after each load and event, or later.
   func sync() {
     guard allowsWatchingInHeadless || !Headless.isEnabled else { return }
 
@@ -146,6 +151,25 @@ private let configWatchDebounce: Duration = .milliseconds(200)
     }
 
     watches = kept
+    // stat follows the link. Reopen after an atomic replacement or a symlink retarget.
+    let fileIdentity = fileExists(path) ? ConfigWatchDirectoryIdentity(at: path) : nil
+    if let watch = fileWatch, watch.registration.identity != fileIdentity {
+      watch.registration.cancel()
+      fileWatch = nil
+    }
+    if fileWatch == nil, fileIdentity != nil {
+      let postDelayedChange = postDelayedChange
+      if let registration = watchFile(
+        path,
+        {
+          postDelayedChange(configWatchDebounce, .configReload)
+        })
+      {
+        fileWatch = OpenWatch(path: path, registration: registration)
+      } else {
+        retry = true
+      }
+    }
     if retry {
       postDelayedChange(configWatchRetry, .configReload)
     }
@@ -157,6 +181,8 @@ private let configWatchDebounce: Duration = .milliseconds(200)
       watch.registration.cancel()
     }
     watches = []
+    fileWatch?.registration.cancel()
+    fileWatch = nil
   }
 
   /// The event of the watched file: the debounced directory event, or a retry of sync. Applies the file when its text differs
@@ -195,7 +221,7 @@ private let configWatchDebounce: Duration = .milliseconds(200)
     }
   }
 
-  /// Opens a directory and watches its writes, renames and deletes. Nil when it cannot be opened.
+  /// Opens a file or directory and watches its writes, renames and deletes. Nil when it cannot be opened.
   private static func openWatch(
     _ directoryPath: String, onEvent: @escaping @Sendable () -> Void
   ) -> ConfigWatchRegistration? {

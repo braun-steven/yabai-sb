@@ -11,13 +11,14 @@ extension WindowManager {
   // the old workspace), not the frontmost window of the space, which can be a dialog yabai does not manage. A source
   // without such a window activates Finder. A caller that focuses the moved window right afterwards passes
   // `refocusingSource: false`, so the source does not take the focus in between. With `besideFocus` the window becomes
-  // the sibling after the window the destination's tree focuses, without tree_autotiling (View.add); a window moved by
-  // a rule opens like a new window instead.
+  // the sibling after the window the destination's tree focuses, without tree_autotiling (View.add); with `arrivingFrom`
+  // it arrives on the side it comes from, as moved in that direction; a window moved by a rule opens like a new window
+  // instead.
   //
 
   func sendWindow(
     _ target: Window, to destination: SpaceID, movedByRule: Bool, besideFocus: Bool = false,
-    refocusingSource: Bool = true
+    arrivingFrom direction: Direction? = nil, refocusingSource: Bool = true
   ) {
     let source = target.id.space
     if source == destination { return }
@@ -41,7 +42,8 @@ extension WindowManager {
     SLS.setFrontProcess(SLS.connection, target.application.psn, forSpace: destination)
 
     if target.shouldBeManaged {
-      manageWindow(target, on: destination, inserting: nil, besideFocus: besideFocus)
+      manageWindow(
+        target, on: destination, inserting: nil, besideFocus: besideFocus, arrivingFrom: direction)
     }
 
     Border.refresh(space: source)

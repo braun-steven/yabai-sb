@@ -220,7 +220,9 @@ extension WindowManager {
   // NOTE: `window --warp <direction>` of a window outside a tree (floating, not yet tiled, on a float space, or one yabai
   // could not manage) sends it to the current space of the display in the direction of its own display, as
   // `window --display` does, and keeps it focused. There is no wrap, and a display showing a fullscreen space is refused
-  // as in the tree (`DisplayID.crossingDisplay(in:)`). sway moves a floating window by pixels instead
+  // as in the tree (`DisplayID.crossingDisplay(in:)`). On a tree space a window that yabai tiles there arrives on the
+  // side it comes from, like a container the tree moves there (View.add), so a warp the other way sends it back; a
+  // floating window stays floating. sway moves a floating window by pixels instead
   // (`move <direction>`) and gives it to the output under its center; here one binding warps tiled windows in the tree
   // and every other window across displays.
   //
@@ -232,7 +234,8 @@ extension WindowManager {
     guard let did = source.crossingDisplay(in: direction), let sid = did.currentSpace else {
       throw .invalidDestinationNode
     }
-    sendWindow(target, to: sid, movedByRule: false, besideFocus: true, refocusingSource: false)
+    sendWindow(
+      target, to: sid, movedByRule: false, arrivingFrom: direction, refocusingSource: false)
     focusWithRaise(target)
     setPendingFocus(target.id, warpsMouse: false)
   }

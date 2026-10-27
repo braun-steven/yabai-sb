@@ -92,10 +92,11 @@ extension WindowManager {
 
   func manageWindow(
     _ target: Window, on spaceID: SpaceID, inserting insertionPoint: WindowID?,
-    besideFocus: Bool = false
+    besideFocus: Bool = false, arrivingFrom direction: Direction? = nil
   ) {
     let owner = SpaceManager.shared.tile(
-      target, on: spaceID, insertionPoint: insertionPoint, besideFocus: besideFocus)
+      target, on: spaceID, insertionPoint: insertionPoint, besideFocus: besideFocus,
+      arrivingFrom: direction)
     addManagedWindow(target, to: owner)
   }
 

@@ -120,6 +120,11 @@ extension View {
 // (container_add_sibling): no tree_autotiling split and no selected container. On a tree without windows it is
 // appended to the root. An insertion point set with 'window --insert' still wins, like a split made in sway first.
 //
+// A window that `window --warp <direction>` sends here from outside a tree on another display (`arrivingFrom`)
+// arrives on the side it comes from instead, as a container moved by the tree does (Con.attach(_:from:), sway
+// container_move_to_workspace_from_direction), so a warp the other way takes it straight back. Like that move, it
+// ignores an insertion point.
+//
 
 extension View {
   private func focusNewWindow(_ node: Con, windowID: WindowID) {
@@ -151,7 +156,10 @@ extension View {
     WindowManager.shared.setInsertion(of: focused, in: self, direction)
   }
 
-  func add(_ target: Window, insertionPoint: WindowID?, besideFocus: Bool = false) {
+  func add(
+    _ target: Window, insertionPoint: WindowID?, besideFocus: Bool = false,
+    arrivingFrom direction: Direction? = nil
+  ) {
     let root = self.root
     if root.find(target.id) != nil { return }
 
@@ -164,7 +172,11 @@ extension View {
 
     resetEmptyRoot(root)
 
-    if let ownerInsertionPoint = self.insertionPoint, let anchor = root.find(ownerInsertionPoint),
+    if let direction {
+      root.attach(node, from: direction)
+      focusNewWindow(node, windowID: target.id)
+    } else if let ownerInsertionPoint = self.insertionPoint,
+      let anchor = root.find(ownerInsertionPoint),
       let direction = anchor.insertDirection
     {
       anchor.insertDirection = nil

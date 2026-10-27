@@ -443,6 +443,40 @@ extension DaemonState {
       }
     }
 
+    // MARK: - A window warped here from outside a tree on another display (window --warp <direction>)
+
+    @Test(arguments: [
+      (Direction.east, [UInt32(3), 1, 2]),
+      (.west, [1, 2, 3]),
+    ])
+    func warpedWindowArrivesOnTheSideItComesFrom(_ direction: Direction, expected: [UInt32]) {
+      // NOTE: sway container_move_to_workspace_from_direction (Con.attach(_:from:)): H[1 2] with 2 focused last takes
+      // a window warped east first, so `--warp west` sends it back; `besideFocus` would give H[1 2 3]
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.focus(2)
+      WindowManager.shared.focus.focusChanged(to: wid(99))
+
+      space.open(3, arrivingFrom: direction)
+
+      #expect(space.view.root.children.compactMap(\.windowID) == expected.map(wid))
+      #expect(space.view.root.focusedDescendant.windowID == wid(3))
+    }
+
+    @Test func warpedWindowIgnoresTheInsertionPoint() {
+      // NOTE: like a container the tree moves to another display, it does not take a split set with `window --insert`
+      let space = Workspace()
+      space.open(1, focus: true)
+      space.open(2, focus: true)
+      space.node(2).insertDirection = .south
+      space.view.insertionPoint = wid(2)
+
+      space.open(3, arrivingFrom: .east)
+
+      #expect(space.view.root.children.compactMap(\.windowID) == [wid(3), wid(1), wid(2)])
+    }
+
     @Test func movedWindowFillsAnEmptyView() {
       Config.current.space.treeAutotiling = true
       let space = Workspace()

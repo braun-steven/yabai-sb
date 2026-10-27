@@ -97,11 +97,13 @@ struct PlacementLine: CustomStringConvertible {
 
   /// Opens window n; it gets focus when focus is true, as when the application focuses its new window. insertByRule is
   /// the insert= effect of the rule that matched the new window, taken by the add. besideFocus adds it as a window that
-  /// `window --display` or `window --space` moves here.
+  /// `window --display` or `window --space` moves here, arrivingFrom as one that `window --warp <direction>` sends here
+  /// from outside a tree on another display.
   @discardableResult
   func open(
     _ n: UInt32, insertionPoint: UInt32? = nil, focus: Bool = false,
-    insertByRule: InsertDirection? = nil, besideFocus: Bool = false
+    insertByRule: InsertDirection? = nil, besideFocus: Bool = false,
+    arrivingFrom direction: Direction? = nil
   ) -> Window {
     let target = Window(id: wid(n))
     target.application = application
@@ -110,7 +112,9 @@ struct PlacementLine: CustomStringConvertible {
     WindowManager.shared.managedWindows[target.id] = view
     if focus { WindowManager.shared.focus.focusChanged(to: target.id) }
 
-    view.add(target, insertionPoint: insertionPoint.map(wid), besideFocus: besideFocus)
+    view.add(
+      target, insertionPoint: insertionPoint.map(wid), besideFocus: besideFocus,
+      arrivingFrom: direction)
     return target
   }
 

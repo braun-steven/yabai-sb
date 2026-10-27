@@ -97,6 +97,24 @@ public enum DisplaySelector: Equatable, Sendable {
       return did
     }
   }
+
+  // NOTE: `window <WINDOW_SEL> --display` measures a direction, 'prev' and 'next' from the display of the window it
+  // sends, like sway's `move container to output <dir>` (`cmd_move_container` in sway/commands/move.c takes the
+  // reference output from the container's own workspace). The window that a message acts on without a selector (the
+  // focused or pending focus window) keeps the active display, so the focused form is unchanged, also when focus is on
+  // an empty display. 'recent' and the absolute selectors need no origin. `window --space` measures 'prev' and 'next'
+  // from the active space instead, as sway's `move container to workspace next|prev` does (`workspace_by_name` in
+  // sway/tree/workspace.c starts from the focused workspace).
+
+  /// The display that `window --display` resolves a relative selector from: the active display for the window acted on
+  /// without a selector, else the display of the window, or the active display when it is on none. `windowDisplay` is
+  /// read only for a selected window.
+  public static func placementOrigin<ID>(
+    selected: Bool, windowDisplay: () -> ID?, active: () -> ID?
+  ) -> ID? {
+    guard selected, let did = windowDisplay() else { return active() }
+    return did
+  }
 }
 
 /// A space selector (`SPACE_SEL` in the manual).

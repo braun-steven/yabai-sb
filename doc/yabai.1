@@ -984,6 +984,8 @@ Note that you can also \fI\-\-focus\fP a minimized window to restore it as the f
 .RS 4
 Send the selected window to the given display.
 .br
+A direction, \fIprev\fP and \fInext\fP are measured from the display of a window selected by a \fIWINDOW_SEL\fP, like sway\(cqs \fImove container to output <dir>\fP, and from the active display for the focused window.
+.br
 On a \fBtree\fP space it is added right after the window focused last there, in that window\(cqs container (a tab after the focused tab), without \fBtree_autotiling\fP; a split set with \fB\-\-insert\fP still applies.
 .br
 When the selected window had focus, focus stays on its old space, at the window focused last there.
@@ -991,7 +993,7 @@ When the selected window had focus, focus stays on its old space, at the window 
 .sp
 \fB\-\-space\fP \fI<SPACE_SEL>\fP
 .RS 4
-Send the selected window to the given space, placed and with focus as for \fB\-\-display\fP.
+Send the selected window to the given space, placed and with focus as for \fB\-\-display\fP. \fIprev\fP and \fInext\fP are measured from the active space, also for a selected window, like sway\(cqs \fImove container to workspace next|prev\fP.
 .RE
 .sp
 \fB\-\-swap\fP \fI<WINDOW_SEL>\fP

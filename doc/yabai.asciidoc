@@ -637,11 +637,12 @@ COMMAND
 
 *--display* '<DISPLAY_SEL>'::
     Send the selected window to the given display. +
+    A direction, 'prev' and 'next' are measured from the display of a window selected by a 'WINDOW_SEL', like sway's 'move container to output <dir>', and from the active display for the focused window. +
     On a *tree* space it is added right after the window focused last there, in that window's container (a tab after the focused tab), without *tree_autotiling*; a split set with *--insert* still applies. +
     When the selected window had focus, focus stays on its old space, at the window focused last there.
 
 *--space* '<SPACE_SEL>'::
-    Send the selected window to the given space, placed and with focus as for *--display*.
+    Send the selected window to the given space, placed and with focus as for *--display*. 'prev' and 'next' are measured from the active space, also for a selected window, like sway's 'move container to workspace next|prev'.
 
 *--swap* '<WINDOW_SEL>'::
     Swap position of the selected window and the given window. +

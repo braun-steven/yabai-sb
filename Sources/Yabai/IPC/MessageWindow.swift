@@ -77,8 +77,8 @@ extension WindowToggle {
 
 extension WindowCommand {
   /// Runs the command. A focus, close or minimize with a selector makes the selected window the acting window of the
-  /// commands that follow it in the message.
-  @WM func run(acting: inout Window?) throws(CommandError) {
+  /// commands that follow it in the message. `focused` is the window the message acts on without a selector.
+  @WM func run(acting: inout Window?, focused: WindowID?) throws(CommandError) {
     switch self {
     case .focus, .close, .minimize, .deminimize:
       try runLifecycle(acting: &acting)
@@ -93,7 +93,7 @@ extension WindowCommand {
             + ", or the label of a scratchpad")
       }
     case .display, .space, .swap, .warp, .stack:
-      try runPlacement(on: try requiredWindow(acting))
+      try runPlacement(on: try requiredWindow(acting), focused: focused)
     case .layout, .split, .insert:
       try runTree(on: try requiredWindow(acting))
     case .grid, .move, .resize, .ratio:
@@ -189,13 +189,16 @@ extension WindowCommand {
   // finds nothing does nothing.
   //
 
-  @WM private func runPlacement(on window: Window) throws(CommandError) {
+  @WM private func runPlacement(on window: Window, focused: WindowID?) throws(CommandError) {
     let wm = WindowManager.shared
     let context = CSelectorContext()
 
     switch self {
     case .display(let selector):
-      guard let did = try selector.resolve(acting: DisplayID.active, context) else { return }
+      let origin = DisplaySelector.placementOrigin(
+        selected: window.id != focused, windowDisplay: { window.id.displayID },
+        active: { DisplayID.active })
+      guard let did = try selector.resolve(acting: origin, context) else { return }
       guard let sid = did.currentSpace else {
         throw CommandError("could not locate the space to act on.\n")
       }
@@ -403,6 +406,7 @@ extension WindowCommand {
   _ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource
 ) throws(CommandError) {
   var actingWindow: Window? = WindowManager.shared.actingWindow()
+  let focused = actingWindow?.id
   var first = message.next()
 
   if let selector = WindowSelector(first) {
@@ -426,7 +430,7 @@ extension WindowCommand {
     let command = try WindowCommand.parse(name, &source)
     let view = command.changesTree ? WindowManager.shared.treeView(for: actingWindow) : nil
     try recordingTreeUndo(on: view) { () throws(CommandError) in
-      try command.run(acting: &actingWindow)
+      try command.run(acting: &actingWindow, focused: focused)
     }
     return true
   }

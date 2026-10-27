@@ -366,6 +366,27 @@ func spaceFocusTargetGoesBackAndForth(
   #expect(DisplaySelector(Token("main")) == .label(Token("main")))
 }
 
+// NOTE: `window <id> --display west` measures from the window's own display, like sway's `move container to output`;
+// the window acted on without a selector keeps the active display.
+@Test(arguments: [
+  (selected: false, window: DisplayID?(3), want: DisplayID?(2)),
+  (selected: true, window: DisplayID?(3), want: DisplayID?(3)),
+  (selected: true, window: DisplayID?.none, want: DisplayID?(2)),
+])
+func windowDisplayOriginIsTheSelectedWindowsDisplay(
+  selected: Bool, window: DisplayID?, want: DisplayID?
+) {
+  var windowReads = 0
+  let origin = DisplaySelector.placementOrigin(
+    selected: selected,
+    windowDisplay: { () -> DisplayID? in
+      windowReads += 1
+      return window
+    }, active: { DisplayID?(2) })
+  #expect(origin == want)
+  #expect(windowReads == (selected ? 1 : 0))
+}
+
 @Test func typedSelectorsResolveThroughTheContext() throws {
   let context = FixtureContext(
     activeDisplay: 1, acting: 7, displays: [1, 2], spaces: [10, 11], displayLabels: ["main": 2],

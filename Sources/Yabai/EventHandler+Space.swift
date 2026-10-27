@@ -85,6 +85,7 @@ extension EventHandler {
     refreshCurrentSpace()
     sm.refreshDisplaySpaces(includingHidden: false)
     sm.resolvePendingSpaceFocus()
+    sm.spaceMoveChangeReported()
 
     EventSignals.shared.push(.spaceChanged)
   }
@@ -110,6 +111,8 @@ extension EventHandler {
     DisplayManager.shared.invalidateSpaceCaches()
     let dm = DisplayManager.shared
     let sm = SpaceManager.shared
+    // NOTE: Also after an event that is ignored below: it can be the change of a moved active space.
+    defer { sm.spaceMoveChangeReported() }
 
     let newDid = DisplayID.active
     if dm.currentDisplayID == newDid {

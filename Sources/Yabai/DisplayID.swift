@@ -269,7 +269,7 @@ extension DisplayID {
 
     if let sid = space, let window = wm.displayFocusTarget(on: sid, from: direction) {
       wm.focusWindow(id: window.id)
-      wm.centerMouse(on: window)
+      wm.centerMouse(on: window, display: self)
       activate()
     } else {
       focusDesktop()

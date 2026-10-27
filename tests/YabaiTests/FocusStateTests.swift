@@ -59,6 +59,23 @@ private func focusStateID(_ n: UInt32) -> WindowID {
     #expect(focus.pending?.warpsMouse == true)
   }
 
+  // NOTE: `window --focus B --display west` in one message: B's pending focus makes it the focused window of the move
+  // (sendWindow focuses the source then), until the pending focus expires.
+  @Test func pendingFocusDecidesWhichWindowHasFocus() {
+    var focus = FocusState()
+    #expect(!focus.hasFocus(focusStateID(1), now: start))
+
+    focus.focusChanged(to: focusStateID(1))
+    #expect(focus.hasFocus(focusStateID(1), now: start))
+
+    focus.setPending(focusStateID(2), at: start)
+    #expect(focus.hasFocus(focusStateID(2), now: start + 499_000_000))
+    #expect(!focus.hasFocus(focusStateID(1), now: start + 499_000_000))
+
+    #expect(!focus.hasFocus(focusStateID(2), now: start + 500_000_000))
+    #expect(focus.hasFocus(focusStateID(1), now: start + 500_000_000))
+  }
+
   @Test func clearPendingForOtherWindowKeepsIt() {
     var focus = FocusState()
     focus.setPending(focusStateID(5), at: start)

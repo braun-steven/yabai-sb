@@ -222,7 +222,7 @@ extension SpaceManager {
       EventLoop.post(
         .spaceMoveRefreshCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveRefresh)
       if focusing {
-        setPendingSpaceFocus(sid, on: did, at: OSTimer.now)
+        setPendingSpaceFocus(sid, on: did, at: OSTimer.now, awaitingChange: isActive)
         EventLoop.post(
           .spaceMoveFocusCheck, after: Self.pendingSpaceMoveInterval, key: .spaceMoveFocusCheck)
       } else if isActive {
@@ -334,9 +334,17 @@ extension SpaceManager {
   /// How often a pending space move focus asks the window server whether the move is done.
   static let pendingSpaceMoveInterval: Duration = .milliseconds(25)
 
-  /// Records a space to focus: after a switch on its display, or with `display`, after a move to that display.
-  func setPendingSpaceFocus(_ sid: SpaceID, on display: DisplayID? = nil, at time: UInt64) {
-    pendingSpaceFocus = PendingSpaceFocus(sid: sid, time: time, display: display)
+  /// How long the pending focus of a moved active space waits for its space or display change event once the move is
+  /// reported, in milliseconds; then it focuses the space without it.
+  static let pendingSpaceMoveChangeTimeoutMs: Float = 500.0
+
+  /// Records a space to focus: after a switch on its display, or with `display`, after a move to that display. With
+  /// `awaitingChange` (a move of the active space) the focus also waits for the change event of the move.
+  func setPendingSpaceFocus(
+    _ sid: SpaceID, on display: DisplayID? = nil, at time: UInt64, awaitingChange: Bool = false
+  ) {
+    pendingSpaceFocus = PendingSpaceFocus(
+      sid: sid, time: time, display: display, awaitsChange: display != nil && awaitingChange)
   }
 
   //
@@ -391,6 +399,13 @@ extension SpaceManager {
   // leaves it hidden there, after the visible space, so that one is switched to (`show`). Like the pending focus of a
   // switch, the request is dropped once it is used, or when `pendingSpaceFocusTimeoutMs` has passed.
   //
+  // The window server reports the active space on its new display before macOS has finished the move: its space or
+  // display change event comes later, and a focus given before it lost to the activation of the source display's new
+  // space (the focus stayed there, or Finder took it). So the focus of a moved active space also waits for that event
+  // (`awaitsChange`, as `resolvePendingSpaceFocus` waits for the switch), or for `pendingSpaceMoveChangeTimeoutMs` when
+  // none comes. Both steps then focus the space through the scripting addition (`focusSpace`), as `space --focus` does:
+  // the moved window is often already the focused one, and focusing it again would not move the focus to the display.
+  //
 
   /// The step of a pending space move focus, given the display the window server has for its space (`display`) and
   /// the space shown on its new display (`current`), at `now`. Drops the pending focus unless the step is `wait`.
@@ -399,14 +414,25 @@ extension SpaceManager {
   {
     guard let pending = pendingSpaceFocus, let did = pending.display else { return .none }
 
-    if OSTimer.milliseconds(from: pending.time, to: now) >= Self.pendingSpaceFocusTimeoutMs {
+    let elapsed = OSTimer.milliseconds(from: pending.time, to: now)
+    if elapsed >= Self.pendingSpaceFocusTimeoutMs {
       pendingSpaceFocus = nil
       return .none
     }
 
     guard display == did else { return .wait }
+    if pending.awaitsChange && elapsed < Self.pendingSpaceMoveChangeTimeoutMs { return .wait }
     pendingSpaceFocus = nil
     return current == pending.sid ? .focus(pending.sid, on: did) : .show(pending.sid, on: did)
+  }
+
+  /// Ends the wait of a pending move focus for the space or display change event of the move, and checks the move.
+  func spaceMoveChangeReported() {
+    guard let pending = pendingSpaceFocus, pending.display != nil, pending.awaitsChange else {
+      return
+    }
+    pendingSpaceFocus?.awaitsChange = false
+    resolvePendingSpaceMove()
   }
 
   /// Focuses the space a `space --display` moved, once the window server has it on its new display; until then it
@@ -425,9 +451,12 @@ extension SpaceManager {
     if MissionControl.shared.isActive { return }
 
     switch step {
-    case .focus(let sid, let did):
-      did.focus(space: sid)
-    case .show(let sid, let did):
+    case .focus(let sid, let did), .show(let sid, let did):
+      //
+      // NOTE: The views are laid out for their new display first (the refresh pass of the move, if it has not run
+      // yet), so the focus centers the cursor on the window's tile there (`WindowManager.centerMouse(on:display:)`).
+      //
+      resolveSpaceMoveRefresh()
       do {
         try focusSpace(sid, focusingWindow: true)
       } catch .sameSpace {

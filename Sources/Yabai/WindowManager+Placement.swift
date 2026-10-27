@@ -13,7 +13,9 @@ extension WindowManager {
   // `refocusingSource: false`, so the source does not take the focus in between. With `besideFocus` the window becomes
   // the sibling after the window the destination's tree focuses, without tree_autotiling (View.add); with `arrivingFrom`
   // it arrives on the side it comes from, as moved in that direction; a window moved by a rule opens like a new window
-  // instead.
+  // instead. A window that a command focused just before (`window --focus B --display west`, one message) counts as
+  // focused although its application has not reported the focus yet (`FocusState.hasFocus(_:now:)`), as sway's focus
+  // command sets the focus at once.
   //
 
   func sendWindow(
@@ -23,7 +25,7 @@ extension WindowManager {
     let source = target.id.space
     if source == destination { return }
 
-    let wasFocused = focus.focused == target.id
+    let wasFocused = focus.hasFocus(target.id, now: OSTimer.now)
     if let owner = managedView(for: target) {
       unmanageWindow(target, from: owner)
     }

@@ -19,6 +19,17 @@ public enum MouseFollowsFocus {
     !displayBounds.contains(cursor)
   }
 
+  /// The frame of a window on a display with these bounds to center the cursor on: its cached frame while that lies on
+  /// the display (its center inside the bounds), else its tile there, else the window server's frame (`live`, read only
+  /// then), else the cached frame. A cached frame off the display is from before its space moved there.
+  public static func focusFrame(
+    cached: CGRect, tile: CGRect?, displayBounds: CGRect, live: () -> CGRect?
+  ) -> CGRect {
+    if displayBounds.contains(CGPoint(x: cached.midX, y: cached.midY)) { return cached }
+    if let tile, displayBounds.contains(CGPoint(x: tile.midX, y: tile.midY)) { return tile }
+    return live() ?? cached
+  }
+
   /// Where the cursor goes when a window with this frame, on a display with these bounds, takes focus; nil leaves it.
   public static func warpPoint(cursor: CGPoint, frame: CGRect, displayBounds: CGRect) -> CGPoint? {
     if frame.contains(cursor) || !warps(cursor: cursor, to: displayBounds) { return nil }

@@ -34,19 +34,43 @@ extension WindowManager {
     Config.current.window.focusFollowsMouse = mode
   }
 
-  func centerMouse(on target: Window) {
+  //
+  // NOTE: The cached frame of a window follows its AX moved and resized events, which come after the window server has
+  // moved the space of the window to another display (`space --display`). A caller that knows the display the window
+  // is on now (`display`, `DisplayID.focus(space:from:)`) gets the frame there from `MouseFollowsFocus.focusFrame`: the
+  // window's tile while its tree is laid out (`tileFrame(of:)`), else the window server's frame. Without one, a cursor
+  // inside the cached frame stays without asking the window server for the display.
+  //
+
+  /// Moves the cursor to the center of a window that takes focus, as `mouse_follows_focus` says (`MouseFollowsFocus`).
+  func centerMouse(on target: Window, display: DisplayID? = nil) {
     if !(target.mouseFollowsFocusByRule ?? Config.current.window.mouseFollowsFocus) { return }
 
     let cursor = SLS.cursorLocation(SLS.connection)
-    if target.frame.contains(cursor) { return }
+    if display == nil, target.frame.contains(cursor) { return }
 
-    guard let did = target.id.displayID else { return }
+    guard let did = display ?? target.id.displayID else { return }
+    let bounds = CGDisplayBounds(did.rawValue)
 
-    if let center = MouseFollowsFocus.warpPoint(
-      cursor: cursor, frame: target.frame, displayBounds: CGDisplayBounds(did.rawValue))
+    let frame =
+      display == nil
+      ? target.frame
+      : MouseFollowsFocus.focusFrame(
+        cached: target.frame, tile: tileFrame(of: target), displayBounds: bounds,
+        live: { SLS.windowBounds(SLS.connection, target.id) })
+    if let center = MouseFollowsFocus.warpPoint(cursor: cursor, frame: frame, displayBounds: bounds)
     {
       CGWarpMouseCursorPosition(center)
     }
+  }
+
+  /// The frame of a tiled window in its tree, while the tree is laid out (its view is valid); nil otherwise.
+  func tileFrame(of target: Window) -> CGRect? {
+    guard let owner = treeView(for: target), owner.isValid, let node = owner.findWindow(target.id)
+    else { return nil }
+    let area = owner.frame(for: node)
+    return CGRect(
+      x: CGFloat(area.x), y: CGFloat(area.y), width: CGFloat(area.w), height: CGFloat(area.h))
   }
 
   func managedView(for target: Window) -> View? {

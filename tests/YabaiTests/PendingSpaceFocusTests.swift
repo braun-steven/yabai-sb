@@ -84,6 +84,57 @@ extension DaemonState {
         sm.consumePendingSpaceMove(display: did, current: sid, now: start + 1_999_000_000) == .none)
     }
 
+    // NOTE: A moved active space is reported on its new display before macOS has finished the move: its focus waits
+    // for the space or display change event, or for 500 ms without one.
+    @Test @WM func activeMoveWaitsForItsChangeEvent() {
+      let sm = SpaceManager.shared
+      sm.setPendingSpaceFocus(sid, on: did, at: start, awaitingChange: true)
+      #expect(sm.pendingSpaceFocus?.awaitsChange == true)
+
+      #expect(sm.consumePendingSpaceMove(display: did, current: sid, now: start) == .wait)
+      #expect(
+        sm.consumePendingSpaceMove(display: did, current: sid, now: start + 499_000_000) == .wait)
+
+      sm.pendingSpaceFocus?.awaitsChange = false
+      #expect(
+        sm.consumePendingSpaceMove(display: source, current: other, now: start + 100_000_000)
+          == .wait)
+      #expect(
+        sm.consumePendingSpaceMove(display: did, current: sid, now: start + 100_000_000)
+          == .focus(sid, on: did))
+      #expect(sm.pendingSpaceFocus == nil)
+    }
+
+    @Test @WM func activeMoveFocusesWithoutAChangeEvent() {
+      let sm = SpaceManager.shared
+      sm.setPendingSpaceFocus(sid, on: did, at: start, awaitingChange: true)
+
+      #expect(
+        sm.consumePendingSpaceMove(display: did, current: sid, now: start + 500_000_000)
+          == .focus(sid, on: did))
+      #expect(sm.pendingSpaceFocus == nil)
+    }
+
+    @Test @WM func onlyAMoveAwaitsAChangeEvent() {
+      let sm = SpaceManager.shared
+      sm.setPendingSpaceFocus(sid, at: start, awaitingChange: true)
+      #expect(sm.pendingSpaceFocus?.awaitsChange == false)
+
+      sm.setPendingSpaceFocus(sid, on: did, at: start)
+      #expect(sm.pendingSpaceFocus?.awaitsChange == false)
+      #expect(
+        sm.consumePendingSpaceMove(display: did, current: sid, now: start) == .focus(sid, on: did))
+    }
+
+    @Test(arguments: [2_000_000_000, 5_000_000_000] as [UInt64])
+    @WM func expiredActiveMoveIsDropped(after elapsed: UInt64) {
+      let sm = SpaceManager.shared
+      sm.setPendingSpaceFocus(sid, on: did, at: start, awaitingChange: true)
+
+      #expect(sm.consumePendingSpaceMove(display: did, current: sid, now: start + elapsed) == .none)
+      #expect(sm.pendingSpaceFocus == nil)
+    }
+
     @Test(arguments: [2_000_000_000, 5_000_000_000] as [UInt64])
     @WM func expiredMoveIsDropped(after elapsed: UInt64) {
       let sm = SpaceManager.shared

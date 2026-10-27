@@ -57,6 +57,9 @@ enum SpaceOperationError: Error, Sendable {
     var time: UInt64
     /// The display `space --display` moved the space to; nil for a switch on the same display.
     var display: DisplayID?
+    /// Whether a move of the active space still waits for the space or display change event that macOS sends for it
+    /// (`spaceMoveChangeReported`).
+    var awaitsChange = false
   }
 
   /// The view of a space; before `begin()` only a known one, after it the view is created when the space is new.

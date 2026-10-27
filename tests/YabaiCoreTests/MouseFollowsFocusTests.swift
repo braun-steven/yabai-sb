@@ -35,6 +35,44 @@ struct MouseFollowsFocusTests {
         == expected)
   }
 
+  // NOTE: The window of a space moved to `display`: its cached frame is still on the old display (x < 1920).
+  private static let stale = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+  private static let tile = CGRect(x: 1930, y: 10, width: 1780, height: 1180)
+
+  // Columns: cached frame, tile, window server frame, expected frame, whether the window server is asked.
+  @Test(
+    arguments: [
+      // the cached frame on the display: kept
+      (window, CGRect?(tile), CGRect?(stale), window, false),
+      // stale: the tile on the new display
+      (stale, CGRect?(tile), CGRect?(window), tile, false),
+      // stale, no tile (floating) or a tile still laid out for the old display: the window server's frame
+      (stale, nil, CGRect?(window), window, true),
+      (stale, CGRect?(stale), CGRect?(window), window, true),
+      // nothing better: the cached frame
+      (stale, nil, nil, stale, true),
+    ] as [(CGRect, CGRect?, CGRect?, CGRect, Bool)])
+  func focusFrame(cached: CGRect, tile: CGRect?, live: CGRect?, expected: CGRect, asks: Bool) {
+    var asked = false
+    let frame = MouseFollowsFocus.focusFrame(
+      cached: cached, tile: tile, displayBounds: Self.display,
+      live: {
+        asked = true
+        return live
+      })
+    #expect(frame == expected)
+    #expect(asked == asks)
+  }
+
+  @Test func movedWindowWarpsToItsTile() {
+    let frame = MouseFollowsFocus.focusFrame(
+      cached: Self.stale, tile: Self.tile, displayBounds: Self.display, live: { nil })
+    #expect(
+      MouseFollowsFocus.warpPoint(
+        cursor: CGPoint(x: 900, y: 700), frame: frame, displayBounds: Self.display)
+        == CGPoint(x: Self.tile.midX, y: Self.tile.midY))
+  }
+
   @Test func warpsOnlyToAnotherDisplay() {
     #expect(MouseFollowsFocus.warps(cursor: CGPoint(x: 100, y: 200), to: Self.display))
     #expect(MouseFollowsFocus.warps(cursor: CGPoint(x: 2000, y: 1200), to: Self.display))

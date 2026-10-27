@@ -90,6 +90,15 @@ struct FocusState {
     return nil
   }
 
+  /// Whether this window has focus for a command at `now`: it is the window of a pending focus that has not expired (an
+  /// earlier command focused it, and its application has not reported it yet), or, without one, the focused window.
+  func hasFocus(_ windowID: WindowID, now: UInt64) -> Bool {
+    if let pending, OSTimer.milliseconds(from: pending.time, to: now) < Self.pendingTimeoutMs {
+      return pending.windowID == windowID
+    }
+    return focused == windowID
+  }
+
   /// Whether the focus of this window, reported at `now`, leaves the cursor: a pending focus of it that has not expired
   /// and was made with `warpsMouse` false. An expired one no longer counts, so a later focus of the window can move the
   /// cursor again when the moved window reported no focus.

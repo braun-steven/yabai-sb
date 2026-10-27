@@ -295,6 +295,10 @@ Rules for the user's machine:
   enter`: the enter came only at the close, with the overlay still up, and the exit about 0.6 s later. In between
   `MissionControl.shared.isActive` was false, so focus follows mouse acted on the overview; it now checks the overlay
   before a change of focus (`ffmMissionControlIsOpen`). The other mouse guards still rely on the enter.
+  A shortcut close with the pointer over a thumbnail focuses that window (2026-10-27, also with focus_follows_mouse
+  off): macOS selects the hovered thumbnail, logged as `window focused` before `mission control exit`. An Esc close
+  or a close over an empty part of the overview keeps focus. Checks that expect no focus change at the close must
+  close with Esc or move the pointer off the thumbnails first.
   Closing it sometimes activates the front app of each space in space order, so the app of the last space ends up
   focused (its window stays hidden on its space). Probed on 2026-10-23 with `missioncontrol` and an
   `NSWorkspace.didActivateApplicationNotification` logger: a long-running Dock did it on 3 of 3 closes with the

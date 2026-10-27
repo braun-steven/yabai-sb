@@ -455,6 +455,9 @@ extension EventHandler {
 // the pending check), the AX frame is read, and a window still off its tile gets one more flush of its view. The check
 // writes the frame even when the request and the window server's bounds look current (`frameNeedsUpdate`), and it
 // schedules no further check, so an application that keeps its own size (a minimum size) gets one more write, not a loop.
+// During macOS's tile steps the flushes have no effect (the AX reads right after them still return macOS's frame); the
+// check after the last step is the write that sticks (about 0.3 s after the last step, about 0.9 s after the
+// click). The handler and the check log the observed frame, and the check logs a window it finds back on its tile.
 //
 
 extension WindowManager {
@@ -464,6 +467,8 @@ extension WindowManager {
   /// Flushes the view of a tiled window that something else moved or resized off its tile, and schedules the check of
   /// the window once its frame changes have settled.
   func retile(_ window: Window, in view: View) {
+    Logger.windows.debug(
+      "\(window.id): moved off its tile by something else to \(window.frame), flushing")
     view.flushAfterWindowChange()
     frameRecheckWindows.append(window.id)
     EventLoop.post(.windowFrameRecheck, after: Self.frameRecheckDelay, key: .windowFrameRecheck)
@@ -477,10 +482,13 @@ extension WindowManager {
     let ms = MouseState.shared
     var views: [View] = []
     for (window, frame) in observed where ms.window != window {
-      guard let view = managedView(for: window), view.needsFlush(windowID: window.id, frame: frame)
-      else { continue }
+      guard let view = managedView(for: window) else { continue }
+      guard view.needsFlush(windowID: window.id, frame: frame) else {
+        Logger.windows.debug("\(window.id): back on its tile after a foreign frame change")
+        continue
+      }
       Logger.windows.debug(
-        "\(window.id): still off its tile after a foreign frame change, flushing")
+        "\(window.id): still off its tile after a foreign frame change at \(frame), flushing")
       window.frame = frame
       window.frameRequest = frame
       if !views.contains(where: { $0 === view }) { views.append(view) }

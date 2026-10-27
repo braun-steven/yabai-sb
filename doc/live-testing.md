@@ -148,6 +148,12 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 `run`, `extra`, `launch` and `topology` return a failure status when a recorded check fails; documented `SKIP`
 conditions remain successful skips.
 
+A check that macOS moved a tiled window off its tile (its window tiling after a click, P5.7 -var) must wait for
+yabai's recheck before it asserts the tile: macOS ignores the flushes during its tile steps (about 400-550 ms after the
+click), and the recheck writes the tile `frameRecheckDelay` (300 ms) after the last step, so about 0.9 s after the
+click. Poll the window's real frame for up to 1.5 s instead of a fixed sleep; the out log's `moved off its tile by
+something else to <frame>`, `still off its tile ... at <frame>` and `back on its tile` lines show who moved it last.
+
 Builds from before and after the JSONEncoder queries format query json differently; normalize both outputs with `jq -S .` per response before diffing.
 
 `live.py topology` is opt-in and requires exactly two connected displays, `space_layout` entries for one and two

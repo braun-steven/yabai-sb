@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CPrivate
 import Logging
+import OrderedCollections
 import Synchronization
 import YabaiCore
 
@@ -188,7 +189,7 @@ extension EventHandler {
         if let view = wm.managedView(for: window),
           view.needsFlush(windowID: window.id, frame: window.frame)
         {
-          view.flushAfterWindowChange()
+          wm.retile(window, in: view)
         }
       }
     }
@@ -266,13 +267,30 @@ extension EventHandler {
           if let view = wm.managedView(for: window),
             view.needsFlush(windowID: window.id, frame: newFrame)
           {
-            view.flushAfterWindowChange()
+            wm.retile(window, in: view)
           }
         }
       }
     }
 
     return nil
+  }
+
+  /// Checks the tiled windows that something else moved or resized off their tile again, now that their frame changes
+  /// have settled (`WindowManager.retile(_:in:)`), and flushes the views of the ones that are still off their tile.
+  func windowFrameRecheck() {
+    let wm = WindowManager.shared
+    let ids = wm.frameRecheckWindows
+    wm.frameRecheckWindows = []
+    if MissionControl.shared.isActive { return }
+
+    let observed = ids.compactMap { id -> (window: Window, frame: CGRect)? in
+      guard let window = wm.window(for: id), window.isValid, !window.application.isHidden else {
+        return nil
+      }
+      return (window, window.axFrame)
+    }
+    wm.retileWindowsOffTile(observed)
   }
 
   //
@@ -422,5 +440,50 @@ extension EventHandler {
     // NOTE: The AX destroyed notification of the same window may be queued too. The handler invalidates the window,
     // so whichever arrives second finds it gone and does nothing.
     windowDestroyed(windowID: wid)
+  }
+}
+
+//
+// NOTE: A tiled window that something else moves or resizes off its tile is put back by a flush of its view (the window
+// moved and resized handlers). That flush can lose: macOS tiles a window in several steps over about 400 ms (seen on
+// a plain click on a window after an alt-drag of the focused window was released outside every display, P5.7), a step
+// after the flush puts the window back on macOS's frame, and its notification is read when the window has the frame
+// the handler last saw, so it is dropped as debounced and the window stays off its tile. The handler therefore checks
+// the window again once its changes have settled: `frameRecheckDelay` after the last of them (a newer change replaces
+// the pending check), the AX frame is read, and a window still off its tile gets one more flush of its view. The check
+// writes the frame even when the request and the window server's bounds look current (`frameNeedsUpdate`), and it
+// schedules no further check, so an application that keeps its own size (a minimum size) gets one more write, not a loop.
+//
+
+extension WindowManager {
+  /// How long after the last foreign move or resize of a tiled window it is checked again (`windowFrameRecheck`).
+  static let frameRecheckDelay: Duration = .milliseconds(300)
+
+  /// Flushes the view of a tiled window that something else moved or resized off its tile, and schedules the check of
+  /// the window once its frame changes have settled.
+  func retile(_ window: Window, in view: View) {
+    view.flushAfterWindowChange()
+    frameRecheckWindows.append(window.id)
+    EventLoop.post(.windowFrameRecheck, after: Self.frameRecheckDelay, key: .windowFrameRecheck)
+  }
+
+  /// Flushes, once each, the views of the observed windows that are off their tile, and returns those views. Each such
+  /// window takes the observed frame as its frame and its request, so the flush writes its tile. The window of a drag
+  /// or click in progress (`MouseState.window`) and windows outside a tree are left alone.
+  @discardableResult
+  func retileWindowsOffTile(_ observed: [(window: Window, frame: CGRect)]) -> [View] {
+    let ms = MouseState.shared
+    var views: [View] = []
+    for (window, frame) in observed where ms.window != window {
+      guard let view = managedView(for: window), view.needsFlush(windowID: window.id, frame: frame)
+      else { continue }
+      Logger.windows.debug(
+        "\(window.id): still off its tile after a foreign frame change, flushing")
+      window.frame = frame
+      window.frameRequest = frame
+      if !views.contains(where: { $0 === view }) { views.append(view) }
+    }
+    for view in views { view.flushAfterWindowChange() }
+    return views
   }
 }

@@ -2,6 +2,7 @@ import ApplicationServices
 import CPrivate
 import Foundation
 import Logging
+import OrderedCollections
 import SortedCollections
 import YabaiCore
 
@@ -18,6 +19,7 @@ extension WindowManager {
     managedWindows = [:]
     focus.clearLostEvents()
     axBreaker = AXBreaker()
+    frameRecheckWindows = []
   }
 
   func begin() {

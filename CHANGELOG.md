@@ -133,6 +133,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- A tiled window that macOS moves or resizes in several steps (e.g. its window tiling) is put back on its tile once the steps have settled; the last step could leave it off its tile, as after an alt-drag of the focused window released outside every display followed by a click on another window of the space
 - *window --focus <WINDOW_SEL> --display|--space* in one message counts the window as focused, so focus stays on its old space as when it had focus before; the focus of the same message, not yet reported by the application, was missed and focus followed the window
 - *query --windows* reports the new frame of a window that was moved or resized while its application is hidden (e.g. *window --move* of a hidden floating dialog); the cached frame used to keep the frame from before
 - *focus_follows_mouse* focuses the window under the pointer after a fast sweep: a move made while the focus of a window passed over was still pending is checked again once that focus is reported (or its request times out), at the pointer's position then, like sway

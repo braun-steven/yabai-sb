@@ -91,6 +91,9 @@ extension WindowLayer {
   // NOTE: The breaker of the AX calls to applications that do not answer (AXBreaker.swift). Only the non-essential calls
   // consult it (`ifResponsive`); the calls that record their outcome go through `recordAXResult`.
   var axBreaker = AXBreaker()
+  /// The tiled windows that something else moved or resized off their tile, checked again once the changes have
+  /// settled (`EventHandler.windowFrameRecheck`).
+  var frameRecheckWindows: OrderedSet<WindowID> = []
 }
 
 /// The mouse events the event tap receives.

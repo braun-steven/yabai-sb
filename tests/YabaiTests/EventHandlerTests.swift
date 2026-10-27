@@ -605,6 +605,31 @@ extension DaemonState {
   }
 }
 
+extension DaemonState {
+  @Test(
+    "focus_follows_mouse_enters_mission_control_when_its_overlay_is_shown",
+    arguments: [true, false])
+  @WM
+  func ffmEntersMissionControlWhenOverlayIsShown(shown: Bool) {
+    //
+    // NOTE: An opening of Mission Control without the front change of its enter: focus follows mouse finds the overlay
+    // before a change of focus, enters Mission Control (so the guards of later moves apply) and changes nothing.
+    //
+
+    // NOTE: Reset by hand: the exit of a .show session would query the window server for its spaces.
+    defer {
+      EventLoop.cancel(key: .missionControlCheck)
+      MissionControl.shared.mode = .inactive
+      Border.setHiddenForMissionControl(false)
+    }
+
+    #expect(!MissionControl.shared.isActive)
+    #expect(EventHandler.shared.ffmMissionControlIsOpen(overlayIsShown: { shown }) == shown)
+    #expect(MissionControl.shared.mode == (shown ? .show : .inactive))
+    #expect(Border.isHiddenForMissionControl == shown)
+  }
+}
+
 @Test(
   "mission_control_overlay_is_a_dock_window_at_layer_20_over_a_display",
   arguments: [

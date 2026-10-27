@@ -285,6 +285,10 @@ Rules for the user's machine:
   front change, also sent on every app switch; the Dock does not become the front process) with the Dock's overlay
   already on screen: a named Dock window at layer 20 the size of the display (not layer 18). Closing it only removes
   the overlay, so yabai polls it (`MissionControl.overlayIsShown`).
+  An opening through the shortcut (`missioncontrol open`, 2026-10-27, three displays) logged no `mission control
+  enter`: the enter came only at the close, with the overlay still up, and the exit about 0.6 s later. In between
+  `MissionControl.shared.isActive` was false, so focus follows mouse acted on the overview; it now checks the overlay
+  before a change of focus (`ffmMissionControlIsOpen`). The other mouse guards still rely on the enter.
   Closing it sometimes activates the front app of each space in space order, so the app of the last space ends up
   focused (its window stays hidden on its space). Probed on 2026-10-23 with `missioncontrol` and an
   `NSWorkspace.didActivateApplicationNotification` logger: a long-running Dock did it on 3 of 3 closes with the

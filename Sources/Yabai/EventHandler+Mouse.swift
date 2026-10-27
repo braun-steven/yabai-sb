@@ -329,6 +329,7 @@ extension EventHandler {
 
     if window.id == wm.focus.focused { return }
     if !window.isEligibleForManagement { return }
+    if ffmMissionControlIsOpen() { return }
 
     if focusFollowsMouse == .autofocus {
       let target = ffmWindowToFocus(window)
@@ -363,6 +364,11 @@ extension EventHandler {
       let did = ms.ffmDisplayFocus.decide(
         pointerDisplay: cursorDid, focusedDisplay: DisplayManager.shared.currentDisplayID)
     else { return }
+    // NOTE: The attempt is cleared, so the first move after Mission Control closes tries this pair again.
+    if ffmMissionControlIsOpen() {
+      ms.ffmDisplayFocus.reset()
+      return
+    }
 
     if let wid = DisplayManager.shared.focusWindow(at: point) {
       Logger.events.debug("focus follows mouse: focusing untracked window \(wid.rawValue)")
@@ -389,6 +395,23 @@ extension EventHandler {
       ms.ffmWindowID = window.id
     }
     did.activate()
+  }
+
+  //
+  // NOTE: The front change that reports the opening of Mission Control (missionControlEnter) does not come for every
+  // opening. On macOS 27 (2026-10-27, three displays), an opening through the shortcut (`missioncontrol open`) logged no
+  // enter while Mission Control stayed open for seconds: the enter came only at its close, with the overlay still on
+  // screen. Focus follows mouse then focused the windows and displays under the pointer in the overview. So before a
+  // change of focus it looks at the overlay itself (`MissionControl.overlayIsShown`, about 1 ms), and enters Mission
+  // Control when it is shown: the guards of every later move and click apply, and the exit check runs as for an enter.
+  //
+
+  /// Whether the Mission Control overlay is on screen; enters Mission Control when it is (`overlayIsShown` asks).
+  func ffmMissionControlIsOpen(overlayIsShown: () -> Bool = MissionControl.overlayIsShown) -> Bool {
+    if !overlayIsShown() { return false }
+    Logger.events.debug("focus follows mouse: the Mission Control overlay is on screen")
+    missionControlEnter()
+    return true
   }
 
   /// Records the hit window's frame for the current generation, when no other window on a visible space can cover it.

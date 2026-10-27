@@ -73,6 +73,33 @@ struct MouseFollowsFocusTests {
         == CGPoint(x: Self.tile.midX, y: Self.tile.midY))
   }
 
+  // NOTE: A floating window the cursor was centered on (`center`) that macOS then places elsewhere on the display.
+  private static let placed = CGRect(x: 2400, y: 300, width: 800, height: 600)
+  private static let placedCenter = CGPoint(x: 2800, y: 600)
+
+  // Columns: cursor, new window frame, elapsed milliseconds, expected follow point.
+  @Test(
+    arguments: [
+      // the cursor still at the warp point: to the new center
+      (center, placed, Float(300), CGPoint?(placedCenter)),
+      // within a point of it (rounding of the warp)
+      (CGPoint(x: 2400.5, y: 399.5), placed, Float(300), CGPoint?(placedCenter)),
+      // the cursor moved since: it stays
+      (CGPoint(x: 2410, y: 400), placed, Float(300), nil),
+      // the follow time is over
+      (center, placed, MouseFollowsFocus.followTimeoutMs, nil),
+      // the center did not change (a resize around it)
+      (center, CGRect(x: 2300, y: 325, width: 200, height: 150), Float(300), nil),
+      // the new center off the display
+      (center, CGRect(x: 3500, y: 100, width: 800, height: 600), Float(300), nil),
+    ] as [(CGPoint, CGRect, Float, CGPoint?)])
+  func followPoint(cursor: CGPoint, frame: CGRect, elapsedMs: Float, expected: CGPoint?) {
+    #expect(
+      MouseFollowsFocus.followPoint(
+        cursor: cursor, warped: Self.center, frame: frame, displayBounds: Self.display,
+        elapsedMs: elapsedMs) == expected)
+  }
+
   @Test func warpsOnlyToAnotherDisplay() {
     #expect(MouseFollowsFocus.warps(cursor: CGPoint(x: 100, y: 200), to: Self.display))
     #expect(MouseFollowsFocus.warps(cursor: CGPoint(x: 2000, y: 1200), to: Self.display))

@@ -37,4 +37,22 @@ public enum MouseFollowsFocus {
     let center = CGPoint(x: frame.midX, y: frame.midY)
     return displayBounds.contains(center) ? center : nil
   }
+
+  /// How long the cursor follows a floating window it was centered on after its space moved to another display, in
+  /// milliseconds (`followPoint`).
+  public static let followTimeoutMs: Float = 2000.0
+
+  /// Where the cursor goes when a floating window it was centered on at `warped`, `elapsedMs` ago, now has this frame on
+  /// a display with these bounds: the new center while the cursor is still at the warp point (within a point) and
+  /// `followTimeoutMs` has not passed; nil leaves it.
+  public static func followPoint(
+    cursor: CGPoint, warped: CGPoint, frame: CGRect, displayBounds: CGRect, elapsedMs: Float
+  ) -> CGPoint? {
+    if elapsedMs >= followTimeoutMs { return nil }
+    if abs(cursor.x - warped.x) > 1 || abs(cursor.y - warped.y) > 1 { return nil }
+
+    let center = CGPoint(x: frame.midX, y: frame.midY)
+    if abs(center.x - warped.x) <= 1 && abs(center.y - warped.y) <= 1 { return nil }
+    return displayBounds.contains(center) ? center : nil
+  }
 }

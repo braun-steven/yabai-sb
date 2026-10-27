@@ -181,6 +181,7 @@ extension EventHandler {
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame.origin = newOrigin
     window.rememberFloatingFrame()
+    wm.followWarp(of: window)
 
     if !windowedFullscreen {
       window.isWindowed = false
@@ -246,6 +247,7 @@ extension EventHandler {
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame = newFrame
     window.rememberFloatingFrame()
+    wm.followWarp(of: window)
 
     if wasFullscreen != isFullscreen { Border.refreshSpace(of: window) }
 

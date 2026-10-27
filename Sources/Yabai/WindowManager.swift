@@ -94,6 +94,16 @@ extension WindowLayer {
   /// The tiled windows that something else moved or resized off their tile, checked again once the changes have
   /// settled (`EventHandler.windowFrameRecheck`).
   var frameRecheckWindows: OrderedSet<WindowID> = []
+  /// The last cursor warp onto a floating window of a moved space, followed while macOS still places the window on its
+  /// new display (`WindowManager.followWarp(of:)`).
+  var followedWarp: FollowedWarp?
+}
+
+/// A cursor warp to the center of a window (`point`), made at `time`.
+struct FollowedWarp {
+  var windowID: WindowID
+  var point: CGPoint
+  var time: UInt64
 }
 
 /// The mouse events the event tap receives.

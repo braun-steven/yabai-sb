@@ -52,15 +52,49 @@ extension WindowManager {
     guard let did = display ?? target.id.displayID else { return }
     let bounds = CGDisplayBounds(did.rawValue)
 
+    let tile = display == nil ? nil : tileFrame(of: target)
     let frame =
       display == nil
       ? target.frame
       : MouseFollowsFocus.focusFrame(
-        cached: target.frame, tile: tileFrame(of: target), displayBounds: bounds,
+        cached: target.frame, tile: tile, displayBounds: bounds,
         live: { SLS.windowBounds(SLS.connection, target.id) })
     if let center = MouseFollowsFocus.warpPoint(cursor: cursor, frame: frame, displayBounds: bounds)
     {
       CGWarpMouseCursorPosition(center)
+      if display != nil && tile == nil {
+        followedWarp = FollowedWarp(windowID: target.id, point: center, time: OSTimer.now)
+      } else if followedWarp?.windowID == target.id {
+        followedWarp?.point = center
+      } else {
+        followedWarp = nil
+      }
+    }
+  }
+
+  //
+  // NOTE: macOS places a floating window of a space moved to another display (`space --display`) after the focus of
+  // the move has centered the cursor on it: its moved and resized events come up to about a second later, with frames
+  // yabai does not know before. So the cursor follows such a window to its new center on these events while it is
+  // still where the warp put it (`MouseFollowsFocus.followPoint`). A tiled window needs none: the warp uses its tile.
+  //
+
+  /// Moves the cursor on to the new center of a floating window it was just centered on after a space move.
+  func followWarp(of target: Window) {
+    guard let warp = followedWarp, warp.windowID == target.id else { return }
+    let elapsed = OSTimer.milliseconds(from: warp.time, to: OSTimer.now)
+    if elapsed >= MouseFollowsFocus.followTimeoutMs {
+      followedWarp = nil
+      return
+    }
+    guard let did = target.id.displayID else { return }
+
+    if let point = MouseFollowsFocus.followPoint(
+      cursor: SLS.cursorLocation(SLS.connection), warped: warp.point, frame: target.frame,
+      displayBounds: CGDisplayBounds(did.rawValue), elapsedMs: elapsed)
+    {
+      CGWarpMouseCursorPosition(point)
+      followedWarp?.point = point
     }
   }
 

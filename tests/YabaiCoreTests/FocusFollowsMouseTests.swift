@@ -7,109 +7,127 @@ import Testing
 struct FocusFollowsMouseTests {
   private static let base = ContinuousClock.now
   private static let frame = CGRect(x: 100, y: 100, width: 200, height: 200)
+  private static let windowID = WindowID(rawValue: 0xFFFF_0001)
 
-  private static func instant(_ ms: Int) -> ContinuousClock.Instant {
-    base.advanced(by: .milliseconds(ms))
-  }
-
-  // Columns: pointer, last hit (nil: none), hit generation, current generation, request age (ms; nil: none), expected.
-  // The last hit is `frame` (100..300 on both axes) unless a row says otherwise; the current time is the request
-  // time plus the age, so the age decides expiry.
   @Test(
     arguments: [
-      // a young request holds the move, inside the last hit or not, and clears nothing
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 0,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      (
-        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), 499,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      (
-        CGPoint(x: 50, y: 50), nil, UInt64(1), UInt64(1), 10,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      // a young request holds the move even when the generation changed
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), 10,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      // the request is dropped at exactly 500 ms, and an expired one moves on
-      (
-        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), 500,
-        FFMDecision(hitTest: true, clearPending: true)
-      ),
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 501,
-        FFMDecision(hitTest: false, clearPending: true)
-      ),
-      (
-        CGPoint(x: 50, y: 50), nil, UInt64(1), UInt64(1), 501,
-        FFMDecision(hitTest: true, clearPending: true)
-      ),
-      // an expired request inside the last hit clears and does not hit test
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), 900,
-        FFMDecision(hitTest: false, clearPending: true)
-      ),
-      // an expired request while the cache is from another generation: hit test
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), 900,
-        FFMDecision(hitTest: true, clearPending: true)
-      ),
-      // no request: inside a valid last hit needs no hit test
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      // the same frame in another generation: hit test
-      (
-        CGPoint(x: 150, y: 150), frame, UInt64(1), UInt64(2), nil,
-        FFMDecision(hitTest: true, clearPending: false)
-      ),
-      // outside the last hit: hit test
-      (
-        CGPoint(x: 50, y: 50), frame, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: true, clearPending: false)
-      ),
-      // no last hit at all: hit test
-      (
-        CGPoint(x: 150, y: 150), nil, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: true, clearPending: false)
-      ),
-      // the frame edges are the ones of CGRect.contains: the min edge is inside, the max edge is outside
-      (
-        CGPoint(x: 100, y: 100), frame, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: false, clearPending: false)
-      ),
-      (
-        CGPoint(x: 300, y: 150), frame, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: true, clearPending: false)
-      ),
-      (
-        CGPoint(x: 150, y: 300), frame, UInt64(1), UInt64(1), nil,
-        FFMDecision(hitTest: true, clearPending: false)
-      ),
-    ] as [(CGPoint, CGRect?, UInt64, UInt64, Int?, FFMDecision)]
-  )
+      (CGPoint(x: 150, y: 150), frame, 0, false, .held(recheckAfter: .milliseconds(500))),
+      (CGPoint(x: 50, y: 50), frame, 499, false, .held(recheckAfter: .milliseconds(1))),
+      (CGPoint(x: 50, y: 50), nil, 10, false, .held(recheckAfter: .milliseconds(490))),
+      (CGPoint(x: 150, y: 150), frame, 10, true, .held(recheckAfter: .milliseconds(490))),
+      (CGPoint(x: 50, y: 50), frame, 500, false, .hitTest(expiredRequest: windowID)),
+      (CGPoint(x: 150, y: 150), frame, 500, false, .hitTest(expiredRequest: windowID)),
+      (CGPoint(x: 150, y: 150), frame, 600, false, .hitTest(expiredRequest: windowID)),
+      (CGPoint(x: 50, y: 50), nil, 900, false, .hitTest(expiredRequest: windowID)),
+      (CGPoint(x: 150, y: 150), frame, nil, false, .cached),
+      (CGPoint(x: 150, y: 150), frame, nil, true, .hitTest(expiredRequest: nil)),
+      (CGPoint(x: 50, y: 50), frame, nil, false, .hitTest(expiredRequest: nil)),
+      (CGPoint(x: 150, y: 150), nil, nil, false, .hitTest(expiredRequest: nil)),
+      (CGPoint(x: 100, y: 100), frame, nil, false, .cached),
+      (CGPoint(x: 300, y: 150), frame, nil, false, .hitTest(expiredRequest: nil)),
+      (CGPoint(x: 150, y: 300), frame, nil, false, .hitTest(expiredRequest: nil)),
+    ] as [(CGPoint, CGRect?, Int?, Bool, FFMState.Move)])
   func decision(
-    pointer: CGPoint, lastFrame: CGRect?, hitGeneration: UInt64, generation: UInt64,
-    ageMs: Int?, expected: FFMDecision
+    pointer: CGPoint, cachedFrame: CGRect?, ageMs: Int?, invalidated: Bool,
+    expected: FFMState.Move
   ) {
-    let lastHit = lastFrame.map { FFMHitRecord(frame: $0, generation: hitGeneration) }
-    let requestedAt = ageMs.map { _ in Self.instant(0) }
-    let now = ageMs.map { Self.instant($0) } ?? Self.instant(0)
+    var state = FFMState()
+    state.storeHit(cachedFrame)
+    if invalidated { state.invalidateHitCache() }
+    if ageMs != nil { state.beginRequest(Self.windowID, at: Self.base) }
 
-    let result = FFMDecision.decide(
-      pointer: pointer, lastHit: lastHit, generation: generation,
-      requestedAt: requestedAt, now: now)
+    let result = state.pointerMoved(
+      to: pointer, now: Self.base.advanced(by: .milliseconds(ageMs ?? 0)))
     #expect(result == expected)
   }
 
-  @Test("the request timeout is 500 ms")
-  func requestTimeout() {
-    #expect(ffmRequestTimeout == .milliseconds(500))
+  @Test("an expired request cannot leave a cached hit suppressing later moves")
+  func expiredRequestInvalidatesHit() {
+    var state = FFMState()
+    state.storeHit(Self.frame)
+    state.beginRequest(Self.windowID, at: Self.base)
+
+    let expired = state.pointerMoved(
+      to: CGPoint(x: 150, y: 150), now: Self.base.advanced(by: .milliseconds(600)))
+    #expect(expired == .hitTest(expiredRequest: Self.windowID))
+    #expect(state.request == nil)
+    #expect(state.hitFrame == nil)
+    let next = state.pointerMoved(
+      to: CGPoint(x: 160, y: 150), now: Self.base.advanced(by: .milliseconds(610)))
+    #expect(next == .hitTest(expiredRequest: nil))
+  }
+
+  @Test("held moves coalesce, resolve early, and are consumed once")
+  func heldMovesResolve() {
+    var state = FFMState()
+    state.beginRequest(Self.windowID, at: Self.base)
+    let first = state.pointerMoved(to: .zero, now: Self.base.advanced(by: .milliseconds(120)))
+    #expect(first == .held(recheckAfter: .milliseconds(380)))
+    let second = state.pointerMoved(to: .zero, now: Self.base.advanced(by: .milliseconds(200)))
+    #expect(second == .held(recheckAfter: nil))
+    let unrelated = state.resolveRequest(ifFor: WindowID(rawValue: 0xFFFF_0002))
+    #expect(unrelated == nil)
+    #expect(state.request?.windowID == Self.windowID)
+    #expect(state.recheckState == .waiting)
+    let resolved = state.resolveRequest(ifFor: Self.windowID)
+    #expect(resolved == .zero)
+    #expect(state.request == nil)
+    #expect(state.recheckState == .resolved)
+    let again = state.resolveRequest()
+    #expect(again == nil)
+    let finished = state.finishRecheck()
+    #expect(finished)
+    let finishedAgain = state.finishRecheck()
+    #expect(!finishedAgain)
+  }
+
+  @Test("a move after timeout cancels the held recheck without scheduling a resolved one")
+  func timeoutCancelsHeldMove() {
+    var state = FFMState()
+    state.beginRequest(Self.windowID, at: Self.base)
+    _ = state.pointerMoved(to: .zero, now: Self.base)
+    let move = state.pointerMoved(to: .zero, now: Self.base.advanced(by: .milliseconds(500)))
+    #expect(move == .hitTest(expiredRequest: Self.windowID))
+    let finished = state.finishRecheck()
+    #expect(finished)
+    #expect(state.recheckState == .idle)
+    let resolved = state.resolveRequest()
+    #expect(resolved == nil)
+  }
+
+  @Test(arguments: [false, true])
+  func visibilityMemoIsInvalidated(querySucceeded: Bool) {
+    var state = FFMState()
+    #expect(state.visibleWindows == nil)
+    let ids: Set<WindowID>? = querySucceeded ? [Self.windowID] : nil
+    state.storeVisibleWindows(ids)
+    state.storeHit(Self.frame)
+    #expect(state.visibleWindows != nil)
+    #expect(state.visibleWindows?.ids == ids)
+    state.invalidateHitCache()
+    #expect(state.visibleWindows == nil)
+    #expect(state.hitFrame == nil)
+  }
+
+  @Test(arguments: [false, true])
+  func modeChangeResetsDecisionsAndPreservesAcknowledgement(isEnabled: Bool) {
+    var state = FFMState()
+    let left = DisplayID(rawValue: 0xFFFF_0001)
+    let right = DisplayID(rawValue: 0xFFFF_0002)
+    _ = state.displayFocus.decide(pointerDisplay: right, focusedDisplay: left)
+    state.storeHit(Self.frame)
+    state.storeVisibleWindows([Self.windowID])
+    state.beginRequest(Self.windowID, at: Self.base)
+    _ = state.pointerMoved(to: .zero, now: Self.base)
+    let cancel = state.modeChanged(isEnabled: isEnabled)
+    #expect(cancel == !isEnabled)
+    #expect(state.hitFrame == nil)
+    #expect(state.visibleWindows == nil)
+    #expect(state.displayFocus.attempt == nil)
+    #expect(state.request?.windowID == Self.windowID)
+    #expect(state.recheckState == (isEnabled ? .waiting : .idle))
+    let delay = state.resolveRequest()
+    #expect(delay == (isEnabled ? .zero : nil))
   }
 
   // Columns: hit frame, other frames, expected.
@@ -146,69 +164,47 @@ struct FocusFollowsMouseTests {
     ] as [(CGRect, [CGRect], Bool)]
   )
   func cacheable(hitFrame: CGRect, otherFrames: [CGRect], expected: Bool) {
-    #expect(FFMDecision.isCacheable(hitFrame: hitFrame, otherFrames: otherFrames) == expected)
+    #expect(FFMState.isCacheable(hitFrame: hitFrame, otherFrames: otherFrames) == expected)
   }
 }
 
-@Suite("FFMRecheck")
-struct FFMRecheckTests {
-  private static let base = ContinuousClock.now
+@Suite("FFMOcclusion")
+struct FFMOcclusionTests {
+  private static let target = FFMOcclusionWindow(
+    id: WindowID(rawValue: 0xFFFF_0001), frame: CGRect(x: 0, y: 0, width: 200, height: 200),
+    isFloating: false, level: 0, subLevel: 0)
 
-  private static func instant(_ ms: Int) -> ContinuousClock.Instant {
-    base.advanced(by: .milliseconds(ms))
+  @Test(arguments: [
+    (true, Int32(0), Int32(0), CGRect(x: 50, y: 50, width: 50, height: 50), true, true),
+    (true, Int32(0), Int32(0), CGRect(x: 50, y: 50, width: 50, height: 50), false, false),
+    (false, Int32(0), Int32(0), CGRect(x: 50, y: 50, width: 50, height: 50), true, false),
+    (true, Int32(1), Int32(0), CGRect(x: 50, y: 50, width: 50, height: 50), true, false),
+    (true, Int32(0), Int32(1), CGRect(x: 50, y: 50, width: 50, height: 50), true, false),
+    (true, Int32(0), Int32(0), CGRect(x: 150, y: 50, width: 100, height: 50), true, false),
+    (true, Int32(0), Int32(0), CGRect(x: 300, y: 50, width: 50, height: 50), true, false),
+  ])
+  func protectsOnlyCoveredFloatingWindowsAboveTarget(
+    floating: Bool, level: Int32, subLevel: Int32, frame: CGRect, above: Bool, expected: Bool
+  ) {
+    let other = FFMOcclusionWindow(
+      id: WindowID(rawValue: 0xFFFF_0002), frame: frame, isFloating: floating,
+      level: level, subLevel: subLevel)
+    let windows = above ? [other, Self.target] : [Self.target, other]
+    #expect(Self.target.wouldOccludeFloatingWindow(among: windows) == expected)
   }
 
-  // NOTE: #expect cannot call a mutating method, so every result is taken first.
-
-  @Test("the first held move schedules the re-check for the rest of the request timeout")
-  func firstHoldSchedules() {
-    var recheck = FFMRecheck()
-    let first = recheck.hold(requestedAt: Self.base, now: Self.instant(120))
-    #expect(first == .milliseconds(380))
-    #expect(recheck.state == .waiting)
-    let second = recheck.hold(requestedAt: Self.base, now: Self.instant(200))
-    #expect(second == nil)
-    #expect(recheck.state == .waiting)
-  }
-
-  @Test("a hold past the timeout schedules at once")
-  func holdPastTimeout() {
-    var recheck = FFMRecheck()
-    let delay = recheck.hold(requestedAt: Self.base, now: Self.instant(700))
-    #expect(delay == .zero)
-  }
-
-  @Test("the resolved request brings the re-check forward once")
-  func resolveOnce() {
-    var recheck = FFMRecheck()
-    let unheld = recheck.resolve()
-    #expect(unheld == nil)
-    #expect(recheck.state == .idle)
-
-    _ = recheck.hold(requestedAt: Self.base, now: Self.base)
-    let resolved = recheck.resolve()
-    #expect(resolved == .zero)
-    #expect(recheck.state == .resolved)
-    let again = recheck.resolve()
-    #expect(again == nil)
-    let held = recheck.hold(requestedAt: Self.base, now: Self.base)
-    #expect(held == nil)
-  }
-
-  // Columns: a move was held, the request resolved, expected result of finish.
-  @Test(
-    "finish reports a scheduled re-check and goes idle",
-    arguments: [(false, false, false), (true, false, true), (true, true, true)]
-  )
-  func finish(held: Bool, resolved: Bool, expected: Bool) {
-    var recheck = FFMRecheck()
-    if held { _ = recheck.hold(requestedAt: Self.base, now: Self.base) }
-    if resolved { _ = recheck.resolve() }
-    let first = recheck.finish()
-    #expect(first == expected)
-    #expect(recheck.state == .idle)
-    let second = recheck.finish()
-    #expect(!second)
+  @Test("candidates below the target are not inspected")
+  func stopsAtTarget() {
+    let floating = FFMOcclusionWindow(
+      id: WindowID(rawValue: 0xFFFF_0002), frame: CGRect(x: 50, y: 50, width: 50, height: 50),
+      isFloating: true, level: 0, subLevel: 0)
+    var inspected: [WindowID] = []
+    let windows = [Self.target, floating].lazy.map { window in
+      inspected.append(window.id)
+      return window
+    }
+    #expect(!Self.target.wouldOccludeFloatingWindow(among: windows))
+    #expect(inspected == [Self.target.id])
   }
 }
 

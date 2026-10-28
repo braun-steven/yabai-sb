@@ -124,7 +124,7 @@ struct MouseWindowChange: Sendable {
 final class MouseTapState {
   // NOTE: Only the event tap on the main run loop touches the click, drag and replay fields. The modifier, the port
   // (a +1 CFMachPort stored as its bit pattern) and `tracksFocus` are shared with yabai.wm, which sets the modifier
-  // and creates and tears down the tap (`MouseState.beginEventTap`/`endEventTap`).
+  // and creates the tap (`MouseState.beginEventTap`). The tap stays installed for daemon lifetime.
   private let modifierLock = Mutex(MouseModifierKey.fn)
   private let portLock = Mutex<UInt>(0)
   // NOTE: The tap receives moves for glass hover even when focus-follows-mouse is disabled.
@@ -179,7 +179,7 @@ final class MouseTapState {
     portLock.withLock { $0 != 0 }
   }
 
-  func endEventTap(removeSource: () -> Void) {
+  func endEventTap() {
     let retainedPointer = portLock.withLock { rawPort -> UnsafeMutableRawPointer? in
       guard rawPort != 0 else { return nil }
       let pointer = UnsafeMutableRawPointer(bitPattern: rawPort)!
@@ -190,7 +190,6 @@ final class MouseTapState {
     let port = Unmanaged<CFMachPort>.fromOpaque(retainedPointer).takeUnretainedValue()
     CGEvent.tapEnable(tap: port, enable: false)
     CFMachPortInvalidate(port)
-    removeSource()
     Unmanaged<CFMachPort>.fromOpaque(retainedPointer).release()
   }
 }
@@ -201,7 +200,6 @@ final class MouseTapState {
 
   // NOTE: The tap state is retained by this daemon-lifetime singleton and is passed unretained as callback context.
   let tap = MouseTapState()
-  var runLoopSource: CFRunLoopSource?
 
   var currentAction = MouseAction.none
   /// Where the cursor goes back once the focus click of an empty display is handled (`FocusClick`); nil when no
@@ -216,31 +214,14 @@ final class MouseTapState {
   var lastMovedTime: UInt64 = 0
   var window: Window!
   var windowFrame = CGRect.zero
-  //
-  // NOTE: The window of the focus follows mouse request in flight. Its time is stamped by the setter, so every place that
-  // sets or clears the window (a focus event, teardown, forget, the front switch) also sets or clears the time.
-  // The end of a request also brings forward the re-check of a move it held (FFMRecheck).
-  //
-  var ffmWindowID: WindowID? {
-    didSet {
-      ffmRequestTime = ffmWindowID == nil ? nil : ContinuousClock.now
-      if ffmWindowID == nil, let delay = ffmRecheck.resolve() {
-        EventLoop.post(.ffmRecheck, after: delay, key: .ffmRecheck)
-      }
+  var ffm = FFMState()
+
+  /// A focus event, teardown or front switch ends the request and brings a held move's re-check forward.
+  func resolveFFMRequest(ifFor windowID: WindowID? = nil) {
+    if let delay = ffm.resolveRequest(ifFor: windowID) {
+      EventLoop.post(.ffmRecheck, after: delay, key: .ffmRecheck)
     }
   }
-  /// The display focus follows mouse last tried to focus over the desktop; reset by each display change.
-  var ffmDisplayFocus = FFMDisplayFocus()
-  /// When the focus follows mouse request in flight was made; nil when none is pending.
-  private(set) var ffmRequestTime: ContinuousClock.Instant?
-  /// The re-check of the pointer after the request in flight held a move.
-  var ffmRecheck = FFMRecheck()
-  /// Bumped by every event but a mouse move (EventHandler.handle); the hit cache is valid only in the generation it was stored.
-  var ffmGeneration: UInt64 = 0
-  /// The frame of the last focus follows mouse hit test, when no other window could cover it.
-  var ffmHit: FFMHitRecord?
-  /// The windows on the visible spaces, asked from the window server once per generation.
-  var ffmVisible: (generation: UInt64, windowIDs: Set<WindowID>?)?
   var direction: ResizeHandle = []
   /// The split drag in progress (P13.2), from splitDragBegan until the mouse up.
   var splitDrag: SplitDrag?
@@ -564,33 +545,24 @@ extension MouseState {
   //
 
   @discardableResult
-  func beginEventTap(mask: UInt32) -> Bool {
+  func beginEventTap() -> Bool {
     if tap.hasPort { return true }
-    let moveMask = UInt32(1 << CGEventType.mouseMoved.rawValue)
     guard
       let port = CGEvent.tapCreate(
         tap: .cghidEventTap, place: .headInsertEventTap, options: .defaultTap,
-        eventsOfInterest: CGEventMask(mask | moveMask), callback: mouseHandler,
+        eventsOfInterest: CGEventMask(mouseEventMask), callback: mouseHandler,
         userInfo: Unmanaged.passUnretained(tap).toOpaque())
     else { return false }
-    tap.tracksFocus.store(mask & moveMask != 0, ordering: .relaxed)
+    tap.tracksFocus.store(Config.current.window.focusFollowsMouse != .disabled, ordering: .relaxed)
     tap.retainPort(port)
     if !CGEvent.tapIsEnabled(tap: port) {
-      tap.endEventTap {}
+      tap.endEventTap()
       return false
     }
     let source = CFMachPortCreateRunLoopSource(nil, port, 0)!
-    runLoopSource = source
+    // NOTE: The main run loop retains its source for daemon lifetime; changing FFM mode only changes tracksFocus.
     CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
     return true
-  }
-
-  func endEventTap() {
-    tap.endEventTap {
-      guard let runLoopSource else { return }
-      CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-      self.runLoopSource = nil
-    }
   }
 }
 

@@ -138,7 +138,7 @@ extension EventHandler {
     }
 
     if ms.window == window { ms.clearWindow() }
-    if ms.ffmWindowID == window.id { ms.ffmWindowID = nil }
+    ms.resolveFFMRequest(ifFor: window.id)
 
     if window.isEligible {
       EventSignals.shared.push(.windowDestroyed, .window(window))
@@ -200,7 +200,9 @@ extension EventHandler {
     let ms = MouseState.shared
 
     if wm.focus.focused != window.id {
-      if ms.ffmWindowID != window.id, !wm.focus.keepsMouse(for: window.id, now: OSTimer.now) {
+      if ms.ffm.request?.windowID != window.id,
+        !wm.focus.keepsMouse(for: window.id, now: OSTimer.now)
+      {
         wm.centerMouse(on: window)
       }
 
@@ -209,7 +211,7 @@ extension EventHandler {
 
     let prevFocusedWindowID = wm.focus.focused
     wm.focus.focusChanged(to: window.id, psn: window.application.psn)
-    ms.ffmWindowID = nil
+    ms.resolveFFMRequest()
 
     //
     // NOTE: Late focus events of windows focused earlier must not end a pending focus, so it is only
@@ -445,7 +447,7 @@ extension EventHandler {
     let prevFocusedWindowID = wm.focus.focused
     wm.focus.markFocusedAsLast()
     wm.focus.focusChanged(to: nil, psn: application.psn)
-    MouseState.shared.ffmWindowID = nil
+    MouseState.shared.resolveFFMRequest()
 
     if let prevFocusedWindowID {
       TabBar.refresh(for: prevFocusedWindowID)

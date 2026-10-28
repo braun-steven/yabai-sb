@@ -1,6 +1,7 @@
 import AppKit
 import CPrivate
 import CoreGraphics
+import Synchronization
 import YabaiCore
 
 /// The variable parts of unmanaging a window (`WindowManager.unmanage`).
@@ -15,22 +16,9 @@ struct UnmanageOptions: OptionSet {
 
 extension WindowManager {
   func setFocusFollowsMouse(_ mode: FocusFollowsMouse) {
-    MouseState.shared.ffmHit = nil
-
-    // NOTE: In headless mode the test process must not install an event tap on the user's mouse.
-    if Headless.isEnabled {
-      Config.current.window.focusFollowsMouse = mode
-      return
-    }
-
-    MouseState.shared.endEventTap()
-
-    if mode == .disabled {
-      MouseState.shared.beginEventTap(mask: mouseEventMask)
-    } else {
-      MouseState.shared.beginEventTap(mask: mouseEventMaskFFM)
-    }
-
+    let ms = MouseState.shared
+    if ms.ffm.modeChanged(isEnabled: mode != .disabled) { EventLoop.cancel(key: .ffmRecheck) }
+    ms.tap.tracksFocus.store(mode != .disabled, ordering: .relaxed)
     Config.current.window.focusFollowsMouse = mode
   }
 

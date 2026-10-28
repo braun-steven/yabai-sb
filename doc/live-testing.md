@@ -8,6 +8,9 @@ point below was learned the hard way; read it before running anything live.
 
 - IPC v2 tests use owned `IPCConnection` socket pairs, explicit completion frames and framed subscription events. Output followed by EOF without completion is a failed request. Use long test deadlines under sanitizers; do not connect framing probes to the user's daemon. See `doc/ipc.md`.
 
+- Keep each worktree's `.build` separate. An agent command sandbox can deny Swift's default module cache or the
+  payload compiler's temporary files before source compilation; rerun with normal compiler-cache and temporary-file
+  access instead of changing build scripts or disabling the SwiftPM plugin sandbox.
 - `just test` wraps `swift test`. SwiftPM's OSAXEmbed plugin generates the
   embedded arrays automatically, including on a fresh checkout; no preparation command is needed.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.
@@ -37,7 +40,8 @@ point below was learned the hard way; read it before running anything live.
   branch of `makeWindowFloating`, and the floating-frame restore (P12.3, `visibleDisplayFrames`) sees only
   `Headless.displayFrame`. `SpaceID.active`
   itself still asks SkyLight: the golden replay's `space` failures depend on the user's session having an active space.
-  `config focus_follows_mouse` only stores the mode (no event tap on the user's mouse), and `config external_bar`
+  `config focus_follows_mouse` stores the mode and tap flag without installing an event tap on the user's mouse, and
+  `config external_bar`
   (`SpaceManager.markSpacesInvalid`) only marks the seeded views, refreshing the view of `Headless.activeSpace`. Gaps: `ScriptingAddition.orderIn` still queries
   `SLS.windowIsOrderedIn` before it sends, and `View.create` asks SkyLight for the space's uuid.
 - Fake ids are real ids in the test process: windows, spaces and displays of the user's session have small ids, so

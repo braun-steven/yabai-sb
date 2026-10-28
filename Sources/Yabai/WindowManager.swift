@@ -109,7 +109,4 @@ let mouseEventMask: UInt32 =
   (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.leftMouseUp.rawValue)
   | (1 << CGEventType.leftMouseDragged.rawValue) | (1 << CGEventType.rightMouseDown.rawValue)
   | (1 << CGEventType.rightMouseUp.rawValue) | (1 << CGEventType.rightMouseDragged.rawValue)
-  | (1 << DockSwipe.eventType)
-
-/// The mouse events the event tap receives while focus follows the mouse.
-let mouseEventMaskFFM: UInt32 = mouseEventMask | (1 << CGEventType.mouseMoved.rawValue)
+  | (1 << DockSwipe.eventType) | (1 << CGEventType.mouseMoved.rawValue)

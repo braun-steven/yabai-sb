@@ -54,14 +54,14 @@ extension DaemonState {
     @Test("tab_bar_glass_hit_slots")
     func glassHitSlots() {
       let frame = Self.hitFrame
-      let inner = TabBarGlass.innerRect(frame)
+      let inner = TabBarRenderer.innerRect(frame)
       let boundary = TabBar.slot(in: inner, index: 0, count: 3).maxX
       #expect(
         TabBar.hitIndex(CGPoint(x: boundary - 0.1, y: 21), frame: frame, slots: inner, count: 3)
           == 0)
       #expect(
         TabBar.hitIndex(CGPoint(x: boundary, y: 21), frame: frame, slots: inner, count: 3) == 1)
-      #expect(TabBarGlass.innerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
+      #expect(TabBarRenderer.innerRect(CGRect(x: 0, y: 0, width: 1, height: 1)).width >= 0)
     }
 
     nonisolated static let hitFrame = CGRect(x: 10, y: 20, width: 103, height: 24)
@@ -78,7 +78,8 @@ extension DaemonState {
     func hitIndex(_ x: CGFloat, _ count: Int, _ index: Int?) {
       #expect(
         TabBar.hitIndex(
-          CGPoint(x: x, y: 21), frame: Self.hitFrame, slots: TabBarGlass.innerRect(Self.hitFrame),
+          CGPoint(x: x, y: 21), frame: Self.hitFrame,
+          slots: TabBarRenderer.innerRect(Self.hitFrame),
           count: count) == index)
     }
 
@@ -118,7 +119,7 @@ extension DaemonState {
       space.open(2, focus: true)
       space.view.root.setLayout(.tabbed)
       let bar = space.view.root.render.tabBar
-      bar.backend = TabBarGlass()
+      bar.backend = TabBarRenderer()
       WindowManager.shared.tabBars.append(bar)
 
       // the config command applies the new backdrop this way
@@ -158,7 +159,7 @@ extension DaemonState {
     @Test(arguments: [true, false], [Float(0), 0.4, 1])
     func glassTint(_ custom: Bool, _ alpha: Float) {
       let color = RGBAColor(hex: 0x80_28_55_77)
-      let tint = TabBarGlass.tint(color, custom: custom, alpha: alpha)
+      let tint = TabBarRenderer.tint(color, custom: custom, alpha: alpha)
       #expect(
         [tint.r, tint.g, tint.b, tint.argb] == [color.r, color.g, color.b, color.argb]
           as [AnyHashable])

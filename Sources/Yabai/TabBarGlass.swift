@@ -1121,18 +1121,18 @@ final class TabBarGlass: Sendable {
   }
 
   @MainActor
-  func hide() {
+  private func hide() {
     panel?.pointer(windowID: nil, pressed: false)
     panel?.panel.orderOut(nil)
   }
 
   @MainActor
-  func order(_ wid: WindowID) {
+  private func order(_ wid: WindowID) {
     panel?.order(wid)
   }
 
   @MainActor
-  func close() {
+  private func close() {
     panel?.close()
     panel = nil
     panelId.withLock { $0 = nil }

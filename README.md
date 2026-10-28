@@ -17,7 +17,6 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 - [Window labels](#window-labels)
 - [Floating frame memory](#floating-frame-memory)
 - [Tree undo](#tree-undo)
-- [Saved layouts](#saved-layouts)
 - [Automatic space layout](#automatic-space-layout)
 - [Space pins](#space-pins)
 - [Built-in display last](#built-in-display-last)
@@ -267,26 +266,7 @@ A window that floats remembers the frame it had while floating. When it floats a
 
 ### Tree undo
 
-`yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, `--restore-layout`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops the kept trees of the space, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
-
-### Saved layouts
-
-`yabai -m space --save-layout <NAME>` writes the tree of the selected space to `<NAME>.json` in `$XDG_CONFIG_HOME/yabai/layouts`, or `~/.config/yabai/layouts` when `XDG_CONFIG_HOME` is unset, and prints the path:
-
-```sh
-yabai -m space --save-layout work   # ~/.config/yabai/layouts/work.json
-```
-
-The file keeps the containers, shares, zoom and focus order of the tree. Each window is saved by its application and by its title, role and subrole at save time, not by its id, so the file describes the layout and not the windows of the session. NAME may use only `A-Z`, `a-z`, `0-9`, `.`, `_` and `-`.
-
-`yabai -m space --restore-layout <NAME>` rebuilds the tree of the selected space from that file, using the windows that are on the space now, and prints `restored 3 of 4 windows`: the saved windows that were found, out of the saved windows with a matcher. Each saved window is matched with a window of the same application, the exact title first, then the longest common title prefix, then the same role and subrole. A saved window that is not on the space is left out, so the others fill the layout. Windows on the space that match nothing are added after the focused window, without taking focus. The space must be in tree layout, and `space --undo` brings back the tree from before the restore.
-
-```sh
-alt + shift - s : yabai -m space --save-layout work
-alt - s : yabai -m space --restore-layout work
-```
-
-Version 1 has no placeholders: a window that opens after the restore is not placed by the file; it gets the place of a new window.
+`yabai -m space --undo` restores the tree of the selected space as it was before its last change by a tree command: `--balance`, `--mirror`, `--rotate`, or a window's `--warp`, `--swap`, `--stack`, `--layout`, `--split`, `--ratio`, `--resize` and `--toggle split`. Each space keeps its last 10 trees, for as long as its windows stay the same. Undo fails, and drops the kept trees of the space, when a window was added to or removed from the space since. Moving windows to another space or display and `--insert` are not undone.
 
 ### Automatic space layout
 

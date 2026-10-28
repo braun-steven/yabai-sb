@@ -99,10 +99,10 @@ extension DaemonState {
 
       #expect(
         Golden.escaped(Golden.run("query --windows --window \(wid(9).rawValue)"))
-          == "\\x07could not locate window with the specified id '\(printed(wid(9)))'.\\n")
+          == "could not locate window with the specified id '\(printed(wid(9)))'.\\n")
       #expect(
         Golden.escaped(Golden.run("query --spaces --window \(wid(9).rawValue)"))
-          == "\\x07could not locate window with the specified id '\(printed(wid(9)))'.\\n")
+          == "could not locate window with the specified id '\(printed(wid(9)))'.\\n")
     }
 
     @Test func spacesOfAWindowOnNoSpace() {
@@ -131,7 +131,7 @@ extension DaemonState {
 
       #expect(
         Golden.escaped(Golden.run("query --tree --space ws"))
-          == "\\x07the selected space does not use the tree layout.\\n")
+          == "the selected space does not use the tree layout.\\n")
     }
 
     @Test func labeledSpace() throws {
@@ -158,7 +158,7 @@ extension DaemonState {
       // NOTE: before SpaceManager.begin a query does not create a view
       #expect(
         Golden.escaped(Golden.run("query --spaces --space ws"))
-          == "\\x07could not retrieve space details.\\n")
+          == "could not retrieve space details.\\n")
       #expect(SpaceManager.shared.views.isEmpty)
     }
 

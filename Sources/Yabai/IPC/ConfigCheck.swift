@@ -101,8 +101,7 @@ private func linePrefix(_ path: String, _ line: Int?, _ keyPath: String) -> Stri
 /// The message of a list of words, as the daemon reads it: the words as `yabai -m` sends them, without the length prefix
 /// (MessageLoop.readMessage). The startup runs its messages from it (ConfigLoader.swift), and the check reads them.
 @WM func configMessage(_ arguments: [String]) -> Message {
-  let encoded = ClientMessage.encode(arguments.map { Array($0.utf8) })
-  return Message(Array(encoded.dropFirst(MemoryLayout<Int32>.size)))
+  Message(arguments: arguments)
 }
 
 /// Runs the words of one message through checkMessage, as the daemon would read them.
@@ -196,7 +195,7 @@ enum ConfigFileReadError: Error, Equatable {
 /// Writes `config --check [<file>]`: the report, and a failure response when the report has a failure.
 @WM func handleConfigCheck(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
   let check = try checkConfigFile("--check", &message)
-  let text = ResponseText(stringLiteral: check.report.text)
+  let text = check.report.text
   if check.report.failures > 0 {
     rsp.fail(CommandError(text))
   } else {
@@ -214,7 +213,7 @@ enum ConfigFileReadError: Error, Equatable {
     Client.writeAll(fd, Array(check.report.text.utf8))
     return check.report.failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS
   } catch {
-    Client.writeAll(STDERR_FILENO, error.text.bytes)
+    Client.writeAll(STDERR_FILENO, Array(error.text.utf8))
     return EXIT_FAILURE
   }
 }

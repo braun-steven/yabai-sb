@@ -1,4 +1,3 @@
-import CPrivate
 import YabaiCore
 
 //
@@ -7,7 +6,7 @@ import YabaiCore
 //
 
 /// The selectors look up displays, spaces and windows in the managers.
-@WM struct CSelectorContext: @WM SelectorContext {
+@WM struct DaemonSelectorContext: @WM SelectorContext {
   typealias Window = Yabai.Window
 
   var activeDisplay: DisplayID? { DisplayID.active }

@@ -49,8 +49,8 @@ struct ConfigReconcileResult: Equatable, Sendable {
   var response = Response()
   var message = configMessage(arguments)
   handleMessage(&response, &message)
-  guard failureTexts(response.bytes).isEmpty else { return nil }
-  return String(decoding: response.bytes, as: UTF8.self)
+  guard response.failures.isEmpty else { return nil }
+  return response.text
     .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
@@ -117,7 +117,7 @@ func configValue(_ word: String, kind: ConfigOptionKind) -> ConfigValue? {
   var message = configMessage(entry.arguments)
   handleMessage(&response, &message)
 
-  let texts = failureTexts(response.bytes)
+  let texts = response.failures
   let source = entry.keyPath.isEmpty ? entry.arguments.joined(separator: " ") : entry.keyPath
   let lines = texts.map { "\(source): \($0.trimmingCharacters(in: .newlines))" }
   for line in lines {
@@ -221,13 +221,13 @@ private func viewSpacing(_ name: ConfigName) -> ViewSpacing? {
 /// The space at a mission-control index, nil when there is none. It reads the window server, so the tests address spaces
 /// by label.
 @WM func spaceID(atIndex index: Int) -> SpaceID? {
-  try? SpaceSelector.missionControl(index).resolve(acting: nil, CSelectorContext())
+  try? SpaceSelector.missionControl(index).resolve(acting: nil, DaemonSelectorContext())
 }
 
 /// The uuid of the display that a pin selector names now, nil when it names none.
 @WM private func pinnedDisplayUUID(_ selector: String) -> String? {
   guard let display = DisplaySelector(Token(selector)),
-    let target = try? display.resolve(acting: DisplayID.active, CSelectorContext())
+    let target = try? display.resolve(acting: DisplayID.active, DaemonSelectorContext())
   else { return nil }
   return target.uuid
 }
@@ -378,7 +378,7 @@ extension ConfigEntry {
   var rules = RuleSet()
   for entry in entries {
     var message = configMessage(Array(entry.arguments.dropFirst()))
-    guard case .add(let rule)? = try? RuleCommand.parse(&message, CSelectorContext()) else {
+    guard case .add(let rule)? = try? RuleCommand.parse(&message, DaemonSelectorContext()) else {
       return nil
     }
     rules.add(rule)

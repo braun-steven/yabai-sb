@@ -50,6 +50,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- IPC uses versioned, length-prefixed JSON with structured outputs, errors and subscription events; upgrade clients and daemon together and restart the daemon (the legacy protocol is no longer supported)
+- Successful command and batch output always goes to stdout; errors go to stderr with batch command indices, and any failure still returns exit status 1
+- Queries reject extra arguments instead of silently ignoring them
 - Every form of *rule --apply* now uses the same two-round eligibility checks as automatic rules. Effects on dialogs need an explicit *subrole* filter or prior rule management; *manage=on* for a nonstandard role needs an explicit matching filter.
 - Config *space_layout* sends the spaces of a display that went away back to it when it is connected again, like sway's output priority, instead of moving any spaces by count; a pin still wins
 - Config *mouse_follows_focus* moves the mouse like sway's 'mouse_warping output': only when focus goes to another display than the one under the mouse, to the center of the focused window (or of the display when it has no window to focus); focusing a window on the display under the mouse no longer moves it there, as upstream yabai does. Commands that move a window (*window --warp*, *--swap*, *--display*, *--space*) do not move the mouse, also when the moved window keeps focus on another display

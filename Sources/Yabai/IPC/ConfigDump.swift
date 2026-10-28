@@ -173,5 +173,5 @@ import YabaiCore
 @WM func handleConfigDump(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
   try noConfigArgument("--dump", &message)
   let dump = runningConfigDump()
-  rsp.write(ResponseText(stringLiteral: dump.document.toml(comments: dump.comments)))
+  rsp.write(dump.document.toml(comments: dump.comments))
 }

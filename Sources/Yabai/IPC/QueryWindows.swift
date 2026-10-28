@@ -4,73 +4,6 @@ import CoreGraphics
 import Darwin
 import YabaiCore
 
-//
-// NOTE: The query response values of displays, spaces, windows and the tree, read from the managers. Only the values
-// of selected properties are queried, because some of them are slow (AX) calls.
-//
-
-// MARK: Displays
-
-extension DisplayID {
-  /// The display for `query --displays`.
-  @WM func info(_ properties: Set<DisplayInfo.Key>) -> DisplayInfo {
-    let dm = DisplayManager.shared
-    var info = DisplayInfo(id: self, properties: properties)
-
-    if properties.contains(.uuid) { info.uuid = uuid ?? "<unknown>" }
-    if properties.contains(.index) { info.index = arrangement ?? 0 }
-    if properties.contains(.label) { info.label = dm.labels.name(of: self) ?? "" }
-    if properties.contains(.frame) { info.frame = QueryFrame(CGDisplayBounds(rawValue)) }
-    if properties.contains(.spaces) { info.spaces = spaceIndices }
-    if properties.contains(.hasFocus) { info.hasFocus = self == dm.currentDisplayID }
-
-    return info
-  }
-
-  // NOTE: The Mission Control indices of the spaces of a display.
-  @WM private var spaceIndices: [Int] {
-    guard let spaceList = spaces, let first = spaceList.first?.missionControlIndex else {
-      return []
-    }
-    return (0..<spaceList.count).map { first + $0 }
-  }
-}
-
-// MARK: Spaces
-
-extension View {
-  /// The space for `query --spaces`.
-  func info(_ properties: Set<SpaceInfo.Key>) -> SpaceInfo {
-    let sm = SpaceManager.shared
-    var info = SpaceInfo(id: sid, properties: properties)
-
-    if properties.contains(.uuid) { info.uuid = uuid.map { $0 as String } ?? "<unknown>" }
-    if properties.contains(.index) { info.index = sid.missionControlIndex ?? 0 }
-    if properties.contains(.label) { info.label = sm.labels.name(of: sid) ?? "" }
-    if properties.contains(.type) { info.type = layout.rawValue }
-    if properties.contains(.display) { info.display = sid.display.flatMap { $0.arrangement } ?? 0 }
-    if properties.contains(.pinnedDisplay) { info.pinnedDisplay = sm.pinnedArrangement(of: sid) }
-    if properties.contains(.windows) { info.windows = sid.windows(includingMinimized: true) ?? [] }
-    if properties.contains(.firstWindow) {
-      info.firstWindow = tree?.firstLeaf?.focusedDescendant.windowID
-    }
-    if properties.contains(.lastWindow) { info.lastWindow = tree?.lastLeaf?.windowID }
-    if properties.contains(.hasFocus) { info.hasFocus = sid == sm.currentSpaceID }
-    if properties.contains(.isVisible) { info.isVisible = sid.isVisible }
-    if properties.contains(.isFullscreen) { info.isFullscreen = sid.isFullscreen }
-
-    return info
-  }
-}
-
-extension SpaceManager {
-  // NOTE: Spaces that have no view are left out.
-  /// The spaces of the list for `query --spaces`.
-  func spaceInfos(_ spaceList: [SpaceID], _ properties: Set<SpaceInfo.Key>) -> [SpaceInfo] {
-    spaceList.compactMap { queryView(for: $0)?.info(properties) }
-  }
-}
-
 // MARK: Windows
 
 /// `window_layer`: the name of a window level.
@@ -82,22 +15,20 @@ private func layerName(_ level: Int32) -> String {
 }
 
 extension WindowInfo {
-  private func wants(_ keys: Set<Key>) -> Bool {
-    !properties.isDisjoint(with: keys)
-  }
-
   // NOTE: Without a space (or a display of it), the printed values are 0, as the arrangement and index of no display and no space.
   @WM fileprivate mutating func setSpace(_ sid: SpaceID?) {
-    if wants([.display]) { display = sid.flatMap { $0.display }.flatMap { $0.arrangement } ?? 0 }
-    if wants([.space]) { space = sid.flatMap { $0.missionControlIndex } ?? 0 }
+    if properties.contains(.display) {
+      display = sid.flatMap { $0.display }.flatMap { $0.arrangement } ?? 0
+    }
+    if properties.contains(.space) { space = sid.flatMap { $0.missionControlIndex } ?? 0 }
   }
 
   fileprivate mutating func setLevels(_ wid: WindowID) {
-    if wants([.level, .layer]) { level = wid.level }
-    if wants([.subLevel, .subLayer]) { subLevel = wid.subLevel }
-    if wants([.layer]) { layer = layerName(level) }
-    if wants([.subLayer]) { subLayer = layerName(subLevel) }
-    if wants([.hasShadow]) { hasShadow = wid.hasShadow }
+    if !properties.isDisjoint(with: [.level, .layer]) { level = wid.level }
+    if !properties.isDisjoint(with: [.subLevel, .subLayer]) { subLevel = wid.subLevel }
+    if properties.contains(.layer) { layer = layerName(level) }
+    if properties.contains(.subLayer) { subLayer = layerName(subLevel) }
+    if properties.contains(.hasShadow) { hasShadow = wid.hasShadow }
   }
 
   /// The split, stack index and zoom of the container of a managed window.
@@ -217,36 +148,5 @@ extension WindowManager {
   func windowInfos(on spaceList: [SpaceID], _ properties: Set<WindowInfo.Key>) -> [WindowInfo] {
     let windowList = SpaceID.windows(on: spaceList, connection: nil, includingMinimized: true) ?? []
     return windowList.map { wid in window(for: wid)?.info(properties) ?? wid.info(properties) }
-  }
-}
-
-// MARK: Tree
-
-extension View {
-  //
-  // NOTE: The container tree of a space, similar to i3's get_tree. Containers list their children
-  // in tab or split order. Spaces without the tree layout have no tree.
-  //
-
-  /// The tree for `query --tree`; nil unless the space uses the tree layout.
-  func treeNode() -> TreeNode? {
-    guard layout == .tree else { return nil }
-    return treeNode(for: root)
-  }
-
-  private func treeNode(for node: Con) -> TreeNode {
-    let leaf = node.isLeaf
-    let parent = node.parent
-
-    return TreeNode(
-      type: parent == nil ? .workspace : leaf ? .window : .container,
-      layout: leaf ? nil : node.layout.rawValue,
-      percent: parent != nil ? node.percent : 1.0,
-      window: node.windowID,
-      frame: leaf ? frame(for: node) : node.area,
-      focused: leaf && node.windowID == WindowManager.shared.focus.focused,
-      selected: node.isSelected,
-      visible: node.isVisible,
-      nodes: node.children.map { treeNode(for: $0) })
   }
 }

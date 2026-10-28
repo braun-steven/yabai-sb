@@ -4,11 +4,10 @@ import SortedCollections
 import YabaiCore
 
 extension WindowManager {
-  func queryWindowRules(into response: inout Response) throws(CommandError) {
-    try response.write(
-      json: rules.enumerated().map { index, rule in
-        rule.info(index: index, matched: rules.hasMatched(at: index))
-      })
+  func ruleInfos() -> [RuleInfo] {
+    rules.enumerated().map { index, rule in
+      rule.info(index: index, matched: rules.hasMatched(at: index))
+    }
   }
 
   func applyManageRuleEffects(_ effects: RuleEffects, to target: Window) {

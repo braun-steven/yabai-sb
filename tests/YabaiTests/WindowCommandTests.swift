@@ -67,7 +67,7 @@ struct CommandCase: CustomTestStringConvertible, Sendable {
   var failure: String? = nil
   var result: String
 
-  var response: String { failure.map { String(UnicodeScalar(Response.failureByte)) + $0 } ?? "" }
+  var response: String { failure.map { $0 } ?? "" }
 
   var testDescription: String { command }
 }
@@ -780,7 +780,7 @@ extension DaemonState {
 
       let result = run("--swap recent", in: space)
 
-      #expect(result.response == "\u{07}could not locate the most recently focused window.\n")
+      #expect(result.response == "could not locate the most recently focused window.\n")
     }
 
     // MARK: - Placements
@@ -964,7 +964,7 @@ extension DaemonState {
 
       let result = run("--focus north", in: space)
 
-      #expect(result.response == "\u{07}could not locate a container to focus.\n")
+      #expect(result.response == "could not locate a container to focus.\n")
       #expect(result.placements.isEmpty)
     }
 
@@ -1012,7 +1012,7 @@ extension DaemonState {
 
       let result = run("--ratio abs:0.5", in: space)
 
-      #expect(result.response == "\u{07}could not locate the window to act on!\n")
+      #expect(result.response == "could not locate the window to act on!\n")
     }
 
     @Test(arguments: [
@@ -1025,7 +1025,7 @@ extension DaemonState {
 
       let result = run(command, in: space)
 
-      #expect(result.response.hasPrefix("\u{07}unknown value"))
+      #expect(result.response.hasPrefix("unknown value"))
       expectNoDifference(result.tree, before)
     }
 
@@ -1106,7 +1106,7 @@ extension DaemonState {
       #expect(WindowManager.shared.labels.id(named: "far") == nil)
       #expect(
         run("w1 --label", in: space).response
-          == "\u{07}the selected window was not associated with a label!\n")
+          == "the selected window was not associated with a label!\n")
     }
 
     @Test func labelSelectsTheWindowInSwap() {
@@ -1130,7 +1130,7 @@ extension DaemonState {
 
       let result = run(command, in: space)
 
-      #expect(result.response == "\u{07}" + failure)
+      #expect(result.response == "" + failure)
       #expect(space.order == "w1 w2 w3")
     }
 
@@ -1156,7 +1156,7 @@ extension DaemonState {
       String(decoding: Golden.run("space work --undo"), as: UTF8.self)
     }
 
-    private let nothingToUndo = "\u{07}nothing to undo on this space.\n"
+    private let nothingToUndo = "nothing to undo on this space.\n"
 
     nonisolated static let undoCases: [String] = [
       "--warp east", "--warp west", "--swap east", "--layout tabbed", "--split vertical",
@@ -1216,7 +1216,7 @@ extension DaemonState {
       let space = row()
       labelSpace()
 
-      #expect(run("--swap w2", in: space).response == "\u{07}cannot swap a window with itself.\n")
+      #expect(run("--swap w2", in: space).response == "cannot swap a window with itself.\n")
       #expect(spaceUndo() == nothingToUndo)
     }
 
@@ -1240,7 +1240,7 @@ extension DaemonState {
       let before = space.dump
 
       // NOTE: both entries predate the window change, so the first failure drops the whole history
-      #expect(spaceUndo() == "\u{07}cannot undo: the windows on this space changed.\n")
+      #expect(spaceUndo() == "cannot undo: the windows on this space changed.\n")
       expectNoDifference(space.dump, before)
       #expect(spaceUndo() == nothingToUndo)
     }

@@ -1,125 +1,69 @@
-import Darwin
 import Testing
 import YabaiCore
 
 @testable import Yabai
 
-// NOTE: A socket pair exercises the encoded request, server framing, command dispatch, queued response write and EOF
-// without starting the daemon listener or connecting to the user's yabai process.
-
-private enum InvalidIPCRequest: String, CaseIterable, Sendable, CustomStringConvertible {
-  case negativeLength
-  case oversizedLength
-  case incompleteLength
-  case truncatedPayload
-
-  var description: String { rawValue }
-
-  var bytes: [UInt8] {
-    switch self {
-    case .negativeLength:
-      return messageHeader(-1)
-    case .oversizedLength:
-      return messageHeader(Int32(MessageLoop.maxMessageLength + 1))
-    case .incompleteLength:
-      return [1, 0]
-    case .truncatedPayload:
-      return messageHeader(4) + [0x61, 0x62]
-    }
-  }
-}
-
-private func messageHeader(_ length: Int32) -> [UInt8] {
-  withUnsafeBytes(of: length) { Array($0) }
-}
-
-private func ipcSocketPair() throws -> (server: Int32, client: Int32) {
-  var pair: [Int32] = [0, 0]
-  try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
-
-  var one: Int32 = 1
-  for fd in pair {
-    try #require(
-      setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0)
-  }
-
-  var timeout = timeval(tv_sec: 30, tv_usec: 0)
-  try #require(
-    setsockopt(pair[1], SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-      == 0)
-  return (pair[0], pair[1])
-}
-
-private func writeAndFinish(_ bytes: [UInt8], to fd: Int32) throws {
-  var written = 0
-  while written < bytes.count {
-    let count = bytes.withUnsafeBytes {
-      Darwin.write(fd, $0.baseAddress!.advanced(by: written), $0.count - written)
-    }
-    try #require(count > 0)
-    written += count
-  }
-  try #require(shutdown(fd, SHUT_WR) == 0)
-}
-
-private func readToEnd(_ fd: Int32) throws -> [UInt8] {
-  var result: [UInt8] = []
-  var buffer = [UInt8](repeating: 0, count: 256)
-  while true {
-    let count = buffer.withUnsafeMutableBytes {
-      Darwin.read(fd, $0.baseAddress!, $0.count)
-    }
-    if count == 0 { return result }
-    try #require(count > 0)
-    result.append(contentsOf: buffer.prefix(count))
-  }
-}
-
 extension DaemonState {
   @Suite @WM struct IPCTransportIntegrationTests {
+    @Test func responseQueueClosesItsConnectionAfterCompletion() throws {
+      var pair: (server: IPCConnection, client: IPCConnection)? = try ipcPair()
+      let client = try #require(pair?.client)
+      MessageLoop.handle(
+        DaemonMessage(
+          connection: try #require(pair?.server),
+          request: .command(arguments: ["config", "debug_output"])))
+      pair = nil
+      #expect(try readReply(client) == .output(command: 1, data: .string("off\n"), format: .text))
+      #expect(try readReply(client) == .complete(ok: true))
+      #expect(try client.readFrame(limit: IPCProtocol.responseLimit, timeout: 30) == nil)
+    }
+
     @Test func requestPassesThroughFramingDispatchAndResponseWrite() throws {
-      let (server, client) = try ipcSocketPair()
-      defer { Darwin.close(client) }
-      var serverSocketTransferred = false
-      defer {
-        if !serverSocketTransferred { Darwin.close(server) }
-      }
-
-      let request = ClientMessage.encode([Array("unknown_test_domain".utf8)])
-      try writeAndFinish(request, to: client)
-
-      var receivedBytes: [UInt8] = []
-      serverSocketTransferred = true
+      let (server, client) = try ipcPair()
+      let request = IPCRequest.command(arguments: ["unknown_test_domain"])
+      try client.write(IPCProtocol.encode(request, limit: IPCProtocol.requestLimit), timeout: 30)
+      client.finishRequest()
+      var received: IPCRequest?
       MessageLoop.receiveClient(server) { message in
-        receivedBytes = message.bytes
+        received = message.request
         MessageLoop.handle(message)
       }
-
-      #expect(receivedBytes == Array(request.dropFirst(MemoryLayout<Int32>.size)) + [0, 0])
+      #expect(received == request)
       #expect(
-        try readToEnd(client)
-          == [Response.failureByte] + Array("unknown domain 'unknown_test_domain'\n".utf8))
+        try readReply(client)
+          == .error(command: 1, message: "unknown domain 'unknown_test_domain'\n"))
+      #expect(try readReply(client) == .complete(ok: false))
+    }
+
+    @Test func malformedBatchIsRejectedBeforeExecutingAnyCommand() throws {
+      let (server, client) = try ipcPair()
+      let payload = Array(#"{"type":"batch","commands":[["config","window_gap","99"],[]]}"#.utf8)
+      try client.write(IPCProtocol.header(length: payload.count) + payload, timeout: 30)
+      client.finishRequest()
+      var called = false
+      MessageLoop.receiveClient(server) { _ in called = true }
+      #expect(!called)
+      #expect(try readReply(client) == .error(command: nil, message: "invalid IPC message\n"))
+      #expect(try readReply(client) == .complete(ok: false))
+      #expect(Golden.run("config window_gap") == Array("0\n".utf8))
+    }
+
+    @Test func mixedBatchRepliesHaveStructuredResultsAndOverallFailure() throws {
+      let (server, client) = try ipcPair()
+      MessageLoop.handle(
+        DaemonMessage(
+          connection: server,
+          request: .batch(commands: [
+            ["config", "window_gap", "bad"], ["config", "debug_output"],
+          ])))
+      guard case .error(let index, let message) = try readReply(client) else {
+        Issue.record("expected a structured error")
+        return
+      }
+      #expect(index == 1)
+      #expect(message.hasPrefix("unknown value 'bad'"))
+      #expect(try readReply(client) == .output(command: 2, data: .string("off\n"), format: .text))
+      #expect(try readReply(client) == .complete(ok: false))
     }
   }
-}
-
-@Test(arguments: InvalidIPCRequest.allCases)
-private func invalidRequestReceivesRejectionAndEOF(_ request: InvalidIPCRequest) throws {
-  let (server, client) = try ipcSocketPair()
-  defer { Darwin.close(client) }
-  var serverSocketTransferred = false
-  defer {
-    if !serverSocketTransferred { Darwin.close(server) }
-  }
-
-  try writeAndFinish(request.bytes, to: client)
-
-  var handlerWasCalled = false
-  serverSocketTransferred = true
-  MessageLoop.receiveClient(server) { _ in
-    handlerWasCalled = true
-  }
-
-  #expect(!handlerWasCalled)
-  #expect(try readToEnd(client) == MessageLoop.rejection().bytes)
 }

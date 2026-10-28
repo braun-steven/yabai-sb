@@ -42,8 +42,7 @@ private func skhdBindingCommands(_ text: String) -> [(line: Int, command: String
 
 /// The message the daemon reads for `arguments` (the words after `-m`, domain first): the length prefix is dropped.
 private func clientMessage(_ arguments: [String]) -> Message {
-  let encoded = ClientMessage.encode(arguments.map { Array($0.utf8) })
-  return Message(Array(encoded.dropFirst(MemoryLayout<Int32>.size)))
+  Message(arguments: arguments)
 }
 
 //
@@ -90,7 +89,7 @@ private func isSelectorWord(_ token: Token) -> Bool {
 @WM private func parsesWithoutFailure(_ arguments: [String]) -> Bool {
   var message = clientMessage(arguments)
   do {
-    if arguments.first == Domain.window {
+    if arguments.first == Domain.window.rawValue {
       try parseWindowMessage(&message)
     } else {
       try parseSpaceMessage(&message)
@@ -132,7 +131,7 @@ extension DaemonState {
             check.failures.isEmpty,
             "line \(binding.line): \(arguments.joined(separator: " ")): \(check.failures)")
 
-          if arguments.first == Domain.window {
+          if arguments.first == Domain.window.rawValue {
             windowCommands += 1
             var parsed = clientMessage(arguments)
             do {
@@ -140,7 +139,7 @@ extension DaemonState {
             } catch {
               Issue.record("line \(binding.line): \(arguments.joined(separator: " ")): \(error)")
             }
-          } else if arguments.first == Domain.space {
+          } else if arguments.first == Domain.space.rawValue {
             spaceCommands += 1
             var parsed = clientMessage(arguments)
             do {

@@ -39,7 +39,7 @@ extension DaemonState {
       SpaceManager.shared.pins.pin(label: "work", toDisplay: unknownDisplayUUID)
 
       let response = Golden.run("space work --pin --foo")
-      #expect(response.first == 0x07)
+      #expect(String(decoding: response, as: UTF8.self).hasPrefix("value '--foo'"))
       #expect(SpaceManager.shared.pins.display(of: "work") == unknownDisplayUUID)
     }
 

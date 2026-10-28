@@ -158,7 +158,7 @@ private let checkCases: [CheckCase] = [
     var response = Response()
     var message = Golden.encode(line)
     handleMessage(&response, &message)
-    #expect(response.bytes.isEmpty, "seed '\(line)' failed")
+    #expect(response.entries.isEmpty, "seed '\(line)' failed")
   }
 }
 
@@ -190,7 +190,7 @@ extension DaemonState {
       var executed = Golden.encode(row.message)
       handleMessage(&response, &executed)
 
-      #expect(response.text == check.failures.map { "\u{07}\($0)" }.joined())
+      #expect(response.failures == check.failures)
     }
 
     @Test(arguments: checkCases)
@@ -251,7 +251,7 @@ extension DaemonState {
       var executed = Golden.encode("rule --apply term bogus=1")
       var response = Response()
       handleMessage(&response, &executed)
-      #expect(response.bytes.isEmpty)
+      #expect(response.entries.isEmpty)
 
       var missing = Golden.encode("rule --apply nolabel bogus=1")
       #expect(
@@ -269,7 +269,7 @@ extension DaemonState {
       var response = Response()
       var executed = Golden.encode("rule --remove 5")
       handleMessage(&response, &executed)
-      #expect(response.text == "\u{07}rule with index '5' not found.\n")
+      #expect(response.failures == ["rule with index '5' not found.\n"])
     }
   }
 }

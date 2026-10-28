@@ -45,6 +45,7 @@ private func parsed(_ eventNames: [String]) throws(CommandError) -> [SignalType]
       "unknown event 'bogus' for domain 'subscribe'; expected one of: application_launched, "
     ),
     ("Window_Focused", "unknown event 'Window_Focused' for domain 'subscribe'; expected one of: "),
+    ("", "unknown event '' for domain 'subscribe'; expected one of: "),
   ])
   func unknownNameFailsWithTheValidNames(_ name: String, _ prefix: String) {
     do {

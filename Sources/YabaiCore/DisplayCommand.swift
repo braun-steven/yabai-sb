@@ -10,7 +10,7 @@ public enum DisplayCommand: Equatable, Sendable {
     case label = "--label"
   }
 
-  public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError)
+  public static func parse(_ name: Name, _ message: inout Message) throws(CommandError)
     -> DisplayCommand
   {
     let value = message.next()

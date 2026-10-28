@@ -729,7 +729,7 @@ The name of the provided fields must be present in the dataformat of the corresp
 DATAFORMAT
 ^^^^^^^^^^
 
-Responses are compact JSON on a single line, with keys in alphabetical order rather than the order listed below. A query of several entities returns an array of them. Numbers use their shortest form; a non-finite number is the string 'nan', 'inf' or '-inf'.
+Extra arguments after a complete query are errors. Responses are compact JSON on a single line, with keys in alphabetical order rather than the order listed below. A query of several entities returns an array of them. Numbers use their shortest form; a non-finite number is the string 'nan', 'inf' or '-inf'.
 
 DISPLAY
 [subs=+macros]
@@ -1160,11 +1160,13 @@ window --focus east
 EOF
 ----
 +
-The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and *yabai -m* exits with status 1, when any command failed. A failing response is printed on stderr in full, so the output of the commands that succeeded goes to stderr too. +
+The output of a batch is the output of its commands in order, such as the value of a query. A failing command writes its failure with its index in front, where 1 is the first command of the batch. The index counts commands, not lines of stdin: blank and comment lines are not counted. The response fails, and *yabai -m* exits with status 1, when any command failed. Successful output is printed on stdout; errors are printed on stderr, including when a batch mixes successful and failing commands. +
 A batch with no command, e.g. stdin with only blank lines, fails with `batch: no commands given`. `yabai -m batch` takes no arguments: with any, it fails and sends nothing. A batch is one message, so it is limited to 1 MiB like any message.
 
 Subscribe
 ~~~~~~~~~
+
+The client and daemon must both use IPC protocol v2. Restart the daemon after upgrading; older raw-socket clients must migrate to the versioned JSON protocol documented in *doc/ipc.md*.
 
 yabai -m subscribe [<EVENT>...]::
     Stream events to the client, one JSON line per event, until the daemon or the client ends the subscription. The events are the names of *signal --add*, e.g. `yabai -m subscribe window_focused space_changed`; without an event, every event is streamed. +

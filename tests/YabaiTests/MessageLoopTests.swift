@@ -1,85 +1,143 @@
 import Darwin
+import Dispatch
+import Synchronization
 import Testing
 import YabaiCore
 
 @testable import Yabai
 
-//
-// NOTE: Reading a client message from a socket pair, the reply to a message that cannot be read, and the response
-// timeout of `yabai -m`. The socket pairs hold only bytes the test wrote before the read, and the writer is closed
-// after them, so each read ends at the end of the data instead of at a deadline (short deadlines are flaky under ASan).
-//
-
-private func header(_ length: Int32) -> [UInt8] {
-  withUnsafeBytes(of: length) { Array($0) }
-}
-
-/// Reads one message from a socket pair that holds exactly `bytes`. Both ends ignore SIGPIPE, which the test process
-/// does not ignore as the daemon does.
-private func readFrom(_ bytes: [UInt8]) throws -> Result<[UInt8], MessageLoop.MessageReadError> {
+func ipcPair() throws -> (server: IPCConnection, client: IPCConnection) {
   var pair: [Int32] = [0, 0]
   try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
-  let writer = pair[0]
-  let reader = pair[1]
-  defer { close(reader) }
+  return (try IPCConnection(taking: pair[0]), try IPCConnection(taking: pair[1]))
+}
 
-  var one: Int32 = 1
-  try #require(
-    setsockopt(writer, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0)
-  try #require(
-    setsockopt(reader, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size)) == 0)
+func readReply(_ connection: IPCConnection) throws -> IPCReply {
+  let payload = try #require(
+    try connection.readFrame(limit: IPCProtocol.responseLimit, timeout: 30))
+  return try IPCProtocol.decode(IPCReply.self, payload: payload)
+}
 
-  let written = bytes.withUnsafeBytes { write(writer, $0.baseAddress!, $0.count) }
-  try #require(written == bytes.count)
-  close(writer)
+@Suite struct IPCConnectionTests {
+  @Test func fragmentedHeaderAndBodyAreReadCompletely() throws {
+    let (server, client) = try ipcPair()
+    let request = IPCRequest.command(arguments: ["query", "--windows", "id"])
+    let frame = try IPCProtocol.encode(request, limit: IPCProtocol.requestLimit)
+    let result = Mutex<Result<[UInt8]?, IPCError>?>(nil)
+    let finished = DispatchGroup()
+    finished.enter()
+    DispatchQueue.global().async {
+      defer { finished.leave() }
+      let received: Result<[UInt8]?, IPCError>
+      do {
+        let payload = try server.readFrame(limit: IPCProtocol.requestLimit, timeout: 30)
+        received = .success(payload)
+      } catch let error as IPCError {
+        received = .failure(error)
+      } catch {
+        Issue.record("unexpected transport error: \(error)")
+        received = .failure(.io)
+      }
+      result.withLock { $0 = received }
+    }
 
-  do {
-    return .success(try MessageLoop.readMessage(reader))
-  } catch {
-    return .failure(error)
+    // Wait until the reader has consumed each fragment before sending the next.
+    // MSG_PEEK observes the socket without stealing bytes from the reader.
+    let boundaries = [0, 1, 4, 9, 12, 13, frame.count]
+    for index in 0..<(boundaries.count - 1) {
+      try client.write(Array(frame[boundaries[index]..<boundaries[index + 1]]), timeout: 30)
+      let deadline = ContinuousClock.now + .seconds(30)
+      var drained = false
+      while ContinuousClock.now < deadline {
+        var byte: UInt8 = 0
+        let count = recv(server.fd, &byte, 1, MSG_PEEK | MSG_DONTWAIT)
+        if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+          drained = true
+          break
+        }
+        usleep(1_000)
+      }
+      try #require(drained)
+    }
+    try #require(finished.wait(timeout: .now() + 30) == .success)
+    #expect(result.withLock { $0 } == .success(Array(frame.dropFirst(IPCProtocol.headerLength))))
   }
-}
 
-@Test(arguments: [-1, Int32.min, Int32(MessageLoop.maxMessageLength) + 1, Int32.max])
-func messageLengthOutsideTheCapIsRefusedBeforeTheBody(_ length: Int32) throws {
-  // NOTE: No body follows the header: a refused length is not read any further.
-  #expect(try readFrom(header(length)) == .failure(.invalidLength))
-}
+  @Test func deadlinesApplyBeforeWaitingForMoreBytes() throws {
+    let (server, _) = try ipcPair()
+    #expect(throws: IPCError.timedOut) {
+      try server.readFrame(limit: IPCProtocol.requestLimit, timeout: 0)
+    }
+  }
 
-@Test func messageLengthAtTheCapIsAcceptedAndThenReadsItsBody() throws {
-  // The header is accepted; the body is missing, so the read fails at the end of the data.
-  #expect(try readFrom(header(Int32(MessageLoop.maxMessageLength))) == .failure(.incomplete))
-}
+  @Test func coalescedFramesAreReadIndependently() throws {
+    let (server, client) = try ipcPair()
+    let first = try IPCProtocol.encode(
+      IPCReply.complete(ok: true), limit: IPCProtocol.responseLimit)
+    let second = try IPCProtocol.encode(
+      IPCReply.error(command: nil, message: "bad"), limit: IPCProtocol.responseLimit)
+    try server.write(first + second, timeout: 30)
+    #expect(try readReply(client) == .complete(ok: true))
+    #expect(try readReply(client) == .error(command: nil, message: "bad"))
+  }
 
-@Test func messageWithoutACompleteLengthIsIncomplete() throws {
-  #expect(try readFrom([1, 0]) == .failure(.incomplete))
-}
+  @Test func incompleteHeadersAndPayloadsAreFailures() throws {
+    for bytes in [
+      [UInt8](repeating: 89, count: 2),
+      IPCProtocol.header(length: 10) + Array("abc".utf8),
+    ] {
+      let (server, client) = try ipcPair()
+      try client.write(bytes, timeout: 30)
+      client.finishRequest()
+      #expect(throws: IPCError.incomplete) {
+        try server.readFrame(limit: IPCProtocol.requestLimit, timeout: 30)
+      }
+    }
+  }
 
-@Test func messageEndingBeforeItsLengthIsIncomplete() throws {
-  #expect(try readFrom(header(10) + [1, 2, 3]) == .failure(.incomplete))
-}
+  @Test func badMagicVersionAndLengthAreRejectedWithoutReadingABody() throws {
+    var wrongVersion = IPCProtocol.header(length: 10)
+    wrongVersion[7] = 3
+    for bytes in [
+      [0x07, 0x62, 0x61, 0x64], wrongVersion,
+      IPCProtocol.header(length: IPCProtocol.requestLimit + 1),
+    ] {
+      let (server, client) = try ipcPair()
+      try client.write(bytes, timeout: 30)
+      #expect(throws: (any Error).self) {
+        try server.readFrame(limit: IPCProtocol.requestLimit, timeout: 30)
+      }
+    }
+  }
 
-@Test func completeMessageIsReadWithItsTerminatingNulls() throws {
-  let encoded = ClientMessage.encode([Array("space".utf8), Array("--focus".utf8), Array("1".utf8)])
-  // The reader returns the payload and the two null bytes the daemon adds after it.
-  #expect(
-    try readFrom(encoded) == .success(Array(encoded.dropFirst(MemoryLayout<Int32>.size)) + [0, 0]))
-}
+  @Test func descriptorsAreProtectedAndOverlongPathsAreRefused() throws {
+    let (server, _) = try ipcPair()
+    #expect(fcntl(server.fd, F_GETFD) & FD_CLOEXEC != 0)
+    #expect(fcntl(server.fd, F_GETFL) & O_NONBLOCK != 0)
+    #expect(throws: IPCError.invalidMessage) {
+      try IPCConnection.address(String(repeating: "x", count: 200))
+    }
+    #expect(throws: IPCError.invalidMessage) { try IPCConnection.address("a\0b") }
+  }
 
-@Test func rejectedMessageGetsTheFailureReply() {
-  #expect(MessageLoop.rejection().bytes == [Response.failureByte] + Array("invalid message\n".utf8))
-}
+  @Test func disconnectedPeerCannotRaiseSIGPIPE() throws {
+    var pair: (server: IPCConnection, client: IPCConnection)? = try ipcPair()
+    let server = try #require(pair?.server)
+    pair = nil
+    #expect(throws: IPCError.io) { try server.write([1], timeout: 30) }
+  }
 
-@Test(arguments: ["1", "5", "86400"])
-func clientTimeoutTakesAPositiveNumberOfSeconds(_ value: String) {
-  #expect(Client.responseTimeout(value) == Int(value))
-}
+  @Test(arguments: ["1", "5", "86400"])
+  func positiveClientTimeout(_ value: String) {
+    #expect(Client.responseTimeout(value) == Int(value))
+  }
 
-@Test(arguments: ["", "0", "-3", "abc", "1.5", " 7"])
-func clientTimeoutIgnoresInvalidValues(_ value: String) {
-  #expect(Client.responseTimeout(value) == Client.defaultResponseTimeout)
-}
+  @Test(arguments: ["", "0", "-3", "abc", "1.5", " 7"])
+  func invalidClientTimeout(_ value: String) {
+    #expect(Client.responseTimeout(value) == Client.defaultResponseTimeout)
+  }
 
-@Test func clientTimeoutDefaultsWhenUnset() {
-  #expect(Client.responseTimeout(nil) == 30)
+  @Test func unsetClientTimeout() {
+    #expect(Client.responseTimeout(nil) == 30)
+  }
 }

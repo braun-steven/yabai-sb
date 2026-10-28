@@ -157,7 +157,7 @@ public enum WindowCommand: Equatable, Sendable {
   //
 
   /// Parses the value of the command name from the message.
-  public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError)
+  public static func parse(_ name: Name, _ message: inout Message) throws(CommandError)
     -> WindowCommand
   {
     let value = message.next()

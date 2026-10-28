@@ -18,7 +18,7 @@ import YabaiTestSupport
 // covered by commands that fail before they act.
 //
 // responses.txt holds one record per command: a line "### <byte count> <command>", the response bytes, and a newline.
-// A failure response starts with Response.failureByte (\x07), as it does on the socket.
+// Responses are deterministic JSON snapshots of typed entries and overall success, without wire framing.
 //
 
 struct GoldenRecord {
@@ -84,14 +84,43 @@ enum Golden {
     }
     if let argument = current { arguments.append(argument) }
 
-    return Message(Array(ClientMessage.encode(arguments).dropFirst(MemoryLayout<Int32>.size)))
+    return Message(commandTokens: arguments.map { Token($0) })
   }
 
   @WM static func run(_ line: String) -> [UInt8] {
     var response = Response()
     var message = encode(line)
     handleMessage(&response, &message)
-    return response.bytes
+    return render(response).flatMap { Array(($0.stdout + $0.stderr).utf8) }
+  }
+
+  /// Human output assertions deliberately exclude protocol framing.
+  static func render(_ response: Response) -> [CLIOutput] {
+    var renderer = IPCRenderer(request: .command(arguments: ["test"]))
+    return response.entries.map { entry in
+      do {
+        let bytes = try JSON.encode(IPCOutput(command: 1, entry: entry))
+        return try renderer.consume(IPCProtocol.decode(IPCReply.self, payload: bytes))
+      } catch {
+        Issue.record("cannot render result: \(error)")
+        return CLIOutput()
+      }
+    }
+  }
+
+  private struct Snapshot: Encodable {
+    let entries: [IPCOutput]
+    let ok: Bool
+  }
+
+  @WM static func structured(_ line: String) throws -> [UInt8] {
+    var response = Response()
+    var message = encode(line)
+    handleMessage(&response, &message)
+    return try JSON.encode(
+      Snapshot(
+        entries: response.entries.map { IPCOutput(command: 1, entry: $0) },
+        ok: response.failures.isEmpty))
   }
 
   @WM static func fixture() {
@@ -128,7 +157,7 @@ extension DaemonState {
       if ProcessInfo.processInfo.environment["GOLDEN_RECORD"] != nil {
         var output: [UInt8] = []
         for command in commands {
-          let response = Golden.run(command)
+          let response = try Golden.structured(command)
           output +=
             Array("### \(response.count) \(command)\n".utf8) + response + [UInt8(ascii: "\n")]
         }
@@ -145,7 +174,7 @@ extension DaemonState {
         "responses.txt does not match commands.txt; record it again")
 
       for record in records {
-        let response = Golden.run(record.command)
+        let response = try Golden.structured(record.command)
         #expect(
           response == record.response,
           "'\(record.command)'\n expected: \"\(Golden.escaped(record.response))\"\n actual:   \"\(Golden.escaped(response))\""

@@ -10,7 +10,7 @@ import YabaiCore
 //
 
 /// What checkMessage found. `failures` are the failure texts handleMessage writes for the same message, in order. A text
-/// is the bytes after the failure byte with its trailing newline (the text of CommandError), so a line to print drops
+/// is a CommandError message with its trailing newline, so a line to print drops
 /// the last byte. `notes` say what the check does not cover; they are not failures.
 struct MessageCheck {
   var failures: [String] = []
@@ -48,7 +48,7 @@ struct MessageCheck {
   } catch {
     response.fail(error)
   }
-  check.failures = failureTexts(response.bytes)
+  check.failures = response.failures
   return check
 }
 
@@ -58,27 +58,18 @@ struct MessageCheck {
 ) throws(CommandError) {
   let domain = message.next()
 
-  if domain.equals(Domain.config) {
-    try checkConfigMessage(&response, domain, &message)
-  } else if domain.equals(Domain.rule) {
-    try checkRuleMessage(&message)
-  } else if domain.equals(Domain.signal) {
-    try checkSignalMessage(&message)
-  } else if domain.equals(BatchMessage.domain) {
-    // NOTE: The commands of a batch are read from their own tokens when the batch runs (handleDomainBatch), which
-    // the check does not do, so it reports them as not checked. A malformed batch is still reported when it runs.
+  switch Domain(rawValue: domain.string) {
+  case .config: try checkConfigMessage(&response, domain, &message)
+  case .rule: try checkRuleMessage(&message)
+  case .signal: try checkSignalMessage(&message)
+  case .batch:
     check.notes.append("not checked: batch commands are checked when they run")
-  } else if domain.equals(Domain.subscribe) {
-    // NOTE: A subscription keeps its client connected until the daemon ends it, so the check does not run it. Its event
-    // names are parsed, which is all a failure can come from.
+  case .subscribe:
     _ = try SubscribeCommand.parse(&message)
     check.notes.append("not run: subscribe keeps its client connected")
-  } else if domain.equals(Domain.display) || domain.equals(Domain.space)
-    || domain.equals(Domain.window) || domain.equals(Domain.query)
-  {
+  case .display, .space, .window, .query:
     check.notes.append("not checked: \(domain.string) commands act on the current session")
-  } else {
-    throw CommandError("unknown domain '\(domain)'\n")
+  case nil: throw CommandError("unknown domain '\(domain)'\n")
   }
 }
 
@@ -101,12 +92,4 @@ struct MessageCheck {
 /// Parses a signal message as handleDomainSignal does, without adding or removing a signal.
 @WM private func checkSignalMessage(_ message: inout Message) throws(CommandError) {
   _ = try SignalCommand.parse(&message)
-}
-
-/// The failure texts of a response. Each failure starts with the failure byte. A check writes nothing else: it never
-/// prints, so no response text is mixed in.
-func failureTexts(_ bytes: [UInt8]) -> [String] {
-  bytes.split(separator: Response.failureByte, omittingEmptySubsequences: false).dropFirst().map {
-    String(decoding: $0, as: UTF8.self)
-  }
 }

@@ -51,7 +51,7 @@ extension DaemonState {
       _ = Headless.drain()
 
       let report = configFileReport(path: path, source: text)
-      #expect(Golden.run("config --reload \(path)") == Array("\u{07}\(report.text)".utf8))
+      #expect(Golden.run("config --reload \(path)") == Array("\(report.text)".utf8))
 
       #expect(Golden.run("config window_gap") == Array("5\n".utf8))
       #expect(WindowManager.shared.rules.count == 1)
@@ -115,7 +115,7 @@ extension DaemonState {
 
       #expect(
         Golden.run("config --reload /nonexistent/yabai.toml")
-          == Array("\u{07}cannot read config file '/nonexistent/yabai.toml'\n".utf8))
+          == Array("cannot read config file '/nonexistent/yabai.toml'\n".utf8))
       #expect(Golden.run("config window_gap") == Array("5\n".utf8))
       #expect(Headless.drain().configEntries.isEmpty)
     }
@@ -125,7 +125,7 @@ extension DaemonState {
       #expect(
         Golden.run("config --reload a b")
           == Array(
-            "\u{07}unknown argument 'b' given to command '--reload' for domain 'config'\n".utf8))
+            "unknown argument 'b' given to command '--reload' for domain 'config'\n".utf8))
     }
 
     @Test func checkOfAReloadIsNotNoted() {
@@ -296,7 +296,7 @@ extension DaemonState {
       let failure = "rule[1]: could not locate space with mission-control index '99'."
       #expect(
         Golden.run("config --reload \(path)")
-          == Array("\u{07}reloaded \(path): 3 changes, 1 failures\n\(failure)\n".utf8))
+          == Array("reloaded \(path): 3 changes, 1 failures\n\(failure)\n".utf8))
       #expect(Golden.run("config window_gap") == Array("11\n".utf8))
       #expect(WindowManager.shared.rules.count == 1)
       #expect(WindowManager.shared.rules.first?.app?.text == "^Near$")
@@ -327,7 +327,7 @@ extension DaemonState {
       #expect(
         Golden.run("config --overrides a")
           == Array(
-            "\u{07}unknown argument 'a' given to command '--overrides' for domain 'config'\n".utf8))
+            "unknown argument 'a' given to command '--overrides' for domain 'config'\n".utf8))
       var message = Golden.encode("config --overrides a")
       #expect(checkMessage(&message).failures.count == 1)
     }

@@ -92,7 +92,7 @@ extension DaemonState {
       defer { try? FileManager.default.removeItem(atPath: path) }
 
       // NOTE: A failure response is the failure byte, then the whole report.
-      #expect(Golden.run("config --check \(path)") == Array("\u{07}\(fixtureReport(path))".utf8))
+      #expect(Golden.run("config --check \(path)") == Array("\(fixtureReport(path))".utf8))
     }
 
     @Test func checkWithoutAFileReadsTheFileOfTheDaemon() throws {
@@ -127,7 +127,7 @@ extension DaemonState {
 
       #expect(
         Golden.run("config --check \(path)")
-          == Array("\u{07}cannot read config file '\(path)'\n".utf8))
+          == Array("cannot read config file '\(path)'\n".utf8))
       #expect(throws: ConfigFileReadError.unreadable(path)) {
         try readConfigFile(ConfigFileChoice(chosen: path, ignored: []))
       }
@@ -138,7 +138,7 @@ extension DaemonState {
       #expect(
         Golden.run("config --check a b")
           == Array(
-            "\u{07}unknown argument 'b' given to command '--check' for domain 'config'\n".utf8))
+            "unknown argument 'b' given to command '--check' for domain 'config'\n".utf8))
     }
 
     @Test func checkIsAcceptedByTheCheckOfAMessage() {

@@ -133,7 +133,7 @@ private func pairsGenerator(_ keys: [[UInt8]], _ choices: [[UInt8]] = keywords +
 
 /// The message of the tokens, after the tokens of prefix.
 private func makeMessage(_ tokens: [[UInt8]], after prefix: [String] = []) -> Message {
-  Message((prefix.map { Array($0.utf8) } + tokens).flatMap { $0 + [0] } + [0])
+  Message(commandTokens: (prefix.map { Array($0.utf8) } + tokens).map { Token($0) })
 }
 
 /// The tokens for a failure message.
@@ -233,7 +233,7 @@ private func parseCommands(
       var pairs = makeMessage(tokens)
       var rule = Rule()
       do throws(CommandError) {
-        _ = try parseRule(&pairs, &rule, pairs.next(), context)
+        _ = try parseRule(&pairs, &rule, pairs.take(), context)
       } catch {
         expectResponse(error, tokens)
       }

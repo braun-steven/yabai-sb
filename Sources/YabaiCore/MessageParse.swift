@@ -119,19 +119,18 @@ public func parseKeyValuePair(_ token: Token) -> KeyValue? {
 /// Reads the key-value arguments of a rule or signal to the end of the message and collects the failures they share.
 /// The command keeps its own keys and values.
 struct KeyValueScanner {
-  private var token: Token
+  private var token: Token?
   private var unsupportedExclusion: Token?
   private var failures: [CommandError] = []
   private var didParse = true
 
   /// `first` is the token of the first argument; the rest are read from the message.
-  init(first: Token) { token = first }
+  init(first: Token?) { token = first }
 
   /// The next key-value pair, nil at the end of the message. A malformed argument is reported and skipped.
-  mutating func next(_ message: inout some TokenSource) -> KeyValue? {
-    while token.isValid {
-      let current = token
-      token = message.next()
+  mutating func next(_ message: inout Message) -> KeyValue? {
+    while let current = token {
+      token = message.take()
       if let pair = parseKeyValuePair(current) { return pair }
       fail(CommandError("invalid key-value pair '\(current)'\n"))
     }

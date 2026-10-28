@@ -6,6 +6,8 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
+- IPC v2 tests use owned `IPCConnection` socket pairs, explicit completion frames and framed subscription events. Output followed by EOF without completion is a failed request. Use long test deadlines under sanitizers; do not connect framing probes to the user's daemon. See `doc/ipc.md`.
+
 - `just test` wraps `swift test`. SwiftPM's OSAXEmbed plugin generates the
   embedded arrays automatically, including on a fresh checkout; no preparation command is needed.
   `tests/YabaiCoreTests/` covers pure logic; `tests/YabaiTests/` uses `@testable import Yabai`.

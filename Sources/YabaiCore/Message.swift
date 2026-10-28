@@ -1,13 +1,5 @@
-import Darwin
-
-//
-// NOTE: The tokens of a client message and the response the daemon writes. A message is a list of null-separated tokens
-// that ends with an empty token. Each token is decoded once into a String, so tokens compare like Swift strings; bytes
-// that are not UTF-8 become U+FFFD, also where a failure response echoes the token.
-//
-
 /// One argument of a message. Invalid when empty.
-public struct Token: Equatable, Sendable {
+public struct Token: Equatable, Sendable, CustomStringConvertible {
   public var string: String
 
   public init(_ string: String) {
@@ -21,6 +13,12 @@ public struct Token: Equatable, Sendable {
   public init(_ bytes: some Collection<UInt8>) {
     self.string = String(decoding: bytes, as: UTF8.self)
   }
+
+  public var description: String { string }
+
+  public init(_ domain: Domain) { string = domain.rawValue }
+
+  public func equals(_ domain: Domain) -> Bool { string == domain.rawValue }
 
   public var isValid: Bool { !string.isEmpty }
 
@@ -135,141 +133,52 @@ public enum TokenValue: Sendable {
   }
 }
 
-/// Where the parsers take the next token from: a `Message`.
-public protocol TokenSource {
-  mutating func next() -> Token
-
-  /// The next token, without moving the cursor.
-  func peek() -> Token
-}
-
-/// A client message, read token by token like `get_token` does.
-public struct Message: TokenSource, Sendable {
-  private let bytes: [UInt8]
-  /// The tokens of one batch command, read as they are (`init(commandTokens:)`). Nil for a client message.
-  private let tokens: [Token]?
+/// The arguments of one command, consumed incrementally as commands execute.
+/// Empty arguments are values; only `take()` returning nil means exhaustion.
+public struct Message: Sendable {
+  private let tokens: [Token]
   private var position = 0
 
-  public init(_ bytes: [UInt8]) {
-    self.bytes = bytes
-    self.tokens = nil
+  public init(arguments: [String]) { tokens = arguments.map { Token($0) } }
+  public init(commandTokens: [Token]) { tokens = commandTokens }
+
+  public var isAtEnd: Bool { position == tokens.count }
+
+  public mutating func take() -> Token? {
+    guard !isAtEnd else { return nil }
+    defer { position += 1 }
+    return tokens[position]
   }
 
-  /// A message from text with the null separators written out, e.g. "--focus\0east\0".
-  public init(_ text: String) {
-    self.bytes = Array(text.utf8)
-    self.tokens = nil
-  }
+  /// Reads an argument, treating a missing value like an empty value for legacy option grammars.
+  public mutating func next() -> Token { take() ?? Token("") }
 
-  //
-  // NOTE: A batch command is read from its own tokens, so an empty token is an argument of it. A client message cannot
-  // carry one (`next` ends at it), so the tokens of a batch are split by BatchMessage.terminated and read here instead.
-  //
-
-  /// The tokens of one command of a batch, each read as it is: an empty token is an argument, and the tokens end the
-  /// message after the last one.
-  public init(commandTokens tokens: [Token]) {
-    self.bytes = []
-    self.tokens = tokens
-  }
-
-  //
-  // NOTE: The token ends at the next null byte. The cursor moves past that null byte only when another token follows,
-  // so an empty token (two null bytes) ends the message, and every call after the end returns an empty token.
-  //
-
-  /// `get_token`
-  public mutating func next() -> Token {
-    if let tokens {
-      guard position < tokens.count else { return Token("") }
-      position += 1
-      return tokens[position - 1]
-    }
-
-    let start = position
-    var end = start
-    while end < bytes.count && bytes[end] != 0 { end += 1 }
-
-    position = end
-    if end + 1 < bytes.count && bytes[end + 1] != 0 { position = end + 1 }
-
-    return Token(bytes[start..<end])
-  }
-
-  /// The next token, without moving the cursor.
-  public func peek() -> Token {
-    var message = self
-    return message.next()
-  }
-
-  /// The bytes from the cursor to the end, split at each null byte with the empty pieces kept. A batch reads its tokens
-  /// from these (`BatchMessage.terminated`), since `next` ends at an empty token.
-  public func rawPieces() -> [[UInt8]] {
-    if let tokens {
-      return tokens.dropFirst(position).map { Array($0.utf8) }
-    }
-    return bytes[position...].split(separator: 0, omittingEmptySubsequences: false).map {
-      Array($0)
-    }
-  }
+  /// Peeks at an optional value using the same missing-value convention as `next()`.
+  public func peek() -> Token { isAtEnd ? Token("") : tokens[position] }
 }
 
-/// The domains of a message (`DOMAIN_*`, src/message_parse.c).
-public enum Domain {
-  public static let config = "config"
-  public static let display = "display"
-  public static let space = "space"
-  public static let window = "window"
-  public static let query = "query"
-  public static let rule = "rule"
-  public static let signal = "signal"
-  public static let subscribe = "subscribe"
+/// Domains recognized by command execution and configuration checking.
+public enum Domain: String, CaseIterable, Sendable {
+  case config, display, space, window, query, rule, signal, subscribe, batch
 }
 
-/// The text of a response, built with string interpolation. A number is written as "%d" would.
-public struct ResponseText: ExpressibleByStringInterpolation, Sendable {
-  public var bytes: [UInt8] = []
-
-  public init(stringLiteral value: String) {
-    bytes = Array(value.utf8)
-  }
-
-  public init(stringInterpolation: Interpolation) {
-    bytes = stringInterpolation.bytes
-  }
-
-  public struct Interpolation: StringInterpolationProtocol, Sendable {
-    var bytes: [UInt8] = []
-
-    public init(literalCapacity: Int, interpolationCount: Int) {
-      bytes.reserveCapacity(literalCapacity + 16 * interpolationCount)
-    }
-
-    public mutating func appendLiteral(_ literal: String) { bytes += literal.utf8 }
-    public mutating func appendInterpolation(_ token: Token) { bytes += token.utf8 }
-    public mutating func appendInterpolation(_ text: String) { bytes += text.utf8 }
-    public mutating func appendInterpolation(_ value: Int32) { bytes += String(value).utf8 }
-    public mutating func appendInterpolation(_ value: Int) { bytes += String(value).utf8 }
-  }
-}
-
-/// Why a command failed: the text of its failure response, without the failure byte. Command code throws it, and the
+/// Why a command failed: the message presented to the client. Command code throws it, and the
 /// message handler writes it with `Response.fail(_:)`.
 public struct CommandError: Error, Sendable, CustomStringConvertible {
-  public var text: ResponseText
+  public var text: String
   /// Whether the failure also skips the remaining commands of the message, e.g. after an invalid value whose
   /// arguments cannot be told apart from the next command. Otherwise the next command still runs.
   public var stopsMessage: Bool
 
-  public init(_ text: ResponseText, stopsMessage: Bool = false) {
+  public init(_ text: String, stopsMessage: Bool = false) {
     self.text = text
     self.stopsMessage = stopsMessage
   }
 
   /// One failure that lists several problems, e.g. every invalid key of a rule, in order.
   public init(combining errors: [CommandError]) {
-    var text: ResponseText = ""
-    for error in errors { text.bytes += error.text.bytes }
+    var text: String = ""
+    for error in errors { text += error.text }
     self.init(text, stopsMessage: errors.contains { $0.stopsMessage })
   }
 
@@ -280,7 +189,7 @@ public struct CommandError: Error, Sendable, CustomStringConvertible {
     return copy
   }
 
-  public var description: String { String(decoding: text.bytes, as: UTF8.self) }
+  public var description: String { text }
 
   /// The failure of a command the domain does not know.
   public static func unknownCommand(_ domain: Token, _ command: Token) -> CommandError {
@@ -303,42 +212,5 @@ public struct CommandError: Error, Sendable, CustomStringConvertible {
     let hint = expected.map { "; expected \($0)" } ?? ""
     return CommandError(
       "unknown value '\(value)' given to command '\(command)' for domain '\(domain)'\(hint)\n")
-  }
-}
-
-/// The response to a message (`FILE *rsp`).
-public struct Response: Sendable {
-  /// `FAILURE_MESSAGE` (src/misc/macros.h): the first byte of a failure, which makes the client exit with an error.
-  public static let failureByte: UInt8 = 0x07
-
-  public var bytes: [UInt8] = []
-
-  //
-  // NOTE: `subscribe` does not end its message: the socket stays open and receives the events of these types, after
-  // `bytes`, which hold its first line. The message loop hands the socket to the event subscribers instead of writing
-  // the response and closing it. Only a successful subscribe sets this; a failure is an ordinary response.
-  //
-  /// The event types of a subscription, or nil when the message is not one.
-  public var subscribedTypes: [SignalType]?
-
-  public init() {}
-
-  /// The response as a string, for tests.
-  public var text: String { String(decoding: bytes, as: UTF8.self) }
-
-  public mutating func write(_ text: ResponseText) {
-    bytes += text.bytes
-  }
-
-  /// Writes the json of a query response and a newline.
-  public mutating func write(json value: some Encodable) throws(CommandError) {
-    bytes += try JSON.encode(value)
-    bytes.append(UInt8(ascii: "\n"))
-  }
-
-  /// Writes a failure: the failure byte, then its text.
-  public mutating func fail(_ error: CommandError) {
-    bytes.append(Response.failureByte)
-    bytes += error.text.bytes
   }
 }

@@ -6,8 +6,10 @@ import YabaiTestSupport
 
 // NOTE: Ported from tests/src/window_info.c.
 
-private func windowInfoFixture() -> WindowInfo {
-  var info = WindowInfo(id: 42)
+private func windowInfoFixture(properties: Set<WindowInfo.Key> = Set(WindowInfo.Key.allCases))
+  -> WindowInfo
+{
+  var info = WindowInfo(id: 42, properties: properties)
   info.app = "Text\"Edit"
   info.title = "a\tb"
   info.split = .x
@@ -37,6 +39,18 @@ func queryCommandPropertiesAndTargets(_ text: String, _ command: QueryCommand) t
 }
 
 private let queryCommandFailureRows: [(String, String)] = [
+  (
+    "--windows\0id\0--window\01\0extra\0",
+    "unknown argument 'extra' given to command '--windows' for domain 'query'\n"
+  ),
+  (
+    "--tree\0--space\0recent\0extra\0",
+    "unknown argument 'extra' given to command '--tree' for domain 'query'\n"
+  ),
+  (
+    "--tree\0--space\0recent\0\0",
+    "unknown argument '' given to command '--tree' for domain 'query'\n"
+  ),
   ("--unknown\0", "unknown command '--unknown' for domain 'query'\n"),
   ("--windows\0bogus\0", "'bogus' is not a valid property.\n"),
   (
@@ -60,14 +74,13 @@ private func json(_ value: some Encodable) throws -> String {
 }
 
 @Test func windowInfoEncodesOnlySelectedKeysSorted() throws {
-  var info = windowInfoFixture()
-  info.properties = [.title, .id, .app]
+  let info = windowInfoFixture(properties: [.title, .id, .app])
   #expect(try json(info) == "{\"app\":\"Text\\\"Edit\",\"id\":42,\"title\":\"a\\tb\"}")
 
-  info.properties = [.splitType, .isVisible, .frame]
-  info.frame = CGRect(x: 0, y: 25, width: 1512.5, height: 957)
+  var selected = windowInfoFixture(properties: [.splitType, .isVisible, .frame])
+  selected.frame = CGRect(x: 0, y: 25, width: 1512.5, height: 957)
   #expect(
-    try json(info)
+    try json(selected)
       == "{\"frame\":{\"h\":957,\"w\":1512.5,\"x\":0,\"y\":25},\"is-visible\":true,\"split-type\":\"horizontal\"}"
   )
 }
@@ -144,4 +157,27 @@ private func json(_ value: some Encodable) throws -> String {
 private func queryThrownText(_ body: () throws(CommandError) -> Void) -> String? {
   do { try body() } catch { return error.description }
   return nil
+}
+
+@Test(arguments: WindowInfo.Key.allCases)
+func everyWindowPropertyCanBeSelectedAlone(_ key: WindowInfo.Key) throws {
+  let bytes = try JSON.encode(windowInfoFixture(properties: [key]))
+  let value = try JSONSerialization.jsonObject(with: Data(bytes)) as? [String: Any]
+  #expect(Set(value?.keys.map { $0 } ?? []) == [key.rawValue])
+}
+
+@Test(arguments: DisplayInfo.Key.allCases)
+func everyDisplayPropertyCanBeSelectedAlone(_ key: DisplayInfo.Key) throws {
+  let value =
+    try JSONSerialization.jsonObject(
+      with: Data(try JSON.encode(DisplayInfo(id: 1, properties: [key])))) as? [String: Any]
+  #expect(Set(value?.keys.map { $0 } ?? []) == [key.rawValue])
+}
+
+@Test(arguments: SpaceInfo.Key.allCases)
+func everySpacePropertyCanBeSelectedAlone(_ key: SpaceInfo.Key) throws {
+  let value =
+    try JSONSerialization.jsonObject(
+      with: Data(try JSON.encode(SpaceInfo(id: 1, properties: [key])))) as? [String: Any]
+  #expect(Set(value?.keys.map { $0 } ?? []) == [key.rawValue])
 }

@@ -69,7 +69,7 @@ public enum SpaceCommand: Equatable, Sendable {
     CommandError.unknownValue(Token(Domain.space), Token(name.rawValue), value, expected: expected)
   }
 
-  public static func parse(_ name: Name, _ message: inout some TokenSource) throws(CommandError)
+  public static func parse(_ name: Name, _ message: inout Message) throws(CommandError)
     -> SpaceCommand
   {
     // NOTE: --undo takes no value, so the next token is left for the next command of the message.

@@ -22,7 +22,7 @@ private final class ChangeFlag: Sendable {
   } catch {
     response.fail(error)
   }
-  return response.text
+  return Golden.render(response).map { $0.stdout + $0.stderr }.joined()
 }
 
 /// A row of the config round trip: a valid value, how the option prints it, and an invalid value with its failure (the
@@ -267,11 +267,11 @@ extension DaemonState {
       #expect(runConfigLine("--space ws layout") == "tree\n")
       #expect(
         runConfigLine("--space ws space_layout 1")
-          == "\u{07}command 'space_layout' for domain 'config' does not support the '--space' selector\n"
+          == "command 'space_layout' for domain 'config' does not support the '--space' selector\n"
       )
       #expect(
         runConfigLine("--space nolabel window_gap")
-          == "\u{07}value 'nolabel' is not a valid option for SPACE_SEL\n")
+          == "value 'nolabel' is not a valid option for SPACE_SEL\n")
     }
 
     @Test func layoutOfAllSpacesKeepsTheOverride() {
@@ -307,7 +307,7 @@ extension DaemonState {
       let before = runConfigLine(option)
       let response = runConfigLine(command)
 
-      #expect(response.hasPrefix("\u{07}unknown value"))
+      #expect(response.hasPrefix("unknown value"))
       #expect(runConfigLine(option) == before)
     }
 
@@ -319,7 +319,7 @@ extension DaemonState {
       let before = runConfigLine(option)
       let response = runConfigLine(command)
 
-      #expect(response.hasPrefix("\u{07}unknown value"))
+      #expect(response.hasPrefix("unknown value"))
       #expect(runConfigLine(option) == before)
     }
 
@@ -430,7 +430,7 @@ extension DaemonState {
       #expect(runConfigLine("\(row.option) \(row.value)") == "")
       #expect(runConfigLine(row.option) == "\(row.printed)\n")
 
-      #expect(runConfigLine("\(row.option) \(row.invalid)") == "\u{07}\(row.expectedFailure)")
+      #expect(runConfigLine("\(row.option) \(row.invalid)") == "\(row.expectedFailure)")
       #expect(runConfigLine(row.option) == "\(row.printed)\n")
     }
 
@@ -521,11 +521,11 @@ extension DaemonState {
       // the message, since its layouts cannot be told apart from the next option
       #expect(
         runConfig("top_padding\0x\0top_padding\0")
-          == "\u{07}unknown value 'x' given to command 'top_padding' for domain 'config'; expected a non-negative integer\n7\n"
+          == "unknown value 'x' given to command 'top_padding' for domain 'config'; expected a non-negative integer\n7\n"
       )
       #expect(
         runConfig("space_layout\0x\0top_padding\0")
-          == "\u{07}unknown value 'x' given to command 'space_layout' for domain 'config'; expected off or one or more layouts such as 10:5 or 15 10:5:1b\n"
+          == "unknown value 'x' given to command 'space_layout' for domain 'config'; expected off or one or more layouts such as 10:5 or 15 10:5:1b\n"
       )
     }
 

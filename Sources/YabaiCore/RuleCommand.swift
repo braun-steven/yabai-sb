@@ -31,7 +31,7 @@ public enum RuleCommand {
 
   /// Parses one rule command. Display and space effects keep the behavior of `parseRule`, including its current
   /// selector resolution against the supplied context.
-  public static func parse<C: SelectorContext>(_ message: inout some TokenSource, _ context: C)
+  public static func parse<C: SelectorContext>(_ message: inout Message, _ context: C)
     throws(CommandError) -> RuleCommand
   {
     let command = message.next()
@@ -42,10 +42,10 @@ public enum RuleCommand {
     switch name {
     case .add:
       var rule = Rule()
-      var first = message.next()
-      if Name(token: first) == .oneShot {
+      var first = message.take()
+      if let token = first, Name(token: token) == .oneShot {
         rule.oneShot = true
-        first = message.next()
+        first = message.take()
       }
       return try parseRule(&message, &rule, first, context) ? .add(rule) : .ignore
 
@@ -117,7 +117,7 @@ private func parseRuleFollowPrefix(_ effects: inout RuleEffects, _ value: Token)
 /// field problems together when the rule is invalid. Returns false, without a failure, when a display or space
 /// selector found nothing ('recent'): the rule is then not used either.
 public func parseRule<C: SelectorContext>(
-  _ message: inout some TokenSource, _ rule: inout Rule, _ first: Token, _ context: C
+  _ message: inout Message, _ rule: inout Rule, _ first: Token?, _ context: C
 ) throws(CommandError) -> Bool {
   var scanner = KeyValueScanner(first: first)
   var hasFilter = false

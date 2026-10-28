@@ -27,7 +27,7 @@ private func checkManaged(_ error: WindowOperationError) throws(CommandError) {
 /// Makes the window that a selector selects the acting window and returns it; without a selector, returns the acting
 /// window. A failing selector stops the message.
 @WM private func selectActingWindow(
-  _ selector: WindowSelector?, _ acting: inout Window?, _ context: CSelectorContext
+  _ selector: WindowSelector?, _ acting: inout Window?, _ context: DaemonSelectorContext
 ) throws(CommandError) -> Window {
   if let selector {
     do {
@@ -121,7 +121,7 @@ extension WindowCommand {
 
   @WM private func runLifecycle(acting: inout Window?) throws(CommandError) {
     let wm = WindowManager.shared
-    let context = CSelectorContext()
+    let context = DaemonSelectorContext()
 
     switch self {
     case .focus(.container(let focus)) where wm.treeView(for: acting) != nil:
@@ -191,7 +191,7 @@ extension WindowCommand {
 
   @WM private func runPlacement(on window: Window, focused: WindowID?) throws(CommandError) {
     let wm = WindowManager.shared
-    let context = CSelectorContext()
+    let context = DaemonSelectorContext()
 
     switch self {
     case .display(let selector):
@@ -375,7 +375,7 @@ extension WindowCommand {
     var relativeWid: WindowID?
     if let selector {
       do {
-        relativeWid = try selector.resolve(acting: window, CSelectorContext()).id
+        relativeWid = try selector.resolve(acting: window, DaemonSelectorContext()).id
       } catch {
         throw error.stoppingMessage
       }
@@ -395,7 +395,7 @@ extension WindowCommand {
 //
 
 @WM func handleDomainWindow(
-  _ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource
+  _ rsp: inout Response, _ domain: Token, _ message: inout Message
 ) throws(CommandError) {
   var actingWindow: Window? = WindowManager.shared.actingWindow()
   let focused = actingWindow?.id
@@ -405,9 +405,9 @@ extension WindowCommand {
     // NOTE: A leading label that names no window fails the message. The other leading selectors that find nothing are
     // ignored, and the commands after them then act on no window.
     if case .label = selector {
-      actingWindow = try selector.resolve(acting: actingWindow, CSelectorContext())
+      actingWindow = try selector.resolve(acting: actingWindow, DaemonSelectorContext())
     } else {
-      actingWindow = try? selector.resolve(acting: actingWindow, CSelectorContext())
+      actingWindow = try? selector.resolve(acting: actingWindow, DaemonSelectorContext())
     }
     first = message.next()
   }

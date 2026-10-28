@@ -1,6 +1,6 @@
 //
 // NOTE: `yabai -m subscribe [<event>…]` names the events of a stream: the message is parsed here, and the daemon keeps
-// the socket open for them (Response.subscribedTypes, Sources/Yabai/IPC/MessageSubscribe.swift). The names are the
+// the socket open for them (Response.Disposition.subscribe). The names are the
 // event names of `signal --add event=…`, so the parser is the same SignalType lookup.
 //
 
@@ -19,17 +19,15 @@ public enum SubscribeCommand {
   /// SignalType, without duplicates, so the first line of a subscription does not depend on the order of the names.
   ///
   /// Fails at the first name that is not an event, and the failure lists the events, as the P9.1 failures do.
-  public static func parse(_ message: inout some TokenSource) throws(CommandError) -> [SignalType] {
+  public static func parse(_ message: inout Message) throws(CommandError) -> [SignalType] {
     var named: Set<SignalType> = []
-    var name = message.next()
-    while name.isValid {
+    while let name = message.take() {
       guard let type = SignalType(name: name) else {
         let events = SignalType.allCases.map(\.name)
         throw CommandError(
           "unknown event '\(name)' for domain 'subscribe'; expected \(expectedChoices(events))\n")
       }
       named.insert(type)
-      name = message.next()
     }
 
     if named.isEmpty { return SignalType.allCases }

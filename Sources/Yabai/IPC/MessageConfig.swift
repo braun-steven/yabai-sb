@@ -646,7 +646,9 @@ private func cInt(_ value: Float) -> Int {
 
   let (spaceSelector, command) = try ConfigCommand.parseScope(first, &message)
   if let spaceSelector {
-    guard let target = try spaceSelector.resolve(acting: nil, CSelectorContext()) else { return }
+    guard let target = try spaceSelector.resolve(acting: nil, DaemonSelectorContext()) else {
+      return
+    }
     selSid = target
   }
 

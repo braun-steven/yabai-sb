@@ -26,35 +26,44 @@ public enum QueryCommand: Equatable, Sendable {
   }
 
   /// Parses one query command from the message.
-  public static func parse(_ message: inout some TokenSource) throws(CommandError) -> QueryCommand {
+  public static func parse(_ message: inout Message) throws(CommandError) -> QueryCommand {
     let nameToken = message.next()
     guard let name = Name(token: nameToken) else {
       throw CommandError.unknownCommand(Token(Domain.query), nameToken)
     }
 
+    let command: QueryCommand
     switch name {
     case .displays:
       let (properties, target) = try parseSelection(DisplayInfo.Key.self, nameToken, &message)
-      return .displays(properties: properties, target: target)
+      command = .displays(properties: properties, target: target)
     case .spaces:
       let (properties, target) = try parseSelection(SpaceInfo.Key.self, nameToken, &message)
-      return .spaces(properties: properties, target: target)
+      command = .spaces(properties: properties, target: target)
     case .windows:
       let (properties, target) = try parseSelection(WindowInfo.Key.self, nameToken, &message)
-      return .windows(properties: properties, target: target)
+      command = .windows(properties: properties, target: target)
     case .tree:
       let option = message.next()
       if option.equals(TargetOption.space.rawValue) {
-        return .tree(space: try optionalSpaceSelector(message.next()))
+        command = .tree(space: try optionalSpaceSelector(message.next()))
+      } else {
+        if option.isValid {
+          throw CommandError.unknownOption(Token(Domain.query), nameToken, option)
+        }
+        command = .tree(space: nil)
       }
-      if option.isValid { throw CommandError.unknownOption(Token(Domain.query), nameToken, option) }
-      return .tree(space: nil)
     }
+    if let extra = message.take() {
+      throw CommandError(
+        "unknown argument '\(extra)' given to command '\(nameToken)' for domain 'query'\n")
+    }
+    return command
   }
 
   private static func parseSelection<
     Key: CaseIterable & RawRepresentable<String> & Hashable & Sendable
-  >(_ key: Key.Type, _ command: Token, _ message: inout some TokenSource) throws(CommandError) -> (
+  >(_ key: Key.Type, _ command: Token, _ message: inout Message) throws(CommandError) -> (
     Set<Key>, Target
   ) {
     let properties = try parseProperties(message.next(), as: Key.self)
@@ -63,7 +72,7 @@ public enum QueryCommand: Equatable, Sendable {
   }
 
   private static func parseTarget(
-    _ optionToken: Token, _ command: Token, _ message: inout some TokenSource
+    _ optionToken: Token, _ command: Token, _ message: inout Message
   ) throws(CommandError) -> Target {
     guard let option = TargetOption(token: optionToken) else {
       if optionToken.isValid {

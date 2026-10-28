@@ -55,11 +55,34 @@ def query(args):
     return json.loads(result.stdout)
 
 
+def _read_exact(sock, count):
+    chunks = []
+    remaining = count
+    while remaining:
+        chunk = sock.recv(remaining)
+        if not chunk:
+            raise RuntimeError("incomplete IPC response")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _read_reply(sock):
+    magic, version, length = struct.unpack("!4sII", _read_exact(sock, 12))
+    if magic != b"YBIP" or version != 2:
+        raise RuntimeError("incompatible IPC protocol; restart yabai after upgrading")
+    if not 0 < length <= 64 << 20:
+        raise RuntimeError("invalid IPC response length")
+    return json.loads(_read_exact(sock, length))
+
+
 def socket_command(args):
-    # ClientMessage: native-endian int32 length followed by NUL-separated tokens
-    # and a final empty token. This matches ClientMessage.encode in YabaiCore.
-    payload = b"".join(os.fsencode(arg) + b"\0" for arg in args) + b"\0"
-    frame = struct.pack("=i", len(payload)) + payload
+    payload = json.dumps(
+        {"type": "command", "arguments": args}, ensure_ascii=False,
+        separators=(",", ":")).encode("utf-8")
+    if not args or len(payload) > 1 << 20:
+        raise ValueError("invalid or oversized IPC request")
+    frame = struct.pack("!4sII", b"YBIP", 2, len(payload)) + payload
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
         sock.settimeout(10)
         sock.connect(SOCKET)
@@ -67,11 +90,24 @@ def socket_command(args):
         sock.shutdown(socket.SHUT_WR)
         chunks = []
         while True:
-            chunk = sock.recv(65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-    return b"".join(chunks)
+            reply = _read_reply(sock)
+            if reply["type"] == "error":
+                raise RuntimeError(reply["message"])
+            if reply["type"] == "complete":
+                if not reply["ok"]:
+                    raise RuntimeError("IPC command failed without an error")
+                return b"".join(chunks)
+            if reply["type"] != "output" or reply.get("command") != 1:
+                raise RuntimeError("unexpected IPC response")
+            if reply["format"] == "json":
+                text = json.dumps(
+                    reply["data"], ensure_ascii=False, sort_keys=True,
+                    separators=(",", ":")) + "\n"
+            elif reply["format"] == "text" and isinstance(reply["data"], str):
+                text = reply["data"]
+            else:
+                raise RuntimeError("invalid IPC output format")
+            chunks.append(text.encode("utf-8"))
 
 
 def windows_on(space):
@@ -328,14 +364,11 @@ def main():
         return result
 
     def checked_socket(*arguments):
-        result = socket_command(list(arguments))
-        if result.startswith(b"\x07"):
-            raise RuntimeError(result[1:].decode(errors="replace"))
-        return result
+        return socket_command(list(arguments))
 
     cli_probe = checked_cli(*query_args).stdout.encode()
     socket_probe = checked_socket(*query_args)
-    if not socket_probe or socket_probe != cli_probe:
+    if not socket_probe or json.loads(socket_probe) != json.loads(cli_probe):
         raise RuntimeError("raw-socket preflight response was empty or differed from CLI query")
 
     def focus_command_pair(left, right):

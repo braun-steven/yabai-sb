@@ -36,6 +36,25 @@ func receive(_ fd: Int32, count: Int) -> [UInt8] {
   return bytes
 }
 
+/// Decodes framed events, retaining the content assertions used for event publication.
+private func receiveEvents(_ fd: Int32, count: Int) -> [UInt8] {
+  do {
+    let connection = try IPCConnection(taking: dup(fd))
+    var output: [UInt8] = []
+    while output.count < count {
+      guard case .event(let object) = try readReply(connection) else {
+        Issue.record("expected event frame")
+        return output
+      }
+      output += try JSON.encode(object) + [UInt8(ascii: "\n")]
+    }
+    return output
+  } catch {
+    Issue.record("cannot receive event: \(error)")
+    return []
+  }
+}
+
 /// Polls a condition until it holds or the deadline passes, and returns whether it held.
 private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
   let deadline = ContinuousClock.now + .seconds(seconds)
@@ -52,7 +71,7 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
     defer { close(peer) }
 
     let subscribers = EventSubscribers(backlogLimit: 1 << 20)
-    subscribers.add(fd: fd, types: [])
+    subscribers.add(connection: try IPCConnection(taking: fd), types: [])
 
     var expected = ""
     for index in 0..<50 {
@@ -61,7 +80,7 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
       expected += "{\"event\":\"window_focused\",\"process_id\":\"7\",\"window_id\":\"\(index)\"}\n"
     }
 
-    #expect(receive(peer, count: expected.utf8.count) == Array(expected.utf8))
+    #expect(receiveEvents(peer, count: expected.utf8.count) == Array(expected.utf8))
     subscribers.removeAll()
   }
 
@@ -74,17 +93,17 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
     }
 
     let subscribers = EventSubscribers(backlogLimit: 1 << 20)
-    subscribers.add(fd: spaceFD, types: [.spaceChanged])
-    subscribers.add(fd: allFD, types: [])
+    subscribers.add(connection: try IPCConnection(taking: spaceFD), types: [.spaceChanged])
+    subscribers.add(connection: try IPCConnection(taking: allFD), types: [])
 
     subscribers.publish(.windowFocused, arguments: [("YABAI_WINDOW_ID", "42")])
     subscribers.publish(.spaceChanged, arguments: [("YABAI_SPACE_ID", "9")])
 
     let spaceLine = "{\"event\":\"space_changed\",\"space_id\":\"9\"}\n"
     let windowLine = "{\"event\":\"window_focused\",\"window_id\":\"42\"}\n"
-    #expect(receive(spacePeer, count: spaceLine.utf8.count) == Array(spaceLine.utf8))
+    #expect(receiveEvents(spacePeer, count: spaceLine.utf8.count) == Array(spaceLine.utf8))
     #expect(
-      receive(allPeer, count: windowLine.utf8.count + spaceLine.utf8.count)
+      receiveEvents(allPeer, count: windowLine.utf8.count + spaceLine.utf8.count)
         == Array((windowLine + spaceLine).utf8))
     subscribers.removeAll()
   }
@@ -93,7 +112,7 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
   @Test @WM func closedPeerEndsAndIsRemoved() throws {
     let (fd, peer) = try subscriberSocketPair()
     let subscribers = EventSubscribers(backlogLimit: 1 << 20)
-    let id = subscribers.add(fd: fd, types: [])
+    let id = subscribers.add(connection: try IPCConnection(taking: fd), types: [])
     close(peer)
 
     subscribers.publish(.windowFocused, arguments: [("YABAI_WINDOW_ID", "42")])
@@ -112,7 +131,7 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
     defer { close(peer) }
 
     let subscribers = EventSubscribers(backlogLimit: 4096)
-    let id = subscribers.add(fd: fd, types: [])
+    let id = subscribers.add(connection: try IPCConnection(taking: fd), types: [])
     let subscriber = subscribers.subscribers.first { $0.id == id }
 
     var published = 0
@@ -148,7 +167,8 @@ extension DaemonState {
       let (fd, peer) = try subscriberSocketPair()
       defer { close(peer) }
 
-      let id = EventSubscribers.shared.add(fd: fd, types: [.spaceDestroyed])
+      let id = EventSubscribers.shared.add(
+        connection: try IPCConnection(taking: fd), types: [.spaceDestroyed])
       defer { EventSubscribers.shared.remove(id) }
 
       // NOTE: No subscriber wants displayRemoved, so its push records nothing.
@@ -162,7 +182,7 @@ extension DaemonState {
 
       let expected =
         "{\"event\":\"space_destroyed\",\"space_id\":\"\(Int64(bitPattern: 0xFFFF_0000))\"}\n"
-      #expect(receive(peer, count: expected.utf8.count) == Array(expected.utf8))
+      #expect(receiveEvents(peer, count: expected.utf8.count) == Array(expected.utf8))
     }
   }
 }

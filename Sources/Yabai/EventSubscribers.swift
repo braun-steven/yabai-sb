@@ -6,33 +6,27 @@ import YabaiCore
 
 //
 // NOTE: The event subscribers (`yabai -m subscribe`). A subscriber is a socket that receives the events of its types
-// (all of them when it names none) as JSON lines (eventJSONLine). EventSignals.flush publishes each pushed event on @WM.
+// (all of them when it names none) as framed events. EventSignals.flush publishes each pushed event on @WM.
 // The publish encodes the line once, and queues it on the private serial queue of each matching subscriber. No write runs
 // on @WM, so a client that does not read cannot block the event loop.
 //
 // NOTE: A write to a client that does not read blocks in the kernel once the socket buffer is full. @WM counts the bytes
 // queued and not yet written per subscriber (the backlog). A line that would pass the backlog limit (1 MiB) ends the
 // subscriber instead of queueing it. Ending shuts the socket down, which wakes a blocked write; the queued writes then
-// fail at once and skip. SO_SNDTIMEO is the second bound: a write that stalls for sendTimeout seconds fails and ends the
-// subscriber the same way.
+// fail at once and skip. A five-second absolute write deadline provides a second bound.
 //
-// NOTE: An fd is closed only on the subscriber's queue, after its last queued write, and only by the call that ends the
-// subscriber (the first exchange of its ended flag). A fd number is therefore never reused while a write may use it.
-// The subscriber is removed from the list on @WM through EventLoop.post(.eventSubscriberRemoved), since the write that
-// ends it runs off @WM.
-//
-// NOTE: The daemon ignores SIGPIPE (Yabai.swift installSignalHandlers). Each subscriber socket also sets SO_NOSIGPIPE, so a
-// write to a closed peer fails with EPIPE on whatever thread writes.
+// NOTE: The connection owns its descriptor. Queued writes retain the subscriber, so closing cannot reuse its fd
+// under a pending write. Shutdown wakes a stalled writer; removal is posted back to @WM.
 //
 // NOTE: The app and title filters of `signal --add` do not apply to event subscribers: a subscriber has no command to
 // run, so it gets every pushed event of its types, with the environment values of the event.
 //
 
-/// A client that receives the events of its types as JSON lines. Its writes run on its own serial queue.
+/// A client that receives framed events of its types. Its writes run on its own serial queue.
 final class EventSubscriber: Sendable {
   let id: Int
   /// The socket of the client. The subscriber owns it and closes it when it ends.
-  let fd: Int32
+  private let connection: IPCConnection
   /// The event types, all of them when empty.
   let types: Set<SignalType>
 
@@ -42,9 +36,9 @@ final class EventSubscriber: Sendable {
   /// Set once, by the call that ends the subscriber (see end()).
   private let ended = Atomic<Bool>(false)
 
-  init(id: Int, fd: Int32, types: Set<SignalType>) {
+  init(id: Int, connection: IPCConnection, types: Set<SignalType>) {
     self.id = id
-    self.fd = fd
+    self.connection = connection
     self.types = types
     queue = DispatchSerialQueue(label: "yabai.events.subscriber.\(id)")
   }
@@ -76,30 +70,20 @@ final class EventSubscriber: Sendable {
     defer { _ = backlog.subtract(line.count, ordering: .relaxed) }
     guard !isEnded else { return }
 
-    var written = 0
-    while written < line.count {
-      let result = line.withUnsafeBytes {
-        Darwin.write(fd, $0.baseAddress! + written, line.count - written)
-      }
-      if result < 0 && errno == EINTR { continue }
-      if result <= 0 {
-        // NOTE: A closed peer (EPIPE) or a stalled client (EAGAIN after SO_SNDTIMEO) is normal, so this is a debug line.
-        let code = errno
-        Logger.ipc.debug("event subscriber \(id) ended: write failed with errno \(code)")
-        end()
-        return
-      }
-      written += result
+    do {
+      try connection.write(line, timeout: 5)
+    } catch {
+      Logger.ipc.debug("event subscriber \(id) ended: \(error)")
+      end()
     }
   }
 
   /// Ends the subscriber once, from any thread. The socket is shut down, so a write waiting on the client returns; the
-  /// fd is closed on the queue after the queued writes; and @WM is asked to remove the subscriber.
+  /// connection closes after its queued writes release it; and @WM is asked to remove the subscriber.
   func end() {
     guard !ended.exchange(true, ordering: .acquiringAndReleasing) else { return }
 
-    Darwin.shutdown(fd, SHUT_RDWR)
-    queue.async { Darwin.close(self.fd) }
+    connection.shutdown()
     EventLoop.post(.eventSubscriberRemoved(id: id))
   }
 }
@@ -125,25 +109,16 @@ final class EventSubscriber: Sendable {
   }
 
   /// Adds a socket as a subscriber to the events of the types (all events when empty). The subscriber takes the fd, and
-  /// closes it when it ends. A non-empty firstLine (the subscribed line) is queued before any event, on the subscriber's
+  /// closes it when it ends. A non-empty firstFrame (the subscribed line) is queued before any event, on the subscriber's
   /// own queue, so it reaches the client first. Returns the id of the subscriber.
   @discardableResult
-  func add(fd: Int32, types: Set<SignalType>, firstLine: [UInt8] = []) -> Int {
-    //
-    // NOTE: SO_NOSIGPIPE and SO_SNDTIMEO (5 s) are set on the socket, as on the response sockets of the message loop.
-    // The timeout is only a bound for a stalled client; the backlog limit is what ends a client that falls behind.
-    //
-    var one: Int32 = 1
-    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
-    var timeout = timeval(tv_sec: 5, tv_usec: 0)
-    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-
+  func add(connection: IPCConnection, types: Set<SignalType>, firstFrame: [UInt8] = []) -> Int {
     let id = nextID
     nextID += 1
-    let subscriber = EventSubscriber(id: id, fd: fd, types: types)
+    let subscriber = EventSubscriber(id: id, connection: connection, types: types)
     subscribers.append(subscriber)
-    if !firstLine.isEmpty {
-      subscriber.enqueue(firstLine, backlogLimit: backlogLimit)
+    if !firstFrame.isEmpty {
+      subscriber.enqueue(firstFrame, backlogLimit: backlogLimit)
     }
     return id
   }
@@ -152,8 +127,11 @@ final class EventSubscriber: Sendable {
   func publish(_ type: SignalType, arguments: [(name: String, value: String)]) {
     guard wants(type) else { return }
 
-    let line = eventJSONLine(type: type.name, arguments: arguments)
-    guard !line.isEmpty else { return }
+    guard
+      let line = try? IPCProtocol.encode(
+        IPCReply.event(data: eventObject(type: type.name, arguments: arguments)),
+        limit: IPCProtocol.responseLimit)
+    else { return }
 
     for subscriber in subscribers where subscriber.matches(type) {
       subscriber.enqueue(line, backlogLimit: backlogLimit)

@@ -20,7 +20,7 @@ struct ExtractedCommand: Equatable, Sendable {
   let line: Int
 
   /// The words after `-m`, starting with the domain (`space`, `window`, ...); `-m` itself is not included. These are
-  /// the words that `ClientMessage.encode` takes as bytes (`map { Array($0.utf8) }`). Nil when skipped.
+  /// the argument array of an IPC command. Nil when skipped.
   let arguments: [String]?
 
   /// Why the invocation was not extracted: `not a message`, `dynamic shell` or `unterminated quote`. Nil when

@@ -19,8 +19,17 @@ import YabaiTestSupport
       == "[\"\\b\\f\\r\\t\\u001f\u{7f}caf\u{e9}\"]")
 }
 
-@Test func responseWritesJSONWithNewline() throws {
+@Test func responseKeepsJSONSeparateFromTextAndErrors() throws {
   var response = Response()
-  try response.write(json: [1, 2])
-  #expect(response.text == "[1,2]\n")
+  response.write(json: .windows([]))
+  response.write("text\n")
+  response.fail(CommandError("bad\n"))
+  #expect(response.text == "text\n")
+  #expect(response.failures == ["bad\n"])
+  #expect(response.entries.count == 3)
+  guard case .json(let result) = response.entries[0] else {
+    Issue.record("expected a JSON result")
+    return
+  }
+  #expect(String(decoding: try JSON.encode(result), as: UTF8.self) == "[]")
 }

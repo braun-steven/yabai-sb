@@ -1,649 +1,420 @@
-### 22 foo
-unknown domain 'foo'
-
-### 4 config debug_output
-off
-
-### 4 config mouse_follows_focus
-off
-
-### 9 config focus_follows_mouse
-disabled
-
-### 8 config display_arrangement_order
-default
-
-### 4 config builtin_display_last
-off
-
-### 8 config window_origin_display
-default
-
-### 3 config window_shadow
-on
-
-### 11 config insert_feedback_color
-0xffd75f5f
-
-### 4 config window_border
-off
-
-### 4 config window_border_width
-4.0
-
-### 4 config window_border_hide_single
-off
-
-### 11 config active_window_border_color
-0xffe1e3e4
-
-### 11 config normal_window_border_color
-0xff494d64
-
-### 3 config tab_bar
-on
-
-### 3 config tab_bar_height
-24
-
-### 2 config tab_bar_offset
-0
-
-### 10 config tab_bar_font
-system:12
-
-### 3 config tab_bar_icons
-on
-
-### 6 config tab_bar_style
-glass
-
-### 5 config tab_bar_appearance
-dark
-
-### 5 config tab_bar_backdrop
-blur
-
-### 2 config tab_bar_card_padding
-6
-
-### 3 config tab_bar_window_radius
-16
-
-### 11 config tab_bar_focused_color
-0xff285577
-
-### 11 config tab_bar_focused_text_color
-0xffffffff
-
-### 11 config tab_bar_inactive_color
-0xff5f676a
-
-### 11 config tab_bar_inactive_text_color
-0xffffffff
-
-### 11 config tab_bar_unfocused_color
-0xff222222
-
-### 11 config tab_bar_unfocused_text_color
-0xff888888
-
-### 11 config tab_bar_backdrop_color
-0xff48484a
-
-### 2 config top_padding
-0
-
-### 2 config bottom_padding
-0
-
-### 2 config left_padding
-0
-
-### 2 config right_padding
-0
-
-### 5 config layout
-tree
-
-### 2 config window_gap
-0
-
-### 4 config auto_padding
-off
-
-### 5 config tree_default_orientation
-auto
-
-### 8 config tree_workspace_layout
-default
-
-### 4 config tree_autotiling
-off
-
-### 3 config focus_wrapping
-on
-
-### 3 config mouse_modifier
-fn
-
-### 5 config mouse_action1
-move
-
-### 7 config mouse_action2
-resize
-
-### 5 config mouse_drop_action
-swap
-
-### 8 config external_bar
-off:0:0
-
-### 4 config skip_window_focus_animation
-off
-
-### 4 config space_layout
-off
-
-### 4 config scratchpad_exclusive
-off
-
-### 4 config scratchpad_raise
-off
-
-### 4 config scratchpad_below
-off
-
-### 4 config scratchpad_grid
-off
-
-### 0 config mouse_modifier ctrl
-
-### 0 config mouse_action1 resize
-
-### 0 config mouse_drop_action stack
-
-### 5 config mouse_modifier
-ctrl
-
-### 7 config mouse_action1
-resize
-
-### 6 config mouse_drop_action
-stack
-
-### 0 config focus_wrapping force
-
-### 0 config tree_default_orientation vertical
-
-### 0 config tree_workspace_layout tabbed
-
-### 0 config tree_autotiling on
-
-### 6 config focus_wrapping
-force
-
-### 9 config tree_default_orientation
-vertical
-
-### 7 config tree_workspace_layout
-tabbed
-
-### 3 config tree_autotiling
-on
-
-### 0 config insert_feedback_color 0xff112233
-
-### 11 config insert_feedback_color
-0xff112233
-
-### 0 config scratchpad_exclusive on
-
-### 0 config window_origin_display focused
-
-### 3 config scratchpad_exclusive
-on
-
-### 8 config window_origin_display
-focused
-
-### 0 config window_gap 8
-
-### 0 config top_padding 10 bottom_padding 12
-
-### 2 config window_gap
-8
-
-### 3 config top_padding
-10
-
-### 3 config bottom_padding
-12
-
-### 0 config tab_bar_height 30
-
-### 0 config tab_bar_style i3
-
-### 0 config tab_bar_backdrop blur
-
-### 0 config tab_bar_focused_color 0xff00ff00
-
-### 0 config tab_bar_font Menlo:14
-
-### 3 config tab_bar_height
-30
-
-### 3 config tab_bar_style
-i3
-
-### 5 config tab_bar_backdrop
-blur
-
-### 11 config tab_bar_focused_color
-0xff00ff00
-
-### 9 config tab_bar_font
-Menlo:14
-
-### 0 config left_padding 5 right_padding 6
-
-### 2 config left_padding
-5
-
-### 2 config right_padding
-6
-
-### 0 config window_border on
-
-### 0 config window_border_width 2
-
-### 0 config active_window_border_color 0xff00ff00
-
-### 0 config normal_window_border_color 0x00000000
-
-### 3 config window_border
-on
-
-### 4 config window_border_width
-2.0
-
-### 11 config active_window_border_color
-0xff00ff00
-
-### 4 config normal_window_border_color
-0x0
-
-### 0 config external_bar main:24:0
-
-### 10 config external_bar
-main:24:0
-
-### 0 config space_layout 15 10:5 1b:9:3
-
-### 15 config space_layout
-15 10:5 1b:9:3
-
-### 0 config space_layout off
-
-### 4 config space_layout
-off
-
-### 0 config scratchpad_grid 3:3:1:1:1:1
-
-### 12 config scratchpad_grid
-3:3:1:1:1:1
-
-### 0 config scratchpad_grid off
-
-### 4 config scratchpad_grid
-off
-
-### 0 config layout float
-
-### 6 config layout
-float
-
-### 0 config layout tree
-
-### 0 config auto_padding on
-
-### 3 config auto_padding
-on
-
-### 0 config auto_padding off
-
-### 0 config mouse_action2 move
-
-### 5 config mouse_action2
-move
-
-### 10 config external_bar main
-main:24:0
-
-### 0 config external_bar main:1:2:3
-
-### 9 config external_bar
-main:1:2
-
-### 97 config space_layout 1 1
-value '1' given to command 'space_layout' for domain 'config' repeats a layout for 1 display(s)
-
-### 71 config space_layout 0
-invalid value '0' given to command 'space_layout' for domain 'config'
-
-### 74 config space_layout 1001
-invalid value '1001' given to command 'space_layout' for domain 'config'
-
-### 103 config window_gap -1
-unknown value '-1' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-
-### 104 config window_gap 1.5
-unknown value '1.5' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-
-### 2 config window_gap ''
-8
-
-### 108 config window_border_width -0
-unknown value '-0' given to command 'window_border_width' for domain 'config'; expected a number above 0.0
-
-### 0 config tab_bar_offset 1e3
-
-### 5 config tab_bar_offset
-1000
-
-### 112 config tab_bar_height 99999999999
-unknown value '99999999999' given to command 'tab_bar_height' for domain 'config'; expected a positive integer
-
-### 3 config tab_bar_height
-30
-
-### 131 config insert_feedback_color 0x
-unknown value '0x' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4
-
-### 118 config mouse_modifier é
-unknown value 'é' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn
-
-### 0 config ''
-
-### 112 config window_gap top_padding
-unknown value 'top_padding' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-
-### 58 config nonexistent_option
-unknown command 'nonexistent_option' for domain 'config'
-
-### 104 config window_gap abc
-unknown value 'abc' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-
-### 121 config mouse_modifier hyper
-unknown value 'hyper' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn
-
-### 126 config focus_follows_mouse bogus
-unknown value 'bogus' given to command 'focus_follows_mouse' for domain 'config'; expected one of: off, autofocus, autoraise
-
-### 109 config window_border_width abc
-unknown value 'abc' given to command 'window_border_width' for domain 'config'; expected a number above 0.0
-
-### 130 config insert_feedback_color 0
-unknown value '0' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4
-
-### 104 config tab_bar_style bogus
-unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3
-
-### 53 config --space nolabel window_gap
-value 'nolabel' is not a valid option for SPACE_SEL
-
-### 40 config --check /nonexistent
-cannot read config file '/nonexistent'
-
-### 2113 config --dump
-[daemon]
-auto_reload = true
-load_scripting_addition = false
-
-[config]
-debug_output = false # default
-mouse_follows_focus = false # default
-focus_follows_mouse = "off" # default
-display_arrangement_order = "default" # default
-builtin_display_last = false # default
-window_origin_display = "focused" # override
-scratchpad_exclusive = true # override
-scratchpad_raise = false # default
-scratchpad_below = false # default
-skip_window_focus_animation = false # default
-window_shadow = "on" # default
-tree_default_orientation = "vertical" # override
-tree_workspace_layout = "tabbed" # override
-tree_autotiling = true # override
-focus_wrapping = "force" # override
-space_auto_back_and_forth = false # default
-mouse_modifier = "ctrl" # override
-mouse_action1 = "resize" # override
-mouse_action2 = "move" # override
-mouse_drop_action = "stack" # override
-mouse_drag_split = false # default
-window_border = true # override
-window_border_hide_single = false # default
-tab_bar = true # default
-tab_bar_icons = true # default
-tab_bar_style = "i3" # override
-tab_bar_appearance = "dark" # default
-tab_bar_backdrop = "blur" # default
-window_border_width = 2.0 # override
-active_window_border_color = 0xff00ff00 # override
-normal_window_border_color = 0x00000000 # override
-tab_bar_height = 30 # override
-tab_bar_offset = 1000 # override
-tab_bar_card_padding = 6 # default
-tab_bar_window_radius = 16 # default
-tab_bar_focused_color = 0xff00ff00 # override
-tab_bar_focused_text_color = 0xffffffff # default
-tab_bar_inactive_color = 0xff5f676a # default
-tab_bar_inactive_text_color = 0xffffffff # default
-tab_bar_unfocused_color = 0xff222222 # default
-tab_bar_unfocused_text_color = 0xff888888 # default
-tab_bar_backdrop_color = 0xff48484a # default
-insert_feedback_color = 0xff112233 # override
-scratchpad_grid = "off" # default
-space_layout = [] # default
-tab_bar_font = "Menlo:14" # override
-external_bar = "main:1:2" # override
-top_padding = 10 # override
-bottom_padding = 12 # override
-left_padding = 5 # override
-right_padding = 6 # override
-window_gap = 8 # override
-layout = "tree" # default
-auto_padding = false # default
-
-### 0 rule --add app=^Calculator$ manage=off
-
-### 0 rule --add label=term app=Terminal sticky=on
-
-### 0 rule --add --one-shot title=x manage=on
-
-### 0 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
-
-### 1186 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
-
-### 21 rule --add app=Foo bogus=1
-unknown key 'bogus'
-
-### 62 rule --add
-missing required key-value pair 'app[!]=..' or 'title[!]=..'
-
-### 0 rule --remove term
-
-### 32 rule --remove 5
-rule with index '5' not found.
-
-### 38 rule --remove nolabel
-rule with label 'nolabel' not found.
-
-### 890 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
-
-### 32 rule --apply 7
-rule with index '7' not found.
-
-### 0 rule --apply app=^NoSuchApp$ manage=off
-
-### 95 rule --apply nolabel
-invalid key-value pair 'nolabel'
-missing required key-value pair 'app[!]=..' or 'title[!]=..'
-
-### 0 rule --apply
-
-### 0 rule --add label=üml app=x
-
-### 33 rule --add label= app=y
-invalid key-value pair 'label='
-
-### 0 rule --remove üml
-
-### 890 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
-
-### 43 rule --foo
-unknown command '--foo' for domain 'rule'
-
-### 40 rule --add app=Foo insert=bogus
-invalid value 'bogus' for key 'insert'
-
-### 34 rule --add app=Foo insert=
-invalid key-value pair 'insert='
-
-### 0 rule --add label=ins app=Terminal insert=stack
-
-### 0 rule --add label=ins2 app=Notes insert=west
-
-### 1487 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
-
-### 0 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
-
-### 0 signal --add event=config_loaded action='echo $YABAI_CONFIG_FILE' label=cl
-
-### 0 signal --add event=application_launched action='echo hi' app=^Finder$
-
-### 57 signal --add event=space_changed action='echo hi' app=^Finder$
-event 'space_changed' does not support the 'app' filter
-
-### 39 signal --add event=bogus action=x
-invalid value 'bogus' for key 'event'
-
-### 88 signal --add label=x
-missing required key-value pair 'event=..'
-missing required key-value pair 'action=..'
-
-### 0 signal --add event=window_moved action=true title!=^Untitled$ active=no
-
-### 61 signal --add event=window_created action=true title!=^Untitled$ active=no
-event 'window_created' does not support the 'active' filter
-
-### 459 signal --list
-[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":2,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":3,"label":"cl","title":""}]
-
-### 0 signal --remove wf
-
-### 34 signal --remove 9
-signal with index '9' not found.
-
-### 40 signal --remove nolabel
-signal with label 'nolabel' not found.
-
-### 342 signal --list
-[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":1,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":2,"label":"cl","title":""}]
-
-### 45 signal --foo
-unknown command '--foo' for domain 'signal'
-
-### 639 subscribe not_an_event
-unknown event 'not_an_event' for domain 'subscribe'; expected one of: application_launched, application_terminated, application_front_switched, application_activated, application_deactivated, application_visible, application_hidden, window_created, window_destroyed, window_focused, window_moved, window_resized, window_minimized, window_deminimized, window_title_changed, space_created, space_destroyed, space_changed, display_added, display_removed, display_moved, display_resized, display_changed, mission_control_enter, mission_control_exit, dock_did_change_pref, dock_did_restart, menu_bar_hidden_changed, system_woke, config_loaded
-
-### 39 query
-unknown command '' for domain 'query'
-
-### 44 query --foo
-unknown command '--foo' for domain 'query'
-
-### 55 query --windows --window 4242
-could not locate window with the specified id '4242'.
-
-### 72 query --windows --foo
-unknown option '--foo' given to command '--windows' for domain 'query'
-
-### 53 query --spaces --space nolabel
-value 'nolabel' is not a valid option for SPACE_SEL
-
-### 55 query --displays --display nolabel
-value 'nolabel' is not a valid option for DISPLAY_SEL
-
-### 40 window --foo
-could not locate the window to act on!
-
-### 40 window --resize left:10:0
-could not locate the window to act on!
-
-### 40 window 4242 --close
-could not locate the window to act on!
-
-### 62 window --label north
-'north' is a reserved keyword and cannot be used as a label.
-
-### 64 window --label --focus
-'--focus' is a reserved keyword and cannot be used as a label.
-
-### 40 window --label
-could not locate the window to act on!
-
-### 47 window nolabel --close
-could not locate window with label 'nolabel'.
-
-### 47 window --focus nolabel
-could not locate window with label 'nolabel'.
-
-### 47 query --windows --window nolabel
-could not locate window with label 'nolabel'.
-
-### 44 space --foo
-unknown command '--foo' for domain 'space'
-
-### 90 space nolabel --foo
-unknown command 'nolabel' for domain 'space'
-unknown command '--foo' for domain 'space'
-
-### 32 space --undo
-nothing to undo on this space.
-
-### 37 space --pin
-cannot pin a space without a label.
-
-### 37 space --pin 2
-cannot pin a space without a label.
-
-### 46 display --foo
-unknown command '--foo' for domain 'display'
-
-### 48 display nolabel --foo
-unknown command 'nolabel' for domain 'display'
-
-### 206 batch 3 config window_gap x 3 config layout bogus
-1: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-2: unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree
-
-### 150 batch 2 config debug_output 3 config window_gap x 2 batch 0
-off
-2: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer
-3: batch: a batch cannot contain a batch
-
-### 63 batch x
-batch: command 1 has the count 'x', expected a decimal number
-
-### 26 batch
-batch: no commands given
-
-### 2 batch 3 config window_gap ''
-8
-
+### 88 foo
+{"entries":[{"command":1,"message":"unknown domain 'foo'\n","type":"error"}],"ok":false}
+### 84 config debug_output
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config mouse_follows_focus
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 89 config focus_follows_mouse
+{"entries":[{"command":1,"data":"disabled\n","format":"text","type":"output"}],"ok":true}
+### 88 config display_arrangement_order
+{"entries":[{"command":1,"data":"default\n","format":"text","type":"output"}],"ok":true}
+### 84 config builtin_display_last
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 88 config window_origin_display
+{"entries":[{"command":1,"data":"default\n","format":"text","type":"output"}],"ok":true}
+### 83 config window_shadow
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 91 config insert_feedback_color
+{"entries":[{"command":1,"data":"0xffd75f5f\n","format":"text","type":"output"}],"ok":true}
+### 84 config window_border
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config window_border_width
+{"entries":[{"command":1,"data":"4.0\n","format":"text","type":"output"}],"ok":true}
+### 84 config window_border_hide_single
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 91 config active_window_border_color
+{"entries":[{"command":1,"data":"0xffe1e3e4\n","format":"text","type":"output"}],"ok":true}
+### 91 config normal_window_border_color
+{"entries":[{"command":1,"data":"0xff494d64\n","format":"text","type":"output"}],"ok":true}
+### 83 config tab_bar
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 83 config tab_bar_height
+{"entries":[{"command":1,"data":"24\n","format":"text","type":"output"}],"ok":true}
+### 82 config tab_bar_offset
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 90 config tab_bar_font
+{"entries":[{"command":1,"data":"system:12\n","format":"text","type":"output"}],"ok":true}
+### 83 config tab_bar_icons
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 86 config tab_bar_style
+{"entries":[{"command":1,"data":"glass\n","format":"text","type":"output"}],"ok":true}
+### 85 config tab_bar_appearance
+{"entries":[{"command":1,"data":"dark\n","format":"text","type":"output"}],"ok":true}
+### 85 config tab_bar_backdrop
+{"entries":[{"command":1,"data":"blur\n","format":"text","type":"output"}],"ok":true}
+### 82 config tab_bar_card_padding
+{"entries":[{"command":1,"data":"6\n","format":"text","type":"output"}],"ok":true}
+### 83 config tab_bar_window_radius
+{"entries":[{"command":1,"data":"16\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_focused_color
+{"entries":[{"command":1,"data":"0xff285577\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_focused_text_color
+{"entries":[{"command":1,"data":"0xffffffff\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_inactive_color
+{"entries":[{"command":1,"data":"0xff5f676a\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_inactive_text_color
+{"entries":[{"command":1,"data":"0xffffffff\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_unfocused_color
+{"entries":[{"command":1,"data":"0xff222222\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_unfocused_text_color
+{"entries":[{"command":1,"data":"0xff888888\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_backdrop_color
+{"entries":[{"command":1,"data":"0xff48484a\n","format":"text","type":"output"}],"ok":true}
+### 82 config top_padding
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 82 config bottom_padding
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 82 config left_padding
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 82 config right_padding
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 85 config layout
+{"entries":[{"command":1,"data":"tree\n","format":"text","type":"output"}],"ok":true}
+### 82 config window_gap
+{"entries":[{"command":1,"data":"0\n","format":"text","type":"output"}],"ok":true}
+### 84 config auto_padding
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 85 config tree_default_orientation
+{"entries":[{"command":1,"data":"auto\n","format":"text","type":"output"}],"ok":true}
+### 88 config tree_workspace_layout
+{"entries":[{"command":1,"data":"default\n","format":"text","type":"output"}],"ok":true}
+### 84 config tree_autotiling
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 83 config focus_wrapping
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 83 config mouse_modifier
+{"entries":[{"command":1,"data":"fn\n","format":"text","type":"output"}],"ok":true}
+### 85 config mouse_action1
+{"entries":[{"command":1,"data":"move\n","format":"text","type":"output"}],"ok":true}
+### 87 config mouse_action2
+{"entries":[{"command":1,"data":"resize\n","format":"text","type":"output"}],"ok":true}
+### 85 config mouse_drop_action
+{"entries":[{"command":1,"data":"swap\n","format":"text","type":"output"}],"ok":true}
+### 88 config external_bar
+{"entries":[{"command":1,"data":"off:0:0\n","format":"text","type":"output"}],"ok":true}
+### 84 config skip_window_focus_animation
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config space_layout
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config scratchpad_exclusive
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config scratchpad_raise
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config scratchpad_below
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 84 config scratchpad_grid
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 24 config mouse_modifier ctrl
+{"entries":[],"ok":true}
+### 24 config mouse_action1 resize
+{"entries":[],"ok":true}
+### 24 config mouse_drop_action stack
+{"entries":[],"ok":true}
+### 85 config mouse_modifier
+{"entries":[{"command":1,"data":"ctrl\n","format":"text","type":"output"}],"ok":true}
+### 87 config mouse_action1
+{"entries":[{"command":1,"data":"resize\n","format":"text","type":"output"}],"ok":true}
+### 86 config mouse_drop_action
+{"entries":[{"command":1,"data":"stack\n","format":"text","type":"output"}],"ok":true}
+### 24 config focus_wrapping force
+{"entries":[],"ok":true}
+### 24 config tree_default_orientation vertical
+{"entries":[],"ok":true}
+### 24 config tree_workspace_layout tabbed
+{"entries":[],"ok":true}
+### 24 config tree_autotiling on
+{"entries":[],"ok":true}
+### 86 config focus_wrapping
+{"entries":[{"command":1,"data":"force\n","format":"text","type":"output"}],"ok":true}
+### 89 config tree_default_orientation
+{"entries":[{"command":1,"data":"vertical\n","format":"text","type":"output"}],"ok":true}
+### 87 config tree_workspace_layout
+{"entries":[{"command":1,"data":"tabbed\n","format":"text","type":"output"}],"ok":true}
+### 83 config tree_autotiling
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 24 config insert_feedback_color 0xff112233
+{"entries":[],"ok":true}
+### 91 config insert_feedback_color
+{"entries":[{"command":1,"data":"0xff112233\n","format":"text","type":"output"}],"ok":true}
+### 24 config scratchpad_exclusive on
+{"entries":[],"ok":true}
+### 24 config window_origin_display focused
+{"entries":[],"ok":true}
+### 83 config scratchpad_exclusive
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 88 config window_origin_display
+{"entries":[{"command":1,"data":"focused\n","format":"text","type":"output"}],"ok":true}
+### 24 config window_gap 8
+{"entries":[],"ok":true}
+### 24 config top_padding 10 bottom_padding 12
+{"entries":[],"ok":true}
+### 82 config window_gap
+{"entries":[{"command":1,"data":"8\n","format":"text","type":"output"}],"ok":true}
+### 83 config top_padding
+{"entries":[{"command":1,"data":"10\n","format":"text","type":"output"}],"ok":true}
+### 83 config bottom_padding
+{"entries":[{"command":1,"data":"12\n","format":"text","type":"output"}],"ok":true}
+### 24 config tab_bar_height 30
+{"entries":[],"ok":true}
+### 24 config tab_bar_style i3
+{"entries":[],"ok":true}
+### 24 config tab_bar_backdrop blur
+{"entries":[],"ok":true}
+### 24 config tab_bar_focused_color 0xff00ff00
+{"entries":[],"ok":true}
+### 24 config tab_bar_font Menlo:14
+{"entries":[],"ok":true}
+### 83 config tab_bar_height
+{"entries":[{"command":1,"data":"30\n","format":"text","type":"output"}],"ok":true}
+### 83 config tab_bar_style
+{"entries":[{"command":1,"data":"i3\n","format":"text","type":"output"}],"ok":true}
+### 85 config tab_bar_backdrop
+{"entries":[{"command":1,"data":"blur\n","format":"text","type":"output"}],"ok":true}
+### 91 config tab_bar_focused_color
+{"entries":[{"command":1,"data":"0xff00ff00\n","format":"text","type":"output"}],"ok":true}
+### 89 config tab_bar_font
+{"entries":[{"command":1,"data":"Menlo:14\n","format":"text","type":"output"}],"ok":true}
+### 24 config left_padding 5 right_padding 6
+{"entries":[],"ok":true}
+### 82 config left_padding
+{"entries":[{"command":1,"data":"5\n","format":"text","type":"output"}],"ok":true}
+### 82 config right_padding
+{"entries":[{"command":1,"data":"6\n","format":"text","type":"output"}],"ok":true}
+### 24 config window_border on
+{"entries":[],"ok":true}
+### 24 config window_border_width 2
+{"entries":[],"ok":true}
+### 24 config active_window_border_color 0xff00ff00
+{"entries":[],"ok":true}
+### 24 config normal_window_border_color 0x00000000
+{"entries":[],"ok":true}
+### 83 config window_border
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 84 config window_border_width
+{"entries":[{"command":1,"data":"2.0\n","format":"text","type":"output"}],"ok":true}
+### 91 config active_window_border_color
+{"entries":[{"command":1,"data":"0xff00ff00\n","format":"text","type":"output"}],"ok":true}
+### 84 config normal_window_border_color
+{"entries":[{"command":1,"data":"0x0\n","format":"text","type":"output"}],"ok":true}
+### 24 config external_bar main:24:0
+{"entries":[],"ok":true}
+### 90 config external_bar
+{"entries":[{"command":1,"data":"main:24:0\n","format":"text","type":"output"}],"ok":true}
+### 24 config space_layout 15 10:5 1b:9:3
+{"entries":[],"ok":true}
+### 95 config space_layout
+{"entries":[{"command":1,"data":"15 10:5 1b:9:3\n","format":"text","type":"output"}],"ok":true}
+### 24 config space_layout off
+{"entries":[],"ok":true}
+### 84 config space_layout
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 24 config scratchpad_grid 3:3:1:1:1:1
+{"entries":[],"ok":true}
+### 92 config scratchpad_grid
+{"entries":[{"command":1,"data":"3:3:1:1:1:1\n","format":"text","type":"output"}],"ok":true}
+### 24 config scratchpad_grid off
+{"entries":[],"ok":true}
+### 84 config scratchpad_grid
+{"entries":[{"command":1,"data":"off\n","format":"text","type":"output"}],"ok":true}
+### 24 config layout float
+{"entries":[],"ok":true}
+### 86 config layout
+{"entries":[{"command":1,"data":"float\n","format":"text","type":"output"}],"ok":true}
+### 24 config layout tree
+{"entries":[],"ok":true}
+### 24 config auto_padding on
+{"entries":[],"ok":true}
+### 83 config auto_padding
+{"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
+### 24 config auto_padding off
+{"entries":[],"ok":true}
+### 24 config mouse_action2 move
+{"entries":[],"ok":true}
+### 85 config mouse_action2
+{"entries":[{"command":1,"data":"move\n","format":"text","type":"output"}],"ok":true}
+### 90 config external_bar main
+{"entries":[{"command":1,"data":"main:24:0\n","format":"text","type":"output"}],"ok":true}
+### 24 config external_bar main:1:2:3
+{"entries":[],"ok":true}
+### 89 config external_bar
+{"entries":[{"command":1,"data":"main:1:2\n","format":"text","type":"output"}],"ok":true}
+### 163 config space_layout 1 1
+{"entries":[{"command":1,"message":"value '1' given to command 'space_layout' for domain 'config' repeats a layout for 1 display(s)\n","type":"error"}],"ok":false}
+### 137 config space_layout 0
+{"entries":[{"command":1,"message":"invalid value '0' given to command 'space_layout' for domain 'config'\n","type":"error"}],"ok":false}
+### 140 config space_layout 1001
+{"entries":[{"command":1,"message":"invalid value '1001' given to command 'space_layout' for domain 'config'\n","type":"error"}],"ok":false}
+### 169 config window_gap -1
+{"entries":[{"command":1,"message":"unknown value '-1' given to command 'window_gap' for domain 'config'; expected a non-negative integer\n","type":"error"}],"ok":false}
+### 170 config window_gap 1.5
+{"entries":[{"command":1,"message":"unknown value '1.5' given to command 'window_gap' for domain 'config'; expected a non-negative integer\n","type":"error"}],"ok":false}
+### 82 config window_gap ''
+{"entries":[{"command":1,"data":"8\n","format":"text","type":"output"}],"ok":true}
+### 174 config window_border_width -0
+{"entries":[{"command":1,"message":"unknown value '-0' given to command 'window_border_width' for domain 'config'; expected a number above 0.0\n","type":"error"}],"ok":false}
+### 24 config tab_bar_offset 1e3
+{"entries":[],"ok":true}
+### 85 config tab_bar_offset
+{"entries":[{"command":1,"data":"1000\n","format":"text","type":"output"}],"ok":true}
+### 178 config tab_bar_height 99999999999
+{"entries":[{"command":1,"message":"unknown value '99999999999' given to command 'tab_bar_height' for domain 'config'; expected a positive integer\n","type":"error"}],"ok":false}
+### 83 config tab_bar_height
+{"entries":[{"command":1,"data":"30\n","format":"text","type":"output"}],"ok":true}
+### 197 config insert_feedback_color 0x
+{"entries":[{"command":1,"message":"unknown value '0x' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4\n","type":"error"}],"ok":false}
+### 184 config mouse_modifier é
+{"entries":[{"command":1,"message":"unknown value 'é' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn\n","type":"error"}],"ok":false}
+### 24 config ''
+{"entries":[],"ok":true}
+### 178 config window_gap top_padding
+{"entries":[{"command":1,"message":"unknown value 'top_padding' given to command 'window_gap' for domain 'config'; expected a non-negative integer\n","type":"error"}],"ok":false}
+### 124 config nonexistent_option
+{"entries":[{"command":1,"message":"unknown command 'nonexistent_option' for domain 'config'\n","type":"error"}],"ok":false}
+### 170 config window_gap abc
+{"entries":[{"command":1,"message":"unknown value 'abc' given to command 'window_gap' for domain 'config'; expected a non-negative integer\n","type":"error"}],"ok":false}
+### 187 config mouse_modifier hyper
+{"entries":[{"command":1,"message":"unknown value 'hyper' given to command 'mouse_modifier' for domain 'config'; expected one of: alt, shift, cmd, ctrl, fn\n","type":"error"}],"ok":false}
+### 192 config focus_follows_mouse bogus
+{"entries":[{"command":1,"message":"unknown value 'bogus' given to command 'focus_follows_mouse' for domain 'config'; expected one of: off, autofocus, autoraise\n","type":"error"}],"ok":false}
+### 175 config window_border_width abc
+{"entries":[{"command":1,"message":"unknown value 'abc' given to command 'window_border_width' for domain 'config'; expected a number above 0.0\n","type":"error"}],"ok":false}
+### 196 config insert_feedback_color 0
+{"entries":[{"command":1,"message":"unknown value '0' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4\n","type":"error"}],"ok":false}
+### 170 config tab_bar_style bogus
+{"entries":[{"command":1,"message":"unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3\n","type":"error"}],"ok":false}
+### 119 config --space nolabel window_gap
+{"entries":[{"command":1,"message":"value 'nolabel' is not a valid option for SPACE_SEL\n","type":"error"}],"ok":false}
+### 106 config --check /nonexistent
+{"entries":[{"command":1,"message":"cannot read config file '/nonexistent'\n","type":"error"}],"ok":false}
+### 2287 config --dump
+{"entries":[{"command":1,"data":"[daemon]\nauto_reload = true\nload_scripting_addition = false\n\n[config]\ndebug_output = false # default\nmouse_follows_focus = false # default\nfocus_follows_mouse = \"off\" # default\ndisplay_arrangement_order = \"default\" # default\nbuiltin_display_last = false # default\nwindow_origin_display = \"focused\" # override\nscratchpad_exclusive = true # override\nscratchpad_raise = false # default\nscratchpad_below = false # default\nskip_window_focus_animation = false # default\nwindow_shadow = \"on\" # default\ntree_default_orientation = \"vertical\" # override\ntree_workspace_layout = \"tabbed\" # override\ntree_autotiling = true # override\nfocus_wrapping = \"force\" # override\nspace_auto_back_and_forth = false # default\nmouse_modifier = \"ctrl\" # override\nmouse_action1 = \"resize\" # override\nmouse_action2 = \"move\" # override\nmouse_drop_action = \"stack\" # override\nmouse_drag_split = false # default\nwindow_border = true # override\nwindow_border_hide_single = false # default\ntab_bar = true # default\ntab_bar_icons = true # default\ntab_bar_style = \"i3\" # override\ntab_bar_appearance = \"dark\" # default\ntab_bar_backdrop = \"blur\" # default\nwindow_border_width = 2.0 # override\nactive_window_border_color = 0xff00ff00 # override\nnormal_window_border_color = 0x00000000 # override\ntab_bar_height = 30 # override\ntab_bar_offset = 1000 # override\ntab_bar_card_padding = 6 # default\ntab_bar_window_radius = 16 # default\ntab_bar_focused_color = 0xff00ff00 # override\ntab_bar_focused_text_color = 0xffffffff # default\ntab_bar_inactive_color = 0xff5f676a # default\ntab_bar_inactive_text_color = 0xffffffff # default\ntab_bar_unfocused_color = 0xff222222 # default\ntab_bar_unfocused_text_color = 0xff888888 # default\ntab_bar_backdrop_color = 0xff48484a # default\ninsert_feedback_color = 0xff112233 # override\nscratchpad_grid = \"off\" # default\nspace_layout = [] # default\ntab_bar_font = \"Menlo:14\" # override\nexternal_bar = \"main:1:2\" # override\ntop_padding = 10 # override\nbottom_padding = 12 # override\nleft_padding = 5 # override\nright_padding = 6 # override\nwindow_gap = 8 # override\nlayout = \"tree\" # default\nauto_padding = false # default\n","format":"text","type":"output"}],"ok":true}
+### 24 rule --add app=^Calculator$ manage=off
+{"entries":[],"ok":true}
+### 24 rule --add label=term app=Terminal sticky=on
+{"entries":[],"ok":true}
+### 24 rule --add --one-shot title=x manage=on
+{"entries":[],"ok":true}
+### 24 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
+{"entries":[],"ok":true}
+### 1262 rule --list
+{"entries":[{"command":1,"data":[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}],"format":"json","type":"output"}],"ok":true}
+### 87 rule --add app=Foo bogus=1
+{"entries":[{"command":1,"message":"unknown key 'bogus'\n","type":"error"}],"ok":false}
+### 128 rule --add
+{"entries":[{"command":1,"message":"missing required key-value pair 'app[!]=..' or 'title[!]=..'\n","type":"error"}],"ok":false}
+### 24 rule --remove term
+{"entries":[],"ok":true}
+### 98 rule --remove 5
+{"entries":[{"command":1,"message":"rule with index '5' not found.\n","type":"error"}],"ok":false}
+### 104 rule --remove nolabel
+{"entries":[{"command":1,"message":"rule with label 'nolabel' not found.\n","type":"error"}],"ok":false}
+### 966 rule --list
+{"entries":[{"command":1,"data":[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}],"format":"json","type":"output"}],"ok":true}
+### 98 rule --apply 7
+{"entries":[{"command":1,"message":"rule with index '7' not found.\n","type":"error"}],"ok":false}
+### 24 rule --apply app=^NoSuchApp$ manage=off
+{"entries":[],"ok":true}
+### 162 rule --apply nolabel
+{"entries":[{"command":1,"message":"invalid key-value pair 'nolabel'\nmissing required key-value pair 'app[!]=..' or 'title[!]=..'\n","type":"error"}],"ok":false}
+### 24 rule --apply
+{"entries":[],"ok":true}
+### 24 rule --add label=üml app=x
+{"entries":[],"ok":true}
+### 99 rule --add label= app=y
+{"entries":[{"command":1,"message":"invalid key-value pair 'label='\n","type":"error"}],"ok":false}
+### 24 rule --remove üml
+{"entries":[],"ok":true}
+### 966 rule --list
+{"entries":[{"command":1,"data":[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}],"format":"json","type":"output"}],"ok":true}
+### 109 rule --foo
+{"entries":[{"command":1,"message":"unknown command '--foo' for domain 'rule'\n","type":"error"}],"ok":false}
+### 106 rule --add app=Foo insert=bogus
+{"entries":[{"command":1,"message":"invalid value 'bogus' for key 'insert'\n","type":"error"}],"ok":false}
+### 100 rule --add app=Foo insert=
+{"entries":[{"command":1,"message":"invalid key-value pair 'insert='\n","type":"error"}],"ok":false}
+### 24 rule --add label=ins app=Terminal insert=stack
+{"entries":[],"ok":true}
+### 24 rule --add label=ins2 app=Notes insert=west
+{"entries":[],"ok":true}
+### 1563 rule --list
+{"entries":[{"command":1,"data":[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}],"format":"json","type":"output"}],"ok":true}
+### 24 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
+{"entries":[],"ok":true}
+### 24 signal --add event=config_loaded action='echo $YABAI_CONFIG_FILE' label=cl
+{"entries":[],"ok":true}
+### 24 signal --add event=application_launched action='echo hi' app=^Finder$
+{"entries":[],"ok":true}
+### 123 signal --add event=space_changed action='echo hi' app=^Finder$
+{"entries":[{"command":1,"message":"event 'space_changed' does not support the 'app' filter\n","type":"error"}],"ok":false}
+### 105 signal --add event=bogus action=x
+{"entries":[{"command":1,"message":"invalid value 'bogus' for key 'event'\n","type":"error"}],"ok":false}
+### 155 signal --add label=x
+{"entries":[{"command":1,"message":"missing required key-value pair 'event=..'\nmissing required key-value pair 'action=..'\n","type":"error"}],"ok":false}
+### 24 signal --add event=window_moved action=true title!=^Untitled$ active=no
+{"entries":[],"ok":true}
+### 127 signal --add event=window_created action=true title!=^Untitled$ active=no
+{"entries":[{"command":1,"message":"event 'window_created' does not support the 'active' filter\n","type":"error"}],"ok":false}
+### 535 signal --list
+{"entries":[{"command":1,"data":[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"echo $YABAI_WINDOW_ID","active":null,"app":"","event":"window_focused","index":1,"label":"wf","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":2,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":3,"label":"cl","title":""}],"format":"json","type":"output"}],"ok":true}
+### 24 signal --remove wf
+{"entries":[],"ok":true}
+### 100 signal --remove 9
+{"entries":[{"command":1,"message":"signal with index '9' not found.\n","type":"error"}],"ok":false}
+### 106 signal --remove nolabel
+{"entries":[{"command":1,"message":"signal with label 'nolabel' not found.\n","type":"error"}],"ok":false}
+### 418 signal --list
+{"entries":[{"command":1,"data":[{"action":"echo hi","active":null,"app":"^Finder$","event":"application_launched","index":0,"label":"","title":""},{"action":"true","active":false,"app":"","event":"window_moved","index":1,"label":"","title":"^Untitled$"},{"action":"echo $YABAI_CONFIG_FILE","active":null,"app":"","event":"config_loaded","index":2,"label":"cl","title":""}],"format":"json","type":"output"}],"ok":true}
+### 111 signal --foo
+{"entries":[{"command":1,"message":"unknown command '--foo' for domain 'signal'\n","type":"error"}],"ok":false}
+### 705 subscribe not_an_event
+{"entries":[{"command":1,"message":"unknown event 'not_an_event' for domain 'subscribe'; expected one of: application_launched, application_terminated, application_front_switched, application_activated, application_deactivated, application_visible, application_hidden, window_created, window_destroyed, window_focused, window_moved, window_resized, window_minimized, window_deminimized, window_title_changed, space_created, space_destroyed, space_changed, display_added, display_removed, display_moved, display_resized, display_changed, mission_control_enter, mission_control_exit, dock_did_change_pref, dock_did_restart, menu_bar_hidden_changed, system_woke, config_loaded\n","type":"error"}],"ok":false}
+### 105 query
+{"entries":[{"command":1,"message":"unknown command '' for domain 'query'\n","type":"error"}],"ok":false}
+### 110 query --foo
+{"entries":[{"command":1,"message":"unknown command '--foo' for domain 'query'\n","type":"error"}],"ok":false}
+### 121 query --windows --window 4242
+{"entries":[{"command":1,"message":"could not locate window with the specified id '4242'.\n","type":"error"}],"ok":false}
+### 138 query --windows --foo
+{"entries":[{"command":1,"message":"unknown option '--foo' given to command '--windows' for domain 'query'\n","type":"error"}],"ok":false}
+### 119 query --spaces --space nolabel
+{"entries":[{"command":1,"message":"value 'nolabel' is not a valid option for SPACE_SEL\n","type":"error"}],"ok":false}
+### 121 query --displays --display nolabel
+{"entries":[{"command":1,"message":"value 'nolabel' is not a valid option for DISPLAY_SEL\n","type":"error"}],"ok":false}
+### 106 window --foo
+{"entries":[{"command":1,"message":"could not locate the window to act on!\n","type":"error"}],"ok":false}
+### 106 window --resize left:10:0
+{"entries":[{"command":1,"message":"could not locate the window to act on!\n","type":"error"}],"ok":false}
+### 106 window 4242 --close
+{"entries":[{"command":1,"message":"could not locate the window to act on!\n","type":"error"}],"ok":false}
+### 128 window --label north
+{"entries":[{"command":1,"message":"'north' is a reserved keyword and cannot be used as a label.\n","type":"error"}],"ok":false}
+### 130 window --label --focus
+{"entries":[{"command":1,"message":"'--focus' is a reserved keyword and cannot be used as a label.\n","type":"error"}],"ok":false}
+### 106 window --label
+{"entries":[{"command":1,"message":"could not locate the window to act on!\n","type":"error"}],"ok":false}
+### 113 window nolabel --close
+{"entries":[{"command":1,"message":"could not locate window with label 'nolabel'.\n","type":"error"}],"ok":false}
+### 113 window --focus nolabel
+{"entries":[{"command":1,"message":"could not locate window with label 'nolabel'.\n","type":"error"}],"ok":false}
+### 113 query --windows --window nolabel
+{"entries":[{"command":1,"message":"could not locate window with label 'nolabel'.\n","type":"error"}],"ok":false}
+### 110 space --foo
+{"entries":[{"command":1,"message":"unknown command '--foo' for domain 'space'\n","type":"error"}],"ok":false}
+### 198 space nolabel --foo
+{"entries":[{"command":1,"message":"unknown command 'nolabel' for domain 'space'\n","type":"error"},{"command":1,"message":"unknown command '--foo' for domain 'space'\n","type":"error"}],"ok":false}
+### 98 space --undo
+{"entries":[{"command":1,"message":"nothing to undo on this space.\n","type":"error"}],"ok":false}
+### 103 space --pin
+{"entries":[{"command":1,"message":"cannot pin a space without a label.\n","type":"error"}],"ok":false}
+### 103 space --pin 2
+{"entries":[{"command":1,"message":"cannot pin a space without a label.\n","type":"error"}],"ok":false}
+### 112 display --foo
+{"entries":[{"command":1,"message":"unknown command '--foo' for domain 'display'\n","type":"error"}],"ok":false}
+### 114 display nolabel --foo
+{"entries":[{"command":1,"message":"unknown command 'nolabel' for domain 'display'\n","type":"error"}],"ok":false}
+### 127 batch
+{"entries":[{"command":1,"message":"batch reads its commands from stdin and takes no arguments.\n","type":"error"}],"ok":false}
+### 140 query --windows id --window 4242 extra
+{"entries":[{"command":1,"message":"unknown argument 'extra' given to command '--windows' for domain 'query'\n","type":"error"}],"ok":false}
+### 137 query --tree --space recent extra
+{"entries":[{"command":1,"message":"unknown argument 'extra' given to command '--tree' for domain 'query'\n","type":"error"}],"ok":false}

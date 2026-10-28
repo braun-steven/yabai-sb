@@ -17,8 +17,7 @@ public enum SignalCommand {
   }
 
   /// Parses one signal command.
-  public static func parse(_ message: inout some TokenSource) throws(CommandError) -> SignalCommand
-  {
+  public static func parse(_ message: inout Message) throws(CommandError) -> SignalCommand {
     let command = message.next()
     guard let name = Name(token: command) else {
       throw CommandError.unknownCommand(Token(Domain.signal), command)
@@ -64,10 +63,10 @@ public enum SignalCommand {
 /// Parse signal fields to the end of the message, resolving event names with eventType.
 /// Report all field problems together when the signal is invalid.
 public func parseSignal<Event>(
-  _ message: inout some TokenSource, _ signal: inout EventSignal, _ event: inout Event?,
+  _ message: inout Message, _ signal: inout EventSignal, _ event: inout Event?,
   eventType: (Token) -> Event?
 ) throws(CommandError) {
-  var scanner = KeyValueScanner(first: message.next())
+  var scanner = KeyValueScanner(first: message.take())
   var hasSignalType = false
   event = nil
 

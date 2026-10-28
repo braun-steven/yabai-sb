@@ -10,7 +10,7 @@ import YabaiCore
 // their operation.
 //
 
-private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
+func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
   throws(CommandError)
 {
   switch error {
@@ -22,75 +22,6 @@ private func checkSpaceOperation(_ error: SpaceOperationError, _ action: String)
   }
 }
 
-extension DisplayCommand {
-  /// Runs the command on the acting display.
-  @WM fileprivate func run(acting did: DisplayID) throws(CommandError) {
-    let context = CSelectorContext()
-    let dm = DisplayManager.shared
-    switch self {
-    case .focus(let selector):
-      if let target = try selector.resolve(acting: did, context) {
-        if did != target {
-          // NOTE: Like sway's 'focus output', a direction only picks the display; focus enters it with no direction.
-          WindowManager.shared.focusDisplay(target, from: nil)
-        } else {
-          throw CommandError("cannot focus an already focused display.\n")
-        }
-      }
-    case .space(let selector):
-      if let target = try selector.resolve(acting: did.currentSpace, context) {
-        do {
-          try did.focusSpace(target)
-        } catch .sameDisplay {
-          throw CommandError("acting display does not contain the given space.\n")
-        } catch {
-          try checkSpaceOperation(error, "focus space")
-        }
-      }
-    case .label(let token):
-      if let label = try parseLabel(token, .display) {
-        dm.labels.set(id: did, name: label.string)
-      } else if !dm.labels.remove(id: did) {
-        throw CommandError("the selected display was not associated with a label!\n")
-      }
-    }
-  }
-}
-
-@WM func handleDomainDisplay(
-  _ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource
-) throws(CommandError) {
-  let context = CSelectorContext()
-
-  let command: Token
-  var actingDid = DisplayID.active
-  let selectorToken = message.next()
-  if let selector = DisplaySelector(selectorToken) {
-    do {
-      actingDid = try selector.resolve(acting: actingDid, context)
-      command = message.next()
-    } catch {
-      if case .label = selector {
-        command = selectorToken
-      } else {
-        actingDid = nil
-        command = message.next()
-      }
-    }
-  } else {
-    command = selectorToken
-  }
-
-  guard let did = actingDid else {
-    throw CommandError("could not locate the display to act on!\n")
-  }
-
-  guard let name = DisplayCommand.Name(token: command) else {
-    throw CommandError.unknownCommand(domain, command)
-  }
-  try DisplayCommand.parse(name, &message).run(acting: did)
-}
-
 extension SpaceCommand {
   /// Runs the command on the acting space. Returns false to stop the message silently, when the optional selector of
   /// --create or --destroy found nothing ('recent'). --create and --destroy make the space they act on the acting
@@ -98,7 +29,7 @@ extension SpaceCommand {
   @WM fileprivate func run(acting sid: inout SpaceID?, focused: SpaceID?, _ rsp: inout Response)
     throws(CommandError) -> Bool
   {
-    let context = CSelectorContext()
+    let context = DaemonSelectorContext()
     let sm = SpaceManager.shared
     switch self {
     case .focus(let selector), .switch(let selector):
@@ -353,13 +284,13 @@ extension SpaceCommand {
 }
 
 @WM func handleDomainSpace(
-  _ rsp: inout Response, _ domain: Token, _ message: inout some TokenSource
+  _ rsp: inout Response, _ domain: Token, _ message: inout Message
 ) throws(CommandError) {
   let command: Token
   var actingSid = SpaceID.active
   let focused = actingSid
   let selectorToken = message.next()
-  let context = CSelectorContext()
+  let context = DaemonSelectorContext()
   if let selector = SpaceSelector(selectorToken) {
     do {
       actingSid = try selector.resolve(acting: actingSid, context)

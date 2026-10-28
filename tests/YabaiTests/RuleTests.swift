@@ -25,7 +25,7 @@ import YabaiTestSupport
 }
 
 private func failure(_ message: String) -> String {
-  String(UnicodeScalar(Response.failureByte)) + message
+  message
 }
 
 /// The entries of a `--list` response as "<index> <label>:<key>", where key is the app (or the title) of a rule, or

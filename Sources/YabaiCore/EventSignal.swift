@@ -258,15 +258,14 @@ public struct SignalTable: Equatable {
 }
 
 //
-// NOTE: The json line that an event subscriber (`yabai -m subscribe`) receives: the event name, then one key per
-// environment variable of the event, lowercase and without the YABAI_ prefix (YABAI_WINDOW_ID -> window_id). The values
-// stay strings, as in the environment. JSON.encode sorts the keys, so "event" is not always the first key, and escapes
-// control characters, so one event is one line. A dictionary of strings cannot fail to encode; the empty line that the
-// guard returns is never written.
+// NOTE: Event objects keep the event name and its environment values. Keys are lowercase without YABAI_;
+// values remain strings. Transport wraps the object in an event frame; the CLI renders it as a JSON line.
 //
 
-/// The json line of an event for its subscribers: `{"event":"…","window_id":"…",…}` followed by a newline.
-public func eventJSONLine(type: String, arguments: [(name: String, value: String)]) -> [UInt8] {
+/// The event data shared by framed subscriptions and CLI JSON lines.
+public func eventObject(type: String, arguments: [(name: String, value: String)]) -> [String:
+  String]
+{
   var object = ["event": type]
   for argument in arguments {
     let prefix = "YABAI_"
@@ -276,8 +275,7 @@ public func eventJSONLine(type: String, arguments: [(name: String, value: String
     object[name.lowercased()] = argument.value
   }
 
-  guard let json = try? JSON.encode(object) else { return [] }
-  return json + [UInt8(ascii: "\n")]
+  return object
 }
 
 /// The filters and action of a signal.

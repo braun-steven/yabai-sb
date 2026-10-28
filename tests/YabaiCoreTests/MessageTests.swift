@@ -3,10 +3,26 @@ import YabaiTestSupport
 
 @testable import YabaiCore
 
-// NOTE: Ported from tests/src/message.c. Messages are null-separated tokens, as sent by the client.
+// Parser fixtures use NUL separators for readability; transport uses argument arrays.
 
 private let domain = Token("config")
 private let command = Token("test")
+
+@Test func emptyRuleAndSignalArgumentsCannotHideLaterFields() {
+  var rule = Message(arguments: ["--add", "app=Safari", "", "bogus=1"])
+  let ruleFailure = thrownText { () throws(CommandError) in
+    _ = try RuleCommand.parse(&rule, FixtureContext())
+  }
+  #expect(ruleFailure?.contains("invalid key-value pair ''") == true)
+  #expect(ruleFailure?.contains("unknown key 'bogus'") == true)
+
+  var signal = Message(arguments: ["--add", "event=window_focused", "", "bogus=1"])
+  let signalFailure = thrownText { () throws(CommandError) in
+    _ = try SignalCommand.parse(&signal)
+  }
+  #expect(signalFailure?.contains("invalid key-value pair ''") == true)
+  #expect(signalFailure?.contains("unknown key 'bogus'") == true)
+}
 
 /// The text of the failure that body throws, nil when it does not throw.
 private func thrownText(_ body: () throws(CommandError) -> Void) -> String? {
@@ -25,9 +41,10 @@ private func failureText(_ failure: CommandError?) -> String {
   #expect(message.peek().equals("--focus"))
   #expect(message.next().equals("--focus"))
 
-  // NOTE: an empty argument looks like the end of the message, so the daemon stops reading there
-  #expect(!message.next().isValid)
-  #expect(!message.next().isValid)
+  #expect(message.take() == Token(""))
+  #expect(message.take() == Token("east"))
+  #expect(message.take() == Token(""))
+  #expect(message.take() == nil)
 
   var unterminated = Message("a\0b")
   #expect(unterminated.next().equals("a"))
@@ -88,8 +105,7 @@ func tokenValue(_ text: String, _ value: String) {
   var rsp = Response()
   rsp.fail(.unknownValue(domain, command, Token([0x66, 0xff] as [UInt8])))
   #expect(
-    rsp.bytes == [0x07]
-      + Array("unknown value 'f\u{fffd}' given to command 'test' for domain 'config'\n".utf8))
+    rsp.failures == ["unknown value 'f\u{fffd}' given to command 'test' for domain 'config'\n"])
 }
 
 @Test("Config command names cover the daemon options and preserve their CLI spellings")
@@ -124,7 +140,7 @@ func configCommandUnknownName() {
   } catch {
     rsp.fail(error)
   }
-  #expect(rsp.bytes == [0x07] + Array("unknown command 'x\u{fffd}' for domain 'config'\n".utf8))
+  #expect(rsp.failures == ["unknown command 'x\u{fffd}' for domain 'config'\n"])
 }
 
 @Test("Config names parse one at a time without consuming the next command")
@@ -709,7 +725,7 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
 ) {
   var rule = Rule()
   var message = Message(text)
-  let first = message.next()
+  let first = message.take()
   do {
     let result = try parseRule(&message, &rule, first, context)
     return (result, rule, "")
@@ -1081,45 +1097,4 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   scratchpad.scratchpad = "notes"
   combined.combine(scratchpad)
   #expect(combined.scratchpad == "notes")
-}
-
-@Test("message_client_encoding")
-func messageClientEncoding() {
-  let message = ClientMessage.encode(["window", "--focus", "", "east"].map { Array($0.utf8) })
-
-  let payloadLength = message.prefix(4).withUnsafeBytes { $0.loadUnaligned(as: Int32.self) }
-  #expect(message.count == 4 + Int(payloadLength))
-  #expect(payloadLength == 6 + 7 + 0 + 4 + 4 + 1)
-
-  var tokens = Message(Array(message.dropFirst(4)))
-  #expect(tokens.next().equals("window"))
-  #expect(tokens.next().equals("--focus"))
-
-  // NOTE: an empty argument looks like the end of the message, so the daemon stops reading there
-  #expect(!tokens.next().isValid)
-  #expect(!tokens.next().isValid)
-  #expect(message.suffix(6) == Array("east\0\0".utf8))
-}
-
-@Test func messageClientEncodingCountsMultibyteArgumentsAsUTF8Bytes() {
-  let argument = "café 💻"
-  let message = ClientMessage.encode([Array("window".utf8), Array(argument.utf8)])
-
-  let body = Array("window\0\(argument)\0\0".utf8)
-  let expectedPrefix = withUnsafeBytes(of: Int32(body.count)) { Array($0) }
-  #expect(message.prefix(MemoryLayout<Int32>.size).elementsEqual(expectedPrefix))
-
-  let payloadLength = message.prefix(MemoryLayout<Int32>.size).withUnsafeBytes {
-    $0.loadUnaligned(as: Int32.self)
-  }
-  #expect(payloadLength == Int32(body.count))
-  #expect(
-    message.dropFirst(MemoryLayout<Int32>.size).elementsEqual(body),
-    "The length-prefixed body must preserve the full UTF-8 bytes and double-null terminator."
-  )
-
-  var tokens = Message(Array(message.dropFirst(MemoryLayout<Int32>.size)))
-  #expect(tokens.next() == Token("window"))
-  #expect(tokens.next() == Token(argument))
-  #expect(!tokens.next().isValid)
 }

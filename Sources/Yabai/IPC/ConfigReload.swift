@@ -61,10 +61,10 @@ enum ConfigReloadOutcome {
 @WM func handleConfigReload(_ rsp: inout Response, _ message: inout Message) throws(CommandError) {
   switch reloadConfig(try checkConfigFile("--reload", &message)) {
   case .failed(let report):
-    rsp.fail(CommandError(ResponseText(stringLiteral: report.text)))
+    rsp.fail(CommandError(report.text))
   case .reloaded(let path, let result) where result.failures > 0:
     rsp.fail(
-      CommandError(ResponseText(stringLiteral: configReloadFailureText(path: path, result: result)))
+      CommandError(configReloadFailureText(path: path, result: result))
     )
   case .reloaded(let path, let result):
     rsp.write("reloaded \(path): \(result.changes) changes\n")
@@ -83,6 +83,6 @@ func configReloadFailureText(path: String, result: ConfigReconcileResult) -> Str
 {
   try noConfigArgument("--overrides", &message)
   for line in configOverrideLines() {
-    rsp.write(ResponseText(stringLiteral: line + "\n"))
+    rsp.write(line + "\n")
   }
 }

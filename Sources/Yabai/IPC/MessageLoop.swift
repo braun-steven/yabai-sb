@@ -1,353 +1,118 @@
-import CPrivate
 import Darwin
 import Foundation
 import Logging
 import YabaiCore
 
-//
-// NOTE: The socket of the daemon (/tmp/yabai_$USER.socket). A thread accepts the connections, reads each message and
-// posts it as a daemonMessage event; the handler of that event (MessageLoop.handle) runs its commands on the event loop
-// and hands the response to a serial queue that writes it.
-//
-
-/// A message of a client: its tokens, read by the socket thread, and the socket its response goes to.
+/// An owned client connection and its validated request, handed from the socket thread to @WM.
 struct DaemonMessage: Sendable {
-  let sockfd: Int32
-  let bytes: [UInt8]
-
-  /// The null-separated tokens, up to the empty token that ends them, joined by spaces.
-  var text: String {
-    let tokens = bytes.split(separator: 0, omittingEmptySubsequences: false).prefix { !$0.isEmpty }
-    return tokens.map { String(decoding: $0, as: UTF8.self) }.joined(separator: " ")
-  }
+  let connection: IPCConnection
+  let request: IPCRequest
 }
 
 enum MessageLoop {
   static func begin(socketPath: String) -> Bool {
-    var address = sockaddr_un()
-    address.sun_family = sa_family_t(AF_UNIX)
-    withUnsafeMutableBytes(of: &address.sun_path) { sunPath in
-      let path = Array(socketPath.utf8.prefix(sunPath.count - 1))
-      sunPath.copyBytes(from: path)
-      sunPath[path.count] = 0
+    guard var address = try? IPCConnection.address(socketPath) else { return false }
+    let listener = socket(AF_UNIX, SOCK_STREAM, 0)
+    guard listener >= 0 else { return false }
+    var transferred = false
+    defer {
+      if !transferred { Darwin.close(listener) }
     }
+    let flags = fcntl(listener, F_GETFD)
+    guard flags >= 0, fcntl(listener, F_SETFD, flags | FD_CLOEXEC) == 0 else { return false }
     unlink(socketPath)
-
-    let sockfd = socket(AF_UNIX, SOCK_STREAM, 0)
-    if sockfd == -1 {
-      return false
-    }
-
     let bound = withUnsafePointer(to: &address) {
       $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-        bind(sockfd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        bind(listener, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
       }
     }
-    if bound == -1 {
+    guard bound == 0 else { return false }
+    guard chmod(socketPath, 0o600) == 0, listen(listener, SOMAXCONN) == 0 else {
+      unlink(socketPath)
       return false
     }
-
-    if chmod(socketPath, 0o600) != 0 {
-      return false
-    }
-
-    if listen(sockfd, SOMAXCONN) == -1 {
-      return false
-    }
-
-    _ = fcntl(sockfd, F_SETFD, FD_CLOEXEC | fcntl(sockfd, F_GETFD))
-
-    Thread.detachNewThread {
-      run(sockfd)
-    }
-
+    transferred = true
+    Thread.detachNewThread { run(listener) }
     return true
   }
 
   private static func run(_ listener: Int32) -> Never {
     while true {
-      let sockfd = accept(listener, nil, nil)
-      if sockfd == -1 { continue }
-
-      //
-      // NOTE: This thread reads the message and the queue of the responses writes the response, so a client that
-      // stalls cannot block the event loop; reads and writes on the socket time out, so it cannot block the other
-      // clients for long either.
-      //
-
-      var timeout = timeval(tv_sec: 1, tv_usec: 0)
-      setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-      setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-
-      receiveClient(sockfd) { EventLoop.post(.daemonMessage($0)) }
+      let fd = accept(listener, nil, nil)
+      guard fd >= 0 else { continue }
+      guard let connection = try? IPCConnection(taking: fd) else { continue }
+      receiveClient(connection) { EventLoop.post(.daemonMessage($0)) }
     }
   }
 
-  //
-  // NOTE: The message is a native-endian int with its length, then the null-separated tokens (ClientMessage.encode). Two
-  // null bytes after the message end it even when a client left out its empty last token. A longer length is refused
-  // before any byte of the message is read, so a client cannot make the daemon allocate more than maxMessageLength.
-  //
-
-  /// The largest message a client may send (1 MiB).
-  static let maxMessageLength = 1 << 20
-
-  /// Why a message could not be read.
-  enum MessageReadError: Error {
-    /// The length is negative or above maxMessageLength.
-    case invalidLength
-    /// The client sent no complete length, or closed or timed out before the end of the message.
-    case incomplete
-  }
-
-  /// Reads the message of a client: its length, then that many bytes.
-  static func readMessage(_ sockfd: Int32) throws(MessageReadError) -> [UInt8] {
-    var bytesToRead: Int32 = 0
-    guard Darwin.read(sockfd, &bytesToRead, MemoryLayout<Int32>.size) == MemoryLayout<Int32>.size
-    else {
-      throw .incomplete
-    }
-
-    guard bytesToRead >= 0, Int(bytesToRead) <= maxMessageLength else {
-      throw .invalidLength
-    }
-
-    var message = [UInt8](repeating: 0, count: Int(bytesToRead) + 2)
-    var bytesRead = 0
-
-    repeat {
-      let currentRead = message.withUnsafeMutableBytes {
-        Darwin.read(sockfd, $0.baseAddress! + bytesRead, Int(bytesToRead) - bytesRead)
-      }
-      if currentRead <= 0 { break }
-
-      bytesRead += currentRead
-    } while bytesRead < bytesToRead
-
-    guard bytesRead == bytesToRead else {
-      throw .incomplete
-    }
-
-    return message
-  }
-
-  /// Reads one client request and passes it, with its socket, to the handler. A request that cannot be read is
-  /// rejected and its socket closed without calling the handler.
-  static func receiveClient(_ sockfd: Int32, handler: (DaemonMessage) -> Void) {
-    let bytes: [UInt8]
+  /// Reads only one frame. The caller transfers the connection to the event loop or the rejection writer.
+  static func receiveClient(_ connection: IPCConnection, handler: (DaemonMessage) -> Void) {
     do {
-      bytes = try readMessage(sockfd)
+      guard let payload = try connection.readFrame(limit: IPCProtocol.requestLimit, timeout: 1)
+      else { throw IPCError.incomplete }
+      let request = try IPCProtocol.decode(IPCRequest.self, payload: payload)
+      handler(DaemonMessage(connection: connection, request: request))
     } catch {
       Logger.ipc.warning("message rejected: \(error)")
-      reject(sockfd)
-      return
+      responses.async {
+        do {
+          try write(.error(command: nil, message: "\(error)\n"), to: connection)
+          try write(.complete(ok: false), to: connection)
+        } catch { Logger.ipc.debug("rejection write failed: \(error)") }
+      }
     }
-
-    handler(DaemonMessage(sockfd: sockfd, bytes: bytes))
   }
 
-  /// The response to a message that could not be read: the failure byte, then "invalid message".
-  static func rejection() -> Response {
-    var response = Response()
-    response.fail(CommandError("invalid message\n"))
-    return response
-  }
-
-  /// Answers a message that could not be read, then closes the socket.
-  private static func reject(_ sockfd: Int32) {
-    send(rejection(), to: sockfd)
-  }
-
-  //
-  // NOTE: The commands run synchronously, without an await. Other events could not run at an await either (the
-  // event loop awaits the handler before it takes the next one), the commands of a message rely on the state the
-  // earlier ones left (acting window, selectors), and the autorelease pool of the event cannot span an await.
-  // Waits inside commands (toggleNativeFullscreen, SpaceID.waitForWindow) block yabai.wm, which runs no other
-  // code after startup.
-  //
-
-  /// Runs the commands of a message and hands its response to the queue of the responses.
+  /// Commands stay synchronous on @WM; only value snapshots cross to a writer queue.
   @WM static func handle(_ message: DaemonMessage) {
-    Logger.ipc.debug("message: \(message.text)")
-
-    var response = Response()
-    var tokens = Message(message.bytes)
-    handleMessage(&response, &tokens)
-
-    //
-    // NOTE: A subscribe keeps its socket open: the event subscribers write the first line and then the events, and
-    // close the socket when they end. So the socket is not sent to here, and nothing else writes to it.
-    //
-    if let types = response.subscribedTypes {
-      EventSubscribers.shared.add(fd: message.sockfd, types: Set(types), firstLine: response.bytes)
+    Logger.ipc.debug("request: \(String(describing: message.request))")
+    let results = executeRequest(message.request)
+    if results.count == 1, case .subscribe(let types) = results[0].response.disposition {
+      do {
+        let firstFrame = try IPCProtocol.encode(
+          IPCReply.subscribed(events: types.map(\.name)), limit: IPCProtocol.responseLimit)
+        EventSubscribers.shared.add(
+          connection: message.connection, types: Set(types), firstFrame: firstFrame)
+      } catch {
+        var response = Response()
+        response.fail(CommandError("could not encode subscription\n"))
+        send([CommandResponse(command: 1, response: response)], to: message.connection)
+      }
       return
     }
-
-    send(response, to: message.sockfd)
+    send(results, to: message.connection)
   }
 
-  //
-  // NOTE: The responses are written on their own serial queue, in the order of the messages, so a client that does
-  // not read its response cannot block the event loop. The write stops at the first error, e.g. when the send
-  // timeout expires or the client is gone (SIGPIPE is ignored). The socket is closed either way.
-  //
-
+  // NOTE: A stalled client never writes on @WM. Queued work retains its socket until its final write.
   private static let responses = DispatchSerialQueue(label: "yabai.ipc")
 
-  /// Writes the response to the client and closes its socket, on the queue of the responses.
-  private static func send(_ response: Response, to sockfd: Int32) {
+  private static func write(_ reply: IPCReply, to connection: IPCConnection) throws(IPCError) {
+    try connection.write(
+      IPCProtocol.encode(reply, limit: IPCProtocol.responseLimit), timeout: 1)
+  }
+
+  private static func send(_ results: [CommandResponse], to connection: IPCConnection) {
     responses.async {
-      var written = 0
-      while written < response.bytes.count {
-        let result = response.bytes.withUnsafeBytes {
-          Darwin.write(sockfd, $0.baseAddress! + written, response.bytes.count - written)
+      var failed = false
+      do {
+        for result in results {
+          for entry in result.response.entries {
+            if case .error = entry { failed = true }
+            let bytes: [UInt8]
+            do {
+              bytes = try IPCProtocol.encode(
+                IPCOutput(command: result.command, entry: entry),
+                limit: IPCProtocol.responseLimit)
+            } catch {
+              failed = true
+              try write(.error(command: result.command, message: "\(error)\n"), to: connection)
+              continue
+            }
+            try connection.write(bytes, timeout: 1)
+          }
         }
-        if result <= 0 { break }
-        written += result
-      }
-
-      Darwin.close(sockfd)
+        try write(.complete(ok: !failed), to: connection)
+      } catch { Logger.ipc.debug("response write failed: \(error)") }
     }
   }
-}
-
-// NOTE: Runs the commands of a message from first on. A command returns false to stop silently. A failing command
-// writes its failure and the next command still runs, unless the failure stops the message (CommandError.stopsMessage):
-// handleMessage writes that one.
-//
-
-@WM func runCommands<Source: TokenSource>(
-  _ rsp: inout Response, _ message: inout Source, from first: Token,
-  _ run: (inout Response, inout Source, Token) throws(CommandError) -> Bool
-) throws(CommandError) {
-  var command = first
-  while command.isValid {
-    do {
-      if try run(&rsp, &message, command) == false { return }
-    } catch  where !error.stopsMessage {
-      rsp.fail(error)
-    }
-    command = message.next()
-  }
-}
-
-/// Runs the commands of a message and writes the failure that ends it.
-@WM func handleMessage(_ response: inout Response, _ message: inout Message) {
-  //
-  // NOTE: Commands and queries are user-driven and must not see a space list cached before a display change settled
-  // (the window server moves spaces between displays for a while after the event). Each message starts from a fresh
-  // list; within the message the cache still serves the repeated reads, e.g. one SkyLight call for all space indices
-  // of `query --spaces`.
-  //
-  DisplayManager.shared.invalidateSpaceCaches()
-
-  do {
-    try handleDomain(&response, &message)
-  } catch {
-    response.fail(error)
-  }
-}
-
-//
-// NOTE: The throw of an unknown domain is kept out of handleMessage's do block: a do block that throws directly infers
-// any Error for its catch, not CommandError.
-//
-
-@WM private func handleDomain(_ response: inout Response, _ message: inout Message)
-  throws(CommandError)
-{
-  let domain = message.next()
-
-  if domain.equals(Domain.config) {
-    try handleDomainConfig(&response, domain, &message)
-  } else if domain.equals(Domain.display) {
-    try handleDomainDisplay(&response, domain, &message)
-  } else if domain.equals(Domain.space) {
-    try handleDomainSpace(&response, domain, &message)
-  } else if domain.equals(Domain.window) {
-    try handleDomainWindow(&response, domain, &message)
-  } else if domain.equals(Domain.query) {
-    try handleDomainQuery(&response, domain, &message)
-  } else if domain.equals(Domain.rule) {
-    try handleDomainRule(&response, domain, &message)
-  } else if domain.equals(Domain.signal) {
-    try handleDomainSignal(&response, domain, &message)
-  } else if domain.equals(BatchMessage.domain) {
-    try handleDomainBatch(&response, &message)
-  } else if domain.equals(Domain.subscribe) {
-    try handleDomainSubscribe(&response, &message)
-  } else {
-    throw CommandError("unknown domain '\(domain)'\n")
-  }
-}
-
-//
-// NOTE: `batch` runs the commands of one message in order, each through handleMessage: the same domains, the same
-// failures, and the space caches invalidated before each command. Each command is read from its own tokens
-// (Message(commandTokens:)), so an empty argument is an argument. A failing command does not stop the batch. Its failure
-// lines are prefixed with its 1-based index in the batch, not a stdin line: blank and comment lines of the stdin are not
-// counted, and the client does not map the index back. The response has one failure byte, in front, when any command
-// failed, and no other: the client prints a failing response on stderr from its first byte, so the output of a failing
-// batch goes to stderr too. Output keeps the order of the commands.
-//
-
-/// Runs the commands of a batch message (`yabai -m batch`).
-@WM private func handleDomainBatch(_ response: inout Response, _ message: inout Message)
-  throws(CommandError)
-{
-  let commands: [[Token]]
-  do {
-    commands = try BatchMessage.decode(BatchMessage.terminated(message.rawPieces()))
-  } catch {
-    throw CommandError(ResponseText(stringLiteral: "\(error.message)\n"))
-  }
-
-  var output: [UInt8] = []
-  var failed = false
-
-  for (index, command) in commands.enumerated() {
-    var commandResponse = Response()
-    if command.first?.equals(BatchMessage.domain) == true {
-      commandResponse.fail(CommandError("batch: a batch cannot contain a batch\n"))
-    } else if command.first?.equals(Domain.subscribe) == true {
-      // NOTE: A subscription keeps its socket open, and a batch response cannot become a stream, so it is refused here.
-      commandResponse.fail(
-        CommandError("batch: subscribe keeps its client connected and cannot run in a batch\n"))
-    } else {
-      var commandMessage = Message(commandTokens: command)
-      handleMessage(&commandResponse, &commandMessage)
-    }
-
-    let bytes = commandResponse.bytes
-    guard let failure = bytes.firstIndex(of: Response.failureByte) else {
-      output += bytes
-      continue
-    }
-
-    // NOTE: Output before the failure byte is kept as it is. From the failure byte on, the chained commands of this
-    // command may write more failure bytes; they are dropped, and their texts are prefixed like the first one.
-    failed = true
-    output += bytes[..<failure]
-    let prefix = Array("\(index + 1): ".utf8)
-    for line in batchFailureLines(bytes[failure...].filter { $0 != Response.failureByte }) {
-      output += prefix + line + [UInt8(ascii: "\n")]
-    }
-  }
-
-  if failed {
-    response.bytes.append(Response.failureByte)
-  }
-  response.bytes += output
-}
-
-/// The lines of a failure text, without the newline that ends each one. A text ends with a newline, so it has no empty
-/// last line; an empty text is one empty line, so that its command still gets a prefixed line.
-private func batchFailureLines(_ text: [UInt8]) -> [[UInt8]] {
-  var lines = text.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false).map {
-    Array($0)
-  }
-  if lines.count > 1, lines.last?.isEmpty == true {
-    lines.removeLast()
-  }
-  return lines
 }

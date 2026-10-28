@@ -58,7 +58,7 @@ public enum ConfigCommand {
   }
 
   /// Parses the optional scope prefix, leaving the command token intact for byte-accurate failures.
-  public static func parseScope(_ first: Token, _ message: inout some TokenSource)
+  public static func parseScope(_ first: Token, _ message: inout Message)
     throws(CommandError) -> (SpaceSelector?, Token)
   {
     guard first.equals("--space") else { return (nil, first) }

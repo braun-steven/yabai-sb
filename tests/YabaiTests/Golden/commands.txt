@@ -239,8 +239,6 @@ space --pin
 space --pin 2
 display --foo
 display nolabel --foo
-batch 3 config window_gap x 3 config layout bogus
-batch 2 config debug_output 3 config window_gap x 2 batch 0
-batch x
 batch
-batch 3 config window_gap ''
+query --windows id --window 4242 extra
+query --tree --space recent extra

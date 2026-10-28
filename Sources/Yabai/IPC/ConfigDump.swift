@@ -86,14 +86,13 @@ import YabaiCore
   var signals: [SignalEntry] = []
   let table = EventSignals.shared.table
   for type in SignalType.allCases {
-    for signal in table.subscribers(type) {
-      guard let command = signal.command else { continue }
+    for signal in table.signals(for: type) {
       let path = "signal[\(signals.count)]"
       var keys = [
         ConfigKey(
           name: "event", negated: false, value: .string(type.name), keyPath: "\(path).event"),
         ConfigKey(
-          name: "action", negated: false, value: .string(command), keyPath: "\(path).action"),
+          name: "action", negated: false, value: .string(signal.command), keyPath: "\(path).action"),
       ]
       if let label = signal.label {
         keys.append(

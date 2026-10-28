@@ -141,7 +141,7 @@ extension EventHandler {
     ms.resolveFFMRequest(ifFor: window.id)
 
     if window.isEligible {
-      EventSignals.shared.push(.windowDestroyed, .window(window))
+      EventSignals.shared.push(.windowDestroyed(window))
     }
 
     wm.removeScratchpad(from: window, unfloat: false)
@@ -345,7 +345,7 @@ extension EventHandler {
 
     Logger.events.debug("application launched: \(process.nameAndPID)")
     wm.addApplication(application)
-    EventSignals.shared.push(.applicationLaunched, .application(application))
+    EventSignals.shared.push(.applicationLaunched(application))
     process.launchAttempts = 0
     process.launchGivenUp = false
 
@@ -358,7 +358,7 @@ extension EventHandler {
     for window in windows { window.insertionByRule = nil }
 
     for window in windows where window.isEligibleForManagement {
-      EventSignals.shared.push(.windowCreated, .window(window))
+      EventSignals.shared.push(.windowCreated(window))
     }
   }
 
@@ -377,7 +377,7 @@ extension EventHandler {
     }
 
     Logger.events.debug("application terminated: \(process.nameAndPID)")
-    EventSignals.shared.push(.applicationTerminated, .application(application))
+    EventSignals.shared.push(.applicationTerminated(application))
     wm.removeApplication(pid: application.pid)
 
     wm.applicationsToRefresh.remove(application)
@@ -479,11 +479,11 @@ extension EventHandler {
     }
 
     if let deactivatedApplication = wm.application(for: pm.frontPID) {
-      EventSignals.shared.push(.applicationDeactivated, .application(deactivatedApplication))
+      EventSignals.shared.push(.applicationDeactivated(deactivatedApplication))
     }
 
     Logger.events.debug("application front switched: \(process.nameAndPID)")
-    EventSignals.shared.push(.applicationActivated, .application(application))
+    EventSignals.shared.push(.applicationActivated(application))
     pm.switchEventTime = GetCurrentEventTime()
     pm.lastFrontPID = pm.frontPID
     pm.frontPID = process.pid
@@ -506,7 +506,7 @@ extension EventHandler {
     }
 
     windowDidReceiveFocus(window)
-    EventSignals.shared.push(.windowFocused, .window(window))
+    EventSignals.shared.push(.windowFocused(window))
     pendingWindowFocus.store(false, ordering: .releasing)
   }
 
@@ -524,7 +524,7 @@ extension EventHandler {
       Border.refreshSpace(of: window)
     }
 
-    EventSignals.shared.push(.applicationVisible, .application(application))
+    EventSignals.shared.push(.applicationVisible(application))
   }
 
   func applicationHidden(_ pid: pid_t) {
@@ -550,6 +550,6 @@ extension EventHandler {
       Border.refreshSpace(of: window)
     }
 
-    EventSignals.shared.push(.applicationHidden, .application(application))
+    EventSignals.shared.push(.applicationHidden(application))
   }
 }

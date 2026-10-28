@@ -1,5 +1,3 @@
-import Darwin
-
 //
 // NOTE: The signals of the daemon: the commands that a user runs on events (`yabai -m signal --add`). The event
 // handlers push a PendingSignal for each event that has signals, and after the handler the event loop runs the command
@@ -7,80 +5,46 @@ import Darwin
 // Sources/Yabai/EventSignal.swift.
 //
 
-/// `enum signal_type` (the former src/event_signal.h) with the names of `signal_type_str`, and the raw values of the
-/// C enum.
-public enum SignalType: Int, CaseIterable, Sendable {
-  case applicationLaunched = 1
-  case applicationTerminated
-  case applicationFrontSwitched
-  case applicationActivated
-  case applicationDeactivated
-  case applicationVisible
-  case applicationHidden
+/// Public event names, in the order used by signal indices and subscription acknowledgements.
+public enum SignalType: String, CaseIterable, Sendable {
+  case applicationLaunched = "application_launched"
+  case applicationTerminated = "application_terminated"
+  case applicationFrontSwitched = "application_front_switched"
+  case applicationActivated = "application_activated"
+  case applicationDeactivated = "application_deactivated"
+  case applicationVisible = "application_visible"
+  case applicationHidden = "application_hidden"
 
-  case windowCreated
-  case windowDestroyed
-  case windowFocused
-  case windowMoved
-  case windowResized
-  case windowMinimized
-  case windowDeminimized
-  case windowTitleChanged
+  case windowCreated = "window_created"
+  case windowDestroyed = "window_destroyed"
+  case windowFocused = "window_focused"
+  case windowMoved = "window_moved"
+  case windowResized = "window_resized"
+  case windowMinimized = "window_minimized"
+  case windowDeminimized = "window_deminimized"
+  case windowTitleChanged = "window_title_changed"
 
-  case spaceCreated
-  case spaceDestroyed
-  case spaceChanged
+  case spaceCreated = "space_created"
+  case spaceDestroyed = "space_destroyed"
+  case spaceChanged = "space_changed"
 
-  case displayAdded
-  case displayRemoved
-  case displayMoved
-  case displayResized
-  case displayChanged
+  case displayAdded = "display_added"
+  case displayRemoved = "display_removed"
+  case displayMoved = "display_moved"
+  case displayResized = "display_resized"
+  case displayChanged = "display_changed"
 
-  case missionControlEnter
-  case missionControlExit
+  case missionControlEnter = "mission_control_enter"
+  case missionControlExit = "mission_control_exit"
 
-  case dockDidChangePref
-  case dockDidRestart
+  case dockDidChangePref = "dock_did_change_pref"
+  case dockDidRestart = "dock_did_restart"
 
-  case menuBarHiddenChanged
-  case systemWoke
-  case configLoaded
+  case menuBarHiddenChanged = "menu_bar_hidden_changed"
+  case systemWoke = "system_woke"
+  case configLoaded = "config_loaded"
 
-  public var name: String {
-    switch self {
-    case .applicationLaunched: "application_launched"
-    case .applicationTerminated: "application_terminated"
-    case .applicationFrontSwitched: "application_front_switched"
-    case .applicationActivated: "application_activated"
-    case .applicationDeactivated: "application_deactivated"
-    case .applicationVisible: "application_visible"
-    case .applicationHidden: "application_hidden"
-    case .windowCreated: "window_created"
-    case .windowDestroyed: "window_destroyed"
-    case .windowFocused: "window_focused"
-    case .windowMoved: "window_moved"
-    case .windowResized: "window_resized"
-    case .windowMinimized: "window_minimized"
-    case .windowDeminimized: "window_deminimized"
-    case .windowTitleChanged: "window_title_changed"
-    case .spaceCreated: "space_created"
-    case .spaceDestroyed: "space_destroyed"
-    case .spaceChanged: "space_changed"
-    case .displayAdded: "display_added"
-    case .displayRemoved: "display_removed"
-    case .displayMoved: "display_moved"
-    case .displayResized: "display_resized"
-    case .displayChanged: "display_changed"
-    case .missionControlEnter: "mission_control_enter"
-    case .missionControlExit: "mission_control_exit"
-    case .dockDidChangePref: "dock_did_change_pref"
-    case .dockDidRestart: "dock_did_restart"
-    case .menuBarHiddenChanged: "menu_bar_hidden_changed"
-    case .systemWoke: "system_woke"
-    case .configLoaded: "config_loaded"
-    }
-  }
+  public var name: String { rawValue }
 
   /// The properties that the signals of this type can filter on. `signal --add` rejects any other filter.
   public var filters: SignalFilters {
@@ -98,10 +62,8 @@ public enum SignalType: Int, CaseIterable, Sendable {
     }
   }
 
-  /// `signal_type_from_string`
   public init?(name: Token) {
-    guard let type = SignalType.allCases.first(where: { name.equals($0.name) }) else { return nil }
-    self = type
+    self.init(rawValue: name.string)
   }
 }
 
@@ -118,7 +80,7 @@ public struct SignalFilters: OptionSet, Sendable {
   public static let active = SignalFilters(rawValue: 1 << 2)
 }
 
-/// `struct event_signal`: a signal pushed while an event is handled. It holds the environment variables of the
+/// A signal pushed while an event is handled. It holds the environment variables of the
 /// commands and the properties (app, title, active) that the signals of its type can filter on.
 public struct PendingSignal {
   public let type: SignalType
@@ -131,38 +93,26 @@ public struct PendingSignal {
     self.type = type
   }
 
-  /// `event_signal_add_arg`
   public mutating func addArgument(_ name: String, _ value: String) {
     assert(arguments.count < 4)
     arguments.append((name, value))
   }
 
-  private static func regexMismatch(_ pattern: RulePattern?, _ text: String?) -> Bool {
-    guard let pattern, let regex = pattern.regex else { return false }
-    let matched = regex.matches(text ?? "")
-    return matched == pattern.exclude
-  }
-
-  private func activeMismatch(_ signal: EventSignal) -> Bool {
-    signal.active.map { $0 != active } ?? false
-  }
-
-  //
-  // NOTE: Returns true when the signal does not apply to the event. Each event type only reports the
-  // properties (app, title, active) that its signals can filter on (SignalType.filters).
-  //
-
-  /// `event_signal_filter`
-  public func filters(_ signal: EventSignal) -> Bool {
+  /// Whether the signal applies, considering only the properties this event type reports.
+  public func matches(_ signal: EventSignal) -> Bool {
     let supported = type.filters
 
-    if supported.contains(.app) && PendingSignal.regexMismatch(signal.app, app) { return true }
-    if supported.contains(.title) && PendingSignal.regexMismatch(signal.title, title) {
-      return true
+    if supported.contains(.app), let pattern = signal.app, !pattern.admits(app ?? "") {
+      return false
     }
-    if supported.contains(.active) && activeMismatch(signal) { return true }
+    if supported.contains(.title), let pattern = signal.title, !pattern.admits(title ?? "") {
+      return false
+    }
+    if supported.contains(.active), let required = signal.active, required != active {
+      return false
+    }
 
-    return false
+    return true
   }
 }
 
@@ -193,31 +143,30 @@ public struct SignalInfo: Encodable, Equatable, Sendable {
   }
 }
 
-/// `g_signal_event`: the signals of each event type, in the order they were added. A signal's index counts across the
+/// The signals of each event type, in the order they were added. A signal's index counts across the
 /// event types, in the order of SignalType.
 public struct SignalTable: Equatable {
-  private var signals = [[EventSignal]](repeating: [], count: SignalType.allCases.count + 1)
+  private var entriesByType: [SignalType: [EventSignal]] = [:]
 
   public init() {}
 
-  public func subscribers(_ type: SignalType) -> [EventSignal] {
-    signals[type.rawValue]
+  public func signals(for type: SignalType) -> [EventSignal] {
+    entriesByType[type] ?? []
   }
 
-  /// `event_signal_add`: a signal replaces the signal with its label.
+  /// A signal replaces the signal with its label, appending to the destination event type.
   public mutating func add(_ signal: EventSignal, _ type: SignalType) {
     if let label = signal.label { remove(label: label) }
-    signals[type.rawValue].append(signal)
+    entriesByType[type, default: []].append(signal)
   }
 
-  /// `event_signal_remove_by_index`
   @discardableResult
   public mutating func remove(at index: Int) -> Bool {
     var signalIndex = 0
     for type in SignalType.allCases {
-      for j in signals[type.rawValue].indices {
+      for j in signals(for: type).indices {
         if signalIndex == index {
-          signals[type.rawValue].remove(at: j)
+          remove(at: j, from: type)
           return true
         }
         signalIndex += 1
@@ -227,12 +176,11 @@ public struct SignalTable: Equatable {
     return false
   }
 
-  /// `event_signal_remove`
   @discardableResult
   public mutating func remove(label: String) -> Bool {
     for type in SignalType.allCases {
-      if let j = signals[type.rawValue].firstIndex(where: { $0.label == label }) {
-        signals[type.rawValue].remove(at: j)
+      if let j = signals(for: type).firstIndex(where: { $0.label == label }) {
+        remove(at: j, from: type)
         return true
       }
     }
@@ -240,16 +188,21 @@ public struct SignalTable: Equatable {
     return false
   }
 
-  /// `event_signal_list`: the signals of `signal --list`, in the order of the event types.
+  private mutating func remove(at index: Int, from type: SignalType) {
+    entriesByType[type]?.remove(at: index)
+    if entriesByType[type]?.isEmpty == true { entriesByType[type] = nil }
+  }
+
+  /// The signals of `signal --list`, in the order of the event types.
   public func list() -> [SignalInfo] {
     var entries: [SignalInfo] = []
     for type in SignalType.allCases {
-      for signal in signals[type.rawValue] {
+      for signal in signals(for: type) {
         entries.append(
           SignalInfo(
             index: entries.count, label: signal.label ?? "", app: signal.app?.text ?? "",
             title: signal.title?.text ?? "", active: signal.active, event: type.name,
-            action: signal.command ?? ""))
+            action: signal.command))
       }
     }
 
@@ -285,7 +238,9 @@ public struct EventSignal: Equatable {
   public var title: RulePattern?
   /// Whether the application or window of the event must be active (focused); nil when it does not matter.
   public var active: Bool?
-  public var command: String?
+  public let command: String
 
-  public init() {}
+  public init(command: String) {
+    self.command = command
+  }
 }

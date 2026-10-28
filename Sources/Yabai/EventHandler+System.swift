@@ -15,7 +15,7 @@ extension EventHandler {
   private func missionControlShow(_ mode: MissionControlMode) {
     MissionControl.shared.mode = mode
     Border.setHiddenForMissionControl(true)
-    EventSignals.shared.push(.missionControlEnter, .missionControl(mode))
+    EventSignals.shared.push(.missionControlEnter(mode))
   }
 
   func missionControlShowAllWindows() {
@@ -52,7 +52,7 @@ extension EventHandler {
     EventLoop.post(
       .missionControlCheckForExit, after: .milliseconds(100), key: .missionControlCheck)
 
-    if entered { EventSignals.shared.push(.missionControlEnter, .missionControl(.show)) }
+    if entered { EventSignals.shared.push(.missionControlEnter(.show)) }
   }
 
   func missionControlCheckForExit() {
@@ -84,7 +84,7 @@ extension EventHandler {
     }
     Border.setHiddenForMissionControl(false)
 
-    EventSignals.shared.push(.missionControlExit, .missionControl(MissionControl.shared.mode))
+    EventSignals.shared.push(.missionControlExit(MissionControl.shared.mode))
     MissionControl.shared.mode = .inactive
   }
 
@@ -150,7 +150,7 @@ extension EventHandler {
 
   func configLoaded(file: String, changes: Int) {
     Logger.events.debug("config loaded: \(file), \(changes) changes")
-    EventSignals.shared.push(.configLoaded, .config(file: file, changes: changes))
+    EventSignals.shared.push(.configLoaded(file: file, changes: changes))
   }
 
   func scriptingAdditionLoaded(_ result: ScriptingAdditionLoadResult) {

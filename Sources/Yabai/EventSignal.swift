@@ -1,300 +1,230 @@
-import AppKit
 import Carbon
 import Darwin
 import Logging
 import YabaiCore
 
-//
-// NOTE: The signals of the daemon and the signals pushed while the current event is handled. The event handlers
-// push them with EventSignals.push, and the event loop runs their commands after each handler (EventSignals.flush).
-// The table, the filters and the json are in Sources/YabaiCore/EventSignal.swift.
-//
+/// An event and the object it describes. Models are read synchronously when the event is pushed;
+/// only the resulting value snapshot is retained until the handler's signals flush.
+enum SignalEvent {
+  case applicationLaunched(Application)
+  case applicationTerminated(Application)
+  case applicationFrontSwitched
+  case applicationActivated(Application)
+  case applicationDeactivated(Application)
+  case applicationVisible(Application)
+  case applicationHidden(Application)
+  case windowCreated(Window)
+  case windowDestroyed(Window)
+  case windowFocused(Window)
+  case windowMoved(Window)
+  case windowResized(Window)
+  case windowMinimized(Window)
+  case windowDeminimized(Window)
+  case windowTitleChanged(Window)
+  case spaceCreated(SpaceID)
+  case spaceDestroyed(SpaceID)
+  case spaceChanged
+  case displayAdded(DisplayID)
+  case displayRemoved(DisplayID)
+  case displayMoved(DisplayID)
+  case displayResized(DisplayID)
+  case displayChanged
+  case missionControlEnter(MissionControlMode)
+  case missionControlExit(MissionControlMode)
+  case dockDidChangePref
+  case dockDidRestart
+  case menuBarHiddenChanged
+  case systemWoke
+  case configLoaded(file: String, changes: Int)
 
-/// The object a signal describes, as the event handler pushes it.
-enum SignalSubject {
-  case none
-  case application(Application)
-  case window(Window)
-  case space(SpaceID)
-  case display(DisplayID)
-  case missionControl(MissionControlMode)
-  /// A config file was applied: its path, and the number of settings that the apply changed.
-  case config(file: String, changes: Int)
-
-  var application: Application? {
-    guard case .application(let value) = self else { return nil }
-    return value
+  var type: SignalType {
+    switch self {
+    case .applicationLaunched: .applicationLaunched
+    case .applicationTerminated: .applicationTerminated
+    case .applicationFrontSwitched: .applicationFrontSwitched
+    case .applicationActivated: .applicationActivated
+    case .applicationDeactivated: .applicationDeactivated
+    case .applicationVisible: .applicationVisible
+    case .applicationHidden: .applicationHidden
+    case .windowCreated: .windowCreated
+    case .windowDestroyed: .windowDestroyed
+    case .windowFocused: .windowFocused
+    case .windowMoved: .windowMoved
+    case .windowResized: .windowResized
+    case .windowMinimized: .windowMinimized
+    case .windowDeminimized: .windowDeminimized
+    case .windowTitleChanged: .windowTitleChanged
+    case .spaceCreated: .spaceCreated
+    case .spaceDestroyed: .spaceDestroyed
+    case .spaceChanged: .spaceChanged
+    case .displayAdded: .displayAdded
+    case .displayRemoved: .displayRemoved
+    case .displayMoved: .displayMoved
+    case .displayResized: .displayResized
+    case .displayChanged: .displayChanged
+    case .missionControlEnter: .missionControlEnter
+    case .missionControlExit: .missionControlExit
+    case .dockDidChangePref: .dockDidChangePref
+    case .dockDidRestart: .dockDidRestart
+    case .menuBarHiddenChanged: .menuBarHiddenChanged
+    case .systemWoke: .systemWoke
+    case .configLoaded: .configLoaded
+    }
   }
 
-  var window: Window? {
-    guard case .window(let value) = self else { return nil }
-    return value
+  @WM func snapshot() -> PendingSignal {
+    var result = PendingSignal(type)
+    switch self {
+    case .applicationLaunched(let application), .applicationActivated(let application),
+      .applicationDeactivated(let application), .applicationVisible(let application):
+      result.addArgument("YABAI_PROCESS_ID", "\(application.pid)")
+      result.app = application.name
+    case .applicationTerminated(let application):
+      let pm = ProcessManager.shared
+      result.addArgument("YABAI_PROCESS_ID", "\(application.pid)")
+      result.app = application.name
+      result.active = Self.terminationWasActive(
+        pid: application.pid, frontPID: pm.frontPID, lastFrontPID: pm.lastFrontPID,
+        elapsed: GetCurrentEventTime() - pm.switchEventTime)
+    case .applicationFrontSwitched:
+      let pm = ProcessManager.shared
+      result.addArgument("YABAI_PROCESS_ID", "\(pm.frontPID)")
+      result.addArgument("YABAI_RECENT_PROCESS_ID", "\(pm.lastFrontPID)")
+    case .applicationHidden(let application):
+      result.addArgument("YABAI_PROCESS_ID", "\(application.pid)")
+      result.app = application.name
+      result.active = ProcessManager.shared.frontPID == application.pid
+    case .windowCreated(let window), .windowFocused(let window), .windowDeminimized(let window):
+      result.describeWindow(window)
+    case .windowDestroyed(let window):
+      result.addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: window.id.rawValue))")
+      result.app = window.application.map { $0.name } ?? "<unknown>"
+      result.active = WindowManager.shared.focus.focused == window.id
+    case .windowMoved(let window), .windowResized(let window), .windowMinimized(let window),
+      .windowTitleChanged(let window):
+      result.describeWindow(window)
+      result.active = WindowManager.shared.focus.focused == window.id
+    case .spaceCreated(let sid):
+      result.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
+      result.addArgument("YABAI_SPACE_INDEX", "\(sid.missionControlIndex ?? 0)")
+    case .spaceDestroyed(let sid):
+      result.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
+    case .spaceChanged:
+      let sm = SpaceManager.shared
+      let sid = sm.currentSpaceID
+      let recentSid = sm.lastSpaceID
+      result.addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid?.rawValue ?? 0))")
+      result.addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid?.rawValue ?? 0))")
+      result.addArgument("YABAI_SPACE_INDEX", "\(sid.flatMap { $0.missionControlIndex } ?? 0)")
+      result.addArgument(
+        "YABAI_RECENT_SPACE_INDEX", "\(recentSid.flatMap { $0.missionControlIndex } ?? 0)")
+    case .displayAdded(let did), .displayMoved(let did), .displayResized(let did):
+      result.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
+      result.addArgument("YABAI_DISPLAY_INDEX", "\(did.arrangement ?? 0)")
+    case .displayRemoved(let did):
+      result.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
+    case .displayChanged:
+      let dm = DisplayManager.shared
+      let did = dm.currentDisplayID
+      let recentDid = dm.lastDisplayID
+      result.addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did?.rawValue ?? 0))")
+      result.addArgument(
+        "YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid?.rawValue ?? 0))")
+      result.addArgument("YABAI_DISPLAY_INDEX", "\(did.flatMap { $0.arrangement } ?? 0)")
+      result.addArgument(
+        "YABAI_RECENT_DISPLAY_INDEX", "\(recentDid.flatMap { $0.arrangement } ?? 0)")
+    case .missionControlEnter(let mode), .missionControlExit(let mode):
+      result.addArgument("YABAI_MISSION_CONTROL_MODE", mode.name)
+    case .configLoaded(let file, let changes):
+      result.addArgument("YABAI_CONFIG_FILE", file)
+      result.addArgument("YABAI_CONFIG_CHANGES", "\(changes)")
+    case .dockDidChangePref, .dockDidRestart, .menuBarHiddenChanged, .systemWoke:
+      break
+    }
+    return result
   }
 
-  var space: SpaceID? {
-    guard case .space(let value) = self else { return nil }
-    return value
-  }
-
-  var display: DisplayID? {
-    guard case .display(let value) = self else { return nil }
-    return value
-  }
-
-  var missionControlMode: MissionControlMode? {
-    guard case .missionControl(let value) = self else { return nil }
-    return value
-  }
-
-  var config: (file: String, changes: Int)? {
-    guard case .config(let file, let changes) = self else { return nil }
-    return (file, changes)
+  static func terminationWasActive(
+    pid: pid_t, frontPID: pid_t, lastFrontPID: pid_t, elapsed: Double
+  ) -> Bool {
+    // NOTE: macOS sends application_front_switched before application_terminated. A termination
+    // close to that switch describes the previous front process. The threshold is triple the
+    // average observed interval, to distinguish it from a later user-initiated termination.
+    elapsed >= Double(Float(0.05)) ? frontPID == pid : lastFrontPID == pid
   }
 }
 
-/// The signals of the daemon and the signals pushed while the current event is handled.
+extension PendingSignal {
+  @WM fileprivate mutating func describeWindow(_ window: Window) {
+    addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: window.id.rawValue))")
+    app = window.application.name
+    title = window.ax.title ?? ""
+  }
+}
+
+/// Captures events while a handler runs, then dispatches their shell actions and publications.
 @WM final class EventSignals {
   static let shared = EventSignals()
 
   private let runCommand: @WM (String, [(name: String, value: String)]) -> Void
   private let publish: @WM (SignalType, [(name: String, value: String)]) -> Void
+  private let subscriberInterest: @WM (SignalType) -> Bool
 
-  init() {
-    runCommand = { command, arguments in Self.spawn(command, arguments) }
-    publish = { type, arguments in EventSubscribers.shared.publish(type, arguments: arguments) }
+  convenience init() {
+    self.init(
+      runCommand: { command, arguments in Self.spawn(command, arguments) },
+      publish: { type, arguments in EventSubscribers.shared.publish(type, arguments: arguments) },
+      subscriberInterest: { EventSubscribers.shared.wants($0) })
   }
 
-  /// Injects the command and subscriber boundaries so dispatch can be tested without shell processes or sockets.
+  /// Injects both subscription boundaries, so capture and dispatch can run without global registries.
   init(
     runCommand: @escaping @WM (String, [(name: String, value: String)]) -> Void,
-    publish: @escaping @WM (SignalType, [(name: String, value: String)]) -> Void
+    publish: @escaping @WM (SignalType, [(name: String, value: String)]) -> Void,
+    subscriberInterest: @escaping @WM (SignalType) -> Bool
   ) {
     self.runCommand = runCommand
     self.publish = publish
+    self.subscriberInterest = subscriberInterest
   }
 
-  /// The signals of each event type, in the order they were added.
   var table = SignalTable()
-
-  /// The signals pushed while the current event is handled.
   private(set) var pending: [PendingSignal] = []
 
-  /// Drops the pushed signals without running them (the tests reset them between cases).
+  /// Drops captured events without running them, for tests resetting daemon state.
   func discardPending() { pending.removeAll() }
 
-  /// Stores a signal of the event that is handled, with the values its commands get, when the event type has
-  /// signals. The subject is the object of the event (an application, a window, a space or display id, or the
-  /// Mission Control mode).
-  func push(_ type: SignalType, _ subject: SignalSubject = .none) {
-    if table.subscribers(type).isEmpty && !EventSubscribers.shared.wants(type) { return }
-
-    var es = PendingSignal(type)
-
-    switch type {
-    case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible,
-      .applicationTerminated, .applicationFrontSwitched, .applicationHidden:
-      es.describeApplication(subject)
-    case .windowCreated, .windowFocused, .windowDeminimized, .windowDestroyed,
-      .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
-      es.describeWindow(subject)
-    case .spaceCreated, .spaceDestroyed, .spaceChanged:
-      es.describeSpace(subject)
-    case .displayAdded, .displayMoved, .displayResized, .displayRemoved, .displayChanged:
-      es.describeDisplay(subject)
-    case .missionControlEnter, .missionControlExit:
-      es.describeMissionControl(subject)
-    case .configLoaded:
-      es.describeConfig(subject)
-    default:
-      break
-    }
-
-    pending.append(es)
+  func push(_ event: SignalEvent) {
+    guard !table.signals(for: event.type).isEmpty || subscriberInterest(event.type) else { return }
+    pending.append(event.snapshot())
   }
 
-  /// Runs the commands of the signals pushed while the event was handled.
   func flush() {
-    if pending.isEmpty { return }
-
+    guard !pending.isEmpty else { return }
     let batch = pending
     pending.removeAll(keepingCapacity: true)
 
-    for es in batch {
-      let subscribers = table.subscribers(es.type)
-      Logger.signals.debug("transmitting \(es.type.name) to \(subscribers.count) subscriber(s)")
-
-      for signal in subscribers where !es.filters(signal) {
-        runCommand(signal.command ?? "", es.arguments)
+    for snapshot in batch {
+      let signals = table.signals(for: snapshot.type)
+      Logger.signals.debug("transmitting \(snapshot.type.name) to \(signals.count) signal(s)")
+      for signal in signals where snapshot.matches(signal) {
+        runCommand(signal.command, snapshot.arguments)
       }
-
-      // NOTE: Event subscribers get every event of their types; the app and title filters of the signals do not apply.
-      publish(es.type, es.arguments)
+      // NOTE: Socket subscribers receive every event of their types, independently of signal filters.
+      publish(snapshot.type, snapshot.arguments)
     }
   }
 
-  //
-  // NOTE: Swift cannot call fork: it is unavailable, and only async-signal-safe code may run between fork and exec in
-  // a multithreaded process, which Swift code is not. So the filters run in the daemon, and posix_spawn starts each
-  // command directly; env sets the variables of the event and runs the command.
-  //
-
   private static func spawn(_ command: String, _ arguments: [(name: String, value: String)]) {
+    // NOTE: Swift cannot call fork, and only async-signal-safe code may run between fork and exec.
+    // Filter in the daemon, then posix_spawn env to set the event variables and execute the shell.
     let argv =
       ["/usr/bin/env"] + arguments.map { "\($0.name)=\($0.value)" } + ["sh", "-c", command]
     var cArguments: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) } + [nil]
     defer {
       for argument in cArguments { free(argument) }
     }
-
     var pid: pid_t = 0
     _ = posix_spawn(&pid, cArguments[0], nil, nil, &cArguments, environ)
-  }
-}
-
-extension PendingSignal {
-  @WM fileprivate mutating func describeApplication(_ subject: SignalSubject) {
-    let pm = ProcessManager.shared
-
-    switch type {
-    case .applicationLaunched, .applicationActivated, .applicationDeactivated, .applicationVisible:
-      let application = subject.application!
-
-      addArgument("YABAI_PROCESS_ID", "\(application.pid)")
-
-      app = application.name
-    case .applicationTerminated:
-      let application = subject.application!
-
-      addArgument("YABAI_PROCESS_ID", "\(application.pid)")
-
-      app = application.name
-
-      //
-      // NOTE(asmvik): We always receive an application_front_switched event *before* an application_terminated
-      // event. We need to know the difference between a front_switched + application_terminated sequence and a regular
-      // application switch followed by a user-initiated termination of the previously focused application. The system
-      // events are triggered within an interval that appear to be impossible to match even with a user automated sequence.
-      // The dt threshold below is triple the average interval computed, to allow for some leeway.
-      //
-
-      let dt = GetCurrentEventTime() - pm.switchEventTime
-      if dt >= Double(Float(0.05)) {
-        active = pm.frontPID == application.pid
-      } else {
-        active = pm.lastFrontPID == application.pid
-      }
-    case .applicationFrontSwitched:
-      addArgument("YABAI_PROCESS_ID", "\(pm.frontPID)")
-      addArgument("YABAI_RECENT_PROCESS_ID", "\(pm.lastFrontPID)")
-    case .applicationHidden:
-      let application = subject.application!
-
-      addArgument("YABAI_PROCESS_ID", "\(application.pid)")
-
-      app = application.name
-      active = pm.frontPID == application.pid
-    default:
-      break
-    }
-  }
-
-  @WM fileprivate mutating func describeWindow(_ subject: SignalSubject) {
-    let target = subject.window!
-    let focusedWindowID = WindowManager.shared.focus.focused
-
-    switch type {
-    case .windowCreated, .windowFocused, .windowDeminimized:
-      addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
-
-      app = target.application.name
-      title = target.ax.title ?? ""
-    case .windowDestroyed:
-      addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
-
-      app = target.application.map { $0.name } ?? "<unknown>"
-      active = focusedWindowID == target.id
-    case .windowMoved, .windowResized, .windowMinimized, .windowTitleChanged:
-      addArgument("YABAI_WINDOW_ID", "\(Int32(bitPattern: target.id.rawValue))")
-
-      app = target.application.name
-      title = target.ax.title ?? ""
-      active = focusedWindowID == target.id
-    default:
-      break
-    }
-  }
-
-  /// Describes a space signal: the id of the space, and for a space change the current and the recent space.
-  @WM mutating func describeSpace(_ subject: SignalSubject) {
-    switch type {
-    case .spaceCreated:
-      let sid = subject.space!
-      let index = sid.missionControlIndex ?? 0
-
-      addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
-      addArgument("YABAI_SPACE_INDEX", "\(index)")
-    case .spaceDestroyed:
-      let sid = subject.space!
-
-      addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid.rawValue))")
-    case .spaceChanged:
-      let sm = SpaceManager.shared
-      let sid = sm.currentSpaceID
-      let recentSid = sm.lastSpaceID
-
-      let index = sid.flatMap { $0.missionControlIndex } ?? 0
-      let recentIndex = recentSid.flatMap { $0.missionControlIndex } ?? 0
-
-      addArgument("YABAI_SPACE_ID", "\(Int64(bitPattern: sid?.rawValue ?? 0))")
-      addArgument("YABAI_RECENT_SPACE_ID", "\(Int64(bitPattern: recentSid?.rawValue ?? 0))")
-
-      addArgument("YABAI_SPACE_INDEX", "\(index)")
-      addArgument("YABAI_RECENT_SPACE_INDEX", "\(recentIndex)")
-    default:
-      break
-    }
-  }
-
-  /// Describes a display signal: the id of the display, and for a display change the current and the recent display.
-  @WM mutating func describeDisplay(_ subject: SignalSubject) {
-    switch type {
-    case .displayAdded, .displayMoved, .displayResized:
-      let did = subject.display!
-      let index = did.arrangement ?? 0
-
-      addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
-      addArgument("YABAI_DISPLAY_INDEX", "\(index)")
-    case .displayRemoved:
-      let did = subject.display!
-
-      addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did.rawValue))")
-    case .displayChanged:
-      let dm = DisplayManager.shared
-      let did = dm.currentDisplayID
-      let recentDid = dm.lastDisplayID
-
-      let index = did.flatMap { $0.arrangement } ?? 0
-      let recentIndex = recentDid.flatMap { $0.arrangement } ?? 0
-
-      addArgument("YABAI_DISPLAY_ID", "\(Int32(bitPattern: did?.rawValue ?? 0))")
-      addArgument("YABAI_RECENT_DISPLAY_ID", "\(Int32(bitPattern: recentDid?.rawValue ?? 0))")
-
-      addArgument("YABAI_DISPLAY_INDEX", "\(index)")
-      addArgument("YABAI_RECENT_DISPLAY_INDEX", "\(recentIndex)")
-    default:
-      break
-    }
-  }
-
-  fileprivate mutating func describeMissionControl(_ subject: SignalSubject) {
-    let mode = subject.missionControlMode!
-    addArgument("YABAI_MISSION_CONTROL_MODE", mode.name)
-  }
-
-  /// Describes a config_loaded signal: the path of the file that was applied, and the number of changed settings.
-  fileprivate mutating func describeConfig(_ subject: SignalSubject) {
-    let config = subject.config!
-    addArgument("YABAI_CONFIG_FILE", config.file)
-    addArgument("YABAI_CONFIG_CHANGES", "\(config.changes)")
   }
 }

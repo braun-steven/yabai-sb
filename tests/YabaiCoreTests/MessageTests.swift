@@ -963,27 +963,28 @@ func signalFiltersMustBeReportedByTheEvent(event: String, filters: String, expec
     thrownText { () throws(CommandError) in _ = try SignalCommand.parse(&message) } == expected)
 }
 
-private func parseSignalText(_ text: String) -> (Bool, EventSignal, Int?, String) {
-  var signal = EventSignal()
-  var event: Int?
-  var message = Message(text)
+private func parseSignalText(_ text: String) -> (Bool, EventSignal?, SignalType?, String) {
+  var message = Message("--add\0\(text)")
   do {
-    try parseSignal(&message, &signal, &event) { ["window_focused": 7][$0.string] }
+    guard case .add(let signal, let event) = try SignalCommand.parse(&message) else {
+      Issue.record("expected a signal addition")
+      return (false, nil, nil, "")
+    }
     return (true, signal, event, "")
   } catch {
-    return (false, signal, event, error.description)
+    return (false, nil, nil, error.description)
   }
 }
 
 @Test("message_signal_parse") func messageSignalParse() {
   var (result, signal, event, response) = parseSignalText(
-    "event=window_focused\0app!=^Finder$\0action=echo hi\0active=yes\0")
+    "event=window_moved\0app!=^Finder$\0action=echo hi\0active=yes\0")
   #expect(result == true)
-  #expect(event == 7)
-  #expect(signal.app?.regex != nil)
-  #expect(signal.app?.exclude == true)
-  #expect(signal.active == true)
-  #expect(signal.command == "echo hi")
+  #expect(event == .windowMoved)
+  #expect(signal?.app?.regex != nil)
+  #expect(signal?.app?.exclude == true)
+  #expect(signal?.active == true)
+  #expect(signal?.command == "echo hi")
   #expect(response == "")
 
   (result, _, _, response) = parseSignalText("event=nope\0action=x\0")
@@ -1006,6 +1007,22 @@ private let signalExactFailures: [(String, String)] = [
   ("event=window_focused\0action=x\0colour=red\0", "unknown key 'colour'\n"),
   ("event=window_focused\0action=x\0bogus\0", "invalid key-value pair 'bogus'\n"),
   ("event=window_focused\0action=x\0label=\0", "invalid key-value pair 'label='\n"),
+  (
+    "event=window_focused\0action=\0",
+    "invalid key-value pair 'action='\nmissing required key-value pair 'action=..'\n"
+  ),
+  (
+    "event=\0action=x\0",
+    "invalid key-value pair 'event='\nmissing required key-value pair 'event=..'\n"
+  ),
+  (
+    "event=bogus\0event=window_moved\0action=x\0",
+    "invalid value 'bogus' for key 'event'\n"
+  ),
+  (
+    "event=window_moved\0action=x\0active=maybe\0active=yes\0",
+    "invalid value 'maybe' for key 'active'\n"
+  ),
   ("event=bogus\0action=x\0", "invalid value 'bogus' for key 'event'\n"),
   ("action=x\0", "missing required key-value pair 'event=..'\n"),
   ("event=window_focused\0", "missing required key-value pair 'action=..'\n"),
@@ -1032,6 +1049,22 @@ func signalParseFailureText(_ text: String, _ expected: String) {
   let (result, _, _, response) = parseSignalText(text)
   #expect(result == false)
   #expect(response == expected)
+}
+
+@Test func signalRepeatedFieldsKeepTheirLastValues() throws(CommandError) {
+  var message = Message(
+    "--add\0event=system_woke\0event=window_moved\0action=first\0action=second\0"
+      + "app=A\0app!=B\0active=yes\0active=no\0label=a\0label=b\0")
+  guard case .add(let signal, let event) = try SignalCommand.parse(&message) else {
+    Issue.record("expected a signal addition")
+    return
+  }
+  #expect(event == .windowMoved)
+  #expect(signal.command == "second")
+  #expect(signal.label == "b")
+  #expect(signal.app?.text == "B")
+  #expect(signal.app?.exclude == true)
+  #expect(signal.active == false)
 }
 
 private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {

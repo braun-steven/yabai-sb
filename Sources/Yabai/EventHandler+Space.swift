@@ -18,7 +18,7 @@ extension EventHandler {
     if type == 0 || type == 4 {
       Logger.events.debug("space created: \(Int64(bitPattern: sid.rawValue)), \(type)")
       SpaceManager.shared.view(for: sid)
-      EventSignals.shared.push(.spaceCreated, .space(sid))
+      EventSignals.shared.push(.spaceCreated(sid))
       SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
     }
   }
@@ -32,7 +32,7 @@ extension EventHandler {
       _ = sm.labels.remove(id: sid)
       sm.views[sid] = nil
       view.destroy()
-      EventSignals.shared.push(.spaceDestroyed, .space(sid))
+      EventSignals.shared.push(.spaceDestroyed(sid))
       sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
     }
   }
@@ -147,7 +147,7 @@ extension EventHandler {
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
-    EventSignals.shared.push(.displayAdded, .display(did))
+    EventSignals.shared.push(.displayAdded(did))
   }
 
   func displayRemoved(_ did: DisplayID) {
@@ -158,7 +158,7 @@ extension EventHandler {
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
-    EventSignals.shared.push(.displayRemoved, .display(did))
+    EventSignals.shared.push(.displayRemoved(did))
   }
 
   func displayMoved(_ did: DisplayID) {
@@ -168,7 +168,7 @@ extension EventHandler {
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
-    EventSignals.shared.push(.displayMoved, .display(did))
+    EventSignals.shared.push(.displayMoved(did))
   }
 
   func displayResized(_ did: DisplayID) {
@@ -176,6 +176,6 @@ extension EventHandler {
     Logger.events.debug("display resized: \(did)")
     SpaceManager.shared.markSpacesInvalid(on: did)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
-    EventSignals.shared.push(.displayResized, .display(did))
+    EventSignals.shared.push(.displayResized(did))
   }
 }

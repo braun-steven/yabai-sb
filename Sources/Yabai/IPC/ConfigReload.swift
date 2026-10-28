@@ -52,7 +52,7 @@ enum ConfigReloadOutcome {
   // NOTE: The config_loaded signal of the file is pushed here, once per applied file (a failed check pushes nothing). The
   // pushed signals run when the event loop flushes after the current event: the watch's .configFileChanged, or the
   // .daemonMessage of `config --reload` (MessageLoop.swift).
-  EventSignals.shared.push(.configLoaded, .config(file: path, changes: result.changes))
+  EventSignals.shared.push(.configLoaded(file: path, changes: result.changes))
   return .reloaded(path: path, result: result)
 }
 

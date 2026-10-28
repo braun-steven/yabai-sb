@@ -1,5 +1,7 @@
 import Darwin
+import Dispatch
 import Foundation
+import Synchronization
 import Testing
 import YabaiCore
 import YabaiTestSupport
@@ -65,12 +67,18 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
   return true
 }
 
+private final class SubscriberEndRecorder: Sendable {
+  private let storage = Mutex<[Int]>([])
+  var ids: [Int] { storage.withLock { $0 } }
+  func record(_ id: Int) { storage.withLock { $0.append(id) } }
+}
+
 @Suite struct EventSubscriberTests {
   @Test @WM func publishWritesOneLinePerEventInOrder() throws {
     let (fd, peer) = try subscriberSocketPair()
     defer { close(peer) }
 
-    let subscribers = EventSubscribers(backlogLimit: 1 << 20)
+    let subscribers = EventSubscribers(onEnded: { _ in })
     subscribers.add(connection: try IPCConnection(taking: fd), types: [])
 
     var expected = ""
@@ -92,7 +100,7 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
       close(allPeer)
     }
 
-    let subscribers = EventSubscribers(backlogLimit: 1 << 20)
+    let subscribers = EventSubscribers(onEnded: { _ in })
     subscribers.add(connection: try IPCConnection(taking: spaceFD), types: [.spaceChanged])
     subscribers.add(connection: try IPCConnection(taking: allFD), types: [])
 
@@ -111,16 +119,19 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
   /// A client whose peer closed gets EPIPE, not SIGPIPE: the subscriber ends and the registry removes it.
   @Test @WM func closedPeerEndsAndIsRemoved() throws {
     let (fd, peer) = try subscriberSocketPair()
-    let subscribers = EventSubscribers(backlogLimit: 1 << 20)
+    let recorder = SubscriberEndRecorder()
+    let subscribers = EventSubscribers(onEnded: { recorder.record($0) })
     let id = subscribers.add(connection: try IPCConnection(taking: fd), types: [])
     close(peer)
 
     subscribers.publish(.windowFocused, arguments: [("YABAI_WINDOW_ID", "42")])
     #expect(waitUntil { subscribers.subscribers.first { $0.id == id }?.isEnded == true })
     #expect(!subscribers.wants(.windowFocused))
+    #expect(waitUntil { recorder.ids == [id] })
 
     subscribers.remove(id)
     #expect(subscribers.subscribers.isEmpty)
+    #expect(recorder.ids == [id])
   }
 
   /// A client that never reads: once its backlog passes the limit, the subscriber is ended without @WM waiting for the
@@ -130,7 +141,8 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
     let (fd, peer) = try subscriberSocketPair()
     defer { close(peer) }
 
-    let subscribers = EventSubscribers(backlogLimit: 4096)
+    let recorder = SubscriberEndRecorder()
+    let subscribers = EventSubscribers(backlogLimit: 4096, onEnded: { recorder.record($0) })
     let id = subscribers.add(connection: try IPCConnection(taking: fd), types: [])
     let subscriber = subscribers.subscribers.first { $0.id == id }
 
@@ -157,6 +169,37 @@ private func waitUntil(seconds: Int = 10, _ condition: () -> Bool) -> Bool {
     #expect(reachedEnd)
 
     subscribers.remove(id)
+    #expect(waitUntil { recorder.ids == [id] })
+  }
+
+  @Test @WM func concurrentEndNotifiesOnlyItsOwningRegistryOnce() throws {
+    let (firstFD, firstPeer) = try subscriberSocketPair()
+    let (secondFD, secondPeer) = try subscriberSocketPair()
+    defer {
+      close(firstPeer)
+      close(secondPeer)
+    }
+    let firstRecorder = SubscriberEndRecorder()
+    let secondRecorder = SubscriberEndRecorder()
+    let first = EventSubscribers(onEnded: { firstRecorder.record($0) })
+    let second = EventSubscribers(onEnded: { secondRecorder.record($0) })
+    defer {
+      first.removeAll()
+      second.removeAll()
+    }
+    let firstID = first.add(connection: try IPCConnection(taking: firstFD), types: [])
+    let secondID = second.add(connection: try IPCConnection(taking: secondFD), types: [])
+    #expect(firstID == secondID)
+    let subscriber = try #require(first.subscribers.first)
+    DispatchQueue.concurrentPerform(iterations: 32) { _ in subscriber.end() }
+    #expect(firstRecorder.ids == [firstID])
+    #expect(secondRecorder.ids.isEmpty)
+    #expect(!first.wants(.windowFocused))
+    #expect(second.wants(.windowFocused))
+    first.remove(firstID)
+    #expect(firstRecorder.ids == [firstID])
+    second.remove(secondID)
+    #expect(secondRecorder.ids == [secondID])
   }
 }
 
@@ -172,10 +215,10 @@ extension DaemonState {
       defer { EventSubscribers.shared.remove(id) }
 
       // NOTE: No subscriber wants displayRemoved, so its push records nothing.
-      EventSignals.shared.push(.displayRemoved, .display(DisplayID(0xFFFF_0000)))
+      EventSignals.shared.push(.displayRemoved(DisplayID(0xFFFF_0000)))
       #expect(EventSignals.shared.pending.isEmpty)
 
-      EventSignals.shared.push(.spaceDestroyed, .space(SpaceID(0xFFFF_0000)))
+      EventSignals.shared.push(.spaceDestroyed(SpaceID(0xFFFF_0000)))
       #expect(EventSignals.shared.pending.count == 1)
       EventSignals.shared.flush()
       #expect(EventSignals.shared.pending.isEmpty)

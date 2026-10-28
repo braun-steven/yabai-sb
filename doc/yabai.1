@@ -794,31 +794,9 @@ Rotate the tree of the selected space.
 .sp
 \fB\-\-undo\fP
 .RS 4
-Restore the tree of the selected space as it was before its last change by a tree command: \fB\-\-balance\fP, \fB\-\-equalize\fP, \fB\-\-mirror\fP, \fB\-\-rotate\fP, \fB\-\-restore\-layout\fP, or a window\(cqs \fB\-\-warp\fP, \fB\-\-swap\fP, \fB\-\-stack\fP, \fB\-\-layout\fP, \fB\-\-split\fP, \fB\-\-ratio\fP, \fB\-\-resize\fP or \fB\-\-toggle split\fP that changed the tree.
+Restore the tree of the selected space as it was before its last change by a tree command: \fB\-\-balance\fP, \fB\-\-equalize\fP, \fB\-\-mirror\fP, \fB\-\-rotate\fP, or a window\(cqs \fB\-\-warp\fP, \fB\-\-swap\fP, \fB\-\-stack\fP, \fB\-\-layout\fP, \fB\-\-split\fP, \fB\-\-ratio\fP, \fB\-\-resize\fP or \fB\-\-toggle split\fP that changed the tree.
 .br
 The last 10 trees of each space are kept. Undo fails, and drops the kept trees of the space, when the windows of the space changed since it was recorded. Moving windows to another space or display and \fB\-\-insert\fP are not undone.
-.RE
-.sp
-\fB\-\-save\-layout\fP \fI<NAME>\fP
-.RS 4
-Write the tree of the selected space to \f(CR<NAME>.json\fP in \f(CR$XDG_CONFIG_HOME/yabai/layouts\fP, or \f(CR~/.config/yabai/layouts\fP when \f(CRXDG_CONFIG_HOME\fP is unset or empty, and print the path of the file.
-.br
-NAME may contain only the characters \f(CRA\-Z\fP, \f(CRa\-z\fP, \f(CR0\-9\fP, \f(CR.\fP, \f(CR_\fP and \f(CR\-\fP, and may not be \f(CR.\fP or \f(CR..\fP. The directory is created when it is missing, and a file of the same name is replaced.
-.br
-The file keeps the containers, shares, zoom and focus order of the tree, but not the selection. Each window is saved by its application (bundle id and name) and by its title, role and subrole at save time, not by its id. A window that yabai does not know is saved without that matcher. The file is JSON, version 1.
-.RE
-.sp
-\fB\-\-restore\-layout\fP \fI<NAME>\fP
-.RS 4
-Rebuild the tree of the selected space from \f(CR<NAME>.json\fP (see \fB\-\-save\-layout\fP), using the windows that are on the space now, and print \f(CRrestored <n> of <m> windows\fP: <m> is the number of windows the file names, <n> the number of them that are on the space. Without a match the tree stays as it is and the command fails. The space must be in tree layout.
-.br
-NAME is checked like \fB\-\-save\-layout\fP does. A file that cannot be read, or is not a version 1 layout (with the reason and the path), fails before the tree is touched.
-.br
-Each window of the file is matched with a window of the space of the same application (the bundle id, or the application name when one of them has none). The best match is taken first: an exact title, then the longest common title prefix, then the same role and subrole; each window is used once. A window of the file without a match is dropped, and a container left empty or with one child collapses, so the matched windows fill the layout with their shares normalized.
-.br
-The windows of the space that match nothing are added after the focused window, in tree order, without taking focus. Version 1 has no placeholders: a window that opens after the restore is not placed by the file, it gets the usual place of a new window.
-.br
-The restore is a tree command, so \fB\-\-undo\fP brings back the tree from before it.
 .RE
 .sp
 \fB\-\-padding\fP \fIabs|rel:<top>:<bottom>:<left>:<right>\fP

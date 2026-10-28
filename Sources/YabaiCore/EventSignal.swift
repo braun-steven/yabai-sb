@@ -279,3 +279,15 @@ public func eventJSONLine(type: String, arguments: [(name: String, value: String
   guard let json = try? JSON.encode(object) else { return [] }
   return json + [UInt8(ascii: "\n")]
 }
+
+/// The filters and action of a signal.
+public struct EventSignal: Equatable {
+  public var label: String?
+  public var app: RulePattern?
+  public var title: RulePattern?
+  /// Whether the application or window of the event must be active (focused); nil when it does not matter.
+  public var active: Bool?
+  public var command: String?
+
+  public init() {}
+}

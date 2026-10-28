@@ -139,7 +139,7 @@ import YabaiCore
   }
 
   let effects = rule.effects
-  let follow = effects.flags.contains(.followSpace)
+  let follow = effects.followSpace
   func selector(_ index: Int) -> ConfigValue {
     follow ? .string("^\(index)") : .integer(index)
   }
@@ -163,7 +163,7 @@ import YabaiCore
   addBool("sticky", effects.sticky)
   addBool("mouse_follows_focus", effects.mouseFollowsFocus)
   addBool("native-fullscreen", effects.fullscreen)
-  if effects.flags.contains(.layer) { add("sub-layer", .string(effects.layer.rawValue)) }
+  if let layer = effects.layer { add("sub-layer", .string(layer.rawValue)) }
   if let scratchpad = effects.scratchpad { add("scratchpad", .string(scratchpad)) }
 
   return RuleEntry(keys: keys, oneShot: rule.oneShot, keyPath: path)

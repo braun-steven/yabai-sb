@@ -65,7 +65,7 @@ private struct RunningState: Equatable {
     options: ConfigName.allCases.map { name in
       "\(name.rawValue)=\(printedConfigValue(["config", name.rawValue]) ?? "?")"
     },
-    rules: WindowManager.shared.rules,
+    rules: WindowManager.shared.rules.definitions,
     signals: EventSignals.shared.table)
 }
 
@@ -207,6 +207,31 @@ extension DaemonState {
       WindowManager.shared.tabBarFont = nil
       #expect(reconcileAll(document("[config]\ntab_bar_font = \"system:12\"\n")) == 0)
       #expect(WindowManager.shared.tabBarFont != nil)
+    }
+
+    @Test func duplicateRuleLabelsKeepTheirOriginalPrecedenceOnReload() {
+      DaemonFixture.reset()
+      let text = """
+        [[rule]]
+        label = "a"
+        app = "^First$"
+        [[rule]]
+        label = "b"
+        app = "^Second$"
+        [[rule]]
+        label = "a"
+        app = "^Replacement$"
+        """
+      let file = document(text)
+      #expect(reconcileAll(file) == 0)
+      #expect(WindowManager.shared.rules.map(\.label) == ["a", "b"])
+      #expect(WindowManager.shared.rules.map { $0.app?.text } == ["^Replacement$", "^Second$"])
+      _ = Headless.drain()
+
+      #expect(Golden.run("config --overrides") == [])
+      #expect(reconcileAll(file) == 0)
+      #expect(Headless.drain().configEntries.isEmpty)
+      #expect(Golden.run("config --overrides") == [])
     }
 
     @Test func aReorderedRuleListReplacesTheList() {

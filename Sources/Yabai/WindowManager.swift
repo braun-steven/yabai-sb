@@ -77,7 +77,7 @@ extension WindowLayer {
   // NOTE: The focused window, the window before it, a pending focus request and the lost focus events live in
   // FocusState (FocusState.swift).
   var focus = FocusState()
-  var rules: [Rule] = []
+  var rules = RuleSet()
   /// The config file given with -c, or nil. Set once at startup; `config --check` without a file checks it.
   var explicitConfigFile: String?
   var applicationsToRefresh: OrderedSet<Application> = []

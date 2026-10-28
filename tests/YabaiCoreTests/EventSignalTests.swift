@@ -25,11 +25,11 @@ private func filters(
   // NOTE: events without an application are never filtered
   #expect(filters(.spaceChanged, nil, nil, false, signal) == false)
 
-  signal.app?.exclude = true
+  signal.app = RulePattern(Token("^Safari$"), exclude: true)
   #expect(filters(.windowFocused, "Safari", "x", false, signal) == true)
   #expect(filters(.windowFocused, "Mail", "x", false, signal) == false)
 
-  signal.app?.exclude = false
+  signal.app = RulePattern(Token("^Safari$"), exclude: false)
   signal.active = true
   #expect(filters(.windowMoved, "Safari", "x", true, signal) == false)
   #expect(filters(.windowMoved, "Safari", "x", false, signal) == true)

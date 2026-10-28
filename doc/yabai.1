@@ -1267,6 +1267,10 @@ If multiple rules specify a value for the same property, the latter rule will en
 .br
 If the display and space properties are both set, the space property will take precedence.
 .br
+Automatic application and every form of \fBrule \-\-apply\fP use the same two rounds. The first decides management; the second applies the other effects to eligible root windows.
+.br
+In the management round, a rule with \fBmanage=on\fP requires a standard window unless its \fBrole\fP and \fBsubrole\fP filters explicitly admit another kind. Other effects have the same restriction unless the window is already managed by a rule. Each omitted filter defaults to \fBAXWindow\fP or \fBAXStandardWindow\fP for these restrictions.
+.br
 The following properties require System Integrity Protection to be partially disabled: sticky, sub\-layer, scratchpad.
 .SS "General Syntax"
 .sp

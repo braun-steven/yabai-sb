@@ -729,7 +729,7 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
   #expect(rule.effects.sticky == true)
   #expect(rule.effects.mouseFollowsFocus == nil)
   #expect(rule.effects.layer == .above)
-  #expect(rule.effects.flags.contains(.layer))
+  #expect(rule.effects.layer != nil)
   #expect(rule.app?.text == "^Safari$")
   #expect(response == "")
 
@@ -826,11 +826,10 @@ func ruleParseFailureText(_ text: String, _ expected: String) {
   #expect(!rule.hasRole && !rule.hasSubrole)
 
   // NOTE: valid app and title, title excluded, the subrole pattern is invalid; the layer flag in the high half
-  #expect(rule.listFlags == 0x0004_0023)
+  #expect(rule.listFlags() == 0x0004_0023)
 
   rule.oneShot = true
-  rule.matched = true
-  #expect(rule.listFlags == 0x0004_0323)
+  #expect(rule.listFlags(matched: true) == 0x0004_0323)
 }
 
 @Test func messageRuleValues() {
@@ -840,7 +839,7 @@ func ruleParseFailureText(_ text: String, _ expected: String) {
     "app=x\0display=^2\0grid=4:4:1:1:2:2\0scratchpad=notes\0", context)
   #expect(result == true)
   #expect(rule.effects.did == 2)
-  #expect(rule.effects.flags.contains(.followSpace))
+  #expect(rule.effects.followSpace)
   #expect(rule.effects.grid == Grid(4, 4, 1, 1, 2, 2))
   #expect(rule.effects.scratchpad == "notes")
   #expect(rule.effects.manage == false)
@@ -1052,7 +1051,7 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   var effects = RuleEffects()
   effects.sid = sid
   effects.manage = false
-  if follow { effects.flags.insert(.followSpace) }
+  effects.followSpace = follow
   effects.grid = Grid(2, 2, 0, 0, 1, 1)
   return effects
 }
@@ -1061,7 +1060,7 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   var combined = RuleEffects()
   combined.combine(spaceEffects(4, true))
   #expect(combined.sid == 4)
-  #expect(combined.flags.contains(.followSpace))
+  #expect(combined.followSpace)
   #expect(combined.manage == false)
   #expect(combined.grid.width == 1)
 
@@ -1075,7 +1074,7 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
 
   combined.combine(spaceEffects(6, false))
   #expect(combined.sid == 6)
-  #expect(!combined.flags.contains(.followSpace))
+  #expect(!combined.followSpace)
 
   // NOTE: a scratchpad replaces the earlier one
   var scratchpad = RuleEffects()

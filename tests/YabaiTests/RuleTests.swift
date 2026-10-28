@@ -17,232 +17,6 @@ import YabaiTestSupport
 // would be tiled on SpaceID.active, the user's space.
 //
 
-// MARK: - Window managers of their own
-
-// The window managers of these tests are local, so they do not touch the state of the daemon.
-
-@WM private func windowManagerCreate() -> WindowManager {
-  return WindowManager()
-}
-
-@WM private func windowManagerFree(_ wm: WindowManager) {
-  wm.rules = []
-  wm.window.removeAll()
-}
-
-@WM private func windowCreate(_ id: WindowID, _ owner: Application? = nil) -> Window {
-  let result = Window(id: id)
-  result.application = owner
-  return result
-}
-
-@WM private func applicationCreate(_ name: String) -> Application {
-  let result = Application()
-  result.name = name
-  return result
-}
-
-private func oneShotTestRule(matched: Bool, _ label: String) -> Rule {
-  var result = Rule()
-  result.oneShot = matched
-  result.matched = matched
-  result.label = label
-  return result
-}
-
-@Test("window_one_shot_rules") @WM func windowOneShotRules() {
-  let wm = windowManagerCreate()
-  defer { windowManagerFree(wm) }
-
-  wm.rules = [
-    oneShotTestRule(matched: true, "a"), oneShotTestRule(matched: false, "b"),
-    oneShotTestRule(matched: true, "c"), oneShotTestRule(matched: true, "d"),
-  ]
-
-  wm.removeOneShotRules()
-  #expect(wm.rules.map(\.label) == ["b"])
-}
-
-/// The rules before removeOneShotRules (labels, "*" for a matched one-shot rule) and the labels left after it.
-struct OneShotCase: CustomTestStringConvertible, Sendable {
-  var rules: [String]
-  var left: [String]
-
-  var testDescription: String { rules.joined(separator: " ") }
-}
-
-// NOTE: removeOneShotRules removes the matched one-shot rules and keeps the order of the others.
-@Test(arguments: [
-  OneShotCase(rules: [], left: []),
-  OneShotCase(rules: ["a"], left: ["a"]),
-  OneShotCase(rules: ["a*"], left: []),
-  OneShotCase(rules: ["a*", "b", "c*"], left: ["b"]),
-  OneShotCase(rules: ["a*", "b*", "c"], left: ["c"]),
-  OneShotCase(rules: ["a", "b*", "c", "d"], left: ["a", "c", "d"]),
-  OneShotCase(rules: ["a*", "b*", "c*"], left: []),
-])
-@WM func removeOneShotRulesKeepsTheOrder(_ row: OneShotCase) {
-  let wm = windowManagerCreate()
-  defer { windowManagerFree(wm) }
-
-  wm.rules = row.rules.map { oneShotTestRule(matched: $0.hasSuffix("*"), String($0.prefix(1))) }
-  wm.removeOneShotRules()
-  #expect(wm.rules.compactMap(\.label) == row.left)
-}
-
-private func windowRulesTestRule(_ app: String, _ subrole: String?, oneShot: Bool = false) -> Rule {
-  var result = Rule()
-  result.oneShot = oneShot
-  result.app = RulePattern(Token(app), exclude: false)
-  result.subrole = subrole.map { RulePattern(Token($0), exclude: false) }
-  return result
-}
-
-/// The window properties used when combining matching rule effects.
-private struct WindowStrings {
-  let title = ""
-  let role = "AXWindow"
-  let dialog = "AXDialog"
-  let standard = "AXStandardWindow"
-}
-
-@Test("window_rules_combine_matching") @WM func windowRulesCombineMatching() {
-  let owner = applicationCreate("Safari")
-  let target = windowCreate(1, owner)
-  let wm = windowManagerCreate()
-  let strings = WindowStrings()
-  defer { windowManagerFree(wm) }
-
-  // NOTE: without a subrole pattern a rule does not match a dialog
-  var any = windowRulesTestRule("^Safari$", nil)
-  any.effects.sid = 4
-  wm.rules.append(any)
-
-  var dialog = windowRulesTestRule("^Safari$", "^AXDialog$")
-  dialog.effects.sticky = true
-  dialog.effects.scratchpad = "notes"
-  wm.rules.append(dialog)
-
-  var otherApp = windowRulesTestRule("^Mail$", "^AXDialog$")
-  otherApp.effects.mouseFollowsFocus = true
-  wm.rules.append(otherApp)
-
-  var oneShot = windowRulesTestRule("^Safari$", "^AXDialog$", oneShot: true)
-  oneShot.effects.layer = .above
-  oneShot.effects.flags.insert(.layer)
-  wm.rules.append(oneShot)
-
-  var effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.dialog,
-      includingOneShotRules: false, manageRound: false, into: &effects) == true)
-  #expect(effects.sid == nil)
-  #expect(effects.sticky == true)
-  #expect(effects.mouseFollowsFocus == nil)
-  #expect(effects.flags.contains(.layer) == false)
-  #expect(effects.scratchpad == "notes")
-  #expect(wm.rules[3].matched == false)
-
-  // NOTE: one-shot rules only apply to new windows, and are then marked for removal
-  effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.dialog,
-      includingOneShotRules: true, manageRound: false, into: &effects) == true)
-  #expect(effects.flags.contains(.layer) == true)
-  #expect(wm.rules[3].matched == true)
-
-  wm.removeOneShotRules()
-  #expect(wm.rules.count == 3)
-
-  // NOTE: a window managed by a rule matches rules without a subrole pattern
-  target.isManagedByRule = true
-  effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.dialog,
-      includingOneShotRules: false, manageRound: false, into: &effects) == true)
-  #expect(effects.sid == 4)
-}
-
-@Test("window_rules_manage_round") @WM func windowRulesManageRound() {
-  let owner = applicationCreate("Safari")
-  let target = windowCreate(1, owner)
-  let wm = windowManagerCreate()
-  let strings = WindowStrings()
-  defer { windowManagerFree(wm) }
-
-  // NOTE: in the manage round only rules that make a window managed are limited to standard windows
-  var manage = windowRulesTestRule("^Safari$", nil)
-  manage.effects.manage = true
-  wm.rules.append(manage)
-
-  var effectsOnly = windowRulesTestRule("^Safari$", nil)
-  effectsOnly.effects.sticky = true
-  wm.rules.append(effectsOnly)
-
-  var effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.dialog,
-      includingOneShotRules: false, manageRound: true, into: &effects) == true)
-  #expect(effects.manage == nil)
-  #expect(effects.sticky == true)
-
-  effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.standard,
-      includingOneShotRules: false, manageRound: true, into: &effects) == true)
-  #expect(effects.manage == true)
-
-  owner.name = "Mail"
-  effects = RuleEffects()
-  #expect(
-    wm.combineMatchingRuleEffects(
-      for: target, title: strings.title, role: strings.role, subrole: strings.standard,
-      includingOneShotRules: false, manageRound: true, into: &effects) == false)
-}
-
-// MARK: - insert=
-
-struct InsertionCase: CustomTestStringConvertible, Sendable {
-  var name: String
-  var manage: Bool?
-  var insert: InsertDirection?
-  var expected: InsertDirection?
-
-  var testDescription: String { name }
-}
-
-// NOTE: a rule with manage=off does not tile the window, so its insert= does not apply to it.
-@Test(arguments: [
-  InsertionCase(name: "no insert", manage: nil, insert: nil, expected: nil),
-  InsertionCase(name: "insert", manage: nil, insert: .stack, expected: .stack),
-  InsertionCase(name: "insert with manage=on", manage: true, insert: .east, expected: .east),
-  InsertionCase(name: "manage=off drops insert", manage: false, insert: .north, expected: nil),
-])
-func insertionForNewWindowFollowsManage(_ row: InsertionCase) {
-  var effects = RuleEffects()
-  effects.manage = row.manage
-  effects.insert = row.insert
-  #expect(effects.insertionForNewWindow == row.expected)
-}
-
-@Test func laterRuleInsertWinsAndAbsentInsertKeepsIt() {
-  var effects = RuleEffects()
-  effects.insert = .north
-
-  var later = RuleEffects()
-  later.insert = .stack
-  effects.combine(later)
-  #expect(effects.insert == .stack)
-
-  effects.combine(RuleEffects())
-  #expect(effects.insert == .stack)
-}
-
 // MARK: - Helpers of the daemon tests
 
 /// The response to a message, as text.
@@ -267,19 +41,6 @@ private func failure(_ message: String) -> String {
       (entry[key] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? entry["title"] as? String ?? ""
     return "\(index) \(label):\(value)"
   }
-}
-
-/// A short text of the effects a rule set: those of the effects round that stay off the window server.
-private func describe(_ effects: RuleEffects) -> String {
-  var parts: [String] = []
-  if let manage = effects.manage { parts.append("manage=\(boolString(manage))") }
-  if let sticky = effects.sticky { parts.append("sticky=\(boolString(sticky))") }
-  if let follows = effects.mouseFollowsFocus {
-    parts.append("mouse_follows_focus=\(boolString(follows))")
-  }
-  if effects.flags.contains(.layer) { parts.append("sub-layer=\(effects.layer.rawValue)") }
-  if let scratchpad = effects.scratchpad { parts.append("scratchpad=\(scratchpad)") }
-  return parts.joined(separator: " ")
 }
 
 /// The payload messages recorded since the last drain, as "<operation> w<n>".
@@ -443,122 +204,71 @@ extension DaemonState {
       #expect(WindowManager.shared.rules.isEmpty)
     }
 
-    // MARK: - Matching
-
-    /// A row of the matching table: the rules added in order, the window, and the combined effects (nil when no
-    /// rule matches).
-    struct MatchCase: CustomTestStringConvertible, Sendable {
-      var name: String
-      var rules: [String]
-      var app = "Safari"
-      var title = "Document"
-      var role = "AXWindow"
-      var subrole = "AXStandardWindow"
-      var managedByRule = false
-      var manageRound = false
-      var oneShot = false
-      var effects: String?
-
-      var testDescription: String { name }
-    }
-
-    nonisolated static let matchCases: [MatchCase] = [
-      MatchCase(
-        name: "a later rule overrides",
-        rules: [
-          "app=^Safari$ sub-layer=above sticky=on",
-          "app=Safari sub-layer=below sticky=off",
-        ],
-        effects: "sticky=off sub-layer=below"),
-      MatchCase(
-        name: "a later rule only sets its own effects",
-        rules: [
-          "app=^Safari$ sub-layer=above scratchpad=a", "app=^Safari$ mouse_follows_focus=on",
-        ],
-        effects: "manage=off mouse_follows_focus=on sub-layer=above scratchpad=a"),
-      MatchCase(
-        name: "a rule of another app",
-        rules: ["app=^Safari$ sub-layer=above", "app=^Mail$ sub-layer=below"],
-        effects: "sub-layer=above"),
-      MatchCase(name: "an exclusion skips the app", rules: ["app!=^Safari$ sticky=on"]),
-      MatchCase(
-        name: "an exclusion admits other apps", rules: ["app!=^Safari$ sticky=on"], app: "Mail",
-        effects: "sticky=on"),
-      MatchCase(
-        name: "patterns are not anchored", rules: ["app=far sticky=on"], effects: "sticky=on"),
-      MatchCase(name: "patterns are case sensitive", rules: ["app=^safari$ sticky=on"]),
-      MatchCase(
-        name: "patterns are extended regexes", rules: ["app=^(Mail|Safari)$ sticky=on"],
-        effects: "sticky=on"),
-      MatchCase(
-        name: "the title and the app must match", rules: ["app=^Safari$ title=^Doc sticky=on"],
-        effects: "sticky=on"),
-      MatchCase(name: "a title mismatch", rules: ["app=^Safari$ title=^Notes sticky=on"]),
-      MatchCase(name: "a title exclusion", rules: ["title!=^Doc sticky=on"]),
-      MatchCase(
-        name: "without a role pattern a sheet is skipped", rules: ["app=^Safari$ sticky=on"],
-        role: "AXSheet", subrole: ""),
-      MatchCase(
-        name: "a role pattern admits its role, the subrole stays standard",
-        rules: ["role=^AXSheet$ sticky=on"], role: "AXSheet", subrole: ""),
-      MatchCase(
-        name: "role and subrole patterns admit a sheet",
-        rules: ["role=^AXSheet$ subrole=^$ sticky=on"], role: "AXSheet", subrole: "",
-        effects: "sticky=on"),
-      MatchCase(
-        name: "without a subrole pattern a dialog is skipped", rules: ["app=^Safari$ sticky=on"],
-        subrole: "AXDialog"),
-      MatchCase(
-        name: "a subrole pattern admits a dialog",
-        rules: ["app=^Safari$ subrole=^AXDialog$ sticky=on"], subrole: "AXDialog",
-        effects: "sticky=on"),
-      MatchCase(name: "a role exclusion", rules: ["role!=^AXWindow$ sticky=on"]),
-      MatchCase(
-        name: "a window managed by a rule gets every effect", rules: ["app=^Safari$ sticky=on"],
-        subrole: "AXDialog", managedByRule: true, effects: "sticky=on"),
-      MatchCase(
-        name: "manage round: manage=on only for standard windows",
-        rules: ["app=^Safari$ manage=on"], subrole: "AXDialog", managedByRule: true,
-        manageRound: true),
-      MatchCase(
-        name: "manage round: manage=on of a standard window", rules: ["app=^Safari$ manage=on"],
-        manageRound: true, effects: "manage=on"),
-      MatchCase(
-        name: "manage round: manage=off of a dialog", rules: ["app=^Safari$ manage=off"],
-        subrole: "AXDialog", manageRound: true, effects: "manage=off"),
-      MatchCase(
-        name: "a one-shot rule skipped for an existing window",
-        rules: ["--one-shot app=^Safari$ sticky=on"]),
-      MatchCase(
-        name: "a one-shot rule for a new window",
-        rules: ["--one-shot app=^Safari$ sticky=on", "app=^Safari$ sub-layer=above"],
-        oneShot: true, effects: "sticky=on sub-layer=above"),
-    ]
-
-    @Test(arguments: matchCases)
-    func combineMatchingRuleEffects(_ row: MatchCase) {
-      for rule in row.rules { #expect(send("rule --add \(rule)") == "") }
-      let owner = Application()
-      owner.name = row.app
-      let target = Window(id: wid(1))
-      target.application = owner
-      target.isManagedByRule = row.managedByRule
-
-      var effects = RuleEffects()
-      let matched = WindowManager.shared.combineMatchingRuleEffects(
-        for: target, title: row.title, role: row.role, subrole: row.subrole,
-        includingOneShotRules: row.oneShot, manageRound: row.manageRound, into: &effects
-      )
-
-      #expect(matched == (row.effects != nil))
-      #expect(describe(effects) == (row.effects ?? ""))
-      // NOTE: a matching one-shot rule is marked for removal
-      #expect(
-        WindowManager.shared.rules.map(\.matched)
-          == WindowManager.shared.rules.map { $0.oneShot && row.oneShot && matched })
-    }
-
     // MARK: - Applying rules
+
+    enum ApplicationPath: CaseIterable, Sendable {
+      case discovery, all, index, label, inline
+    }
+
+    private func apply(_ fields: String, through path: ApplicationPath, to target: Window) {
+      if path == .inline {
+        #expect(send("rule --apply " + fields) == "")
+        return
+      }
+      #expect(send("rule --add label=test " + fields) == "")
+      switch path {
+      case .discovery:
+        WindowManager.shared.applyWindowRules(
+          to: target,
+          context: RuleMatchContext(
+            app: target.application.name, title: target.ax.title ?? "",
+            role: target.ax.role ?? "", subrole: target.ax.subrole ?? ""),
+          lifecycle: .newWindow)
+      case .all: #expect(send("rule --apply") == "")
+      case .index: #expect(send("rule --apply 0") == "")
+      case .label: #expect(send("rule --apply test") == "")
+      case .inline: break
+      }
+    }
+
+    @Test(arguments: ApplicationPath.allCases, [false, true])
+    func everyApplicationPathRequiresAFilterForDialogEffects(
+      _ path: ApplicationPath, explicitSubrole: Bool
+    ) {
+      let workspace = Workspace()
+      let windows = workspace.openForRules(2)
+      windows[1].ax.subrole = "AXDialog"
+      apply(
+        "app=^Mail$ sticky=on" + (explicitSubrole ? " subrole=^AXDialog$" : ""),
+        through: path, to: windows[1])
+      #expect(windows[1].isSticky == explicitSubrole)
+      #expect(!windows[0].isSticky)
+    }
+
+    @Test(arguments: ApplicationPath.allCases, [false, true])
+    func everyApplicationPathRequiresAFilterForManagementOptIn(
+      _ path: ApplicationPath, explicitRole: Bool
+    ) {
+      let workspace = Workspace()
+      let windows = workspace.openForRules(2)
+      windows[1].ax.role = "AXSheet"
+      apply(
+        "app=^Mail$ manage=on sticky=on" + (explicitRole ? " role=^AXSheet$" : ""),
+        through: path, to: windows[1])
+      #expect(windows[1].isManagedByRule == explicitRole)
+      #expect(windows[1].isSticky == explicitRole)
+      #expect(!windows[0].isSticky)
+    }
+
+    @Test func selectedApplicationDoesNotApplyOtherRegisteredRules() {
+      let workspace = Workspace()
+      let windows = workspace.openForRules(2)
+      #expect(send("rule --add app=^Mail$ sticky=on") == "")
+      #expect(send("rule --add label=selected app=^Mail$ mouse_follows_focus=on") == "")
+      #expect(send("rule --apply selected") == "")
+      #expect(!windows[1].isSticky)
+      #expect(windows[1].mouseFollowsFocusByRule == true)
+    }
 
     @Test func applyByLabelFloatsTheMatchingWindows() throws {
       let space = Workspace()
@@ -584,7 +294,7 @@ extension DaemonState {
       #expect(
         send("rule --add app=^Safari$ title=^Window.2$ mouse_follows_focus=on sub-layer=above")
           == "")
-      #expect(send("rule --add --one-shot app=. manage=off") == "")
+      #expect(send("rule --add --one-shot label=once app=. manage=off") == "")
       #expect(send("rule --apply") == "")
 
       #expect(space.order == "w1 w2")
@@ -595,7 +305,9 @@ extension DaemonState {
       #expect(drainPayloadCalls() == ["layer w2", "sticky w3", "layer w3", "shadow w3"])
       // NOTE: one-shot rules are never applied again, by label either
       #expect(send("rule --apply 2") == "")
+      #expect(send("rule --apply once") == "")
       #expect(windows.map(\.isFloating) == [false, false, false])
+      #expect(!WindowManager.shared.rules.hasMatched(at: 2))
     }
 
     @Test func applyByIndexSetsTheSubLayer() throws {
@@ -654,8 +366,11 @@ extension DaemonState {
         target.insertionByRule = nil
         #expect(
           wm.applyWindowRules(
-            to: target, title: "", role: "AXWindow", subrole: "AXStandardWindow",
-            includingOneShotRules: oneShotRules))
+            to: target,
+            context: RuleMatchContext(
+              app: target.application.name, title: "", role: "AXWindow", subrole: "AXStandardWindow"
+            ),
+            lifecycle: oneShotRules ? .newWindow : .existingWindow))
         return target.insertionByRule
       }
 
@@ -681,8 +396,10 @@ extension DaemonState {
 
       #expect(
         WindowManager.shared.applyWindowRules(
-          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
-          includingOneShotRules: true))
+          to: windows[1],
+          context: RuleMatchContext(
+            app: "Mail", title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow"),
+          lifecycle: .newWindow))
       #expect(windows[1].isManagedByRule)
       #expect(windows[1].isEligible)
       #expect(windows[1].isSticky)
@@ -699,17 +416,21 @@ extension DaemonState {
       let wm = WindowManager.shared
       #expect(
         !wm.applyWindowRules(
-          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
-          includingOneShotRules: false))
+          to: windows[1],
+          context: RuleMatchContext(
+            app: "Mail", title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow"),
+          lifecycle: .existingWindow))
       #expect(!windows[1].isManagedByRule)
-      #expect(wm.rules.first?.matched == false)
+      #expect(wm.rules.hasMatched(at: 0) == false)
 
       #expect(
         wm.applyWindowRules(
-          to: windows[1], title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow",
-          includingOneShotRules: true))
+          to: windows[1],
+          context: RuleMatchContext(
+            app: "Mail", title: "Window 2", role: "AXSheet", subrole: "AXStandardWindow"),
+          lifecycle: .newWindow))
       #expect(windows[1].isManagedByRule)
-      #expect(wm.rules.first?.matched == true)
+      #expect(wm.rules.hasMatched(at: 0) == true)
     }
 
     @Test func manageOnOfAManagedWindowKeepsItTiled() throws {
@@ -718,7 +439,7 @@ extension DaemonState {
       windows[1].ax.role = "AXSheet"
 
       // NOTE: a window that is not real is only eligible once a rule manages it
-      #expect(send("rule --apply app=^Mail$ manage=on sticky=on") == "")
+      #expect(send("rule --apply app=^Mail$ role=^AXSheet$ manage=on sticky=on") == "")
       #expect(windows[1].isManagedByRule)
       #expect(windows[1].isSticky)
       #expect(space.order == "w1")

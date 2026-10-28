@@ -1,51 +1,14 @@
 import ApplicationServices
 import CPrivate
-import Foundation
 import SortedCollections
 import YabaiCore
 
-//
-// NOTE: Applying rules to windows. A window passes through two rounds: the manage round decides whether
-// the window is managed, the effects round applies everything else to eligible windows.
-//
-
 extension WindowManager {
   func queryWindowRules(into response: inout Response) throws(CommandError) {
-    try response.write(json: rules.enumerated().map { $1.info(index: $0) })
-  }
-
-  // NOTE: Matching rule effects combine in WindowManager.rules order; matching one-shot rules are marked for removal.
-  func combineMatchingRuleEffects(
-    for target: Window,
-    title: String,
-    role: String,
-    subrole: String,
-    includingOneShotRules: Bool,
-    manageRound: Bool,
-    into effects: inout RuleEffects
-  ) -> Bool {
-    var match = false
-
-    for index in rules.indices {
-      let candidate = rules[index]
-
-      if !includingOneShotRules && candidate.oneShot { continue }
-      if !candidate.matches(
-        app: target.application.name, title: title, role: role, subrole: subrole)
-      {
-        continue
-      }
-
-      let standardOnly = manageRound ? candidate.effects.manage == true : !target.isManagedByRule
-      if standardOnly && candidate.skipsNonstandardWindow(role: role, subrole: subrole) { continue }
-
-      match = true
-      effects.combine(candidate.effects)
-
-      if candidate.oneShot { rules[index].matched = true }
-    }
-
-    return match
+    try response.write(
+      json: rules.enumerated().map { index, rule in
+        rule.info(index: index, matched: rules.hasMatched(at: index))
+      })
   }
 
   func applyManageRuleEffects(_ effects: RuleEffects, to target: Window) {
@@ -64,7 +27,7 @@ extension WindowManager {
       {
         if let sid = effects.sid ?? effects.did.flatMap({ $0.currentSpace }) {
           sendWindow(target, to: sid, movedByRule: true)
-          if effects.flags.contains(.followSpace) || effects.fullscreen == true {
+          if effects.followSpace || effects.fullscreen == true {
             try? SpaceManager.shared.focusSpace(sid)
           }
         }
@@ -79,8 +42,8 @@ extension WindowManager {
       target.mouseFollowsFocusByRule = mouseFollowsFocus
     }
 
-    if effects.flags.contains(.layer) {
-      _ = setWindowLayer(target, to: effects.layer)
+    if let layer = effects.layer {
+      _ = setWindowLayer(target, to: layer)
     }
 
     if effects.fullscreen == true {
@@ -98,168 +61,78 @@ extension WindowManager {
     }
   }
 
-  func applyManageRules(
-    to target: Window,
-    title: String,
-    role: String,
-    subrole: String,
-    includingOneShotRules: Bool
-  ) {
-    var effects = RuleEffects()
+  /// Evaluates a phase before any platform effects execute, without holding mutable access to the rule set.
+  private func matchingRuleEffects(
+    for context: RuleMatchContext, phase: RulePhase, lifecycle: RuleLifecycle, candidate: Rule?
+  ) -> RuleEffects? {
+    if let candidate {
+      var selected: RuleSet = [candidate]
+      return selected.matchingEffects(for: context, phase: phase, lifecycle: lifecycle)
+    }
+    return rules.matchingEffects(for: context, phase: phase, lifecycle: lifecycle)
+  }
 
-    if combineMatchingRuleEffects(
-      for: target,
-      title: title,
-      role: role,
-      subrole: subrole,
-      includingOneShotRules: includingOneShotRules,
-      manageRound: true,
-      into: &effects
+  /// Management runs first: an explicit role/subrole filter can admit a window that misreports its role,
+  /// enabling ordinary effects in the second round. All application paths share this policy.
+  @discardableResult
+  func applyWindowRules(
+    to target: Window, context: RuleMatchContext, lifecycle: RuleLifecycle, candidate: Rule? = nil
+  ) -> Bool {
+    if let effects = matchingRuleEffects(
+      for: context, phase: .management, lifecycle: lifecycle, candidate: candidate
     ) {
       applyManageRuleEffects(effects, to: target)
     }
-  }
-
-  /// Applies the effects of the matching rules and returns them combined; nil when no rule matches.
-  @discardableResult
-  func applyRules(
-    to target: Window,
-    title: String,
-    role: String,
-    subrole: String,
-    includingOneShotRules: Bool
-  ) -> RuleEffects? {
-    var effects = RuleEffects()
-
-    guard
-      combineMatchingRuleEffects(
-        for: target,
-        title: title,
-        role: role,
-        subrole: subrole,
-        includingOneShotRules: includingOneShotRules,
-        manageRound: false,
-        into: &effects
-      )
-    else { return nil }
-
-    applyRuleEffects(effects, to: target)
-    return effects
-  }
-
-  func reapplyAllRules() {
-    // Windows in id order, so rules apply in the same order every time.
-    for target in window.values where target.isRoot {
-      let title = target.ax.title ?? ""
-      let role = target.ax.role ?? ""
-      let subrole = target.ax.subrole ?? ""
-
-      applyWindowRules(
-        to: target, title: title, role: role, subrole: subrole, includingOneShotRules: false)
-    }
-  }
-
-  /// Applies both rule rounds to a root window and returns whether it is eligible for management. The manage round
-  /// runs first, so a rule can make a window that misreports its role eligible for the effects round.
-  @discardableResult
-  func applyWindowRules(
-    to target: Window,
-    title: String,
-    role: String,
-    subrole: String,
-    includingOneShotRules: Bool
-  ) -> Bool {
-    applyManageRules(
-      to: target, title: title, role: role, subrole: subrole,
-      includingOneShotRules: includingOneShotRules)
 
     guard target.isEligibleForManagement else { return false }
 
     target.isEligible = true
-    let effects = applyRules(
-      to: target, title: title, role: role, subrole: subrole,
-      includingOneShotRules: includingOneShotRules)
-    // NOTE: insert= places a window only as it is created, so it is recorded only for a new window (added with
-    // one-shot rules included). Windows that exist when yabai starts, or that a later discovery or reapply finds,
-    // keep their place: recording it for them would stack or split windows that are already tiled.
-    if includingOneShotRules { target.insertionByRule = effects?.insertionForNewWindow }
+    let effects = matchingRuleEffects(
+      for: context, phase: .effects(managedByRule: target.isManagedByRule),
+      lifecycle: lifecycle, candidate: candidate)
+    if let effects { applyRuleEffects(effects, to: target) }
+
+    // NOTE: insert= is recorded only at creation. Adoption and reapply must preserve a pending insertion
+    // and must not stack or split windows that are already tiled.
+    if lifecycle == .newWindow { target.insertionByRule = effects?.insertionForNewWindow }
     return true
+  }
+
+  func reapplyAllRules() {
+    reapplyRules()
   }
 
   func reapplyRule(at index: Int) -> Bool {
     guard rules.indices.contains(index) else { return false }
-
-    if !rules[index].oneShot {
-      applyRule(rules[index])
-    }
-
+    reapplyRules(candidate: rules[index])
     return true
   }
 
   func reapplyRule(label: String) -> Bool {
-    guard let index = ruleIndex(label: label) else { return false }
-
-    if !rules[index].oneShot {
-      applyRule(rules[index])
-    }
-
-    return true
-  }
-
-  private func ruleIndex(label: String) -> Int? {
-    rules.firstIndex { $0.label == label }
+    guard let index = rules.index(label: label) else { return false }
+    return reapplyRule(at: index)
   }
 
   func applyRule(_ candidate: Rule) {
-    // Windows in id order, so rules apply in the same order every time.
+    reapplyRules(candidate: candidate)
+  }
+
+  private func reapplyRules(candidate: Rule? = nil) {
+    if candidate?.oneShot == true { return }
+    // Windows in id order: scratchpad assignment and other effects remain deterministic.
     for target in window.values where target.isRoot {
-      if candidate.matches(
-        app: target.application.name, title: target.ax.title ?? "", role: target.ax.role ?? "",
-        subrole: target.ax.subrole ?? "")
-      {
-        applyManageRuleEffects(candidate.effects, to: target)
-
-        if target.isEligibleForManagement {
-          target.isEligible = true
-          applyRuleEffects(candidate.effects, to: target)
-        }
-      }
+      let context = RuleMatchContext(
+        app: target.application.name, title: target.ax.title ?? "",
+        role: target.ax.role ?? "", subrole: target.ax.subrole ?? "")
+      applyWindowRules(
+        to: target, context: context, lifecycle: .existingWindow, candidate: candidate)
     }
   }
 
-  /// Replaces the rule with the same label in its place, or appends the new rule.
-  func addRule(_ candidate: Rule) {
-    if let label = candidate.label, let index = ruleIndex(label: label) {
-      rules[index] = candidate
-    } else {
-      rules.append(candidate)
-    }
-  }
+  func addRule(_ candidate: Rule) { rules.add(candidate) }
+  func removeRule(at index: Int) -> Bool { rules.remove(at: index) }
+  func removeRule(label: String) -> Bool { rules.remove(label: label) }
 
-  func removeRule(at index: Int) -> Bool {
-    guard rules.indices.contains(index) else { return false }
-
-    removeRule(index)
-    return true
-  }
-
-  func removeRule(label: String) -> Bool {
-    guard let index = ruleIndex(label: label) else { return false }
-
-    removeRule(index)
-    return true
-  }
-
-  /// Removes the rule and keeps the order of the others: a later rule overrides an earlier one.
-  private func removeRule(_ index: Int) {
-    rules.remove(at: index)
-  }
-
-  // NOTE: One-shot rules are marked when applied to a window, then removed once all windows created together
-  // have been checked. This keeps the order of the other rules, as `rule --remove` does: a reload compares the running
-  // rules with the file's in order (rulesMatchFile in ConfigReconcile.swift), so a used-up one-shot rule must not reorder
-  // them.
-  func removeOneShotRules() {
-    rules.removeAll { $0.matched }
-  }
+  // NOTE: Cleanup stays at discovery-batch boundaries so a one-shot can match every window created together.
+  func removeOneShotRules() { rules.removeConsumedOneShotRules() }
 }

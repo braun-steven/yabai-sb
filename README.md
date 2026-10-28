@@ -254,6 +254,8 @@ yabai -m rule --add app='^Terminal$' insert=east
 
 The placement applies to new windows, at the moment they are first tiled. Windows that already exist when yabai starts, windows that `rule --apply` matches and windows tiled later (for example after floating) are not placed by it. Rules with `manage=off` ignore it.
 
+Automatic rules and every form of `rule --apply` use the same eligibility checks. Effects on dialogs need a matching `subrole` filter, unless a rule already manages the window. To manage a window that reports a nonstandard role, add the matching `role` filter with `manage=on`.
+
 ### Window labels
 
 A window can be labelled, and the label then selects that window wherever a window selector is taken, as i3 marks do:

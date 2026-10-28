@@ -844,6 +844,8 @@ Rule
 All rules that match the given filter will be applied in the order they were registered. +
 If multiple rules specify a value for the same property, the latter rule will end up overriding that value. +
 If the display and space properties are both set, the space property will take precedence. +
+Automatic application and every form of *rule --apply* use the same two rounds. The first decides management; the second applies the other effects to eligible root windows. +
+In the management round, a rule with *manage=on* requires a standard window unless its *role* and *subrole* filters explicitly admit another kind. Other effects have the same restriction unless the window is already managed by a rule. Each omitted filter defaults to *AXWindow* or *AXStandardWindow* for these restrictions. +
 The following properties require System Integrity Protection to be partially disabled: sticky, sub-layer, scratchpad.
 
 General Syntax

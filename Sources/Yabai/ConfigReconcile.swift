@@ -372,19 +372,18 @@ extension ConfigEntry {
   }
 }
 
-/// The rules that the entries add, as `rule --add` stores them: a rule replaces the rule with its label and is appended.
+/// The rules that the entries add, as `rule --add` stores them: a labeled replacement keeps its index.
 /// Nil when an entry does not parse; its add then fails when it runs.
 @WM private func parsedRules(_ entries: [ConfigEntry]) -> [Rule]? {
-  var rules: [Rule] = []
+  var rules = RuleSet()
   for entry in entries {
     var message = configMessage(Array(entry.arguments.dropFirst()))
     guard case .add(let rule)? = try? RuleCommand.parse(&message, CSelectorContext()) else {
       return nil
     }
-    if let label = rule.label { rules.removeAll { $0.label == label } }
-    rules.append(rule)
+    rules.add(rule)
   }
-  return rules
+  return rules.definitions
 }
 
 /// The signals that the entries add, as `signal --add` stores them. Nil when an entry does not parse.
@@ -408,7 +407,7 @@ extension ConfigEntry {
   guard fileRules.filter({ !$0.oneShot }) == running.filter({ !$0.oneShot }) else { return false }
 
   let fileOneShot = fileRules.filter(\.oneShot)
-  if fileOneShot == running.filter({ $0.oneShot && !$0.matched }) { return true }
+  if fileOneShot == running.unmatchedOneShotRules { return true }
   let appliedRules =
     applied.flatMap { parsedRules($0.lowered().filter { $0.target == .rule }) } ?? []
   return fileOneShot == appliedRules.filter(\.oneShot)

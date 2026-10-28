@@ -6,7 +6,7 @@ public enum ConfigTableKeys {
   /// The top-level tables.
   public static let topLevel: Set<String> = ["daemon", "config", "space", "rule", "signal"]
 
-  // NOTE: The keys of `rule --add` (`parseRule` in Sources/YabaiCore/Rule.swift). `one_shot` is not in this list: it is
+  // NOTE: The keys of `rule --add` (`parseRule` in Sources/YabaiCore/RuleCommand.swift). `one_shot` is not in this list: it is
   // a boolean of the table, read separately.
   public static let rule: Set<String> = [
     "label", "scratchpad", "app", "title", "role", "subrole", "display", "space", "insert", "grid",
@@ -15,7 +15,7 @@ public enum ConfigTableKeys {
   ]
   public static let ruleNegatable: Set<String> = ["app", "title", "role", "subrole"]
 
-  // NOTE: The keys of `signal --add` (`parseSignal` in Sources/YabaiCore/Rule.swift).
+  // NOTE: The keys of `signal --add` (`parseSignal` in Sources/YabaiCore/SignalCommand.swift).
   public static let signal: Set<String> = ["label", "app", "title", "active", "action", "event"]
   public static let signalNegatable: Set<String> = ["app", "title"]
 }

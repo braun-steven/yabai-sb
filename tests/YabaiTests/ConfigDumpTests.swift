@@ -182,5 +182,5 @@ private struct RunningRules: Equatable {
 }
 
 @WM private func runningRules() -> RunningRules {
-  RunningRules(rules: WindowManager.shared.rules, signals: EventSignals.shared.table)
+  RunningRules(rules: WindowManager.shared.rules.definitions, signals: EventSignals.shared.table)
 }

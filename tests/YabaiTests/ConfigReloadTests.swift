@@ -236,7 +236,10 @@ extension DaemonState {
 
       // NOTE: As a window that the one-shot rule matched would: mark it, then remove it.
       let wm = WindowManager.shared
-      for index in wm.rules.indices where wm.rules[index].oneShot { wm.rules[index].matched = true }
+      _ = wm.rules.matchingEffects(
+        for: RuleMatchContext(
+          app: "Once", title: "", role: "AXWindow", subrole: "AXStandardWindow"),
+        phase: .management, lifecycle: .newWindow)
       wm.removeOneShotRules()
       #expect(wm.rules.count == 1)
 
@@ -252,7 +255,10 @@ extension DaemonState {
       defer { try? FileManager.default.removeItem(atPath: path) }
       #expect(Golden.run("config --reload \(path)") == reloadedText(path, changes: 4))
       let wm = WindowManager.shared
-      for index in wm.rules.indices where wm.rules[index].oneShot { wm.rules[index].matched = true }
+      _ = wm.rules.matchingEffects(
+        for: RuleMatchContext(
+          app: "Once", title: "", role: "AXWindow", subrole: "AXStandardWindow"),
+        phase: .management, lifecycle: .newWindow)
       wm.removeOneShotRules()
 
       try (reloadText + "[[rule]]\napp = \"^Twice$\"\nmanage = false\none_shot = true\n")

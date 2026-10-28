@@ -51,6 +51,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Command *space --undo* restores the tree of the selected space as it was before its last tree command (*--balance*, *--mirror*, *--rotate*, or a window's *--warp*, *--swap*, *--stack*, *--layout*, *--split*, *--ratio*, *--resize*), keeping the last 10 trees of each space while its windows stay the same
 
 ### Changed
+- Every form of *rule --apply* now uses the same two-round eligibility checks as automatic rules. Effects on dialogs need an explicit *subrole* filter or prior rule management; *manage=on* for a nonstandard role needs an explicit matching filter.
 - Config *space_layout* sends the spaces of a display that went away back to it when it is connected again, like sway's output priority, instead of moving any spaces by count; a pin still wins
 - Config *mouse_follows_focus* moves the mouse like sway's 'mouse_warping output': only when focus goes to another display than the one under the mouse, to the center of the focused window (or of the display when it has no window to focus); focusing a window on the display under the mouse no longer moves it there, as upstream yabai does. Commands that move a window (*window --warp*, *--swap*, *--display*, *--space*) do not move the mouse, also when the moved window keeps focus on another display
 - With *focus_follows_mouse* on, moving the mouse onto the desktop or a gap of a display without focus focuses that display, like sway: the window focused last on its space (without a raise for *autofocus*), or the display itself through a click on the desktop under the mouse when the space has no window to focus; the mouse is not moved, also with *mouse_follows_focus* on. Before, only the menu bar moved there and focus stayed on the other display
@@ -133,6 +134,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- Repeated rule labels in a config file keep their original index during reload comparison, matching IPC replacement. An unchanged file no longer reports a rule override or unnecessarily replaces its rules.
 - A new window that a rule moves to another space no longer pulls the focus to the space it opened on unless that space is focused; an application's window opened on a visible space of another display (e.g. ChatGPT's untitled helper window while typing) moved the focus to that display
 - *focus_follows_mouse* no longer focuses the windows or displays under the pointer while Mission Control is open: an opening that macOS did not report (e.g. through the keyboard shortcut on macOS 27) is found from its overlay before a change of focus
 - A tiled window that macOS moves or resizes in several steps (e.g. its window tiling) is put back on its tile once the steps have settled; the last step could leave it off its tile, as after an alt-drag of the focused window released outside every display followed by a click on another window of the space

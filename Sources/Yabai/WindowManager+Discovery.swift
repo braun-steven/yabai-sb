@@ -57,8 +57,10 @@ extension WindowManager {
       // for management. Apply this rule before other rule properties. Without a matching rule, ignore
       // windows whose role is not kAXWindowRole.
       if applyWindowRules(
-        to: target, title: windowTitle, role: windowRole, subrole: windowSubrole,
-        includingOneShotRules: includingOneShotRules)
+        to: target,
+        context: RuleMatchContext(
+          app: owner.name, title: windowTitle, role: windowRole, subrole: windowSubrole),
+        lifecycle: includingOneShotRules ? .newWindow : .existingWindow)
       {
         purifyWindow(target)
 

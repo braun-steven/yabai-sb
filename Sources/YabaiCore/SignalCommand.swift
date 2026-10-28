@@ -60,3 +60,59 @@ public enum SignalCommand {
     }
   }
 }
+
+/// Parse signal fields to the end of the message, resolving event names with eventType.
+/// Report all field problems together when the signal is invalid.
+public func parseSignal<Event>(
+  _ message: inout some TokenSource, _ signal: inout EventSignal, _ event: inout Event?,
+  eventType: (Token) -> Event?
+) throws(CommandError) {
+  var scanner = KeyValueScanner(first: message.next())
+  var hasSignalType = false
+  event = nil
+
+  while let pair = scanner.next(&message) {
+    let key = pair.key
+    let value = pair.value
+    var isFilter = false
+    var validValue = true
+    var validPattern = true
+
+    if key.equals("label") {
+      signal.label = value.string
+    } else if key.equals("app") {
+      isFilter = true
+      signal.app = RulePattern(value, exclude: pair.exclusion)
+      validPattern = signal.app?.regex != nil
+    } else if key.equals("title") {
+      isFilter = true
+      signal.title = RulePattern(value, exclude: pair.exclusion)
+      validPattern = signal.title?.regex != nil
+    } else if key.equals("active") {
+      if value.equals("yes") {
+        signal.active = true
+      } else if value.equals("no") {
+        signal.active = false
+      } else {
+        validValue = false
+      }
+    } else if key.equals("action") {
+      signal.command = value.string
+    } else if key.equals("event") {
+      hasSignalType = true
+      event = eventType(value)
+      validValue = event != nil
+    } else {
+      scanner.unknownKey(key)
+      continue
+    }
+
+    scanner.check(pair, filter: isFilter, validValue: validValue, validPattern: validPattern)
+  }
+
+  if !hasSignalType { scanner.fail(CommandError("missing required key-value pair 'event=..'\n")) }
+  if signal.command == nil {
+    scanner.fail(CommandError("missing required key-value pair 'action=..'\n"))
+  }
+  try scanner.finish()
+}

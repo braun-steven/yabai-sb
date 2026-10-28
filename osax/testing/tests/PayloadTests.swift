@@ -39,16 +39,19 @@ import Testing
     for opcode: UInt8 in [7, 8, 14, 15] {
       #expect(!core.valid([opcode] + packed(UInt32(7)) + packed(Float(0.5)) + packed(Float(1))))
     }
+    // The removed single-window order (16) and move to a space (19).
+    #expect(!core.valid([16] + packed(UInt32(7)) + packed(Int32(1)) + packed(UInt32(0))))
+    #expect(!core.valid([19] + packed(UInt64(1)) + packed(UInt32(7))))
     #expect(!core.valid([10] + packed(UInt32(7)) + [2]))
     #expect(!core.valid([12] + packed(UInt32(7))))
   }
 
   // Every fixed-size opcode: lengths 0 to expected-1 are rejected, and so is one byte too many.
-  @Test(arguments: [1, 2, 3, 4, 5, 6, 9, 10, 11, 13, 16, 19] as [UInt8])
+  @Test(arguments: [1, 2, 3, 4, 5, 6, 9, 10, 11, 13] as [UInt8])
   func fixedLengthOpcodesRejectEveryTruncation(opcode: UInt8) throws {
     let expectedLengths: [UInt8: Int] = [
       1: 0, 2: 8, 3: 8, 4: 8, 5: 25, 6: 12, 9: 8,
-      10: 5, 11: 5, 13: 20, 16: 12, 19: 12,
+      10: 5, 11: 5, 13: 20,
     ]
     let message = [opcode] + [UInt8](repeating: 0, count: try #require(expectedLengths[opcode]))
     let core = Core()
@@ -121,12 +124,12 @@ import Testing
         #expect(response == [UInt8(SA_REPLY_ACCEPTED)])
       }
     }
-    #expect(sa_test_commands() == 14)
+    #expect(sa_test_commands() == 12)
     // FNV-1a of the ordered fixture packets.
     // Preserve the comparison's native-call order without retaining a second implementation.
-    #expect(sa_test_digest() == 0x9982_7767_6843_3409)
+    #expect(sa_test_digest() == 0x358d_dfae_3e51_b8eb)
     #expect(try exchange(core, framed([20] + packed(Int32(100)))) == [UInt8(SA_REPLY_INVALID)])
-    #expect(sa_test_commands() == 14)
+    #expect(sa_test_commands() == 12)
     #expect(try exchange(core, [255, 127]) == [UInt8(SA_REPLY_INVALID)])
     #expect(try exchange(core, [3, 0, 2]) == [UInt8(SA_REPLY_INVALID)])
   }

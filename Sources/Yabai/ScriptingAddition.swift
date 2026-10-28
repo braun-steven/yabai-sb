@@ -9,8 +9,8 @@ import YabaiCore
 
 private let saVersion = String(cString: sa_payload_version())
 
-// Request fields retain their native integer/float layout. Replies accept
-// an optional status byte, and legacy payload EOF remains an explicitly unconfirmed success.
+// Request fields retain their native integer/float layout. Every command reply is one status byte; a payload that
+// closes without one failed the command.
 
 /// A window ordered relative to another one; the payload gets the fields one by one.
 struct WindowOrder: Equatable {
@@ -97,19 +97,10 @@ final class ScriptingAddition: Sendable {
   static let shared = ScriptingAddition()
 
   // NOTE: The sockets of the payload, resolved once in init and immutable afterwards, so any thread may read them:
-  // socketPath (for the user in $USER) is used by the daemon's event loop (send, payloadIsCurrent), sudoSocketPath
+  // socketPath (for the user in $USER) is used by the daemon's event loop (send), sudoSocketPath
   // (for the user of SUDO_UID, only when running as root) by --load-sa.
   let socketPath: String?
   private let sudoSocketPath: String?
-
-  //
-  // NOTE: A daemon can talk to the payload of an older yabai until Dock is restarted, and an older
-  // payload ignores opcodes it does not know. Whether the payload is current is asked once with a
-  // handshake and remembered until Dock restarts. An outdated payload gets one message per window.
-  // The cache is @WM: only the event loop reads it and payloadChanged resets it.
-  //
-
-  @WM private var payloadIsCurrentCache: Bool?
 
   private init() {
     socketPath = ProcessEnvironment.currentUser().map { "/tmp/yabai-sa_\($0).socket" }
@@ -438,40 +429,15 @@ final class ScriptingAddition: Sendable {
     return payload.send(SA_OPCODE_WINDOW_SCALE)
   }
 
+  /// Orders a window above (1), below (-1) or out (0), relative to another window or to all of them.
   @discardableResult func orderWindow(_ wid: WindowID, _ order: Int32, relativeTo other: WindowID?)
     -> Bool
   {
-    var payload = SAPayload()
-    payload.pack(wid)
-    payload.pack(order)
-    payload.pack(other?.rawValue ?? 0)
-    return payload.send(SA_OPCODE_WINDOW_ORDER)
+    orderWindows([WindowOrder(window: wid, order: order, relativeTo: other)])
   }
 
-  @WM private func payloadIsCurrent() -> Bool {
-    if Headless.isEnabled { return true }
-    if payloadIsCurrentCache == nil,
-      let socketPath,
-      let handshake = requestHandshake(socketPath: socketPath)
-    {
-      payloadIsCurrentCache = handshake.version.elementsEqual(saVersion.utf8)
-    }
-    return payloadIsCurrentCache == true
-  }
-
-  @WM func payloadChanged() {
-    payloadIsCurrentCache = nil
-  }
-
-  @WM @discardableResult func orderWindows(_ list: [WindowOrder]) -> Bool {
+  @discardableResult func orderWindows(_ list: [WindowOrder]) -> Bool {
     if list.isEmpty { return true }
-    if !payloadIsCurrent() {
-      var result = true
-      for entry in list {
-        result = orderWindow(entry.window, entry.order, relativeTo: entry.relativeTo) && result
-      }
-      return result
-    }
     var result = true
     for chunk in list.chunks(ofCount: 256) {  // SA_WINDOW_ORDER_CHUNK
       var payload = SAPayload()
@@ -503,12 +469,6 @@ final class ScriptingAddition: Sendable {
     return payload.send(SA_OPCODE_WINDOW_LIST_TO_SPACE)
   }
 
-  @discardableResult func moveWindow(_ wid: WindowID, to sid: SpaceID) -> Bool {
-    var payload = SAPayload()
-    payload.pack(sid)
-    payload.pack(wid)
-    return payload.send(SA_OPCODE_WINDOW_TO_SPACE)
-  }
 }
 
 //

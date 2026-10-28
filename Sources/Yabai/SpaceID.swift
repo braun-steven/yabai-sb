@@ -150,7 +150,7 @@ extension SpaceID {
   func moveWindow(_ win: Window) {
     if SLS.hasBridgedWindowOperation {
       SLS.bridgedMoveWindows([win.id], toSpace: self)
-    } else if !ScriptingAddition.shared.moveWindow(win.id, to: self) {
+    } else if !ScriptingAddition.shared.moveWindows([win.id], to: self) {
       SLS.moveWindows(SLS.connection, [win.id], toSpaceByCompatID: self)
     }
   }

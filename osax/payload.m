@@ -777,25 +777,9 @@ static bool do_window_shadow(char *message) {
   }
 }
 
-static bool do_window_order(char *message) {
-  uint32_t a_wid;
-  unpack(a_wid);
-  if (!a_wid)
-    return true;
-
-  int order;
-  unpack(order);
-
-  uint32_t b_wid;
-  unpack(b_wid);
-
-  return SLSOrderWindow(SLSMainConnectionID(), a_wid, order, b_wid) ==
-         kCGErrorSuccess;
-}
-
 //
-// NOTE: The entries are ordered one after another, exactly like a sequence of
-// SA_OPCODE_WINDOW_ORDER messages. A transaction would not do: its ordering
+// NOTE: The entries are ordered one after another, each with its own
+// SLSOrderWindow call. A transaction would not do: its ordering
 // does not follow the sequence, and the order of the windows of a tabbed
 // container depends on it.
 //
@@ -891,21 +875,6 @@ static bool do_window_list_move_to_space(char *message) {
   return true;
 }
 
-static bool do_window_move_to_space(char *message) {
-  uint64_t sid;
-  unpack(sid);
-
-  uint32_t wid;
-  unpack(wid);
-
-  CFArrayRef window_list_ref = create_window_list(&wid, 1);
-  if (!window_list_ref)
-    return false;
-  SLSMoveWindowsToManagedSpace(SLSMainConnectionID(), window_list_ref, sid);
-  CFRelease(window_list_ref);
-  return true;
-}
-
 uint32_t sa_native_attributes(void) {
   uint32_t attributes = 0;
   if (dock_spaces)
@@ -970,8 +939,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
       return do_window_shadow(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_SCALE:
       return do_window_scale(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_ORDER:
-      return do_window_order(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_ORDER_LIST:
       return do_window_order_list(message, (int)length - 1) ? SA_REPLY_ACCEPTED
                                                             : SA_REPLY_FAILED;
@@ -980,9 +947,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
     case SA_OPCODE_WINDOW_LIST_TO_SPACE:
       return do_window_list_move_to_space(message) ? SA_REPLY_ACCEPTED
                                                    : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_TO_SPACE:
-      return do_window_move_to_space(message) ? SA_REPLY_ACCEPTED
-                                              : SA_REPLY_FAILED;
     default:
       return SA_REPLY_UNSUPPORTED;
     }

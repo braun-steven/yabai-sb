@@ -25,7 +25,7 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
   case 1: expected = 0
   case 2, 3, 4: expected = 8
   case 5: expected = 25
-  case 6, 16, 19: expected = 12
+  case 6: expected = 12
   case 9: expected = 8
   case 10, 11: expected = 5
   case 13: expected = 20

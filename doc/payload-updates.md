@@ -31,6 +31,10 @@ The `justfile`'s `osax-payload` recipe builds the standalone payload, while Swif
 
 Opcodes 7 and 8 (window opacity and its fade) and 14 and 15 (the proxy swaps of window animations) were removed in 2.1.38. Their numbers stay unused: the validator and the fixtures use the literal values, so the other opcodes keep theirs.
 
+Opcodes 0x10 (order one window) and 0x13 (move one window to a space) were removed in 2.1.41. They were the one-entry
+cases of 0x14 and 0x12, kept only so that a daemon could fall back to them for an older payload without 0x14; the daemon
+now sends a one-entry list, and no longer accepts a payload that closes without a status byte.
+
 ## Adding a Dock build
 
 The animation patch (the `0x2f00e400` instruction at `animation_time_addr`) is written only when Dock's `LC_UUID` is in
@@ -64,7 +68,6 @@ sanitizer coverage, benchmarks and the controlled live comparison procedure.
 The daemon's own load (`[daemon] load_scripting_addition`, `ScriptingAdditionLoader.swift`) runs `sudo -n <yabai> --load-sa`,
 which installs the payload like the manual command. No reconnect step is needed for the messages: each `ScriptingAddition.send`
 opens a new socket and connects to `/tmp/yabai-sa_$USER.socket`, so the first message after a successful load reaches the new
-payload. The only state kept across messages is the handshake verdict (`payloadIsCurrentCache`): a handshake that fails is
-retried, but a verdict "not current" (the version differs) stays until `payloadChanged()`. A Dock restart calls it before the
-load starts, and a successful load calls it too (`EventHandler.scriptingAdditionLoaded`), so a daemon that started with an old
-payload asks again. Not verified live: the first `space --focus` after a load is in the C4.2 live check.
+payload. No state is kept across messages either. An older payload that is still loaded answers the opcodes it shares with
+this build; one it does not know is rejected as invalid (status byte 1), and the operation reports failure. Not verified
+live: the first `space --focus` after a load is in the C4.2 live check.

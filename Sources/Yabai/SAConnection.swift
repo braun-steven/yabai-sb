@@ -112,7 +112,7 @@ struct SAConnection {
     return true
   }
 
-  // nil is a transport failure; [] is an orderly EOF from a legacy payload.
+  // nil is a transport failure; [] is an orderly EOF.
   func read(maximum: Int) -> [UInt8]? {
     guard maximum > 0 else { return [] }
     var bytes = [UInt8](repeating: 0, count: maximum)
@@ -144,16 +144,16 @@ struct SAConnection {
 
   enum Outcome: Equatable {
     case accepted
-    case legacyUnconfirmed
     case rejected(UInt8)
     case transportFailure
 
-    var isSuccess: Bool { self == .accepted || self == .legacyUnconfirmed }
+    var isSuccess: Bool { self == .accepted }
   }
 
   func command(_ bytes: [UInt8]) -> Outcome {
-    guard write(bytes), let reply = read(maximum: 1) else { return .transportFailure }
-    guard let value = reply.first else { return .legacyUnconfirmed }
+    guard write(bytes), let reply = read(maximum: 1), let value = reply.first else {
+      return .transportFailure
+    }
     return value == SA_REPLY_ACCEPTED ? .accepted : .rejected(value)
   }
 }

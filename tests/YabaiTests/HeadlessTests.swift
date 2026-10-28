@@ -57,5 +57,23 @@ extension DaemonState {
       #expect(log.messages == [expected.message(SA_OPCODE_WINDOW_LAYER)])
       #expect(log.messages.first?[2] == UInt8(SA_OPCODE_WINDOW_LAYER.rawValue))
     }
+
+    // A single window is ordered as a one-entry window order list.
+    @Test(arguments: [("--raise w1", Int32(1), UInt32(1)), ("--lower", Int32(-1), UInt32(0))])
+    func raiseAndLowerSendOneEntryOrderList(command: String, order: Int32, relativeTo: UInt32) {
+      let space = Workspace()
+      for n: UInt32 in 1...2 { space.open(n, focus: true) }
+      space.act(2)
+      space.settle()
+
+      #expect(Golden.run(windowCommand(command)).isEmpty)
+
+      var expected = SAPayload()
+      expected.pack(Int32(1))
+      expected.pack(wid(2))
+      expected.pack(order)
+      expected.pack(relativeTo == 0 ? 0 : wid(relativeTo).rawValue)
+      #expect(Headless.drain().messages == [expected.message(SA_OPCODE_WINDOW_ORDER_LIST)])
+    }
   }
 }

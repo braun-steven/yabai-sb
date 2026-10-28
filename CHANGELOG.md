@@ -134,6 +134,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property
 - Breaking: window animations (config *window_animation_duration* and *window_animation_easing*), window opacity and its fades (config *window_opacity*, *window_opacity_duration*, *active_window_opacity* and *normal_window_opacity*, *window --opacity* and the rule key *opacity*) and config *menubar_opacity*. Windows move and resize at once, and *query --windows* and *rule --list* no longer report *opacity*; a *yabai.toml* that sets one of these keys fails its check. The scripting addition drops the opacity, fade and proxy-swap messages (payload 2.1.38)
 - The scripting addition's window focus message, which nothing sent and whose Dock function is not found on macOS 27 (payload 2.1.39)
+- The scripting addition's single-window order and move-to-space messages; one window is sent as a one-entry list. The daemon no longer sends one message per window to an older payload without the list message, and a payload that closes without a status byte no longer counts as success (payload 2.1.41)
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed

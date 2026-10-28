@@ -56,7 +56,8 @@ private func withSAPeer(
 @Test(.timeLimit(.minutes(1))) func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws {
   try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
   try withSAPeer([2]) { #expect($0.command([1, 0, 1]) == .rejected(2)) }
-  try withSAPeer([]) { #expect($0.command([1, 0, 1]) == .legacyUnconfirmed) }
+  // A payload that closes without a status byte did not confirm the command.
+  try withSAPeer([]) { #expect($0.command([1, 0, 1]) == .transportFailure) }
   try withSAPeer(nil, timeoutMS: 150) { #expect($0.command([1, 0, 1]) == .transportFailure) }
 }
 

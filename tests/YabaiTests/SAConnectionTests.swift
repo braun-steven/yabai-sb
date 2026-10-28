@@ -129,7 +129,8 @@ private func withSAPeer(
       }
       #expect(count == expected.count)
     }
-    #expect(connection.write(expected))
+    let written = connection.write(expected)
+    #expect(written)
     shutdown(client, SHUT_WR)
     close(client)
     #expect(
@@ -143,7 +144,8 @@ private func withSAPeer(
     }
     setsockopt(stalled[0], SOL_SOCKET, SO_SNDBUF, &size, socklen_t(MemoryLayout<Int32>.size))
     let bounded = try #require(SAConnection(fd: stalled[0], timeoutMS: 50))
-    #expect(!bounded.write(expected))
+    let boundedWritten = bounded.write(expected)
+    #expect(!boundedWritten)
   }
 }
 

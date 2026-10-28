@@ -63,7 +63,6 @@ private let optionSamples: [OptionSample] = [
   OptionSample(name: .mouseAction1, toml: "\"resize\"", words: ["resize"]),
   OptionSample(name: .mouseAction2, toml: "\"move\"", words: ["move"]),
   OptionSample(name: .mouseDropAction, toml: "\"stack\"", words: ["stack"]),
-  OptionSample(name: .mouseDropPreview, toml: "\"ghost\"", words: ["ghost"]),
   OptionSample(name: .mouseDragSplit, toml: "true", words: ["on"]),
   OptionSample(name: .externalBar, toml: "\"all:0:0\"", words: ["all:0:0"]),
   OptionSample(name: .skipWindowFocusAnimation, toml: "true", words: ["on"]),

@@ -47,7 +47,6 @@ public enum ConfigCommand {
     case mouseAction1 = "mouse_action1"
     case mouseAction2 = "mouse_action2"
     case mouseDropAction = "mouse_drop_action"
-    case mouseDropPreview = "mouse_drop_preview"
     case mouseDragSplit = "mouse_drag_split"
     case externalBar = "external_bar"
     case skipWindowFocusAnimation = "skip_window_focus_animation"

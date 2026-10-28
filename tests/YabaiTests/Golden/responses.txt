@@ -395,7 +395,7 @@ main:1:2
 ### 40 config --check /nonexistent
 cannot read config file '/nonexistent'
 
-### 2154 config --dump
+### 2113 config --dump
 [daemon]
 auto_reload = true
 load_scripting_addition = false
@@ -421,7 +421,6 @@ mouse_modifier = "ctrl" # override
 mouse_action1 = "resize" # override
 mouse_action2 = "move" # override
 mouse_drop_action = "stack" # override
-mouse_drop_preview = "outline" # default
 mouse_drag_split = false # default
 window_border = true # override
 window_border_hide_single = false # default

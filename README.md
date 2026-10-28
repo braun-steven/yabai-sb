@@ -10,7 +10,6 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 
 - [i3/sway container tree](#i3sway-container-tree)
 - [Drag to resize splits](#drag-to-resize-splits)
-- [Drop preview](#drop-preview)
 - [Tab bars and adaptive glass](#tab-bars-and-adaptive-glass)
 - [Exclusive scratchpads](#exclusive-scratchpads)
 - [Native window borders](#native-window-borders)
@@ -79,7 +78,7 @@ yabai -m query --tree
 
 Directional focus walks the tree and enters a neighbouring group at its last focused window. At the edge of a space it can continue onto the next display. `focus_wrapping off` stops at an edge with no display; `force` wraps inside the innermost container instead.
 
-Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`. With `mouse_drop_preview ghost`, the target shows a translucent copy of the dragged window (see [Drop preview](#drop-preview)). With `mouse_drag_split on`, dragging the gap between two tiled windows resizes their split (see [Drag to resize splits](#drag-to-resize-splits)).
+Directional moves follow i3's behavior: they can swap neighbours, enter or leave groups, reorient a space, and cross displays. `--insert`, `--stack`, resizing, zoom, and `space --balance`, `--rotate` and `--mirror` work with the tree. Dragging onto a window edge places a window on that side; dropping in the center swaps them, or creates a tab with `mouse_drop_action stack`. With `mouse_drag_split on`, dragging the gap between two tiled windows resizes their split (see [Drag to resize splits](#drag-to-resize-splits)).
 
 Binding modes for resizing, layout and moving, built on these commands, are in [examples/skhdrc](examples/skhdrc).
 
@@ -99,14 +98,6 @@ yabai -m config mouse_drag_split on   # drag the gap between two tiled windows t
 ```
 
 With `mouse_drag_split` on, a plain left click on the gap between two tiled windows starts a drag: the gap follows the pointer, and neither window gets smaller than its minimum share. Clicks inside windows are unchanged, and so is a click on a floating window, a menu or another window that covers the gap. The option is off by default.
-
-### Drop preview
-
-```sh
-yabai -m config mouse_drop_preview ghost   # show the dragged window where a drop would land
-```
-
-With `mouse_drop_preview ghost`, a window dragged over another one shows a translucent, scaled copy of itself in the half (or, for a stack or a swap, the whole) of the window it would land on. A swap also shows the other window's copy in the dragged window's own place. The copies are taken once per drag and freed when the drag ends. The default `outline` keeps the outline only.
 
 ### Tab bars and adaptive glass
 
@@ -525,7 +516,6 @@ Make sure you fulfil all of them before filing an issue.
 |-:|:-|
 |Operating&nbsp;System&nbsp;Apple Silicon|macOS 27; arm64 daemon/client and arm64e scripting addition. Intel builds are not supported by this fork.|
 |Accessibility&nbsp;API|yabai must be given permission to utilize the Accessibility API and will request access upon launch. The application must be restarted after access has been granted.|
-|Screen Recording|yabai must be given Screen Recording permission to show the window copies of `mouse_drop_preview ghost`. The application must be restarted after access has been granted.|
 |System&nbsp;Settings|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Displays have separate Spaces" must be enabled.|
 
 Please also take note of the following caveats.

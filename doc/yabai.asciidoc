@@ -388,10 +388,6 @@ Global Settings
 *mouse_drop_action* ['swap|stack']::
     Action performed when a managed window is dropped in the center of some other managed window: swap the two windows, or make the dropped window a tab of the other one.
 
-*mouse_drop_preview* ['outline|ghost']::
-    What a managed window dragged over another managed window shows where it would be dropped. 'outline' (the default) outlines the half or the whole window. +
-    'ghost' also shows a translucent copy of the dragged window in that area, scaled to fit, and for a swap a copy of the other window in the dragged window's own place. The copies are taken once per drag and freed when the drag ends.
-
 *mouse_drag_split* ['on|off']::
     Dragging with the left button, without the 'mouse_modifier' key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share. +
     A click inside a window, or on a floating window or menu over the gap, is passed on as before. The default is 'off'.
@@ -1195,7 +1191,7 @@ The windows of hidden tabs keep the frame of the container and are ordered below
 
 Sizes are shares of the parent container, like i3's 'percent'. *window --resize* moves an edge of the window, taking the space from or giving it to the neighbour on the other side of that edge in the closest container laid out in that direction, and *window --ratio* sets the share of the window in its container. Dragging with *mouse_action2* 'resize' does the same, and with *mouse_drag_split* 'on' a plain drag on the gap between two tiled windows does too. *window --toggle split* toggles between 'splith' and 'splitv', *window --toggle zoom-fullscreen* and *zoom-parent* make the window cover the space or its container, and *space --balance*, *--rotate* and *--mirror* work on the whole tree. +
 In *query --windows*, 'split-type' is the layout of the container of the window ('vertical' for 'splith', 'horizontal' for 'splitv', and 'none' for tabbed), 'stack-index' is the position of its tab in the closest tabbed container +
-Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'. *mouse_drop_preview* 'ghost' shows a translucent copy of the dragged window where it would land while the drag is in progress.
+Dropping a window dragged with the mouse onto the edge of another window places it on that side of the window, and dropping it on the center swaps the windows, or makes it a tab of the other window with *mouse_drop_action* 'stack'. An outline shows where it would land while the drag is in progress.
 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +
 The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree.

@@ -387,13 +387,6 @@
             "stack"
           ]
         },
-        "mouse_drop_preview": {
-          "description": "What a managed window dragged over another managed window shows where it would be dropped.",
-          "enum": [
-            "outline",
-            "ghost"
-          ]
-        },
         "mouse_drag_split": {
           "description": "Dragging with the left button, without the 'mouse_modifier' key, on the gap between two tiled windows resizes their split: the gap follows the pointer, and each child keeps its minimum share.",
           "type": "boolean"

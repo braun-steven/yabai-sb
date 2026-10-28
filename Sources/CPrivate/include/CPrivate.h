@@ -141,7 +141,6 @@ extern CGError SLSRegisterConnectionNotifyProc(int cid,
                                                void *_Nullable context);
 extern CGError SLSGetWindowBounds(int cid, uint32_t wid, CGRect *frame);
 extern int SLSGetWindowSubLevel(int cid, uint32_t wid);
-extern CGError SLSGetWindowAlpha(int cid, uint32_t wid, float *alpha);
 extern CGError SLSSetWindowResolution(int cid, uint32_t wid, double resolution);
 extern CGError SLSCopyWindowProperty(int cid, uint32_t wid,
                                      CFStringRef property,
@@ -240,8 +239,6 @@ extern CGError SLSWindowSetShadowProperties(uint32_t wid,
                                             CFDictionaryRef options);
 extern CGError SLSRequestNotificationsForWindows(int cid, uint32_t *window_list,
                                                  int window_count);
-extern CF_RETURNS_RETAINED CFArrayRef _Nullable SLSHWCaptureWindowList(
-    int cid, uint32_t *window_list, int window_count, uint32_t options);
 extern CGError SLSSpaceSetCompatID(int cid, uint64_t sid, int workspace);
 extern CGError SLSSetWindowListWorkspace(int cid, uint32_t *window_list,
                                          int window_count, int workspace);

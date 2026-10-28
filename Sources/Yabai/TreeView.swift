@@ -636,22 +636,17 @@ private let insertFeedbackRadius: Float = 9
 
 //
 // NOTE: What an outline shows. A container draws its outline again only when this changes; the outline is ordered on
-// every call. The color is part of the key because insert_feedback_color is not a config group that is observed. A ghost
-// is keyed by the window it is an image of, not by the image: a drag captures one image per window.
+// every call. The color is part of the key because insert_feedback_color is not a config group that is observed.
 //
 struct FeedbackKey: Equatable {
   let area: Area
   let direction: InsertDirection?
   let color: RGBAColor
-  let ghost: WindowID?
 }
 
 extension Con {
-  /// Orders the outline of the container. With a ghost (`mouse_drop_preview ghost`), the outline shows the image of that
-  /// window, scaled into the half or the whole area of the direction at half alpha, and has no fill.
-  func showFeedback(
-    direction insertDir: InsertDirection?, ghost: (window: WindowID, image: CGImage)? = nil
-  ) {
+  /// Orders the outline of the container.
+  func showFeedback(direction insertDir: InsertDirection?) {
     guard let windowID = focusedDescendant.windowID else { return }
 
     let cid = SLS.connection
@@ -679,11 +674,10 @@ extension Con {
 
     let color = Config.current.window.insertionFeedbackColor
     let draw = render.feedbackWindow.gate.needsDraw(
-      FeedbackKey(area: area, direction: insertDir, color: color, ghost: ghost?.window))
+      FeedbackKey(area: area, direction: insertDir, color: color))
     if draw {
       drawFeedback(
-        outline: feedbackWindowID, area: area, direction: insertDir, color: color,
-        ghost: ghost?.image)
+        outline: feedbackWindowID, area: area, direction: insertDir, color: color)
     }
 
     SLS.setLevel(cid, feedbackWindowID, windowID.level)
@@ -691,11 +685,10 @@ extension Con {
     SLS.order(cid, feedbackWindowID, .above, relativeTo: windowID)
   }
 
-  /// Draws the outline of the area into its window, the fill and stroke clipped to the half that `insertDir` marks. With a
-  /// ghost image, the image takes the place of the fill: it is drawn at half alpha into the same half, and the stroke follows.
+  /// Draws the outline, with fill and stroke clipped to the half that `insertDir` marks.
   private func drawFeedback(
     outline feedbackWindowID: WindowID, area: Area, direction insertDir: InsertDirection?,
-    color: RGBAColor, ghost: CGImage?
+    color: RGBAColor
   ) {
     let cid = SLS.connection
     let frame = CGRect(x: 0, y: 0, width: CGFloat(area.w), height: CGFloat(area.h))
@@ -743,19 +736,7 @@ extension Con {
     SLS.setShape(cid, feedbackWindowID, frameRegion)
     context?.clear(frame)
     context?.clip(to: clip)
-    if let ghost {
-      // NOTE: The ghost is drawn into the area the direction covers (DropPreview.covered), in the coordinates of the clip.
-      let covered = DropPreview.covered(frame, by: insertDir)
-      let size = CGSize(width: ghost.width, height: ghost.height)
-      if let fit = DropPreview.fit(size, in: covered) {
-        context?.saveGState()
-        context?.setAlpha(0.5)
-        context?.draw(ghost, in: fit)
-        context?.restoreGState()
-      }
-    } else {
-      context?.fill(fill)
-    }
+    context?.fill(fill)
     context?.addPath(path)
     context?.strokePath()
     context?.resetClip()

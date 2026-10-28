@@ -40,7 +40,7 @@ extension WindowManager {
     let mouse = MouseState.shared
     if mouse.window?.id == id { mouse.clearWindow() }
     if mouse.ffmWindowID == id { mouse.ffmWindowID = nil }
-    if mouse.feedbackWindowID == id { mouse.releaseDropGhosts() }
+    if mouse.feedbackWindowID == id { mouse.clearFeedback() }
   }
 
   func addWindow(_ target: Window) {

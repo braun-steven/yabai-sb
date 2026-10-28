@@ -476,9 +476,6 @@ enum ConfigOptionKind: Sendable {
   choiceOption(
     .mouseDropAction, choices: [.swap, .stack], get: { Config.current.mouse.dropAction },
     set: { Config.current.mouse.dropAction = $0 }),
-  choiceOption(
-    .mouseDropPreview, choices: MouseDropPreview.allCases,
-    get: { Config.current.mouse.dropPreview }, set: { Config.current.mouse.dropPreview = $0 }),
   boolOption(
     .mouseDragSplit, get: { Config.current.mouse.dragSplit },
     set: {

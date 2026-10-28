@@ -25,6 +25,28 @@ extension DaemonState {
       #expect(ms.resolveDrop(onto: target, at: CGPoint(x: 200, y: 150)) == .stack)
     }
 
+    @Test func dropFeedbackClearsWhenTargetIsLostOrDragEnds() {
+      let workspace = Workspace()
+      let dragged = workspace.open(1, focus: true)
+      let target = workspace.open(2)
+      let ms = MouseState()
+      ms.window = dragged
+      ms.feedbackWindowID = target.id
+      ms.feedbackDirection = .west
+
+      ms.showDropFeedback(view: nil, window: nil, at: .zero)
+      #expect(ms.feedbackWindowID == nil)
+      #expect(ms.feedbackDirection == nil)
+      #expect(ms.window === dragged)
+
+      ms.feedbackWindowID = target.id
+      ms.feedbackDirection = .east
+      ms.clearWindow()
+      #expect(ms.feedbackWindowID == nil)
+      #expect(ms.feedbackDirection == nil)
+      #expect(ms.window == nil)
+    }
+
     // NOTE: a mouse down of the button that holds a drag means its mouse up was lost; another button does not.
     @Test func mouseDownOfTheDragButtonMeansALostMouseUp() {
       let ms = MouseState()

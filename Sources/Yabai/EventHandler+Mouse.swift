@@ -55,8 +55,8 @@ extension EventHandler {
     // event tap was disabled), or a second button was pressed during it. The next frame of a drag opens the scope again.
     //
     ms.endFrameScope()
-    // NOTE: The drop preview of a drag whose mouse up was lost ends here too, with its ghost images.
-    ms.releaseDropGhosts()
+    // NOTE: The drop feedback of a drag whose mouse up was lost ends here too.
+    ms.clearFeedback()
 
     if MissionControl.shared.isActive { return }
 

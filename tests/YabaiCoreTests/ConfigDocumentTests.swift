@@ -225,6 +225,7 @@ func everySpaceScopedOptionDecodesInASpace(_ name: ConfigCommand.Name) throws {
     ("foo = 1\n", "foo"),
     // unknown option in [config] and [daemon]
     ("[config]\nwindow_gapp = 1\n", "config.window_gapp"),
+    ("[config]\nmouse_drop_preview = \"ghost\"\n", "config.mouse_drop_preview"),
     ("[daemon]\nauto_reloads = true\n", "daemon.auto_reloads"),
     // wrong type: a table where a table belongs, an array where a scalar belongs
     ("config = 1\n", "config"),

@@ -134,13 +134,4 @@ extension SLS {
     return radius
   }
 
-  /// `SLSHWCaptureWindowList` of one window with the options (1 << 11) | (1 << 8): its image, nil if none.
-  static func captureImage(_ cid: Int32, of wid: WindowID) -> CGImage? {
-    var capturedID = wid.rawValue
-    guard let images = SLSHWCaptureWindowList(cid, &capturedID, 1, (1 << 11) | (1 << 8)),
-      CFArrayGetCount(images) > 0
-    else { return nil }
-    return Unmanaged<CGImage>.fromOpaque(CFArrayGetValueAtIndex(images, 0)).retain()
-      .takeRetainedValue()
-  }
 }

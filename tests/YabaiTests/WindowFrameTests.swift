@@ -92,26 +92,3 @@ import YabaiTestSupport
   #expect(
     WindowManager.frameNeedsUpdate(request: other, bounds: target, x: 10, y: 20, w: 300, h: 400))
 }
-
-@Test("drop ghost alpha restoration handles a partial pixel block")
-@WM func dropGhostAlphaTail() throws {
-  // NOTE: The C helper processed four pixels at a time even when the bitmap ended mid-block.
-  let sourcePixel: [UInt8] = [64, 32, 16, 128]
-  let pixel = Array(repeating: sourcePixel, count: 5).flatMap { $0 }
-  let provider = try #require(CGDataProvider(data: Data(pixel) as CFData))
-  let image = try #require(
-    CGImage(
-      width: 5, height: 1, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 20,
-      space: CGColorSpaceCreateDeviceRGB(),
-      bitmapInfo: CGBitmapInfo(
-        rawValue: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue
-      ),
-      provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
-  let restored = try #require(DropGhost.restoreAlpha(image))
-  let bytes = try #require(restored.dataProvider?.data)
-  let data = try #require(CFDataGetBytePtr(bytes))
-  let expectedPixel: [UInt8] = [128, 64, 32, 255]
-  #expect(
-    Array(UnsafeBufferPointer(start: data, count: 20))
-      == Array(repeating: expectedPixel, count: 5).flatMap { $0 })
-}

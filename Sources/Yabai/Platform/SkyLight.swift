@@ -56,13 +56,6 @@ enum SLS {
     return frame
   }
 
-  /// `SLSGetWindowAlpha`; nil if the call fails.
-  static func windowAlpha(_ cid: Int32, _ wid: WindowID) -> Float? {
-    var alpha: Float = 0
-    guard SLSGetWindowAlpha(cid, wid.rawValue, &alpha) == .success else { return nil }
-    return alpha
-  }
-
   /// `SLSGetWindowSubLevel`
   static func windowSubLevel(_ cid: Int32, _ wid: WindowID) -> Int32 {
     return SLSGetWindowSubLevel(cid, wid.rawValue)

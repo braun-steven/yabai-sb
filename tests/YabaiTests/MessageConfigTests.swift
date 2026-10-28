@@ -94,7 +94,6 @@ private let configExpectations: [String: String] = [
   "mouse_action1": "one of: move, resize",
   "mouse_action2": "one of: move, resize",
   "mouse_drop_action": "one of: swap, stack",
-  "mouse_drop_preview": "one of: outline, ghost",
   "mouse_drag_split": "on or off",
   "skip_window_focus_animation": "on or off",
   "scratchpad_exclusive": "on or off",
@@ -198,8 +197,6 @@ extension DaemonState {
       ConfigCase(option: "mouse_action2", value: "move", printed: "move", invalid: "stack"),
       ConfigCase(
         option: "mouse_drop_action", value: "stack", printed: "stack", invalid: "warp_top"),
-      ConfigCase(
-        option: "mouse_drop_preview", value: "ghost", printed: "ghost", invalid: "blur"),
       ConfigCase(option: "mouse_drag_split", value: "on", printed: "on", invalid: "x"),
       ConfigCase(
         option: "external_bar", value: "main:20:0", printed: "main:20:0", invalid: "some:1:2",
@@ -455,7 +452,7 @@ extension DaemonState {
         "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "space_auto_back_and_forth",
         "mouse_modifier",
         "mouse_action1",
-        "mouse_action2", "mouse_drop_action", "mouse_drop_preview", "mouse_drag_split",
+        "mouse_action2", "mouse_drop_action", "mouse_drag_split",
         "external_bar",
         "skip_window_focus_animation",
         "space_layout",
@@ -464,8 +461,8 @@ extension DaemonState {
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 55)
-      #expect(actual.count == 55)
+      #expect(ConfigName.allCases.count == 54)
+      #expect(actual.count == 54)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }
@@ -517,6 +514,8 @@ extension DaemonState {
       #expect(Config.current.space.topPadding == 7)
 
       #expect(runConfig("not_an_option\0").contains("unknown command 'not_an_option'"))
+      #expect(
+        runConfig("mouse_drop_preview\0ghost\0").contains("unknown command 'mouse_drop_preview'"))
 
       // NOTE: a failing option writes its failure and the next option still runs; an invalid space_layout stops
       // the message, since its layouts cannot be told apart from the next option

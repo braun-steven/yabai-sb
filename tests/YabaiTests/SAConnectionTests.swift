@@ -50,7 +50,8 @@ private func withSAPeer(
   }
   defer {
     close(client)
-    group.wait()
+    #expect(
+      group.wait(timeout: .now() + .seconds(10)) == .success, "the peer thread is still running")
   }
   try body(connection)
 }
@@ -128,7 +129,8 @@ private func withSAPeer(
   #expect(connection.write(expected))
   shutdown(client, SHUT_WR)
   close(client)
-  group.wait()
+  #expect(
+    group.wait(timeout: .now() + .seconds(10)) == .success, "the reader thread is still running")
 
   var stalled: [Int32] = [0, 0]
   try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &stalled) == 0)

@@ -493,9 +493,6 @@ enum ConfigOptionKind: Sendable {
   boolOption(
     .tabBarIcons, get: { Config.current.tabBar.icons }, set: { Config.current.tabBar.icons = $0 }),
   choiceOption(
-    .tabBarStyle, choices: TabBarStyle.allCases, get: { Config.current.tabBar.style },
-    set: { Config.current.tabBar.style = $0 }),
-  choiceOption(
     .tabBarAppearance, choices: TabBarAppearance.allCases,
     get: { Config.current.tabBar.appearance }, set: { Config.current.tabBar.appearance = $0 }),
   choiceOption(

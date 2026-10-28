@@ -16,8 +16,8 @@ extension WindowManager {
   //
   // NOTE: Clears the state that is keyed by the id of a window that is gone, and only that id. Called by removeWindow,
   // so every removal of a window clears the same tables. Left alone, and why:
-  // - tabBarHits (TabBar.swift): a snapshot that publishHits rebuilds on every bar update.
-  // - tabBarPointer (TabBar.swift): a change cache for the event tap, refreshed by the next pointer move.
+  // - tabBarHits (TabBarGlass.swift): a snapshot that publishHits rebuilds on every bar update.
+  // - tabBarPointer (TabBarGlass.swift): a change cache for the event tap, refreshed by the next pointer move.
   // - focused, last and pending: FocusState owns them (FocusState.swift). The focus hand-over reads them after the
   //   removal, so they are left alone here. The lost focus event of the id is cleared below.
   // - Application.focusedWindowID: per application, read by its front-switch handler.

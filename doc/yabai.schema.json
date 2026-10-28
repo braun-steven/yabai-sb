@@ -152,7 +152,7 @@
           "type": "integer"
         },
         "tab_bar_backdrop": {
-          "description": "Backdrop card of the 'glass' tab bar style.",
+          "description": "Backdrop card of the tab bar.",
           "enum": [
             "off",
             "glass",
@@ -183,15 +183,8 @@
           "type": "integer",
           "minimum": 0
         },
-        "tab_bar_style": {
-          "description": "Look of the tab bar.",
-          "enum": [
-            "glass",
-            "i3"
-          ]
-        },
         "tab_bar_appearance": {
-          "description": "Appearance of glass tab bars.",
+          "description": "Appearance of the tab bar.",
           "enum": [
             "dark",
             "system"

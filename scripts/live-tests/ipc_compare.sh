@@ -83,7 +83,7 @@ run bogus --domain
 for option in debug_output mouse_follows_focus focus_follows_mouse display_arrangement_order builtin_display_last \
     window_origin_display window_shadow insert_feedback_color window_border \
     window_border_width window_border_hide_single active_window_border_color normal_window_border_color tab_bar \
-    tab_bar_height tab_bar_offset tab_bar_font tab_bar_icons tab_bar_style tab_bar_backdrop tab_bar_card_padding \
+    tab_bar_height tab_bar_offset tab_bar_font tab_bar_icons tab_bar_backdrop tab_bar_card_padding \
     tab_bar_window_radius tab_bar_focused_color tab_bar_focused_text_color tab_bar_inactive_color \
     tab_bar_inactive_text_color tab_bar_unfocused_color tab_bar_unfocused_text_color tab_bar_backdrop_color \
     top_padding bottom_padding left_padding right_padding layout window_gap auto_padding tree_default_orientation \
@@ -113,7 +113,6 @@ run config active_window_border_color 255
 run config tab_bar_height 0
 run config tab_bar_offset 2.5
 run config tab_bar_offset nan
-run config tab_bar_style round
 run config tab_bar_backdrop frosted
 run config tab_bar_card_padding -1
 run config tab_bar_window_radius 1.5

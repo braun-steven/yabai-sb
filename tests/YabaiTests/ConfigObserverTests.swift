@@ -71,7 +71,7 @@ extension DaemonState {
       config.height += 1
       #expect(config.needsRebuild(from: old))
       config = old
-      config.style = old.style == .glass ? .i3 : .glass
+      config.backdrop = .off
       #expect(config.needsRebuild(from: old))
       config = old
       config.icons.toggle()

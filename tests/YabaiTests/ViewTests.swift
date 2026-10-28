@@ -116,8 +116,8 @@ extension DaemonState {
 
     @Test("auto_padding_split_in_tab")
     func autoPaddingSplitInTab() {
-      // NOTE: classic bars: glass cards would inset the tabs
-      Config.current.tabBar.style = .i3
+      // NOTE: no backdrop card: its padding would inset the tabs
+      Config.current.tabBar.backdrop = .off
       let target = autoPaddingView()
       target.tree!.layout = .tabbed
 

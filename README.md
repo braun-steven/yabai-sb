@@ -111,15 +111,10 @@ Glass tabs with `tab_bar_backdrop off`, captured above a disposable application 
 
 ![Glass tab track without a surrounding backdrop card](assets/fork/tab-bars-no-backdrop.png)
 
-Flat tabs with `tab_bar_style i3`, captured with the same test windows:
-
-![Flat i3 tabs with the Terminal tab selected](assets/fork/tab-bars-i3.png)
-
 #### Choose the appearance
 
 ```sh
 yabai -m config tab_bar on
-yabai -m config tab_bar_style glass
 yabai -m config tab_bar_backdrop blur
 yabai -m config tab_bar_appearance system
 yabai -m config tab_bar_font system:12
@@ -128,13 +123,11 @@ yabai -m config tab_bar_icons on
 
 | Option | Behavior |
 |---|---|
-| `tab_bar_style glass` | Liquid Glass controls in a rounded track; the default. |
-| `tab_bar_style i3` | Flat tabs side by side, without a backdrop card. |
 | `tab_bar_backdrop blur` | Subdued native background material beneath the controls and windows; the default. |
 | `tab_bar_backdrop glass` | Liquid Glass across the whole container card. |
 | `tab_bar_backdrop off` | A separate tab track above the windows, without a surrounding card. |
 | `tab_bar_appearance dark` | Keep glass controls and cards dark; the default. |
-| `tab_bar_appearance system` | Follow macOS light/dark appearance. Does not affect the i3 style. |
+| `tab_bar_appearance system` | Follow macOS light/dark appearance. |
 
 Reduce Motion disables the tab bar transitions, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
 

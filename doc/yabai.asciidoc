@@ -296,6 +296,9 @@ Global Settings
 *tab_bar* ['<BOOL_SEL>']::
     Draw a tab bar on top of every tabbed container, like the tabbed layout of i3. Enabled by default. +
     Each tab shows the title of a window, and clicking a tab focuses that window. +
+    Tabs are drawn in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch. +
+    Glass tabs use native AppKit buttons with hover and press feedback and accessible titles and selection state. Default text colors adapt to the appearance; configured text colors override them. Reduce Motion disables transitions, and Increase Contrast adds outlines and stronger default text. +
+    The bar uses dark glass by default; *tab_bar_appearance* can follow the system appearance instead. A *tab_bar_\*_color* background color that was not configured is applied with reduced opacity (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given, except that Reduce Transparency makes the backing tints opaque. +
     The windows of the container are shrunk by *tab_bar_height* to make room for the bar.
 
 *tab_bar_height* ['<integer number>']::
@@ -306,11 +309,11 @@ Global Settings
     A negative value moves the windows up under the bar. The windows always keep at least *tab_bar_height* of height.
 
 *tab_bar_backdrop* ['off|glass|blur']::
-    Backdrop card of the 'glass' tab bar style. Default is 'blur'. +
+    Backdrop card of the tab bar. Default is 'blur'. +
     The card is a rounded surface behind the whole tabbed container that holds the bar at its top and the active window below it, so the wallpaper never shows between the bar and the window. +
     The card hides the other windows of the container. The bar keeps its Liquid Glass track, tinted with *tab_bar_unfocused_color*, on top of the card. +
     'blur' uses the native material for backgrounds beneath windows, with a neutral color that follows *tab_bar_appearance*. 'glass' draws the whole card in Liquid Glass, and 'off' draws no card, so the bar floats above the windows in its own track. +
-    Cards have a subtle outline that becomes stronger with Increase Contrast. The card is never drawn for the 'i3' style.
+    Cards have a subtle outline that becomes stronger with Increase Contrast.
 
 *tab_bar_backdrop_color* ['0xAARRGGBB']::
     Optional tint of the backdrop card. The 'blur' backdrop uses its native material color until this option is configured. +
@@ -324,16 +327,9 @@ Global Settings
     The backdrop card is rounded with this radius plus *tab_bar_card_padding*, so its corners are concentric with the corners of the window inside it. +
     Windows with a toolbar have a larger radius in macOS 26 (about 26).
 
-*tab_bar_style* ['glass|i3']::
-    Look of the tab bar. Default is 'glass'. +
-    'glass' draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch. +
-    The bar uses dark glass by default; *tab_bar_appearance* can follow the system appearance instead. A *tab_bar_\*_color* background color that was not configured is applied with reduced opacity in 'glass' (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given, except that Reduce Transparency makes the backing tints opaque. +
-    Glass tabs use native AppKit buttons with hover and press feedback and accessible titles and selection state. Default text colors adapt to the appearance; configured text colors override them. Reduce Motion disables transitions, and Increase Contrast adds outlines and stronger default text. +
-    'i3' draws flat tabs side by side in the *tab_bar_\*_color* colors.
-
 *tab_bar_appearance* ['dark|system']::
-    Appearance of glass tab bars. Default is 'dark', including when macOS uses light mode. +
-    'system' follows the macOS appearance for the controls and backdrop, with adaptive default materials and glass tints. Configured background and text colors are retained. This option does not affect the 'i3' style.
+    Appearance of the tab bar. Default is 'dark', including when macOS uses light mode. +
+    'system' follows the macOS appearance for the controls and backdrop, with adaptive default materials and glass tints. Configured background and text colors are retained.
 
 *tab_bar_font* ['<family>:<size>']::
     Font of the tab titles, e.g. 'Menlo:12'. The family 'system' selects the macOS system font. Default is 'system:12'.

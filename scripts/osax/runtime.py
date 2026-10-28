@@ -5,7 +5,6 @@ Read doc/live-testing.md first. Run after compatibility.py setup, outside the co
 No malformed traffic is sent to Dock. Space reconciliation is disabled only during this probe.
 """
 import argparse
-import ctypes
 import json
 import math
 import os
@@ -19,8 +18,6 @@ import time
 wid = None
 dock = None
 daemon = None
-skylight = None
-cid = None
 
 
 def cli(*words):
@@ -39,22 +36,11 @@ def request(body):
         return connection.recv(256)
 
 
-def opacity(alpha, duration=0):
-    response = request(struct.pack("=BIff", 8 if duration else 7, wid, alpha, duration))
-    assert response == b"\0", f"opacity reply {response!r}"
-
-
-def alpha():
-    result = ctypes.c_float()
-    status = skylight.SLSGetWindowAlpha(cid, wid, ctypes.byref(result))
-    assert status == 0, f"alpha read {status}"
-    return result.value
-
-
-def endpoint(expected):
-    observed = alpha()
-    assert abs(observed - expected) < 0.015, (observed, expected)
-    return observed
+def noop():
+    # A layer message for window id 0: the payload validates and dispatches it, and do_window_layer accepts it
+    # without touching a window. It measures the socket round trip without a visible effect.
+    response = request(struct.pack("=BIi", 9, 0, 0))
+    assert response == b"\0", f"no-op reply {response!r}"
 
 
 def footprint():
@@ -85,20 +71,13 @@ def cleanup_disposable_spaces(created_spaces, query_spaces, cli_command):
 
 
 def restore_probe_state(
-        original_alpha,
         created_spaces,
         space_layout,
         *,
-        restore_opacity,
         query_spaces,
         cli_command):
     """Attempt every independent restore step and return labelled errors for the caller."""
     errors = []
-    try:
-        restore_opacity(original_alpha)
-    except Exception as error:
-        errors.append(("window opacity", error))
-
     try:
         errors.extend(cleanup_disposable_spaces(created_spaces, query_spaces, cli_command))
     except Exception as error:
@@ -111,7 +90,7 @@ def restore_probe_state(
 
 
 def main(argv=None):
-    global wid, dock, daemon, skylight, cid
+    global wid, dock, daemon
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=pathlib.Path, required=True)
@@ -119,7 +98,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     unlocked()
-    expected_version = "2.1.37"
+    expected_version = "2.1.38"
     version = request(b"\1").split(b"\0", 1)[0].decode()
     assert version == expected_version, (version, expected_version)
     windows = query("--windows", "--space", 4)
@@ -131,11 +110,6 @@ def main(argv=None):
         wid = args.window
     dock = int(subprocess.check_output(["pgrep", "-x", "Dock"], text=True))
     daemon = int(subprocess.check_output(["pgrep", "-ox", "yabai"], text=True))
-    skylight = ctypes.CDLL("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight")
-    skylight.SLSMainConnectionID.restype = ctypes.c_int
-    skylight.SLSGetWindowAlpha.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(ctypes.c_float)]
-    cid = skylight.SLSMainConnectionID()
-    original_alpha = alpha()
     original_spaces = {space["id"] for space in query("--spaces")}
     created_spaces = set()
     space_layout = cli("config", "space_layout")
@@ -145,30 +119,6 @@ def main(argv=None):
     probe_error = None
     probe_traceback = None
     try:
-        opacity(0.45)
-        report["checks"]["immediate"] = endpoint(0.45)
-        opacity(0.8, 0.12)
-        time.sleep(0.22)
-        report["checks"]["fade_endpoint"] = endpoint(0.8)
-        opacity(0.2, 0.3)
-        time.sleep(0.04)
-        opacity(0.9, 0.08)
-        time.sleep(0.4)
-        report["checks"]["replacement"] = endpoint(0.9)
-        opacity(0.1, 0.2)
-        time.sleep(0.04)
-        opacity(0.7)
-        time.sleep(0.3)
-        report["checks"]["immediate_cancellation"] = endpoint(0.7)
-        for index in range(100):
-            opacity(0.3 if index % 2 else 0.8, 0.1)
-        opacity(0.95)
-        time.sleep(0.2)
-        report["checks"]["rapid_replacement"] = endpoint(0.95)
-        response = request(struct.pack("=BIff", 7, 0xffffffff, 1, 0))
-        # SkyLight may return success even for an unknown window. Record its acknowledgement;
-        # never equate it with an observed effect. A nonexistent space has a detectable lookup failure.
-        report["unknown_window_opacity_reply"] = response.hex()
         response = request(struct.pack("=BQ", 2, 0xffffffffffffffff))
         assert response == b"\3", f"missing native failure: {response!r}"
         report["checks"]["native_failure_reply"] = response.hex()
@@ -176,12 +126,11 @@ def main(argv=None):
             timings = []
             for index in range(250):
                 started = time.perf_counter_ns()
-                opacity(0.95 if index % 2 else 1)
+                noop()
                 timings.append((time.perf_counter_ns() - started) / 1000)
             ordered = sorted(timings)
             blocks.append({"microseconds": timings, **{name: ordered[math.ceil(len(ordered) * p) - 1] for name, p in (("median", .5), ("p95", .95), ("p99", .99))}})
-        report["opacity_roundtrips"] = blocks
-        opacity(original_alpha)
+        report["roundtrips"] = blocks
         cli("config", "space_layout", "off")
         memory = [footprint()]
         for block in range(5):
@@ -203,10 +152,8 @@ def main(argv=None):
         probe_traceback = error.__traceback__
 
     restore_errors = restore_probe_state(
-        original_alpha,
         created_spaces,
         space_layout,
-        restore_opacity=opacity,
         query_spaces=lambda: query("--spaces"),
         cli_command=cli,
     )
@@ -222,8 +169,8 @@ def main(argv=None):
     assert dock == int(subprocess.check_output(["pgrep", "-x", "Dock"], text=True)), "Dock restarted"
     assert daemon == int(subprocess.check_output(["pgrep", "-ox", "yabai"], text=True)), "daemon restarted"
     args.out.write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps({key: value for key, value in report.items() if key != "opacity_roundtrips"}, indent=2))
-    print("Opacity round-trip median/p95/p99 (us):", [(block["median"], block["p95"], block["p99"]) for block in blocks])
+    print(json.dumps({key: value for key, value in report.items() if key != "roundtrips"}, indent=2))
+    print("Round-trip median/p95/p99 (us):", [(block["median"], block["p95"], block["p99"]) for block in blocks])
     return 0
 
 

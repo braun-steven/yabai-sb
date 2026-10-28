@@ -27,9 +27,9 @@ From commits like “Patterns adjusted …” and comments inside the payload so
 
 The `justfile`'s `osax-payload` recipe builds the standalone payload, while SwiftPM's `OSAXEmbed` plugin embeds its binaries as `__osax_payload` and `__osax_loader` in the `OSAX` target. `Sources/Yabai/ScriptingAddition.swift` consumes them. Bump `OSAX_VERSION` in `osax/common.h` whenever payload code or protocol behavior changes; the P14 path-only rebuild kept 2.1.34 because rebuilding at the old path produced identical bytes.
 
-## Fade timer
+## Removed opcodes
 
-The fade timer is armed only while fades run. `ensure_fade_timer` resumes it after an accepted fade (opcode 8 with a duration above 0), and the handler suspends it as soon as `sa_core_tick` reports that no fades remain. An idle payload therefore wakes nothing.
+Opcodes 7 and 8 (window opacity and its fade) and 14 and 15 (the proxy swaps of window animations) were removed in 2.1.38. Their numbers stay unused: the validator and the fixtures use the literal values, so the other opcodes keep theirs.
 
 ## Adding a Dock build
 

@@ -23,7 +23,7 @@ point below was learned the hard way; read it before running anything live.
   defaults; set any other value a test depends on in the test itself. Tests must not invoke window server side effects.
 - Headless mode (`Sources/Yabai/Headless.swift`): `DaemonFixture.reset()` turns it on, and it stays on for the rest
   of the test process; the daemon never enables it. `View.flush()` then applies the tree's frames to the window
-  models (`flushHeadless`: no AX, tab bars, feedback windows or borders), `animateWindows`/`animateWindow` do the
+  models (`flushHeadless`: no AX, tab bars, feedback windows or borders), `placeWindows`/`placeWindow` do the
   same without reading `SLS.windowBounds`, and `ScriptingAddition.send` records the message bytes instead of
   reaching Dock (`payloadIsCurrent` is true), and `WindowManager.updateWindowNotifications` requests no SkyLight
   notifications. `Headless.drain()` returns and clears the recorded placements and
@@ -77,8 +77,7 @@ point below was learned the hard way; read it before running anything live.
   apply `manage=on`/`sticky=off` only to windows that are still managed: an unmanaged window is tiled on
   `SpaceID.active`, the user's space. `scratchpad=` also sets `manage=off`. SkyLight reports the user's display for a
   fake window or space, so leave out `query --displays` of them and the display/space/visibility properties. `query`
-  prints window ids as 32-bit signed values, so the fake ids are negative there. Config values other than 0 for
-  `window_animation_duration` check SIP and request Screen Recording permission: never send them.
+  prints window ids as 32-bit signed values, so the fake ids are negative there.
 - `View(sid:)` leaves `isGapEnabled` and `isPaddingEnabled` off (`View.create` turns them on): set both before testing
   gaps or padding of a fixture view, or the spacing silently has no effect.
 - Layout property tests (`tests/YabaiTests/LayoutTests.swift`) lay out random `TreeModel` trees with random areas,
@@ -102,9 +101,9 @@ point below was learned the hard way; read it before running anything live.
   `.eraseToAny()` them, and put argument rows in a typed `static let`. A `propertyCheck` closure throws `any Error`,
   so a `do`/`catch` of typed errors inside it needs `do throws(CommandError)`.
 - Pure helpers are tested with parameterized rows (`HelperTests.swift`, `MouseValueTests`, `BorderDecisionTests`,
-  `WindowAnimationTickTests`, `DisplayManagerTests`; `GridTests.swift` and `AreaTests.swift` in YabaiCore). Keep the
+  `DisplayManagerTests`; `GridTests.swift` and `AreaTests.swift` in YabaiCore). Keep the
   decisions of window-server code in such helpers (`Grid.frame`, `Area.closest`, `Border.isEnabled`/`BorderShape`,
-  `WindowAnimation.interpolate`/`proxyTransform`, `DisplayManager.orderedBuiltinLast`).
+  `DisplayManager.orderedBuiltinLast`).
 - Image snapshots (`TabBarTests.titlesDrawnIntoTabs`) are PNGs in `tests/YabaiTests/__Snapshots__/<test file>/`,
   compared with `perceptualPrecision: 0.98`. The first run records and fails; look at the image before committing.
   Text rendering depends on the OS build: when an update changes it, disable that test and record it again
@@ -127,7 +126,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | File | Purpose |
 |---|---|
 | `live.py setup` | records the focused window, then opens TextEdit (3 documents), Script Editor (2) and Calculator on space 4 |
-| `live.py run <label>` | 28 checks: relayout, tabs (incl. front-to-back order), rapid focus, cross-display send, focus follows mouse, alt-drag, stalled client, frozen app, animations, native fullscreen |
+| `live.py run <label>` | 27 checks: relayout, tabs (incl. front-to-back order), rapid focus, cross-display send, focus follows mouse, alt-drag, stalled client, frozen app, native fullscreen |
 | `live.py extra <label>` | 50 SA space switches (Dock pid, footprint), space focus with a frozen front app, tabbed container warped to display 2 and back, swap across displays |
 | `live.py launch <label>` | launch-retry backoff for an app frozen right after launch; needs every test app closed |
 | `live.py topology <label>` | opt-in mirror-based display removal/re-add check for `space_layout` counts and pinned-space placement |
@@ -170,7 +169,7 @@ id to a space when the display returns.
 percentiles, failures, binary identity, tree/config state, RSS and physical footprint.
 Use the standard six-window fixture on space 4. Save configuration first; hold
 `tree_autotiling off`, `tree_workspace_layout default`, `tree_default_orientation horizontal`,
-`focus_follows_mouse off`, `mouse_follows_focus off` and `window_animation_duration 0`
+`focus_follows_mouse off` and `mouse_follows_focus off`
 through every matched block. Rebuild a flat test tree with space 4's layout float → tree
 under these settings, then balance. Restore the user's configuration afterward.
 Autotiling on creates nested trees during reinsertion and invalidates flat-layout comparisons.
@@ -271,12 +270,10 @@ Rules for the user's machine:
 - To check that signal commands run, add a labeled temporary signal and remove it:
   `yabai -m signal --add label=claude_test event=space_changed action="echo \$YABAI_SPACE_INDEX >> <file>"`,
   then `yabai -m signal --remove claude_test`.
-- A `config` command returns before the renderers apply it: borders, tab bars, opacity, the
-  menu bar alpha and shadows change in the event after the message. A check that reads the window server right after a
+- A `config` command returns before the renderers apply it: borders, tab bars and shadows change in
+  the event after the message. A check that reads the window server right after a
   `config` set must wait for it (a following `query` returns once it is applied). `window_border on` with ~20 windows
   takes about 1.5 s in both builds; the old build only blocked the `config` command instead.
-- The menu bar alpha set by `menubar_opacity` does not show in `CGWindowListCopyWindowInfo` (the `Menubar` window
-  keeps alpha 1), so that setting cannot be checked from the window list.
 - Script Editor can leave an invisible window without an AX reference (`Untitled.scpt`) on the fixture space:
   `query --windows --space` lists it as tiled, `query --windows --window <id>` cannot find it and it is not in the
   tree. Take the tiled windows from the leaves of `query --tree`, or a bench cycles focus through it.
@@ -453,10 +450,9 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
 
 ## Signpost intervals
 
-- `Sources/Yabai/Signposts.swift` holds the signposters (subsystem `com.asmvik.yabai`, categories `events` and
-  `animation`). The event loop wraps each event that `EventHandler.handle` runs in an interval named after its `Event`
-  case (`windowFocused`, `spaceChanged`, ...). An animation run is an interval `animation run`, from the proxy request
-  until the display link finishes it, and each display-link frame is an interval `animation frame`.
+- `Sources/Yabai/Signposts.swift` holds the signposter (subsystem `com.asmvik.yabai`, category `events`). The event
+  loop wraps each event that `EventHandler.handle` runs in an interval named after its `Event` case (`windowFocused`,
+  `spaceChanged`, ...).
 - Record 20 s with the Logging template: `xcrun xctrace record --template 'Logging' --attach yabai --time-limit 20s
   --output <file>.trace`. Open the trace in Instruments and filter the os_signpost data by subsystem `com.asmvik.yabai`.
   `--attach` takes the process name, and `xcrun xctrace list templates` shows the templates.

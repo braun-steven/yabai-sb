@@ -1,6 +1,5 @@
 import Darwin
 import OSAXCoreAPI
-import Synchronization
 
 private struct Cursor {
   var bytes: UnsafeRawBufferPointer
@@ -26,22 +25,14 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
   case 1: expected = 0
   case 2, 3, 4: expected = 8
   case 5: expected = 25
-  case 6, 7, 8, 16, 19: expected = 12
+  case 6, 16, 19: expected = 12
   case 9: expected = 8
   case 10, 11: expected = 5
   case 12: expected = 4
   case 13: expected = 20
-  case 14, 15, 17, 18, 20:
+  case 17, 18, 20:
     if opcode == 18 && cursor.take(UInt64.self) == nil { return false }
     guard let count = cursor.take(Int32.self), count >= 0 else { return false }
-    if opcode == 14 || opcode == 15 {
-      guard Int(count) <= cursor.remaining / 4 else { return false }
-      for _ in 0..<count {
-        guard let wid = cursor.take(UInt32.self) else { return false }
-        if wid != 0 && cursor.take(UInt32.self) == nil { return false }
-      }
-      return cursor.remaining == 0
-    }
     let width = opcode == 20 ? 12 : 4
     return cursor.remaining % width == 0 && Int(count) == cursor.remaining / width
   default: return false
@@ -55,15 +46,6 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
   if opcode == 10 || opcode == 11 {
     cursor.offset = 5
     guard let flag = cursor.take(UInt8.self), flag <= 1 else { return false }
-  }
-  if opcode == 7 || opcode == 8 {
-    cursor.offset = 5
-    guard let alpha = cursor.take(Float.self), let duration = cursor.take(Float.self) else {
-      return false
-    }
-    if !alpha.isFinite || alpha < 0 || alpha > 1 || !duration.isFinite || duration < 0 {
-      return false
-    }
   }
   if opcode == 13 {
     cursor.offset = 5
@@ -140,55 +122,4 @@ public func swiftServe(_ fd: Int32) -> Bool {
   return withUnsafeMutableBytes(of: &reply) {
     transfer(fd, $0, writing: true, deadline: nowNS() + 1_000_000_000)
   }
-}
-
-private struct Fade {
-  var startAlpha: Float
-  var alpha: Float
-  var duration: Float
-  var start: UInt64
-}
-
-// Native alpha calls stay inside the lock, so a tick cannot race with a newer command.
-private let fades = Mutex<[UInt32: Fade]>([:])
-
-@_cdecl("sa_swift_opacity")
-public func swiftOpacity(_ wid: UInt32, _ alpha: Float, _ duration: Float, _ now: UInt64) -> Bool {
-  guard wid != 0, alpha.isFinite, alpha >= 0, alpha <= 1, duration.isFinite, duration >= 0 else {
-    return false
-  }
-  return fades.withLock { state in
-    state.removeValue(forKey: wid)
-    if duration == 0 { return sa_native_set_alpha(wid, alpha) }
-    var start: Float = 0
-    guard sa_native_get_alpha(wid, &start) else { return false }
-    state[wid] = Fade(startAlpha: start, alpha: alpha, duration: duration, start: now)
-    return true
-  }
-}
-
-// Returns true while fades remain, so the native side can keep its timer armed only for that time.
-@_cdecl("sa_swift_tick")
-public func swiftTick(_ now: UInt64) -> Bool {
-  fades.withLock { state in
-    // Snapshot keys so removing completed fades does not mutate a live iterator.
-    for wid in Array(state.keys) {
-      guard let fade = state[wid] else { continue }
-      let elapsed = now >= fade.start ? Double(now - fade.start) / 1e9 : 0
-      let t = min(1, elapsed / Double(fade.duration))
-      let alpha = Float((1 - t) * Double(fade.startAlpha) + t * Double(fade.alpha))
-      if !sa_native_set_alpha(wid, alpha) || t >= 1 { state.removeValue(forKey: wid) }
-    }
-    return !state.isEmpty
-  }
-}
-
-@_cdecl("sa_swift_has_fades")
-public func swiftHasFades() -> Bool {
-  fades.withLock { !$0.isEmpty }
-}
-
-@_cdecl("sa_swift_reset")
-public func swiftReset() {
-  fades.withLock { $0.removeAll() }
 }

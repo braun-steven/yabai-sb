@@ -41,13 +41,13 @@ run query --windows id --window stack.bogus
 run query --windows id --window stack.0
 run query --tree --space 99
 run query --tree --bogus
-run rule --add label=claude_p4 app='^NoSuchAppClaudeP4$' title!='x' manage=off sticky=on sub-layer=above opacity=0.9 grid=2:2:0:0:1:1 space=^5 mouse_follows_focus=off native-fullscreen=on scratchpad=claudep4
+run rule --add label=claude_p4 app='^NoSuchAppClaudeP4$' title!='x' manage=off sticky=on sub-layer=above grid=2:2:0:0:1:1 space=^5 mouse_follows_focus=off native-fullscreen=on scratchpad=claudep4
 run rule --add --one-shot label=claude_p4b app='^NoSuchAppClaudeP4$' display=^2
 run rule --list
 run rule --remove claude_p4
 run rule --remove claude_p4b
 run rule --remove claude_p4
-run rule --add app='(' manage=maybe colour=red display=7 space=^ scratchpad=float label!=x opacity=2 grid=2:2 sub-layer=top bogus
+run rule --add app='(' manage=maybe colour=red display=7 space=^ scratchpad=float label!=x grid=2:2 sub-layer=top bogus
 run rule --add manage=on
 run rule --apply 9999
 run rule --remove 9999
@@ -61,7 +61,7 @@ run signal --add event=window_focused app='(' active=maybe action=x
 run signal --remove 9999
 run config mouse_modifier
 run config focus_wrapping
-run config window_opacity_duration
+run config window_border_width
 run config top_padding
 run config mouse_follows_focus
 run config layout bsp
@@ -81,8 +81,7 @@ run bogus --domain
 
 # P5: the config domain and the client
 for option in debug_output mouse_follows_focus focus_follows_mouse display_arrangement_order builtin_display_last \
-    window_origin_display window_opacity window_opacity_duration window_animation_duration window_animation_easing \
-    window_shadow menubar_opacity active_window_opacity normal_window_opacity insert_feedback_color window_border \
+    window_origin_display window_shadow insert_feedback_color window_border \
     window_border_width window_border_hide_single active_window_border_color normal_window_border_color tab_bar \
     tab_bar_height tab_bar_offset tab_bar_font tab_bar_icons tab_bar_style tab_bar_backdrop tab_bar_card_padding \
     tab_bar_window_radius tab_bar_focused_color tab_bar_focused_text_color tab_bar_inactive_color \
@@ -106,12 +105,7 @@ run config mouse_modifier bogus_option tab_bar_height
 run config mouse_follows_focus maybe
 run config focus_follows_mouse sometimes
 run config display_arrangement_order diagonal
-run config window_animation_duration fast
-run config window_animation_easing ease_in_nothing
 run config window_shadow sometimes
-run config menubar_opacity 1.5
-run config active_window_opacity 0
-run config normal_window_opacity -0.5
 run config insert_feedback_color 0x0
 run config insert_feedback_color red
 run config window_border_width 0
@@ -151,7 +145,7 @@ run config tree_default_orientation auto tree_workspace_layout default focus_wra
 run config tab_bar_height 24 tab_bar_offset 2 tab_bar_focused_color 0xff285577 tab_bar_focused_color
 run config space_layout 15 10:5 10:5:1b space_layout
 run config external_bar all:0:0 external_bar
-run config insert_feedback_color 0xffd75f5f window_opacity_duration 0.25 window_opacity_duration
+run config insert_feedback_color 0xffd75f5f window_border_width 4.0 window_border_width
 run query --spaces id,index,label,display,windows
 # P6: the full json of every query (it only reads), and space, window, display, rule and signal commands that fail
 # before they act. Window titles can change between the runs (e.g. a terminal's); compare those lines by eye.
@@ -169,7 +163,7 @@ run query --windows --display 1
 run query --windows --space 4
 run query --windows --window
 run query --windows id,app,frame,split-type,stack-index,has-parent-zoom,has-fullscreen-zoom --space 4
-run query --windows title,role,subrole,level,sub-level,layer,sub-layer,opacity,has-shadow --space 4
+run query --windows title,role,subrole,level,sub-level,layer,sub-layer,has-shadow --space 4
 run query --windows root-window,display,space,can-move,can-resize,is-visible,is-sticky,is-floating --space 5
 run query --tree
 run query --tree --space 4
@@ -202,8 +196,6 @@ run window --resize bogus
 run window --ratio rel
 run window --layout stacked
 run window --split diagonal
-run window --opacity 2
-run window --opacity half
 run window --swap bogus
 run window --warp bogus
 run window --stack 99999999

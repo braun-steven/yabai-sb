@@ -23,14 +23,7 @@ private let optionSamples: [OptionSample] = [
   OptionSample(name: .displayArrangementOrder, toml: "\"vertical\"", words: ["vertical"]),
   OptionSample(name: .builtinDisplayLast, toml: "true", words: ["on"]),
   OptionSample(name: .windowOriginDisplay, toml: "\"cursor\"", words: ["cursor"]),
-  OptionSample(name: .windowOpacity, toml: "true", words: ["on"]),
-  OptionSample(name: .windowOpacityDuration, toml: "0.5", words: ["0.5"]),
-  OptionSample(name: .windowAnimationDuration, toml: "0.25", words: ["0.25"]),
-  OptionSample(name: .windowAnimationEasing, toml: "\"ease_out_quad\"", words: ["ease_out_quad"]),
   OptionSample(name: .windowShadow, toml: "\"float\"", words: ["float"]),
-  OptionSample(name: .menubarOpacity, toml: "0.5", words: ["0.5"]),
-  OptionSample(name: .activeWindowOpacity, toml: "1.0", words: ["1.0"]),
-  OptionSample(name: .normalWindowOpacity, toml: "0.9", words: ["0.9"]),
   OptionSample(name: .insertFeedbackColor, toml: "0xff00ff00", words: ["0xff00ff00"]),
   OptionSample(name: .windowBorder, toml: "true", words: ["on"]),
   OptionSample(name: .windowBorderWidth, toml: "4.0", words: ["4.0"]),
@@ -170,7 +163,7 @@ private let optionValueRows: [(line: String, words: [String])] = [
   ("window_gap = -4", ["config", "window_gap", "-4"]),
   ("window_gap = 10.0", ["config", "window_gap", "10.0"]),
   ("window_border_width = 4.0", ["config", "window_border_width", "4.0"]),
-  ("window_opacity_duration = 0.25", ["config", "window_opacity_duration", "0.25"]),
+  ("window_border_width = 0.25", ["config", "window_border_width", "0.25"]),
   ("window_shadow = true", ["config", "window_shadow", "on"]),
   ("window_shadow = false", ["config", "window_shadow", "off"]),
   ("window_shadow = \"float\"", ["config", "window_shadow", "float"]),
@@ -214,8 +207,8 @@ private let ruleAndSignalRows: [(source: String, words: [String])] = [
     ["rule", "--add", "--one-shot", "title!=^Copy$", "label=once"]
   ),
   (
-    "[[rule]]\nspace = 9\nopacity = 0.5\nsub-layer = \"above\"\ngrid = \"4:4:0:0:1:1\"",
-    ["rule", "--add", "space=9", "opacity=0.5", "sub-layer=above", "grid=4:4:0:0:1:1"]
+    "[[rule]]\nspace = 9\nsub-layer = \"above\"\ngrid = \"4:4:0:0:1:1\"",
+    ["rule", "--add", "space=9", "sub-layer=above", "grid=4:4:0:0:1:1"]
   ),
   (
     "[[signal]]\nevent = \"window_focused\"\nactive = true\naction = \"echo hi\"\napp = { not = \"^Finder$\" }",
@@ -272,7 +265,7 @@ struct Picks {
 
 // NOTE: No empty string: `label=` is not a key-value pair for the parser, so the handler rejects it as it should.
 private let stringPicks = ["x", "^Finder$", "sketchybar --trigger window_focus", "a=b"]
-private let ruleKeyNames = ["label", "app", "title", "manage", "space", "opacity", "sticky"]
+private let ruleKeyNames = ["label", "app", "title", "manage", "space", "sticky"]
 private let negatableNames: Set<String> = ["app", "title", "role", "subrole"]
 
 private func scalar(_ picks: inout Picks) -> ConfigValue {

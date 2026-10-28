@@ -93,13 +93,13 @@ enum ViewSpacing: CaseIterable, Sendable {
 
   var isInvalid: Bool { !isValid }
 
-  /// Applies the tree to the windows. animated false sets the frames at once (a split drag follows the pointer).
-  func flush(animated: Bool = true) {
+  /// Applies the tree to the windows.
+  func flush() {
     updateSplitDragLayout()
     if Headless.isEnabled {
       flushHeadless()
     } else if sid.isVisible {
-      flushTree(animated: animated)
+      flushTree()
       isDirty = false
     } else {
       isDirty = true

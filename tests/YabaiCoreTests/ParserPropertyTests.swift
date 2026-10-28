@@ -55,7 +55,7 @@ private let values: [[UInt8]] = [
 
 /// The keys of rules, and one that is none.
 private let ruleKeys: [[UInt8]] = [
-  "app", "title", "role", "subrole", "label", "display", "space", "grid", "opacity", "manage",
+  "app", "title", "role", "subrole", "label", "display", "space", "grid", "manage",
   "sticky",
   "mouse_follows_focus", "native-fullscreen", "sub-layer", "scratchpad", "unknown", "",
 ].map { Array($0.utf8) }

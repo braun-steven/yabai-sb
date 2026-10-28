@@ -16,9 +16,6 @@ extension WindowManager {
   //
   // NOTE: Clears the state that is keyed by the id of a window that is gone, and only that id. Called by removeWindow,
   // so every removal of a window clears the same tables. Left alone, and why:
-  // - windowAnimations (WindowAnimation.swift): the display link of an animation removes its entry and destroys its
-  //   proxy when it finishes, and a new animation of the window takes over the entry; clearing it here would leak the
-  //   proxy and change that hand-over.
   // - tabBarHits (TabBar.swift): a snapshot that publishHits rebuilds on every bar update.
   // - tabBarPointer (TabBar.swift): a change cache for the event tap, refreshed by the next pointer move.
   // - focused, last and pending: FocusState owns them (FocusState.swift). The focus hand-over reads them after the

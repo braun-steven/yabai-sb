@@ -51,14 +51,13 @@ private let fileText = """
   action = "true"
   """
 
-/// A file with a non-default value of each kind of option: a bool, an integer, floats, a color, a choice, a choice that
+/// A file with a non-default value of each kind of option: a bool, an integer, a float, a color, a choice, a choice that
 /// is also a string, an array of strings and a text.
 private let kindsText = """
   [config]
   mouse_follows_focus = true
   window_gap = 7
-  window_opacity_duration = 0.25
-  window_animation_duration = 0.4
+  window_border_width = 2.5
   active_window_border_color = 0xffff0000
   window_shadow = "float"
   focus_follows_mouse = "autofocus"
@@ -110,8 +109,7 @@ extension DaemonState {
       // NOTE: The values are checked too, so the test cannot pass with the file's values left unapplied.
       #expect(text.contains("\nmouse_follows_focus = true"))
       #expect(text.contains("\nwindow_gap = 7"))
-      #expect(text.contains("\nwindow_opacity_duration = 0.25"))
-      #expect(text.contains("\nwindow_animation_duration = 0.4"))
+      #expect(text.contains("\nwindow_border_width = 2.5"))
       #expect(text.contains("\nactive_window_border_color = 0xffff0000"))
       #expect(text.contains("\nwindow_shadow = \"float\""))
       #expect(text.contains("\nfocus_follows_mouse = \"autofocus\""))
@@ -152,7 +150,7 @@ extension DaemonState {
     /// signals, so reconciling it changes nothing.
     @Test func theRulesAndSignalsOfTheCommandsReadBackUnchanged() throws {
       DaemonFixture.reset()
-      #expect(Golden.run("rule --add label=term app=Terminal opacity=0.9 sticky=on") == [])
+      #expect(Golden.run("rule --add label=term app=Terminal sticky=on") == [])
       #expect(Golden.run("rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below") == [])
       #expect(Golden.run("rule --add --one-shot title=x manage=on") == [])
       #expect(Golden.run("rule --add app!=Finder manage=off scratchpad=notes") == [])
@@ -164,7 +162,7 @@ extension DaemonState {
       expectCleanDump(text)
       #expect(
         text.contains(
-          "\n[[rule]]\nlabel = \"term\"\napp = \"Terminal\"\nopacity = 0.9\nsticky = true\n"))
+          "\n[[rule]]\nlabel = \"term\"\napp = \"Terminal\"\nsticky = true\n"))
       #expect(
         text.contains(
           "\n[[rule]]\napp = { not = \"Finder\" }\nmanage = false\nscratchpad = \"notes\"\n"))

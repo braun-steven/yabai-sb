@@ -68,44 +68,6 @@
             "cursor"
           ]
         },
-        "window_opacity": {
-          "description": "Enable opacity for windows.",
-          "type": "boolean"
-        },
-        "window_opacity_duration": {
-          "description": "Duration of transition between active / normal opacity.",
-          "type": "number"
-        },
-        "window_animation_duration": {
-          "description": "Duration of window frame animation.",
-          "type": "number"
-        },
-        "window_animation_easing": {
-          "description": "Easing function to use for window animations.",
-          "enum": [
-            "ease_in_sine",
-            "ease_out_sine",
-            "ease_in_out_sine",
-            "ease_in_quad",
-            "ease_out_quad",
-            "ease_in_out_quad",
-            "ease_in_cubic",
-            "ease_out_cubic",
-            "ease_in_out_cubic",
-            "ease_in_quart",
-            "ease_out_quart",
-            "ease_in_out_quart",
-            "ease_in_quint",
-            "ease_out_quint",
-            "ease_in_out_quint",
-            "ease_in_expo",
-            "ease_out_expo",
-            "ease_in_out_expo",
-            "ease_in_circ",
-            "ease_out_circ",
-            "ease_in_out_circ"
-          ]
-        },
         "window_shadow": {
           "description": "Draw shadow for windows.",
           "anyOf": [
@@ -120,24 +82,6 @@
               ]
             }
           ]
-        },
-        "menubar_opacity": {
-          "description": "Changes the transparency of the macOS menubar.",
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "active_window_opacity": {
-          "description": "Opacity of the focused window.",
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 1
-        },
-        "normal_window_opacity": {
-          "description": "Opacity of an unfocused window.",
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 1
         },
         "insert_feedback_color": {
           "description": "Color of the window --insert message and mouse_drag selection.",
@@ -686,12 +630,6 @@
             "description": "Set window frame based on a self-defined grid.",
             "type": "string",
             "pattern": "^[0-9]+(:[0-9]+){5}$"
-          },
-          "opacity": {
-            "description": "Set window opacity.",
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
           },
           "manage": {
             "description": "Window should be managed (tile vs float).",

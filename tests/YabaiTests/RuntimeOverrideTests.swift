@@ -1,4 +1,3 @@
-import Synchronization
 import Testing
 import YabaiCore
 import YabaiTestSupport
@@ -32,38 +31,6 @@ extension DaemonState {
       #expect(handler.focusFollowsMouse == .autofocus)
       handler.menuClosed()
       #expect(handler.openMenuCount == 0)
-    }
-
-    @Test("suppressed animations keep the configured duration")
-    func withoutAnimationsKeepsDuration() {
-      let wm = WindowManager.shared
-      let configured = Config.current.animation.duration
-      defer { Config.current.animation.duration = configured }
-      Config.current.animation.duration = 0.25
-      wm.withoutAnimations {
-        #expect(wm.animationDuration == 0)
-        wm.withoutAnimations { #expect(wm.animationDuration == 0) }
-        #expect(wm.animationDuration == 0)
-        #expect(Config.current.animation.duration == 0.25)
-      }
-      #expect(wm.animationDuration == 0.25)
-    }
-
-    @Test("Reduce Motion turns window animations off without changing the config")
-    func reduceMotionDisablesAnimations() {
-      let wm = WindowManager.shared
-      let configured = Config.current.animation.duration
-      defer {
-        ReduceMotion.enabled.store(false, ordering: .relaxed)
-        Config.current.animation.duration = configured
-      }
-      Config.current.animation.duration = 0.25
-      ReduceMotion.enabled.store(true, ordering: .relaxed)
-      #expect(wm.animationDuration == 0)
-      wm.withoutAnimations { #expect(wm.animationDuration == 0) }
-      #expect(Config.current.animation.duration == 0.25)
-      ReduceMotion.enabled.store(false, ordering: .relaxed)
-      #expect(wm.animationDuration == 0.25)
     }
   }
 }

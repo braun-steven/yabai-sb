@@ -31,7 +31,6 @@ public struct WindowInfo: Sendable {
     case subLevel = "sub-level"
     case layer
     case subLayer = "sub-layer"
-    case opacity
     case splitType = "split-type"
     case stackIndex = "stack-index"
     case canMove = "can-move"
@@ -70,7 +69,6 @@ public struct WindowInfo: Sendable {
   /// The names of level and subLevel (window_layer).
   public var layer = ""
   public var subLayer = ""
-  public var opacity: Float = 0
   public var split = WindowSplit.none
   public var stackIndex = 0
   public var canMove = false
@@ -240,7 +238,6 @@ extension WindowInfo: Encodable {
     try container.encode(subLevel, forKey: .subLevel, in: properties)
     try container.encode(layer, forKey: .layer, in: properties)
     try container.encode(subLayer, forKey: .subLayer, in: properties)
-    try container.encode(opacity, forKey: .opacity, in: properties)
     try container.encode(split.name, forKey: .splitType, in: properties)
     try container.encode(stackIndex, forKey: .stackIndex, in: properties)
     try container.encode(canMove, forKey: .canMove, in: properties)

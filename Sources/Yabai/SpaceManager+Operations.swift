@@ -28,42 +28,40 @@ extension SpaceManager {
     // dropped when it returns, whether or not the scripting addition succeeded.
     //
     defer { DisplayManager.shared.invalidateSpaceCaches() }
-    WindowManager.shared.withoutAnimations {
-      let aWindows = aSid.windows(includingMinimized: true) ?? []
-      let bWindows = bSid.windows(includingMinimized: true) ?? []
+    let aWindows = aSid.windows(includingMinimized: true) ?? []
+    let bWindows = bSid.windows(includingMinimized: true) ?? []
 
-      let aView = views[aSid]!
-      let bView = views[bSid]!
+    let aView = views[aSid]!
+    let bView = views[bSid]!
 
-      views[aSid] = nil
-      views[bSid] = nil
+    views[aSid] = nil
+    views[bSid] = nil
 
-      aView.sid = bSid
-      bView.sid = aSid
+    aView.sid = bSid
+    bView.sid = aSid
 
-      let uuid = aView.uuid
-      aView.uuid = bView.uuid
-      bView.uuid = uuid
+    let uuid = aView.uuid
+    aView.uuid = bView.uuid
+    bView.uuid = uuid
 
-      views[aSid] = bView
-      views[bSid] = aView
+    views[aSid] = bView
+    views[bSid] = aView
 
-      if !aWindows.isEmpty {
-        bSid.moveWindows(aWindows)
-      }
-
-      if !bWindows.isEmpty {
-        aSid.moveWindows(bWindows)
-      }
-
-      labels.swap(aSid, bSid)
-
-      aView.update()
-      bView.update()
-
-      aView.flush()
-      bView.flush()
+    if !aWindows.isEmpty {
+      bSid.moveWindows(aWindows)
     }
+
+    if !bWindows.isEmpty {
+      aSid.moveWindows(bWindows)
+    }
+
+    labels.swap(aSid, bSid)
+
+    aView.update()
+    bView.update()
+
+    aView.flush()
+    bView.flush()
   }
 
   func swapSpace(_ actingSid: SpaceID, with selectorSid: SpaceID) throws(SpaceOperationError) {

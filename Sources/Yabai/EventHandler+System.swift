@@ -68,8 +68,8 @@ extension EventHandler {
 
   //
   // NOTE: The exit cancels the fallback check, pending or in flight, so the check cannot end a session after the AX
-  // exit. An exit without an active session still restores the menu bar alpha and pushes the mission_control_exit
-  // signal with mode inactive, as before.
+  // exit. An exit without an active session still pushes the mission_control_exit signal with mode inactive, as
+  // before.
   //
 
   func missionControlExit() {
@@ -79,13 +79,6 @@ extension EventHandler {
     Logger.events.debug("mission control exit")
 
     let wm = WindowManager.shared
-    let sm = SpaceManager.shared
-    if Config.current.menuBar.opacity != 1.0 {
-      let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
-      let alpha: Float = isFullscreen ? 1.0 : Config.current.menuBar.opacity
-      SLS.setMenuBarAlpha(SLS.connection, alpha)
-    }
-
     if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {
       wm.correctForMissionControlChanges()
     }
@@ -138,7 +131,6 @@ extension EventHandler {
 
     let wm = WindowManager.shared
     if let focusedWindowID = wm.focus.focused, let focusedWindow = wm.window(for: focusedWindowID) {
-      wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.active)
       wm.centerMouse(on: focusedWindow)
     }
 

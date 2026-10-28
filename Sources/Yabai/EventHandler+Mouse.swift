@@ -215,7 +215,7 @@ extension EventHandler {
     // NOTE: The first frame of the drag turns EUI off for the application; the frames after it write inside that scope.
     ms.beginFrameScope(of: ms.window)
     ms.window.resizeRelative(
-      frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy), animate: false,
+      frame: ms.window.frame, direction: ms.direction, dx: Float(dx), dy: Float(dy),
       euiScope: .drag)
 
     ms.lastMovedTime = eventTime

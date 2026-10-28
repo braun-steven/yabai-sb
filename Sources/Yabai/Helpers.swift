@@ -4,74 +4,8 @@ import Darwin
 import YabaiCore
 
 //
-// NOTE: The helpers that the daemon uses: the easing curves of the animations, the timer, colors, sockets, strings,
-// windows and geometry.
+// NOTE: The helpers that the daemon uses: the timer, colors, sockets, strings, windows and geometry.
 //
-
-/// The easing curve of the window animations (`config window_animation_easing`), named by its config value.
-enum AnimationEasing: String, CaseIterable, Sendable {
-  case easeInSine = "ease_in_sine"
-  case easeOutSine = "ease_out_sine"
-  case easeInOutSine = "ease_in_out_sine"
-  case easeInQuad = "ease_in_quad"
-  case easeOutQuad = "ease_out_quad"
-  case easeInOutQuad = "ease_in_out_quad"
-  case easeInCubic = "ease_in_cubic"
-  case easeOutCubic = "ease_out_cubic"
-  case easeInOutCubic = "ease_in_out_cubic"
-  case easeInQuart = "ease_in_quart"
-  case easeOutQuart = "ease_out_quart"
-  case easeInOutQuart = "ease_in_out_quart"
-  case easeInQuint = "ease_in_quint"
-  case easeOutQuint = "ease_out_quint"
-  case easeInOutQuint = "ease_in_out_quint"
-  case easeInExpo = "ease_in_expo"
-  case easeOutExpo = "ease_out_expo"
-  case easeInOutExpo = "ease_in_out_expo"
-  case easeInCirc = "ease_in_circ"
-  case easeOutCirc = "ease_out_circ"
-  case easeInOutCirc = "ease_in_out_circ"
-
-  //
-  // NOTE: The curves compute in Float; the sine curves multiply by M_PI in Double first and then call cosf/sinf on a
-  // Float, which keeps their rounding stable.
-  //
-
-  /// The eased progress at the linear progress t (0...1).
-  func value(at t: Float) -> Float {
-    switch self {
-    case .easeInSine: 1.0 - cosf(Float((Double(t) * Double.pi) / 2.0))
-    case .easeOutSine: sinf(Float((Double(t) * Double.pi) / 2.0))
-    case .easeInOutSine: -(cosf(Float(Double.pi * Double(t))) - 1.0) / 2.0
-    case .easeInQuad: t * t
-    case .easeOutQuad: 1.0 - (1.0 - t) * (1.0 - t)
-    case .easeInOutQuad: t < 0.5 ? 2.0 * t * t : 1.0 - powf(-2.0 * t + 2.0, 2.0) / 2.0
-    case .easeInCubic: t * t * t
-    case .easeOutCubic: 1.0 - powf(1.0 - t, 3)
-    case .easeInOutCubic: t < 0.5 ? 4.0 * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 3.0) / 2.0
-    case .easeInQuart: t * t * t * t
-    case .easeOutQuart: 1.0 - powf(1.0 - t, 4)
-    case .easeInOutQuart: t < 0.5 ? 8.0 * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 4.0) / 2.0
-    case .easeInQuint: t * t * t * t * t
-    case .easeOutQuint: 1.0 - powf(1.0 - t, 5)
-    case .easeInOutQuint: t < 0.5 ? 16.0 * t * t * t * t * t : 1.0 - powf(-2.0 * t + 2.0, 5.0) / 2.0
-    case .easeInExpo: t == 0.0 ? 0.0 : powf(2.0, 10.0 * t - 10.0)
-    case .easeOutExpo: t == 1.0 ? 1.0 : 1.0 - powf(2.0, -10.0 * t)
-    case .easeInOutExpo:
-      t == 0.0
-        ? 0.0
-        : t == 1.0
-          ? 1.0
-          : t < 0.5 ? powf(2.0, 20.0 * t - 10.0) / 2.0 : (2.0 - powf(2.0, -20.0 * t + 10.0)) / 2.0
-    case .easeInCirc: 1.0 - sqrtf(1.0 - powf(t, 2.0))
-    case .easeOutCirc: sqrtf(1.0 - powf(t - 1.0, 2.0))
-    case .easeInOutCirc:
-      t < 0.5
-        ? (1.0 - sqrtf(1.0 - powf(2.0 * t, 2.0))) / 2.0
-        : (sqrtf(1.0 - powf(-2.0 * t + 2.0, 2.0)) + 1.0) / 2.0
-    }
-  }
-}
 
 /// The clock of the event timers.
 enum OSTimer {

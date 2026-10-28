@@ -10,7 +10,7 @@ public enum ConfigTableKeys {
   // a boolean of the table, read separately.
   public static let rule: Set<String> = [
     "label", "scratchpad", "app", "title", "role", "subrole", "display", "space", "insert", "grid",
-    "opacity", "manage",
+    "manage",
     "sticky", "mouse_follows_focus", "native-fullscreen", "sub-layer",
   ]
   public static let ruleNegatable: Set<String> = ["app", "title", "role", "subrole"]

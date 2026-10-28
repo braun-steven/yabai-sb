@@ -83,7 +83,7 @@ extension WindowManager {
 
     let frame = grid.frame(
       in: displayID.constrainedBounds(ignoringExternalBar: false), padding: padding, gap: gap)
-    animateWindow(WindowPlacement(window: target, x: frame.x, y: frame.y, w: frame.w, h: frame.h))
+    placeWindow(WindowPlacement(window: target, x: frame.x, y: frame.y, w: frame.w, h: frame.h))
   }
 
   func makeWindowFloating(_ target: Window, shouldFloat: Bool, force: Bool) {
@@ -113,15 +113,15 @@ extension WindowManager {
     }
   }
 
-  /// Moves a window that starts floating to the frame it remembers (`Window.lastFloatingFrame`), through the animated
-  /// frame path. Nothing moves when no frame is remembered, or when the frame decision keeps the current frame.
+  /// Moves a window that starts floating to the frame it remembers (`Window.lastFloatingFrame`), through the placement
+  /// path. Nothing moves when no frame is remembered, or when the frame decision keeps the current frame.
   private func restoreFloatingFrame(of target: Window) {
     guard let remembered = target.lastFloatingFrame else { return }
     guard
       let frame = FloatingFrame.restoredFrame(
         remembered: remembered, current: target.frame, displays: visibleDisplayFrames())
     else { return }
-    animateWindow(
+    placeWindow(
       WindowPlacement(
         window: target, x: Float(frame.origin.x), y: Float(frame.origin.y),
         w: Float(frame.size.width), h: Float(frame.size.height)))

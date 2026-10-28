@@ -277,7 +277,6 @@ private func describe(_ effects: RuleEffects) -> String {
   if let follows = effects.mouseFollowsFocus {
     parts.append("mouse_follows_focus=\(boolString(follows))")
   }
-  if effects.flags.contains(.opacity) { parts.append("opacity=\(effects.opacity)") }
   if effects.flags.contains(.layer) { parts.append("sub-layer=\(effects.layer.rawValue)") }
   if let scratchpad = effects.scratchpad { parts.append("scratchpad=\(scratchpad)") }
   return parts.joined(separator: " ")
@@ -289,8 +288,6 @@ private func drainPayloadCalls() -> [String] {
     UInt8(SA_OPCODE_WINDOW_LAYER.rawValue): "layer",
     UInt8(SA_OPCODE_WINDOW_STICKY.rawValue): "sticky",
     UInt8(SA_OPCODE_WINDOW_SHADOW.rawValue): "shadow",
-    UInt8(SA_OPCODE_WINDOW_OPACITY.rawValue): "opacity",
-    UInt8(SA_OPCODE_WINDOW_OPACITY_FADE.rawValue): "opacity-fade",
   ]
   return Headless.drain().messages.map { message in
     let id = message[3..<7].reversed().reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
@@ -380,7 +377,7 @@ extension DaemonState {
     @Test func listShowsTheFiltersAndEffects() throws {
       #expect(
         send(
-          "rule --add --one-shot label=x app!=^Finder$ title=Doc role=AXWindow subrole=^AXStandardWindow$ opacity=0.5 sub-layer=above sticky=off mouse_follows_focus=on scratchpad=pad insert=east manage=on"
+          "rule --add --one-shot label=x app!=^Finder$ title=Doc role=AXWindow subrole=^AXStandardWindow$ sub-layer=above sticky=off mouse_follows_focus=on scratchpad=pad insert=east manage=on"
         ) == "")
 
       let response = Golden.run("rule --list")
@@ -400,10 +397,10 @@ extension DaemonState {
       #expect(rule["sub-layer"] as? String == "above")
       #expect(rule["scratchpad"] as? String == "pad")
       #expect(rule["insert"] as? String == "east")
-      #expect((rule["opacity"] as? Double).map { abs($0 - 0.5) < 1e-6 } == true)
-      // NOTE: the effects flags (opacity, layer) in the high half; the four patterns, the app exclusion and
-      // one-shot in the low half
-      #expect(rule["flags"] as? String == "0x6011f")
+      #expect(rule["opacity"] == nil)
+      // NOTE: the effects flags (layer) in the high half; the four patterns, the app exclusion and one-shot in the low
+      // half
+      #expect(rule["flags"] as? String == "0x4011f")
     }
 
     struct FailureCase: CustomTestStringConvertible, Sendable {
@@ -431,7 +428,7 @@ extension DaemonState {
         command: "rule --add app=[ manage=off", failure: "invalid regex pattern '[' for key 'app'\n"
       ),
       FailureCase(
-        command: "rule --add app=A opacity=1.5", failure: "invalid value '1.5' for key 'opacity'\n"),
+        command: "rule --add app=A opacity=0.5", failure: "unknown key 'opacity'\n"),
       FailureCase(
         command: "rule --add app=A insert=bogus",
         failure: "invalid value 'bogus' for key 'insert'\n"),
@@ -469,17 +466,20 @@ extension DaemonState {
       MatchCase(
         name: "a later rule overrides",
         rules: [
-          "app=^Safari$ opacity=0.5 sub-layer=above sticky=on",
-          "app=Safari opacity=0.75 sub-layer=below sticky=off",
+          "app=^Safari$ sub-layer=above sticky=on",
+          "app=Safari sub-layer=below sticky=off",
         ],
-        effects: "sticky=off opacity=0.75 sub-layer=below"),
+        effects: "sticky=off sub-layer=below"),
       MatchCase(
         name: "a later rule only sets its own effects",
-        rules: ["app=^Safari$ opacity=0.5 scratchpad=a", "app=^Safari$ mouse_follows_focus=on"],
-        effects: "manage=off mouse_follows_focus=on opacity=0.5 scratchpad=a"),
+        rules: [
+          "app=^Safari$ sub-layer=above scratchpad=a", "app=^Safari$ mouse_follows_focus=on",
+        ],
+        effects: "manage=off mouse_follows_focus=on sub-layer=above scratchpad=a"),
       MatchCase(
         name: "a rule of another app",
-        rules: ["app=^Safari$ opacity=0.5", "app=^Mail$ opacity=0.75"], effects: "opacity=0.5"),
+        rules: ["app=^Safari$ sub-layer=above", "app=^Mail$ sub-layer=below"],
+        effects: "sub-layer=above"),
       MatchCase(name: "an exclusion skips the app", rules: ["app!=^Safari$ sticky=on"]),
       MatchCase(
         name: "an exclusion admits other apps", rules: ["app!=^Safari$ sticky=on"], app: "Mail",
@@ -531,8 +531,8 @@ extension DaemonState {
         rules: ["--one-shot app=^Safari$ sticky=on"]),
       MatchCase(
         name: "a one-shot rule for a new window",
-        rules: ["--one-shot app=^Safari$ sticky=on", "app=^Safari$ opacity=0.5"], oneShot: true,
-        effects: "sticky=on opacity=0.5"),
+        rules: ["--one-shot app=^Safari$ sticky=on", "app=^Safari$ sub-layer=above"],
+        oneShot: true, effects: "sticky=on sub-layer=above"),
     ]
 
     @Test(arguments: matchCases)
@@ -598,22 +598,18 @@ extension DaemonState {
       #expect(windows.map(\.isFloating) == [false, false, false])
     }
 
-    @Test func applyByIndexSetsTheOpacity() throws {
+    @Test func applyByIndexSetsTheSubLayer() throws {
       let space = Workspace()
       let windows = space.openForRules(2)
 
-      #expect(send("rule --add app=^Safari$ opacity=0.5") == "")
-      #expect(send("rule --add app=^Mail$ opacity=0.25") == "")
+      #expect(send("rule --add app=^Safari$ sub-layer=above") == "")
+      #expect(send("rule --add app=^Mail$ sub-layer=below") == "")
       #expect(send("rule --apply 1") == "")
-      #expect(windows.map(\.opacity) == [0, 0.25])
-      #expect(drainPayloadCalls() == ["opacity w2"])
+      #expect(windows.map(\.layer) == [.auto, .below])
+      #expect(drainPayloadCalls() == ["layer w2"])
       #expect(send("rule --apply 0") == "")
-      #expect(windows.map(\.opacity) == [0.5, 0.25])
-      #expect(drainPayloadCalls() == ["opacity w1"])
-
-      Config.current.window.opacityDuration = 0.25
-      #expect(send("rule --apply 0") == "")
-      #expect(drainPayloadCalls() == ["opacity-fade w1"])
+      #expect(windows.map(\.layer) == [.above, .below])
+      #expect(drainPayloadCalls() == ["layer w1"])
     }
 
     @Test func applyAnInlineRuleWithoutAddingIt() throws {

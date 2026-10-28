@@ -231,7 +231,7 @@ def tree_shape(node):
 
 def config_snapshot():
     keys = ("window_border", "window_border_width", "active_window_border_color",
-            "normal_window_border_color", "window_animation_duration", "focus_follows_mouse",
+            "normal_window_border_color", "focus_follows_mouse",
             "mouse_follows_focus", "tree_autotiling", "tree_workspace_layout", "tree_default_orientation",
             "tab_bar", "tab_bar_style", "tab_bar_height", "tab_bar_backdrop")
     snapshot = {}

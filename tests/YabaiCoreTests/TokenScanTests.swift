@@ -27,7 +27,7 @@ private let integerShapes: [ScanShape] = [
   ScanShape(name: "external bar", format: "%5[^:]:%d:%d", field: 5, count: 2),
 ]
 
-/// The float formats: move and resize, ratio, and the single `%f` of the opacity rule and the tab bar font.
+/// The float formats: move and resize, ratio, and the single `%f` of the tab bar font.
 private let floatShapes: [ScanShape] = [
   ScanShape(name: "move and resize", format: "%255[^:]:%f:%f", field: 255, count: 2),
   ScanShape(name: "ratio", format: "%255[^:]:%f", field: 255, count: 1),

@@ -94,7 +94,7 @@ func tokenValue(_ text: String, _ value: String) {
 
 @Test("Config command names cover the daemon options and preserve their CLI spellings")
 func configCommandNames() {
-  #expect(ConfigCommand.Name.allCases.count == 62)
+  #expect(ConfigCommand.Name.allCases.count == 55)
   #expect(ConfigCommand.Name(token: Token("window_border")) == .windowBorder)
   #expect(ConfigCommand.Name(token: Token("tree_default_orientation")) == .treeDefaultOrientation)
   #expect(ConfigCommand.Name(token: Token("unknown_option")) == nil)
@@ -493,7 +493,6 @@ private let windowCommandRows: [(String, WindowCommand)] = [
   ("--resize\0top_left:1:2\0", .resize([.top, .left], dx: 1, dy: 2)),
   ("--ratio\0abs:0.3\0", .ratio(.abs, 0.3)),
   ("--grid\04:4:1:1:2:2\0", .grid(Grid(4, 4, 1, 1, 2, 2))),
-  ("--opacity\01\0", .opacity(1)),
   ("--toggle\0float\0", .toggle(.float)),
   ("--toggle\0notes\0", .toggleScratchpad(Token("notes"))),
   ("--scratchpad\0recover\0", .scratchpad(.recover)),
@@ -526,11 +525,6 @@ private let windowCommandFailureRows: [(String, String, Bool)] = [
     "--split\0diagonal\0",
     "unknown value 'diagonal' given to command '--split' for domain 'window'; expected one of: horizontal, vertical, toggle\n",
     true
-  ),
-  (
-    "--opacity\01.5\0",
-    "unknown value '1.5' given to command '--opacity' for domain 'window'; expected a number from 0.0 to 1.0\n",
-    false
   ),
   (
     "--grid\0a\0",
@@ -726,7 +720,7 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
 
 @Test("message_rule_parse") func messageRuleParse() {
   var (result, rule, response) = parseRuleText(
-    "app=^Safari$\0title!=Preferences\0manage=off\0sticky=on\0sub-layer=above\0opacity=0.5\0")
+    "app=^Safari$\0title!=Preferences\0manage=off\0sticky=on\0sub-layer=above\0")
   #expect(result == true)
   #expect(rule.app?.regex != nil)
   #expect(rule.app?.exclude == false)
@@ -736,7 +730,6 @@ private func parseRuleText(_ text: String, _ context: FixtureContext = FixtureCo
   #expect(rule.effects.mouseFollowsFocus == nil)
   #expect(rule.effects.layer == .above)
   #expect(rule.effects.flags.contains(.layer))
-  #expect(rule.effects.flags.contains(.opacity))
   #expect(rule.app?.text == "^Safari$")
   #expect(response == "")
 
@@ -809,7 +802,7 @@ private let ruleExactFailures: [(String, String)] = [
   ("app=x\0space=bogus\0", "value 'bogus' is not a valid option for SPACE_SEL\n"),
   ("app=x\0display=recent\0", ""),
   ("app=x\0space=recent\0", ""),
-  ("app=x\0opacity=2\0", "invalid value '2' for key 'opacity'\n"),
+  ("app=x\0opacity=0.5\0", "unknown key 'opacity'\n"),
   ("app=x\0grid=2:2\0", "invalid value '2:2' for key 'grid'\n"),
   ("app=x\0sub-layer=bogus\0", "invalid value 'bogus' for key 'sub-layer'\n"),
   ("app=x\0sticky=maybe\0", "invalid value 'maybe' for key 'sticky'\n"),
@@ -853,11 +846,11 @@ func ruleParseFailureText(_ text: String, _ expected: String) {
   #expect(rule.effects.manage == false)
   #expect(response == "")
 
-  (result, rule, response) = parseRuleText("app=x\0space=3\0opacity=1.5\0grid=2:2\0", context)
+  (result, rule, response) = parseRuleText("app=x\0space=3\0sticky=maybe\0grid=2:2\0", context)
   #expect(result == false)
   #expect(
     response
-      == "could not locate space with mission-control index '3'.\ninvalid value '1.5' for key 'opacity'\ninvalid value '2:2' for key 'grid'\n"
+      == "could not locate space with mission-control index '3'.\ninvalid value 'maybe' for key 'sticky'\ninvalid value '2:2' for key 'grid'\n"
   )
 
   (result, _, response) = parseRuleText("app=x\0space=^\0bogus\0", context)
@@ -1084,13 +1077,10 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   #expect(combined.sid == 6)
   #expect(!combined.flags.contains(.followSpace))
 
-  // NOTE: an opacity outside of 0..1 is ignored, a scratchpad replaces the earlier one
-  var opacity = RuleEffects()
-  opacity.opacity = 2
-  opacity.flags.insert(.opacity)
-  opacity.scratchpad = "notes"
-  combined.combine(opacity)
-  #expect(!combined.flags.contains(.opacity))
+  // NOTE: a scratchpad replaces the earlier one
+  var scratchpad = RuleEffects()
+  scratchpad.scratchpad = "notes"
+  combined.combine(scratchpad)
   #expect(combined.scratchpad == "notes")
 }
 

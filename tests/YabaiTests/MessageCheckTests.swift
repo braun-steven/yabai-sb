@@ -68,12 +68,6 @@ private let checkCases: [CheckCase] = [
     failures: [
       "unknown value '0:1:0:0:1:1' given to command 'scratchpad_grid' for domain 'config'; expected off or rows:columns:x:y:width:height, with rows and columns above 0\n"
     ]),
-  CheckCase(
-    message: "config window_animation_duration bogus",
-    failures: [
-      "unknown value 'bogus' given to command 'window_animation_duration' for domain 'config'; expected a number of seconds (0 turns animations off)\n"
-    ]),
-  CheckCase(message: "config window_animation_duration 1", failures: [], executes: false),
   CheckCase(message: "config tab_bar_font system:12", failures: [], executes: false),
   CheckCase(
     message: "config space_layout bogus",
@@ -105,7 +99,7 @@ private let checkCases: [CheckCase] = [
     ], executes: false),
 
   // rule
-  CheckCase(message: "rule --add label=term app=Terminal opacity=0.9 sticky=on", failures: []),
+  CheckCase(message: "rule --add label=term app=Terminal sticky=on", failures: []),
   CheckCase(message: "rule --add --one-shot title=x manage=on", failures: []),
   CheckCase(message: "rule --add app=Foo bogus=1", failures: ["unknown key 'bogus'\n"]),
   CheckCase(message: "rule --add app=(", failures: ["invalid regex pattern '(' for key 'app'\n"]),

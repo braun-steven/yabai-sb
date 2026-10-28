@@ -50,7 +50,6 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     WindowManager.shared.focus.focusChanged(to: nil)
     WindowManager.shared.focus.clearPending()
     WindowManager.shared.focus.setLast(nil)
-    WindowManager.shared.animationsSuppressed = false
     Config.current.applySpaceDefaults()
     SpaceManager.shared.resetViews()
     EventSignals.shared.table = SignalTable()

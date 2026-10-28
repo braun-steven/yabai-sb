@@ -166,7 +166,7 @@ extension View {
     return node != nil
   }
 
-  /// Moves the gap to the point and flushes the view without animation. Returns false when the drag no longer applies.
+  /// Moves the gap to the point and flushes the view. Returns false when the drag no longer applies.
   @discardableResult
   func apply(to point: CGPoint) -> Bool {
     guard isValid, let view, let split, let first, let second else { return false }
@@ -182,7 +182,7 @@ extension View {
     second.percent = percents.second
     split.fixPercent()
     view.updateTree()
-    view.flush(animated: false)
+    view.flush()
     return true
   }
 }

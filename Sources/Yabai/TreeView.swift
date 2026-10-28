@@ -566,12 +566,12 @@ extension WindowManager {
 }
 
 extension View {
-  func flushTree(animated: Bool = true) {
+  func flushTree() {
     guard let root = tree else { return }
 
     var windowList: [WindowPlacement] = []
     captureWindows(in: root, into: &windowList)
-    if !windowList.isEmpty { WindowManager.shared.animateWindows(windowList, animated: animated) }
+    if !windowList.isEmpty { WindowManager.shared.placeWindows(windowList) }
 
     root.renderBars()
     root.raiseTabs(force: false)

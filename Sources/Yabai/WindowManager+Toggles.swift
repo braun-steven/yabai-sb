@@ -86,7 +86,7 @@ extension WindowManager {
     if target.isWindowed {
       target.isWindowed = false
       let frame = target.windowedFrame
-      animateWindow(
+      placeWindow(
         WindowPlacement(
           window: target,
           x: Float(frame.origin.x),
@@ -98,7 +98,7 @@ extension WindowManager {
       target.isWindowed = true
       target.windowedFrame = target.frame
       let bounds = displayID.constrainedBounds(ignoringExternalBar: true)
-      animateWindow(
+      placeWindow(
         WindowPlacement(
           window: target,
           x: Float(bounds.origin.x),

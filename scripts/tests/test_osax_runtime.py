@@ -10,7 +10,7 @@ SPEC.loader.exec_module(runtime)
 
 
 class RuntimeRestoreTests(unittest.TestCase):
-    def test_restore_attempts_spaces_and_config_after_opacity_error(self):
+    def test_restore_attempts_config_after_space_errors(self):
         commands = []
         spaces = [
             {"id": 10, "index": 1, "windows": []},
@@ -19,10 +19,6 @@ class RuntimeRestoreTests(unittest.TestCase):
             {"id": 40, "index": 4, "windows": []},
         ]
 
-        def restore_opacity(value):
-            self.assertEqual(value, 0.75)
-            raise RuntimeError("opacity restore failed")
-
         def fake_cli(*words):
             commands.append(words)
             if words[:1] == ("space",):
@@ -30,10 +26,8 @@ class RuntimeRestoreTests(unittest.TestCase):
             return "restored"
 
         errors = runtime.restore_probe_state(
-            0.75,
             {20, 30, 40},
             "15 10:5",
-            restore_opacity=restore_opacity,
             query_spaces=lambda: spaces,
             cli_command=fake_cli,
         )
@@ -42,7 +36,7 @@ class RuntimeRestoreTests(unittest.TestCase):
         self.assertEqual(commands[-1], ("config", "space_layout", "15", "10:5"))
         self.assertEqual(
             [label for label, _ in errors],
-            ["window opacity", "destroying disposable space 40", "destroying disposable space 20"],
+            ["destroying disposable space 40", "destroying disposable space 20"],
         )
 
     def test_config_restore_is_attempted_when_space_query_fails(self):
@@ -55,10 +49,8 @@ class RuntimeRestoreTests(unittest.TestCase):
             raise RuntimeError("space query failed")
 
         errors = runtime.restore_probe_state(
-            1.0,
             {20},
             "off",
-            restore_opacity=lambda value: None,
             query_spaces=failed_query,
             cli_command=fake_cli,
         )

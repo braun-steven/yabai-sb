@@ -93,7 +93,6 @@ public enum WindowCommand: Equatable, Sendable {
   /// `--toggle` with a value that is no window property: a scratchpad label.
   case toggleScratchpad(Token)
   case subLayer(WindowLayer)
-  case opacity(Float)
   case raise(WindowSelector?)
   case lower(WindowSelector?)
   case scratchpad(ScratchpadAction)
@@ -128,7 +127,6 @@ public enum WindowCommand: Equatable, Sendable {
     case resize = "--resize"
     case ratio = "--ratio"
     case subLayer = "--sub-layer"
-    case opacity = "--opacity"
     case raise = "--raise"
     case lower = "--lower"
     case toggle = "--toggle"
@@ -220,11 +218,6 @@ public enum WindowCommand: Equatable, Sendable {
           name, value, expected: expectedChoices(WindowLayer.allCases.map(\.rawValue)))
       }
       return .subLayer(layer)
-    case .opacity:
-      guard let opacity = value.value.floatValue, opacity >= 0.0 && opacity <= 1.0 else {
-        throw unknownValue(name, value, expected: "a number from 0.0 to 1.0")
-      }
-      return .opacity(opacity)
     case .raise:
       return .raise(try optionalSelector(value))
     case .lower:

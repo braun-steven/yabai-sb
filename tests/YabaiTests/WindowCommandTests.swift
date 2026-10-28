@@ -941,7 +941,7 @@ extension DaemonState {
       #expect(result.placements.isEmpty)
     }
 
-    @Test func absoluteResizeOfAnUnmanagedWindowAnimatesItsFrame() {
+    @Test func absoluteResizeOfAnUnmanagedWindowPlacesItsFrame() {
       _ = row()
       let other = Window(id: wid(9))
       other.frame = CGRect(x: 100, y: 50, width: 300, height: 200)

@@ -8,7 +8,7 @@ import YabaiCore
 // NOTE: An application that yabai observes, a thin wrapper of its AX element and observer.
 @WM final class Application {
   // NOTE: Stays an implicitly unwrapped optional: `init(process:)` sets it and `destroy()` clears it, and its readers
-  // (window frame writes, `WindowFrameGroup` in the animations) need the element; none has an obvious
+  // (window frame writes, `WindowFrameGroup`) need the element; none has an obvious
   // result for a missing element. `init()` leaves it nil until a test or `init(process:)` sets it.
   var ref: AXUIElement!
   /// The window server connection of the process; nil until the window server knows it.

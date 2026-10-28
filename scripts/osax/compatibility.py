@@ -24,8 +24,7 @@ parser.add_argument("--state", type=pathlib.Path, required=True)
 parser.add_argument("--label", default="osax")
 args = parser.parse_args()
 live.STATE = str(args.state) + ".focus"
-settings = ["focus_follows_mouse", "mouse_follows_focus", "window_animation_duration",
-            "tree_autotiling", "tree_workspace_layout", "tree_default_orientation"]
+settings = ["focus_follows_mouse", "mouse_follows_focus", "tree_autotiling", "tree_workspace_layout", "tree_default_orientation"]
 
 
 def unlocked():
@@ -45,7 +44,7 @@ def checked(command):
 def configure_fixture():
     # A deploy reapplies yabai.toml, which may turn autotiling back on. Hold the same controlled
     # settings across every reinsertion workload and restore the saved values afterward.
-    for key, value in {"focus_follows_mouse": "off", "mouse_follows_focus": "off", "window_animation_duration": "0",
+    for key, value in {"focus_follows_mouse": "off", "mouse_follows_focus": "off",
                        "tree_autotiling": "off", "tree_workspace_layout": "default", "tree_default_orientation": "horizontal"}.items():
         checked(f"config {key} {value}")
 

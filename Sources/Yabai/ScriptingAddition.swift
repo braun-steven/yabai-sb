@@ -405,14 +405,6 @@ final class ScriptingAddition: Sendable {
     return payload.send(SA_OPCODE_WINDOW_MOVE)
   }
 
-  @discardableResult func setOpacity(_ opacity: Float, of wid: WindowID, duration: Float) -> Bool {
-    var payload = SAPayload()
-    payload.pack(wid)
-    payload.pack(opacity)
-    payload.pack(duration)
-    return payload.send(duration > 0 ? SA_OPCODE_WINDOW_OPACITY_FADE : SA_OPCODE_WINDOW_OPACITY)
-  }
-
   @discardableResult func setLayer(_ layer: Int32, of wid: WindowID) -> Bool {
     var payload = SAPayload()
     payload.pack(wid)
@@ -450,26 +442,6 @@ final class ScriptingAddition: Sendable {
     payload.pack(width)
     payload.pack(height)
     return payload.send(SA_OPCODE_WINDOW_SCALE)
-  }
-
-  @discardableResult func swapProxiesIn(_ animations: [WindowAnimation]) -> Bool {
-    var payload = SAPayload()
-    payload.pack(Int32(animations.count))
-    for animation in animations {
-      payload.pack(animation.skip ? 0 : animation.wid.rawValue)
-      if !animation.skip { payload.pack(animation.proxy.id) }
-    }
-    return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_IN)
-  }
-
-  @discardableResult func swapProxiesOut(_ animations: [WindowAnimation]) -> Bool {
-    var payload = SAPayload()
-    payload.pack(Int32(animations.count))
-    for animation in animations {
-      payload.pack(animation.skip ? 0 : animation.wid.rawValue)
-      if !animation.skip { payload.pack(animation.proxy.id) }
-    }
-    return payload.send(SA_OPCODE_WINDOW_SWAP_PROXY_OUT)
   }
 
   @discardableResult func orderWindow(_ wid: WindowID, _ order: Int32, relativeTo other: WindowID?)

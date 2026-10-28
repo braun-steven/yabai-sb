@@ -54,15 +54,7 @@ private let configExpectations: [String: String] = [
   "display_arrangement_order": "one of: default, horizontal, vertical",
   "builtin_display_last": "on or off",
   "window_origin_display": "one of: default, focused, cursor",
-  "window_opacity": "on or off",
-  "window_opacity_duration": "a number of seconds",
-  "window_animation_duration": "a number of seconds (0 turns animations off)",
-  "window_animation_easing":
-    "one of: ease_in_sine, ease_out_sine, ease_in_out_sine, ease_in_quad, ease_out_quad, ease_in_out_quad, ease_in_cubic, ease_out_cubic, ease_in_out_cubic, ease_in_quart, ease_out_quart, ease_in_out_quart, ease_in_quint, ease_out_quint, ease_in_out_quint, ease_in_expo, ease_out_expo, ease_in_out_expo, ease_in_circ, ease_out_circ, ease_in_out_circ",
   "window_shadow": "one of: on, float, off",
-  "menubar_opacity": "a number from 0.0 to 1.0",
-  "active_window_opacity": "a number above 0.0 and at most 1.0",
-  "normal_window_opacity": "a number above 0.0 and at most 1.0",
   "insert_feedback_color": "a non-zero hex color such as 0xffe1e3e4",
   "window_border": "on or off",
   "window_border_width": "a number above 0.0",
@@ -122,8 +114,7 @@ extension DaemonState {
   @WM struct MessageConfigTests {
     //
     // NOTE: Every option takes a value other than its default and prints it normalized; an invalid value fails and
-    // leaves the option as it was. window_animation_duration only takes 0 here: other values check the SIP
-    // configuration and ask for Screen Recording permission. In headless mode focus_follows_mouse installs no event
+    // leaves the option as it was. In headless mode focus_follows_mouse installs no event
     // tap and external_bar only marks the seeded views.
     //
 
@@ -141,20 +132,7 @@ extension DaemonState {
       ConfigCase(option: "builtin_display_last", value: "on", printed: "on", invalid: "true"),
       ConfigCase(
         option: "window_origin_display", value: "cursor", printed: "cursor", invalid: "mouse"),
-      ConfigCase(option: "window_opacity", value: "on", printed: "on", invalid: "ON"),
-      ConfigCase(
-        option: "window_opacity_duration", value: "0.5", printed: "0.5", invalid: "fast"),
-      ConfigCase(
-        option: "window_animation_duration", value: "0.0", printed: "0.0", invalid: "0.5s",
-        isDefault: true),
-      ConfigCase(
-        option: "window_animation_easing", value: "ease_in_out_quad", printed: "ease_in_out_quad",
-        invalid: "linear"),
       ConfigCase(option: "window_shadow", value: "float", printed: "float", invalid: "managed"),
-      ConfigCase(option: "menubar_opacity", value: "0", printed: "0.0", invalid: "1.5"),
-      ConfigCase(option: "active_window_opacity", value: "0.5", printed: "0.5", invalid: "0"),
-      ConfigCase(
-        option: "normal_window_opacity", value: "0.25", printed: "0.25", invalid: "1.01"),
       ConfigCase(
         option: "insert_feedback_color", value: "0xff123456", printed: "0xff123456", invalid: "0"),
       ConfigCase(option: "window_border", value: "on", printed: "on", invalid: "enabled"),
@@ -336,12 +314,9 @@ extension DaemonState {
       #expect(runConfigLine(option) == before)
     }
 
-    // NOTE: window_animation_duration is left out: a value it accepted would check SIP and request Screen Recording
     @Test(arguments: [
-      ("window_opacity_duration nan", "window_opacity_duration"),
-      ("window_opacity_duration inf", "window_opacity_duration"),
+      ("window_border_width nan", "window_border_width"),
       ("window_border_width inf", "window_border_width"),
-      ("active_window_opacity nan", "active_window_opacity"),
     ])
     func nonFiniteFloatValuesFail(_ command: String, _ option: String) {
       let before = runConfigLine(option)
@@ -356,8 +331,8 @@ extension DaemonState {
     }
 
     //
-    // NOTE: Setting an option to the value it has changes nothing: the second set leaves the tree and records no flush,
-    // animation or payload message. The first set may change the seeded space; its result is the reference.
+    // NOTE: Setting an option to the value it has changes nothing: the second set leaves the tree and records no flush
+    // or payload message. The first set may change the seeded space; its result is the reference.
     //
     @Test(arguments: configCases)
     func settingTheCurrentValueChangesNothing(_ row: ConfigCase) {
@@ -435,11 +410,8 @@ extension DaemonState {
     }
 
     @Test(arguments: [
-      ("menubar_opacity 1", ConfigGroup.menuBar),
-      ("window_border off", .border),
+      ("window_border off", ConfigGroup.border),
       ("tab_bar_height 24", .tabBar),
-      ("window_opacity off", .opacity),
-      ("active_window_opacity 1", .windowOpacity),
       ("window_shadow on", .shadow),
     ])
     func settingTheCurrentValueNotifiesNothing(_ line: String, _ group: ConfigGroup) {
@@ -469,10 +441,8 @@ extension DaemonState {
     func optionTableCoversNames() {
       let expected: Set<String> = [
         "debug_output", "mouse_follows_focus", "focus_follows_mouse", "display_arrangement_order",
-        "builtin_display_last", "window_origin_display", "window_opacity",
-        "window_opacity_duration",
-        "window_animation_duration", "window_animation_easing", "window_shadow", "menubar_opacity",
-        "active_window_opacity", "normal_window_opacity", "insert_feedback_color", "window_border",
+        "builtin_display_last", "window_origin_display", "window_shadow", "insert_feedback_color",
+        "window_border",
         "window_border_width", "window_border_hide_single", "active_window_border_color",
         "normal_window_border_color", "tab_bar", "tab_bar_height", "tab_bar_offset", "tab_bar_font",
         "tab_bar_icons", "tab_bar_style", "tab_bar_appearance", "tab_bar_backdrop",
@@ -494,8 +464,8 @@ extension DaemonState {
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 62)
-      #expect(actual.count == 62)
+      #expect(ConfigName.allCases.count == 55)
+      #expect(actual.count == 55)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }
@@ -563,13 +533,11 @@ extension DaemonState {
     @Test("message_config_values")
     func messageConfigValues() {
       let grid = Config.current.scratchpad.grid
-      let duration = Config.current.animation.duration
-      let opacityDuration = Config.current.window.opacityDuration
+      let borderWidth = Config.current.border.width
       let workspaceTabbed = Config.current.space.treeWorkspaceTabbed
       defer {
         Config.current.scratchpad.grid = grid
-        Config.current.animation.duration = duration
-        Config.current.window.opacityDuration = opacityDuration
+        Config.current.border.width = borderWidth
         Config.current.space.treeWorkspaceTabbed = workspaceTabbed
       }
 
@@ -579,20 +547,13 @@ extension DaemonState {
       #expect(
         runConfig("scratchpad_grid\0-1:4:1:1:2:2\0scratchpad_grid\0") == "4294967295:4:1:1:2:2\n")
 
-      #expect(
-        runConfig("window_animation_duration\00\0window_animation_duration\0") == "0.0\n")
-      #expect(runConfig("window_animation_duration\0fast\0").contains("unknown value 'fast'"))
-
       #expect(runConfig("layout\0bsp\0").contains("unknown value 'bsp'"))
       #expect(runConfig("external_bar\0some:1:2\0").contains("unknown mode 'some'"))
 
       // NOTE: float options also take integers
-      #expect(runConfig("window_opacity_duration\01\0window_opacity_duration\0") == "1.0\n")
-
-      // NOTE: only the menubar accepts an opacity of 0
-      #expect(runConfig("active_window_opacity\00\0").contains("unknown value '0'"))
-      #expect(runConfig("menubar_opacity\01.5\0").contains("unknown value '1.5'"))
-      #expect(runConfig("normal_window_opacity\0half\0").contains("unknown value 'half'"))
+      #expect(runConfig("window_border_width\01\0window_border_width\0") == "1.0\n")
+      #expect(runConfig("window_border_width\00\0").contains("unknown value '0'"))
+      #expect(runConfig("window_border_width\0half\0").contains("unknown value 'half'"))
 
       #expect(runConfig("tree_workspace_layout\0tabbed\0tree_workspace_layout\0") == "tabbed\n")
       #expect(runConfig("tree_workspace_layout\0default\0tree_workspace_layout\0") == "default\n")
@@ -601,21 +562,21 @@ extension DaemonState {
 
     @Test("numeric_and_color_config_values_validate_before_applying")
     func numericAndColorConfigValuesValidateBeforeApplying() {
-      let duration = Config.current.window.opacityDuration
+      let borderWidth = Config.current.border.width
       let insertionColor = Config.current.window.insertionFeedbackColor
       let focusedColor = Config.current.tabBar.focusedColor
       let focusedColorIsCustom = Config.current.tabBar.focusedColorIsCustom
       defer {
-        Config.current.window.opacityDuration = duration
+        Config.current.border.width = borderWidth
         Config.current.window.insertionFeedbackColor = insertionColor
         Config.current.tabBar.focusedColor = focusedColor
         Config.current.tabBar.focusedColorIsCustom = focusedColorIsCustom
       }
 
-      #expect(runConfig("window_opacity_duration\00.25\0window_opacity_duration\0") == "0.25\n")
-      #expect(Config.current.window.opacityDuration == 0.25)
-      #expect(runConfig("window_opacity_duration\0fast\0").contains("unknown value 'fast'"))
-      #expect(Config.current.window.opacityDuration == 0.25)
+      #expect(runConfig("window_border_width\00.25\0window_border_width\0") == "0.25\n")
+      #expect(Config.current.border.width == 0.25)
+      #expect(runConfig("window_border_width\0fast\0").contains("unknown value 'fast'"))
+      #expect(Config.current.border.width == 0.25)
 
       #expect(
         runConfig("insert_feedback_color\00xff123456\0insert_feedback_color\0") == "0xff123456\n")

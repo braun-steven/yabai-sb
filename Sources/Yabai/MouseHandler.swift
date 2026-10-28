@@ -660,13 +660,65 @@ extension MouseState {
 
 /// The images of the drop preview (`mouse_drop_preview ghost`).
 enum DropGhost {
-  /// The window server's image of a window, with its alpha restored when the window is translucent (as the proxy of an
-  /// animation has it). Nil when the capture fails.
+  /// The window server's image of a window, with its alpha restored when the window is translucent. Nil when the
+  /// capture fails.
   static func capture(of wid: WindowID) -> CGImage? {
     let cid = SLS.connection
     guard let image = SLS.captureImage(cid, of: wid) else { return nil }
     let alpha = SLS.windowAlpha(cid, wid) ?? 1
-    return alpha == 1 ? image : WindowAnimation.restoreAlpha(image)
+    return alpha == 1 ? image : restoreAlpha(image)
+  }
+
+  /// Process the tail as well when the image has fewer than four pixels left.
+  static func restoreAlpha(_ image: CGImage) -> CGImage? {
+    let width = image.width
+    let height = image.height
+    let data = UnsafeMutablePointer<UInt32>.allocate(capacity: width * height)
+    data.initialize(repeating: 0, count: width * height)
+    defer { data.deallocate() }
+    guard
+      let context = CGContext(
+        data: data, width: width, height: height, bitsPerComponent: 8,
+        bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue
+          | CGImageAlphaInfo.premultipliedLast.rawValue)
+    else { return nil }
+    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+    let count = width * height
+    let vectorCount = count - count % 4
+    for i in stride(from: 0, to: vectorCount, by: 4) {
+      let source = UnsafeRawPointer(data + i).loadUnaligned(as: SIMD4<UInt32>.self)
+      let alpha = SIMD4<Float>(source &>> 24)
+      let divisor = alpha.replacing(with: SIMD4(repeating: 1), where: alpha .== .zero)
+      var red = 255 * (SIMD4<Float>(source & 0xff) / divisor)
+      var green = 255 * (SIMD4<Float>((source &>> 8) & 0xff) / divisor)
+      var blue = 255 * (SIMD4<Float>((source &>> 16) & 0xff) / divisor)
+      red = (1 / Float(255)) * (red * 255)
+      green = (1 / Float(255)) * (green * 255)
+      blue = (1 / Float(255)) * (blue * 255)
+      let color =
+        SIMD4<UInt32>(red.rounded(.toNearestOrEven))
+        | (SIMD4<UInt32>(green.rounded(.toNearestOrEven)) &<< 8)
+        | (SIMD4<UInt32>(blue.rounded(.toNearestOrEven)) &<< 16) | 0xff00_0000
+      var restored = source.replacing(with: color, where: alpha .> .zero)
+      withUnsafeBytes(of: &restored) {
+        UnsafeMutableRawPointer(data + i).copyMemory(from: $0.baseAddress!, byteCount: $0.count)
+      }
+    }
+    for i in vectorCount..<count {
+      let source = data[i]
+      let alpha = Float(source >> 24)
+      if alpha == 0 { continue }
+      var color: UInt32 = 0xff00_0000
+      for shift: UInt32 in stride(from: 0, through: 16, by: 8) {
+        var value = Float((source >> shift) & 0xff)
+        value = 255 * (value / alpha)
+        value = (1 / Float(255)) * (value * 255)
+        color |= UInt32(value.rounded(.toNearestOrEven)) << shift
+      }
+      data[i] = color
+    }
+    return context.makeImage()
   }
 }
 
@@ -693,7 +745,7 @@ extension WindowManager {
       if change.changedX { direction.insert(.left) }
       if change.changedY { direction.insert(.top) }
       do {
-        try resizeWindow(target, direction: direction, dx: change.dx, dy: change.dy, animate: true)
+        try resizeWindow(target, direction: direction, dx: change.dx, dy: change.dy)
       } catch .invalidDestinationNode {
         success = false
       } catch {}
@@ -703,7 +755,7 @@ extension WindowManager {
       if change.changedWidth && !change.changedX { direction.insert(.right) }
       if change.changedHeight && !change.changedY { direction.insert(.bottom) }
       do {
-        try resizeWindow(target, direction: direction, dx: change.dw, dy: change.dh, animate: true)
+        try resizeWindow(target, direction: direction, dx: change.dw, dy: change.dh)
       } catch .invalidDestinationNode {
         success = false
       } catch {}

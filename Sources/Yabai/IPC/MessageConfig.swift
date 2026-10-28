@@ -256,41 +256,6 @@ enum ConfigOptionKind: Sendable {
     })
 }
 
-//
-// NOTE: Animations need the scripting addition and Screen Recording permission; 0 turns them off.
-//
-
-@WM private func animationDurationOption() -> ConfigOption {
-  ConfigOption(
-    kind: .float,
-    name: .windowAnimationDuration,
-    print: { rsp, _ in rsp.write("\(String(Config.current.animation.duration))\n") },
-    parse: { (domain, command, message, _) throws(CommandError) in
-      let token = message.next()
-      guard token.isValid else { return nil }
-      guard let duration = token.value.floatValue else {
-        throw CommandError.unknownValue(
-          domain, command, token, expected: "a number of seconds (0 turns animations off)")
-      }
-      return { () throws(CommandError) in
-        if duration == 0.0 {
-          Config.current.animation.duration = duration
-        } else if !ScriptingAddition.shared.isSIPFriendly {
-          throw CommandError(
-            "command '\(command)' for domain '\(domain)' requires System Integrity Protection to be partially disabled! ignoring request..\n"
-          )
-        } else if CGPreflightScreenCaptureAccess() {
-          Config.current.animation.duration = duration
-        } else {
-          CGRequestScreenCaptureAccess()
-          throw CommandError(
-            "command '\(command)' for domain '\(domain)' requires Screen Recording permissions! ignoring request..\n"
-          )
-        }
-      }
-    })
-}
-
 @WM private func tabBarFontOption() -> ConfigOption {
   ConfigOption(
     kind: .text,
@@ -430,7 +395,7 @@ enum ConfigOptionKind: Sendable {
 }
 
 //
-// NOTE: Borders, tab bars, opacity and shadows follow Config through ConfigObserver, after the message. The setters
+// NOTE: Borders, tab bars and shadows follow Config through ConfigObserver, after the message. The setters
 // that do more than store the value change no renderer: they restart the event tap (focus_follows_mouse), mirror the
 // modifier for the tap (mouse_modifier), move scratchpads between layers (scratchpad_below) or lay out spaces, which
 // the following commands of the message rely on.
@@ -476,12 +441,6 @@ enum ConfigOptionKind: Sendable {
   boolOption(
     .skipWindowFocusAnimation, get: { Config.current.space.skipWindowFocusAnimation },
     set: { Config.current.space.skipWindowFocusAnimation = $0 }),
-  boolOption(
-    .windowOpacity, get: { Config.current.opacity.enabled },
-    set: { Config.current.opacity.enabled = $0 }),
-  choiceOption(
-    .windowAnimationEasing, choices: AnimationEasing.allCases,
-    get: { Config.current.animation.easing }, set: { Config.current.animation.easing = $0 }),
   choiceOption(
     .windowShadow, choices: PurifyMode.allCases, get: { Config.current.shadow.mode },
     set: { Config.current.shadow.mode = $0 }),
@@ -631,31 +590,11 @@ enum ConfigOptionKind: Sendable {
       Config.current.tabBar.backdropColorIsCustom = true
     },
     isCustom: { Config.current.tabBar.backdropColorIsCustom }),
-  floatOption(
-    .windowOpacityDuration, get: { Config.current.window.opacityDuration },
-    parseValue: { $0.value.floatValue },
-    expected: "a number of seconds", set: { Config.current.window.opacityDuration = $0 }),
-  // NOTE: Only the menubar accepts an opacity of 0, windows need an opacity above 0.
-  floatOption(
-    .menubarOpacity, get: { Config.current.menuBar.opacity },
-    parseValue: { token in token.value.floatValue.flatMap { $0 >= 0.0 && $0 <= 1.0 ? $0 : nil } },
-    expected: "a number from 0.0 to 1.0", set: { Config.current.menuBar.opacity = $0 }),
-  floatOption(
-    .activeWindowOpacity, get: { Config.current.windowOpacity.active },
-    parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } },
-    expected: "a number above 0.0 and at most 1.0",
-    set: { Config.current.windowOpacity.active = $0 }),
-  floatOption(
-    .normalWindowOpacity, get: { Config.current.windowOpacity.normal },
-    parseValue: { token in token.value.floatValue.flatMap { $0 > 0.0 && $0 <= 1.0 ? $0 : nil } },
-    expected: "a number above 0.0 and at most 1.0",
-    set: { Config.current.windowOpacity.normal = $0 }),
   colorOption(
     .insertFeedbackColor, get: { Config.current.window.insertionFeedbackColor },
     set: { Config.current.window.insertionFeedbackColor = $0 }, allowZero: false),
   scratchpadGridOption(),
   spaceLayoutOption(),
-  animationDurationOption(),
   tabBarFontOption(),
   externalBarOption(),
   spacingOption(.topPadding, spacing: .topPadding),
@@ -750,8 +689,7 @@ private func cInt(_ value: Float) -> Int {
 // nothing is applied. Two differences, both from what applying needs: a --space selector is parsed but not resolved, so
 // a placeholder space stands in for it (the spaceLayout option fails on any space, as it does for a real one) and the
 // commands run even where the selector would find nothing; and the failures that only a Change can throw are not
-// found: tab_bar_font (TabBar.setFont), window_animation_duration (SIP and Screen Recording) and the other Change
-// closures. Those stay for handleMessage. `--check` is accepted with its file, as handleDomainConfig accepts it: it
+// found: tab_bar_font (TabBar.setFont) and the other Change closures. Those stay for handleMessage. `--check` is accepted with its file, as handleDomainConfig accepts it: it
 // checks a file and changes nothing. `--reload` takes its file the same way; the reload itself is not run by the check,
 // since it changes the config. `--overrides` and `--dump` take no argument and change nothing.
 //

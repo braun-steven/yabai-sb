@@ -158,15 +158,14 @@ private func key(_ name: String, _ value: ConfigValue, _ keyPath: String, negate
     """
     [config]
     window_gap = -4
-    window_opacity_duration = 0.25
+    window_border_width = 0.25
     window_shadow = "float"
     """)
   #expect(
     document.options == [
       ConfigOptionEntry(name: .windowGap, value: .integer(-4), keyPath: "config.window_gap"),
       ConfigOptionEntry(
-        name: .windowOpacityDuration, value: .float(0.25), keyPath: "config.window_opacity_duration"
-      ),
+        name: .windowBorderWidth, value: .float(0.25), keyPath: "config.window_border_width"),
       ConfigOptionEntry(
         name: .windowShadow, value: .string("float"), keyPath: "config.window_shadow"),
     ])

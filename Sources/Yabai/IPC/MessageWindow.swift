@@ -98,7 +98,7 @@ extension WindowCommand {
       try runTree(on: try requiredWindow(acting))
     case .grid, .move, .resize, .ratio:
       try runFrame(on: try requiredWindow(acting))
-    case .subLayer, .opacity, .raise, .lower, .scratchpad:
+    case .subLayer, .raise, .lower, .scratchpad:
       try runProperty(on: try requiredWindow(acting))
     case .label(let label):
       try runLabel(label, on: try requiredWindow(acting))
@@ -298,7 +298,7 @@ extension WindowCommand {
       } catch {}
     case .resize(let handle, let dx, let dy):
       do {
-        try wm.resizeWindow(window, direction: handle, dx: dx, dy: dy, animate: true)
+        try wm.resizeWindow(window, direction: handle, dx: dx, dy: dy)
       } catch .invalidSourceNode {
         throw CommandError("cannot locate the container of the managed window.\n")
       } catch .invalidDestinationNode {
@@ -320,7 +320,7 @@ extension WindowCommand {
   }
 
   //
-  // NOTE: Window properties: layer, opacity, order and scratchpads.
+  // NOTE: Window properties: layer, order and scratchpads.
   //
 
   @WM private func runProperty(on window: Window) throws(CommandError) {
@@ -332,14 +332,6 @@ extension WindowCommand {
       if !wm.setWindowLayer(window, to: layer) {
         throw CommandError(
           "could not change sub-layer of window with id '\(id)' due to an error with the scripting-addition.\n"
-        )
-      }
-    case .opacity(let opacity):
-      if wm.setOpacity(for: window, to: opacity) {
-        window.opacity = opacity
-      } else {
-        throw CommandError(
-          "could not change opacity of window with id '\(id)' due to an error with the scripting-addition.\n"
         )
       }
     case .raise(let selector):

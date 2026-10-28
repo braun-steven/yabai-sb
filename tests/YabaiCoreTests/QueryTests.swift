@@ -78,7 +78,7 @@ private func json(_ value: some Encodable) throws -> String {
     try JSONSerialization.jsonObject(with: Data(try JSON.encode(windowInfoFixture())))
       as? [String: Any])
   #expect(Set(object.keys) == Set(WindowInfo.Key.allCases.map(\.rawValue)))
-  #expect(object.count == 33)
+  #expect(object.count == 32)
 }
 
 // NOTE: every property that `query --displays` and `query --spaces` can select is written under its own name.
@@ -137,7 +137,7 @@ private func json(_ value: some Encodable) throws -> String {
   rule.effects.grid = Grid(4, 4, 0, 0, 2, 2)
   #expect(
     try json(rule.info(index: 0, display: 0, space: 2))
-      == "{\"app\":\"\",\"display\":0,\"flags\":\"0x0\",\"follow_space\":false,\"grid\":\"4:4:0:0:2:2\",\"index\":0,\"insert\":\"\",\"label\":\"a/b\",\"manage\":false,\"mouse_follows_focus\":null,\"native-fullscreen\":null,\"one-shot\":false,\"opacity\":0,\"role\":\"\",\"scratchpad\":\"\",\"space\":2,\"sticky\":null,\"sub-layer\":\"\",\"subrole\":\"\",\"title\":\"\"}"
+      == "{\"app\":\"\",\"display\":0,\"flags\":\"0x0\",\"follow_space\":false,\"grid\":\"4:4:0:0:2:2\",\"index\":0,\"insert\":\"\",\"label\":\"a/b\",\"manage\":false,\"mouse_follows_focus\":null,\"native-fullscreen\":null,\"one-shot\":false,\"role\":\"\",\"scratchpad\":\"\",\"space\":2,\"sticky\":null,\"sub-layer\":\"\",\"subrole\":\"\",\"title\":\"\"}"
   )
 }
 

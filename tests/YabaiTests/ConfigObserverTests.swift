@@ -22,11 +22,11 @@ extension DaemonState {
     func equalSetNotifies() {
       let flag = Flag()
       withObservationTracking {
-        ConfigObserver.read(.menuBar)
+        ConfigObserver.read(.shadow)
       } onChange: {
         flag.isSet.store(true, ordering: .relaxed)
       }
-      Config.current.menuBar.opacity = Config.current.menuBar.opacity
+      Config.current.shadow.mode = Config.current.shadow.mode
       let isSet = flag.isSet.load(ordering: .relaxed)
       #expect(isSet)
     }
@@ -35,12 +35,12 @@ extension DaemonState {
     func setNotifiesOnlyItsGroup() {
       let flag = Flag()
       withObservationTracking {
-        ConfigObserver.read(.windowOpacity)
+        ConfigObserver.read(.shadow)
       } onChange: {
         flag.isSet.store(true, ordering: .relaxed)
       }
       Config.current.window.mouseFollowsFocus = Config.current.window.mouseFollowsFocus
-      Config.current.opacity.enabled = Config.current.opacity.enabled
+      Config.current.border.width = Config.current.border.width
       let isSet = flag.isSet.load(ordering: .relaxed)
       #expect(!isSet)
     }
@@ -57,10 +57,6 @@ extension DaemonState {
         switch group {
         case .border: Config.current.border.width = Config.current.border.width
         case .tabBar: Config.current.tabBar.height = Config.current.tabBar.height
-        case .opacity: Config.current.opacity.enabled = Config.current.opacity.enabled
-        case .windowOpacity:
-          Config.current.windowOpacity.active = Config.current.windowOpacity.active
-        case .menuBar: Config.current.menuBar.opacity = Config.current.menuBar.opacity
         case .shadow: Config.current.shadow.mode = Config.current.shadow.mode
         }
         let isSet = flag.isSet.load(ordering: .relaxed)

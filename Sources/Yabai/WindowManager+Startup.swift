@@ -46,7 +46,6 @@ extension WindowManager {
 
     if let target = focusedWindow {
       focus.focusRestored(to: target.id, psn: target.application.psn)
-      setWindowOpacity(target, to: Config.current.windowOpacity.active)
     }
   }
 

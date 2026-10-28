@@ -161,14 +161,6 @@ WINDOW_SEL  := prev | next | first | last | recent | mouse | largest | smallest 
 DISPLAY_SEL := prev | next | first | last | recent | mouse | DIR_SEL | <arrangement index (1-based)> | LABEL
 
 SPACE_SEL   := prev | next | first | last | recent | mouse | <mission-control index (1-based)> | LABEL
-
-EASING      := ease_in_sine  | ease_out_sine  | ease_in_out_sine  |
-               ease_in_quad  | ease_out_quad  | ease_in_out_quad  |
-               ease_in_cubic | ease_out_cubic | ease_in_out_cubic |
-               ease_in_quart | ease_out_quart | ease_in_out_quart |
-               ease_in_quint | ease_out_quint | ease_in_out_quint |
-               ease_in_expo  | ease_out_expo  | ease_in_out_expo  |
-               ease_in_circ  | ease_out_circ  | ease_in_out_circ
 ----
 
 A `DIR_SEL` in a `DISPLAY_SEL` selects the nearest display in that direction. When there is none that way, it wraps around to the display lying farthest the other way, measured from the center of the acting display to the nearest point of each display, like sway's 'focus output <dir>' and 'move container|workspace to output <dir>': with three displays side by side, `east` from the eastmost one selects the westmost one. It fails only when no other display lies that way or wholly the other way. The directions of *window --focus* and *window --warp* (`WINDOW_SEL` and the tree) do not wrap to another display.
@@ -227,11 +219,6 @@ Global Settings
     'all':  Apply the given padding to all spaces regardless of their display. +
     'off':  Do not apply any special padding.
 
-*menubar_opacity* ['<FLOAT_SEL>']::
-    Changes the transparency of the macOS menubar. +
-    If the value is 0.0, the menubar will no longer respond to mouse-events, effectively hiding the menubar permanently. +
-    The menubar will automatically become fully opaque upon entering a native-fullscreen space, and adjusted down afterwards.
-
 *mouse_follows_focus* ['<BOOL_SEL>']::
     When focus goes to another display than the one under the mouse, put the mouse at the center of the focused window, or at the center of the display when it has no window to focus, like sway's 'mouse_warping output'. Focus that stays on the display under the mouse never moves it. +
     The commands that move a window (*window --warp*, *--swap*, *--display* and *--space*) do not move the mouse, also when the moved window keeps focus on another display. +
@@ -281,32 +268,6 @@ Global Settings
 *window_shadow* ['<BOOL_SEL>|float']::
     Draw shadow for windows. +
     System Integrity Protection must be partially disabled.
-
-*window_opacity* ['<BOOL_SEL>']::
-    Enable opacity for windows. +
-    System Integrity Protection must be partially disabled.
-
-*window_opacity_duration* ['<FLOAT_SEL>']::
-    Duration of transition between active / normal opacity. +
-    System Integrity Protection must be partially disabled.
-
-*active_window_opacity* ['<FLOAT_SEL>']::
-    Opacity of the focused window. +
-    System Integrity Protection must be partially disabled.
-
-*normal_window_opacity* ['<FLOAT_SEL>']::
-    Opacity of an unfocused window. +
-    System Integrity Protection must be partially disabled.
-
-*window_animation_duration* ['<FLOAT_SEL>']::
-    Duration of window frame animation. +
-    If 0.0, the change in dimension is not animated. +
-    Requires Screen Recording permissions. +
-    System Integrity Protection must be partially disabled.
-
-*window_animation_easing* ['<EASING>']::
-    Easing function to use for window animations. +
-    See https://easings.net for details.
 
 *insert_feedback_color* ['0xAARRGGBB']::
     Color of the *window --insert* message and mouse_drag selection. +
@@ -700,12 +661,6 @@ COMMAND
     Specify the value 'auto' to reset back to normal and make it become automatically managed. +
     System Integrity Protection must be partially disabled.
 
-*--opacity* '<FLOAT_SEL>'::
-    Set the opacity of the selected window. +
-    The window will no longer be eligible for automatic change in opacity upon focus change. +
-    Specify the value '0.0' to reset back to full opacity and make it become automatically managed. +
-    System Integrity Protection must be partially disabled.
-
 *--raise* ['<WINDOW_SEL>']::
     Orders the selected window above the given window, or to the front within its layer. +
     System Integrity Protection must be partially disabled.
@@ -844,7 +799,6 @@ WINDOW
     "sub-level": number,
     "layer": string,
     "sub-layer": string,
-    "opacity": number,
     "split-type": string,
     "stack-index": number,
     "can-move": bool,
@@ -890,7 +844,7 @@ Rule
 All rules that match the given filter will be applied in the order they were registered. +
 If multiple rules specify a value for the same property, the latter rule will end up overriding that value. +
 If the display and space properties are both set, the space property will take precedence. +
-The following properties require System Integrity Protection to be partially disabled: sticky, sub-layer, opacity, scratchpad.
+The following properties require System Integrity Protection to be partially disabled: sticky, sub-layer, scratchpad.
 
 General Syntax
 ^^^^^^^^^^^^^^
@@ -959,12 +913,6 @@ ARGUMENT
     Specify the value 'auto' to reset back to normal and make it become automatically managed. +
     System Integrity Protection must be partially disabled.
 
-*opacity='<FLOAT_SEL>'*::
-    Set window opacity. +
-    The window will no longer be eligible for automatic change in opacity upon focus change. +
-    Specify the value '0.0' to reset back to full opacity and make it become automatically managed. +
-    System Integrity Protection must be partially disabled.
-
 *native-fullscreen='<BOOL_SEL>'*::
     Window should enter native macOS fullscreen mode.
 
@@ -1001,7 +949,6 @@ DATAFORMAT
     "display": number,
     "space": number,
     "follow_space": bool,
-    "opacity": number,
     "manage": bool (optional),
     "sticky": bool (optional),
     "mouse_follows_focus": bool (optional),

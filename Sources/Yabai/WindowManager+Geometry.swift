@@ -48,13 +48,13 @@ extension WindowManager {
       y += Float(target.frame.origin.y)
     }
 
-    animateWindow(
+    placeWindow(
       WindowPlacement(
         window: target, x: x, y: y, w: Float(target.frame.size.width),
         h: Float(target.frame.size.height)))
   }
 
-  func resizeWindow(_ target: Window, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool)
+  func resizeWindow(_ target: Window, direction: ResizeHandle, dx: Float, dy: Float)
     throws(WindowOperationError)
   {
     if let owner = managedView(for: target) {
@@ -72,19 +72,13 @@ extension WindowManager {
       owner.updateTree()
       owner.flush()
     } else if direction == .abs {
-      if animate {
-        animateWindow(
-          WindowPlacement(
-            window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx,
-            h: dy))
-      } else {
-        target.application.ref.withEnhancedUserInterfaceDisabled {
-          target.resize(width: dx, height: dy)
-        }
-      }
+      placeWindow(
+        WindowPlacement(
+          window: target, x: Float(target.frame.origin.x), y: Float(target.frame.origin.y), w: dx,
+          h: dy))
     } else {
       target.resizeRelative(
-        frame: target.axFrame, direction: direction, dx: dx, dy: dy, animate: animate)
+        frame: target.axFrame, direction: direction, dx: dx, dy: dy)
     }
   }
 }

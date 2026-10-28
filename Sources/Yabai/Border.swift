@@ -70,7 +70,6 @@ final class Border {
   var focused = false
   var shown = false
   var sticky = false
-  var suspended = false
   var level: Int32 = 0
   var subLevel: Int32 = 0
 
@@ -367,7 +366,7 @@ extension Border {
   }
 
   private func updateLocked(_ what: BorderUpdate, _ settings: BorderSettings) {
-    if !settings.enabled || !enabled || suspended || settings.missionControl {
+    if !settings.enabled || !enabled || settings.missionControl {
       hide()
       return
     }
@@ -582,7 +581,7 @@ extension Border {
       for wid in state.show {
         guard let border = state.borders[wid], border.enabled, !border.shown else { continue }
         var shown: Border?
-        if state.settings.enabled && !border.suspended && border.area.width > 0 {
+        if state.settings.enabled && border.area.width > 0 {
           for otherID in state.hide {
             if let other = state.borders[otherID],
               !other.enabled && other.shown && other.area == border.area
@@ -684,19 +683,6 @@ extension Border {
 
   static func trackForTest(_ wid: WindowID) {
     borderLock.withLock { state in state.borders[wid] = Border(wid) }
-  }
-
-  //
-  // NOTE: A window that is animated is drawn by a proxy window in its place while the real window already sits at its
-  // final frame, so its border is hidden for the duration of the animation and put back at the end.
-  //
-  static func setSuspended(_ suspended: Bool, for wid: WindowID) {
-    borderLock.withLock { state in
-      if let border = state.borders[wid] {
-        border.suspended = suspended
-        border.updateLocked(.frameAndOrder, state.settings)
-      }
-    }
   }
 
   //

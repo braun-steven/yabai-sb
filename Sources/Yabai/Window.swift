@@ -81,7 +81,6 @@ struct WindowAXState: Equatable, Sendable {
   var isFullscreenByRule = false
   var mouseFollowsFocusByRule: Bool?
   var insertionByRule: InsertDirection?
-  var opacity: Float = 0
   var layer = WindowLayer.auto
   var scratchpad: String?
 
@@ -147,13 +146,8 @@ struct WindowAXState: Equatable, Sendable {
     ref?.setAttribute(kAXPositionAttribute, to: point)
   }
 
-  func resize(width: Float, height: Float) {
-    frameRequest.size = CGSize(width: CGFloat(width), height: CGFloat(height))
-    ref?.setAttribute(kAXSizeAttribute, to: CGSize(width: CGFloat(width), height: CGFloat(height)))
-  }
-
   func resizeRelative(
-    frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float, animate: Bool,
+    frame: CGRect, direction: ResizeHandle, dx: Float, dy: Float,
     euiScope: EUIScope = .write
   ) {
     let xMod: CGFloat = direction.contains(.left) ? -1 : direction.contains(.right) ? 1 : 0
@@ -168,8 +162,9 @@ struct WindowAXState: Equatable, Sendable {
       direction.contains(.top)
       ? Float(frame.origin.y + frame.size.height - CGFloat(height)) : Float(frame.origin.y)
 
-    if animate {
-      WindowManager.shared.animateWindow(
+    // NOTE: A drag writes every frame inside its EUI scope; the other resizes go through the placement path.
+    if euiScope == .write {
+      WindowManager.shared.placeWindow(
         WindowPlacement(window: self, x: x, y: y, w: width, h: height))
     } else {
       WindowManager.shared.applyFrame(
@@ -396,7 +391,6 @@ extension WindowID {
   var spaces: [SpaceID] { SLS.spaces(SLS.connection, forWindows: [self]) }
   var isSticky: Bool { spaces.count > 1 }
   var hasShadow: Bool { (tags & 0x8) == 0 }
-  var opacity: Float { SLS.windowAlpha(SLS.connection, self) ?? 0 }
 
   private var queriedWindow: SLS.QueriedWindow? {
     let windows = SLS.queryWindows(SLS.connection, [self])

@@ -32,12 +32,7 @@ extension WindowManager {
     let grid = Config.current.scratchpad.grid
     if grid.rows == 0 || grid.columns == 0 { return }
 
-    //
-    // NOTE: The window is still ordered out, so an animation
-    // would capture a stale image; set the frame directly instead.
-    //
-
-    withoutAnimations { try? applyGrid(grid, to: target) }
+    try? applyGrid(grid, to: target)
   }
 
   private func hideScratchpad(_ target: Window, on spaceID: SpaceID) {

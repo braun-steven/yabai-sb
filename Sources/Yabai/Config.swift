@@ -2,7 +2,7 @@ import Observation
 import YabaiCore
 
 //
-// NOTE: Each renderer action has its own property (border, tabBar, opacity, windowOpacity, menuBar, shadow), since
+// NOTE: Each renderer action has its own property (border, tabBar, shadow), since
 // Observation tracks Config's properties, not their fields. A set through a field notifies even with an equal value,
 // so the config options write only a value that differs (MessageConfig.swift); assigning a whole equal struct does not
 // notify.
@@ -17,12 +17,8 @@ import YabaiCore
   var border = BorderConfig()
   var tabBar = TabBarConfig()
   var window = WindowConfig()
-  var opacity = OpacityConfig()
-  var windowOpacity = WindowOpacityConfig()
-  var menuBar = MenuBarConfig()
   var shadow = ShadowConfig()
   var mouse = MouseConfig()
-  var animation = AnimationConfig()
   var scratchpad = ScratchpadConfig()
   var space = SpaceDefaults()
   var display = DisplayConfig()
@@ -34,12 +30,8 @@ import YabaiCore
     border = defaults.border
     tabBar = defaults.tabBar
     window = defaults.window
-    opacity = defaults.opacity
-    windowOpacity = defaults.windowOpacity
-    menuBar = defaults.menuBar
     shadow = defaults.shadow
     mouse = defaults.mouse
-    animation = defaults.animation
     scratchpad = defaults.scratchpad
     space = defaults.space
     display = defaults.display
@@ -93,25 +85,8 @@ struct WindowConfig: Equatable {
   var mouseFollowsFocus = false
   var focusFollowsMouse = FocusFollowsMouse.disabled
   var origin = WindowOrigin.default
-  var opacityDuration: Float = 0.0
   var insertionFeedbackColor = RGBAColor(hex: 0xffd7_5f5f)
   var focusWrapping = FocusWrapping.on
-}
-
-/// Whether yabai sets window opacity (`window_opacity`).
-struct OpacityConfig: Equatable {
-  var enabled = false
-}
-
-/// The opacity of the focused and the other windows (`active_window_opacity`, `normal_window_opacity`).
-struct WindowOpacityConfig: Equatable {
-  var active: Float = 1.0
-  var normal: Float = 1.0
-}
-
-/// The menu bar (`menubar_opacity`).
-struct MenuBarConfig: Equatable {
-  var opacity: Float = 1.0
 }
 
 /// Window shadows (`window_shadow`).
@@ -129,11 +104,6 @@ struct MouseConfig {
   var dropPreview = MouseDropPreview.outline
   /// Dragging the gap between two tiled windows resizes their split (`mouse_drag_split`).
   var dragSplit = false
-}
-
-struct AnimationConfig {
-  var duration: Float = 0.0
-  var easing = AnimationEasing.easeOutCirc
 }
 
 struct ScratchpadConfig {

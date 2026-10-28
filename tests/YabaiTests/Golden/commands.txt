@@ -13,14 +13,7 @@ config focus_follows_mouse
 config display_arrangement_order
 config builtin_display_last
 config window_origin_display
-config window_opacity
-config window_opacity_duration
-config window_animation_duration
-config window_animation_easing
 config window_shadow
-config menubar_opacity
-config active_window_opacity
-config normal_window_opacity
 config insert_feedback_color
 config window_border
 config window_border_width
@@ -82,12 +75,8 @@ config focus_wrapping
 config tree_default_orientation
 config tree_workspace_layout
 config tree_autotiling
-config window_opacity_duration 0.25
-config window_opacity_duration
 config insert_feedback_color 0xff112233
 config insert_feedback_color
-config window_animation_easing ease_in_sine
-config window_animation_easing
 config scratchpad_exclusive on
 config window_origin_display focused
 config scratchpad_exclusive
@@ -112,14 +101,6 @@ config tab_bar_font
 config left_padding 5 right_padding 6
 config left_padding
 config right_padding
-config window_opacity on
-config active_window_opacity 0.9
-config normal_window_opacity 0.5
-config menubar_opacity 0
-config window_opacity
-config active_window_opacity
-config normal_window_opacity
-config menubar_opacity
 config window_border on
 config window_border_width 2
 config active_window_border_color 0xff00ff00
@@ -172,9 +153,8 @@ config nonexistent_option
 config window_gap abc
 config mouse_modifier hyper
 config focus_follows_mouse bogus
-config window_opacity_duration abc
+config window_border_width abc
 config insert_feedback_color 0
-config active_window_opacity 2.0
 config tab_bar_style bogus
 config --space nolabel window_gap
 
@@ -186,7 +166,7 @@ config --dump
 
 # rule
 rule --add app=^Calculator$ manage=off
-rule --add label=term app=Terminal opacity=0.9 sticky=on
+rule --add label=term app=Terminal sticky=on
 rule --add --one-shot title=x manage=on
 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
 rule --list

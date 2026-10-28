@@ -38,19 +38,13 @@ extension EventHandler {
   }
 
   //
-  // NOTE: Brings the menu bar, the windows of the applications and the layout of the current space up to
+  // NOTE: Brings the windows of the applications and the layout of the current space up to
   // date after the active space or display changed.
   //
 
   private func refreshCurrentSpace() {
     let wm = WindowManager.shared
     let sm = SpaceManager.shared
-
-    if Config.current.menuBar.opacity != 1.0 {
-      let isFullscreen = sm.currentSpaceID.map { $0.isFullscreen } ?? false
-      let alpha: Float = isFullscreen ? 1.0 : Config.current.menuBar.opacity
-      SLS.setMenuBarAlpha(SLS.connection, alpha)
-    }
 
     let view = sm.currentSpaceID.map { sm.view(for: $0) }
 

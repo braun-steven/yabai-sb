@@ -50,7 +50,6 @@ private let configChoices: [ChoiceRow] = [
   ChoiceRow(
     option: "display_arrangement_order", expected: DisplayArrangementOrder.allCases.map(\.rawValue)),
   ChoiceRow(option: "window_origin_display", expected: WindowOrigin.allCases.map(\.rawValue)),
-  ChoiceRow(option: "window_animation_easing", expected: AnimationEasing.allCases.map(\.rawValue)),
   ChoiceRow(option: "window_shadow", expected: PurifyMode.allCases.map(\.rawValue)),
   ChoiceRow(option: "tree_default_orientation", expected: TreeOrientation.allCases.map(\.rawValue)),
   ChoiceRow(option: "tree_workspace_layout", expected: WorkspaceLayout.allCases.map(\.rawValue)),

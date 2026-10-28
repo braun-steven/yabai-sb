@@ -30,22 +30,23 @@ import Testing
     }
     #expect(!core.valid([0]))
     #expect(!core.valid([255]))
-    for opcode: UInt8 in [14, 15, 17, 20] {
+    for opcode: UInt8 in [17, 20] {
       #expect(!core.valid([opcode] + packed(Int32(-1))))
       #expect(!core.valid([opcode] + packed(Int32.max)))
       #expect(core.valid([opcode] + packed(Int32(0))))
     }
     #expect(!core.valid([18] + packed(UInt64(1)) + packed(Int32(-1))))
-    #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float.nan) + packed(Float(1))))
-    #expect(!core.valid([8] + packed(UInt32(7)) + packed(Float(0.5)) + packed(Float.infinity)))
+    for opcode: UInt8 in [7, 8, 14, 15] {
+      #expect(!core.valid([opcode] + packed(UInt32(7)) + packed(Float(0.5)) + packed(Float(1))))
+    }
     #expect(!core.valid([10] + packed(UInt32(7)) + [2]))
   }
 
   // Every fixed-size opcode: lengths 0 to expected-1 are rejected, and so is one byte too many.
-  @Test(arguments: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 19] as [UInt8])
+  @Test(arguments: [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 16, 19] as [UInt8])
   func fixedLengthOpcodesRejectEveryTruncation(opcode: UInt8) throws {
     let expectedLengths: [UInt8: Int] = [
-      1: 0, 2: 8, 3: 8, 4: 8, 5: 25, 6: 12, 7: 12, 8: 12, 9: 8,
+      1: 0, 2: 8, 3: 8, 4: 8, 5: 25, 6: 12, 9: 8,
       10: 5, 11: 5, 12: 4, 13: 20, 16: 12, 19: 12,
     ]
     let message = [opcode] + [UInt8](repeating: 0, count: try #require(expectedLengths[opcode]))
@@ -59,9 +60,10 @@ import Testing
     let core = Core()
     sa_test_reset()
     var seed: UInt64 = 0x52fa_b123
+    let messages = fixtures()
     for iteration in 0..<10_000 {
       seed = seed &* 6_364_136_223_846_793_005 &+ 1
-      var message = fixtures()[iteration % 20]
+      var message = messages[iteration % messages.count]
       let index = Int(seed % UInt64(message.count))
       message[index] = UInt8(truncatingIfNeeded: seed >> 32)
       if !core.valid(message) {
@@ -119,12 +121,12 @@ import Testing
           response == [message[0] == 12 ? UInt8(SA_REPLY_UNSUPPORTED) : UInt8(SA_REPLY_ACCEPTED)])
       }
     }
-    #expect(sa_test_commands() == 19)
-    // FNV-1a of ordered fixture packets plus the immediate alpha write's wid/alpha bytes.
+    #expect(sa_test_commands() == 15)
+    // FNV-1a of the ordered fixture packets.
     // Preserve the comparison's native-call order without retaining a second implementation.
-    #expect(sa_test_digest() == 0x48f6_6fb9_9d56_2774)
+    #expect(sa_test_digest() == 0xf495_4ccc_21e0_3f12)
     #expect(try exchange(core, framed([20] + packed(Int32(100)))) == [UInt8(SA_REPLY_INVALID)])
-    #expect(sa_test_commands() == 19)
+    #expect(sa_test_commands() == 15)
     #expect(try exchange(core, [255, 127]) == [UInt8(SA_REPLY_INVALID)])
     #expect(try exchange(core, [3, 0, 2]) == [UInt8(SA_REPLY_INVALID)])
   }
@@ -164,64 +166,6 @@ import Testing
     #expect(reply == SA_REPLY_ACCEPTED)
     close(pair.0)
     #expect(sa_test_interrupt_end() == 3)
-  }
-
-  @Test func fadeReplacementCancellationAndBackendFailures() {
-    let core = Core()
-    sa_test_reset()
-    #expect(core.opacity(7, 0, 1, 0))
-    _ = core.tick(500_000_000)
-    #expect(abs(sa_test_alpha(7) - 0.5) < 0.00001)
-    #expect(core.opacity(7, 1, 1, 500_000_000))
-    _ = core.tick(1_000_000_000)
-    #expect(abs(sa_test_alpha(7) - 0.75) < 0.00001)
-    #expect(core.opacity(7, 0.2, 0, 1_000_000_000))
-    _ = core.tick(3_000_000_000)
-    #expect(sa_test_alpha(7) == 0.2)
-    sa_test_fail(true, false)
-    #expect(!core.opacity(7, 1, 1, 0))
-    sa_test_fail(false, true)
-    #expect(!core.opacity(7, 1, 0, 0))
-    sa_test_fail(false, false)
-    #expect(!core.opacity(7, .nan, 1, 0))
-    #expect(!core.opacity(7, 1, -.infinity, 0))
-    #expect(core.opacity(7, 1, 1, 0))
-    sa_test_fail(false, true)
-    _ = core.tick(500_000_000)
-    sa_test_fail(false, false)
-    _ = core.tick(2_000_000_000)
-    #expect(sa_test_alpha(7) == 0.2)
-  }
-
-  @Test func fadeTimerStateFollowsActiveFades() {
-    let core = Core()
-    sa_test_reset()
-    #expect(!sa_swift_has_fades())
-    // An immediate write never leaves a fade behind, so the timer would have nothing to do.
-    #expect(core.opacity(7, 1, 0, 0))
-    #expect(!sa_swift_has_fades())
-    #expect(!core.tick(0))
-    #expect(core.opacity(7, 0, 1, 0))
-    #expect(sa_swift_has_fades())
-    #expect(core.tick(500_000_000))
-    #expect(sa_swift_has_fades())
-    // The completing tick removes the fade and reports that none remain.
-    #expect(!core.tick(2_000_000_000))
-    #expect(!sa_swift_has_fades())
-    #expect(sa_test_alpha(7) == 0)
-  }
-
-  @Test func concurrentFadesAndImmediateCommands() {
-    let core = Core()
-    sa_test_reset()
-    DispatchQueue.concurrentPerform(iterations: 1000) { index in
-      _ = core.opacity(
-        UInt32(index % 32 + 1), Float(index % 10) / 10, index % 3 == 0 ? 0 : 1, UInt64(index))
-      _ = core.tick(UInt64(index))
-    }
-    #expect(core.opacity(7, 0.25, 0, 2000))
-    _ = core.tick(10_000_000_000)
-    #expect(sa_test_alpha(7) == 0.25)
   }
 
   @Test func boundedPatternAndInstructionDecoding() {

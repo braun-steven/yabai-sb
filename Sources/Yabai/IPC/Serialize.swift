@@ -97,7 +97,6 @@ extension WindowInfo {
     if wants([.subLevel, .subLayer]) { subLevel = wid.subLevel }
     if wants([.layer]) { layer = layerName(level) }
     if wants([.subLayer]) { subLayer = layerName(subLevel) }
-    if wants([.opacity]) { opacity = wid.opacity }
     if wants([.hasShadow]) { hasShadow = wid.hasShadow }
   }
 

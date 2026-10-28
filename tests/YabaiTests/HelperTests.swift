@@ -10,69 +10,6 @@ import YabaiTestSupport
 // DaemonState suite.
 //
 
-@Suite struct AnimationEasingTests {
-  /// The progress values of a curve check: every thousandth of the animation.
-  static let steps = (0...1000).map { Float($0) / 1000 }
-
-  @Test(arguments: AnimationEasing.allCases)
-  func curveStartsAtZeroAndEndsAtOne(_ easing: AnimationEasing) {
-    #expect(abs(easing.value(at: 0)) <= 1e-6)
-    #expect(abs(easing.value(at: 1) - 1) <= 1e-6)
-  }
-
-  // NOTE: None of the curves overshoots (no back or elastic easing), so each one rises monotonically and stays in
-  // 0...1. The tolerance allows for the rounding of Float.
-  @Test(arguments: AnimationEasing.allCases)
-  func curveRisesWithinTheUnitInterval(_ easing: AnimationEasing) {
-    var previous = easing.value(at: 0)
-    for t in Self.steps.dropFirst() {
-      let value = easing.value(at: t)
-      #expect(value >= previous - 1e-6, "\(easing.rawValue) falls at \(t): \(previous) -> \(value)")
-      #expect(
-        value >= -1e-6 && value <= 1 + 1e-6, "\(easing.rawValue) leaves 0...1 at \(t): \(value)")
-      previous = value
-    }
-  }
-
-  @Test(arguments: AnimationEasing.allCases.filter { $0.rawValue.contains("_in_out_") })
-  func inOutCurveIsHalfwayAtTheMiddle(_ easing: AnimationEasing) {
-    #expect(abs(easing.value(at: 0.5) - 0.5) <= 1e-6)
-    // the two halves are point symmetric around the middle
-    for t in Self.steps where t < 0.5 {
-      #expect(
-        abs(easing.value(at: t) + easing.value(at: 1 - t) - 1) <= 1e-5, "\(easing.rawValue) at \(t)"
-      )
-    }
-  }
-
-  @Test func curvesAreNamedByTheirConfigValues() {
-    #expect(AnimationEasing.allCases.count == 21)
-    for easing in AnimationEasing.allCases {
-      #expect(AnimationEasing(rawValue: easing.rawValue) == easing)
-      #expect(easing.rawValue.hasPrefix("ease_"))
-    }
-    #expect(AnimationEasing(rawValue: "linear") == nil)
-  }
-
-  static let curveValues: [(AnimationEasing, Float, Float)] = [
-    (.easeInQuad, 0.5, 0.25),
-    (.easeOutQuad, 0.5, 0.75),
-    (.easeInCubic, 0.5, 0.125),
-    (.easeInQuart, 0.5, 0.0625),
-    (.easeInQuint, 0.5, 0.03125),
-    (.easeInExpo, 0.5, 0.03125),
-    (.easeOutExpo, 0.5, 0.96875),
-    (.easeInOutCubic, 0.25, 0.0625),
-    (.easeInSine, 1.0 / 3, 0.1339746),
-    (.easeOutCirc, 0.5, 0.8660254),
-  ]
-
-  @Test(arguments: curveValues)
-  func curveValue(_ easing: AnimationEasing, _ t: Float, _ expected: Float) {
-    #expect(abs(easing.value(at: t) - expected) <= 1e-6)
-  }
-}
-
 @Suite struct HelperTests {
   static let colors: [(UInt32, [Float])] = [
     (0x0000_0000, [0, 0, 0, 0]),

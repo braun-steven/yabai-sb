@@ -88,7 +88,7 @@ Binding modes for resizing, layout and moving, built on these commands, are in [
 
 The upstream `bsp` and `stack` layouts are replaced by `tree`. Use tabbed containers for stacks. `query --windows` reports `split-type` and `stack-index` from the tree; `query --tree` exposes its structure.
 
-The bsp selectors `sibling`, `*_nephew`, `uncle` and `*_cousin`, the `split-child` window property, and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed.
+The bsp selectors `sibling`, `*_nephew`, `uncle` and `*_cousin`, the `split-child` window property, and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed. Window animations (`window_animation_duration`, `window_animation_easing`), window opacity and its fades (`window_opacity`, `window_opacity_duration`, `active_window_opacity`, `normal_window_opacity`, `window --opacity`, the rule key `opacity` and the `opacity` field of `query --windows` and `rule --list`) and `menubar_opacity` are removed too.
 
 </details>
 
@@ -145,7 +145,7 @@ yabai -m config tab_bar_icons on
 | `tab_bar_appearance dark` | Keep glass controls and cards dark; the default. |
 | `tab_bar_appearance system` | Follow macOS light/dark appearance. Does not affect the i3 style. |
 
-Reduce Motion disables transitions and window animations, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
+Reduce Motion disables the tab bar transitions, Reduce Transparency makes backing tints opaque, and Increase Contrast strengthens outlines and default text. Explicitly configured colors take precedence over adaptive defaults.
 
 #### Adjust spacing and colors
 
@@ -523,7 +523,7 @@ Make sure you fulfil all of them before filing an issue.
 |-:|:-|
 |Operating&nbsp;System&nbsp;Apple Silicon|macOS 27; arm64 daemon/client and arm64e scripting addition. Intel builds are not supported by this fork.|
 |Accessibility&nbsp;API|yabai must be given permission to utilize the Accessibility API and will request access upon launch. The application must be restarted after access has been granted.|
-|Screen Recording|yabai must be given Screen Recording permission if and only if you want to enable window animations, and will request access when necessary. The application must be restarted after access has been granted.|
+|Screen Recording|yabai must be given Screen Recording permission to show the window copies of `mouse_drop_preview ghost`. The application must be restarted after access has been granted.|
 |System&nbsp;Settings|In the Desktop & Dock tab, inside the Mission Control pane, the setting "Displays have separate Spaces" must be enabled.|
 
 Please also take note of the following caveats.

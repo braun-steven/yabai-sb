@@ -119,11 +119,11 @@ import Testing
 @Test func writesFloatsThatReadBackAsFloats() throws {
   var document = ConfigDocument()
   document.options = [
-    ConfigOptionEntry(name: .windowOpacity, value: .float(0.5), keyPath: "config.window_opacity"),
+    ConfigOptionEntry(name: .tabBarHeight, value: .float(0.5), keyPath: "config.tab_bar_height"),
     ConfigOptionEntry(
       name: .windowBorderWidth, value: .float(4), keyPath: "config.window_border_width"),
     ConfigOptionEntry(
-      name: .windowOpacityDuration, value: .float(1e-7), keyPath: "config.window_opacity_duration"),
+      name: .tabBarOffset, value: .float(1e-7), keyPath: "config.tab_bar_offset"),
   ]
   #expect(try ConfigDocument.decode(document.toml()) == document)
 }

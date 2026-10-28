@@ -139,17 +139,15 @@ extension WindowManager {
   func correctForMissionControlChanges() {
     let displays = DisplayID.all
 
-    withoutAnimations {
-      for did in displays {
-        guard let spaceList = did.spaces else { continue }
+    for did in displays {
+      guard let spaceList = did.spaces else { continue }
 
-        let sid = did.currentSpace
-        for space in spaceList {
-          if let sid, space == sid {
-            validateAndCheckForWindows(on: sid)
-          } else {
-            SpaceManager.shared.markViewInvalid(for: space)
-          }
+      let sid = did.currentSpace
+      for space in spaceList {
+        if let sid, space == sid {
+          validateAndCheckForWindows(on: sid)
+        } else {
+          SpaceManager.shared.markViewInvalid(for: space)
         }
       }
     }

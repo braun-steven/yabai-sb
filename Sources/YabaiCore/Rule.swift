@@ -63,7 +63,8 @@ public struct RuleEffectsFlags: OptionSet, Sendable {
   public init(rawValue: UInt16) { self.rawValue = rawValue }
 
   public static let followSpace = RuleEffectsFlags(rawValue: 0x01)
-  public static let opacity = RuleEffectsFlags(rawValue: 0x02)
+  // NOTE: 0x02 was the opacity of the removed `opacity=`; the bit stays free so that the `rule --list` flags keep their
+  // values.
   public static let layer = RuleEffectsFlags(rawValue: 0x04)
 }
 
@@ -155,7 +156,6 @@ extension Grid {
 public struct RuleEffects: Sendable, Equatable {
   public var did: DisplayID?
   public var sid: SpaceID?
-  public var opacity: Float = 0
   public var manage: Bool?
   public var sticky: Bool?
   public var mouseFollowsFocus: Bool?
@@ -183,11 +183,6 @@ public struct RuleEffects: Sendable, Equatable {
       } else {
         flags.remove(.followSpace)
       }
-    }
-
-    if effects.flags.contains(.opacity) && effects.opacity >= 0 && effects.opacity <= 1 {
-      opacity = effects.opacity
-      flags.insert(.opacity)
     }
 
     if effects.flags.contains(.layer) {
@@ -266,7 +261,7 @@ public struct RuleInfo: Encodable, Sendable {
   private enum CodingKeys: String, CodingKey {
     case index, label, app, title, role, subrole, display, space
     case followSpace = "follow_space"
-    case opacity, manage, sticky
+    case manage, sticky
     case mouseFollowsFocus = "mouse_follows_focus"
     case subLayer = "sub-layer"
     case fullscreen = "native-fullscreen"
@@ -286,7 +281,6 @@ public struct RuleInfo: Encodable, Sendable {
   /// The Mission Control index of the space of the rule, 0 without one.
   public var space: Int
   public var followSpace: Bool
-  public var opacity: Float
   public var manage: Bool?
   public var sticky: Bool?
   public var mouseFollowsFocus: Bool?
@@ -310,7 +304,6 @@ public struct RuleInfo: Encodable, Sendable {
     try container.encode(display, forKey: .display)
     try container.encode(space, forKey: .space)
     try container.encode(followSpace, forKey: .followSpace)
-    try container.encode(opacity, forKey: .opacity)
     // NOTE: nil is written as null.
     try container.encode(manage, forKey: .manage)
     try container.encode(sticky, forKey: .sticky)
@@ -343,7 +336,6 @@ extension Rule {
       display: display,
       space: space,
       followSpace: effects.flags.contains(.followSpace),
-      opacity: effects.opacity,
       manage: effects.manage,
       sticky: effects.sticky,
       mouseFollowsFocus: effects.mouseFollowsFocus,
@@ -465,13 +457,6 @@ public func parseRule<C: SelectorContext>(
       }
     } else if key.equals("grid") {
       validValue = rule.effects.grid.parse(value)
-    } else if key.equals("opacity") {
-      let scan = value.scanFloats(count: 1)
-      validValue = scan.assigned == 1 && (0...1).contains(scan.values[0])
-      if validValue {
-        rule.effects.opacity = scan.values[0]
-        rule.effects.flags.insert(.opacity)
-      }
     } else if key.equals("manage") {
       validValue = parseRuleProp(value, &rule.effects.manage)
     } else if key.equals("sticky") {

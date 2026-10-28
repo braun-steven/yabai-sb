@@ -83,11 +83,6 @@ extension WindowManager {
       _ = setWindowLayer(target, to: effects.layer)
     }
 
-    if effects.flags.contains(.opacity) && effects.opacity >= 0.0 && effects.opacity <= 1.0 {
-      target.opacity = effects.opacity
-      setOpacity(for: target, to: effects.opacity)
-    }
-
     if effects.fullscreen == true {
       _ = target.ref?.setAttribute(Window.fullscreenAttribute, to: true)
       target.isFullscreenByRule = true

@@ -134,7 +134,6 @@ enum Daemon {
   @MainActor private static func configureEventSystem() {
     CGSetLocalEventsSuppressionIntervalC(0.0)
     CGEnableEventStateCombiningC(false)
-    ReduceMotion.observe()
   }
 
   /// Takes the write lock of the user's lock-file. False when another daemon holds it.
@@ -297,14 +296,8 @@ enum Daemon {
       ConfigObserver.shared.start()
       //
       // NOTE: The file is applied before ConfigObserver.start, and the observer only reacts to later sets. Window
-      // adoption covers the shadow, opacity, border and tab bar groups of the file. The menu bar alpha is not covered
-      // by any step, so it is applied here once, with the fullscreen rule of EventHandler+Space.swift.
+      // adoption covers the shadow, border and tab bar groups of the file.
       //
-      if Config.current.menuBar.opacity != 1.0 {
-        Logger.daemon.debug("startup: applying the menu bar alpha")
-        let isFullscreen = SpaceManager.shared.currentSpaceID.map { $0.isFullscreen } ?? false
-        SLS.setMenuBarAlpha(SLS.connection, isFullscreen ? 1.0 : Config.current.menuBar.opacity)
-      }
       //
       // NOTE: The watch starts last, after the file is applied, so the first change it sees is compared with the text that
       // was loaded (ConfigLoader.lastContents). It is on unless the applied file sets `[daemon] auto_reload = false`.

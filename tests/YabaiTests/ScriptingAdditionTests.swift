@@ -35,15 +35,6 @@ import YabaiTestSupport
   layer.pack(Int32(-2))
   #expect(layer.message(SA_OPCODE_WINDOW_LAYER) == [9, 0, 9, 4, 3, 2, 1, 254, 255, 255, 255])
 
-  var opacity = SAPayload()
-  opacity.pack(UInt32(0x0102_0304))
-  opacity.pack(Float(0.5))
-  opacity.pack(Float(1.25))
-  #expect(
-    opacity.message(SA_OPCODE_WINDOW_OPACITY_FADE) == [
-      13, 0, 8, 4, 3, 2, 1, 0, 0, 0, 63, 0, 0, 160, 63,
-    ])
-
   var sticky = SAPayload()
   sticky.pack(UInt32(0x0102_0304))
   sticky.pack(false)

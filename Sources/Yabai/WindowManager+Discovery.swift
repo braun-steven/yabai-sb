@@ -61,7 +61,6 @@ extension WindowManager {
         includingOneShotRules: includingOneShotRules)
       {
         purifyWindow(target)
-        setWindowOpacity(target, to: Config.current.windowOpacity.normal)
 
         if owner.isHidden { return target }
         if target.isMinimized { return target }

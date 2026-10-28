@@ -199,13 +199,6 @@ extension EventHandler {
     let wm = WindowManager.shared
     let ms = MouseState.shared
 
-    let focusedWindow = wm.focus.focused.flatMap { wm.window(for: $0) }
-    if let focusedWindow, focusedWindow != window, focusedWindow.id.space == window.id.space {
-      wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.normal)
-    }
-
-    wm.setWindowOpacity(window, to: Config.current.windowOpacity.active)
-
     if wm.focus.focused != window.id {
       if ms.ffmWindowID != window.id, !wm.focus.keepsMouse(for: window.id, now: OSTimer.now) {
         wm.centerMouse(on: window)
@@ -230,7 +223,7 @@ extension EventHandler {
     }
 
     //
-    // NOTE: The focus hand-over updates opacity, tab bars and borders explicitly in this event, with the focus
+    // NOTE: The focus hand-over updates tab bars and borders explicitly in this event, with the focus
     // change: the previous window loses the active style as the new one gets it. Focus is not observed.
     //
 
@@ -440,17 +433,6 @@ extension EventHandler {
     }
   }
 
-  @discardableResult private func dimFocusedWindow() -> Window? {
-    let wm = WindowManager.shared
-
-    let focusedWindow = wm.focus.focused.flatMap { wm.window(for: $0) }
-    if let focusedWindow {
-      wm.setWindowOpacity(focusedWindow, to: Config.current.windowOpacity.normal)
-    }
-
-    return focusedWindow
-  }
-
   //
   // NOTE: The activated application has no focused window (e.g. Finder with only the desktop), so no window
   // has focus until one of its windows is focused.
@@ -458,7 +440,7 @@ extension EventHandler {
 
   private func applicationFrontSwitchedWithoutWindow(_ application: Application) {
     let wm = WindowManager.shared
-    let focusedWindow = dimFocusedWindow()
+    let focusedWindow = wm.focus.focused.flatMap { wm.window(for: $0) }
 
     let prevFocusedWindowID = wm.focus.focused
     wm.focus.markFocusedAsLast()
@@ -517,7 +499,6 @@ extension EventHandler {
     }
 
     guard let window = wm.window(for: applicationFocusedWindowID) else {
-      dimFocusedWindow()
       wm.focus.addLostFocusedEvent(for: applicationFocusedWindowID)
       return
     }

@@ -272,11 +272,6 @@ enum SLS {
     return connection
   }
 
-  /// `SLSSetMenuBarInsetAndAlpha` with the insets the window server uses (0, 1).
-  static func setMenuBarAlpha(_ cid: Int32, _ alpha: Float) {
-    SLSSetMenuBarInsetAndAlpha(cid, 0, 1, alpha)
-  }
-
   /// `SLSGetSpaceManagementMode`: 1 when displays have separate spaces.
   static func spaceManagementMode(_ cid: Int32) -> Int32 {
     return SLSGetSpaceManagementMode(cid)

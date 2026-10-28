@@ -2,7 +2,7 @@ import Observation
 import YabaiCore
 
 //
-// NOTE: Borders, tab bars, window opacity, the menu bar alpha and shadows follow Config through Observation. Each
+// NOTE: Borders, tab bars and shadows follow Config through Observation. Each
 // group is tracked on its own; the first set of it posts one configChanged event. The config options set a value only
 // when it differs (MessageConfig.swift), so setting the current value posts nothing, and re-running a config changes
 // nothing that is already applied. The handler runs after the event that set the config (a whole config message, for
@@ -14,9 +14,6 @@ import YabaiCore
 enum ConfigGroup: CaseIterable, Sendable {
   case border
   case tabBar
-  case opacity
-  case windowOpacity
-  case menuBar
   case shadow
 }
 
@@ -49,12 +46,6 @@ enum ConfigGroup: CaseIterable, Sendable {
       let old = tabBar
       tabBar = Config.current.tabBar
       TabBar.applyConfig(tabBar, from: old)
-    case .opacity:
-      wm.applyOpacityEnabled()
-    case .windowOpacity:
-      wm.applyWindowOpacity()
-    case .menuBar:
-      SLS.setMenuBarAlpha(SLS.connection, Config.current.menuBar.opacity)
     case .shadow:
       wm.applyShadows()
     }
@@ -66,9 +57,6 @@ enum ConfigGroup: CaseIterable, Sendable {
     switch group {
     case .border: _ = config.border
     case .tabBar: _ = config.tabBar
-    case .opacity: _ = config.opacity
-    case .windowOpacity: _ = config.windowOpacity
-    case .menuBar: _ = config.menuBar
     case .shadow: _ = config.shadow
     }
   }

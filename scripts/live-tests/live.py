@@ -299,14 +299,6 @@ def run(label):
     y(f"space {SPACE} --balance")
     check_layout("layout after app resumed", settle=1.0)
 
-    # T10: overlapping animations.
-    y("config window_animation_duration 0.15")
-    for i in range(3):
-        y(f"space {SPACE} --rotate 90"); time.sleep(0.05)
-    time.sleep(0.8)
-    y("config window_animation_duration 0.0")
-    check_layout("layout after overlapping animations")
-
     # T5: native fullscreen round trip.
     fs = [w for w in space_windows() if w["app"] == "TextEdit"][0]["id"]
     ms, r = timed(f"window {fs} --toggle native-fullscreen", timeout=30)
@@ -499,7 +491,6 @@ def cleanup():
     osa('tell application "Script Editor" to quit saving no')
     osa('tell application "Calculator" to quit')
     y("config focus_follows_mouse off")
-    y("config window_animation_duration 0.0")
     y(f"space --focus {RESTORE_OTHER}"); time.sleep(0.4)
     if os.path.exists(STATE):
         wid = open(STATE).read().strip()

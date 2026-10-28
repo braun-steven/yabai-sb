@@ -135,8 +135,6 @@ extern AXUIElementRef _Nullable _AXUIElementCreateWithRemoteToken(
     CFDataRef data);
 extern AXError _AXUIElementGetWindow(AXUIElementRef ref, uint32_t *wid);
 extern int SLSMainConnectionID(void);
-extern CGError SLSNewConnection(int zero, int *cid);
-extern CGError SLSReleaseConnection(int cid);
 extern CGError SLSRegisterConnectionNotifyProc(int cid,
                                                connection_callback *handler,
                                                uint32_t event,
@@ -144,7 +142,6 @@ extern CGError SLSRegisterConnectionNotifyProc(int cid,
 extern CGError SLSGetWindowBounds(int cid, uint32_t wid, CGRect *frame);
 extern int SLSGetWindowSubLevel(int cid, uint32_t wid);
 extern CGError SLSGetWindowAlpha(int cid, uint32_t wid, float *alpha);
-extern CGError SLSSetWindowAlpha(int cid, uint32_t wid, float alpha);
 extern CGError SLSSetWindowResolution(int cid, uint32_t wid, double resolution);
 extern CGError SLSCopyWindowProperty(int cid, uint32_t wid,
                                      CFStringRef property,
@@ -190,8 +187,6 @@ extern CGError SLSSetActiveMenuBarDisplayIdentifier(int cid, CFStringRef uuid,
                                                     CFStringRef repeat_uuid);
 extern CFStringRef _Nullable SLSCopyBestManagedDisplayForPoint(int cid,
                                                                CGPoint point);
-extern CGError SLSSetMenuBarInsetAndAlpha(int cid, double unused1,
-                                          double unused2, float alpha);
 extern CGError SLSGetMenuBarAutohideEnabled(int cid, int *enabled);
 extern CGError SLSGetDisplayMenubarHeight(uint32_t did, uint32_t *height);
 extern CGError SLSGetDockRectWithReason(int cid, CGRect *rect, int *reason);
@@ -245,19 +240,6 @@ extern CGError SLSWindowSetShadowProperties(uint32_t wid,
                                             CFDictionaryRef options);
 extern CGError SLSRequestNotificationsForWindows(int cid, uint32_t *window_list,
                                                  int window_count);
-extern CFTypeRef _Nullable SLSTransactionCreate(int cid);
-extern CGError SLSTransactionCommit(CFTypeRef transaction, int synchronous);
-extern CGError SLSTransactionSetWindowTransform(CFTypeRef transaction,
-                                                uint32_t wid, int unknown,
-                                                int unknown2,
-                                                CGAffineTransform t);
-extern CGError SLSTransactionOrderWindowGroup(CFTypeRef transaction,
-                                              uint32_t wid, int order,
-                                              uint32_t rel_wid);
-extern CGError SLSTransactionSetWindowAlpha(CFTypeRef transaction, uint32_t wid,
-                                            float alpha);
-extern CGError SLSTransactionSetWindowSystemAlpha(CFTypeRef transaction,
-                                                  uint32_t wid, float alpha);
 extern CF_RETURNS_RETAINED CFArrayRef _Nullable SLSHWCaptureWindowList(
     int cid, uint32_t *window_list, int window_count, uint32_t options);
 extern CGError SLSSpaceSetCompatID(int cid, uint64_t sid, int workspace);

@@ -159,10 +159,6 @@ import YabaiCore
     }.joined(separator: ":")
     add("grid", .string(text))
   }
-  if effects.flags.contains(.opacity) {
-    // NOTE: The shortest text of the Float, so that the file reads back the same Float.
-    add("opacity", .float(Double(String(effects.opacity)) ?? Double(effects.opacity)))
-  }
   addBool("manage", effects.manage)
   addBool("sticky", effects.sticky)
   addBool("mouse_follows_focus", effects.mouseFollowsFocus)

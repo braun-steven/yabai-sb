@@ -10,11 +10,8 @@
 #include <unistd.h>
 
 // Nothing here resolves private frameworks or touches real windows. Recording
-// the exact validated adapter input preserves command/entry order, including
-// skipped variable-width proxy entries.
+// the exact validated adapter input preserves command/entry order.
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static bool fail_reads, fail_writes;
-static float alphas[1024];
 static uint64_t digest, commands;
 static _Atomic uint64_t allocations;
 typedef void (*logger)(uint32_t, uintptr_t, uintptr_t, uintptr_t, uintptr_t,
@@ -98,48 +95,14 @@ static void record(const void *bytes, size_t length) {
 }
 
 void sa_test_reset(void) {
-  sa_swift_reset();
   pthread_mutex_lock(&lock);
-  fail_reads = fail_writes = false;
-  for (size_t i = 0; i < 1024; ++i)
-    alphas[i] = 1;
   digest = UINT64_C(14695981039346656037);
   commands = 0;
   pthread_mutex_unlock(&lock);
 }
 
-void sa_test_fail(bool reads, bool writes) {
-  pthread_mutex_lock(&lock);
-  fail_reads = reads;
-  fail_writes = writes;
-  pthread_mutex_unlock(&lock);
-}
-
 uint32_t sa_native_attributes(void) { return OSAX_ATTRIB_ALL; }
 const char *sa_native_version(void) { return "recording"; }
-uint64_t sa_clock_ns(void) { return 0; }
-
-bool sa_native_get_alpha(uint32_t wid, float *alpha) {
-  pthread_mutex_lock(&lock);
-  bool success = !fail_reads && wid < 1024;
-  if (success)
-    *alpha = alphas[wid];
-  pthread_mutex_unlock(&lock);
-  return success;
-}
-
-bool sa_native_set_alpha(uint32_t wid, float alpha) {
-  pthread_mutex_lock(&lock);
-  bool success = !fail_writes && wid < 1024;
-  if (success) {
-    alphas[wid] = alpha;
-    record(&wid, sizeof(wid));
-    record(&alpha, sizeof(alpha));
-  }
-  pthread_mutex_unlock(&lock);
-  return success;
-}
-
 uint8_t sa_native_dispatch(const uint8_t *message, size_t length) {
   pthread_mutex_lock(&lock);
   ++commands;
@@ -147,18 +110,6 @@ uint8_t sa_native_dispatch(const uint8_t *message, size_t length) {
   pthread_mutex_unlock(&lock);
   if (message[0] == SA_OPCODE_WINDOW_FOCUS)
     return SA_REPLY_UNSUPPORTED;
-  if (message[0] == SA_OPCODE_WINDOW_OPACITY ||
-      message[0] == SA_OPCODE_WINDOW_OPACITY_FADE) {
-    uint32_t wid;
-    float alpha, duration;
-    memcpy(&wid, message + 1, 4);
-    memcpy(&alpha, message + 5, 4);
-    memcpy(&duration, message + 9, 4);
-    if (message[0] == SA_OPCODE_WINDOW_OPACITY)
-      duration = 0;
-    bool result = sa_swift_opacity(wid, alpha, duration, 0);
-    return result ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
-  }
   return SA_REPLY_ACCEPTED;
 }
 
@@ -174,12 +125,6 @@ uint64_t sa_test_commands(void) {
   pthread_mutex_unlock(&lock);
   return value;
 }
-float sa_test_alpha(uint32_t wid) {
-  float value = 0;
-  sa_native_get_alpha(wid, &value);
-  return value;
-}
-
 void sa_test_memory(uint64_t *blocks, uint64_t *bytes, uint64_t *resident) {
   malloc_statistics_t stats;
   malloc_zone_statistics(NULL, &stats);

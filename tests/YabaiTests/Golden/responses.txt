@@ -19,29 +19,8 @@ off
 ### 8 config window_origin_display
 default
 
-### 4 config window_opacity
-off
-
-### 4 config window_opacity_duration
-0.0
-
-### 4 config window_animation_duration
-0.0
-
-### 14 config window_animation_easing
-ease_out_circ
-
 ### 3 config window_shadow
 on
-
-### 4 config menubar_opacity
-1.0
-
-### 4 config active_window_opacity
-1.0
-
-### 4 config normal_window_opacity
-1.0
 
 ### 11 config insert_feedback_color
 0xffd75f5f
@@ -213,20 +192,10 @@ tabbed
 ### 3 config tree_autotiling
 on
 
-### 0 config window_opacity_duration 0.25
-
-### 5 config window_opacity_duration
-0.25
-
 ### 0 config insert_feedback_color 0xff112233
 
 ### 11 config insert_feedback_color
 0xff112233
-
-### 0 config window_animation_easing ease_in_sine
-
-### 13 config window_animation_easing
-ease_in_sine
 
 ### 0 config scratchpad_exclusive on
 
@@ -283,26 +252,6 @@ Menlo:14
 
 ### 2 config right_padding
 6
-
-### 0 config window_opacity on
-
-### 0 config active_window_opacity 0.9
-
-### 0 config normal_window_opacity 0.5
-
-### 0 config menubar_opacity 0
-
-### 3 config window_opacity
-on
-
-### 4 config active_window_opacity
-0.9
-
-### 4 config normal_window_opacity
-0.5
-
-### 4 config menubar_opacity
-0.0
 
 ### 0 config window_border on
 
@@ -431,14 +380,11 @@ main:1:2
 ### 126 config focus_follows_mouse bogus
 unknown value 'bogus' given to command 'focus_follows_mouse' for domain 'config'; expected one of: off, autofocus, autoraise
 
-### 114 config window_opacity_duration abc
-unknown value 'abc' given to command 'window_opacity_duration' for domain 'config'; expected a number of seconds
+### 109 config window_border_width abc
+unknown value 'abc' given to command 'window_border_width' for domain 'config'; expected a number above 0.0
 
 ### 130 config insert_feedback_color 0
 unknown value '0' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4
-
-### 127 config active_window_opacity 2.0
-unknown value '2.0' given to command 'active_window_opacity' for domain 'config'; expected a number above 0.0 and at most 1.0
 
 ### 104 config tab_bar_style bogus
 unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3
@@ -449,7 +395,7 @@ main:1:2
 ### 40 config --check /nonexistent
 cannot read config file '/nonexistent'
 
-### 2434 config --dump
+### 2154 config --dump
 [daemon]
 auto_reload = true
 load_scripting_addition = false
@@ -465,8 +411,6 @@ scratchpad_exclusive = true # override
 scratchpad_raise = false # default
 scratchpad_below = false # default
 skip_window_focus_animation = false # default
-window_opacity = true # override
-window_animation_easing = "ease_in_sine" # override
 window_shadow = "on" # default
 tree_default_orientation = "vertical" # override
 tree_workspace_layout = "tabbed" # override
@@ -500,14 +444,9 @@ tab_bar_inactive_text_color = 0xffffffff # default
 tab_bar_unfocused_color = 0xff222222 # default
 tab_bar_unfocused_text_color = 0xff888888 # default
 tab_bar_backdrop_color = 0xff48484a # default
-window_opacity_duration = 0.25 # override
-menubar_opacity = 0.0 # override
-active_window_opacity = 0.9 # override
-normal_window_opacity = 0.5 # override
 insert_feedback_color = 0xff112233 # override
 scratchpad_grid = "off" # default
 space_layout = [] # default
-window_animation_duration = 0.0 # default
 tab_bar_font = "Menlo:14" # override
 external_bar = "main:1:2" # override
 top_padding = 10 # override
@@ -520,14 +459,14 @@ auto_padding = false # default
 
 ### 0 rule --add app=^Calculator$ manage=off
 
-### 0 rule --add label=term app=Terminal opacity=0.9 sticky=on
+### 0 rule --add label=term app=Terminal sticky=on
 
 ### 0 rule --add --one-shot title=x manage=on
 
 ### 0 rule --add app=Notes grid=4:4:1:1:2:2 sub-layer=below scratchpad=notes mouse_follows_focus=off native-fullscreen=on
 
-### 1240 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x20001","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0.9,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
+### 1186 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"term","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":true,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":2,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":3,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 21 rule --add app=Foo bogus=1
 unknown key 'bogus'
@@ -543,8 +482,8 @@ auto_padding = false # default
 ### 38 rule --remove nolabel
 rule with label 'nolabel' not found.
 
-### 926 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
+### 890 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 32 rule --apply 7
 rule with index '7' not found.
@@ -564,8 +503,8 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 
 ### 0 rule --remove üml
 
-### 926 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
+### 890 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""}]
 
 ### 43 rule --foo
 unknown command '--foo' for domain 'rule'
@@ -580,8 +519,8 @@ missing required key-value pair 'app[!]=..' or 'title[!]=..'
 
 ### 0 rule --add label=ins2 app=Notes insert=west
 
-### 1547 rule --list
-[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"opacity":0,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"opacity":0,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
+### 1487 rule --list
+[{"app":"^Calculator$","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":0,"insert":"","label":"","manage":false,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"","display":0,"flags":"0x102","follow_space":false,"grid":"0:0:0:0:0:0","index":1,"insert":"","label":"","manage":true,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":true,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":"x"},{"app":"Notes","display":0,"flags":"0x40001","follow_space":false,"grid":"4:4:1:1:2:2","index":2,"insert":"","label":"","manage":false,"mouse_follows_focus":false,"native-fullscreen":true,"one-shot":false,"role":"","scratchpad":"notes","space":0,"sticky":null,"sub-layer":"below","subrole":"","title":""},{"app":"Terminal","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":3,"insert":"stack","label":"ins","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""},{"app":"Notes","display":0,"flags":"0x1","follow_space":false,"grid":"0:0:0:0:0:0","index":4,"insert":"west","label":"ins2","manage":null,"mouse_follows_focus":null,"native-fullscreen":null,"one-shot":false,"role":"","scratchpad":"","space":0,"sticky":null,"sub-layer":"","subrole":"","title":""}]
 
 ### 0 signal --add event=window_focused action='echo $YABAI_WINDOW_ID' label=wf
 

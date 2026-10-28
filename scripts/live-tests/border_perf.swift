@@ -189,7 +189,6 @@ private struct BorderBench {
       "window_border", "window_border_width", "window_border_hide_single",
       "active_window_border_color",
       "normal_window_border_color", "focus_follows_mouse", "mouse_follows_focus",
-      "window_animation_duration",
     ]
     var saved: [String: String] = [:]
     var floated = false
@@ -211,7 +210,7 @@ private struct BorderBench {
     try command(["window", "--focus", String(ids[0])])
     try command(["window", String(ids[0]), "--layout", "splith"])
     try command([
-      "config", "window_animation_duration", "0", "focus_follows_mouse", "off",
+      "config", "focus_follows_mouse", "off",
       "mouse_follows_focus", "off",
       "window_border_width", "6", "window_border_hide_single", "off", "active_window_border_color",
       "0xffff0000",

@@ -69,7 +69,7 @@ IMPORTANT: builds must stay warning-free (Swift and C warnings are errors). `jus
 - Swift Testing (`@Test`, `#expect`). Tests live in `tests/`, not `Tests/` (case-insensitive filesystem).
 - Tests that change global managers belong in the serialized `DaemonState` suite and must not touch the
   window server. Its `.daemonFixture` trait resets the managers before each test and turns on headless mode
-  (`Sources/Yabai/Headless.swift`: flushes, animations and payload messages are recorded, not sent); set any
+  (`Sources/Yabai/Headless.swift`: flushes and payload messages are recorded, not sent); set any
   non-default a test needs. Use large fake ids (`0xFFFF_0000` and up) and the `Workspace` fixture
   (`TreeFixtures.swift`) for views and windows.
 - Property tests (PropertyBased) print a seed on failure: replay it with `@Test(.fixedSeed("…"))`. Run a new

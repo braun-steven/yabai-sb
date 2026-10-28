@@ -4,7 +4,7 @@
 #define SA_SOCKET_PATH_FMT "/tmp/yabai-sa_%s.socket"
 #define SA_SOCKET_BUFF_LEN 0x1000
 
-#define OSAX_VERSION "2.1.37"
+#define OSAX_VERSION "2.1.38"
 
 // Optional one-byte reply for non-handshake commands. Legacy clients already
 // read and discard it; legacy payloads close without a reply. ACCEPTED means
@@ -37,15 +37,14 @@ enum sa_opcode {
   SA_OPCODE_SPACE_DESTROY = 0x04,
   SA_OPCODE_SPACE_MOVE = 0x05,
   SA_OPCODE_WINDOW_MOVE = 0x06,
-  SA_OPCODE_WINDOW_OPACITY = 0x07,
-  SA_OPCODE_WINDOW_OPACITY_FADE = 0x08,
+  // 0x07 and 0x08 were window opacity and its fade; removed, not reused.
   SA_OPCODE_WINDOW_LAYER = 0x09,
   SA_OPCODE_WINDOW_STICKY = 0x0A,
   SA_OPCODE_WINDOW_SHADOW = 0x0B,
   SA_OPCODE_WINDOW_FOCUS = 0x0C,
   SA_OPCODE_WINDOW_SCALE = 0x0D,
-  SA_OPCODE_WINDOW_SWAP_PROXY_IN = 0x0E,
-  SA_OPCODE_WINDOW_SWAP_PROXY_OUT = 0x0F,
+  // 0x0E and 0x0F were the proxy swaps of window animations; removed, not
+  // reused.
   SA_OPCODE_WINDOW_ORDER = 0x10,
   SA_OPCODE_WINDOW_ORDER_IN = 0x11,
   SA_OPCODE_WINDOW_LIST_TO_SPACE = 0x12,

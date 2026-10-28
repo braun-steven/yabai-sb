@@ -1,14 +1,13 @@
 import os
 
 /// Signpost intervals for Instruments (the Logging template or the os_signpost instrument, subsystem com.asmvik.yabai):
-/// one per event the event loop handles, named after its case, and one per animation run and per animation frame.
+/// one per event the event loop handles, named after its case.
 enum Signposts {
   //
   // NOTE: The subsystem is the launchd label of the service (Service.swift), since the daemon has no os_log subsystem of
   // its own. Without a recording, a begin or end costs one check of the signposter; keep the names StaticStrings.
   //
   static let events = OSSignposter(subsystem: "com.asmvik.yabai", category: "events")
-  static let animation = OSSignposter(subsystem: "com.asmvik.yabai", category: "animation")
 }
 
 extension Event {

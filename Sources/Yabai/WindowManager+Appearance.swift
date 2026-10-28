@@ -4,54 +4,13 @@ import YabaiCore
 
 extension WindowManager {
   //
+  // NOTE: Apply a set of the shadow config (from ConfigObserver), as the config setters did.
   //
-  // NOTE: Apply a set of the opacity and shadow config (from ConfigObserver), as the config setters did.
-  //
-
-  func applyOpacityEnabled() {
-    let enabled = Config.current.opacity.enabled
-    for target in window.values where target.isEligibleForManagement {
-      setOpacity(for: target, to: enabled ? target.opacity : 1.0)
-    }
-  }
-
-  func applyWindowOpacity() {
-    let config = Config.current.windowOpacity
-    if let target = focusedWindow { setWindowOpacity(target, to: config.active) }
-    for target in window.values where target.id != focus.focused && target.isEligibleForManagement {
-      setWindowOpacity(target, to: config.normal)
-    }
-  }
 
   func applyShadows() {
     for target in window.values where target.isEligibleForManagement {
       purifyWindow(target)
     }
-  }
-
-  /// An opacity of zero uses the focus opacity, or 1 when window opacity is disabled.
-  @discardableResult
-  func setOpacity(for target: Window, to opacity: Float) -> Bool {
-    var value = opacity
-    if value == 0.0 {
-      if Config.current.opacity.enabled {
-        let config = Config.current.windowOpacity
-        value = target.id == focus.focused ? config.active : config.normal
-      } else {
-        value = 1.0
-      }
-    }
-
-    return ScriptingAddition.shared.setOpacity(
-      value, of: target.id, duration: Config.current.window.opacityDuration)
-  }
-
-  func setWindowOpacity(_ target: Window, to opacity: Float) {
-    if !Config.current.opacity.enabled { return }
-    if !target.isEligibleForManagement { return }
-    if target.opacity != 0.0 { return }
-
-    setOpacity(for: target, to: opacity)
   }
 
   func setWindowLayer(_ target: Window, to layer: WindowLayer) -> Bool {

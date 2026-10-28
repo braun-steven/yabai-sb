@@ -48,8 +48,6 @@
 
 extern int SLSMainConnectionID(void);
 extern CGError SLSGetConnectionPSN(int cid, ProcessSerialNumber *psn);
-extern CGError SLSGetWindowAlpha(int cid, uint32_t wid, float *alpha);
-extern CGError SLSSetWindowAlpha(int cid, uint32_t wid, float alpha);
 extern OSStatus SLSMoveWindowWithGroup(int cid, uint32_t wid, CGPoint *point);
 extern CGError SLSReassociateWindowsSpacesByGeometry(int cid,
                                                      CFArrayRef window_list);
@@ -79,8 +77,6 @@ extern CGError SLSTransactionCommit(CFTypeRef transaction, int synchronous);
 extern CGError SLSTransactionOrderWindowGroup(CFTypeRef transaction,
                                               uint32_t wid, int order,
                                               uint32_t rel_wid);
-extern CGError SLSTransactionSetWindowSystemAlpha(CFTypeRef transaction,
-                                                  uint32_t wid, float alpha);
 extern CGError SLSSetWindowSubLevel(int cid, uint32_t wid, int level);
 
 static id dock_spaces;
@@ -94,11 +90,6 @@ static bool animation_time_patched;
 
 static pthread_t daemon_thread;
 static int daemon_sockfd;
-static dispatch_queue_t fade_queue;
-static dispatch_source_t fade_timer;
-// Read and written only on fade_queue. The timer is armed while the Swift core
-// reports fades.
-static bool fade_timer_running;
 
 static __attribute__((unused)) void dump_class_info(Class c) {
   const char *name = class_getName(c);
@@ -795,42 +786,6 @@ static bool do_window_move(char *message) {
   return status == noErr && associated == kCGErrorSuccess;
 }
 
-bool sa_native_get_alpha(uint32_t wid, float *alpha) {
-  return SLSGetWindowAlpha(SLSMainConnectionID(), wid, alpha) ==
-         kCGErrorSuccess;
-}
-
-bool sa_native_set_alpha(uint32_t wid, float alpha) {
-  return SLSSetWindowAlpha(SLSMainConnectionID(), wid, alpha) ==
-         kCGErrorSuccess;
-}
-
-uint64_t sa_clock_ns(void) { return sa_io_now(); }
-
-// Called on the socket thread. The timer block is queued, so fade_timer_running
-// is only touched on fade_queue.
-static void ensure_fade_timer(void) {
-  dispatch_async(fade_queue, ^{
-    if (fade_timer_running)
-      return;
-    fade_timer_running = true;
-    dispatch_resume(fade_timer);
-  });
-}
-
-static bool do_window_opacity(char *message, bool fade) {
-  uint32_t wid;
-  float alpha, duration;
-  unpack(wid);
-  unpack(alpha);
-  unpack(duration);
-  if (!sa_core_opacity(wid, alpha, fade ? duration : 0, sa_clock_ns()))
-    return false;
-  if (fade && duration > 0)
-    ensure_fade_timer();
-  return true;
-}
-
 static bool do_window_layer(char *message) {
   uint32_t wid;
   unpack(wid);
@@ -901,70 +856,6 @@ static bool do_window_shadow(char *message) {
     return SLSSetWindowTags(SLSMainConnectionID(), wid, &tags, 64) ==
            kCGErrorSuccess;
   }
-}
-
-static bool do_window_swap_proxy_in(char *message) {
-  int count = 0;
-  unpack(count);
-  if (!count)
-    return true;
-
-  CFTypeRef transaction = SLSTransactionCreate(SLSMainConnectionID());
-  if (!transaction)
-    return false;
-  bool success = true;
-  for (int i = 0; i < count; ++i) {
-    uint32_t wid;
-    unpack(wid);
-    if (!wid)
-      continue;
-
-    uint32_t proxy_wid;
-    unpack(proxy_wid);
-
-    if (SLSTransactionOrderWindowGroup(transaction, proxy_wid, 1, wid) !=
-        kCGErrorSuccess)
-      success = false;
-    if (SLSTransactionSetWindowSystemAlpha(transaction, wid, 0) !=
-        kCGErrorSuccess)
-      success = false;
-  }
-  if (SLSTransactionCommit(transaction, 0) != kCGErrorSuccess)
-    success = false;
-  CFRelease(transaction);
-  return success;
-}
-
-static bool do_window_swap_proxy_out(char *message) {
-  int count = 0;
-  unpack(count);
-  if (!count)
-    return true;
-
-  CFTypeRef transaction = SLSTransactionCreate(SLSMainConnectionID());
-  if (!transaction)
-    return false;
-  bool success = true;
-  for (int i = 0; i < count; ++i) {
-    uint32_t wid;
-    unpack(wid);
-    if (!wid)
-      continue;
-
-    uint32_t proxy_wid;
-    unpack(proxy_wid);
-
-    if (SLSTransactionSetWindowSystemAlpha(transaction, wid, 1.0f) !=
-        kCGErrorSuccess)
-      success = false;
-    if (SLSTransactionOrderWindowGroup(transaction, proxy_wid, 0, wid) !=
-        kCGErrorSuccess)
-      success = false;
-  }
-  if (SLSTransactionCommit(transaction, 0) != kCGErrorSuccess)
-    success = false;
-  CFRelease(transaction);
-  return success;
 }
 
 static bool do_window_order(char *message) {
@@ -1157,11 +1048,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
       return do_space_move(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_MOVE:
       return do_window_move(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_OPACITY:
-    case SA_OPCODE_WINDOW_OPACITY_FADE:
-      return do_window_opacity(message, opcode == SA_OPCODE_WINDOW_OPACITY_FADE)
-                 ? SA_REPLY_ACCEPTED
-                 : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_LAYER:
       return do_window_layer(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_STICKY:
@@ -1172,12 +1058,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
       return do_window_focus(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_SCALE:
       return do_window_scale(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_SWAP_PROXY_IN:
-      return do_window_swap_proxy_in(message) ? SA_REPLY_ACCEPTED
-                                              : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_SWAP_PROXY_OUT:
-      return do_window_swap_proxy_out(message) ? SA_REPLY_ACCEPTED
-                                               : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_ORDER:
       return do_window_order(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_ORDER_LIST:
@@ -1252,36 +1132,9 @@ static bool start_daemon(char *socket_path) {
   if (chmod(socket_path, 0600) != 0 || listen(daemon_sockfd, SOMAXCONN) != 0)
     goto unlink_socket;
 
-  // One timer, independent of the socket thread and Dock's main queue, replaces
-  // unbounded worker creation. The Swift core uses elapsed monotonic time for
-  // interpolation. Sources start suspended: ensure_fade_timer resumes the timer
-  // after a fade is accepted, and the handler suspends it again once the core
-  // reports no fades. The queue stays alive for the process lifetime (the timer
-  // and ensure_fade_timer use it).
-  fade_queue = dispatch_queue_create("yabai.sa.fade", DISPATCH_QUEUE_SERIAL);
-  if (!fade_queue)
-    goto unlink_socket;
-  fade_timer =
-      dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, fade_queue);
-  if (!fade_timer)
-    goto unlink_socket;
-  dispatch_source_set_timer(
-      fade_timer, dispatch_time(DISPATCH_TIME_NOW, 8000000), 8000000, 1000000);
-  dispatch_source_set_event_handler(fade_timer, ^{
-    if (!sa_core_tick(sa_clock_ns())) {
-      dispatch_suspend(fade_timer);
-      fade_timer_running = false;
-    }
-  });
   init_instances();
-  if (pthread_create(&daemon_thread, NULL, handle_connection, NULL) != 0) {
-    // A suspended source must be resumed before it is cancelled or released.
-    dispatch_source_cancel(fade_timer);
-    dispatch_resume(fade_timer);
-    dispatch_release(fade_timer);
-    fade_timer = NULL;
+  if (pthread_create(&daemon_thread, NULL, handle_connection, NULL) != 0)
     goto unlink_socket;
-  }
   pthread_detach(daemon_thread);
   return true;
 

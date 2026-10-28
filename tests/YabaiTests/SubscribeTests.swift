@@ -13,7 +13,7 @@ extension DaemonState {
         DaemonMessage(
           connection: server, request: .command(arguments: ["subscribe", "space_destroyed"])))
       #expect(EventSubscribers.shared.subscribers.count == 1)
-      EventSignals.shared.push(.spaceDestroyed, .space(SpaceID(0xFFFF_0000)))
+      EventSignals.shared.push(.spaceDestroyed(SpaceID(0xFFFF_0000)))
       EventSignals.shared.flush()
       #expect(try readReply(client) == .subscribed(events: ["space_destroyed"]))
       #expect(

@@ -213,8 +213,7 @@ extension DaemonState {
       target.frame = CGRect(x: 2982, y: 520, width: 440, height: 418)
       WindowManager.shared.window[target.id] = target
 
-      var signal = EventSignal()
-      signal.command = "true"
+      let signal = EventSignal(command: "true")
       EventSignals.shared.table.add(signal, .windowMoved)
       EventSignals.shared.table.add(signal, .windowResized)
       return target
@@ -322,8 +321,7 @@ private struct TeardownOutcome: Equatable {
   MouseState.shared.window = target
   MouseState.shared.ffmWindowID = target.id
 
-  var signal = EventSignal()
-  signal.command = "true"
+  let signal = EventSignal(command: "true")
   EventSignals.shared.table.add(signal, .windowDestroyed)
 
   _ = Headless.drain()
@@ -572,8 +570,7 @@ extension DaemonState {
     // mission_control_exit signal with mode inactive, as it did before the fallback check moved to AX.
     //
 
-    var signal = EventSignal()
-    signal.command = "true"
+    let signal = EventSignal(command: "true")
     EventSignals.shared.table.add(signal, .missionControlExit)
 
     MissionControl.shared.mode = .showDesktop

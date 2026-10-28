@@ -15,7 +15,7 @@ public enum ConfigTableKeys {
   ]
   public static let ruleNegatable: Set<String> = ["app", "title", "role", "subrole"]
 
-  // NOTE: The keys of `signal --add` (`parseSignal` in Sources/YabaiCore/SignalCommand.swift).
+  // NOTE: The keys of `signal --add` (SignalCommand's private addition parser).
   public static let signal: Set<String> = ["label", "app", "title", "active", "action", "event"]
   public static let signalNegatable: Set<String> = ["app", "title"]
 }

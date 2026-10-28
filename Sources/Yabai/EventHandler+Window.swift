@@ -44,7 +44,7 @@ extension EventHandler {
     window.insertionByRule = nil
 
     if window.isEligibleForManagement {
-      EventSignals.shared.push(.windowCreated, .window(window))
+      EventSignals.shared.push(.windowCreated(window))
     }
 
     Border.refreshSpace(of: window)
@@ -141,7 +141,7 @@ extension EventHandler {
     }
 
     windowDidReceiveFocus(window)
-    EventSignals.shared.push(.windowFocused, .window(window))
+    EventSignals.shared.push(.windowFocused(window))
   }
 
   func windowMoved(_ windowID: WindowID) {
@@ -177,7 +177,7 @@ extension EventHandler {
     }
 
     Logger.events.debug("window moved: \(window.application.name) \(window.id)")
-    EventSignals.shared.push(.windowMoved, .window(window))
+    EventSignals.shared.push(.windowMoved(window))
     let windowedFullscreen = window.windowedFrame.equalTo(window.frame)
     window.frame.origin = newOrigin
     window.rememberFloatingFrame()
@@ -233,7 +233,7 @@ extension EventHandler {
     }
 
     Logger.events.debug("window resized: \(window.application.name) \(window.id)")
-    EventSignals.shared.push(.windowResized, .window(window))
+    EventSignals.shared.push(.windowResized(window))
 
     let wasFullscreen = window.isFullscreen
 
@@ -346,7 +346,7 @@ extension EventHandler {
     }
 
     Border.refreshSpace(of: window)
-    EventSignals.shared.push(.windowMinimized, .window(window))
+    EventSignals.shared.push(.windowMinimized(window))
   }
 
   // NOTE: A window that is gone (removed, so it was invalidated first) is ignored like an invalid one, and its lost
@@ -401,7 +401,7 @@ extension EventHandler {
     }
 
     Border.refreshSpace(of: window)
-    EventSignals.shared.push(.windowDeminimized, .window(window))
+    EventSignals.shared.push(.windowDeminimized(window))
   }
 
   func windowTitleChanged(_ windowID: WindowID) {
@@ -428,7 +428,7 @@ extension EventHandler {
     }
     TabBar.refresh(for: window.id)
 
-    EventSignals.shared.push(.windowTitleChanged, .window(window))
+    EventSignals.shared.push(.windowTitleChanged(window))
   }
 
   func slsWindowOrdered(_ wid: WindowID) {

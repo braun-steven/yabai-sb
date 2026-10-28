@@ -56,91 +56,95 @@ private func withSAPeer(
   try body(connection)
 }
 
-@Test(.timeLimit(.minutes(1))) func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws {
-  try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
-  try withSAPeer([2]) { #expect($0.command([1, 0, 1]) == .rejected(2)) }
-  // A payload that closes without a status byte did not confirm the command.
-  try withSAPeer([]) { #expect($0.command([1, 0, 1]) == .transportFailure) }
-  try withSAPeer(nil, timeoutMS: 150) { #expect($0.command([1, 0, 1]) == .transportFailure) }
-}
+@Suite(.serialized) struct SAConnectionSocketTests {
+  @Test(.timeLimit(.minutes(1))) func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws
+  {
+    try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
+    try withSAPeer([2]) { #expect($0.command([1, 0, 1]) == .rejected(2)) }
+    // A payload that closes without a status byte did not confirm the command.
+    try withSAPeer([]) { #expect($0.command([1, 0, 1]) == .transportFailure) }
+    try withSAPeer(nil, timeoutMS: 150) { #expect($0.command([1, 0, 1]) == .transportFailure) }
+  }
 
-@Test(.timeLimit(.minutes(1))) func saConnectionReadsFragmentedHandshakeAndRejectsTruncation()
-  throws
-{
-  let response = Array("2.1.35".utf8) + [0, 0x5f, 0, 0, 0, 10]
-  try withSAPeer(response, fragment: true) { connection in
-    let result = try #require(connection.handshake())
-    #expect(result.version == Array("2.1.35".utf8))
-    #expect(result.attributes == 0x5f)
+  @Test(.timeLimit(.minutes(1))) func saConnectionReadsFragmentedHandshakeAndRejectsTruncation()
+    throws
+  {
+    let response = Array("2.1.35".utf8) + [0, 0x5f, 0, 0, 0, 10]
+    try withSAPeer(response, fragment: true) { connection in
+      let result = try #require(connection.handshake())
+      #expect(result.version == Array("2.1.35".utf8))
+      #expect(result.attributes == 0x5f)
+    }
+    for count in 0..<response.count {
+      try withSAPeer(Array(response.prefix(count))) { #expect($0.handshake() == nil) }
+    }
   }
-  for count in 0..<response.count {
-    try withSAPeer(Array(response.prefix(count))) { #expect($0.handshake() == nil) }
-  }
-}
 
-@Test(.timeLimit(.minutes(1))) func saConnectionReadsDockInfoAndRejectsOtherReplies() throws {
-  let uuid = "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B"
-  let response = Array(uuid.utf8) + [0, 1, 10]
-  try withSAPeer(response, fragment: true) { connection in
-    let result = try #require(connection.dockInfo())
-    #expect(result.uuid == uuid)
-    #expect(result.known)
+  @Test(.timeLimit(.minutes(1))) func saConnectionReadsDockInfoAndRejectsOtherReplies() throws {
+    let uuid = "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B"
+    let response = Array(uuid.utf8) + [0, 1, 10]
+    try withSAPeer(response, fragment: true) { connection in
+      let result = try #require(connection.dockInfo())
+      #expect(result.uuid == uuid)
+      #expect(result.known)
+    }
+    try withSAPeer([0, 0, 10]) { connection in
+      let result = try #require(connection.dockInfo())
+      #expect(result.uuid.isEmpty)
+      #expect(!result.known)
+    }
+    for count in 0..<response.count {
+      try withSAPeer(Array(response.prefix(count))) { #expect($0.dockInfo() == nil) }
+    }
+    // A payload without the message replies with the invalid status byte.
+    try withSAPeer([UInt8(SA_REPLY_INVALID)]) { #expect($0.dockInfo() == nil) }
+    try withSAPeer(Array(uuid.utf8) + [0, 2, 10]) { #expect($0.dockInfo() == nil) }
   }
-  try withSAPeer([0, 0, 10]) { connection in
-    let result = try #require(connection.dockInfo())
-    #expect(result.uuid.isEmpty)
-    #expect(!result.known)
-  }
-  for count in 0..<response.count {
-    try withSAPeer(Array(response.prefix(count))) { #expect($0.dockInfo() == nil) }
-  }
-  // A payload without the message replies with the invalid status byte.
-  try withSAPeer([UInt8(SA_REPLY_INVALID)]) { #expect($0.dockInfo() == nil) }
-  try withSAPeer(Array(uuid.utf8) + [0, 2, 10]) { #expect($0.dockInfo() == nil) }
-}
 
-@Test(.timeLimit(.minutes(1))) func saConnectionCompletesPartialWritesAndBoundsBackpressure() throws
-{
-  var pair: [Int32] = [0, 0]
-  try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
-  let client = pair[0]
-  let server = pair[1]
-  var size: Int32 = 1024
-  setsockopt(client, SOL_SOCKET, SO_SNDBUF, &size, socklen_t(MemoryLayout<Int32>.size))
-  let connection = try #require(SAConnection(fd: client, timeoutMS: 2000))
-  let expected = [UInt8](repeating: 0x5a, count: 512 * 1024)
-  let group = DispatchGroup()
-  group.enter()
-  DispatchQueue.global().async {
+  @Test(.timeLimit(.minutes(1))) func saConnectionCompletesPartialWritesAndBoundsBackpressure()
+    throws
+  {
+    var pair: [Int32] = [0, 0]
+    try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &pair) == 0)
+    let client = pair[0]
+    let server = pair[1]
+    var size: Int32 = 1024
+    setsockopt(client, SOL_SOCKET, SO_SNDBUF, &size, socklen_t(MemoryLayout<Int32>.size))
+    let connection = try #require(SAConnection(fd: client, timeoutMS: 2000))
+    let expected = [UInt8](repeating: 0x5a, count: 512 * 1024)
+    let group = DispatchGroup()
+    group.enter()
+    DispatchQueue.global().async {
+      defer {
+        close(server)
+        group.leave()
+      }
+      var buffer = [UInt8](repeating: 0, count: 123)
+      var count = 0
+      while count < expected.count {
+        let received = buffer.withUnsafeMutableBytes { recv(server, $0.baseAddress, $0.count, 0) }
+        if received <= 0 { break }
+        #expect(buffer.prefix(received).allSatisfy { $0 == 0x5a })
+        count += received
+      }
+      #expect(count == expected.count)
+    }
+    #expect(connection.write(expected))
+    shutdown(client, SHUT_WR)
+    close(client)
+    #expect(
+      group.wait(timeout: .now() + .seconds(10)) == .success, "the reader thread is still running")
+
+    var stalled: [Int32] = [0, 0]
+    try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &stalled) == 0)
     defer {
-      close(server)
-      group.leave()
+      close(stalled[0])
+      close(stalled[1])
     }
-    var buffer = [UInt8](repeating: 0, count: 123)
-    var count = 0
-    while count < expected.count {
-      let received = buffer.withUnsafeMutableBytes { recv(server, $0.baseAddress, $0.count, 0) }
-      if received <= 0 { break }
-      #expect(buffer.prefix(received).allSatisfy { $0 == 0x5a })
-      count += received
-    }
-    #expect(count == expected.count)
+    setsockopt(stalled[0], SOL_SOCKET, SO_SNDBUF, &size, socklen_t(MemoryLayout<Int32>.size))
+    let bounded = try #require(SAConnection(fd: stalled[0], timeoutMS: 50))
+    #expect(!bounded.write(expected))
   }
-  #expect(connection.write(expected))
-  shutdown(client, SHUT_WR)
-  close(client)
-  #expect(
-    group.wait(timeout: .now() + .seconds(10)) == .success, "the reader thread is still running")
-
-  var stalled: [Int32] = [0, 0]
-  try #require(socketpair(AF_UNIX, SOCK_STREAM, 0, &stalled) == 0)
-  defer {
-    close(stalled[0])
-    close(stalled[1])
-  }
-  setsockopt(stalled[0], SOL_SOCKET, SO_SNDBUF, &size, socklen_t(MemoryLayout<Int32>.size))
-  let bounded = try #require(SAConnection(fd: stalled[0], timeoutMS: 50))
-  #expect(!bounded.write(expected))
 }
 
 // NOTE: Only OSAX_ATTRIB_ANIM_TIME is optional: a Dock build without the validated animation patch still works.

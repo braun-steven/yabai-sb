@@ -18,7 +18,7 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
   return try IPCProtocol.decode(IPCReply.self, payload: payload)
 }
 
-@Suite struct IPCConnectionTests {
+@Suite(.serialized) struct IPCConnectionTests {
   @Test func fragmentedHeaderAndBodyAreReadCompletely() throws {
     let (server, client) = try ipcPair()
     let request = IPCRequest.command(arguments: ["query", "--windows", "id"])

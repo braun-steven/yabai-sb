@@ -508,6 +508,9 @@ static bool do_space_move(char *message) {
     CFRelease(dest_display_uuid);
     return false;
   }
+  // NOTE: Off the main queue, as upstream calls it. Nothing found below
+  // moveSpace waits on main, but its indirect calls were not followed, so
+  // moving it onto main could deadlock Dock (doc/osax-prototypes.md).
   ((move_space_call)move_space_fp)(source_space, dest_space, dest_display_uuid,
                                    dock_spaces);
 

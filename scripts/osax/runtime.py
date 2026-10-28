@@ -9,11 +9,15 @@ import json
 import math
 import os
 import pathlib
+import re
 import socket
 import struct
 import subprocess
 import sys
 import time
+
+# The payload version of this checkout; the loaded payload must be this one.
+COMMON_H = pathlib.Path(__file__).resolve().parents[2] / "osax" / "common.h"
 
 wid = None
 dock = None
@@ -98,7 +102,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     unlocked()
-    expected_version = "2.1.38"
+    expected_version = re.search(r'#define OSAX_VERSION "([^"]+)"', COMMON_H.read_text())[1]
     version = request(b"\1").split(b"\0", 1)[0].decode()
     assert version == expected_version, (version, expected_version)
     windows = query("--windows", "--space", 4)

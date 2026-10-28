@@ -133,6 +133,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- *focus_follows_mouse* retries a timed-out focus request even when the pointer stays inside the cached window frame
+- *focus_follows_mouse autoraise* protects floating windows on the display under the pointer when focus is still on another display
+- Changing *focus_follows_mouse* keeps the mouse event tap installed and clears cached display attempts, so toggling the mode does not retain an old desktop-focus decision
 - The scripting addition's window focus message, which nothing sent and whose Dock function is not found on macOS 27 (payload 2.1.39)
 - Repeated rule labels in a config file keep their original index during reload comparison, matching IPC replacement. An unchanged file no longer reports a rule override or unnecessarily replaces its rules.
 - A new window that a rule moves to another space no longer pulls the focus to the space it opened on unless that space is focused; an application's window opened on a visible space of another display (e.g. ChatGPT's untitled helper window while typing) moved the focus to that display

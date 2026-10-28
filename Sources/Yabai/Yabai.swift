@@ -219,7 +219,7 @@ enum Daemon {
     }
 
     Logger.daemon.debug("startup: starting the mouse handler")
-    if !WM.sync({ MouseState.shared.beginEventTap(mask: mouseEventMask) }) {
+    if !WM.sync({ MouseState.shared.beginEventTap() }) {
       Logger.daemon.fatal("could not start mouse handler")
     }
 

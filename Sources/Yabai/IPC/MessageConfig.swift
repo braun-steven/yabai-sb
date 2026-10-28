@@ -396,7 +396,7 @@ enum ConfigOptionKind: Sendable {
 
 //
 // NOTE: Borders, tab bars and shadows follow Config through ConfigObserver, after the message. The setters
-// that do more than store the value change no renderer: they restart the event tap (focus_follows_mouse), mirror the
+// that do more than store the value change no renderer: they update the event tap flag (focus_follows_mouse), mirror the
 // modifier for the tap (mouse_modifier), move scratchpads between layers (scratchpad_below) or lay out spaces, which
 // the following commands of the message rely on.
 //

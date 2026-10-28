@@ -3,67 +3,13 @@ import CoreGraphics
 //
 // NOTE: Focus follows mouse asks the window server which window is under the pointer on every move. Moves inside the
 // frame of the window that the last hit found answer the same question, so they skip the hit test while nothing else
-// changed: the event generation (every event but a mouse move) is the same as at the hit, and no other window on a
-// visible space intersects that frame. A focus request that no focus event answers is dropped after
-// ffmRequestTimeout, so the pointer can reach the window again.
+// changed: every event but a mouse move clears the cache, and no other window on a visible space intersects that
+// frame. A focus request that no focus event answers is dropped after ffmRequestTimeout, along with its cached hit,
+// so the pointer can reach the window again.
 //
 
 /// How long a focus follows mouse request waits for its focus event. At exactly this age the request is dropped.
 public let ffmRequestTimeout: ContinuousClock.Duration = .milliseconds(500)
-
-/// The frame of the window of the last hit test, and the event generation it was taken in.
-public struct FFMHitRecord: Sendable, Equatable {
-  public let frame: CGRect
-  public let generation: UInt64
-
-  public init(frame: CGRect, generation: UInt64) {
-    self.frame = frame
-    self.generation = generation
-  }
-}
-
-/// What focus follows mouse does for one pointer move, before its gesture and focus checks.
-public struct FFMDecision: Sendable, Equatable {
-  /// Ask the window server which window is under the pointer.
-  public let hitTest: Bool
-  /// Drop the pending focus request: it is older than ffmRequestTimeout.
-  public let clearPending: Bool
-
-  public init(hitTest: Bool, clearPending: Bool) {
-    self.hitTest = hitTest
-    self.clearPending = clearPending
-  }
-
-  /// Decides one move.
-  ///
-  /// A request younger than ffmRequestTimeout holds the move: nothing is asked and nothing is cleared. An older one is
-  /// dropped, and the move goes on as if none was pending. A move inside the frame of the last hit, taken in the
-  /// current generation, needs no hit test. `requestedAt` is nil when no focus request is pending.
-  public static func decide(
-    pointer: CGPoint,
-    lastHit: FFMHitRecord?,
-    generation: UInt64,
-    requestedAt: ContinuousClock.Instant?,
-    now: ContinuousClock.Instant
-  ) -> FFMDecision {
-    let insideLastHit =
-      lastHit.map { $0.generation == generation && $0.frame.contains(pointer) } ?? false
-
-    guard let requestedAt else {
-      return FFMDecision(hitTest: !insideLastHit, clearPending: false)
-    }
-    if now < requestedAt.advanced(by: ffmRequestTimeout) {
-      return FFMDecision(hitTest: false, clearPending: false)
-    }
-    return FFMDecision(hitTest: !insideLastHit, clearPending: true)
-  }
-
-  /// Whether a hit window may be remembered: no other window on a visible space may intersect its frame, since such a
-  /// window could take the pointer inside it. `otherFrames` are the frames of those windows.
-  public static func isCacheable(hitFrame: CGRect, otherFrames: [CGRect]) -> Bool {
-    !otherFrames.contains { $0.intersects(hitFrame) }
-  }
-}
 
 //
 // NOTE: A move that a pending request holds is not looked at again by itself: when the pointer stops during a fast
@@ -73,44 +19,128 @@ public struct FFMDecision: Sendable, Equatable {
 // unnecessary. So a pending request causes at most one re-check, which looks at where the pointer is then.
 //
 
-/// The re-check of the pointer after a pending focus follows mouse request held a move.
-public struct FFMRecheck: Sendable, Equatable {
-  public enum State: Sendable, Equatable {
-    /// No held move waits for a re-check.
+/// Focus follows mouse state. Transitions return scheduling decisions; the caller owns the event loop and clock.
+public struct FFMState: Sendable {
+  public struct Request: Sendable, Equatable {
+    public let windowID: WindowID
+    public let requestedAt: ContinuousClock.Instant
+  }
+
+  /// A nil memo has not been loaded; a memo whose ids are nil remembers a failed query.
+  public struct VisibleWindows: Sendable {
+    public let ids: Set<WindowID>?
+  }
+
+  public enum Move: Sendable, Equatable {
+    case held(recheckAfter: ContinuousClock.Duration?)
+    case cached
+    case hitTest(expiredRequest: WindowID?)
+  }
+
+  public enum RecheckState: Sendable {
     case idle
-    /// A held move waits; the re-check is scheduled for the request timeout.
     case waiting
-    /// The request resolved; the re-check is scheduled at once.
     case resolved
   }
 
-  public private(set) var state = State.idle
+  public private(set) var request: Request?
+  public private(set) var hitFrame: CGRect?
+  public private(set) var visibleWindows: VisibleWindows?
+  public var displayFocus = FFMDisplayFocus()
+  public private(set) var recheckState = RecheckState.idle
 
   public init() {}
 
-  /// A move is held by the request made at `requestedAt`. Returns the delay to schedule the re-check after for the
-  /// first held move of the request, nil when one is already scheduled.
-  public mutating func hold(
-    requestedAt: ContinuousClock.Instant, now: ContinuousClock.Instant
-  ) -> ContinuousClock.Duration? {
-    guard state == .idle else { return nil }
-    state = .waiting
-    return max(.zero, now.duration(to: requestedAt.advanced(by: ffmRequestTimeout)))
+  public mutating func beginRequest(_ windowID: WindowID, at now: ContinuousClock.Instant) {
+    request = Request(windowID: windowID, requestedAt: now)
   }
 
-  /// The pending request resolved. Returns the delay to schedule the re-check after (at once) when a held move waits
-  /// for it, nil otherwise.
-  public mutating func resolve() -> ContinuousClock.Duration? {
-    guard state == .waiting else { return nil }
-    state = .resolved
+  /// Ends the request, optionally only for a removed window. Returns a delay when a held move needs rechecking.
+  public mutating func resolveRequest(ifFor windowID: WindowID? = nil) -> ContinuousClock.Duration?
+  {
+    if let windowID, request?.windowID != windowID { return nil }
+    request = nil
+    guard recheckState == .waiting else { return nil }
+    recheckState = .resolved
     return .zero
   }
 
-  /// A move went on to its own checks, or the re-check runs. Returns whether a re-check was scheduled: the move
-  /// cancels it, the re-check runs only then.
-  public mutating func finish() -> Bool {
-    defer { state = .idle }
-    return state != .idle
+  public mutating func pointerMoved(to point: CGPoint, now: ContinuousClock.Instant) -> Move {
+    if let request {
+      let deadline = request.requestedAt.advanced(by: ffmRequestTimeout)
+      if now < deadline {
+        guard recheckState == .idle else { return .held(recheckAfter: nil) }
+        recheckState = .waiting
+        return .held(recheckAfter: now.duration(to: deadline))
+      }
+      self.request = nil
+      hitFrame = nil
+      return .hitTest(expiredRequest: request.windowID)
+    }
+    return hitFrame?.contains(point) == true ? .cached : .hitTest(expiredRequest: nil)
+  }
+
+  /// A move continues, or its scheduled re-check runs. The caller cancels a scheduled delivery when continuing.
+  public mutating func finishRecheck() -> Bool {
+    defer { recheckState = .idle }
+    return recheckState != .idle
+  }
+
+  public mutating func storeHit(_ frame: CGRect?) {
+    hitFrame = frame
+  }
+
+  public mutating func storeVisibleWindows(_ ids: Set<WindowID>?) {
+    visibleWindows = VisibleWindows(ids: ids)
+  }
+
+  public mutating func invalidateHitCache() {
+    hitFrame = nil
+    visibleWindows = nil
+  }
+
+  /// Changing mode forgets old hit/display decisions. Disabling also cancels held moves, but keeps the request's
+  /// acknowledgement marker so a focus already sent does not warp the cursor with mouse_follows_focus.
+  public mutating func modeChanged(isEnabled: Bool) -> Bool {
+    invalidateHitCache()
+    displayFocus.reset()
+    return !isEnabled && finishRecheck()
+  }
+
+  /// Whether a hit window may be remembered: no other window on a visible space may intersect its frame, since such a
+  /// window could take the pointer inside it. `otherFrames` are the frames of those windows.
+  public static func isCacheable(hitFrame: CGRect, otherFrames: some Sequence<CGRect>) -> Bool {
+    !otherFrames.contains { $0.intersects(hitFrame) }
+  }
+}
+
+/// A window in stacking order, with only the properties needed to protect floating windows during autoraise.
+public struct FFMOcclusionWindow: Sendable {
+  public let id: WindowID
+  public let frame: CGRect
+  public let isFloating: Bool
+  public let level: Int32
+  public let subLevel: Int32
+
+  public init(id: WindowID, frame: CGRect, isFloating: Bool, level: Int32, subLevel: Int32) {
+    self.id = id
+    self.frame = frame
+    self.isFloating = isFloating
+    self.level = level
+    self.subLevel = subLevel
+  }
+
+  /// Windows are ordered front to back on the visible space under the pointer. Only windows above this one count.
+  public func wouldOccludeFloatingWindow(among windows: some Sequence<FFMOcclusionWindow>) -> Bool {
+    for other in windows {
+      if other.id == id { break }
+      if other.isFloating && other.level == level && other.subLevel == subLevel
+        && frame.contains(other.frame)
+      {
+        return true
+      }
+    }
+    return false
   }
 }
 

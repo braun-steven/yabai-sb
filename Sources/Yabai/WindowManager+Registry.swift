@@ -39,7 +39,7 @@ extension WindowManager {
     // alone sufficient. Only the fields of this window change.
     let mouse = MouseState.shared
     if mouse.window?.id == id { mouse.clearWindow() }
-    if mouse.ffmWindowID == id { mouse.ffmWindowID = nil }
+    mouse.resolveFFMRequest(ifFor: id)
     if mouse.feedbackWindowID == id { mouse.clearFeedback() }
   }
 

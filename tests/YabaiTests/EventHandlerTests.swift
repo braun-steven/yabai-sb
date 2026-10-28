@@ -157,7 +157,7 @@ extension DaemonState {
       _ = workspace.open(2)
       let requestedWindow = workspace.open(3)
       late.mouseFollowsFocusByRule = false
-      MouseState.shared.ffmWindowID = late.id
+      MouseState.shared.ffm.beginRequest(late.id, at: .now)
       WindowManager.shared.focus.setPending(requestedWindow.id, at: 1)
       defer { WindowManager.shared.focus.clearPending() }
 
@@ -165,14 +165,14 @@ extension DaemonState {
 
       #expect(WindowManager.shared.focus.focused == late.id)
       #expect(WindowManager.shared.focus.pending?.windowID == requestedWindow.id)
-      #expect(MouseState.shared.ffmWindowID == nil)
+      #expect(MouseState.shared.ffm.request?.windowID == nil)
     }
 
     @Test func reportedFocusClearsItsMatchingPendingRequest() {
       let workspace = Workspace()
       let target = workspace.open(1)
       target.mouseFollowsFocusByRule = false
-      MouseState.shared.ffmWindowID = target.id
+      MouseState.shared.ffm.beginRequest(target.id, at: .now)
       WindowManager.shared.focus.setPending(target.id, at: 1)
       defer { WindowManager.shared.focus.clearPending() }
 
@@ -320,7 +320,7 @@ private struct TeardownOutcome: Equatable {
   target.scratchpad = "pad"
   WindowManager.shared.scratchpads["pad"] = target
   MouseState.shared.window = target
-  MouseState.shared.ffmWindowID = target.id
+  MouseState.shared.ffm.beginRequest(target.id, at: .now)
 
   var signal = EventSignal()
   signal.command = "true"
@@ -341,7 +341,7 @@ private struct TeardownOutcome: Equatable {
     scratchpads: wm.scratchpads.map { "\($0.key)=\($0.value.id.rawValue)" },
     targetScratchpad: target.scratchpad,
     mouseWindow: MouseState.shared.window?.id.rawValue,
-    mouseFocus: MouseState.shared.ffmWindowID?.rawValue,
+    mouseFocus: MouseState.shared.ffm.request?.windowID.rawValue,
     destroyed: target.isDestroyed,
     signals: EventSignals.shared.pending.dropFirst(first).map { $0.type.name },
     placements: Headless.drain().placements)
@@ -527,7 +527,7 @@ extension DaemonState {
       wm.focus.addLostFocusedEvent(for: target.id)
       wm.focus.addLostFocusedEvent(for: other.id)
       MouseState.shared.window = target
-      MouseState.shared.ffmWindowID = target.id
+      MouseState.shared.ffm.beginRequest(target.id, at: .now)
       MouseState.shared.feedbackWindowID = target.id
       MouseState.shared.feedbackDirection = .west
 
@@ -538,7 +538,7 @@ extension DaemonState {
       #expect(!Border.isTracked(target.id))
       #expect(!wm.focus.hasLostFocusedEvent(for: target.id))
       #expect(MouseState.shared.window == nil)
-      #expect(MouseState.shared.ffmWindowID == nil)
+      #expect(MouseState.shared.ffm.request?.windowID == nil)
       #expect(MouseState.shared.feedbackWindowID == nil)
       #expect(MouseState.shared.feedbackDirection == nil)
 
@@ -557,7 +557,7 @@ extension DaemonState {
       Border.remove(other.id)
       wm.focus.removeLostFocusedEvent(for: other.id)
       MouseState.shared.window = nil
-      MouseState.shared.ffmWindowID = nil
+      MouseState.shared.resolveFFMRequest()
       MouseState.shared.feedbackWindowID = nil
       MouseState.shared.feedbackDirection = nil
     }
@@ -650,6 +650,44 @@ func missionControlOverlay(owner: String, layer: Int, bounds: CGRect, expected: 
 extension DaemonState {
   @Suite
   @WM struct FocusFollowsMouseRecheckTests {
+    @Test func otherEventsInvalidateHitAndVisibilityCaches() async {
+      let ms = MouseState.shared
+      ms.ffm.storeHit(CGRect(x: 0, y: 0, width: 100, height: 100))
+      ms.ffm.storeVisibleWindows(nil)
+
+      await EventHandler.shared.handle(.menuClosed)
+
+      #expect(ms.ffm.hitFrame == nil)
+      #expect(ms.ffm.visibleWindows == nil)
+    }
+
+    @Test func changingModesUpdatesTheFlagWithoutInstallingATap() {
+      let ms = MouseState.shared
+      let wm = WindowManager.shared
+      #expect(!ms.tap.hasPort)
+      wm.setFocusFollowsMouse(.autofocus)
+      let enabled = ms.tap.tracksFocus.load(ordering: .relaxed)
+      #expect(enabled)
+      ms.ffm.beginRequest(wid(1), at: .now)
+      EventHandler.shared.ffmPointerMoved(to: .zero)
+      #expect(ms.ffm.recheckState == .waiting)
+
+      wm.setFocusFollowsMouse(.disabled)
+      let disabled = ms.tap.tracksFocus.load(ordering: .relaxed)
+      #expect(!disabled)
+      #expect(ms.ffm.recheckState == .idle)
+      #expect(ms.ffm.request?.windowID == wid(1))
+      #expect(!ms.tap.hasPort)
+      EventHandler.shared.ffmRecheck()
+      #expect(ms.ffm.recheckState == .idle)
+
+      wm.setFocusFollowsMouse(.autoraise)
+      let reenabled = ms.tap.tracksFocus.load(ordering: .relaxed)
+      #expect(reenabled)
+      #expect(Config.current.window.focusFollowsMouse == .autoraise)
+      #expect(!ms.tap.hasPort)
+    }
+
     //
     // NOTE: A move that a pending focus follows mouse request holds schedules one re-check, and the focus event of the
     // request brings it forward. Only the held moves are driven here: a move that goes on hit tests the window server.
@@ -660,19 +698,19 @@ extension DaemonState {
       let target = workspace.open(1)
       target.mouseFollowsFocusByRule = false
       Config.current.window.focusFollowsMouse = .autofocus
-      MouseState.shared.ffmWindowID = target.id
+      MouseState.shared.ffm.beginRequest(target.id, at: .now)
       defer { EventLoop.cancel(key: .ffmRecheck) }
 
       EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 50, y: 50))
-      #expect(MouseState.shared.ffmRecheck.state == .waiting)
+      #expect(MouseState.shared.ffm.recheckState == .waiting)
 
       // a second held move of the same request schedules nothing new
       EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 60, y: 50))
-      #expect(MouseState.shared.ffmRecheck.state == .waiting)
+      #expect(MouseState.shared.ffm.recheckState == .waiting)
 
       EventHandler.shared.windowDidReceiveFocus(target)
-      #expect(MouseState.shared.ffmWindowID == nil)
-      #expect(MouseState.shared.ffmRecheck.state == .resolved)
+      #expect(MouseState.shared.ffm.request?.windowID == nil)
+      #expect(MouseState.shared.ffm.recheckState == .resolved)
     }
 
     @Test func requestWithoutHeldMoveSchedulesNoRecheck() {
@@ -680,24 +718,24 @@ extension DaemonState {
       let target = workspace.open(1)
       target.mouseFollowsFocusByRule = false
       Config.current.window.focusFollowsMouse = .autofocus
-      MouseState.shared.ffmWindowID = target.id
+      MouseState.shared.ffm.beginRequest(target.id, at: .now)
 
       EventHandler.shared.windowDidReceiveFocus(target)
-      #expect(MouseState.shared.ffmRecheck.state == .idle)
+      #expect(MouseState.shared.ffm.recheckState == .idle)
     }
 
     @Test func disabledModeHoldsNothing() {
       let workspace = Workspace()
       let target = workspace.open(1)
-      MouseState.shared.ffmWindowID = target.id
+      MouseState.shared.ffm.beginRequest(target.id, at: .now)
 
       EventHandler.shared.ffmPointerMoved(to: CGPoint(x: 50, y: 50))
-      #expect(MouseState.shared.ffmRecheck.state == .idle)
+      #expect(MouseState.shared.ffm.recheckState == .idle)
 
       // a re-check without a held move does nothing (and asks the window server nothing)
       EventHandler.shared.ffmRecheck()
-      #expect(MouseState.shared.ffmRecheck.state == .idle)
-      MouseState.shared.ffmWindowID = nil
+      #expect(MouseState.shared.ffm.recheckState == .idle)
+      MouseState.shared.resolveFFMRequest()
     }
   }
 }

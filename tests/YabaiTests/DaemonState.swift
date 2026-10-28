@@ -40,8 +40,9 @@ struct DaemonFixture: SuiteTrait, TestTrait, TestScoping {
     MouseState.shared.splitDrag = nil
     MouseState.shared.currentAction = .none
     MouseState.shared.window = nil
-    MouseState.shared.ffmWindowID = nil
-    MouseState.shared.ffmRecheck = FFMRecheck()
+    EventLoop.cancel(key: .ffmRecheck)
+    MouseState.shared.ffm = FFMState()
+    MouseState.shared.tap.tracksFocus.store(false, ordering: .relaxed)
     SplitDragCache.reset()
     WindowManager.shared.initialize()
     WindowManager.shared.rules = []

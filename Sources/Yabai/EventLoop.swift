@@ -290,11 +290,10 @@ extension EventHandler {
   /// Runs the handler of an event.
   func handle(_ event: Event) async {
     //
-    // NOTE: Every event but a mouse move may change what is under the pointer, so it bumps the generation that the
-    // focus follows mouse hit cache is kept for (MouseState.ffmGeneration). Mouse moves do not: they are the reason for
-    // the cache.
+    // NOTE: Every event but a mouse move may change what is under the pointer, so it clears the hit and visibility
+    // caches. Mouse moves do not: they are the reason for the caches.
     //
-    if !event.isMouseMoved { MouseState.shared.ffmGeneration &+= 1 }
+    if !event.isMouseMoved { MouseState.shared.ffm.invalidateHitCache() }
 
     //
     // NOTE: The loop takes the next event only after this handler returns, even when the handler awaits, so the

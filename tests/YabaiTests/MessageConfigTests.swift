@@ -66,7 +66,6 @@ private let configExpectations: [String: String] = [
   "tab_bar_offset": "an integer",
   "tab_bar_font": "a font as family:size, e.g. system:12",
   "tab_bar_icons": "on or off",
-  "tab_bar_style": "one of: glass, i3",
   "tab_bar_appearance": "one of: dark, system",
   "tab_bar_backdrop": "one of: off, glass, blur",
   "tab_bar_card_padding": "a non-negative integer",
@@ -150,7 +149,6 @@ extension DaemonState {
       ConfigCase(
         option: "tab_bar_font", value: "system:9.5", printed: "system:9.5", invalid: "system:0"),
       ConfigCase(option: "tab_bar_icons", value: "off", printed: "off", invalid: "none"),
-      ConfigCase(option: "tab_bar_style", value: "i3", printed: "i3", invalid: "flat"),
       ConfigCase(
         option: "tab_bar_appearance", value: "system", printed: "system", invalid: "light"),
       ConfigCase(option: "tab_bar_backdrop", value: "glass", printed: "glass", invalid: "frosted"),
@@ -381,8 +379,7 @@ extension DaemonState {
       #expect(Config.current.tabBar.focusedColorIsCustom)
     }
 
-    // NOTE: The font is nil until tab_bar_font sets it, and a nil font draws no classic titles, so the default name still
-    // sets the font.
+    // NOTE: The font is nil until tab_bar_font sets it, so the default name still sets the font.
     @Test func settingTheDefaultTabBarFontStillSetsTheFont() {
       WindowManager.shared.tabBarFont = nil
       #expect(runConfigLine("tab_bar_font system:12") == "")
@@ -442,7 +439,7 @@ extension DaemonState {
         "window_border",
         "window_border_width", "window_border_hide_single", "active_window_border_color",
         "normal_window_border_color", "tab_bar", "tab_bar_height", "tab_bar_offset", "tab_bar_font",
-        "tab_bar_icons", "tab_bar_style", "tab_bar_appearance", "tab_bar_backdrop",
+        "tab_bar_icons", "tab_bar_appearance", "tab_bar_backdrop",
         "tab_bar_card_padding",
         "tab_bar_window_radius", "tab_bar_focused_color", "tab_bar_focused_text_color",
         "tab_bar_inactive_color", "tab_bar_inactive_text_color", "tab_bar_unfocused_color",
@@ -461,8 +458,8 @@ extension DaemonState {
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 54)
-      #expect(actual.count == 54)
+      #expect(ConfigName.allCases.count == 53)
+      #expect(actual.count == 53)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }

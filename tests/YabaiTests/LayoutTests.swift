@@ -19,18 +19,16 @@ struct BarSettings: Sendable, CustomStringConvertible {
   var enabled: Bool
   var height: Int
   var offset: Int
-  var style: TabBarStyle
   var backdrop: TabBarBackdrop
   var cardPadding: Int
 
   static var generator: Generator<BarSettings, some SendableSequenceType> {
     zip(
-      Gen.bool, Gen.int(in: 0...40), Gen.int(in: -40...20), Gen.int(in: 0...1), Gen.int(in: 0...2),
-      Gen.int(in: 0...12)
+      Gen.bool, Gen.int(in: 0...40), Gen.int(in: -40...20), Gen.int(in: 0...2), Gen.int(in: 0...12)
     )
-    .map { enabled, height, offset, style, backdrop, cardPadding in
+    .map { enabled, height, offset, backdrop, cardPadding in
       BarSettings(
-        enabled: enabled, height: height, offset: offset, style: TabBarStyle.allCases[style],
+        enabled: enabled, height: height, offset: offset,
         backdrop: TabBarBackdrop.allCases[backdrop], cardPadding: cardPadding)
     }
   }
@@ -39,7 +37,6 @@ struct BarSettings: Sendable, CustomStringConvertible {
     Config.current.tabBar.enabled = enabled
     Config.current.tabBar.height = height
     Config.current.tabBar.offset = offset
-    Config.current.tabBar.style = style
     Config.current.tabBar.backdrop = backdrop
     Config.current.tabBar.cardPadding = cardPadding
   }
@@ -47,11 +44,11 @@ struct BarSettings: Sendable, CustomStringConvertible {
   /// The height of the bar the tabs leave room for: none while the bar is off.
   var barHeight: Int { enabled ? height : 0 }
 
-  /// The inset of a glass card with a backdrop from the edges of its container.
-  var barInset: Int { barHeight > 0 && style == .glass && backdrop != .off ? cardPadding : 0 }
+  /// The inset of a card with a backdrop from the edges of its container.
+  var barInset: Int { barHeight > 0 && backdrop != .off ? cardPadding : 0 }
 
   var description: String {
-    "bar \(enabled ? "on" : "off") height \(height) offset \(offset) \(style.rawValue)/\(backdrop.rawValue) padding \(cardPadding)"
+    "bar \(enabled ? "on" : "off") height \(height) offset \(offset) \(backdrop.rawValue) padding \(cardPadding)"
   }
 }
 
@@ -229,7 +226,7 @@ extension DaemonState {
         LayoutArea.generator, Gen.int(in: 0...2)
       ) { count, operations, geometry, zoom in
         let bar = BarSettings(
-          enabled: true, height: 24, offset: 0, style: .glass, backdrop: .blur, cardPadding: 6)
+          enabled: true, height: 24, offset: 0, backdrop: .blur, cardPadding: 6)
         let (view, model) = layOutRandomTree(count, operations, geometry, bar)
         let all = leaves(model.root)
 
@@ -265,7 +262,6 @@ extension DaemonState {
     // MARK: - Examples
 
     @Test func tabbedChildrenShareTheCardBelowTheBar() {
-      Config.current.tabBar.style = .glass
       Config.current.tabBar.backdrop = .blur
       Config.current.tabBar.cardPadding = 6
       Config.current.tabBar.height = 24
@@ -424,7 +420,6 @@ extension DaemonState {
     // MARK: - Borders and tab order
 
     @Test func borderWrapsTheTabbedContainerOfTheActiveTab() {
-      Config.current.tabBar.style = .glass
       Config.current.tabBar.backdrop = .blur
       Config.current.tabBar.cardPadding = 6
       Config.current.tabBar.windowRadius = 16
@@ -580,7 +575,6 @@ extension DaemonState {
     }
 
     @Test func tabbedWithGlassCard() {
-      Config.current.tabBar.style = .glass
       Config.current.tabBar.backdrop = .blur
       Config.current.tabBar.cardPadding = 6
       Config.current.tabBar.height = 24
@@ -600,7 +594,7 @@ extension DaemonState {
     }
 
     @Test func stackedWithPadding() {
-      Config.current.tabBar.style = .i3
+      Config.current.tabBar.backdrop = .off
       Config.current.tabBar.height = 24
       let space = paddedWorkspace(padding: 20, gap: 10)
       space.open(1, focus: true)

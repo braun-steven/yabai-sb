@@ -25,7 +25,6 @@ config tab_bar_height
 config tab_bar_offset
 config tab_bar_font
 config tab_bar_icons
-config tab_bar_style
 config tab_bar_appearance
 config tab_bar_backdrop
 config tab_bar_card_padding
@@ -87,12 +86,10 @@ config window_gap
 config top_padding
 config bottom_padding
 config tab_bar_height 30
-config tab_bar_style i3
 config tab_bar_backdrop blur
 config tab_bar_focused_color 0xff00ff00
 config tab_bar_font Menlo:14
 config tab_bar_height
-config tab_bar_style
 config tab_bar_backdrop
 config tab_bar_focused_color
 config tab_bar_font
@@ -155,7 +152,7 @@ config mouse_modifier hyper
 config focus_follows_mouse bogus
 config window_border_width abc
 config insert_feedback_color 0
-config tab_bar_style bogus
+config tab_bar_backdrop frosted
 config --space nolabel window_gap
 
 # config --check: a file that does not exist (without a file, it would read the user's yabai.toml)

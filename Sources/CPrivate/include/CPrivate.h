@@ -41,8 +41,8 @@ CF_ASSUME_NONNULL_BEGIN
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-// NOTE: CGWindowListCreate is unavailable to Swift. TabBar.swift uses the raw
-// window-id array for hit testing.
+// NOTE: CGWindowListCreate is unavailable to Swift. TabBarGlass.swift uses the
+// raw window-id array for hit testing.
 static inline CF_RETURNS_RETAINED
     CFArrayRef _Nullable CGWindowListCreateC(CGWindowListOption options,
                                              CGWindowID relative_to_window) {

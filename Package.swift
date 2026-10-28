@@ -151,7 +151,6 @@ let package = Package(
         .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
       ],
       path: "tests/YabaiTests",
-      exclude: ["__Snapshots__"],
       resources: [.copy("Golden")],
       swiftSettings: swiftSettings
     ),

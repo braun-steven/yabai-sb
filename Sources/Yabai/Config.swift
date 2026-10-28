@@ -124,7 +124,6 @@ struct TabBarConfig: Equatable {
   var height = 24
   var offset = 0
   var icons = true
-  var style = TabBarStyle.glass
   var appearance = TabBarAppearance.dark
   var backdrop = TabBarBackdrop.blur
   var cardPadding = 6
@@ -147,11 +146,11 @@ struct TabBarConfig: Equatable {
 }
 
 extension TabBarConfig {
-  /// Whether the change from old changes the window area or the kind of bars: the bars are then rebuilt and the
-  /// views laid out again. Other changes only redraw the bars.
+  /// Whether the change from old changes the window area or the bars: the bars are then rebuilt and the views laid
+  /// out again. Other changes only redraw the bars.
   func needsRebuild(from old: TabBarConfig) -> Bool {
     enabled != old.enabled || height != old.height || offset != old.offset
       || cardPadding != old.cardPadding
-      || style != old.style || backdrop != old.backdrop
+      || backdrop != old.backdrop
   }
 }

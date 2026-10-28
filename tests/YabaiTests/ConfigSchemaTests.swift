@@ -58,7 +58,6 @@ private let configChoices: [ChoiceRow] = [
   ChoiceRow(option: "mouse_action1", expected: [MouseAction.move, .resize].map(\.rawValue)),
   ChoiceRow(option: "mouse_action2", expected: [MouseAction.move, .resize].map(\.rawValue)),
   ChoiceRow(option: "mouse_drop_action", expected: [MouseAction.swap, .stack].map(\.rawValue)),
-  ChoiceRow(option: "tab_bar_style", expected: TabBarStyle.allCases.map(\.rawValue)),
   ChoiceRow(option: "tab_bar_appearance", expected: TabBarAppearance.allCases.map(\.rawValue)),
   ChoiceRow(option: "tab_bar_backdrop", expected: TabBarBackdrop.allCases.map(\.rawValue)),
   // NOTE: `focus_follows_mouse` takes `off` for the disabled mode, whose raw value is `disabled`.

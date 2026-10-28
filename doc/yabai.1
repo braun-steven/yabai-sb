@@ -432,6 +432,12 @@ Draw a tab bar on top of every tabbed container, like the tabbed layout of i3. E
 .br
 Each tab shows the title of a window, and clicking a tab focuses that window.
 .br
+Tabs are drawn in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch.
+.br
+Glass tabs use native AppKit buttons with hover and press feedback and accessible titles and selection state. Default text colors adapt to the appearance; configured text colors override them. Reduce Motion disables transitions, and Increase Contrast adds outlines and stronger default text.
+.br
+The bar uses dark glass by default; \fBtab_bar_appearance\fP can follow the system appearance instead. A \fBtab_bar_\(rs*_color\fP background color that was not configured is applied with reduced opacity (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given, except that Reduce Transparency makes the backing tints opaque.
+.br
 The windows of the container are shrunk by \fBtab_bar_height\fP to make room for the bar.
 .RE
 .sp
@@ -449,7 +455,7 @@ A negative value moves the windows up under the bar. The windows always keep at 
 .sp
 \fBtab_bar_backdrop\fP [\fIoff|glass|blur\fP]
 .RS 4
-Backdrop card of the \fIglass\fP tab bar style. Default is \fIblur\fP.
+Backdrop card of the tab bar. Default is \fIblur\fP.
 .br
 The card is a rounded surface behind the whole tabbed container that holds the bar at its top and the active window below it, so the wallpaper never shows between the bar and the window.
 .br
@@ -457,7 +463,7 @@ The card hides the other windows of the container. The bar keeps its Liquid Glas
 .br
 \fIblur\fP uses the native material for backgrounds beneath windows, with a neutral color that follows \fBtab_bar_appearance\fP. \fIglass\fP draws the whole card in Liquid Glass, and \fIoff\fP draws no card, so the bar floats above the windows in its own track.
 .br
-Cards have a subtle outline that becomes stronger with Increase Contrast. The card is never drawn for the \fIi3\fP style.
+Cards have a subtle outline that becomes stronger with Increase Contrast.
 .RE
 .sp
 \fBtab_bar_backdrop_color\fP [\fI0xAARRGGBB\fP]
@@ -481,24 +487,11 @@ The backdrop card is rounded with this radius plus \fBtab_bar_card_padding\fP, s
 Windows with a toolbar have a larger radius in macOS 26 (about 26).
 .RE
 .sp
-\fBtab_bar_style\fP [\fIglass|i3\fP]
-.RS 4
-Look of the tab bar. Default is \fIglass\fP.
-.br
-\fIglass\fP draws the window tabs in the Liquid Glass material of macOS 26: the tabs sit in a translucent rounded track tinted with the unfocused color, and the active tab is a glass pill tinted with the focused or inactive color that slides to the new tab on a switch.
-.br
-The bar uses dark glass by default; \fBtab_bar_appearance\fP can follow the system appearance instead. A \fBtab_bar_\(rs*\fIcolor\fP background color that was not configured is applied with reduced opacity in \fIglass\fP (40% for the track, 80% for the pill), so the glass stays visible. A configured color is used as given, except that Reduce Transparency makes the backing tints opaque.
-.br
-Glass tabs use native AppKit buttons with hover and press feedback and accessible titles and selection state. Default text colors adapt to the appearance; configured text colors override them. Reduce Motion disables transitions, and Increase Contrast adds outlines and stronger default text.
-.br
-\fIi3\fP draws flat tabs side by side in the \fBtab_bar\fP\(rs*_color\fP colors.
-.RE
-.sp
 \fBtab_bar_appearance\fP [\fIdark|system\fP]
 .RS 4
-Appearance of glass tab bars. Default is \fIdark\fP, including when macOS uses light mode.
+Appearance of the tab bar. Default is \fIdark\fP, including when macOS uses light mode.
 .br
-\fIsystem\fP follows the macOS appearance for the controls and backdrop, with adaptive default materials and glass tints. Configured background and text colors are retained. This option does not affect the \fIi3\fP style.
+\fIsystem\fP follows the macOS appearance for the controls and backdrop, with adaptive default materials and glass tints. Configured background and text colors are retained.
 .RE
 .sp
 \fBtab_bar_font\fP [\fI<family>:<size>\fP]

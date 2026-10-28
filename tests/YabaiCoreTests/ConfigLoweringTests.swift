@@ -35,7 +35,6 @@ private let optionSamples: [OptionSample] = [
   OptionSample(name: .tabBarOffset, toml: "0", words: ["0"]),
   OptionSample(name: .tabBarFont, toml: "\"system:12\"", words: ["system:12"]),
   OptionSample(name: .tabBarIcons, toml: "false", words: ["off"]),
-  OptionSample(name: .tabBarStyle, toml: "\"i3\"", words: ["i3"]),
   OptionSample(name: .tabBarAppearance, toml: "\"system\"", words: ["system"]),
   OptionSample(name: .tabBarBackdrop, toml: "\"blur\"", words: ["blur"]),
   OptionSample(name: .tabBarCardPadding, toml: "6", words: ["6"]),

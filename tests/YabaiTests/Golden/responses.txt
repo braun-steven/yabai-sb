@@ -36,8 +36,6 @@
 {"entries":[{"command":1,"data":"system:12\n","format":"text","type":"output"}],"ok":true}
 ### 83 config tab_bar_icons
 {"entries":[{"command":1,"data":"on\n","format":"text","type":"output"}],"ok":true}
-### 86 config tab_bar_style
-{"entries":[{"command":1,"data":"glass\n","format":"text","type":"output"}],"ok":true}
 ### 85 config tab_bar_appearance
 {"entries":[{"command":1,"data":"dark\n","format":"text","type":"output"}],"ok":true}
 ### 85 config tab_bar_backdrop
@@ -156,8 +154,6 @@
 {"entries":[{"command":1,"data":"12\n","format":"text","type":"output"}],"ok":true}
 ### 24 config tab_bar_height 30
 {"entries":[],"ok":true}
-### 24 config tab_bar_style i3
-{"entries":[],"ok":true}
 ### 24 config tab_bar_backdrop blur
 {"entries":[],"ok":true}
 ### 24 config tab_bar_focused_color 0xff00ff00
@@ -166,8 +162,6 @@
 {"entries":[],"ok":true}
 ### 83 config tab_bar_height
 {"entries":[{"command":1,"data":"30\n","format":"text","type":"output"}],"ok":true}
-### 83 config tab_bar_style
-{"entries":[{"command":1,"data":"i3\n","format":"text","type":"output"}],"ok":true}
 ### 85 config tab_bar_backdrop
 {"entries":[{"command":1,"data":"blur\n","format":"text","type":"output"}],"ok":true}
 ### 91 config tab_bar_focused_color
@@ -280,14 +274,14 @@
 {"entries":[{"command":1,"message":"unknown value 'abc' given to command 'window_border_width' for domain 'config'; expected a number above 0.0\n","type":"error"}],"ok":false}
 ### 196 config insert_feedback_color 0
 {"entries":[{"command":1,"message":"unknown value '0' given to command 'insert_feedback_color' for domain 'config'; expected a non-zero hex color such as 0xffe1e3e4\n","type":"error"}],"ok":false}
-### 170 config tab_bar_style bogus
-{"entries":[{"command":1,"message":"unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3\n","type":"error"}],"ok":false}
+### 182 config tab_bar_backdrop frosted
+{"entries":[{"command":1,"message":"unknown value 'frosted' given to command 'tab_bar_backdrop' for domain 'config'; expected one of: off, glass, blur\n","type":"error"}],"ok":false}
 ### 119 config --space nolabel window_gap
 {"entries":[{"command":1,"message":"value 'nolabel' is not a valid option for SPACE_SEL\n","type":"error"}],"ok":false}
 ### 106 config --check /nonexistent
 {"entries":[{"command":1,"message":"cannot read config file '/nonexistent'\n","type":"error"}],"ok":false}
-### 2287 config --dump
-{"entries":[{"command":1,"data":"[daemon]\nauto_reload = true\nload_scripting_addition = false\n\n[config]\ndebug_output = false # default\nmouse_follows_focus = false # default\nfocus_follows_mouse = \"off\" # default\ndisplay_arrangement_order = \"default\" # default\nbuiltin_display_last = false # default\nwindow_origin_display = \"focused\" # override\nscratchpad_exclusive = true # override\nscratchpad_raise = false # default\nscratchpad_below = false # default\nskip_window_focus_animation = false # default\nwindow_shadow = \"on\" # default\ntree_default_orientation = \"vertical\" # override\ntree_workspace_layout = \"tabbed\" # override\ntree_autotiling = true # override\nfocus_wrapping = \"force\" # override\nspace_auto_back_and_forth = false # default\nmouse_modifier = \"ctrl\" # override\nmouse_action1 = \"resize\" # override\nmouse_action2 = \"move\" # override\nmouse_drop_action = \"stack\" # override\nmouse_drag_split = false # default\nwindow_border = true # override\nwindow_border_hide_single = false # default\ntab_bar = true # default\ntab_bar_icons = true # default\ntab_bar_style = \"i3\" # override\ntab_bar_appearance = \"dark\" # default\ntab_bar_backdrop = \"blur\" # default\nwindow_border_width = 2.0 # override\nactive_window_border_color = 0xff00ff00 # override\nnormal_window_border_color = 0x00000000 # override\ntab_bar_height = 30 # override\ntab_bar_offset = 1000 # override\ntab_bar_card_padding = 6 # default\ntab_bar_window_radius = 16 # default\ntab_bar_focused_color = 0xff00ff00 # override\ntab_bar_focused_text_color = 0xffffffff # default\ntab_bar_inactive_color = 0xff5f676a # default\ntab_bar_inactive_text_color = 0xffffffff # default\ntab_bar_unfocused_color = 0xff222222 # default\ntab_bar_unfocused_text_color = 0xff888888 # default\ntab_bar_backdrop_color = 0xff48484a # default\ninsert_feedback_color = 0xff112233 # override\nscratchpad_grid = \"off\" # default\nspace_layout = [] # default\ntab_bar_font = \"Menlo:14\" # override\nexternal_bar = \"main:1:2\" # override\ntop_padding = 10 # override\nbottom_padding = 12 # override\nleft_padding = 5 # override\nright_padding = 6 # override\nwindow_gap = 8 # override\nlayout = \"tree\" # default\nauto_padding = false # default\n","format":"text","type":"output"}],"ok":true}
+### 2252 config --dump
+{"entries":[{"command":1,"data":"[daemon]\nauto_reload = true\nload_scripting_addition = false\n\n[config]\ndebug_output = false # default\nmouse_follows_focus = false # default\nfocus_follows_mouse = \"off\" # default\ndisplay_arrangement_order = \"default\" # default\nbuiltin_display_last = false # default\nwindow_origin_display = \"focused\" # override\nscratchpad_exclusive = true # override\nscratchpad_raise = false # default\nscratchpad_below = false # default\nskip_window_focus_animation = false # default\nwindow_shadow = \"on\" # default\ntree_default_orientation = \"vertical\" # override\ntree_workspace_layout = \"tabbed\" # override\ntree_autotiling = true # override\nfocus_wrapping = \"force\" # override\nspace_auto_back_and_forth = false # default\nmouse_modifier = \"ctrl\" # override\nmouse_action1 = \"resize\" # override\nmouse_action2 = \"move\" # override\nmouse_drop_action = \"stack\" # override\nmouse_drag_split = false # default\nwindow_border = true # override\nwindow_border_hide_single = false # default\ntab_bar = true # default\ntab_bar_icons = true # default\ntab_bar_appearance = \"dark\" # default\ntab_bar_backdrop = \"blur\" # default\nwindow_border_width = 2.0 # override\nactive_window_border_color = 0xff00ff00 # override\nnormal_window_border_color = 0x00000000 # override\ntab_bar_height = 30 # override\ntab_bar_offset = 1000 # override\ntab_bar_card_padding = 6 # default\ntab_bar_window_radius = 16 # default\ntab_bar_focused_color = 0xff00ff00 # override\ntab_bar_focused_text_color = 0xffffffff # default\ntab_bar_inactive_color = 0xff5f676a # default\ntab_bar_inactive_text_color = 0xffffffff # default\ntab_bar_unfocused_color = 0xff222222 # default\ntab_bar_unfocused_text_color = 0xff888888 # default\ntab_bar_backdrop_color = 0xff48484a # default\ninsert_feedback_color = 0xff112233 # override\nscratchpad_grid = \"off\" # default\nspace_layout = [] # default\ntab_bar_font = \"Menlo:14\" # override\nexternal_bar = \"main:1:2\" # override\ntop_padding = 10 # override\nbottom_padding = 12 # override\nleft_padding = 5 # override\nright_padding = 6 # override\nwindow_gap = 8 # override\nlayout = \"tree\" # default\nauto_padding = false # default\n","format":"text","type":"output"}],"ok":true}
 ### 24 rule --add app=^Calculator$ manage=off
 {"entries":[],"ok":true}
 ### 24 rule --add label=term app=Terminal sticky=on

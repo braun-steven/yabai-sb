@@ -28,7 +28,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Config *window_border_hide_single* hides the border of a window that is alone on its space
 - Config *tab_bar_offset* sets the space between a tab bar and the windows of its container; a negative value lets the windows reach under the bar
 - Config *tab_bar_icons* draws the application icon left of the title in each window tab
-- Config *tab_bar_style* draws tab bars in the Liquid Glass material of macOS 26 (`glass`, default), tinted with the *tab_bar_\*_color* colors, or as flat i3 tabs (`i3`). *tab_bar_font* accepts `system:<size>`, which is the new default
+- Tab bars are drawn in the Liquid Glass material of macOS 26, tinted with the *tab_bar_\*_color* colors. *tab_bar_font* accepts `system:<size>`, which is the new default
 - Command *window --focus* and *window --warp* with a direction behave like i3's *focus* and *move*, *window --focus parent|child* selects containers, and closing the focused window focuses the previous window in its container
 - Command *query --tree* prints the container tree of a space, and *query --windows* reports *split-type*, *stack-index* and the zoom state from the tree
 - Option *--generate-completion-script zsh|bash|fish* prints a shell completion script for the options of *yabai*
@@ -123,11 +123,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The float config option *window_border_width* fails with an unknown value for *nan* and *inf*; before, *window_border_width inf* was accepted
 - In the tree layout, a gap between the windows of a split is at most as long as an average window, so the gaps of a split only a few gaps long shrink instead of giving its windows a negative size; e.g. a 22 pixel high split of three windows with *window_gap 12* was laid out at heights 0, 0 and -2, and is now 5, 5 and 4 with 4 pixel gaps
 - IPC: a message longer than 1 MiB is rejected before it is read, a malformed or incomplete message is answered with *invalid message*, and *yabai -m* gives up after 30 seconds without a response; set *YABAI_CLIENT_TIMEOUT* to change the wait
-- Error messages list the expected values: an unknown value of a config option, *window* or *space* command names what it takes, e.g. `unknown value 'bogus' given to command 'tab_bar_style' for domain 'config'; expected one of: glass, i3`
+- Error messages list the expected values: an unknown value of a config option, *window* or *space* command names what it takes, e.g. `unknown value 'bogus' given to command 'tab_bar_backdrop' for domain 'config'; expected one of: off, glass, blur`
 - Setting a config option to the value it already has changes nothing: a space keeps its tree when *config layout* or *space --layout* sets the layout it has (before, the tree was cleared, so tabbed containers and splits were flattened), and a repeated option, gap, border or tab bar setting does no work
 - When both `$XDG_CONFIG_HOME/yabai/yabai.toml` and `~/.config/yabai/yabai.toml` exist, the daemon warns and sends a notification naming the file it uses and the ones it ignores; the file it loads is logged at startup in every case
 
 ### Removed
+- Breaking: config *tab_bar_style* and the flat i3 tab bar; tab bars always use the Liquid Glass renderer, and a *yabai.toml* that sets *tab_bar_style* fails its check
 - `scripts/install.sh` and the *publish* recipe, which installed upstream's release; use the Homebrew tap
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*
 - Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property

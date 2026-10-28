@@ -72,7 +72,8 @@ extension WindowLayer {
   var window: SortedDictionary<WindowID, Window> = [:]
   var managedWindows: [WindowID: View] = [:]
   // NOTE: The tab bar registry is owned and accessed only by the event loop thread. The mouse event tap reads the
-  // separate `tabBarHits` snapshot in `TabBar.swift`; bars are embedded in their owner, which redraws them on changes.
+  // separate `tabBarHits` snapshot in `TabBarGlass.swift`; bars are embedded in their owner, which redraws them on
+  // changes.
   var tabBars: OrderedSet<TabBar> = []
   // NOTE: The focused window, the window before it, a pending focus request and the lost focus events live in
   // FocusState (FocusState.swift).

@@ -62,7 +62,7 @@ point below was learned the hard way; read it before running anything live.
   .lines)`, or the placements of a headless flush with `.descriptionLines` (`tests/YabaiTestSupport/Snapshotting.swift`).
   A snapshot without a trailing closure is recorded into the test source on the first run (which fails once); check
   every recorded tree and frame by hand before committing. After an intended change, re-record with
-  `SNAPSHOT_TESTING_RECORD=all swift test --filter <suite>` (inline and image snapshots; each recorded one fails),
+  `SNAPSHOT_TESTING_RECORD=all swift test --filter <suite>` (inline snapshots; each recorded one fails),
   run again without it, and review the diff. With `autoPadding` on, a view lays itself out again in
   the headless display frame, replacing the area the fixture set.
 - Window command tests (`tests/YabaiTests/WindowCommandTests.swift`) send `window …` messages through
@@ -87,8 +87,8 @@ point below was learned the hard way; read it before running anything live.
 - `View(sid:)` leaves `isGapEnabled` and `isPaddingEnabled` off (`View.create` turns them on): set both before testing
   gaps or padding of a fixture view, or the spacing silently has no effect.
 - Layout property tests (`tests/YabaiTests/LayoutTests.swift`) lay out random `TreeModel` trees with random areas,
-  gaps and tab bar settings and check the areas (`layoutViolations`). Set `tab_bar_style` and the other bar values
-  explicitly: the default glass card insets tabbed containers.
+  gaps and tab bar settings and check the areas (`layoutViolations`). Set the tab bar values explicitly: the
+  default backdrop card insets tabbed containers.
 - Tree property tests (`tests/YabaiTests/TreePropertyTests.swift`) apply random operations to a tree and check its
   invariants after every step. Compare trees with `treeDump` and `expectNoDifference`. A failure prints a seed: add
   `@Test(.fixedSeed("…"))` to replay it. Each run draws a new seed, so a rare failure can pass the first runs: run a
@@ -110,15 +110,11 @@ point below was learned the hard way; read it before running anything live.
   `DisplayManagerTests`; `GridTests.swift` and `AreaTests.swift` in YabaiCore). Keep the
   decisions of window-server code in such helpers (`Grid.frame`, `Area.closest`, `Border.isEnabled`/`BorderShape`,
   `DisplayManager.orderedBuiltinLast`).
-- Image snapshots (`TabBarTests.titlesDrawnIntoTabs`) are PNGs in `tests/YabaiTests/__Snapshots__/<test file>/`,
-  compared with `perceptualPrecision: 0.98`. The first run records and fails; look at the image before committing.
-  Text rendering depends on the OS build: when an update changes it, disable that test and record it again
-  (`SNAPSHOT_TESTING_RECORD=all`).
 - Exit tests (`#expect(processExitsWith: .failure)`, `WMIsolationTests`) run their body in a child test process, only
   where a trap is the contract (`WM.assumeIsolated` off yabai.wm).
 - Tree tests (`tests/YabaiTests/TreeTests.swift`) build containers with `Con(layout:)`, `treeTestLeaf` and
   `treeTestSplit` (`tests/YabaiTests/TreeFixtures.swift`); the border tests use these fixtures too. In tests a tab
-  bar has no glass panel, so its `cardID` is nil.
+  bar has no panel, so its `cardID` is nil.
 - Independent cases are parameterized: `@Test(arguments:)` over a typed table of rows (`windowCommandRows` in
   `MessageTests.swift`), so each failing row shows its arguments and the others still run. In a `@WM` suite the
   table is a `nonisolated static let`.
@@ -316,7 +312,7 @@ Rules for the user's machine:
   is hidden, and `.stationary` or tag bit 7 (`SLSSetWindowTags`) stays on screen unscaled over the overview. A
   transient panel stays on its space across space switches, but ordering it out and in again moves it to the active
   space, so it must be moved back after each order.
-  A raw `SLSNewWindow` window at layer 0 (the i3 tab bar, borders) is not shown at all, so it needs nothing. The
+  A raw `SLSNewWindow` window at layer 0 (borders) is not shown at all, so it needs nothing. The
   collection behavior does not show in the window tags (`SLSGetWindowTags` reads the same for all of them).
 - Posted input (2026-10-23, `mouse trusted` true): keep a scratch key helper that refuses keys while iTerm2 is frontmost,
   since keys typed into the agent's terminal reach its prompt. Focus the test space before creating windows

@@ -19,7 +19,6 @@ public enum ConfigCommand {
     case tabBarOffset = "tab_bar_offset"
     case tabBarFont = "tab_bar_font"
     case tabBarIcons = "tab_bar_icons"
-    case tabBarStyle = "tab_bar_style"
     case tabBarAppearance = "tab_bar_appearance"
     case tabBarBackdrop = "tab_bar_backdrop"
     case tabBarCardPadding = "tab_bar_card_padding"

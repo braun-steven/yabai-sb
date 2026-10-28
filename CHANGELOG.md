@@ -133,6 +133,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- The scripting addition's window focus message, which nothing sent and whose Dock function is not found on macOS 27 (payload 2.1.39)
 - Repeated rule labels in a config file keep their original index during reload comparison, matching IPC replacement. An unchanged file no longer reports a rule override or unnecessarily replaces its rules.
 - A new window that a rule moves to another space no longer pulls the focus to the space it opened on unless that space is focused; an application's window opened on a visible space of another display (e.g. ChatGPT's untitled helper window while typing) moved the focus to that display
 - *focus_follows_mouse* no longer focuses the windows or displays under the pointer while Mission Control is open: an opening that macOS did not report (e.g. through the keyboard shortcut on macOS 27) is found from its overlay before a change of focus

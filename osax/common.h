@@ -4,7 +4,7 @@
 #define SA_SOCKET_PATH_FMT "/tmp/yabai-sa_%s.socket"
 #define SA_SOCKET_BUFF_LEN 0x1000
 
-#define OSAX_VERSION "2.1.38"
+#define OSAX_VERSION "2.1.39"
 
 // Optional one-byte reply for non-handshake commands. Legacy clients already
 // read and discard it; legacy payloads close without a reply. ACCEPTED means
@@ -21,11 +21,9 @@
 #define OSAX_ATTRIB_ADD_SPACE 0x04
 #define OSAX_ATTRIB_REM_SPACE 0x08
 #define OSAX_ATTRIB_MOV_SPACE 0x10
-#define OSAX_ATTRIB_SET_WINDOW 0x20
+// 0x20 was setFrontWindow, behind window focus; removed, not reused.
 #define OSAX_ATTRIB_ANIM_TIME 0x40
 
-// SET_WINDOW omitted: its only caller is behind a disabled #if in
-// window_manager.c
 #define OSAX_ATTRIB_ALL                                                        \
   (OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE |        \
    OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
@@ -41,7 +39,7 @@ enum sa_opcode {
   SA_OPCODE_WINDOW_LAYER = 0x09,
   SA_OPCODE_WINDOW_STICKY = 0x0A,
   SA_OPCODE_WINDOW_SHADOW = 0x0B,
-  SA_OPCODE_WINDOW_FOCUS = 0x0C,
+  // 0x0C was window focus; removed, not reused.
   SA_OPCODE_WINDOW_SCALE = 0x0D,
   // 0x0E and 0x0F were the proxy swaps of window animations; removed, not
   // reused.

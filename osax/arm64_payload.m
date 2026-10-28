@@ -28,8 +28,6 @@ uint64_t get_remove_space_offset(void) { return 0x150000; }
 
 uint64_t get_move_space_offset(void) { return 0x150000; }
 
-uint64_t get_set_front_window_offset(void) { return 0x10000; }
-
 const char *get_dock_spaces_pattern(void) {
   // Pulling out of doBindingCommand:display (search decompiled text in ghidra)
   // function.
@@ -61,9 +59,4 @@ const char *get_remove_space_pattern(void) {
 const char *get_move_space_pattern(void) {
   return "7F 23 03 D5 E3 03 1E AA ?? ?? ?? 97 FE 03 03 AA FD 7B ?? A9 FD ?? ?? "
          "91 F6 03 14 AA";
-}
-
-const char *get_set_front_window_pattern(void) {
-  return "21 ?? ?? 34 7F 23 03 D5 FF ?? 01 D1 F6 ?? 04 A9 F4 ?? 05 A9 FD ?? 06 "
-         "A9 FD ?? 01 91";
 }

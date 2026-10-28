@@ -426,12 +426,6 @@ final class ScriptingAddition: Sendable {
     return payload.send(SA_OPCODE_WINDOW_SHADOW)
   }
 
-  @discardableResult func focusWindow(_ wid: WindowID) -> Bool {
-    var payload = SAPayload()
-    payload.pack(wid)
-    return payload.send(SA_OPCODE_WINDOW_FOCUS)
-  }
-
   @discardableResult func scaleWindow(
     _ wid: WindowID, x: Float, y: Float, width: Float, height: Float
   ) -> Bool {

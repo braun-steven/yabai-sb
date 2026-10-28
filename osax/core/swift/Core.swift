@@ -28,7 +28,6 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
   case 6, 16, 19: expected = 12
   case 9: expected = 8
   case 10, 11: expected = 5
-  case 12: expected = 4
   case 13: expected = 20
   case 17, 18, 20:
     if opcode == 18 && cursor.take(UInt64.self) == nil { return false }

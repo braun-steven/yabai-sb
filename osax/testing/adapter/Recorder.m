@@ -108,8 +108,6 @@ uint8_t sa_native_dispatch(const uint8_t *message, size_t length) {
   ++commands;
   record(message, length);
   pthread_mutex_unlock(&lock);
-  if (message[0] == SA_OPCODE_WINDOW_FOCUS)
-    return SA_REPLY_UNSUPPORTED;
   return SA_REPLY_ACCEPTED;
 }
 

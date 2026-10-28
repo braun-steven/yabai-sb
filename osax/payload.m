@@ -84,7 +84,6 @@ static id dp_desktop_picture_manager;
 static uint64_t add_space_fp;
 static uint64_t remove_space_fp;
 static uint64_t move_space_fp;
-static uint64_t set_front_window_fp;
 static uint64_t animation_time_addr;
 static bool animation_time_patched;
 
@@ -363,19 +362,6 @@ static void init_instances(void) {
           baseaddr, move_space_addr, move_space_addr - baseaddr);
     move_space_fp = (uint64_t)ptrauth_sign_unauthenticated(
         (void *)move_space_addr, ptrauth_key_asia, 0);
-  }
-
-  uint64_t set_front_window_addr = hex_find_seq(
-      baseaddr + get_set_front_window_offset(), get_set_front_window_pattern());
-  if (set_front_window_addr == 0x0) {
-    NSLog(@"[yabai-sa] failed to get pointer to setFrontWindow function..");
-    set_front_window_fp = 0;
-  } else {
-    NSLog(
-        @"[yabai-sa] (0x%llx) setFrontWindow found at address 0x%llX (0x%llx)",
-        baseaddr, set_front_window_addr, set_front_window_addr - baseaddr);
-    set_front_window_fp = (uint64_t)ptrauth_sign_unauthenticated(
-        (void *)set_front_window_addr, ptrauth_key_asia, 0);
   }
 
   animation_time_addr = hex_find_seq(baseaddr + get_fix_animation_offset(),
@@ -818,27 +804,6 @@ static bool do_window_sticky(char *message) {
   }
 }
 
-typedef void (*focus_window_call)(ProcessSerialNumber psn, uint32_t wid);
-static bool do_window_focus(char *message) {
-  if (set_front_window_fp == 0)
-    return false;
-
-  int window_connection;
-  ProcessSerialNumber window_psn;
-
-  uint32_t wid;
-  unpack(wid);
-
-  if (SLSGetWindowOwner(SLSMainConnectionID(), wid, &window_connection) !=
-      kCGErrorSuccess)
-    return false;
-  if (SLSGetConnectionPSN(window_connection, &window_psn) != kCGErrorSuccess)
-    return false;
-
-  ((focus_window_call)set_front_window_fp)(window_psn, wid);
-  return true;
-}
-
 static bool do_window_shadow(char *message) {
   uint32_t wid;
   unpack(wid);
@@ -999,8 +964,6 @@ uint32_t sa_native_attributes(void) {
     attributes |= OSAX_ATTRIB_REM_SPACE;
   if (move_space_fp)
     attributes |= OSAX_ATTRIB_MOV_SPACE;
-  if (set_front_window_fp)
-    attributes |= OSAX_ATTRIB_SET_WINDOW;
   if (animation_time_patched)
     attributes |= OSAX_ATTRIB_ANIM_TIME;
   return attributes;
@@ -1028,9 +991,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
     required =
         OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_MOV_SPACE;
     break;
-  case SA_OPCODE_WINDOW_FOCUS:
-    required = OSAX_ATTRIB_SET_WINDOW;
-    break;
   default:
     break;
   }
@@ -1054,8 +1014,6 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
       return do_window_sticky(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_SHADOW:
       return do_window_shadow(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
-    case SA_OPCODE_WINDOW_FOCUS:
-      return do_window_focus(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_SCALE:
       return do_window_scale(message) ? SA_REPLY_ACCEPTED : SA_REPLY_FAILED;
     case SA_OPCODE_WINDOW_ORDER:

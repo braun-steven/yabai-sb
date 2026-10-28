@@ -1071,6 +1071,17 @@ Retrieve the container tree of a \fItree\fP space, like i3\(cqs \fIget_tree\fP. 
 .br
 Each node has a \fItype\fP (\fIworkspace\fP, \fIcontainer\fP or \fIwindow\fP), its \fIlayout\fP, its \fIpercent\fP share of the parent, the \fIwindow\fP id of a window, its \fIframe\fP, whether it is \fIfocused\fP, \fIselected\fP or \fIvisible\fP (not in a hidden tab), and its child \fInodes\fP.
 .RE
+.sp
+\fB\-\-scripting\-addition\fP
+.RS 4
+Retrieve the state of the scripting addition. Takes no properties or arguments.
+.br
+\fIembedded\fP is the payload version of this binary, \fIinstalled\fP the one in /Library/ScriptingAdditions and \fIloaded\fP the one that answers in Dock (\fInull\fP when none is installed or none answers); \fIis\-current\fP is true when the loaded payload is the embedded one.
+.br
+\fIcapabilities\fP tells which Dock functions the loaded payload found. Without \fIanimation\-patch\fP the space animation is not removed, which happens on a Dock build the payload has not validated: \fIdock\-uuid\fP is the LC_UUID of the running Dock and \fIdock\-build\-known\fP whether the payload validated it (\fInull\fP for a payload older than 2.1.42).
+.br
+\fIsip\-compatible\fP is true when System Integrity Protection has its filesystem protections and debugging restrictions disabled.
+.RE
 .SS "ARGUMENT"
 .sp
 \fB\-\-display\fP [\fI<DISPLAY_SEL>\fP]
@@ -1186,6 +1197,32 @@ WINDOW
     "is\-floating": bool,
     "is\-sticky": bool,
     "is\-grabbed": bool
+}
+.fam
+.fi
+.if n .RE
+.sp
+SCRIPTING ADDITION
+.sp
+.if n .RS 4
+.nf
+.fam C
+{
+    "embedded": string,
+    "installed": string,
+    "loaded": string,
+    "is\-current": bool,
+    "capabilities": object {
+        "dock\-spaces": bool,
+        "desktop\-picture\-manager": bool,
+        "add\-space": bool,
+        "remove\-space": bool,
+        "move\-space": bool,
+        "animation\-patch": bool
+    },
+    "dock\-uuid": string,
+    "dock\-build\-known": bool,
+    "sip\-compatible": bool
 }
 .fam
 .fi

@@ -11,12 +11,14 @@ public enum QueryCommand: Equatable, Sendable {
   case spaces(properties: Set<SpaceInfo.Key>, target: Target)
   case windows(properties: Set<WindowInfo.Key>, target: Target)
   case tree(space: SpaceSelector?)
+  case scriptingAddition
 
   private enum Name: String, CaseIterable, Equatable {
     case displays = "--displays"
     case spaces = "--spaces"
     case windows = "--windows"
     case tree = "--tree"
+    case scriptingAddition = "--scripting-addition"
   }
 
   private enum TargetOption: String, CaseIterable {
@@ -53,6 +55,8 @@ public enum QueryCommand: Equatable, Sendable {
         }
         command = .tree(space: nil)
       }
+    case .scriptingAddition:
+      command = .scriptingAddition
     }
     if let extra = message.take() {
       throw CommandError(

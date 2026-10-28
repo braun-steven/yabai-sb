@@ -22,7 +22,8 @@ func statistics(_ samples: [UInt64]) -> [String: Double] {
 guard CommandLine.arguments.count == 1 else { fatalError("usage: osax-benchmark") }
 let core = Core()
 sa_test_reset()
-let messages = Array(fixtures().dropFirst())
+// The handshake (1) and Dock info (21) are answered by the core and never dispatched.
+let messages = fixtures().filter { $0[0] != 1 && $0[0] != 21 }
 let iterations = 20_000
 var dispatchSamples: [UInt64] = []
 dispatchSamples.reserveCapacity(iterations)

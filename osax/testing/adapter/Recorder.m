@@ -103,6 +103,10 @@ void sa_test_reset(void) {
 
 uint32_t sa_native_attributes(void) { return OSAX_ATTRIB_ALL; }
 const char *sa_native_version(void) { return "recording"; }
+const char *sa_native_dock_uuid(void) {
+  return "00000000-0000-0000-0000-000000000000";
+}
+bool sa_native_dock_known(void) { return true; }
 uint8_t sa_native_dispatch(const uint8_t *message, size_t length) {
   pthread_mutex_lock(&lock);
   ++commands;

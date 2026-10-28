@@ -22,7 +22,7 @@ public func swiftValidate(_ message: UnsafePointer<UInt8>?, _ length: Int) -> Bo
   guard let opcode = cursor.take(UInt8.self) else { return false }
   let expected: Int
   switch opcode {
-  case 1: expected = 0
+  case 1, 21: expected = 0
   case 2, 3, 4: expected = 8
   case 5: expected = 25
   case 6: expected = 12
@@ -87,6 +87,15 @@ private func transfer(
   return true
 }
 
+/// Writes a handshake or Dock info reply; the daemon reads at most 256 bytes of one.
+private func writeReply(_ fd: Int32, _ response: [UInt8]) -> Bool {
+  guard response.count <= 256 else { return false }
+  var response = response
+  return response.withUnsafeMutableBytes {
+    transfer(fd, $0, writing: true, deadline: nowNS() + 1_000_000_000)
+  }
+}
+
 @_cdecl("sa_swift_serve")
 public func swiftServe(_ fd: Int32) -> Bool {
   let flags = fcntl(fd, F_GETFL)
@@ -110,10 +119,11 @@ public func swiftServe(_ fd: Int32) -> Bool {
         var response = Array(version.utf8) + [0]
         withUnsafeBytes(of: sa_native_attributes()) { response.append(contentsOf: $0) }
         response.append(10)
-        guard response.count <= 256 else { return false }
-        return response.withUnsafeMutableBytes {
-          transfer(fd, $0, writing: true, deadline: nowNS() + 1_000_000_000)
-        }
+        return writeReply(fd, response)
+      }
+      if message[0] == SA_OPCODE_DOCK_INFO.rawValue {
+        let uuid = String(cString: sa_native_dock_uuid())
+        return writeReply(fd, Array(uuid.utf8) + [0, sa_native_dock_known() ? 1 : 0, 10])
       }
       reply = message.withUnsafeBufferPointer { sa_native_dispatch($0.baseAddress, $0.count) }
     }

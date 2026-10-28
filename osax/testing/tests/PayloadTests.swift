@@ -47,11 +47,11 @@ import Testing
   }
 
   // Every fixed-size opcode: lengths 0 to expected-1 are rejected, and so is one byte too many.
-  @Test(arguments: [1, 2, 3, 4, 5, 6, 9, 10, 11, 13] as [UInt8])
+  @Test(arguments: [1, 2, 3, 4, 5, 6, 9, 10, 11, 13, 21] as [UInt8])
   func fixedLengthOpcodesRejectEveryTruncation(opcode: UInt8) throws {
     let expectedLengths: [UInt8: Int] = [
       1: 0, 2: 8, 3: 8, 4: 8, 5: 25, 6: 12, 9: 8,
-      10: 5, 11: 5, 13: 20,
+      10: 5, 11: 5, 13: 20, 21: 0,
     ]
     let message = [opcode] + [UInt8](repeating: 0, count: try #require(expectedLengths[opcode]))
     let core = Core()
@@ -120,6 +120,9 @@ import Testing
       let response = try exchange(core, framed(message), fragment: true)
       if message[0] == 1 {
         #expect(response == Array("recording".utf8) + [0] + packed(sa_native_attributes()) + [10])
+      } else if message[0] == 21 {
+        // The Dock info reply is answered by the core, like the handshake, and dispatches nothing.
+        #expect(response == Array("00000000-0000-0000-0000-000000000000".utf8) + [0, 1, 10])
       } else {
         #expect(response == [UInt8(SA_REPLY_ACCEPTED)])
       }

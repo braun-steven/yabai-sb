@@ -239,3 +239,4 @@ display nolabel --foo
 batch
 query --windows id --window 4242 extra
 query --tree --space recent extra
+query --scripting-addition extra

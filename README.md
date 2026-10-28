@@ -23,6 +23,7 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 - [Space back and forth](#space-back-and-forth)
 - [Automatic padding](#automatic-padding)
 - [macOS 27 support](#macos-27-support)
+- [Scripting addition query](#scripting-addition-query)
 - [Shell completions](#shell-completions)
 - [Swift Regex patterns](#swift-regex-patterns)
 - [Static config file](#static-config-file)
@@ -342,6 +343,14 @@ Window gaps, the menu bar, Dock and `external_bar` reservations are still respec
 
 This fork targets macOS 27 on Apple Silicon. Window notifications and window sub-level queries use the Tahoe-compatible paths rather than falling back to pre-Sequoia behavior. The daemon and client build for arm64, and the injected scripting addition builds for arm64e. There is no configuration switch for older macOS releases or Intel Macs.
 
+### Scripting addition query
+
+`yabai -m query --scripting-addition` reports the scripting addition in one JSON object: the payload versions this binary embeds, that are installed and that Dock runs, which Dock functions the loaded payload found, the running Dock build's UUID and whether the payload has validated it, and whether SIP allows the payload. After a macOS update it tells whether the payload still works without reading Dock's log:
+
+```sh
+yabai -m query --scripting-addition | jq '{loaded, "is-current", "dock-build-known", capabilities}'
+```
+
 ### Shell completions
 
 The options of `yabai` are parsed by [swift-argument-parser](https://github.com/apple/swift-argument-parser), which generates completion scripts for zsh, bash and fish:
@@ -525,10 +534,10 @@ just check-build     # isolated build-system upgrade checks and Swift tests
 
 `just install` builds locally; it does not copy the binary into your PATH. A failed build preserves the last successful `bin/yabai`. Sign a rebuilt binary with your existing signing identity before replacing an installed copy, so macOS preserves its Accessibility permission. `just clean` removes both packages' build products. The package opts into SwiftPM's experimental C-source generation support; see [build details](doc/building.md) and [the live-testing notes](doc/live-testing.md) before deploying a test build; restarting yabai resets container layouts.
 
-The scripting addition uses the Swift core (2.1.37), with private Dock operations in a native
+The scripting addition has a Swift core, with private Dock operations in a native
 adapter. `just osax-test` tests it outside Dock; `just osax-payload` builds the standalone payload
-without injecting it. The unused Objective-C prototype has been removed. See the
-[comparison results and reload procedure](doc/osax-prototypes.md).
+without injecting it, and `yabai -m query --scripting-addition` reports the loaded one. See the
+[boundaries, Dock evidence and reload procedure](doc/osax-prototypes.md).
 
 ## License and Attribution
 

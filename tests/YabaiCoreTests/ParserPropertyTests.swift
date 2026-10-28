@@ -25,7 +25,8 @@ private let enumValues: [String] =
 
 /// Options, selectors and composite values.
 private let otherKeywords: [String] = [
-  "--displays", "--spaces", "--windows", "--tree", "--display", "--space", "--window",
+  "--displays", "--spaces", "--windows", "--tree", "--scripting-addition", "--display", "--space",
+  "--window",
   "--add", "--remove", "--apply", "--list", "--one-shot",
   "on", "off", "prev", "next", "first", "last", "recent", "north", "east", "south", "west",
   "parent", "child",

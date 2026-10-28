@@ -45,7 +45,8 @@ other attribute bits still fail the check.
 
 To add a build after validating it:
 
-1. Read its UUID: `otool -arch arm64e -l /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock | grep -A3 LC_UUID`.
+1. Read its UUID: `yabai -m query --scripting-addition` (`dock-uuid`, with the payload loaded), or without a payload
+   `otool -arch arm64e -l /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock | grep -A3 LC_UUID`.
 2. Confirm the animation pattern and the `0x2f00e400` write against that binary, and record the Dock SHA-256 and build
    number in [osax-prototypes.md](osax-prototypes.md) "Dock inspection and ownership evidence".
 3. Add the UUID to `known_dock_uuids` and bump `OSAX_VERSION` (`osax/common.h`) for the payload change.

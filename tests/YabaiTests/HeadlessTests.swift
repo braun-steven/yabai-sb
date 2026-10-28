@@ -58,6 +58,16 @@ extension DaemonState {
       #expect(log.messages.first?[2] == UInt8(SA_OPCODE_WINDOW_LAYER.rawValue))
     }
 
+    // Headless, the query reports the embedded payload and reaches neither Dock nor the installed bundle.
+    @Test func scriptingAdditionQueryReportsOnlyTheEmbeddedPayload() throws {
+      let response = String(decoding: Golden.run("query --scripting-addition"), as: UTF8.self)
+      let version = String(cString: sa_payload_version())
+      #expect(response.contains("\"embedded\":\"\(version)\""))
+      #expect(response.contains("\"loaded\":null"))
+      #expect(response.contains("\"is-current\":false"))
+      #expect(Headless.drain().messages.isEmpty)
+    }
+
     // A single window is ordered as a one-entry window order list.
     @Test(arguments: [("--raise w1", Int32(1), UInt32(1)), ("--lower", Int32(-1), UInt32(0))])
     func raiseAndLowerSendOneEntryOrderList(command: String, order: Int32, relativeTo: UInt32) {

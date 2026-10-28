@@ -30,6 +30,7 @@ private let queryCommandRows: [(String, QueryCommand)] = [
   ("--windows\0id\0", .windows(properties: [.id], target: .all)),
   ("--tree\0--space\0recent\0", .tree(space: .recent)),
   ("--tree\0", .tree(space: nil)),
+  ("--scripting-addition\0", .scriptingAddition),
 ]
 
 @Test(arguments: queryCommandRows)
@@ -59,6 +60,10 @@ private let queryCommandFailureRows: [(String, String)] = [
   ),
   (
     "--tree\0--window\0", "unknown option '--window' given to command '--tree' for domain 'query'\n"
+  ),
+  (
+    "--scripting-addition\0--space\0",
+    "unknown argument '--space' given to command '--scripting-addition' for domain 'query'\n"
   ),
 ]
 
@@ -140,6 +145,24 @@ private func json(_ value: some Encodable) throws -> String {
   #expect(
     try json(root)
       == "{\"focused\":false,\"frame\":{\"h\":0,\"w\":0,\"x\":0,\"y\":0},\"layout\":\"splith\",\"nodes\":[{\"focused\":true,\"frame\":{\"h\":20,\"w\":10,\"x\":0,\"y\":0},\"layout\":null,\"nodes\":[],\"percent\":0.5,\"selected\":false,\"type\":\"window\",\"visible\":true,\"window\":7}],\"percent\":1,\"selected\":false,\"type\":\"workspace\",\"visible\":true,\"window\":0}"
+  )
+}
+
+@Test func scriptingAdditionInfoEncodesEveryCapabilityAndNullForUnknownValues() throws {
+  let loaded = ScriptingAdditionInfo(
+    embedded: "2.1.42", installed: "2.1.42", loaded: "2.1.42", attributes: 0x5f,
+    dockUUID: "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B", dockBuildKnown: true, sipCompatible: true)
+  #expect(
+    try json(loaded)
+      == "{\"capabilities\":{\"add-space\":true,\"animation-patch\":true,\"desktop-picture-manager\":true,\"dock-spaces\":true,\"move-space\":true,\"remove-space\":true},\"dock-build-known\":true,\"dock-uuid\":\"3BDF6A3B-866B-3C07-920C-E9E7FB57B56B\",\"embedded\":\"2.1.42\",\"installed\":\"2.1.42\",\"is-current\":true,\"loaded\":\"2.1.42\",\"sip-compatible\":true}"
+  )
+  // No payload answers: every capability is false, and what only the payload knows is null.
+  let absent = ScriptingAdditionInfo(
+    embedded: "2.1.42", installed: nil, loaded: nil, attributes: nil, dockUUID: nil,
+    dockBuildKnown: nil, sipCompatible: false)
+  #expect(
+    try json(absent)
+      == "{\"capabilities\":{\"add-space\":false,\"animation-patch\":false,\"desktop-picture-manager\":false,\"dock-spaces\":false,\"move-space\":false,\"remove-space\":false},\"dock-build-known\":null,\"dock-uuid\":null,\"embedded\":\"2.1.42\",\"installed\":null,\"is-current\":false,\"loaded\":null,\"sip-compatible\":false}"
   )
 }
 

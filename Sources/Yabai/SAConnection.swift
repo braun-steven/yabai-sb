@@ -142,6 +142,24 @@ struct SAConnection {
     return nil
   }
 
+  /// The Dock build the payload runs in: its LC_UUID (empty when unreadable) and whether the payload validated it. nil
+  /// for a payload without SA_OPCODE_DOCK_INFO, which rejects the message with one status byte.
+  func dockInfo() -> (uuid: String, known: Bool)? {
+    guard write([1, 0, UInt8(SA_OPCODE_DOCK_INFO.rawValue)]) else { return nil }
+    var response: [UInt8] = []
+    while response.count < 256 {
+      guard let part = read(maximum: 256 - response.count), !part.isEmpty else { return nil }
+      response.append(contentsOf: part)
+      if let zero = response.firstIndex(of: 0), response.count >= zero + 3 {
+        guard response.count == zero + 3, response[zero + 1] <= 1, response.last == 10 else {
+          return nil
+        }
+        return (String(decoding: response[..<zero], as: UTF8.self), response[zero + 1] == 1)
+      }
+    }
+    return nil
+  }
+
   enum Outcome: Equatable {
     case accepted
     case rejected(UInt8)

@@ -81,6 +81,8 @@ static uint64_t remove_space_fp;
 static uint64_t move_space_fp;
 static uint64_t animation_time_addr;
 static bool animation_time_patched;
+static char dock_uuid[sizeof(uuid_string_t)];
+static bool dock_build_known;
 
 static int daemon_sockfd;
 
@@ -263,9 +265,9 @@ static void init_instances(void) {
   if (!text || text_size < 8)
     return;
   uint64_t baseaddr = (uint64_t)header;
-  char dock_uuid[sizeof(uuid_string_t)] = "unreadable";
-  bool known_dock_build =
-      read_image_uuid(header, dock_uuid) && is_known_dock_uuid(dock_uuid);
+  if (!read_image_uuid(header, dock_uuid))
+    dock_uuid[0] = 0;
+  dock_build_known = dock_uuid[0] && is_known_dock_uuid(dock_uuid);
   text_start = (uint64_t)text;
   text_end = text_start + text_size;
   if (text_end < text_start)
@@ -326,9 +328,9 @@ static void init_instances(void) {
     NSLog(@"[yabai-sa] (0x%llx) animation_time_addr found at address 0x%llX "
           @"(0x%llx)",
           baseaddr, animation_time_addr, animation_time_addr - baseaddr);
-    if (!known_dock_build) {
+    if (!dock_build_known) {
       NSLog(@"[yabai-sa] unknown Dock build %s; animation patch skipped",
-            dock_uuid);
+            dock_uuid[0] ? dock_uuid : "(unreadable)");
     } else if (vm_protect(mach_task_self(), page_align(animation_time_addr),
                           vm_page_size, 0,
                           VM_PROT_READ | VM_PROT_WRITE | VM_PROT_COPY) ==
@@ -893,6 +895,10 @@ uint32_t sa_native_attributes(void) {
 }
 
 const char *sa_native_version(void) { return OSAX_VERSION; }
+
+const char *sa_native_dock_uuid(void) { return dock_uuid; }
+
+bool sa_native_dock_known(void) { return dock_build_known; }
 
 uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
   if (!bytes || !length)

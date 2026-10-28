@@ -12,6 +12,10 @@
 uint8_t sa_native_dispatch(const uint8_t *message, size_t length);
 uint32_t sa_native_attributes(void);
 const char *sa_native_version(void);
+// The LC_UUID of the Dock image, empty when unreadable, and whether the payload
+// validated that build (known_dock_uuids in payload.m).
+const char *sa_native_dock_uuid(void);
+bool sa_native_dock_known(void);
 size_t sa_pattern_scan(const uint8_t *bytes, size_t length, const char *pattern,
                        size_t *offsets, size_t capacity);
 bool sa_pattern_find_unique_aligned(const uint8_t *bytes, size_t length,

@@ -97,7 +97,7 @@ final class ScriptingAddition: Sendable {
   static let shared = ScriptingAddition()
 
   // NOTE: The sockets of the payload, resolved once in init and immutable afterwards, so any thread may read them:
-  // socketPath (for the user in $USER) is used by the daemon's event loop (send), sudoSocketPath
+  // socketPath (for the user in $USER) is used by the daemon's event loop (send, info), sudoSocketPath
   // (for the user of SUDO_UID, only when running as root) by --load-sa.
   let socketPath: String?
   private let sudoSocketPath: String?
@@ -166,13 +166,16 @@ final class ScriptingAddition: Sendable {
     return true
   }
 
-  private func check() -> Int32 {
+  /// The version of the payload bundle in /Library/ScriptingAdditions; nil when none is installed.
+  private var installedVersion: String? {
     autoreleasepool {
-      guard isInstalled, let bundle = Bundle(path: SAPath.payload),
-        let version = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-      else { return 1 }
-      return version.utf8.elementsEqual(saVersion.utf8) ? 0 : 1
+      guard isInstalled, let bundle = Bundle(path: SAPath.payload) else { return nil }
+      return bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
     }
+  }
+
+  private func check() -> Int32 {
+    installedVersion?.utf8.elementsEqual(saVersion.utf8) == true ? 0 : 1
   }
 
   @discardableResult private func remove() -> Bool {
@@ -197,14 +200,39 @@ final class ScriptingAddition: Sendable {
     return 0
   }
 
-  private func requestHandshake(socketPath: String) -> (version: [UInt8], attributes: UInt32)? {
+  /// Runs one request on a new connection to the payload at `socketPath`; nil when it does not connect.
+  private func request<T>(socketPath: String, _ body: (SAConnection) -> T?) -> T? {
     var sockfd: Int32 = 0
     guard UnixSocket.open(&sockfd) else { return nil }
     defer { UnixSocket.close(sockfd) }
     guard let connection = SAConnection(fd: sockfd), connection.connect(socketPath) else {
       return nil
     }
-    return connection.handshake()
+    return body(connection)
+  }
+
+  private func requestHandshake(socketPath: String) -> (version: [UInt8], attributes: UInt32)? {
+    request(socketPath: socketPath) { $0.handshake() }
+  }
+
+  /// What `query --scripting-addition` reports. It asks the payload twice (handshake, then Dock build), each with the
+  /// request deadline, like the other payload messages of the event loop. Headless, it reaches neither Dock nor the
+  /// installed bundle.
+  func info() -> ScriptingAdditionInfo {
+    if Headless.isEnabled {
+      return ScriptingAdditionInfo(
+        embedded: saVersion, installed: nil, loaded: nil, attributes: nil, dockUUID: nil,
+        dockBuildKnown: nil, sipCompatible: false)
+    }
+    let handshake = socketPath.flatMap { requestHandshake(socketPath: $0) }
+    let dock =
+      handshake == nil
+      ? nil : socketPath.flatMap { path in request(socketPath: path) { $0.dockInfo() } }
+    return ScriptingAdditionInfo(
+      embedded: saVersion, installed: installedVersion,
+      loaded: handshake.map { String(decoding: $0.version, as: UTF8.self) },
+      attributes: handshake?.attributes, dockUUID: dock.flatMap { $0.uuid.isEmpty ? nil : $0.uuid },
+      dockBuildKnown: dock?.known, sipCompatible: isSIPFriendly)
   }
 
   /// Whether the payload that answers at `socketPath` is the one this build embeds. It waits on the socket, so it runs

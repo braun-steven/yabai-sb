@@ -1,6 +1,8 @@
 import Darwin
 import Dispatch
+import OSAX
 import Testing
+import YabaiCore
 import YabaiTestSupport
 
 @testable import Yabai
@@ -75,6 +77,27 @@ private func withSAPeer(
   }
 }
 
+@Test(.timeLimit(.minutes(1))) func saConnectionReadsDockInfoAndRejectsOtherReplies() throws {
+  let uuid = "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B"
+  let response = Array(uuid.utf8) + [0, 1, 10]
+  try withSAPeer(response, fragment: true) { connection in
+    let result = try #require(connection.dockInfo())
+    #expect(result.uuid == uuid)
+    #expect(result.known)
+  }
+  try withSAPeer([0, 0, 10]) { connection in
+    let result = try #require(connection.dockInfo())
+    #expect(result.uuid.isEmpty)
+    #expect(!result.known)
+  }
+  for count in 0..<response.count {
+    try withSAPeer(Array(response.prefix(count))) { #expect($0.dockInfo() == nil) }
+  }
+  // A payload without the message replies with the invalid status byte.
+  try withSAPeer([UInt8(SA_REPLY_INVALID)]) { #expect($0.dockInfo() == nil) }
+  try withSAPeer(Array(uuid.utf8) + [0, 2, 10]) { #expect($0.dockInfo() == nil) }
+}
+
 @Test(.timeLimit(.minutes(1))) func saConnectionCompletesPartialWritesAndBoundsBackpressure() throws
 {
   var pair: [Int32] = [0, 0]
@@ -133,6 +156,25 @@ private func withSAPeer(
 @Test(arguments: [UInt32(0x00), 0x1E, 0x1B, 0x5B, 0x5E])
 func scriptingAdditionAttributeVerdictFailsWhenARequiredBitIsMissing(attributes: UInt32) {
   #expect(ScriptingAddition.attributeVerdict(attributes) == .unsupported)
+}
+
+// The query's capability bits are the payload's attribute bits, which YabaiCore cannot import.
+private let capabilityAttributes: [(ScriptingAdditionInfo.Capability, Int32)] = [
+  (.dockSpaces, OSAX_ATTRIB_DOCK_SPACES),
+  (.desktopPictureManager, OSAX_ATTRIB_DPPM),
+  (.addSpace, OSAX_ATTRIB_ADD_SPACE),
+  (.removeSpace, OSAX_ATTRIB_REM_SPACE),
+  (.moveSpace, OSAX_ATTRIB_MOV_SPACE),
+  (.animationPatch, OSAX_ATTRIB_ANIM_TIME),
+]
+
+@Test(arguments: capabilityAttributes)
+func scriptingAdditionCapabilityMatchesItsAttributeBit(
+  capability: ScriptingAdditionInfo.Capability, attribute: Int32
+) {
+  #expect(capability.bit == UInt32(attribute))
+  let present = ScriptingAdditionInfo.capabilities(from: UInt32(attribute))
+  #expect(present.filter(\.1).map(\.0) == [capability])
 }
 
 struct TrustedSocketRow: Sendable {

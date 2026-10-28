@@ -9,6 +9,7 @@ public enum JSONResult: Encodable, Sendable {
   case tree(TreeNode)
   case rules([RuleInfo])
   case signals([SignalInfo])
+  case scriptingAddition(ScriptingAdditionInfo)
 
   public func encode(to encoder: any Encoder) throws {
     switch self {
@@ -21,6 +22,7 @@ public enum JSONResult: Encodable, Sendable {
     case .tree(let value): try value.encode(to: encoder)
     case .rules(let value): try value.encode(to: encoder)
     case .signals(let value): try value.encode(to: encoder)
+    case .scriptingAddition(let value): try value.encode(to: encoder)
     }
   }
 }

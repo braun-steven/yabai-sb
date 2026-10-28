@@ -16,7 +16,7 @@ public func fixtures() -> [[UInt8]] {
     [6] + wid + packed(Int32(-1)) + packed(Int32(32)),
     [9] + wid + packed(Int32(-1)), [10] + wid + [0], [11] + wid + [1],
     [13] + wid + packed(Float(0)) + packed(Float(0)) + packed(Float(1920)) + packed(Float(1080)),
-    [17] + list, [18] + sid + list, [20] + packed(Int32(3)) + order + order + order,
+    [17] + list, [18] + sid + list, [20] + packed(Int32(3)) + order + order + order, [21],
   ]
 }
 

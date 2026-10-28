@@ -412,3 +412,5 @@
 {"entries":[{"command":1,"message":"unknown argument 'extra' given to command '--windows' for domain 'query'\n","type":"error"}],"ok":false}
 ### 137 query --tree --space recent extra
 {"entries":[{"command":1,"message":"unknown argument 'extra' given to command '--tree' for domain 'query'\n","type":"error"}],"ok":false}
+### 151 query --scripting-addition extra
+{"entries":[{"command":1,"message":"unknown argument 'extra' given to command '--scripting-addition' for domain 'query'\n","type":"error"}],"ok":false}

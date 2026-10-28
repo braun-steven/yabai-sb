@@ -75,6 +75,8 @@ import YabaiCore
         throw CommandError("the selected space does not use the tree layout.\n")
       }
       rsp.write(json: .tree(tree))
+    case .scriptingAddition:
+      rsp.write(json: .scriptingAddition(ScriptingAddition.shared.info()))
     }
   }
 }

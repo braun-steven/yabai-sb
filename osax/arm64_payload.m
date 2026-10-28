@@ -1,20 +1,17 @@
-#define asm__call_add_space(v0, v1, func)                                      \
-  __asm__("mov x0, %0\n"                                                       \
-          "mov x20, %1\n"                                                      \
-          :                                                                    \
-          : "r"(v0), "r"(v1)                                                   \
-          : "x0", "x20");                                                      \
-  ((void (*)())(func))();
-
-#define asm__call_move_space(v0, v1, v2, v3, func)                             \
-  __asm__("mov x0, %0\n"                                                       \
-          "mov x1, %1\n"                                                       \
-          "mov x2, %2\n"                                                       \
-          "mov x20, %3\n"                                                      \
-          :                                                                    \
-          : "r"(v0), "r"(v1), "r"(v2), "r"(v3)                                 \
-          : "x0", "x1", "x2", "x20");                                          \
-  ((void (*)())(func))();
+//
+// NOTE: addSpace and moveSpace are Swift methods of Dock: self (the display
+// space, or dock.spaces) goes in x20. swift_context lowers to LLVM swiftself,
+// which is x20 on arm64, so the compiler sets every argument register right
+// before the call. Setting x20 in inline asm and calling in a separate
+// statement left the compiler free to reuse those registers in between.
+//
+typedef void (*add_space_call)(id space,
+                               id display_space __attribute__((swift_context)))
+    __attribute__((swiftcall));
+typedef void (*move_space_call)(id source_space, id dest_space,
+                                CFStringRef dest_display_uuid,
+                                id dock_spaces __attribute__((swift_context)))
+    __attribute__((swiftcall));
 
 uint64_t get_dock_spaces_offset(void) { return 0x30000; }
 

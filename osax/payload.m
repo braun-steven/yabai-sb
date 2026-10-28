@@ -15,10 +15,8 @@
 #include <objc/runtime.h>
 
 #include <CoreGraphics/CoreGraphics.h>
-#include <arpa/inet.h>
 #include <dlfcn.h>
 #include <libkern/OSCacheControl.h>
-#include <netdb.h>
 #include <pwd.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -44,14 +42,11 @@
 #define unpack(v)                                                              \
   memcpy(&v, message, sizeof(v));                                              \
   message += sizeof(v)
-#define lerp(a, t, b) (((1.0 - t) * a) + (t * b))
 
 extern int SLSMainConnectionID(void);
-extern CGError SLSGetConnectionPSN(int cid, ProcessSerialNumber *psn);
 extern OSStatus SLSMoveWindowWithGroup(int cid, uint32_t wid, CGPoint *point);
 extern CGError SLSReassociateWindowsSpacesByGeometry(int cid,
                                                      CFArrayRef window_list);
-extern CGError SLSGetWindowOwner(int cid, uint32_t wid, int *window_cid);
 extern CGError SLSSetWindowTags(int cid, uint32_t wid, uint64_t *tags,
                                 size_t tag_size);
 extern CGError SLSClearWindowTags(int cid, uint32_t wid, uint64_t *tags,
@@ -87,48 +82,7 @@ static uint64_t move_space_fp;
 static uint64_t animation_time_addr;
 static bool animation_time_patched;
 
-static pthread_t daemon_thread;
 static int daemon_sockfd;
-
-static __attribute__((unused)) void dump_class_info(Class c) {
-  const char *name = class_getName(c);
-  unsigned int count = 0;
-
-  Ivar *ivar_list = class_copyIvarList(c, &count);
-  for (unsigned int i = 0; i < count; i++) {
-    Ivar ivar = ivar_list[i];
-    const char *ivar_name = ivar_getName(ivar);
-    NSLog(@"%s ivar: %s", name, ivar_name);
-  }
-  if (ivar_list)
-    free(ivar_list);
-
-  objc_property_t *property_list = class_copyPropertyList(c, &count);
-  for (unsigned int i = 0; i < count; i++) {
-    objc_property_t property = property_list[i];
-    const char *prop_name = property_getName(property);
-    NSLog(@"%s property: %s", name, prop_name);
-  }
-  if (property_list)
-    free(property_list);
-
-  Method *method_list = class_copyMethodList(c, &count);
-  for (unsigned int i = 0; i < count; i++) {
-    Method method = method_list[i];
-    const char *method_name = sel_getName(method_getName(method));
-    NSLog(@"%s method: %s", name, method_name);
-  }
-  if (method_list)
-    free(method_list);
-}
-
-static __attribute__((unused)) Class dump_class_info_by_name(const char *name) {
-  Class c = objc_getClass(name);
-  if (c != nil) {
-    dump_class_info(c);
-  }
-  return c;
-}
 
 static uint64_t text_start, text_end;
 
@@ -552,8 +506,8 @@ static bool do_space_move(char *message) {
     CFRelease(dest_display_uuid);
     return false;
   }
-  asm__call_move_space(source_space, dest_space, dest_display_uuid, dock_spaces,
-                       move_space_fp);
+  ((move_space_call)move_space_fp)(source_space, dest_space, dest_display_uuid,
+                                   dock_spaces);
 
   dispatch_sync(dispatch_get_main_queue(), ^{
     ((void (*)(id, SEL, id, unsigned, CFStringRef))objc_msgSend)(
@@ -640,7 +594,7 @@ static bool do_space_create(char *message) {
     // alloc/init reference here.
     @try {
       if (new_space && display_space) {
-        asm__call_add_space(new_space, display_space, add_space_fp);
+        ((add_space_call)add_space_fp)(new_space, display_space);
         accepted = true;
       }
     } @finally {
@@ -1091,6 +1045,7 @@ static bool start_daemon(char *socket_path) {
     goto unlink_socket;
 
   init_instances();
+  pthread_t daemon_thread;
   if (pthread_create(&daemon_thread, NULL, handle_connection, NULL) != 0)
     goto unlink_socket;
   pthread_detach(daemon_thread);

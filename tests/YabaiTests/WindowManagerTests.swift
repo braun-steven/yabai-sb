@@ -155,3 +155,23 @@ import YabaiTestSupport
   wm.focus.focusChanged(to: focused)
   #expect(wm.swapFocusTarget(0xFFFF_0001, 0xFFFF_0002, acrossSpaces: acrossSpaces) == expected)
 }
+
+// A window moved by a rule from a visible space of another display (an application's helper window) leaves the focus
+// where it is; a moved window that had the focus hands it to its source wherever that is.
+@Test(
+  arguments: [
+    (isVisible: true, isFocusedSpace: true, movedByRule: true, wasFocused: false, expected: true),
+    (isVisible: true, isFocusedSpace: false, movedByRule: true, wasFocused: false, expected: false),
+    (isVisible: true, isFocusedSpace: false, movedByRule: true, wasFocused: true, expected: true),
+    (isVisible: true, isFocusedSpace: false, movedByRule: false, wasFocused: true, expected: true),
+    (isVisible: true, isFocusedSpace: true, movedByRule: false, wasFocused: false, expected: false),
+    (isVisible: false, isFocusedSpace: false, movedByRule: true, wasFocused: true, expected: false),
+  ])
+@WM func sendWindowRefocusesSource(
+  isVisible: Bool, isFocusedSpace: Bool, movedByRule: Bool, wasFocused: Bool, expected: Bool
+) {
+  #expect(
+    WindowManager.refocusesSource(
+      isVisible: isVisible, isFocusedSpace: isFocusedSpace, movedByRule: movedByRule,
+      wasFocused: wasFocused) == expected)
+}

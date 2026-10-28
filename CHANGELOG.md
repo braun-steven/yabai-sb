@@ -133,6 +133,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- A new window that a rule moves to another space no longer pulls the focus to the space it opened on unless that space is focused; an application's window opened on a visible space of another display (e.g. ChatGPT's untitled helper window while typing) moved the focus to that display
 - *focus_follows_mouse* no longer focuses the windows or displays under the pointer while Mission Control is open: an opening that macOS did not report (e.g. through the keyboard shortcut on macOS 27) is found from its overlay before a change of focus
 - A tiled window that macOS moves or resizes in several steps (e.g. its window tiling) is put back on its tile once the steps have settled; the last step could leave it off its tile, as after an alt-drag of the focused window released outside every display followed by a click on another window of the space
 - *window --focus <WINDOW_SEL> --display|--space* in one message counts the window as focused, so focus stays on its old space as when it had focus before; the focus of the same message, not yet reported by the application, was missed and focus followed the window

@@ -18,6 +18,16 @@ extension WindowManager {
   // command sets the focus at once.
   //
 
+  // NOTE: A window that a rule moves away has not taken the focus yet, so its source takes it back only when the source
+  // is the focused space. An application can open a window on a visible space of another display (ChatGPT opens an
+  // untitled helper window on the main display while the user types on the other one); refocusing that space would
+  // pull the focus to the other display.
+  static func refocusesSource(
+    isVisible: Bool, isFocusedSpace: Bool, movedByRule: Bool, wasFocused: Bool
+  ) -> Bool {
+    return isVisible && (wasFocused || (movedByRule && isFocusedSpace))
+  }
+
   func sendWindow(
     _ target: Window, to destination: SpaceID, movedByRule: Bool, besideFocus: Bool = false,
     arrivingFrom direction: Direction? = nil, refocusingSource: Bool = true
@@ -30,7 +40,11 @@ extension WindowManager {
       unmanageWindow(target, from: owner)
     }
 
-    if refocusingSource, let source, source.isVisible && (movedByRule || wasFocused) {
+    if refocusingSource, let source,
+      Self.refocusesSource(
+        isVisible: source.isVisible, isFocusedSpace: source == SpaceManager.shared.currentSpaceID,
+        movedByRule: movedByRule, wasFocused: wasFocused)
+    {
       if let next = displayFocusTarget(on: source, from: nil, excluding: target.id) {
         focusWithRaise(next)
         setPendingFocus(next.id, warpsMouse: false)

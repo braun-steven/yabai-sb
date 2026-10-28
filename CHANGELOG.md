@@ -133,13 +133,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Layouts *bsp* and *stack*, and the window selectors *sibling*, *first_nephew*, *second_nephew*, *uncle*, *first_cousin* and *second_cousin*
 - Config *split_ratio*, *split_type*, *window_placement*, *window_insertion_point*, *auto_balance* and *window_zoom_persist*, and the *split-child* window property
 - Breaking: window animations (config *window_animation_duration* and *window_animation_easing*), window opacity and its fades (config *window_opacity*, *window_opacity_duration*, *active_window_opacity* and *normal_window_opacity*, *window --opacity* and the rule key *opacity*) and config *menubar_opacity*. Windows move and resize at once, and *query --windows* and *rule --list* no longer report *opacity*; a *yabai.toml* that sets one of these keys fails its check. The scripting addition drops the opacity, fade and proxy-swap messages (payload 2.1.38)
+- The scripting addition's window focus message, which nothing sent and whose Dock function is not found on macOS 27 (payload 2.1.39)
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
 - *focus_follows_mouse* retries a timed-out focus request even when the pointer stays inside the cached window frame
 - *focus_follows_mouse autoraise* protects floating windows on the display under the pointer when focus is still on another display
 - Changing *focus_follows_mouse* keeps the mouse event tap installed and clears cached display attempts, so toggling the mode does not retain an old desktop-focus decision
-- The scripting addition's window focus message, which nothing sent and whose Dock function is not found on macOS 27 (payload 2.1.39)
 - Repeated rule labels in a config file keep their original index during reload comparison, matching IPC replacement. An unchanged file no longer reports a rule override or unnecessarily replaces its rules.
 - A new window that a rule moves to another space no longer pulls the focus to the space it opened on unless that space is focused; an application's window opened on a visible space of another display (e.g. ChatGPT's untitled helper window while typing) moved the focus to that display
 - *focus_follows_mouse* no longer focuses the windows or displays under the pointer while Mission Control is open: an opening that macOS did not report (e.g. through the keyboard shortcut on macOS 27) is found from its overlay before a change of focus

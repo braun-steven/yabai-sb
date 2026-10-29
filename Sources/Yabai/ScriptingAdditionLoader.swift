@@ -5,8 +5,8 @@ import YabaiCore
 //
 // NOTE: The built-in load of the scripting addition (`[daemon] load_scripting_addition`). The daemon runs
 // `sudo -n <its own binary> --load-sa` (ScriptingAdditionLoad.arguments), the command a user runs by hand.
-// The process runs on a dispatch thread and only posts its result back as `.scriptingAdditionLoaded`, so the event loop
-// never waits for it. The state of the runs is @WM: ScriptingAdditionLoadQueue lets one run go at a time, and a request
+// The process runs on a thread of its own and only posts its result back as `.scriptingAdditionLoaded`, so the event
+// loop never waits for it. The state of the runs is @WM: ScriptingAdditionLoadQueue lets one run go at a time, and a request
 // during a run becomes one more run after it. In headless mode a request is only recorded, and no process starts.
 //
 
@@ -76,12 +76,13 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
   }
 
   //
-  // NOTE: Runs the argv on a dispatch thread, for at most `timeout`. The daemon ignores SIGCHLD (Yabai.swift), so the
-  // kernel reaps the process and its exit status cannot be read. A run therefore ends when its stderr ends, which is when
-  // sudo and the `--load-sa` it runs have closed it; then the payload decides whether the load worked (result(of:)). A
-  // timeout sends SIGTERM, which sudo relays to `--load-sa`, and SIGKILL after ScriptingAdditionLoad.terminationGraceSeconds
-  // if the stderr has not ended. The process starts with posix_spawn, since Swift cannot fork (EventSignal.swift). stderr
-  // is read as it comes and only its tail kept (OutputTail).
+  // NOTE: Runs the argv on a thread of its own, for at most `timeout`. A dispatch worker must not be held that long:
+  // the other dispatch blocks wait for one (doc/swift-conventions.md, Blocking calls). The daemon ignores SIGCHLD
+  // (Yabai.swift), so the kernel reaps the process and its exit status cannot be read. A run therefore ends when its
+  // stderr ends, which is when sudo and the `--load-sa` it runs have closed it; then the payload decides whether the
+  // load worked (result(of:)). A timeout sends SIGTERM, which sudo relays to `--load-sa`, and SIGKILL after
+  // ScriptingAdditionLoad.terminationGraceSeconds if the stderr has not ended. The process starts with posix_spawn,
+  // since Swift cannot fork (EventSignal.swift). stderr is read as it comes and only its tail kept (OutputTail).
   //
 
   nonisolated static func execute(
@@ -89,9 +90,9 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
     timeout: TimeInterval = TimeInterval(ScriptingAdditionLoad.timeoutSeconds)
   ) async -> ScriptingAdditionLoadResult {
     await withCheckedContinuation { continuation in
-      DispatchQueue.global().async {
+      Thread {
         continuation.resume(returning: run(arguments, socketPath: socketPath, timeout: timeout))
-      }
+      }.start()
     }
   }
 

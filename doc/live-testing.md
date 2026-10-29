@@ -6,6 +6,8 @@ point below was learned the hard way; read it before running anything live.
 
 ## Unit tests
 
+- Test bodies block the Swift concurrency pool (`poll`, `usleep`, `waitUntilExit`), which has one thread per CPU. Run socket readers on a `Thread` (`startReader`), not on `DispatchQueue.global()`: a queued dispatch block waited about 30 s behind the blocked bodies on the 3-CPU CI runner. The socket suites run in parallel, so do not serialize them to hide this.
+
 - IPC v2 tests use owned `IPCConnection` socket pairs, explicit completion frames and framed subscription events. Output followed by EOF without completion is a failed request. Use long test deadlines under sanitizers; do not connect framing probes to the user's daemon. See `doc/ipc.md`.
 
 - Keep each worktree's `.build` separate. An agent command sandbox can deny Swift's default module cache or the

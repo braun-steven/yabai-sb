@@ -1,11 +1,23 @@
 import Darwin
 import Dispatch
 import OSAX
+import Synchronization
 import Testing
 import YabaiCore
 import YabaiTestSupport
 
 @testable import Yabai
+
+// DEBUG: temporary socket diagnostics for the CI hang. Remove before merging.
+let debugParkedReaders = Mutex<Int>(0)
+
+func debugSocket(_ message: String) {
+  var tid: UInt64 = 0
+  pthread_threadid_np(nil, &tid)
+  let parked = debugParkedReaders.withLock { $0 }
+  let ms = DispatchTime.now().uptimeNanoseconds / 1_000_000
+  fputs("DEBUG-SOCKET t=\(ms)ms tid=\(tid) parked=\(parked) \(message)\n", stderr)
+}
 
 /// A peer that reads one request and replies with response, or never replies when it is nil (it waits for the client
 /// to close then).
@@ -25,10 +37,17 @@ private func withSAPeer(
   let connection = try #require(SAConnection(fd: client, timeoutMS: timeoutMS))
   let group = DispatchGroup()
   group.enter()
+  debugSocket("reader queued")
   DispatchQueue.global().async {
     defer {
       close(server)
       group.leave()
+    }
+    debugParkedReaders.withLock { $0 += 1 }
+    debugSocket("reader start")
+    defer {
+      debugParkedReaders.withLock { $0 -= 1 }
+      debugSocket("reader end")
     }
     var buffer = [UInt8](repeating: 0, count: 4096)
     func receive() -> Int {
@@ -49,14 +68,16 @@ private func withSAPeer(
     }
   }
   defer {
+    debugSocket("client close")
     close(client)
-    #expect(
-      group.wait(timeout: .now() + .seconds(10)) == .success, "the peer thread is still running")
+    let joined = group.wait(timeout: .now() + .seconds(10))
+    debugSocket("reader join \(joined == .success ? "ok" : "timed out")")
+    #expect(joined == .success, "the peer thread is still running")
   }
   try body(connection)
 }
 
-@Suite(.serialized) struct SAConnectionSocketTests {
+@Suite struct SAConnectionSocketTests {
   @Test(.timeLimit(.minutes(1))) func saConnectionDistinguishesAcknowledgementEOFAndFailure() throws
   {
     try withSAPeer([0]) { #expect($0.command([1, 0, 1]) == .accepted) }
@@ -114,10 +135,17 @@ private func withSAPeer(
     let expected = [UInt8](repeating: 0x5a, count: 512 * 1024)
     let group = DispatchGroup()
     group.enter()
+    debugSocket("bulk reader queued")
     DispatchQueue.global().async {
       defer {
         close(server)
         group.leave()
+      }
+      debugParkedReaders.withLock { $0 += 1 }
+      debugSocket("bulk reader start")
+      defer {
+        debugParkedReaders.withLock { $0 -= 1 }
+        debugSocket("bulk reader end")
       }
       var buffer = [UInt8](repeating: 0, count: 123)
       var count = 0
@@ -130,6 +158,7 @@ private func withSAPeer(
       #expect(count == expected.count)
     }
     let written = connection.write(expected)
+    debugSocket("bulk write returned \(written)")
     #expect(written)
     shutdown(client, SHUT_WR)
     close(client)

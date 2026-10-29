@@ -18,7 +18,7 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
   return try IPCProtocol.decode(IPCReply.self, payload: payload)
 }
 
-@Suite(.serialized) struct IPCConnectionTests {
+@Suite struct IPCConnectionTests {
   @Test func fragmentedHeaderAndBodyAreReadCompletely() throws {
     let (server, client) = try ipcPair()
     let request = IPCRequest.command(arguments: ["query", "--windows", "id"])
@@ -26,8 +26,15 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
     let result = Mutex<Result<[UInt8]?, IPCError>?>(nil)
     let finished = DispatchGroup()
     finished.enter()
+    debugSocket("ipc reader queued")
     DispatchQueue.global().async {
       defer { finished.leave() }
+      debugParkedReaders.withLock { $0 += 1 }
+      debugSocket("ipc reader start")
+      defer {
+        debugParkedReaders.withLock { $0 -= 1 }
+        debugSocket("ipc reader end")
+      }
       let received: Result<[UInt8]?, IPCError>
       do {
         let payload = try server.readFrame(limit: IPCProtocol.requestLimit, timeout: 30)
@@ -57,6 +64,7 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
         }
         usleep(1_000)
       }
+      debugSocket("ipc fragment \(index) drained=\(drained)")
       try #require(drained)
     }
     try #require(finished.wait(timeout: .now() + 30) == .success)

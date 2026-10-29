@@ -38,6 +38,37 @@ jobs:
         run: |
           xcrun swift --version
           xcrun --sdk macosx --show-sdk-version
+      # DEBUG: temporary. Measures how many blocking blocks the global dispatch queue runs at once on this runner.
+      - name: Probe dispatch width
+        run: |
+          sysctl hw.ncpu hw.physicalcpu
+          cat > "$RUNNER_TEMP/probe.swift" <<'SWIFT'
+          import Dispatch
+          import Foundation
+
+          let blockers = Int(CommandLine.arguments.dropFirst().first ?? "") ?? ProcessInfo.processInfo.activeProcessorCount * 4
+          let release = DispatchSemaphore(value: 0)
+          let started = DispatchSemaphore(value: 0)
+          for _ in 0..<blockers {
+            DispatchQueue.global().async {
+              started.signal()
+              release.wait()
+            }
+          }
+          var running = 0
+          for _ in 0..<blockers {
+            if started.wait(timeout: .now() + 2) == .success { running += 1 } else { break }
+          }
+          let probe = DispatchSemaphore(value: 0)
+          let t0 = DispatchTime.now().uptimeNanoseconds
+          DispatchQueue.global().async { probe.signal() }
+          let result = probe.wait(timeout: .now() + 5)
+          let ms = Double(DispatchTime.now().uptimeNanoseconds - t0) / 1_000_000
+          print("ncpu=\(ProcessInfo.processInfo.activeProcessorCount) parked=\(blockers) running=\(running) probe=\(result == .success ? "ran" : "starved") latency_ms=\(Int(ms))")
+          for _ in 0..<blockers { release.signal() }
+          SWIFT
+          xcrun swiftc -O "$RUNNER_TEMP/probe.swift" -o "$RUNNER_TEMP/probe"
+          for n in 16 64 256; do "$RUNNER_TEMP/probe" $n; done
       - name: Build and test
         run: just ci-quick
       # Runs after a timeout or cancel too: the step logs are the only record of which test was running.

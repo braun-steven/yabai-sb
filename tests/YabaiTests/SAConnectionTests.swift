@@ -1,5 +1,6 @@
 import Darwin
 import Dispatch
+import Foundation
 import OSAX
 import Synchronization
 import Testing
@@ -17,6 +18,30 @@ func debugSocket(_ message: String) {
   let parked = debugParkedReaders.withLock { $0 }
   let ms = DispatchTime.now().uptimeNanoseconds / 1_000_000
   fputs("DEBUG-SOCKET t=\(ms)ms tid=\(tid) parked=\(parked) \(message)\n", stderr)
+}
+
+// DEBUG: samples this process once, when a reader is stuck, so the CI artifact shows the threads that hold the dispatch pool.
+let debugSampled = Mutex<Bool>(false)
+
+func debugSampleProcess() {
+  let first = debugSampled.withLock { sampled -> Bool in
+    defer { sampled = true }
+    return !sampled
+  }
+  guard first else { return }
+  let out = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    .appendingPathComponent(".build/ci/sample-stuck-reader.txt").path
+  let sampler = Process()
+  sampler.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
+  sampler.arguments = ["\(getpid())", "2", "-file", out]
+  do {
+    try sampler.run()
+    sampler.waitUntilExit()
+    debugSocket("sampled the process to \(out)")
+  } catch {
+    debugSocket("sample failed: \(error)")
+  }
 }
 
 /// A peer that reads one request and replies with response, or never replies when it is nil (it waits for the client
@@ -72,6 +97,7 @@ private func withSAPeer(
     close(client)
     let joined = group.wait(timeout: .now() + .seconds(10))
     debugSocket("reader join \(joined == .success ? "ok" : "timed out")")
+    if joined != .success { debugSampleProcess() }
     #expect(joined == .success, "the peer thread is still running")
   }
   try body(connection)

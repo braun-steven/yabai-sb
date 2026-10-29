@@ -65,6 +65,7 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
         usleep(1_000)
       }
       debugSocket("ipc fragment \(index) drained=\(drained)")
+      if !drained { debugSampleProcess() }
       try #require(drained)
     }
     try #require(finished.wait(timeout: .now() + 30) == .success)

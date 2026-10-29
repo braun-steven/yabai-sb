@@ -124,8 +124,17 @@ private final class SubscriberEndRecorder: Sendable {
     let id = subscribers.add(connection: try IPCConnection(taking: fd), types: [])
     close(peer)
 
-    subscribers.publish(.windowFocused, arguments: [("YABAI_WINDOW_ID", "42")])
-    #expect(waitUntil { subscribers.subscribers.first { $0.id == id }?.isEnded == true })
+    // NOTE: A parallel test's posix_spawn holds a copy of every descriptor until its exec closes them, so a first write
+    // can still reach the closed peer (disconnectedPeerCannotRaiseSIGPIPE). Publishes every 100 ms until a write fails.
+    var polls = 0
+    #expect(
+      waitUntil {
+        if polls % 100 == 0 {
+          subscribers.publish(.windowFocused, arguments: [("YABAI_WINDOW_ID", "42")])
+        }
+        polls += 1
+        return subscribers.subscribers.first { $0.id == id }?.isEnded == true
+      })
     #expect(!subscribers.wants(.windowFocused))
     #expect(waitUntil { recorder.ids == [id] })
 

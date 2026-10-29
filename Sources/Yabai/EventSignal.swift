@@ -172,7 +172,7 @@ extension PendingSignal {
 
   convenience init() {
     self.init(
-      runCommand: { command, arguments in Self.spawn(command, arguments) },
+      runCommand: { command, arguments in _ = Self.spawn(command, arguments) },
       publish: { type, arguments in EventSubscribers.shared.publish(type, arguments: arguments) },
       subscriberInterest: { EventSubscribers.shared.wants($0) })
   }
@@ -215,9 +215,31 @@ extension PendingSignal {
     }
   }
 
-  private static func spawn(_ command: String, _ arguments: [(name: String, value: String)]) {
+  /// Starts `command` through `sh -c` with the event variables, and with only those of `descriptors` that are open in the
+  /// daemon. Returns the pid, or nil when it did not start. Tests pass more descriptors to read what the child saw.
+  nonisolated static func spawn(
+    _ command: String, _ arguments: [(name: String, value: String)],
+    keeping descriptors: [Int32] = [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO]
+  ) -> pid_t? {
     // NOTE: Swift cannot call fork, and only async-signal-safe code may run between fork and exec.
     // Filter in the daemon, then posix_spawn env to set the event variables and execute the shell.
+    //
+    // NOTE: POSIX_SPAWN_CLOEXEC_DEFAULT closes every descriptor in the child that the file actions do not set up, as in
+    // ScriptingAdditionLoader.spawn. A socket is not close-on-exec between accept and its fcntl (IPCConnection), nor a
+    // loader pipe end before its fcntl, and a command still running (`&`) kept such a descriptor open, so its client or
+    // the loader's stderr drain waited for that command to exit. A closed descriptor gets no inherit action, which would
+    // fail the spawn with EBADF.
+    //
+    var actions: posix_spawn_file_actions_t?
+    posix_spawn_file_actions_init(&actions)
+    defer { posix_spawn_file_actions_destroy(&actions) }
+    for descriptor in descriptors where fcntl(descriptor, F_GETFD) != -1 {
+      posix_spawn_file_actions_addinherit_np(&actions, descriptor)
+    }
+    var attributes: posix_spawnattr_t?
+    posix_spawnattr_init(&attributes)
+    defer { posix_spawnattr_destroy(&attributes) }
+    posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_CLOEXEC_DEFAULT))
     let argv =
       ["/usr/bin/env"] + arguments.map { "\($0.name)=\($0.value)" } + ["sh", "-c", command]
     var cArguments: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) } + [nil]
@@ -225,6 +247,9 @@ extension PendingSignal {
       for argument in cArguments { free(argument) }
     }
     var pid: pid_t = 0
-    _ = posix_spawn(&pid, cArguments[0], nil, nil, &cArguments, environ)
+    guard posix_spawn(&pid, cArguments[0], &actions, &attributes, &cArguments, environ) == 0 else {
+      return nil
+    }
+    return pid
   }
 }

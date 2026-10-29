@@ -119,7 +119,16 @@ func awaitReply(_ connection: IPCConnection) async throws -> IPCReply {
     var pair: (server: IPCConnection, client: IPCConnection)? = try ipcPair()
     let server = try #require(pair?.server)
     pair = nil
-    await #expect(throws: IPCError.io) { try await onThread { try server.write([1], timeout: 30) } }
+    // NOTE: A parallel test's posix_spawn holds a copy of every descriptor until its exec closes them, even close-on-exec
+    // ones, so a first write can still reach the closed peer. Writes until one fails, for at most a second.
+    await #expect(throws: IPCError.io) {
+      try await onThread {
+        for _ in 0..<100 {
+          try server.write([1], timeout: 30)
+          usleep(10_000)
+        }
+      }
+    }
   }
 
   @Test(arguments: ["1", "5", "86400"])

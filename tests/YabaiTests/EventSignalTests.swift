@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import YabaiCore
 import YabaiTestSupport
@@ -269,5 +270,47 @@ extension DaemonState.EventSignalDispatchTests {
       .dockDidRestart, .dockDidChangePref, .menuBarHiddenChanged, .systemWoke,
     ]
     #expect(system.allSatisfy { $0.snapshot().arguments.isEmpty })
+  }
+}
+
+//
+// NOTE: The process of a signal command. These start a real shell but touch no manager, so they are outside
+// DaemonState. The child writes what it saw to a report pipe that the test keeps open in it, as the daemon keeps stdout.
+//
+
+@Suite struct EventSignalProcessTests {
+  /// A descriptor that is not close-on-exec yet (a socket before its fcntl) stays out of the command; stdio stays in.
+  @Test func aCommandKeepsItsStdioAndNoOtherDescriptor() async throws {
+    var leaked: [Int32] = [-1, -1]
+    var report: [Int32] = [-1, -1]
+    try #require(pipe(&leaked) == 0)
+    try #require(pipe(&report) == 0)
+    defer { for descriptor in leaked + [report[0]] { close(descriptor) } }
+    _ = fcntl(report[0], F_SETFD, FD_CLOEXEC)
+    _ = fcntl(report[1], F_SETFD, FD_CLOEXEC)
+    let stdio = [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO]
+    let script = """
+      open=""; for fd in 0 1 2 "$LEAKED"; do if [ -e /dev/fd/$fd ]; then open="$open $fd"; fi; done
+      echo "$YABAI_TEST_VALUE$open" > /dev/fd/$REPORT
+      """
+    let arguments = [
+      (name: "YABAI_TEST_VALUE", value: "seen"), (name: "LEAKED", value: "\(leaked[1])"),
+      (name: "REPORT", value: "\(report[1])"),
+    ]
+    let spawned = EventSignals.spawn(script, arguments, keeping: stdio + [report[1]])
+    close(report[1])
+    let pid = try #require(spawned)
+    let reader = report[0]
+    // NOTE: Waits for the child, then reads its one short write, so a sibling test's child holding the writer cannot
+    // delay an end of file. A child that writes nothing reads as an end of file, since the test closed its writer.
+    let text = await onThread { () -> String in
+      var status: Int32 = 0
+      _ = waitpid(pid, &status, 0)
+      var buffer = [UInt8](repeating: 0, count: 256)
+      let count = read(reader, &buffer, buffer.count)
+      return count > 0 ? String(decoding: buffer[..<count], as: UTF8.self) : ""
+    }
+    let open = stdio.filter { fcntl($0, F_GETFD) != -1 }.map { " \($0)" }.joined()
+    #expect(text == "seen\(open)\n")
   }
 }

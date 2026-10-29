@@ -139,6 +139,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- A signal command gets only the daemon's stdin, stdout and stderr, so one left running in the background no longer holds a client's socket open and keeps that client waiting
 - *focus_follows_mouse* retries a timed-out focus request even when the pointer stays inside the cached window frame
 - *focus_follows_mouse autoraise* protects floating windows on the display under the pointer when focus is still on another display
 - Changing *focus_follows_mouse* keeps the mouse event tap installed and clears cached display attempts, so toggling the mode does not retain an old desktop-focus decision

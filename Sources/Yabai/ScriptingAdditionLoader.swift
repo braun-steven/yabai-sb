@@ -145,6 +145,10 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
     // SIGCHLD to wait for `--load-sa`, so the child gets the same as swift-subprocess gives: all signals at their default,
     // and an empty mask.
     //
+    // NOTE: POSIX_SPAWN_CLOEXEC_DEFAULT closes every descriptor in the child that the file actions do not set up. A
+    // socket is not close-on-exec between socketpair or accept and its fcntl (IPCConnection), and a child spawned in that
+    // window kept the peer of a closed test socket open, so a write to it succeeded instead of failing with EPIPE.
+    //
     var attributes: posix_spawnattr_t?
     posix_spawnattr_init(&attributes)
     defer { posix_spawnattr_destroy(&attributes) }
@@ -154,7 +158,9 @@ enum ScriptingAdditionLoadResult: Equatable, Sendable {
     sigemptyset(&noSignal)
     posix_spawnattr_setsigdefault(&attributes, &everySignal)
     posix_spawnattr_setsigmask(&attributes, &noSignal)
-    posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK))
+    posix_spawnattr_setflags(
+      &attributes,
+      Int16(POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_CLOEXEC_DEFAULT))
     var cArguments: [UnsafeMutablePointer<CChar>?] = arguments.map { strdup($0) } + [nil]
     defer { for argument in cArguments { free(argument) } }
     return posix_spawn(&pid, cArguments[0], &actions, &attributes, &cArguments, environ)

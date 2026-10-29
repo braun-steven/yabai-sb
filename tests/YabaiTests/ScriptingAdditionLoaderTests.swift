@@ -162,6 +162,19 @@ extension DaemonState {
     #expect(result == .failed("the real failure"))
   }
 
+  /// A descriptor that is not close-on-exec yet (a socket before its fcntl) stays out of the child.
+  @Test func theChildInheritsNoOtherDescriptor() async throws {
+    var ends: [Int32] = [-1, -1]
+    try #require(pipe(&ends) == 0)
+    defer {
+      close(ends[0])
+      close(ends[1])
+    }
+    let script = "if [ -e /dev/fd/$0 ]; then echo inherited >&2; exit 1; fi"
+    let result = await ScriptingAdditionLoader.execute(["/bin/sh", "-c", script, "\(ends[1])"])
+    #expect(result != .failed("inherited"))
+  }
+
   @Test func aTimeoutSendsSIGTERM() async throws {
     let marker = FileManager.default.temporaryDirectory.appendingPathComponent(
       "yabai-load-term-\(UUID().uuidString)"

@@ -15,8 +15,9 @@ import YabaiTestSupport
     }
   }
 
-  @Test func assumeIsolatedRunsOnTheQueue() {
-    #expect(WM.sync { WM.assumeIsolated { 42 } } == 42)
+  /// WM.sync waits for the yabai.wm queue, which an @WM test running in parallel can hold, so it runs on a thread.
+  @Test func assumeIsolatedRunsOnTheQueue() async {
+    #expect(await onThread { WM.sync { WM.assumeIsolated { 42 } } } == 42)
   }
 
   @Test @WM func assumeIsolatedRunsInAnIsolatedTest() {

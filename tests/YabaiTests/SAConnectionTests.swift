@@ -2,47 +2,11 @@ import Darwin
 import Dispatch
 import Foundation
 import OSAX
-import Synchronization
 import Testing
 import YabaiCore
 import YabaiTestSupport
 
 @testable import Yabai
-
-// DEBUG: temporary socket diagnostics for the CI hang. Remove before merging.
-let debugParkedReaders = Mutex<Int>(0)
-
-func debugSocket(_ message: String) {
-  var tid: UInt64 = 0
-  pthread_threadid_np(nil, &tid)
-  let parked = debugParkedReaders.withLock { $0 }
-  let ms = DispatchTime.now().uptimeNanoseconds / 1_000_000
-  fputs("DEBUG-SOCKET t=\(ms)ms tid=\(tid) parked=\(parked) \(message)\n", stderr)
-}
-
-// DEBUG: samples this process once, when a reader is stuck, so the CI artifact shows the threads that hold the dispatch pool.
-let debugSampled = Mutex<Bool>(false)
-
-func debugSampleProcess() {
-  let first = debugSampled.withLock { sampled -> Bool in
-    defer { sampled = true }
-    return !sampled
-  }
-  guard first else { return }
-  let out = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    .appendingPathComponent(".build/ci/sample-stuck-reader.txt").path
-  let sampler = Process()
-  sampler.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
-  sampler.arguments = ["\(getpid())", "2", "-file", out]
-  do {
-    try sampler.run()
-    sampler.waitUntilExit()
-    debugSocket("sampled the process to \(out)")
-  } catch {
-    debugSocket("sample failed: \(error)")
-  }
-}
 
 /// Runs a socket reader on a thread of its own. A block on the global dispatch queue waits for the kernel to admit a worker,
 /// and on a small runner the blocking test bodies can hold every admission while the reader is still queued.
@@ -68,17 +32,10 @@ private func withSAPeer(
   let connection = try #require(SAConnection(fd: client, timeoutMS: timeoutMS))
   let group = DispatchGroup()
   group.enter()
-  debugSocket("reader queued")
   startReader {
     defer {
       close(server)
       group.leave()
-    }
-    debugParkedReaders.withLock { $0 += 1 }
-    debugSocket("reader start")
-    defer {
-      debugParkedReaders.withLock { $0 -= 1 }
-      debugSocket("reader end")
     }
     var buffer = [UInt8](repeating: 0, count: 4096)
     func receive() -> Int {
@@ -99,12 +56,9 @@ private func withSAPeer(
     }
   }
   defer {
-    debugSocket("client close")
     close(client)
-    let joined = group.wait(timeout: .now() + .seconds(10))
-    debugSocket("reader join \(joined == .success ? "ok" : "timed out")")
-    if joined != .success { debugSampleProcess() }
-    #expect(joined == .success, "the peer thread is still running")
+    #expect(
+      group.wait(timeout: .now() + .seconds(10)) == .success, "the peer thread is still running")
   }
   try body(connection)
 }
@@ -167,17 +121,10 @@ private func withSAPeer(
     let expected = [UInt8](repeating: 0x5a, count: 512 * 1024)
     let group = DispatchGroup()
     group.enter()
-    debugSocket("bulk reader queued")
     startReader {
       defer {
         close(server)
         group.leave()
-      }
-      debugParkedReaders.withLock { $0 += 1 }
-      debugSocket("bulk reader start")
-      defer {
-        debugParkedReaders.withLock { $0 -= 1 }
-        debugSocket("bulk reader end")
       }
       var buffer = [UInt8](repeating: 0, count: 123)
       var count = 0
@@ -190,7 +137,6 @@ private func withSAPeer(
       #expect(count == expected.count)
     }
     let written = connection.write(expected)
-    debugSocket("bulk write returned \(written)")
     #expect(written)
     shutdown(client, SHUT_WR)
     close(client)

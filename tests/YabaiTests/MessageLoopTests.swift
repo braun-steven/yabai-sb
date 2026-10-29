@@ -27,7 +27,7 @@ func readReply(_ connection: IPCConnection) throws -> IPCReply {
     let finished = DispatchGroup()
     finished.enter()
     debugSocket("ipc reader queued")
-    DispatchQueue.global().async {
+    startReader {
       defer { finished.leave() }
       debugParkedReaders.withLock { $0 += 1 }
       debugSocket("ipc reader start")

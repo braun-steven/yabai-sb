@@ -44,6 +44,12 @@ func debugSampleProcess() {
   }
 }
 
+/// Runs a socket reader on a thread of its own. A block on the global dispatch queue waits for the kernel to admit a worker,
+/// and on a small runner the blocking test bodies can hold every admission while the reader is still queued.
+func startReader(_ body: @escaping @Sendable () -> Void) {
+  Thread(block: body).start()
+}
+
 /// A peer that reads one request and replies with response, or never replies when it is nil (it waits for the client
 /// to close then).
 private func withSAPeer(
@@ -63,7 +69,7 @@ private func withSAPeer(
   let group = DispatchGroup()
   group.enter()
   debugSocket("reader queued")
-  DispatchQueue.global().async {
+  startReader {
     defer {
       close(server)
       group.leave()
@@ -162,7 +168,7 @@ private func withSAPeer(
     let group = DispatchGroup()
     group.enter()
     debugSocket("bulk reader queued")
-    DispatchQueue.global().async {
+    startReader {
       defer {
         close(server)
         group.leave()

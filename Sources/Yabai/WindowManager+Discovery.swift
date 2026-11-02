@@ -102,6 +102,69 @@ extension WindowManager {
     }
   }
 
+  //
+  // NOTE: An application that hides a window instead of closing it (Chronoid's report window) shows the same window
+  // again on the space it was last on. Tiling it on the origin space without moving it left it in a tree it was not on:
+  // macOS then switched to the window's space, whose reconciliation tiled it there, so the window and the focus ended
+  // up on that space. A window on another user space is therefore moved to the origin space before it is tiled.
+  //
+  // macOS has already decided to switch to that space when the window is created, and a focus given before the switch
+  // loses to it (the frontmost window of the space it switched to took the focus). So, as `resolvePendingSpaceFocus`
+  // does for `space --focus`, the window of the frontmost application is focused again once the switch to the space it
+  // came from is reported (`resolveOriginReturn()`), which switches back to the origin space. The first space change
+  // after the move, or `originReturnTimeoutMs`, drops the request.
+  //
+
+  /// How long a created window moved to its origin space waits for the switch to the space it came from, in
+  /// milliseconds.
+  static let originReturnTimeoutMs: Float = 1000.0
+
+  /// Tiles a created window on its origin space (`originSpace(for:)`), moving it there from another user space.
+  func manageCreatedWindow(_ target: Window) {
+    guard let sid = originSpace(for: target) else { return }
+
+    if let source = target.id.space, source != sid, source.isUser, sid.isUser {
+      Logger.windows.debug(
+        "created window \(target.id) is on space \(source.rawValue), moving it to its origin space \(sid.rawValue)"
+      )
+      // NOTE: Asked before the move: macOS can make another application frontmost while the move waits.
+      let isFrontmost = target.application.isFrontmost
+      sendWindow(target, to: sid, movedByRule: false, refocusingSource: false)
+      if isFrontmost {
+        originReturn = OriginReturn(windowID: target.id, source: source, time: OSTimer.now)
+      }
+    } else {
+      manageWindow(target, on: sid, inserting: nil)
+    }
+  }
+
+  /// The window to focus again after a space change to `active` at `now`, or nil. Drops the request: a space change
+  /// either is the switch it waits for, or shows that macOS switched somewhere else.
+  func consumeOriginReturn(active: SpaceID?, now: UInt64) -> WindowID? {
+    guard let pending = originReturn else { return nil }
+    originReturn = nil
+
+    if OSTimer.milliseconds(from: pending.time, to: now) >= Self.originReturnTimeoutMs {
+      return nil
+    }
+    return active == pending.source ? pending.windowID : nil
+  }
+
+  /// Focuses a created window moved to its origin space again once macOS has switched to the space it came from.
+  func resolveOriginReturn() {
+    guard
+      let windowID = consumeOriginReturn(
+        active: SpaceManager.shared.currentSpaceID, now: OSTimer.now)
+    else { return }
+    if MissionControl.shared.isActive { return }
+    guard let target = window(for: windowID), target.id.space != SpaceManager.shared.currentSpaceID
+    else { return }
+
+    Logger.windows.debug(
+      "created window \(windowID) was moved to its origin space, focusing it there again")
+    focusWindow(id: windowID, warpsMouse: false)
+  }
+
   /// The windows of the AX list of the application that were not known yet.
   func addApplicationWindows(_ owner: Application) -> [Window] {
     guard let windowList = owner.windowList else { return [] }

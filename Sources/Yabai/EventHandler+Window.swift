@@ -36,7 +36,7 @@ extension EventHandler {
     wm.removeOneShotRules()
 
     if window.shouldBeManaged && wm.managedView(for: window) == nil {
-      if let sid = wm.originSpace(for: window) { wm.manageWindow(window, on: sid, inserting: nil) }
+      wm.manageCreatedWindow(window)
     }
 
     // NOTE: insert= applies only to the tile made while the window is created. A window that was not tiled here

@@ -140,6 +140,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 - The scripting addition works on macOS 27.2 (26B123): new search windows for its Dock patterns, patterns that match both arm64e slices of the now fat Dock, focus through *currentSpaceForDisplay:* where *currentSpaceForDisplayUUID:* is gone, and the animation patch validated for both slices. *--load-sa* no longer fails when only moving spaces is unavailable, which the 27.2 Dock no longer supports (payload 2.1.43)
+- With *window_origin_display focused* or *cursor*, a created window that macOS shows on another space of the display (an application showing a hidden window again on the space it was last on) is moved to the origin space before it is tiled, and focused there again after macOS switches to its old space; it was tiled on the origin space but stayed on its old one, so it ended up in that space's tree and *window --focus* moved from there
 - A signal command gets only the daemon's stdin, stdout and stderr, so one left running in the background no longer holds a client's socket open and keeps that client waiting
 - *focus_follows_mouse* retries a timed-out focus request even when the pointer stays inside the cached window frame
 - *focus_follows_mouse autoraise* protects floating windows on the display under the pointer when focus is still on another display

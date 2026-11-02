@@ -79,6 +79,7 @@ extension EventHandler {
     refreshCurrentSpace()
     sm.refreshDisplaySpaces(includingHidden: false)
     sm.resolvePendingSpaceFocus()
+    WindowManager.shared.resolveOriginReturn()
     sm.spaceMoveChangeReported()
 
     EventSignals.shared.push(.spaceChanged)

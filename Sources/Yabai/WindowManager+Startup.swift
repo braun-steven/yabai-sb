@@ -20,6 +20,7 @@ extension WindowManager {
     focus.clearLostEvents()
     axBreaker = AXBreaker()
     frameRecheckWindows = []
+    originReturn = nil
   }
 
   func begin() {

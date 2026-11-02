@@ -96,6 +96,16 @@ extension WindowLayer {
   /// The last cursor warp onto a floating window of a moved space, followed while macOS still places the window on its
   /// new display (`WindowManager.followWarp(of:)`).
   var followedWarp: FollowedWarp?
+  /// The created window moved to its origin space, focused again when macOS switches to the space it came from
+  /// (`WindowManager.resolveOriginReturn()`).
+  var originReturn: OriginReturn?
+}
+
+/// A created window moved from `source` to its origin space at `time` (`WindowManager.manageCreatedWindow(_:)`).
+struct OriginReturn: Equatable {
+  var windowID: WindowID
+  var source: SpaceID
+  var time: UInt64
 }
 
 /// A cursor warp to the center of a window (`point`), made at `time`.

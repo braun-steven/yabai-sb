@@ -88,6 +88,29 @@ MainActor check (checked 2026-10-28), but indirect calls were not followed. Its 
 (0x1001c8f6c, 0x1001ec39c, 0x1001ec20c, …) starts at indirect entry points, so the thread Dock itself uses is unknown.
 Moving the call onto the main queue would deadlock Dock if anything below it waits on main; do it only with a live check.
 
+### macOS 27.2
+
+Inspected 27.2, build 26B123 (statically, both slices). Dock SHA-256:
+`522c82e356484f3efca80f08b9720ba074a7ec8e6c06e4cf64426182032b7ece`. The Dock is now fat: arm64e UUID
+`C53975B1-2956-3ED4-B699-D4CE2E6A602C`, arm64e.x1 (cpusubtype `0x8000000c`, newer chips) UUID
+`8B5CAE64-5F54-3910-AF74-E7B9986600F4`. The x1 slice starts functions with `pacibsppc` (`FE A7 C1 DA`), so the 27.2
+function patterns wildcard the first instruction. Each 27.2 pattern has exactly one hit in the whole `__text` of each
+slice (file offsets, arm64e / x1):
+
+| target | search start | arm64e | arm64e.x1 |
+| --- | --- | --- | --- |
+| `dock_spaces` | `0x20000` | `0x2fbb8` → `0x329be0` | `0x2ef08` → `0x319be0` |
+| `add_space` | `0x160000` | `0x18a750` | `0x17feb4` |
+| `remove_space` | `0x120000` | `0x12dbcc` | `0x1265a0` |
+| `animation_time` | `0x160000` | `0x188fdc` | `0x17e788` |
+
+`dock_spaces` at arm64e `0x2fbb8` lies `0x448` bytes before the 27.0 start `0x30000`, which is why the 27.0 table
+finds nothing. `currentSpaceForDisplayUUID:`, `moveSpace:toDisplay:displayUUID:` and `DPDesktopPictureManager` are
+gone; the dppm and moveSpace patterns have no hit. Focus uses `displayForSPID:` (`I24@0:8Q16`) and
+`currentSpaceForDisplay:` (`@20@0:8I16`). Expected attributes are `0x4d`. The offsets and patterns match
+asmvik/yabai#2832, whose reporters checked focus, create and destroy live on 26B123 (M4, arm64e slice) and 26B5091g;
+not live-checked here yet.
+
 ## Live verification procedure
 
 Read `doc/live-testing.md` first. Deploying restarts yabai and resets all layouts. Reloading the

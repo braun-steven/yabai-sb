@@ -244,18 +244,22 @@ final class ScriptingAddition: Sendable {
 
   enum AttributeVerdict: Equatable {
     case supported
-    case missingAnimation
+    /// Space focus, create and destroy work; the listed optional features are not available.
+    case partial(missing: [String])
     case unsupported
   }
 
-  // NOTE: OSAX_ATTRIB_ALL (the macro combines macros and does not import). Every bit but OSAX_ATTRIB_ANIM_TIME is
-  // required; a missing animation bit only costs the space animation patch.
+  // NOTE: OSAX_ATTRIB_ALL (the macro combines macros and does not import). Space focus, create and destroy are
+  // required. The animation patch is skipped for Dock builds that are not validated, and moving spaces needs
+  // DPDesktopPictureManager and moveSpace, which the macOS 27.2 Dock no longer has.
   static func attributeVerdict(_ attributes: UInt32) -> AttributeVerdict {
-    let required = UInt32(
-      OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE
-        | OSAX_ATTRIB_MOV_SPACE)
+    let required = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE)
     if attributes & required != required { return .unsupported }
-    return attributes & UInt32(OSAX_ATTRIB_ANIM_TIME) != 0 ? .supported : .missingAnimation
+    var missing: [String] = []
+    if attributes & UInt32(OSAX_ATTRIB_ANIM_TIME) == 0 { missing.append("space animation patch") }
+    let move = UInt32(OSAX_ATTRIB_DPPM | OSAX_ATTRIB_MOV_SPACE)
+    if attributes & move != move { missing.append("moving spaces") }
+    return missing.isEmpty ? .supported : .partial(missing: missing)
   }
 
   private func performValidation(socketPath: String) async -> Int32 {
@@ -270,9 +274,10 @@ final class ScriptingAddition: Sendable {
       case .supported:
         report("payload v\(version)")
         return 0
-      case .missingAnimation:
-        // NOTE: Only the animation bit is optional: its patch is skipped for Dock builds that are not validated.
-        report("payload v\(version): space animation patch unavailable for this Dock build")
+      case .partial(let missing):
+        report(
+          "payload v\(version): \(missing.joined(separator: " and ")) unavailable for this Dock build"
+        )
         return 0
       case .unsupported:
         report(

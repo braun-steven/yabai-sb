@@ -216,19 +216,30 @@ private func withSAPeer(
   }
 }
 
-// NOTE: Only OSAX_ATTRIB_ANIM_TIME is optional: a Dock build without the validated animation patch still works.
+// NOTE: Space focus, create and destroy (0x0D) are required; the animation patch (0x40) and moving spaces (DPPM 0x02
+// with moveSpace 0x10) are optional.
 @Test(arguments: [UInt32(0x5F), 0x7F]) func scriptingAdditionAttributeVerdictAcceptsEveryBitSet(
   attributes: UInt32
 ) {
   #expect(ScriptingAddition.attributeVerdict(attributes) == .supported)
 }
 
-@Test func scriptingAdditionAttributeVerdictWarnsWhenOnlyAnimationIsMissing() {
-  #expect(ScriptingAddition.attributeVerdict(0x1F) == .missingAnimation)
-  #expect(ScriptingAddition.attributeVerdict(0x1F | 0x20) == .missingAnimation)
+@Test(
+  arguments: [
+    (0x1F, ["space animation patch"]),
+    (0x1F | 0x20, ["space animation patch"]),
+    (0x4D, ["moving spaces"]),
+    (0x4F, ["moving spaces"]),
+    (0x5D, ["moving spaces"]),
+    (0x0D, ["space animation patch", "moving spaces"]),
+  ] as [(UInt32, [String])])
+func scriptingAdditionAttributeVerdictListsMissingOptionalFeatures(
+  attributes: UInt32, missing: [String]
+) {
+  #expect(ScriptingAddition.attributeVerdict(attributes) == .partial(missing: missing))
 }
 
-@Test(arguments: [UInt32(0x00), 0x1E, 0x1B, 0x5B, 0x5E])
+@Test(arguments: [UInt32(0x00), 0x1B, 0x5B, 0x5E, 0x59, 0x5C])
 func scriptingAdditionAttributeVerdictFailsWhenARequiredBitIsMissing(attributes: UInt32) {
   #expect(ScriptingAddition.attributeVerdict(attributes) == .unsupported)
 }

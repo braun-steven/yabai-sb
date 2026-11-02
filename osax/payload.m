@@ -170,11 +170,16 @@ static id find_instance(uint64_t address, const char *pattern, SEL selector,
     if (!sa_decode_adrp_add(instructions[0], instructions[1], pc, &storage))
       continue;
     id candidate = validated_object(storage, selector);
+    // NOTE: 27.2 replaced currentSpaceForDisplayUUID: with
+    // currentSpaceForDisplay: (a CGDirectDisplayID), reached via
+    // displayForSPID:. See current_space_for_display.
     if (candidate && selector == @selector(spacesForDisplay:) &&
         (!class_getInstanceVariable(object_getClass(candidate),
                                     "_displaySpaces") ||
-         ![candidate
-             respondsToSelector:@selector(currentSpaceForDisplayUUID:)] ||
+         !([candidate
+               respondsToSelector:@selector(currentSpaceForDisplayUUID:)] ||
+           ([candidate respondsToSelector:@selector(currentSpaceForDisplay:)] &&
+            [candidate respondsToSelector:@selector(displayForSPID:)])) ||
          ![candidate respondsToSelector:@selector(displayIDForSpace:)]))
       candidate = nil;
     // NOTE: DPPM may live eight bytes before the usual slot (the historical
@@ -200,6 +205,9 @@ static id find_instance(uint64_t address, const char *pattern, SEL selector,
 // Dock build" in doc/payload-updates.md. Other builds keep their instruction.
 static const char *known_dock_uuids[] = {
     "3BDF6A3B-866B-3C07-920C-E9E7FB57B56B",
+    // 27.2 (26B123), arm64e and arm64e.x1 slices.
+    "C53975B1-2956-3ED4-B699-D4CE2E6A602C",
+    "8B5CAE64-5F54-3910-AF74-E7B9986600F4",
 };
 
 static bool is_known_dock_uuid(const char *uuid) {
@@ -389,6 +397,22 @@ static inline void set_current_space(id display_space, id space) {
 
 static inline uint64_t get_space_id(id space) {
   return ((uint64_t (*)(id, SEL))objc_msgSend)(space, @selector(spid));
+}
+
+// NOTE: -[Spaces currentSpaceForDisplayUUID:] is gone on 27.2. Its
+// replacement currentSpaceForDisplay: (@20@0:8I16) takes the display id, which
+// displayForSPID: (I24@0:8Q16) returns for a space on that display.
+static id current_space_for_display(CFStringRef display_uuid,
+                                    uint64_t space_id) {
+  if ([dock_spaces respondsToSelector:@selector(currentSpaceForDisplayUUID:)])
+    return ((id (*)(id, SEL, CFStringRef))objc_msgSend)(
+        dock_spaces, @selector(currentSpaceForDisplayUUID:), display_uuid);
+  uint32_t display_id = ((uint32_t (*)(id, SEL, uint64_t))objc_msgSend)(
+      dock_spaces, @selector(displayForSPID:), space_id);
+  if (!display_id)
+    return nil;
+  return ((id (*)(id, SEL, uint32_t))objc_msgSend)(
+      dock_spaces, @selector(currentSpaceForDisplay:), display_id);
 }
 
 static inline id space_for_display_with_id(CFStringRef display_uuid,
@@ -625,8 +649,7 @@ static bool do_space_focus(char *message) {
       return false;
 
     dispatch_sync(dispatch_get_main_queue(), ^{
-      id source_space = ((id (*)(id, SEL, CFStringRef))objc_msgSend)(
-          dock_spaces, @selector(currentSpaceForDisplayUUID:), dest_display);
+      id source_space = current_space_for_display(dest_display, dest_space_id);
       uint64_t source_space_id = get_space_id(source_space);
       if (source_space_id == dest_space_id) {
         accepted = true;

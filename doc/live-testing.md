@@ -141,6 +141,7 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `perf.py <label> --samples 50 --out <file>` | repeated CLI/socket latency, observed completion, binary identity and process memory |
 | `space_tail.py <label> --out <file>` | isolated alternating-space tail probe; distinguish confirmation queries between commands from command-only mode |
 | `border_perf.swift` | persistent ScreenCaptureKit pixel probe for visible focus-border changes and moving edges |
+| `realworld_perf.swift` | self-contained end-to-end latency of focus, tiled swap, space switch and the border, observed in the window server and on screen (see below) |
 | `border_geometry.swift` | read-only check that four border edges surround each supplied untabbed window at its actual WindowServer frame |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `missioncontrol.swift` | `state\|open\|close\|toggle`: posts the user's Mission Control shortcut (symbolic hotkey 32) and waits for the Dock overlay; compile it with `xcrun swiftc -O missioncontrol.swift -o missioncontrol` (the binary is ignored by git) |
@@ -198,6 +199,24 @@ The performance helpers reject a locked desktop before starting and before savin
 Discard any run spanning a lock; successful IPC commands alone do not prove that an AX action
 was applied. Keep explicit window ids matched across builds when comparing captured borders;
 query order can select a different blank document after a restart.
+
+`realworld_perf.swift` is the simple end-to-end check: compile it with `xcrun swiftc -O -swift-version 6
+-parse-as-library realworld_perf.swift -o /tmp/yabai-realworld-perf` and run `/tmp/yabai-realworld-perf [samples]
+[results.json]` outside the sandbox with TextEdit, Script Editor and Calculator closed. It builds its own fixture
+(Calculator on space 5, two TextEdit and one Script Editor window on space 4), keeps the user's config, spawns
+`yabai -m` per sample like a hotkey daemon and stops the clock at the window server (`CGWindowList` front order,
+frames, on-screen state; polled every 1 ms) and at the border pixel (ScreenCaptureKit display time). It quits the
+apps and refocuses the original window afterwards. Reference (installed build, 2026-10-29, three runs of 30):
+focus front ~65 ms and border ~55–65 ms, swap frames ~55–64 ms and border ~83–96 ms, space on screen ~34–42 ms;
+the CLI round trip is ~40 ms for focus and swap and ~25–30 ms for a space switch. Pitfalls it hit:
+
+- Keep the window on the other space in an app with no window on the measured space. With a TextEdit window on
+  each space, macOS switched the display back to the other space when TextEdit was activated, so space samples were
+  "already shown" before the command (or took over 1 s) and `space --focus` failed as already focused.
+- Compare window origins after a swap, not frames: Script Editor's minimum height (413) is taller than a 339 high
+  tile, so its frame overflows the tile and the window swapped into that tile is smaller.
+- `CGWindowListCreateDescriptionFromArray` takes the window numbers as pointer values in a `CFArrayCreate` array
+  without callbacks; a bridged Swift array of pointers returns nothing.
 
 For a newly created window's stale border, use an empty space 4 and create four disposable iTerm2
 windows one at a time with `osascript -e 'tell application "iTerm2" to create window with default profile'`.

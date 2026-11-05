@@ -20,6 +20,7 @@ extension WindowManager {
     if ms.ffm.modeChanged(isEnabled: mode != .disabled) { EventLoop.cancel(key: .ffmRecheck) }
     ms.tap.tracksFocus.store(mode != .disabled, ordering: .relaxed)
     Config.current.window.focusFollowsMouse = mode
+    EventHandler.shared.openMenus = [:]
   }
 
   //

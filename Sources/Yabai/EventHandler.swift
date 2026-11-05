@@ -17,17 +17,19 @@ import YabaiCore
 @WM final class EventHandler {
   static let shared = EventHandler()
 
-  /// The number of open menus.
-  var openMenuCount = 0
+  /// The number of open menus of each application that has one open.
+  var openMenus: [pid_t: Int] = [:]
 
   //
   // NOTE: Focus follows mouse is off while a menu is open, so that moving the cursor through a menu does not focus
-  // the windows below it. This is runtime state: the configured mode in Config stays as it is.
+  // the windows below it. This is runtime state: the configured mode in Config stays as it is. Menus are counted per
+  // application: one that terminates with a menu open never reports it closed, so its entry goes with it
+  // (`applicationTerminated`), and setting the mode clears them all (`WindowManager.setFocusFollowsMouse(_:)`).
   //
 
   /// The focus follows mouse mode in effect.
   var focusFollowsMouse: FocusFollowsMouse {
-    openMenuCount > 0 ? .disabled : Config.current.window.focusFollowsMouse
+    openMenus.isEmpty ? Config.current.window.focusFollowsMouse : .disabled
   }
 }
 
@@ -350,14 +352,16 @@ extension EventHandler {
     process.launchGivenUp = false
 
     let windows = wm.addApplicationWindows(application)
+    let inactiveWindows = wm.addInactiveSpaceWindows(application)
     WindowManager.shared.updateWindowNotifications()
     tileWindowsBatched(windows, wm.focus.focused, true)
+    tileWindowsBatched(inactiveWindows, nil, false)
 
     // NOTE: insert= applies only to the tile made while the window is created (see windowCreated), so a window that
     // was not tiled here does not keep it for a later add.
     for window in windows { window.insertionByRule = nil }
 
-    for window in windows where window.isEligibleForManagement {
+    for window in windows + inactiveWindows where window.isEligibleForManagement {
       EventSignals.shared.push(.windowCreated(window))
     }
   }
@@ -370,6 +374,7 @@ extension EventHandler {
     // NOTE: A process can terminate after its front-switched event was recorded but before yabai could observe it.
     // In that case there is no Application to clean up below, so discard the marker here for both paths.
     wm.focus.removeLostFrontSwitchedEvent(for: process.pid)
+    openMenus[process.pid] = nil
 
     guard let application = wm.application(for: process.pid) else {
       Logger.events.debug("application terminated: \(process.nameAndPID) (not observed)")

@@ -186,6 +186,40 @@ extension WindowManager {
     return result
   }
 
+  //
+  // NOTE: The AX list of an application only holds windows on visible spaces, so a window restored on an inactive space
+  // while it launches (a relaunch after an update) would stay unknown. Only those are looked for here. A window on a
+  // visible space that AX does not list yet is still being created: its AX created event adds it, tiles it and runs its
+  // rules, and that event ignores a window that is already known. asmvik/yabai#2833
+  //
+
+  /// The ids of the list that are unknown and on an inactive space.
+  func unresolvedWindows(
+    in windowList: [WindowID], onInactiveSpace: (WindowID) -> Bool
+  ) -> Set<WindowID> {
+    unresolvedWindows(in: windowList).filter(onInactiveSpace)
+  }
+
+  /// Adds the windows of a launched application on inactive user spaces and returns them. An application with windows that
+  /// could not be resolved joins applicationsToRefresh.
+  func addInactiveSpaceWindows(_ owner: Application) -> [Window] {
+    guard let windowList = existingApplicationWindowList(for: owner) else { return [] }
+
+    var unresolved = unresolvedWindows(in: windowList) { id in
+      id.space.map { $0.isUser && !$0.isVisible } ?? false
+    }
+    if unresolved.isEmpty { return [] }
+
+    let wanted = unresolved
+    Logger.windows.debug("\(owner.name) launched with \(wanted.count) windows on inactive spaces")
+    addWindowsByElementID(for: owner, unresolved: &unresolved)
+    if !unresolved.isEmpty { applicationsToRefresh.append(owner) }
+
+    return wanted.subtracting(unresolved).sorted { $0.rawValue < $1.rawValue }.compactMap {
+      window(for: $0)
+    }
+  }
+
   /// The windows on Mission Control spaces, minimized ones included; nil when there are none or the window server fails.
   func existingApplicationWindowList(for owner: Application?) -> [WindowID]? {
     let spaceList = SpaceID.all

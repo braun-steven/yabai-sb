@@ -225,8 +225,8 @@ enum AXApplicationEvent: Equatable, Sendable {
   case windowMoved(WindowID)
   case windowResized(WindowID)
   case windowTitleChanged(WindowID)
-  case menuOpened(WindowID?)
-  case menuClosed
+  case menuOpened(pid_t)
+  case menuClosed(pid_t)
   case windowMinimized(WindowID)
   case windowDeminimized(WindowID)
   case windowDestroyed(WindowID)
@@ -237,7 +237,8 @@ enum AXApplicationEvent: Equatable, Sendable {
 func axApplicationEvent(
   _ notification: String,
   contextWindowID: WindowID?,
-  windowID: () -> WindowID?
+  windowID: () -> WindowID?,
+  pid: () -> pid_t?
 ) -> AXApplicationEvent? {
   switch notification {
   case kAXCreatedNotification:
@@ -251,9 +252,9 @@ func axApplicationEvent(
   case kAXTitleChangedNotification:
     return windowID().map(AXApplicationEvent.windowTitleChanged)
   case kAXMenuOpenedNotification:
-    return .menuOpened(windowID())
+    return pid().map(AXApplicationEvent.menuOpened)
   case kAXMenuClosedNotification:
-    return .menuClosed
+    return pid().map(AXApplicationEvent.menuClosed)
   case kAXWindowMiniaturizedNotification:
     return contextWindowID.map(AXApplicationEvent.windowMinimized)
   case kAXWindowDeminiaturizedNotification:
@@ -281,7 +282,8 @@ private func applicationNotificationHandler(
   let contextWindowID = WindowID(notificationContext: context)
   guard
     let event = axApplicationEvent(
-      notification, contextWindowID: contextWindowID, windowID: { element.windowID })
+      notification, contextWindowID: contextWindowID, windowID: { element.windowID },
+      pid: { element.pid })
   else { return }
 
   switch event {
@@ -296,10 +298,10 @@ private func applicationNotificationHandler(
     EventLoop.post(.windowResized(windowID: windowID))
   case .windowTitleChanged(let windowID):
     EventLoop.post(.windowTitleChanged(windowID: windowID))
-  case .menuOpened(let windowID):
-    EventLoop.post(.menuOpened(windowID: windowID))
-  case .menuClosed:
-    EventLoop.post(.menuClosed)
+  case .menuOpened(let pid):
+    EventLoop.post(.menuOpened(pid: pid))
+  case .menuClosed(let pid):
+    EventLoop.post(.menuClosed(pid: pid))
   case .windowMinimized(let windowID):
     EventLoop.post(.windowMinimized(windowID: windowID))
   case .windowDeminimized(let windowID):

@@ -148,7 +148,23 @@ enum Daemon {
     var lockfd = flock(
       l_start: 0, l_len: 0, l_pid: pid, l_type: Int16(F_WRLCK), l_whence: Int16(SEEK_SET))
 
-    return fcntl(handle, F_SETLK, &lockfd) != -1
+    if fcntl(handle, F_SETLK, &lockfd) != -1 { return true }
+
+    if fcntl(handle, F_GETLK, &lockfd) != -1, lockfd.l_pid > 0 {
+      Logger.daemon.error("another daemon is already running (pid \(lockfd.l_pid))")
+    }
+    return false
+  }
+
+  //
+  // NOTE: The service restarts the daemon after a failed exit (KeepAlive, SuccessfulExit false), so a second daemon
+  // under launchd would fail and restart for as long as the first one runs. It exits cleanly instead. Started from a
+  // shell, the failure stays a failure.
+  //
+
+  /// The exit status of a daemon that lost the lock-file; launchd, pid 1, is the parent of a service.
+  static func lockConflictExitCode(parent: pid_t) -> Int32 {
+    parent == 1 ? EXIT_SUCCESS : EXIT_FAILURE
   }
 
   /// Runs the daemon, or prints the version.
@@ -197,7 +213,8 @@ enum Daemon {
 
     Logger.daemon.debug("startup: acquiring the lock-file")
     if !acquireLock(user: user, pid: pid) {
-      Logger.daemon.fatal("could not acquire lock-file")
+      Logger.daemon.fatal(
+        "could not acquire lock-file", exitCode: lockConflictExitCode(parent: getppid()))
     }
 
     Logger.daemon.debug("startup: starting the event loop")

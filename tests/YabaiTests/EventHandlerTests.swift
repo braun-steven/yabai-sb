@@ -79,11 +79,13 @@ extension DaemonState {
 
       pm.processes[key] = Process(psn: psn, pid: pid, name: "termination-test")
       manager.focus.addLostFrontSwitchedEvent(for: pid)
+      EventHandler.shared.openMenus[pid] = 1
 
       EventHandler.shared.carbonProcessTerminated(key)
 
       #expect(pm.processes[key] == nil)
       #expect(!manager.focus.hasLostFrontSwitchedEvent(for: pid))
+      #expect(EventHandler.shared.openMenus[pid] == nil)
     }
   }
 }
@@ -646,13 +648,66 @@ func missionControlOverlay(owner: String, layer: Int, bounds: CGRect, expected: 
 
 extension DaemonState {
   @Suite
+  @WM struct NativeFullscreenExitTests {
+    @WM private func window(frame: CGRect, isFullscreen: Bool) -> Window {
+      let target = Window(id: wid(41))
+      target.application = Application()
+      target.frame = frame
+      target.isFullscreen = isFullscreen
+      WindowManager.shared.window[target.id] = target
+      return target
+    }
+
+    @Test func anUnchangedFrameStillReportsTheExit() async {
+      // NOTE: A window without an AX element reports a zero frame and no fullscreen.
+      let target = window(frame: .zero, isFullscreen: true)
+
+      await EventHandler.shared.handle(.windowResized(windowID: target.id))
+
+      #expect(!target.isFullscreen)
+    }
+
+    @Test func anUnchangedFrameOfAnOrdinaryWindowIsDebounced() async {
+      let target = window(frame: .zero, isFullscreen: false)
+      let signal = EventSignal(command: "true")
+      EventSignals.shared.table.add(signal, .windowResized)
+      let before = EventSignals.shared.pending.count
+
+      await EventHandler.shared.handle(.windowResized(windowID: target.id))
+
+      #expect(EventSignals.shared.pending.count == before)
+    }
+  }
+}
+
+extension DaemonState {
+  @Suite
+  @WM struct LaunchDiscoveryTests {
+    @Test("only unknown windows on inactive spaces are looked for")
+    func unresolvedWindowsOnInactiveSpaces() {
+      let known = Window(id: wid(42))
+      WindowManager.shared.window[known.id] = known
+      let inactive = wid(43)
+      let visible = wid(44)
+
+      let result = WindowManager.shared.unresolvedWindows(in: [known.id, inactive, visible]) {
+        $0 != visible
+      }
+
+      #expect(result == [inactive])
+    }
+  }
+}
+
+extension DaemonState {
+  @Suite
   @WM struct FocusFollowsMouseRecheckTests {
     @Test func otherEventsInvalidateHitAndVisibilityCaches() async {
       let ms = MouseState.shared
       ms.ffm.storeHit(CGRect(x: 0, y: 0, width: 100, height: 100))
       ms.ffm.storeVisibleWindows(nil)
 
-      await EventHandler.shared.handle(.menuClosed)
+      await EventHandler.shared.handle(.menuClosed(pid: 1))
 
       #expect(ms.ffm.hitFrame == nil)
       #expect(ms.ffm.visibleWindows == nil)

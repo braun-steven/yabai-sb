@@ -117,8 +117,8 @@ enum Event: Sendable {
   case missionControlCheckForExit
   case missionControlExit
   case dockDidRestart
-  case menuOpened(windowID: WindowID?)
-  case menuClosed
+  case menuOpened(pid: pid_t)
+  case menuClosed(pid: pid_t)
   case menuBarHiddenChanged
   case dockDidChangePref
   case systemWoke
@@ -359,8 +359,8 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .missionControlCheck) { missionControlCheckForExit() }
     case .missionControlExit: missionControlExit()
     case .dockDidRestart: dockDidRestart()
-    case .menuOpened: menuOpened()
-    case .menuClosed: menuClosed()
+    case .menuOpened(let pid): menuOpened(pid: pid)
+    case .menuClosed(let pid): menuClosed(pid: pid)
     case .menuBarHiddenChanged: menuBarHiddenChanged()
     case .dockDidChangePref: dockDidChangePref()
     case .systemWoke: systemWoke()

@@ -33,7 +33,7 @@ failure, as before).
 2. Resolve the private SkyLight symbols and log the unresolved ones (`resolvePrivateSymbols`).
 3. Ignore SIGCHLD and SIGPIPE (`installSignalHandlers`).
 4. Set the event suppression interval and state combining (`configureEventSystem`).
-5. Take the lock-file; another running daemon makes the start fail (`acquireLock`).
+5. Take the lock-file; another running daemon makes the start fail (`acquireLock`), with exit status 0 under launchd so that the service does not restart in a loop (`lockConflictExitCode`).
 6. Start the event loop's consumer (`EventLoop.start`).
 7. Begin the workspace context, the process manager, the display manager, the mouse event tap (`WM.sync`) and the
    Mission Control observer.

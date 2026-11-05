@@ -313,6 +313,8 @@ Rules for the user's machine:
   front change, also sent on every app switch; the Dock does not become the front process) with the Dock's overlay
   already on screen: a named Dock window at layer 20 the size of the display (not layer 18). Closing it only removes
   the overlay, so yabai polls it (`MissionControl.overlayIsShown`).
+  On 27.2 (26B123, two displays, 2026-11-05) the Dock overlay is still at layer 20, but only on one display; the other
+  has only WindowManager windows (layers 14, 17 and 19). `overlayIsShown` needs just one, so it still detects it.
   An opening through the shortcut (`missioncontrol open`, 2026-10-27, three displays) logged no `mission control
   enter`: the enter came only at the close, with the overlay still up, and the exit about 0.6 s later. In between
   `MissionControl.shared.isActive` was false, so focus follows mouse acted on the overview; it now checks the overlay

@@ -1,4 +1,5 @@
 import ArgumentParser
+import Foundation
 import Testing
 import YabaiTestSupport
 
@@ -67,5 +68,14 @@ struct YabaiOptionsTests {
     for arguments in [["--bogus"], ["-c"], ["--config"], ["start-service"]] {
       #expect(throws: (any Error).self, "\(arguments)") { try YabaiOptions.parse(arguments) }
     }
+  }
+}
+
+@Suite
+struct LockConflictTests {
+  @Test("a daemon that lost the lock-file exits cleanly only under launchd")
+  func exitCode() {
+    #expect(Daemon.lockConflictExitCode(parent: 1) == EXIT_SUCCESS)
+    #expect(Daemon.lockConflictExitCode(parent: 4242) == EXIT_FAILURE)
   }
 }

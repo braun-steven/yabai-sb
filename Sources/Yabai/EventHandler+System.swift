@@ -98,18 +98,15 @@ extension EventHandler {
     requestScriptingAdditionLoad(reason: "dock_did_restart")
   }
 
-  func menuOpened() {
-    Logger.events.debug("menu opened")
-    openMenuCount += 1
+  func menuOpened(pid: pid_t) {
+    Logger.events.debug("menu opened: \(pid)")
+    openMenus[pid, default: 0] += 1
   }
 
-  func menuClosed() {
-    Logger.events.debug("menu closed")
-    openMenuCount -= 1
-
-    if openMenuCount < 0 {
-      openMenuCount = 0
-    }
+  func menuClosed(pid: pid_t) {
+    Logger.events.debug("menu closed: \(pid)")
+    guard let count = openMenus[pid] else { return }
+    openMenus[pid] = count > 1 ? count - 1 : nil
   }
 
   func menuBarHiddenChanged() {

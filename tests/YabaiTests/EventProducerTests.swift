@@ -120,10 +120,12 @@ extension DaemonState {
       var windowIDLookups = 0
 
       let events = notifications.compactMap { notification in
-        axApplicationEvent(notification, contextWindowID: windowID) {
-          windowIDLookups += 1
-          return windowID
-        }
+        axApplicationEvent(
+          notification, contextWindowID: windowID,
+          windowID: {
+            windowIDLookups += 1
+            return windowID
+          }, pid: { 42 })
       }
 
       #expect(
@@ -133,13 +135,13 @@ extension DaemonState {
           .windowMoved(windowID),
           .windowResized(windowID),
           .windowTitleChanged(windowID),
-          .menuOpened(windowID),
-          .menuClosed,
+          .menuOpened(42),
+          .menuClosed(42),
           .windowMinimized(windowID),
           .windowDeminimized(windowID),
           .windowDestroyed(windowID),
         ])
-      #expect(windowIDLookups == 5)
+      #expect(windowIDLookups == 4)
     }
 
     @Test func optionalAccessibilityRegistrationFailureKeepsRequiredObserverUsable() {

@@ -19,12 +19,25 @@ extension WindowManager {
     SpaceID.active.map { $0.isUser } ?? false
   }
 
-  /// Waits for the display animation after a window left native fullscreen. The event loop takes no other event
-  /// meanwhile, but other @WM code can run at each await.
-  func waitForNativeFullscreenTransition() async {
+  /// Waits for the display animation after a window left native fullscreen, until the window has left its fullscreen
+  /// space too. A window that is gone has no space, and ends the wait. The event loop takes no other event meanwhile,
+  /// but other @WM code can run at each await.
+  func waitForNativeFullscreenTransition(of window: Window) async {
     var iteration = 0
-    while iteration < Self.nativeFullscreenWaitIterations && !isNativeFullscreenTransitionDone {
+    while iteration < Self.nativeFullscreenWaitIterations
+      && !(isNativeFullscreenTransitionDone && (window.id.space.map { $0.isUser } ?? true))
+    {
       try? await Task.sleep(for: .milliseconds(100))
+      iteration += 1
+    }
+  }
+
+  /// Gives AX up to 300 ms to report a window that left native fullscreen as movable again. A window that never is
+  /// movable takes the whole wait, once per exit.
+  func waitForMovableAfterNativeFullscreen(_ window: Window) async {
+    var iteration = 0
+    while iteration < 15 && window.isValid && !window.canMoveViaAccessibility {
+      try? await Task.sleep(for: .milliseconds(20))
       iteration += 1
     }
   }

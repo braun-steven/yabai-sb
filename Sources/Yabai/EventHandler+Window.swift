@@ -199,7 +199,8 @@ extension EventHandler {
   func windowResized(_ windowID: WindowID) async {
     guard let window = autoreleasepool(invoking: { applyResize(windowID) }) else { return }
 
-    await WindowManager.shared.waitForNativeFullscreenTransition()
+    await WindowManager.shared.waitForNativeFullscreenTransition(of: window)
+    await WindowManager.shared.waitForMovableAfterNativeFullscreen(window)
 
     autoreleasepool { manageAfterNativeFullscreen(window) }
   }
@@ -226,8 +227,15 @@ extension EventHandler {
       return nil
     }
 
+    //
+    // NOTE: A window can leave native fullscreen with the frame it had there (one that fills the display), so an
+    // unchanged frame alone does not make the event a duplicate. Only a window marked fullscreen asks AX here, so the
+    // resizes of a drag or a layout take no extra call.
+    //
+
     let newFrame = window.axFrame
-    if newFrame.equalTo(window.frame) {
+    let leftFullscreen = window.isFullscreen && !window.reportsFullscreen
+    if newFrame.equalTo(window.frame) && !leftFullscreen {
       Logger.events.debug("window resized (debounced): \(window.application.name) \(window.id)")
       return nil
     }
@@ -304,8 +312,17 @@ extension EventHandler {
 
     guard !window.isDestroyed, window.isValid, wm.window(for: window.id) == window else { return }
 
+    // NOTE: AX can report a window as not movable until the transition is over, so the state read when the resize came
+    // in is stale, and shouldBeManaged would leave the window floating outside its tree (asmvik/yabai#2758, #2576).
+    window.refreshAXState()
+    window.frame = window.axFrame
+    window.rememberFloatingFrame()
+
     if window.shouldBeManaged && wm.managedView(for: window) == nil {
-      if let sid = window.id.space { wm.manageWindow(window, on: sid, inserting: nil) }
+      let windowSpace = window.id.space.flatMap { $0.isUser ? $0 : nil }
+      if let sid = windowSpace ?? SpaceID.active {
+        wm.manageWindow(window, on: sid, inserting: nil)
+      }
     }
   }
 

@@ -216,9 +216,10 @@ private func withSAPeer(
   }
 }
 
-// NOTE: Space focus, create and destroy (0x0D) are required; the animation patch (0x40) and moving spaces (DPPM 0x02
-// with moveSpace 0x10) are optional.
-@Test(arguments: [UInt32(0x5F), 0x7F]) func scriptingAdditionAttributeVerdictAcceptsEveryBitSet(
+// NOTE: Space focus, create and destroy (0x0D) are required; the animation patch (0x40) and moving spaces
+// (0x10) are optional. The 27.2 Dock has no desktop picture manager (0x02), so 0x5D is every feature there.
+@Test(arguments: [UInt32(0x5F), 0x7F, 0x5D])
+func scriptingAdditionAttributeVerdictAcceptsEveryBitSet(
   attributes: UInt32
 ) {
   #expect(ScriptingAddition.attributeVerdict(attributes) == .supported)
@@ -230,7 +231,6 @@ private func withSAPeer(
     (0x1F | 0x20, ["space animation patch"]),
     (0x4D, ["moving spaces"]),
     (0x4F, ["moving spaces"]),
-    (0x5D, ["moving spaces"]),
     (0x0D, ["space animation patch", "moving spaces"]),
   ] as [(UInt32, [String])])
 func scriptingAdditionAttributeVerdictListsMissingOptionalFeatures(

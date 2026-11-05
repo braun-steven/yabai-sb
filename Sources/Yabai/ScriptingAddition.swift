@@ -249,16 +249,14 @@ final class ScriptingAddition: Sendable {
     case unsupported
   }
 
-  // NOTE: OSAX_ATTRIB_ALL (the macro combines macros and does not import). Space focus, create and destroy are
-  // required. The animation patch is skipped for Dock builds that are not validated, and moving spaces needs
-  // DPDesktopPictureManager and moveSpace, which the macOS 27.2 Dock no longer has.
+  // NOTE: sa_attributes_usable is the check the loader makes too. The animation patch is skipped for Dock builds that
+  // are not validated, and the payload reports moving spaces only when it can run a move, whichever way that Dock needs
+  // (the 27.2 Dock has no DPDesktopPictureManager).
   static func attributeVerdict(_ attributes: UInt32) -> AttributeVerdict {
-    let required = UInt32(OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE)
-    if attributes & required != required { return .unsupported }
+    if sa_attributes_usable(attributes) == 0 { return .unsupported }
     var missing: [String] = []
     if attributes & UInt32(OSAX_ATTRIB_ANIM_TIME) == 0 { missing.append("space animation patch") }
-    let move = UInt32(OSAX_ATTRIB_DPPM | OSAX_ATTRIB_MOV_SPACE)
-    if attributes & move != move { missing.append("moving spaces") }
+    if attributes & UInt32(OSAX_ATTRIB_MOV_SPACE) == 0 { missing.append("moving spaces") }
     return missing.isEmpty ? .supported : .partial(missing: missing)
   }
 

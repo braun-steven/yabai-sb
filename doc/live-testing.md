@@ -407,7 +407,7 @@ come from the same session. Reference numbers from the `fix-left-out-findings` s
   daemon's own load after each Dock restart (`load_scripting_addition`) needs the sudoers rule to name the installed
   binary's hash; a test build does not have it, so Dock has no payload at all until the second run injects it.
 - Verify with `python3 scripts/live-tests/sa_version.py`. On macOS 27.0 (arm64) the
-  attributes are `0x5f` (`OSAX_ATTRIB_ALL`); on 27.2 `0x4d` (no desktop picture manager or moveSpace). Payload 2.1.39 dropped the window focus opcode (`0x0C`) and its
+  attributes are `0x5f` (`OSAX_ATTRIB_ALL`); on 27.2 `0x5d` (no desktop picture manager). Payload 2.1.39 dropped the window focus opcode (`0x0C`) and its
   attribute (`0x20`): the Dock `setFrontWindow` signature was not found on macOS 27 and nothing sent it.
 - After the reload Dock is fresh: its footprint grows for the first few hundred operations. To look for a
   leak, measure `vmmap -summary $(pgrep -x Dock) | grep "Physical footprint"` over several rounds and

@@ -1,10 +1,12 @@
 #ifndef SA_COMMON_H
 #define SA_COMMON_H
 
+#include <stdint.h>
+
 #define SA_SOCKET_PATH_FMT "/tmp/yabai-sa_%s.socket"
 #define SA_SOCKET_BUFF_LEN 0x1000
 
-#define OSAX_VERSION "2.1.43"
+#define OSAX_VERSION "2.1.45"
 
 // Optional one-byte reply for non-handshake commands. Legacy clients already
 // read and discard it; legacy payloads close without a reply. ACCEPTED means
@@ -27,6 +29,14 @@
 #define OSAX_ATTRIB_ALL                                                        \
   (OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_ADD_SPACE |        \
    OSAX_ATTRIB_REM_SPACE | OSAX_ATTRIB_MOV_SPACE | OSAX_ATTRIB_ANIM_TIME)
+
+// Space focus, create and destroy are what a loaded payload must offer; the
+// rest depends on the Dock build. The loader and the daemon both ask this.
+static inline int sa_attributes_usable(uint32_t attributes) {
+  uint32_t required =
+      OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_ADD_SPACE | OSAX_ATTRIB_REM_SPACE;
+  return (attributes & required) == required;
+}
 
 enum sa_opcode {
   SA_OPCODE_HANDSHAKE = 0x01,

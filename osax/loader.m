@@ -120,7 +120,7 @@ static bool payload_ready(void) {
     goto done;
   uint32_t attributes;
   memcpy(&attributes, response + sizeof(OSAX_VERSION), sizeof(attributes));
-  result = (attributes & OSAX_ATTRIB_ALL) == OSAX_ATTRIB_ALL;
+  result = sa_attributes_usable(attributes);
 done:
   close(fd);
   return result;

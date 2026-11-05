@@ -102,14 +102,29 @@ slice (file offsets, arm64e / x1):
 | `dock_spaces` | `0x20000` | `0x2fbb8` → `0x329be0` | `0x2ef08` → `0x319be0` |
 | `add_space` | `0x160000` | `0x18a750` | `0x17feb4` |
 | `remove_space` | `0x120000` | `0x12dbcc` | `0x1265a0` |
+| `move_space` | `0x100000` | `0x12bc40` | `0x124670` |
 | `animation_time` | `0x160000` | `0x188fdc` | `0x17e788` |
 
 `dock_spaces` at arm64e `0x2fbb8` lies `0x448` bytes before the 27.0 start `0x30000`, which is why the 27.0 table
 finds nothing. `currentSpaceForDisplayUUID:`, `moveSpace:toDisplay:displayUUID:` and `DPDesktopPictureManager` are
-gone; the dppm and moveSpace patterns have no hit. Focus uses `displayForSPID:` (`I24@0:8Q16`) and
-`currentSpaceForDisplay:` (`@20@0:8I16`). Expected attributes are `0x4d`. The offsets and patterns match
-asmvik/yabai#2832, whose reporters checked focus, create and destroy live on 26B123 (M4, arm64e slice) and 26B5091g;
-not live-checked here yet.
+gone; the dppm pattern has no hit. Focus uses `displayForSPID:` (`I24@0:8Q16`) and `currentSpaceForDisplay:`
+(`@20@0:8I16`). Expected attributes are `0x5d`. The offsets and patterns match asmvik/yabai#2832, whose reporters
+checked focus, create and destroy live on 26B123 (M4, arm64e slice) and 26B5091g; not live-checked here yet.
+
+The old mover's pattern has no hit either, but moving spaces did not go away: a pattern miss alone does not prove a
+feature is gone, so look for its imports first. Dock still imports `CGSMoveManagedSpaceToDisplayIndex` and
+`SpaceChange.movedToDisplay`. Mission Control runs in WindowManager.app, which moves a space in WindowServer and reports
+it to the Dock. `move_space` on 27.2 is the Dock's handler for that report, found in asmvik/yabai#2802. Its one direct
+caller (arm64e 0x1001db11c) also reads `SpaceChange.movedToDisplay` and passes the space id in x0, the display UUID
+`String` in x1/x2, the optional space to insert after in x3/x4 (x4 is 1 for nil) and `Spaces` in x20. The handler
+returns whether the Dock applied the change, and updates the wallpaper itself.
+
+`do_space_move` does what WindowManager.app does, on the main queue: `SLSMoveManagedSpaceToDisplayIndex`, the handler,
+and `refreshSpacesIfNeeded` when the handler returns false. `Spaces` objects kept from before the handler are looked
+up again after it. This main-queue placement is the one the forks tested on 26B123, unlike the 27.0 note above.
+Live-checked on 26B123 (M4 Pro, arm64e slice, two displays, 2026-11-05): `space --move`, `--swap`, and `--display` of an
+inactive and of the active space. A space sent with `--display` lands after the destination display's current space.
+The arm64e.x1 slice is static only.
 
 ## Live verification procedure
 

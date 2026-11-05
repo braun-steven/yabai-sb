@@ -63,6 +63,10 @@ extern void SLSManagedDisplaySetCurrentSpace(int cid, CFStringRef display_ref,
 extern uint64_t SLSManagedDisplayGetCurrentSpace(int cid,
                                                  CFStringRef display_ref);
 extern CFStringRef SLSCopyManagedDisplayForSpace(int cid, uint64_t sid);
+extern CFArrayRef SLSCopyManagedDisplaySpaces(int cid);
+extern CGError SLSMoveManagedSpaceToDisplayIndex(int cid, uint64_t sid,
+                                                 CFStringRef display_uuid,
+                                                 uint32_t index);
 extern void SLSMoveWindowsToManagedSpace(int cid, CFArrayRef window_list,
                                          uint64_t sid);
 extern void SLSShowSpaces(int cid, CFArrayRef space_list);
@@ -79,6 +83,8 @@ static id dp_desktop_picture_manager;
 static uint64_t add_space_fp;
 static uint64_t remove_space_fp;
 static uint64_t move_space_fp;
+static swift_string_create_call swift_string_create;
+static swift_bridge_object_release_call swift_bridge_object_release;
 static uint64_t animation_time_addr;
 static bool animation_time_patched;
 static char dock_uuid[sizeof(uuid_string_t)];
@@ -328,6 +334,18 @@ static void init_instances(void) {
         (void *)move_space_addr, ptrauth_key_asia, 0);
   }
 
+  if (move_space_fp && is_macos_27_2_or_later()) {
+    swift_string_create = (swift_string_create_call)dlsym(
+        RTLD_DEFAULT, "$sSS7cStringSSSPys4Int8VG_tcfC");
+    swift_bridge_object_release = (swift_bridge_object_release_call)dlsym(
+        RTLD_DEFAULT, "swift_bridgeObjectRelease");
+    if (!swift_string_create || !swift_bridge_object_release) {
+      NSLog(@"[yabai-sa] failed to resolve the Swift runtime; moving spaces "
+            @"will not work");
+      move_space_fp = 0;
+    }
+  }
+
   animation_time_addr = hex_find_seq(baseaddr + get_fix_animation_offset(),
                                      get_fix_animation_pattern());
   if (animation_time_addr == 0x0) {
@@ -465,9 +483,108 @@ static inline id display_space_for_space_with_id(uint64_t space_id) {
   return nil;
 }
 
+// NOTE: A move can run with the 27.0 mover and its desktop picture manager, or
+// from 27.2 with the handler for reported moves, which updates the wallpaper
+// itself.
+static bool can_move_spaces(void) {
+  return dock_spaces != nil && move_space_fp != 0 &&
+         (dp_desktop_picture_manager != nil || is_macos_27_2_or_later());
+}
+
+// The index SLSMoveManagedSpaceToDisplayIndex takes: the position after
+// after_space_id, among the other spaces of the destination display. False if
+// that space left the display, or the move would leave the source display
+// without a user space.
+static bool space_move_index(CFStringRef source_display_uuid,
+                             CFStringRef dest_display_uuid, uint64_t space_id,
+                             uint64_t after_space_id, uint32_t *index) {
+  CFArrayRef displays = SLSCopyManagedDisplaySpaces(SLSMainConnectionID());
+  if (!displays)
+    return false;
+
+  bool found = false;
+  bool source_keeps_user_space =
+      CFEqual(source_display_uuid, dest_display_uuid);
+  for (CFIndex i = 0; i < CFArrayGetCount(displays); ++i) {
+    CFDictionaryRef display = CFArrayGetValueAtIndex(displays, i);
+    CFStringRef identifier =
+        CFDictionaryGetValue(display, CFSTR("Display Identifier"));
+    CFArrayRef spaces = CFDictionaryGetValue(display, CFSTR("Spaces"));
+    if (!identifier || !spaces)
+      continue;
+
+    bool is_source = CFEqual(identifier, source_display_uuid);
+    bool is_dest = CFEqual(identifier, dest_display_uuid);
+    if (!is_source && !is_dest)
+      continue;
+
+    uint32_t position = 0;
+    for (CFIndex j = 0; j < CFArrayGetCount(spaces); ++j) {
+      CFDictionaryRef space = CFArrayGetValueAtIndex(spaces, j);
+      CFNumberRef sid_ref = CFDictionaryGetValue(space, CFSTR("id64"));
+      CFNumberRef type_ref = CFDictionaryGetValue(space, CFSTR("type"));
+
+      uint64_t sid = 0;
+      if (!sid_ref || !CFNumberGetValue(sid_ref, kCFNumberSInt64Type, &sid) ||
+          sid == space_id)
+        continue;
+
+      int type = -1;
+      if (is_source && type_ref &&
+          CFNumberGetValue(type_ref, kCFNumberIntType, &type) && type == 0)
+        source_keeps_user_space = true;
+
+      if (!is_dest)
+        continue;
+
+      ++position;
+      if (sid == after_space_id) {
+        *index = position;
+        found = true;
+      }
+    }
+  }
+
+  CFRelease(displays);
+  return found && source_keeps_user_space;
+}
+
+// NOTE: Since macOS 27 Mission Control runs in WindowManager.app: it moves a
+// space in WindowServer and reports the move to the Dock, whose handler brings
+// the Dock's spaces in line. This does the same, on the main queue, where the
+// Dock applies those reports. When the handler rejects the change the Dock
+// rebuilds its spaces from WindowServer, so the move itself still stands.
+static bool move_reported_space(uint64_t space_id, uint64_t after_space_id,
+                                CFStringRef display_uuid, uint32_t index) {
+  char uuid[64];
+  if (!CFStringGetCString(display_uuid, uuid, sizeof(uuid),
+                          kCFStringEncodingUTF8))
+    return false;
+
+  CGError error = SLSMoveManagedSpaceToDisplayIndex(
+      SLSMainConnectionID(), space_id, display_uuid, index);
+  if (error != kCGErrorSuccess) {
+    NSLog(@"[yabai-sa] moving space %llu failed: %d", space_id, error);
+    return false;
+  }
+
+  struct swift_string display = swift_string_create(uuid);
+  uint64_t applied = ((space_moved_call)move_space_fp)(
+      space_id, display.bits, display.object, after_space_id, 0, dock_spaces);
+  swift_bridge_object_release(display.object);
+
+  if (!(applied & 1)) {
+    NSLog(@"[yabai-sa] Dock rejected the move of space %llu; refreshing",
+          space_id);
+    if ([dock_spaces respondsToSelector:@selector(refreshSpacesIfNeeded)])
+      ((void (*)(id, SEL))objc_msgSend)(dock_spaces,
+                                        @selector(refreshSpacesIfNeeded));
+  }
+  return true;
+}
+
 static bool do_space_move(char *message) {
-  if (dock_spaces == nil || dp_desktop_picture_manager == nil ||
-      move_space_fp == 0)
+  if (!can_move_spaces())
     return false;
 
   uint64_t source_space_id, dest_space_id, source_prev_space_id;
@@ -496,6 +613,8 @@ static bool do_space_move(char *message) {
   __block id dest_space;
   __block unsigned dest_display_id;
   __block id dest_display_space;
+  __block uint32_t move_index = 0;
+  bool reported_move = is_macos_27_2_or_later();
 
   dispatch_sync(dispatch_get_main_queue(), ^{
     source_space =
@@ -506,6 +625,10 @@ static bool do_space_move(char *message) {
     dest_display_space = display_space_for_display_uuid(dest_display_uuid);
     if (!source_space || !dest_space || !source_display_space ||
         !dest_display_space)
+      return;
+    if (reported_move &&
+        !space_move_index(source_display_uuid, dest_display_uuid,
+                          source_space_id, dest_space_id, &move_index))
       return;
     dest_display_id = ((unsigned (*)(id, SEL, id))objc_msgSend)(
         dock_spaces, @selector(displayIDForSpace:), dest_space);
@@ -535,13 +658,29 @@ static bool do_space_move(char *message) {
   // NOTE: Off the main queue, as upstream calls it. Nothing found below
   // moveSpace waits on main, but its indirect calls were not followed, so
   // moving it onto main could deadlock Dock (doc/osax-prototypes.md).
-  ((move_space_call)move_space_fp)(source_space, dest_space, dest_display_uuid,
-                                   dock_spaces);
+  if (!reported_move)
+    ((move_space_call)move_space_fp)(source_space, dest_space,
+                                     dest_display_uuid, dock_spaces);
 
+  __block bool moved = true;
   dispatch_sync(dispatch_get_main_queue(), ^{
-    ((void (*)(id, SEL, id, unsigned, CFStringRef))objc_msgSend)(
-        dp_desktop_picture_manager, @selector(moveSpace:toDisplay:displayUUID:),
-        source_space, dest_display_id, dest_display_uuid);
+    if (reported_move) {
+      moved = move_reported_space(source_space_id, dest_space_id,
+                                  dest_display_uuid, move_index);
+      if (!moved)
+        return;
+      // NOTE: These are unretained, and a refresh rebuilds the Dock's spaces.
+      source_space =
+          space_for_display_with_id(dest_display_uuid, source_space_id);
+      source_display_space =
+          display_space_for_display_uuid(source_display_uuid);
+      dest_display_space = display_space_for_display_uuid(dest_display_uuid);
+    } else {
+      ((void (*)(id, SEL, id, unsigned, CFStringRef))objc_msgSend)(
+          dp_desktop_picture_manager,
+          @selector(moveSpace:toDisplay:displayUUID:), source_space,
+          dest_display_id, dest_display_uuid);
+    }
 
     if (focus_dest_space) {
       uint64_t new_source_space_id = SLSManagedDisplayGetCurrentSpace(
@@ -561,7 +700,7 @@ static bool do_space_move(char *message) {
 
   CFRelease(source_display_uuid);
   CFRelease(dest_display_uuid);
-  return true;
+  return moved;
 }
 
 typedef void (*remove_space_call)(id space, id display_space, id dock_spaces,
@@ -913,7 +1052,7 @@ uint32_t sa_native_attributes(void) {
     attributes |= OSAX_ATTRIB_ADD_SPACE;
   if (remove_space_fp)
     attributes |= OSAX_ATTRIB_REM_SPACE;
-  if (move_space_fp)
+  if (can_move_spaces())
     attributes |= OSAX_ATTRIB_MOV_SPACE;
   if (animation_time_patched)
     attributes |= OSAX_ATTRIB_ANIM_TIME;
@@ -943,8 +1082,7 @@ uint8_t sa_native_dispatch(const uint8_t *bytes, size_t length) {
     required = OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_REM_SPACE;
     break;
   case SA_OPCODE_SPACE_MOVE:
-    required =
-        OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_DPPM | OSAX_ATTRIB_MOV_SPACE;
+    required = OSAX_ATTRIB_DOCK_SPACES | OSAX_ATTRIB_MOV_SPACE;
     break;
   default:
     break;

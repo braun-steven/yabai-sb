@@ -41,8 +41,12 @@ The animation patch (the `0x2f00e400` instruction at `animation_time_addr`) is w
 `known_dock_uuids` in `osax/payload.m`, next to `read_image_uuid`. For any other Dock build the payload logs
 `unknown Dock build <uuid>; animation patch skipped` and does not report `OSAX_ATTRIB_ANIM_TIME`. The daemon then warns
 "space animation patch unavailable for this Dock build" (`ScriptingAddition.attributeVerdict`) instead of failing.
-`OSAX_ATTRIB_DPPM` and `OSAX_ATTRIB_MOV_SPACE` are optional the same way ("moving spaces unavailable"): the 27.2 Dock
-has neither. Space focus, create and destroy (`0x0d`) still fail the check.
+`OSAX_ATTRIB_MOV_SPACE` is optional the same way ("moving spaces unavailable"), and the payload reports it only when a
+move can run. `OSAX_ATTRIB_DPPM` is not checked: the 27.2 Dock has no desktop picture manager and moves spaces without
+one. Space focus, create and destroy (`0x0d`) still fail the check. `sa_attributes_usable` in `osax/common.h` is that
+check, for the daemon and for the loader's `payload_ready`. The loader once kept its own copy requiring every bit, so
+`--load-sa` injected the payload on 27.2, then printed "payload did not report the expected version and capabilities"
+and exited 1. A loader change reaches `/Library/ScriptingAdditions` only with a new `OSAX_VERSION`.
 
 Since 27.2 the getters in `osax/arm64_payload.m` branch on the minor version (`is_macos_27_2_or_later`); the 27.0
 values stay as validated on 26A434. Check a pattern against both slices of a fat Dock (`lipo -archs`): a hit in the
@@ -55,7 +59,7 @@ To add a build after validating it:
 2. Confirm the animation pattern and the `0x2f00e400` write against that binary, and record the Dock SHA-256 and build
    number in [osax-prototypes.md](osax-prototypes.md) "Dock inspection and ownership evidence".
 3. Add the UUID to `known_dock_uuids` and bump `OSAX_VERSION` (`osax/common.h`) for the payload change.
-4. Live check before shipping: reload the payload, then run `python3 scripts/live-tests/sa_version.py` (expect `0x5f` on 27.0, `0x4d` on 27.2)
+4. Live check before shipping: reload the payload, then run `python3 scripts/live-tests/sa_version.py` (expect `0x5f` on 27.0, `0x5d` on 27.2)
    and `log show --predicate 'process == "Dock"' --last 2m | grep yabai-sa` (expect the patch applied). See
    [live-testing.md](live-testing.md) "Scripting addition".
 

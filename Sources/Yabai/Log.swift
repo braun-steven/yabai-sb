@@ -85,7 +85,7 @@ struct StandardLogHandler: LogHandler {
   }
 
   /// The local time with milliseconds.
-  private static func timestamp() -> String {
+  static func timestamp() -> String {
     var now = timespec()
     clock_gettime(CLOCK_REALTIME, &now)
 

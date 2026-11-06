@@ -39,6 +39,8 @@ enum DockOrientation: Int32, Sendable {
 
 /// Registered by `DisplayManager.begin()`.
 let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
+  TopologyLog.recordChange("cg", "\(did) \(TopologyLog.text(of: flags))")
+
   if flags.contains(.addFlag) {
     EventLoop.post(.displayAdded(displayID: DisplayID(did)))
   } else if flags.contains(.removeFlag) {
@@ -196,7 +198,7 @@ let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
   }
 
   /// Whether a uuid names a builtin display.
-  private static func isBuiltin(uuid value: Any?) -> Bool {
+  static func isBuiltin(uuid value: Any?) -> Bool {
     guard let uuid = value as? String else { return false }
 
     guard let did = DisplayID(uuid: uuid) else { return false }

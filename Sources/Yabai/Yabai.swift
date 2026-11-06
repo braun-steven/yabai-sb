@@ -220,6 +220,8 @@ enum Daemon {
     Logger.daemon.debug("startup: starting the event loop")
     EventLoop.start()
 
+    TopologyLog.begin()
+
     Logger.daemon.debug("startup: starting the workspace context")
     if !Workspace.begin() {
       Logger.daemon.fatal("could not start workspace context")

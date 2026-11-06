@@ -19,6 +19,7 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 - [Tree undo](#tree-undo)
 - [Automatic space layout](#automatic-space-layout)
 - [Space pins](#space-pins)
+- [Topology log](#topology-log)
 - [Built-in display last](#built-in-display-last)
 - [Space back and forth](#space-back-and-forth)
 - [Automatic padding](#automatic-padding)
@@ -293,6 +294,10 @@ yabai -m space web --pin     # remove the pin
 ```
 
 A pin is kept by the display's uuid, so it survives display index changes, and it is set in memory: put the `[[space]]` pin in your `yabai.toml`. Pins are applied when they are set, after a display is added, removed or moved, and at startup. A pinned space is not moved back when you move it by hand, and `space_layout` never moves or destroys it. Moving a space needs the scripting addition.
+
+### Topology log
+
+The daemon always records display, sleep, lock and space changes, what it did in reply, and every display, space and window at the moments around them, in `~/.local/state/yabai/topology.log` (`$XDG_STATE_HOME/yabai/topology.log` when that is set). It keeps about 8 MiB. After windows end up in the wrong place following a long sleep or an unplugged dock, the log shows what macOS changed and when.
 
 ### Built-in display last
 

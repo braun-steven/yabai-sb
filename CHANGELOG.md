@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- The daemon always records display, sleep, lock and space changes, what it did in reply, and observations of every display, space and window in `~/.local/state/yabai/topology.log`
 - Command *query --scripting-addition* reports the scripting addition: the embedded, installed and loaded payload versions, each capability the loaded payload found, the UUID of the running Dock build and whether the payload validated it, and whether SIP allows the payload (payload 2.1.42)
 - Config *space_auto_back_and_forth* makes *space --focus* with the index or label of the focused space focus the recent space instead, like sway's *workspace_auto_back_and_forth*; *prev*, *next* and the other selectors are unchanged
 - A color option of *yabai.toml* also takes `"rgb(r, g, b)"` and `"rgba(r, g, b, a)"` strings (r, g and b from 0 to 255, a from 0 to 1), e.g. `active_window_border_color = "rgba(81, 175, 239, 0.8)"`

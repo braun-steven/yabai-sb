@@ -13,6 +13,7 @@ import YabaiCore
 extension EventHandler {
   /// Sets the Mission Control mode and pushes the signal of entering it.
   private func missionControlShow(_ mode: MissionControlMode) {
+    TopologyLog.record("mission-control-show", "\(mode)")
     MissionControl.shared.mode = mode
     Border.setHiddenForMissionControl(true)
     EventSignals.shared.push(.missionControlEnter(mode))
@@ -45,6 +46,7 @@ extension EventHandler {
     let entered = !MissionControl.shared.isActive
     if entered {
       Logger.events.debug("mission control enter")
+      TopologyLog.record("mission-control-enter")
       MissionControl.shared.mode = .show
     }
     Border.setHiddenForMissionControl(true)
@@ -77,6 +79,7 @@ extension EventHandler {
     DisplayManager.shared.invalidateSpaceCaches()
 
     Logger.events.debug("mission control exit")
+    TopologyLog.record("mission-control-exit")
 
     let wm = WindowManager.shared
     if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {
@@ -172,6 +175,7 @@ extension EventHandler {
     sm.spaceLayoutPasses += 1
     if sm.spaceLayoutPasses > 40 {
       Logger.spaces.notice("giving up on the space layout: it did not converge")
+      TopologyLog.record("layout-gave-up")
       return
     }
 
@@ -204,6 +208,7 @@ extension EventHandler {
     sm.spacePinPasses += 1
     if sm.spacePinPasses > 40 {
       Logger.spaces.notice("giving up on the space pins: they did not converge")
+      TopologyLog.record("pins-gave-up")
       return
     }
 

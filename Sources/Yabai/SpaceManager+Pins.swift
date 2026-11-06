@@ -98,6 +98,7 @@ extension SpaceManager {
 
     Logger.spaces.debug(
       "move pinned space \(Int64(bitPattern: move.sid.rawValue)) to display \(move.did)")
+    TopologyLog.record("pin-step", "\(move.sid.rawValue) to \(move.did)")
 
     do {
       try moveSpace(move.sid, toDisplay: move.did)

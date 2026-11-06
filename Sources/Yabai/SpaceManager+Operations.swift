@@ -72,6 +72,7 @@ extension SpaceManager {
     let selectorDid = selectorSid.display
 
     if actingSid == selectorSid { throw .sameSpace }
+    TopologyLog.record("swap-space", "\(actingSid.rawValue) \(selectorSid.rawValue)")
     if actingDid != selectorDid {
       swapSpaceAcrossDisplays(actingSid, with: selectorSid)
       return
@@ -137,6 +138,7 @@ extension SpaceManager {
 
     if actingSid == selectorSid { throw .sameSpace }
     if actingDid != selectorDid { throw .sameDisplay }
+    TopologyLog.record("reorder-space", "\(actingSid.rawValue) to \(selectorSid.rawValue)")
 
     let actingPrevSid = actingSid.previous
     let selectorPrevSid = selectorSid.previous
@@ -191,6 +193,7 @@ extension SpaceManager {
     if sid.isLastUserSpace { throw .invalidSource }
 
     guard let dSid = did.currentSpace else { throw .missingDestination }
+    TopologyLog.record("move-space", "\(sid.rawValue) to display \(did)")
 
     let isActive = sid == SpaceID.active
 
@@ -498,6 +501,7 @@ extension SpaceManager {
     let did = sid.display
     let firstSid = did?.spaces?.first(where: { $0.isUser })
 
+    TopologyLog.record("destroy-space", "\(sid.rawValue)")
     if !ScriptingAddition.shared.destroySpace(sid) { throw .scriptingAdditionFailed }
 
     if let firstSid {
@@ -511,6 +515,7 @@ extension SpaceManager {
     if MissionControl.shared.isActive { throw .inMissionControl }
     guard let sid else { throw .missingSource }
 
+    TopologyLog.record("create-space", "next to \(sid.rawValue)")
     if !ScriptingAddition.shared.createSpace(sid) { throw .scriptingAdditionFailed }
   }
 }

@@ -79,6 +79,9 @@ extension SpaceManager {
       visible: { didList[$0].currentSpace },
       isEmpty: { $0.windows(includingMinimized: true)?.isEmpty ?? false })
 
+    TopologyLog.record(
+      "layout-step", "\(step) target=\(target) counts=\(user.map { $0.count(where: { $0 }) })")
+
     /// The user spaces and the target of a display, for the log.
     func counts(_ i: Int) -> String { "\(user[i].count(where: { $0 }))/\(target[i])" }
 

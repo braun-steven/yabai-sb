@@ -42,11 +42,13 @@ func connectionNotificationHandler(
     guard let sid = SLSNotification.payload(data, dataLength, as: UInt64.self) else {
       return logShortPayload(kind, dataLength)
     }
+    TopologyLog.recordChange("space-created", "\(sid)")
     EventLoop.post(.slsSpaceCreated(spaceID: SpaceID(sid)))
   case .spaceDestroyed:
     guard let sid = SLSNotification.payload(data, dataLength, as: UInt64.self) else {
       return logShortPayload(kind, dataLength)
     }
+    TopologyLog.recordChange("space-destroyed", "\(sid)")
     EventLoop.post(.slsSpaceDestroyed(spaceID: SpaceID(sid)))
   case .windowOrdered:
     guard let wid = SLSNotification.payload(data, dataLength, as: UInt32.self) else {

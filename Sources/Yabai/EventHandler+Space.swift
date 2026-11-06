@@ -17,6 +17,7 @@ extension EventHandler {
 
     if type == 0 || type == 4 {
       Logger.events.debug("space created: \(Int64(bitPattern: sid.rawValue)), \(type)")
+      TopologyLog.record("handle-space-created", "\(sid.rawValue) type=\(type)")
       SpaceManager.shared.view(for: sid)
       EventSignals.shared.push(.spaceCreated(sid))
       SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
@@ -29,6 +30,7 @@ extension EventHandler {
 
     if let view = sm.views[sid] {
       Logger.events.debug("space destroyed: \(Int64(bitPattern: sid.rawValue))")
+      TopologyLog.record("handle-space-destroyed", "\(sid.rawValue)")
       _ = sm.labels.remove(id: sid)
       sm.views[sid] = nil
       view.destroy()
@@ -143,6 +145,7 @@ extension EventHandler {
   func displayAdded(_ did: DisplayID) {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display added: \(did)")
+    TopologyLog.record("handle-display-added", "\(did)")
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
@@ -154,6 +157,7 @@ extension EventHandler {
   func displayRemoved(_ did: DisplayID) {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display removed: \(did)")
+    TopologyLog.record("handle-display-removed", "\(did)")
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
@@ -165,6 +169,7 @@ extension EventHandler {
   func displayMoved(_ did: DisplayID) {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display moved: \(did)")
+    TopologyLog.record("handle-display-moved", "\(did)")
     SpaceManager.shared.markSpacesInvalid()
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
@@ -175,6 +180,7 @@ extension EventHandler {
   func displayResized(_ did: DisplayID) {
     DisplayManager.shared.invalidateSpaceCaches()
     Logger.events.debug("display resized: \(did)")
+    TopologyLog.record("handle-display-resized", "\(did)")
     SpaceManager.shared.markSpacesInvalid(on: did)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     EventSignals.shared.push(.displayResized(did))

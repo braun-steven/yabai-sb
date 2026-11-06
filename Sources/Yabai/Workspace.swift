@@ -62,6 +62,27 @@ final class Workspace: NSObject, Sendable {
       name: NSWorkspace.didWakeNotification,
       object: nil)
 
+    NSWorkspace.shared.notificationCenter.addObserver(
+      self,
+      selector: #selector(willSleep(_:)),
+      name: NSWorkspace.willSleepNotification,
+      object: nil)
+
+    for name in [
+      NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification,
+      NSWorkspace.sessionDidResignActiveNotification,
+      NSWorkspace.sessionDidBecomeActiveNotification,
+    ] {
+      NSWorkspace.shared.notificationCenter.addObserver(
+        self, selector: #selector(didChangePowerState(_:)), name: name, object: nil)
+    }
+
+    for name in ["com.apple.screenIsLocked", "com.apple.screenIsUnlocked"] {
+      DistributedNotificationCenter.default().addObserver(
+        self, selector: #selector(didChangePowerState(_:)), name: NSNotification.Name(name),
+        object: nil)
+    }
+
     DistributedNotificationCenter.default().addObserver(
       self,
       selector: #selector(didChangeMenuBarHiding(_:)),
@@ -138,7 +159,17 @@ final class Workspace: NSObject, Sendable {
   }
 
   @objc func didWake(_ notification: Notification) {
+    TopologyLog.recordChange("system-woke")
     postEvent(.systemWoke)
+  }
+
+  @objc func willSleep(_ notification: Notification) {
+    TopologyLog.recordSleep("system-will-sleep")
+  }
+
+  /// The screens sleep and wake, the screen locks and unlocks, the session is switched: only for the topology log.
+  @objc func didChangePowerState(_ notification: Notification) {
+    TopologyLog.recordChange("power", notification.name.rawValue)
   }
 
   @objc func didChangeMenuBarHiding(_ notification: Notification) {

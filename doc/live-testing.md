@@ -228,8 +228,8 @@ After a real failure, read the topology log first: `~/.local/state/yabai/topolog
 always on. A line is `<time> <kind> <detail>`, and the kinds `cg`, `space-created`, `space-destroyed`, `power`,
 `system-woke` and `system-will-sleep` come straight from their producers, while `handle-*` lines come from the event
 loop: the distance between the two shows how far behind it runs. `snapshot` lines hold a reason and JSON with every
-display, space and window, and the windows of the tree of each space, so a window listed on one space and in the tree of
-another stands out. There is one from at most 5 minutes before an unplug (`periodic`), 5 s after the last change
+display, space and window, the focused window, and the windows and shape of the tree of each space (`splith[1 tabbed[2
+3]]`), so a window listed on one space and in the tree of another stands out. There is one from at most 5 minutes before an unplug (`periodic`), 5 s after the last change
 (`settle`) and 20 s after it (`late`).
 
 ### Comparing performance builds

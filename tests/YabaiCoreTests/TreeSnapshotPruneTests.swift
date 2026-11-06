@@ -27,6 +27,14 @@ private func ids(_ values: UInt32...) -> Set<WindowID> {
   #expect(tree.windowIDs.map(\.rawValue) == [2, 1, 3])
 }
 
+@Test func treeSnapshotShapeShowsLayoutsAndWindows() {
+  let tree = container(
+    .splitH, [container(.tabbed, [leaf(2), leaf(1)], focusOrder: [0, 1]), leaf(3)],
+    focusOrder: [0, 1])
+
+  #expect(tree.shape == "splith[tabbed[2 1] 3]")
+}
+
 @Test func prunedTreeWithAllWindowsIsTheTree() {
   let tree = container(
     .splitH,

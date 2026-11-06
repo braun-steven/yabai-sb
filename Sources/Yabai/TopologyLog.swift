@@ -162,7 +162,7 @@ extension SpaceManager {
           uuid: display["Display Identifier"] as? String ?? "",
           current: current?.uint64Value,
           spaces: spaces.compactMap(topologySpace))
-      })
+      }, focused: WindowManager.shared.focus.focused?.rawValue)
   }
 
   private func topologySpace(_ space: NSDictionary) -> TopologyObservation.Space? {
@@ -174,6 +174,7 @@ extension SpaceManager {
       uuid: space["uuid"] as? String ?? "",
       type: (space["type"] as? NSNumber)?.intValue ?? 0,
       windows: sid.windows(includingMinimized: true)?.map(\.rawValue) ?? [],
-      tree: views[sid]?.windowIDs.map(\.rawValue))
+      tree: views[sid]?.windowIDs.map(\.rawValue),
+      shape: views[sid]?.tree?.snapshot.shape)
   }
 }

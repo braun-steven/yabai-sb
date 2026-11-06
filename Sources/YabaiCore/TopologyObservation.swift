@@ -15,13 +15,18 @@ public struct TopologyObservation: Codable, Equatable, Sendable {
     public var windows: [UInt32]
     /// The windows in the tree of the view of the space, nil without a view.
     public var tree: [UInt32]?
+    /// The tree of the view of the space (`TreeSnapshot.shape`), nil without a tree.
+    public var shape: String?
 
-    public init(id: UInt64, uuid: String, type: Int, windows: [UInt32], tree: [UInt32]?) {
+    public init(
+      id: UInt64, uuid: String, type: Int, windows: [UInt32], tree: [UInt32]?, shape: String? = nil
+    ) {
       self.id = id
       self.uuid = uuid
       self.type = type
       self.windows = windows
       self.tree = tree
+      self.shape = shape
     }
   }
 
@@ -40,9 +45,12 @@ public struct TopologyObservation: Codable, Equatable, Sendable {
   }
 
   public var displays: [Display]
+  /// The focused window.
+  public var focused: UInt32?
 
-  public init(displays: [Display]) {
+  public init(displays: [Display], focused: UInt32? = nil) {
     self.displays = displays
+    self.focused = focused
   }
 }
 

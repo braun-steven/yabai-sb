@@ -73,6 +73,12 @@ extension TreeSnapshot {
     return children.flatMap(\.windowIDs)
   }
 
+  /// The layouts and windows of the tree in one line, like `splith[1 tabbed[2 3]]`.
+  public var shape: String {
+    if let windowID { return String(windowID.rawValue) }
+    return layout.rawValue + "[" + children.map(\.shape).joined(separator: " ") + "]"
+  }
+
   /// The tree with only these windows: a container left without windows goes too, and the children that stay share the
   /// space of their container as before, with the focus order they had. Nil when no window stays.
   public func pruned(keeping windows: Set<WindowID>) -> TreeSnapshot? {

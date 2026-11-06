@@ -135,7 +135,8 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `live.py run <label>` | 27 checks: relayout, tabs (incl. front-to-back order), rapid focus, cross-display send, focus follows mouse, alt-drag, stalled client, frozen app, native fullscreen |
 | `live.py extra <label>` | 50 SA space switches (Dock pid, footprint), space focus with a frozen front app, tabbed container warped to display 2 and back, swap across displays |
 | `live.py launch <label>` | launch-retry backoff for an app frozen right after launch; needs every test app closed |
-| `live.py topology <label>` | opt-in mirror-based display removal/re-add check for `space_layout` counts and pinned-space placement |
+| `live.py topology <label>` | opt-in mirror-based check of `space_layout` counts and pinned-space placement; it does not cover an unplug (see "Display changes") |
+| `topology.py` | `snap`, `show`, `diff`, `fixture`, `cleanup`, `restore`, `record` and `run <scenario>`: compares every space, window, tree, floating frame, focus and rule before and after a display change (see "Display changes") |
 | `live.py cleanup` | quits the test apps, resets config, shows space 11 on display 2, focuses the window recorded by `setup` |
 | `bench.py <label>` | medians for tab focus, rotate, split focus |
 | `perf.py <label> --samples 50 --out <file>` | repeated CLI/socket latency, observed completion, binary identity and process memory |
@@ -145,7 +146,10 @@ It lives in `scripts/live-tests/`. Run it from that directory:
 | `border_geometry.swift` | read-only check that four border edges surround each supplied untabbed window at its actual WindowServer frame |
 | `bounds`, `mouse`, `freeze` | Swift helpers; `live.py` compiles them when missing or outdated (ignored by git) |
 | `missioncontrol.swift` | `state\|open\|close\|toggle`: posts the user's Mission Control shortcut (symbolic hotkey 32) and waits for the Dock overlay; compile it with `xcrun swiftc -O missioncontrol.swift -o missioncontrol` (the binary is ignored by git) |
-| `mirror.swift` | mirrors one display onto the other to simulate an unplug and a replug (see below); `live.py topology` compiles it when needed (the binary is ignored by git) |
+| `mirror.swift` | mirrors one display onto the other; `live.py topology` compiles it when needed (the binary is ignored by git) |
+| `display_off.swift` | disables displays in stages like a real unplug and enables them again (see "Display changes"); `topology.py` compiles it when needed (the binary is ignored by git) |
+| `toporec.swift` | read-only recorder: display callbacks, sleep notifications and a 100 ms diff of spaces and windows; `topology.py` compiles it when needed (the binary is ignored by git) |
+| `sa_move.py` | moves windows by id through the scripting addition, also the ones without an AX reference that `window --space` refuses |
 | `deploy.sh [install\|asan\|tsan\|restore]` | builds, signs, installs and restarts a test build; `restore` puts the previous binary back (see below) |
 | `sa_version.py` | prints the version and attribute bits of the payload loaded in Dock |
 | `ipc_compare.sh` | ~200 IPC commands that only query (the json of every query), fail before they act, or add and remove labeled rules and signals; diff its output between the installed build and a test build, each right after a restart |
@@ -169,6 +173,55 @@ waits for each display's user-space count in arrangement order to match the conf
 checks that the two-display counts converge and the pinned label is back on its target display. It never creates or
 destroys spaces by index. The mirror procedure briefly changes the connected-display topology; macOS can assign a new
 id to a space when the display returns.
+
+### Display changes
+
+Measured on 2026-11-06 with three displays (two externals in a dock and the open lid), one run per scenario.
+
+| Change | What the callbacks report | What macOS does to spaces |
+|---|---|---|
+| Mirroring (`mirror.swift`) | moved, mode, mirror, shape: no remove or add | restores everything itself; only the tree of the collapsed space is lost in yabai. It hides most of the damage: never conclude from it that an unplug works |
+| Disabling (`display_off.swift`, `CGSConfigureDisplayEnabled`) | remove and add | collapses and returns spaces like a cable |
+| Real cable | remove and add | see below |
+
+An unplugged dock: macOS changes the spaces first, the main display is removed about 0.35 s later and the other one
+0.2 s after that, and the event loop can run another 1.7 s behind, so state read in a handler is already changed. The
+first space of each lost display is destroyed and its windows pile up on the first space of the main display. The other
+spaces of the lost displays are appended to the remaining display, so the indices after a lost first space shift.
+
+The replug: display 2 comes first and the main display about 3 s later. macOS creates the destroyed spaces again with
+their old uuids and new ids and pulls their windows back, even from a space they were moved to by hand, which then stays
+empty. So a replacement that was created while undocked is left over, and there are 18 spaces instead of 16. macOS sends
+spaces to displays by its history (`SpaceAssignments` in `com.apple.spaces.plist`), so spaces that were never on a
+display can still go there, with `space_layout` off too. A few single windows land on the visible space of a returning
+display, some up to 10 s after the last add, and one needed two moves to stay; the cause is unknown. A uuid can also
+vanish for good: a simulated undock destroyed space 2 once, so key on the uuid and fall back to the slot.
+
+`display_off` copies the order of the cable: `2@0,3@0.2 3@0,2@3` (main display id 2, the other 3) removes the main
+display first and returns the other one first. Disabling both at once did not behave like the cable: it destroyed
+space 2 and logged a false `mission control enter`.
+
+`topology.py` needs three displays and moves real windows, so read the state it saves first:
+
+1. Tell the user: the test windows go on spaces 1, 11, 14 and 16, and with `space_layout` on the current build scrambles
+   the desktop until `restore` has run.
+2. `topology.py snap before`, then `topology.py fixture`.
+3. `topology.py run T4`. It saves the state before, during, after and 30 s later, records with `toporec`, prints the
+   differences and restores. `topology.py scenarios` lists the scenarios, and an argument after the name sets how many
+   seconds the displays stay away.
+4. `topology.py cleanup`, `topology.py restore before`.
+
+The real cable stays the reference: `topology.py record <name> <seconds>` runs while the user unplugs and replugs. A `run`
+or `restore` changes `space_layout` and reloads the config, which also binds rules again: a rule with `space = 11` is
+resolved to a space id when it is parsed, so a recreated space leaves it at space 0 in `rule --list`.
+
+After a real failure, read the topology log first: `~/.local/state/yabai/topology.log`, and `.1` for the older half. It is
+always on. A line is `<time> <kind> <detail>`, and the kinds `cg`, `space-created`, `space-destroyed`, `power`,
+`system-woke` and `system-will-sleep` come straight from their producers, while `handle-*` lines come from the event
+loop: the distance between the two shows how far behind it runs. `snapshot` lines hold a reason and JSON with every
+display, space and window, and the windows of the tree of each space, so a window listed on one space and in the tree of
+another stands out. There is one from at most 5 minutes before an unplug (`periodic`), 5 s after the last change
+(`settle`) and 20 s after it (`late`).
 
 ### Comparing performance builds
 
@@ -236,7 +289,8 @@ Rules for the user's machine:
   (`yabai -m window --focus <id>`) after the last one, also when a step fails or a deploy restarted yabai.
 
 - Two 2560×1440 displays. Display 1 has spaces 1–10, display 2 has 11–15. Spaces 1–3, 9–11 and 15
-  hold the user's windows: use only 4–8 and 12–14. The harness uses 4, 5 and 12.
+  hold the user's windows: use only 4–8 and 12–14. The harness uses 4, 5 and 12. The exception is `topology.py fixture`,
+  which the user allowed on spaces 1, 11 and 16: those are the spaces that macOS collapses.
 - Recheck the connected displays before every live run: the two-display setup can become laptop-only.
   Use the current geometry, restore the spaces that were actually visible, and explicitly skip
   cross-display checks when display 2 is missing.
@@ -279,13 +333,11 @@ Rules for the user's machine:
   `/tmp/yabai_$USER.out.log`, not the error log; warnings and fatal errors go to the error log. Each line is
   flushed when it is written. `live.py`'s launch check matches the lines "retrying", "giving up" and
   "could not observe" (once per attempt) of `Logger.events`/`Logger.processes`. Turn it off again afterwards.
-- To test a display removal and re-add (`space_layout` reconcile, `SpaceManager.handleDisplayAdd`) without the
-  user unplugging a cable, mirror display 2 onto display 1: `./mirror 2 3 <stop file>` in the background (the
-  arguments are the `id`s of `query --displays`, mirrored first), wait until `query --displays` lists one display,
-  check, then `touch <stop file>` to unmirror. The mirror reverts when the tool exits, and after 240 s at the latest.
-  macOS moves the spaces of the mirrored display over, but merges its visible space into space 1; on unmirror it
-  moves them back and puts those windows on a new space (a new id). With `space_layout 15 10:5 10:5:1b` each
-  direction takes one reconcile pass (create one space, then destroy it), seen with `debug_output on` (P9 review).
+- To test a display removal and re-add, use `display_off` or `topology.py` (see "Display changes"), not mirroring.
+  `./mirror 2 3 <stop file>` mirrors display 2 onto display 3 (the `id`s of `query --displays`, mirrored first) until
+  `touch <stop file>`, and after 240 s at the latest. macOS merges the visible space of the mirrored display into space 1
+  and on unmirror puts those windows on a new space (a new id); `space_layout 15 10:5 10:5:1b` takes one reconcile pass
+  in each direction.
 - `space_layout` (in `[config]` of `yabai.toml`, or `yabai -m config space_layout`) keeps the space count (15 here) by
   creating and destroying spaces after every space change. A `space --create` followed by `space <n> --destroy` with a
   freshly read count destroyed the user's space 15 (its window moved to space 1): the reconciler had already removed the

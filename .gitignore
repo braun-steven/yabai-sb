@@ -7,6 +7,8 @@
 /scripts/live-tests/mouse
 /scripts/live-tests/freeze
 /scripts/live-tests/mirror
+/scripts/live-tests/display_off
+/scripts/live-tests/toporec
 /scripts/live-tests/missioncontrol
 /scripts/live-tests/.focused-window
 __pycache__/

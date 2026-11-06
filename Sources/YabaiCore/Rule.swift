@@ -1,8 +1,16 @@
+/// The space a rule sends windows to. An index or a label stays a selector, resolved each time the rule applies: macOS
+/// gives a space a new id when it destroys and recreates it with its display, so a stored id stops working. The selectors
+/// that depend on the moment the rule is added (`prev`, `recent`, ...) are resolved then.
+public enum RuleSpace: Equatable, Sendable {
+  case id(SpaceID)
+  case selector(SpaceSelector)
+}
+
 /// The effects of a rule on the windows it matches. manage, sticky, mouseFollowsFocus and fullscreen are nil when the
 /// rule leaves them alone.
 public struct RuleEffects: Sendable, Equatable {
   public var did: DisplayID?
-  public var sid: SpaceID?
+  public var space: RuleSpace?
   public var manage: Bool?
   public var sticky: Bool?
   public var mouseFollowsFocus: Bool?
@@ -22,9 +30,9 @@ public struct RuleEffects: Sendable, Equatable {
   /// Merge a later matching rule, preserving properties it leaves unspecified.
   public mutating func combine(_ effects: RuleEffects) {
     if let did = effects.did { self.did = did }
-    if let sid = effects.sid { self.sid = sid }
+    if let space = effects.space { self.space = space }
 
-    if effects.did != nil || effects.sid != nil {
+    if effects.did != nil || effects.space != nil {
       followSpace = effects.followSpace
     }
 

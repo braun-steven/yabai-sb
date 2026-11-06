@@ -173,7 +173,10 @@ public func parseRule<C: SelectorContext>(
       if let selector = SpaceSelector(value) {
         do {
           if let sid = try selector.resolve(acting: context.activeSpace, context) {
-            rule.effects.sid = sid
+            switch selector {
+            case .missionControl, .label: rule.effects.space = .selector(selector)
+            case .prev, .next, .first, .last, .recent, .mouse: rule.effects.space = .id(sid)
+            }
           } else {
             scanner.reject()
           }

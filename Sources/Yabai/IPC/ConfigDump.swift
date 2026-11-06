@@ -149,7 +149,7 @@ import YabaiCore
   addPattern("role", rule.role)
   addPattern("subrole", rule.subrole)
   if let index = effects.did?.arrangement { add("display", selector(index)) }
-  if let index = effects.sid?.missionControlIndex { add("space", selector(index)) }
+  if let index = effects.currentSpace?.missionControlIndex { add("space", selector(index)) }
   if let insert = effects.insert { add("insert", .string(insert.argument)) }
   if effects.grid != Grid() {
     let grid = effects.grid

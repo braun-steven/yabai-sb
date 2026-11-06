@@ -18,13 +18,13 @@ extension WindowManager {
   }
 
   func applyRuleEffects(_ effects: RuleEffects, to target: Window) {
-    if effects.sid != nil || effects.did != nil {
+    if effects.space != nil || effects.did != nil {
       // Non-essential: the space move needs the fullscreen state of the window. While the breaker is open for its
       // application, the state cannot be read, so the move is skipped (ifResponsive returns nil).
       if let fullscreen = ifResponsive(pid: target.application.pid, { target.readFullscreen() }),
         !fullscreen && !(target.id.space.map { $0.isFullscreen } ?? false)
       {
-        if let sid = effects.sid ?? effects.did.flatMap({ $0.currentSpace }) {
+        if let sid = effects.currentSpace ?? effects.did.flatMap({ $0.currentSpace }) {
           sendWindow(target, to: sid, movedByRule: true)
           if effects.followSpace || effects.fullscreen == true {
             try? SpaceManager.shared.focusSpace(sid)

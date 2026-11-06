@@ -1069,7 +1069,7 @@ func signalParseFailureText(_ text: String, _ expected: String) {
 
 private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   var effects = RuleEffects()
-  effects.sid = sid
+  effects.space = .id(sid)
   effects.manage = false
   effects.followSpace = follow
   effects.grid = Grid(2, 2, 0, 0, 1, 1)
@@ -1079,7 +1079,7 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
 @Test("rule_effects_combine") func ruleEffectsCombine() {
   var combined = RuleEffects()
   combined.combine(spaceEffects(4, true))
-  #expect(combined.sid == 4)
+  #expect(combined.space == .id(4))
   #expect(combined.followSpace)
   #expect(combined.manage == false)
   #expect(combined.grid.width == 1)
@@ -1088,12 +1088,12 @@ private func spaceEffects(_ sid: SpaceID, _ follow: Bool) -> RuleEffects {
   var second = RuleEffects()
   second.sticky = true
   combined.combine(second)
-  #expect(combined.sid == 4)
+  #expect(combined.space == .id(4))
   #expect(combined.manage == false)
   #expect(combined.sticky == true)
 
   combined.combine(spaceEffects(6, false))
-  #expect(combined.sid == 6)
+  #expect(combined.space == .id(6))
   #expect(!combined.followSpace)
 
   // NOTE: a scratchpad replaces the earlier one

@@ -267,14 +267,31 @@ func insertionForNewWindowFollowsManage(_ row: InsertionCase) {
     #expect(rules.compactMap(\.label) == row.remaining)
   }
 
+  @Test func anIndexOrALabelStaysASelectorAndOtherSpacesAreResolvedWhenAdded() throws {
+    func space(_ value: String) throws -> RuleSpace? {
+      var message = Message("--add\0app=x\0space=\(value)\0")
+      let context = FixtureContext(
+        spaces: [SpaceID(10), SpaceID(20)], recentSpace: SpaceID(20),
+        spaceLabels: ["web": SpaceID(10)])
+      guard case .add(let rule) = try RuleCommand.parse(&message, context) else {
+        throw CommandError("expected an add command")
+      }
+      return rule.effects.space
+    }
+
+    #expect(try space("2") == .selector(.missionControl(2)))
+    #expect(try space("web") == .selector(.label(Token("web"))))
+    #expect(try space("recent") == .id(SpaceID(20)))
+  }
+
   @Test func destinationFieldsMergeIndependentlyAndControlFollow() {
     var effects = RuleEffects()
-    effects.sid = SpaceID(10)
+    effects.space = .id(SpaceID(10))
     effects.followSpace = true
     var later = RuleEffects()
     later.did = DisplayID(20)
     effects.combine(later)
-    #expect(effects.sid == SpaceID(10))
+    #expect(effects.space == .id(SpaceID(10)))
     #expect(effects.did == DisplayID(20))
     #expect(!effects.followSpace)
     later = RuleEffects()
@@ -282,9 +299,9 @@ func insertionForNewWindowFollowsManage(_ row: InsertionCase) {
     later.followSpace = true
     effects.combine(later)
     #expect(!effects.followSpace)
-    later.sid = SpaceID(30)
+    later.space = .selector(.missionControl(30))
     effects.combine(later)
-    #expect(effects.sid == SpaceID(30))
+    #expect(effects.space == .selector(.missionControl(30)))
     #expect(effects.followSpace)
   }
 }

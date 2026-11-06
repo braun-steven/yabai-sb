@@ -249,7 +249,7 @@ Global Settings
 
 *space_layout_restore* ['<BOOL_SEL>']::
     With *space_layout* set, keep the desktop through display changes (default on). +
-    The spaces keep their indices over all displays: when a display goes away, its spaces stay in the order they had, new spaces stand in for the ones macOS destroys, and every window goes back to the index of its space, in the tree it had, within about 6 seconds. When the display returns, the spaces go back to their displays, and the stand-ins are destroyed. The displays show what they showed, and the focused window stays focused. +
+    The spaces keep their indices over all displays: when a display goes away, its spaces stay in the order they had, new spaces stand in for the ones macOS destroys, and every window goes back to the index of its space, in the tree it had, about 6 to 12 seconds after the change. When the display returns, the spaces go back to their displays, and the stand-ins are destroyed. The displays show what they showed, and the focused window stays focused. +
     While displays change, *space_layout* and space pins wait. A space that macOS replaces gets the label and settings of the old one. A window moved with *window --space* in that time stays where it was put, and a window that macOS moves in the 15 seconds after a return goes back. +
     Nothing is restored when *space_layout* changed to another total of spaces since. The state is kept in memory, so it starts over with the daemon. +
     With 'off', *space_layout* only keeps the number of spaces on each display.

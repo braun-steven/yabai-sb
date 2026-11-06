@@ -228,9 +228,11 @@ The real cable stays the reference: `topology.py record <name> <seconds>` runs w
 With `space_layout` set, the restore (`SpaceManager+Topology.swift`) writes its own lines: `topology-disturbed`,
 `restore-begin` with the seconds waited and the age of the commit, `layout-step`, `move-windows`, `restore-tree` with the
 shape of each tree, `restore-show`, `restore-done` with the seconds and passes, `restore-watch-disturbed`,
-`restore-window-gave-up`, `restore-gave-up` and `topology-stable` with the reason. Measured with `T2` and `T3`: about 5 s
-from the change to `restore-done`, of which 4 s is the wait for quiet. A tree that a deploy emptied fills up during a
-restore, so a difference `splith[] became splith[1]` after a deploy is no failure.
+`restore-window-gave-up`, `restore-gave-up` and `topology-stable` with the reason. From the change to `restore-done` took
+about 6 s for one display (`T2`, `T3`) and 8 to 12 s for both externals (`T4` to `T7`), because macOS goes on for 2 to 4 s
+before the 4 s of quiet start; a return took 2 to 4 s after its quiet. A return usually shows `restore-watch-disturbed`
+when it comes within the watch of the undock: macOS moved spaces before the display callback. A tree that a deploy
+emptied fills up during a restore, so a difference `splith[] became splith[1]` after a deploy is no failure.
 
 After a real failure, read the topology log first: `~/.local/state/yabai/topology.log`, and `.1` for the older half. It is
 always on. A line is `<time> <kind> <detail>`, and the kinds `cg`, `space-created`, `space-destroyed`, `power`,

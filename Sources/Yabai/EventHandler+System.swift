@@ -132,7 +132,8 @@ extension EventHandler {
       wm.centerMouse(on: focusedWindow)
     }
 
-    SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
+    SpaceManager.shared.scheduleSpaceLayout(
+      after: .seconds(1), resetPasses: true, restoringArrangement: true)
     EventSignals.shared.push(.systemWoke)
   }
 

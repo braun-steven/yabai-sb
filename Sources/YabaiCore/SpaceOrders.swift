@@ -19,24 +19,64 @@ public struct SpaceOrders: Equatable, Sendable {
       zip(displays, spaces).map { ($0, $1) }, uniquingKeysWith: { first, _ in first })
   }
 
-  /// The recorded display and place of each space on these displays, nil without a record or when the record does not
+  /// The recorded arrangement, with the spaces of now put in it.
+  public struct Arrangement: Equatable, Sendable {
+    /// The index of the display of each space.
+    public var home: [String: Int] = [:]
+    /// The place of each space on its display.
+    public var rank: [String: Int] = [:]
+    /// The recorded spaces that are gone, by the spaces that take their places.
+    public var replaced: [String: String] = [:]
+  }
+
+  //
+  // NOTE: macOS can also destroy a space for good when a display returns, and move its windows to a space with another
+  // uuid. So a recorded space that is gone leaves its place to a space without a record, the one on its display first,
+  // and one with windows before an empty one, which the layout can destroy.
+  //
+
+  /// The recorded arrangement of these displays for the spaces of now, nil without a record or when the record does not
   /// have the number of spaces that `target` gives each display: the layout has changed since. `displays` lists the
-  /// uuids of the connected displays in arrangement order, and `home` is an index in it.
-  public func arrangement(displays: [String], target: [Int]) -> (
-    home: [String: Int], rank: [String: Int]
-  )? {
+  /// uuids of the connected displays in arrangement order, `spaces` the uuids of their spaces, and `home` is an index in
+  /// `displays`.
+  public func arrangement(
+    displays: [String], target: [Int], spaces: [[String]], isEmpty: (String) -> Bool
+  ) -> Arrangement? {
     guard let recorded = arrangements[Set(displays)],
       displays.map({ recorded[$0]?.count ?? 0 }) == target
     else { return nil }
 
-    var home: [String: Int] = [:]
-    var rank: [String: Int] = [:]
+    var result = Arrangement()
+    let current = Set(spaces.joined())
+    var missing: [(uuid: String, display: Int, place: Int)] = []
+
     for (index, display) in displays.enumerated() {
       for (place, space) in (recorded[display] ?? []).enumerated() {
-        home[space] = index
-        rank[space] = place
+        result.home[space] = index
+        result.rank[space] = place
+        if !current.contains(space) { missing.append((space, index, place)) }
       }
     }
-    return (home, rank)
+
+    var strangers = spaces.enumerated().flatMap { display, list in
+      list.filter { result.home[$0] == nil }.map { (uuid: $0, display: display) }
+    }
+    let occupied = strangers.filter { !isEmpty($0.uuid) }
+    let empty = strangers.filter { isEmpty($0.uuid) }
+    strangers = occupied + empty
+
+    for gone in missing {
+      guard
+        let found = strangers.firstIndex(where: { $0.display == gone.display })
+          ?? strangers.indices.first
+      else { break }
+
+      let stranger = strangers.remove(at: found)
+      result.home[stranger.uuid] = gone.display
+      result.rank[stranger.uuid] = gone.place
+      result.replaced[stranger.uuid] = gone.uuid
+    }
+
+    return result
   }
 }

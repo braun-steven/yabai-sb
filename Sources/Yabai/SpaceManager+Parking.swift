@@ -1,3 +1,4 @@
+import CoreFoundation
 import Logging
 import OrderedCollections
 import SortedCollections
@@ -63,8 +64,9 @@ extension SpaceManager {
     if parkedViews.count > Self.parkedViewLimit { parkedViews.removeFirst() }
   }
 
-  /// Gives a new space the view that waits for its uuid, instead of a new view.
-  func attachParkedView(uuid: String, to sid: SpaceID) {
+  /// Gives a new space the view that waits for `uuid`, instead of a new view. `newUUID` is the uuid of the space when it
+  /// takes the place of another space.
+  func attachParkedView(uuid: String, to sid: SpaceID, as newUUID: String? = nil) {
     guard let parked = parkedViews.removeValue(forKey: uuid) else { return }
 
     Logger.spaces.debug("space \(Int64(bitPattern: sid.rawValue)) takes its view back")
@@ -74,6 +76,7 @@ extension SpaceManager {
     views[sid] = parked.view
     parked.view.sid = sid
     parked.view.isValid = false
+    if let newUUID { parked.view.uuid = newUUID as CFString }
 
     if let label = parked.label, labels.id(named: label) == nil {
       labels.set(id: sid, name: label)

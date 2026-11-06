@@ -195,25 +195,34 @@ empty. So a replacement that was created while undocked is left over, and there 
 spaces to displays by its history (`SpaceAssignments` in `com.apple.spaces.plist`), so spaces that were never on a
 display can still go there, with `space_layout` off too. A few single windows land on the visible space of a returning
 display, some up to 10 s after the last add, and one needed two moves to stay; the cause is unknown. A uuid can also
-vanish for good: a simulated undock destroyed space 2 once, so key on the uuid and fall back to the slot.
+vanish for good: a simulated undock destroyed space 2 once, and the return of display 2 alone destroyed space 1 and moved
+its windows to a new space under an old uuid from its history (`space-destroyed` in the topology log), so key on the uuid
+and fall back to the slot.
 
 `display_off` copies the order of the cable: `2@0,3@0.2 3@0,2@3` (main display id 2, the other 3) removes the main
-display first and returns the other one first. Disabling both at once did not behave like the cable: it destroyed
-space 2 and logged a false `mission control enter`.
+display first and returns the other one first. Staged like this it reproduced the cable, down to the same stray windows,
+and no false Mission Control enter. Disabling both at once did not behave like the cable: it destroyed space 2 and
+logged a false `mission control enter`.
+
+Windows that end up on another space after a return are moved by macOS, not by yabai: the topology log has no
+`move-windows` line for them while `toporec` shows them changing spaces. A very short outage (`T6`) strays far more
+windows than a long one. The scripting addition's window move can also accept a move that does nothing: three moves of
+Mail, on the active space, changed nothing, and the same move with `window --space` worked. Check a move by reading the
+space back, and use `sa_move.py` only for the windows without an AX reference.
 
 `topology.py` needs three displays and moves real windows, so read the state it saves first:
 
 1. Tell the user: the test windows go on spaces 1, 11, 14 and 16, and with `space_layout` on the current build scrambles
    the desktop until `restore` has run.
-2. `topology.py snap before`, then `topology.py fixture`.
+2. `topology.py snap before`, then `yabai -m config space_layout 16 10:6 15:1b 10:5:1b` when the test needs 16 spaces
+   everywhere, then `topology.py fixture`. A deploy loses the trees of hidden spaces until they are shown, so a tree that
+   lacks a window of its space after a deploy is no failure of the scenario.
 3. `topology.py run T4`. It saves the state before, during, after and 30 s later, records with `toporec`, prints the
    differences and restores. `topology.py scenarios` lists the scenarios, and an argument after the name sets how many
    seconds the displays stay away.
 4. `topology.py cleanup`, `topology.py restore before`.
 
-The real cable stays the reference: `topology.py record <name> <seconds>` runs while the user unplugs and replugs. A `run`
-or `restore` changes `space_layout` and reloads the config, which also binds rules again: a rule with `space = 11` is
-resolved to a space id when it is parsed, so a recreated space leaves it at space 0 in `rule --list`.
+The real cable stays the reference: `topology.py record <name> <seconds>` runs while the user unplugs and replugs.
 
 After a real failure, read the topology log first: `~/.local/state/yabai/topology.log`, and `.1` for the older half. It is
 always on. A line is `<time> <kind> <detail>`, and the kinds `cg`, `space-created`, `space-destroyed`, `power`,

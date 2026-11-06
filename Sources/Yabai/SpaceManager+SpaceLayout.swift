@@ -83,12 +83,22 @@ extension SpaceManager {
     //
     let recorded =
       spaceOrderRestoreDeadline == nil
-      ? nil : spaceOrders.arrangement(displays: arrangement, target: target)
+      ? nil
+      : spaceOrders.arrangement(
+        displays: arrangement, target: target,
+        spaces: spaces.map { $0.compactMap { spaceUUID[$0] } },
+        isEmpty: { uuid in
+          spaceUUID.first { $0.value == uuid }?.key.windows(includingMinimized: true)?.isEmpty
+            ?? true
+        })
     var recordedHome: [SpaceID: Int] = [:]
     var recordedRank: [SpaceID: Int] = [:]
     for (sid, uuid) in spaceUUID {
       recordedHome[sid] = recorded?.home[uuid]
       recordedRank[sid] = recorded?.rank[uuid]
+
+      // NOTE: A space that takes the place of one that is gone also takes what that space left (SpaceManager+Parking.swift).
+      if let gone = recorded?.replaced[uuid] { attachParkedView(uuid: gone, to: sid, as: uuid) }
     }
 
     var step = SpaceLayout.reconcileStep(
@@ -194,11 +204,14 @@ extension SpaceManager {
   /// How often the passes look again within `spaceOrderRestoreWindow`, when they have nothing left to do.
   static let spaceOrderCheckInterval: Duration = .seconds(2)
 
-  /// Posts the space layout reconcile event after the delay, superseding the pending one.
-  func scheduleSpaceLayout(after delay: Duration, resetPasses: Bool) {
+  /// Posts the space layout reconcile event after the delay, superseding the pending one. `restoringArrangement` is for a
+  /// display change or a wake, after which the passes put the recorded arrangement back.
+  func scheduleSpaceLayout(
+    after delay: Duration, resetPasses: Bool, restoringArrangement: Bool = false
+  ) {
     if Config.current.space.spaceLayouts.isEmpty { return }
-    if resetPasses {
-      spaceLayoutPasses = 0
+    if resetPasses { spaceLayoutPasses = 0 }
+    if restoringArrangement {
       spaceOrderRestoreDeadline = ContinuousClock.now + Self.spaceOrderRestoreWindow
     }
 

@@ -251,16 +251,75 @@ private let threeDisplays: [(String, [SpaceID])] = [
   orders.record([["a", "b"], ["c"]], displays: ["d1", "d2"])
   orders.record([["c", "a", "b"]], displays: ["d1"])
 
-  let docked = try #require(orders.arrangement(displays: ["d2", "d1"], target: [1, 2]))
+  let docked = try #require(
+    orders.arrangement(
+      displays: ["d2", "d1"], target: [1, 2], spaces: [["c"], ["a", "b"]], isEmpty: { _ in true }))
   #expect(docked.home == ["c": 0, "a": 1, "b": 1])
   #expect(docked.rank == ["c": 0, "a": 0, "b": 1])
+  #expect(docked.replaced.isEmpty)
 
-  let undocked = try #require(orders.arrangement(displays: ["d1"], target: [3]))
+  let undocked = try #require(
+    orders.arrangement(
+      displays: ["d1"], target: [3], spaces: [["a", "b", "c"]], isEmpty: { _ in true }))
   #expect(undocked.home == ["c": 0, "a": 0, "b": 0])
   #expect(undocked.rank == ["c": 0, "a": 1, "b": 2])
 
-  #expect(orders.arrangement(displays: ["d2"], target: [1]) == nil)
-  #expect(orders.arrangement(displays: ["d1", "d2"], target: [1, 2]) == nil)
+  #expect(
+    orders.arrangement(displays: ["d2"], target: [1], spaces: [[]], isEmpty: { _ in true }) == nil)
+  #expect(
+    orders.arrangement(
+      displays: ["d1", "d2"], target: [1, 2], spaces: [[], []], isEmpty: { _ in true }) == nil)
+}
+
+@Test func aSpaceWithoutARecordTakesThePlaceOfOneThatIsGone() throws {
+  var orders = SpaceOrders()
+  orders.record([["a", "b", "c"], ["d"]], displays: ["d1", "d2"])
+
+  // macOS destroyed a and moved its windows to x, which it put last.
+  let result = try #require(
+    orders.arrangement(
+      displays: ["d1", "d2"], target: [3, 1], spaces: [["b", "c", "x"], ["d"]],
+      isEmpty: { _ in false }))
+
+  #expect(result.home["x"] == 0)
+  #expect(result.rank["x"] == 0)
+  #expect(result.replaced == ["x": "a"])
+}
+
+@Test func aSpaceWithWindowsTakesAPlaceBeforeAnEmptySpace() throws {
+  var orders = SpaceOrders()
+  orders.record([["a", "b"], ["c"]], displays: ["d1", "d2"])
+
+  let result = try #require(
+    orders.arrangement(
+      displays: ["d1", "d2"], target: [2, 1], spaces: [["b", "empty", "x"], ["c"]],
+      isEmpty: { $0 == "empty" }))
+
+  #expect(result.replaced == ["x": "a"])
+  #expect(result.home["empty"] == nil)
+}
+
+@Test func aSpaceOnTheDisplayOfTheGoneSpaceComesFirst() throws {
+  var orders = SpaceOrders()
+  orders.record([["a"], ["b"]], displays: ["d1", "d2"])
+
+  let result = try #require(
+    orders.arrangement(
+      displays: ["d1", "d2"], target: [1, 1], spaces: [["y"], ["x"]], isEmpty: { _ in false }))
+
+  #expect(result.replaced == ["y": "a", "x": "b"])
+}
+
+@Test func aGoneSpaceTakesASpaceOfAnotherDisplayWhenItsOwnHasNone() throws {
+  var orders = SpaceOrders()
+  orders.record([["a", "b"], ["c"]], displays: ["d1", "d2"])
+
+  let result = try #require(
+    orders.arrangement(
+      displays: ["d1", "d2"], target: [2, 1], spaces: [["b"], ["c", "x"]], isEmpty: { _ in false }))
+
+  #expect(result.home["x"] == 0)
+  #expect(result.rank["x"] == 0)
 }
 
 /// The spaces of a test of `arrangementStep`: every space is a user space.

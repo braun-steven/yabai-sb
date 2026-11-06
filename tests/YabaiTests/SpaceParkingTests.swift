@@ -84,6 +84,21 @@ extension DaemonState {
       #expect(sm.returningTrees.isEmpty)
     }
 
+    @Test func aSpaceThatTakesThePlaceOfAnotherGetsItsViewAndKeepsItsUuid() throws {
+      let workspace = workspace()
+      let sm = SpaceManager.shared
+      sm.labels.set(id: Workspace.sid, name: "work")
+      sm.parkView(workspace.view)
+
+      sm.attachParkedView(uuid: uuid, to: newSid, as: "replacement")
+
+      let view = try #require(sm.views[newSid])
+      #expect(view === workspace.view)
+      #expect((view.uuid as String?) == "replacement")
+      #expect(sm.labels.id(named: "work") == newSid)
+      #expect(sm.returningTrees[newSid] != nil)
+    }
+
     @Test func aSpaceWithNothingToGiveBackIsNotKept() {
       let view = View(sid: Workspace.sid)
       view.uuid = uuid as CFString

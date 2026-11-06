@@ -160,7 +160,6 @@ def restore(target):
         refocus(target)
     finally:
         if layout: y("config", "space_layout", *layout.split())
-        y("config", "--reload")
 
 def restore_spaces(target):
     slots = [s["uuid"] for s in target["spaces"]]
@@ -196,16 +195,17 @@ def restore_spaces(target):
     print("space order restored:", [s["uuid"] for s in spaces] == slots, len(spaces), "spaces")
 
 def restore_windows(target):
+    # NOTE: The scripting addition accepted three moves of a window on the active space that did nothing, so it only moves
+    # the windows that `window --space` refuses, those without an AX reference.
     wanted = {w["id"]: w["space"] for w in target["windows"]}
     for _ in range(3):
         sid = {s["index"]: s["id"] for s in q("--spaces")}
-        stray = {}
-        for w in q("--windows"):
-            if w["id"] in wanted and w["space"] != wanted[w["id"]]:
-                stray.setdefault(wanted[w["id"]], []).append(w["id"])
+        stray = [w for w in q("--windows") if w["id"] in wanted and w["space"] != wanted[w["id"]]]
         if not stray: break
-        for index, ids in stray.items():
-            print("windows", ids, "to space", index, "accepted:", sa_move(sid[index], ids))
+        for w in stray:
+            index = wanted[w["id"]]
+            moved = w["has-ax-reference"] and y("window", str(w["id"]), "--space", str(index)).returncode == 0
+            print("window", w["id"], w["app"], "to space", index, "accepted:", moved or sa_move(sid[index], [w["id"]]))
         time.sleep(0.8)
 
 def display_ids():

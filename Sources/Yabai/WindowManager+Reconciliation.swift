@@ -153,21 +153,24 @@ extension WindowManager {
     }
   }
 
+  /// Takes the windows on the first user space of every display into its tree: the spaces of a display that goes away
+  /// put their windows there.
+  func checkForWindowsOnFirstSpaces() {
+    for did in DisplayID.all {
+      guard let space = did.spaces?.first(where: \.isUser),
+        let windowList = windows(onSpace: space)
+      else { continue }
+
+      let owner = SpaceManager.shared.view(for: space)
+      // NOTE: The views that windows were taken from are flushed by the refresh pass that follows.
+      if owner.layout != .float {
+        checkForWindows(on: owner, in: windowList, dragged: MouseState.shared.draggedWindowID)
+      }
+    }
+  }
+
   func handleDisplayAddAndRemove(_ did: DisplayID) {
     guard let spaceList = did.spaces else { return }
-
-    for space in spaceList where space.isUser {
-      if let windowList = windows(onSpace: space) {
-        let owner = SpaceManager.shared.view(for: space)
-        // NOTE: The views that windows were taken from are flushed by the refresh pass after the display change
-        // (`SpaceManager.scheduleDisplaySpacesRefresh`), which flushes the dirty views that are shown.
-        if owner.layout != .float {
-          checkForWindows(
-            on: owner, in: windowList, dragged: MouseState.shared.draggedWindowID)
-        }
-      }
-      break
-    }
 
     let sid = did.currentSpace
     for space in spaceList {

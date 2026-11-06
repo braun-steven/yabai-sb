@@ -18,6 +18,9 @@ extension EventHandler {
     if type == 0 || type == 4 {
       Logger.events.debug("space created: \(Int64(bitPattern: sid.rawValue)), \(type)")
       TopologyLog.record("handle-space-created", "\(sid.rawValue) type=\(type)")
+      if let uuid = SLS.spaceName(SLS.connection, sid) {
+        SpaceManager.shared.attachParkedView(uuid: uuid, to: sid)
+      }
       SpaceManager.shared.view(for: sid)
       EventSignals.shared.push(.spaceCreated(sid))
       SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
@@ -31,9 +34,7 @@ extension EventHandler {
     if let view = sm.views[sid] {
       Logger.events.debug("space destroyed: \(Int64(bitPattern: sid.rawValue))")
       TopologyLog.record("handle-space-destroyed", "\(sid.rawValue)")
-      _ = sm.labels.remove(id: sid)
-      sm.views[sid] = nil
-      view.destroy()
+      sm.parkView(view)
       EventSignals.shared.push(.spaceDestroyed(sid))
       sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
     }
@@ -104,6 +105,29 @@ extension EventHandler {
     SpaceManager.shared.refreshDisplaySpaces(includingHidden: true)
   }
 
+  //
+  // NOTE: Spaces and windows move for seconds after a display change, and the views stay out of it until then: a window that
+  // macOS parks on the first space of the main display while its own space is gone would change the tree of that space
+  // for nothing. Windows that are still on the first spaces after the wait join them.
+  //
+
+  /// The windows after the display changes have been quiet: the trees of the spaces that came back, and the first spaces.
+  func displayWindowCheck() {
+    DisplayManager.shared.invalidateSpaceCaches()
+    let sm = SpaceManager.shared
+
+    if MissionControl.shared.isActive {
+      sm.scheduleDisplayWindowCheck()
+      return
+    }
+
+    let pending = sm.installReturningTrees { $0.windows(includingMinimized: false) }
+    WindowManager.shared.checkForWindowsOnFirstSpaces()
+    sm.refreshDisplaySpaces(includingHidden: true)
+
+    if pending { sm.scheduleDisplayWindowCheck() }
+  }
+
   func displayChanged() {
     DisplayManager.shared.invalidateSpaceCaches()
     let dm = DisplayManager.shared
@@ -149,6 +173,7 @@ extension EventHandler {
     SpaceManager.shared.handleDisplayAdd(did)
     WindowManager.shared.handleDisplayAddAndRemove(did)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
+    SpaceManager.shared.scheduleDisplayWindowCheck()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayAdded(did))
@@ -161,6 +186,7 @@ extension EventHandler {
     _ = DisplayManager.shared.labels.remove(id: did)
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
+    SpaceManager.shared.scheduleDisplayWindowCheck()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayRemoved(did))
@@ -172,6 +198,7 @@ extension EventHandler {
     TopologyLog.record("handle-display-moved", "\(did)")
     SpaceManager.shared.markSpacesInvalid()
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
+    SpaceManager.shared.scheduleDisplayWindowCheck()
     SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayMoved(did))

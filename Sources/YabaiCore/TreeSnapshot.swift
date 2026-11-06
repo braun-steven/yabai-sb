@@ -65,3 +65,37 @@ public struct TreeHistory: Sendable {
     if let newest, newest.windows != windows { clear() }
   }
 }
+
+extension TreeSnapshot {
+  /// The windows of the leaves, in tree order.
+  public var windowIDs: [WindowID] {
+    if let windowID { return [windowID] }
+    return children.flatMap(\.windowIDs)
+  }
+
+  /// The tree with only these windows: a container left without windows goes too, and the children that stay share the
+  /// space of their container as before, with the focus order they had. Nil when no window stays.
+  public func pruned(keeping windows: Set<WindowID>) -> TreeSnapshot? {
+    if let windowID { return windows.contains(windowID) ? self : nil }
+
+    var kept: [TreeSnapshot] = []
+    var places: [Int: Int] = [:]
+    for (index, child) in children.enumerated() {
+      guard let child = child.pruned(keeping: windows) else { continue }
+      places[index] = kept.count
+      kept.append(child)
+    }
+    if kept.isEmpty { return nil }
+
+    let share = children.reduce(0) { $0 + $1.percent }
+    let keptShare = kept.reduce(0) { $0 + $1.percent }
+    if keptShare > 0 && keptShare != share {
+      for index in kept.indices { kept[index].percent *= share / keptShare }
+    }
+
+    var result = self
+    result.children = kept
+    result.focusOrder = focusOrder.compactMap { places[$0] }
+    return result
+  }
+}

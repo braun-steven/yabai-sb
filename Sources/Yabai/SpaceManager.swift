@@ -42,6 +42,10 @@ enum SpaceOperationError: Error, Sendable {
   var spaceOrders = SpaceOrders()
   /// The end of the time after a display change in which the passes put the recorded arrangement back (`SpaceOrders`).
   var spaceOrderRestoreDeadline: ContinuousClock.Instant?
+  /// The views of destroyed spaces by the uuid of the space, oldest first (SpaceManager+Parking.swift).
+  var parkedViews: OrderedDictionary<String, ParkedView> = [:]
+  /// The trees of the views that came back, until their windows are in them.
+  var returningTrees: [SpaceID: ReturningTree] = [:]
   /// The pins of the labels (SpacePins), kept in memory: the config file sets them again at startup.
   var pins = SpacePins()
   var spacePinPasses = 0
@@ -257,11 +261,22 @@ enum SpaceOperationError: Error, Sendable {
   func handleDisplayAdd(_ did: DisplayID) {
     guard let spaceList = did.spaces else { return }
 
+    rekeyViews(
+      spaces: spaceList.compactMap { sid in
+        SLS.spaceNameObject(SLS.connection, sid).map { (sid, $0) }
+      })
+
+    currentSpaceID = SpaceID.active
+    lastSpaceID = currentSpaceID
+  }
+
+  /// Moves the views of the spaces to their current ids, found by uuid, and gives the spaces the views that wait for them.
+  func rekeyViews(spaces: [(sid: SpaceID, uuid: CFString)]) {
     var viewList: [View?] = views.values.map { Optional($0) }
     var uuidList: [CFString?] = viewList.map { $0?.uuid }
 
-    for sid in spaceList {
-      guard let uuid = SLS.spaceNameObject(SLS.connection, sid) else { continue }
+    for (sid, uuid) in spaces {
+      attachParkedView(uuid: uuid as String, to: sid)
 
       for j in 0..<viewList.count {
         guard let viewUUID = uuidList[j], let target = viewList[j] else { continue }
@@ -281,9 +296,6 @@ enum SpaceOperationError: Error, Sendable {
         break
       }
     }
-
-    currentSpaceID = SpaceID.active
-    lastSpaceID = currentSpaceID
   }
 
   /// An empty table of labels and views. The space defaults in Config are not written here: the startup sequence
@@ -294,6 +306,8 @@ enum SpaceOperationError: Error, Sendable {
     spaceHomes = SpaceHomes()
     spaceOrders = SpaceOrders()
     spaceOrderRestoreDeadline = nil
+    parkedViews = [:]
+    returningTrees = [:]
     pendingSpaceFocus = nil
     pendingSpaceMoves = []
     //

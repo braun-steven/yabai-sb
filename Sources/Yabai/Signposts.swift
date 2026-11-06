@@ -73,6 +73,7 @@ extension Event {
     case .spaceMoveFocusCheck: "spaceMoveFocusCheck"
     case .spaceMoveRefreshCheck: "spaceMoveRefreshCheck"
     case .displaySpacesRefresh: "displaySpacesRefresh"
+    case .displayWindowCheck: "displayWindowCheck"
     case .topologySnapshot: "topologySnapshot"
     case .ffmRecheck: "ffmRecheck"
     case .windowFrameRecheck: "windowFrameRecheck"

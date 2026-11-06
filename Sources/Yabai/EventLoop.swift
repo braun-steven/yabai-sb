@@ -146,6 +146,8 @@ enum Event: Sendable {
   case ffmRecheck
   // NOTE: Only post with `key: .windowFrameRecheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case windowFrameRecheck
+  // NOTE: Only post with `key: .displayWindowCheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case displayWindowCheck
   // NOTE: Only post with `key: .topologySnapshot` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case topologySnapshot(TopologySnapshotReason)
   case daemonMessage(DaemonMessage)
@@ -191,7 +193,7 @@ enum EventLoop {
   /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
   /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile`, `.missionControlCheckForExit`,
   /// `.configFileChanged`, `.focusClickCursorRestore`, `.spaceMoveFocusCheck`, `.spaceMoveRefreshCheck`,
-  /// `.displaySpacesRefresh`, `.ffmRecheck`, `.windowFrameRecheck` and `.topologySnapshot` with their key.
+  /// `.displaySpacesRefresh`, `.ffmRecheck`, `.windowFrameRecheck`, `.displayWindowCheck` and `.topologySnapshot` with their key.
   enum DelayedEventKey: Hashable, Sendable {
     case spaceLayoutReconcile
     case spacePinReconcile
@@ -203,6 +205,7 @@ enum EventLoop {
     case displaySpacesRefresh
     case ffmRecheck
     case windowFrameRecheck
+    case displayWindowCheck
     case topologySnapshot
   }
 
@@ -388,6 +391,8 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .ffmRecheck) { ffmRecheck() }
     case .windowFrameRecheck:
       if EventLoop.claimDelivery(of: .windowFrameRecheck) { windowFrameRecheck() }
+    case .displayWindowCheck:
+      if EventLoop.claimDelivery(of: .displayWindowCheck) { displayWindowCheck() }
     case .topologySnapshot(let reason):
       if EventLoop.claimDelivery(of: .topologySnapshot) { TopologyLog.snapshot(reason) }
     case .daemonMessage(let message): MessageLoop.handle(message)

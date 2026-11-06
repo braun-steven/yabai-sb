@@ -73,6 +73,10 @@ extension SpaceManager {
 
     if actingSid == selectorSid { throw .sameSpace }
     TopologyLog.record("swap-space", "\(actingSid.rawValue) \(selectorSid.rawValue)")
+    //
+    // NOTE: A pass records the new arrangement (SpaceOrders); no event reports it.
+    //
+    defer { scheduleSpaceLayout(after: .seconds(1), resetPasses: false) }
     if actingDid != selectorDid {
       swapSpaceAcrossDisplays(actingSid, with: selectorSid)
       return
@@ -139,6 +143,7 @@ extension SpaceManager {
     if actingSid == selectorSid { throw .sameSpace }
     if actingDid != selectorDid { throw .sameDisplay }
     TopologyLog.record("reorder-space", "\(actingSid.rawValue) to \(selectorSid.rawValue)")
+    defer { scheduleSpaceLayout(after: .seconds(1), resetPasses: false) }
 
     let actingPrevSid = actingSid.previous
     let selectorPrevSid = selectorSid.previous

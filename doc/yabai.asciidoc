@@ -239,9 +239,11 @@ Global Settings
     '<LAYOUT>' is a colon-separated list of space counts, one entry per display in arrangement order, e.g. '10:5'. +
     Give one '<LAYOUT>' per number of connected displays; the layout whose entry count matches the number of active displays is used, e.g. '15 10:5 10:5:1b'. +
     An entry suffixed with 'b' belongs to the built-in display, and the remaining entries apply to the other displays in order. +
+    A number of displays can have two layouts, one with a 'b' entry and one without, e.g. '16 10:6 15:1b 10:5:1b': with two displays '15:1b' is used when one of them is the built-in display, and '10:6' when both are external. With a single layout for a number of displays, it is used either way. +
     After displays are added, removed or moved, and after spaces are created or destroyed, spaces are moved between displays, created or destroyed until every display matches its target. +
     Spaces that contain windows are never destroyed. Spaces pinned to a connected display (see *--pin*) are never moved or destroyed by this. +
     Like sway's output priority, a space whose display goes away remembers that display, and when the display is connected again, the spaces that came from it return to it first, as many as its target takes; the rest of its target is filled from the displays with too many spaces. A pin wins over the remembered display. The remembered displays are kept until the daemon quits. +
+    The arrangement of the spaces on each set of displays is remembered too: when the same displays are connected again, the spaces go back to the displays and the order they had there, as long as that arrangement has the numbers of spaces of the layout. +
     A pinned space counts towards the target of its display: when a pin brings a space to a display that already has its target, another unpinned space leaves that display, the visible one when no other is left. +
     System Integrity Protection must be partially disabled.
 

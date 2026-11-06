@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
+- Config *space_layout* takes two layouts for a number of displays, one with a built-in entry and one without, e.g. `16 10:6 15:1b 10:5:1b`
 - The daemon always records display, sleep, lock and space changes, what it did in reply, and observations of every display, space and window in `~/.local/state/yabai/topology.log`
 - Command *query --scripting-addition* reports the scripting addition: the embedded, installed and loaded payload versions, each capability the loaded payload found, the UUID of the running Dock build and whether the payload validated it, and whether SIP allows the payload (payload 2.1.42)
 - Config *space_auto_back_and_forth* makes *space --focus* with the index or label of the focused space focus the recent space instead, like sway's *workspace_auto_back_and_forth*; *prev*, *next* and the other selectors are unchanged
@@ -140,6 +141,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Breaking: the yabairc is no longer read; the config is `yabai.toml` (see *Added*), and *yabai -m config --reload* no longer runs a script. Convert a yabairc by hand, using `examples/yabai.toml` as the model
 
 ### Fixed
+- Config *space_layout* puts the spaces back on the displays and in the order they had on those displays, after macOS spreads them by its own history when a display returns
 - The scripting addition works on macOS 27.2 (26B123): new search windows for its Dock patterns, patterns that match both arm64e slices of the now fat Dock, focus through *currentSpaceForDisplay:* where *currentSpaceForDisplayUUID:* is gone, and the animation patch validated for both slices. *--load-sa* no longer reports a failure after injecting there, and *space --move*, *--swap* and *--display* work through the Dock's handler for moves reported by WindowManager.app (payload 2.1.45)
 - With *window_origin_display focused* or *cursor*, a created window that macOS shows on another space of the display (an application showing a hidden window again on the space it was last on) is moved to the origin space before it is tiled, and focused there again after macOS switches to its old space; it was tiled on the origin space but stayed on its old one, so it ended up in that space's tree and *window --focus* moved from there
 - A signal command gets only the daemon's stdin, stdout and stderr, so one left running in the background no longer holds a client's socket open and keeps that client waiting

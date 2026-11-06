@@ -225,7 +225,7 @@ enum ConfigOptionKind: Sendable {
             "invalid value '\(token)' given to command '\(command)' for domain '\(domain)'\n",
             stopsMessage: true)
         }
-        if let repeated = layouts.first(where: { $0.count == layout.count }) {
+        if let repeated = layouts.first(where: { $0.repeats(layout) }) {
           throw CommandError(
             "value '\(token)' given to command '\(command)' for domain '\(domain)' repeats a layout for \(repeated.count) display(s)\n",
             stopsMessage: true)

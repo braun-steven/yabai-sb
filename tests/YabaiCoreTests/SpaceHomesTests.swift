@@ -166,6 +166,9 @@ private struct Session {
         return
       case .move(let sid, let from, let to):
         move(sid, from: from, to: to)
+      case .reorder:
+        Issue.record("reconcileStep does not reorder")
+        return
       case .create(let i, _):
         displays[i].spaces.append(nextSpace)
         nextSpace = SpaceID(nextSpace.rawValue + 1)
@@ -241,4 +244,132 @@ private let threeDisplays: [(String, [SpaceID])] = [
   #expect(session.spaces(on: "B") == [7])
   #expect(session.spaces(on: "D1") == Set(ids(1...6) + [8, 9, 10, 16]))
   #expect(session.spaces(on: "D2") == Set(ids(11...15)))
+}
+
+@Test func spaceOrdersKeepOneArrangementPerSetOfDisplays() throws {
+  var orders = SpaceOrders()
+  orders.record([["a", "b"], ["c"]], displays: ["d1", "d2"])
+  orders.record([["c", "a", "b"]], displays: ["d1"])
+
+  let docked = try #require(orders.arrangement(displays: ["d2", "d1"], target: [1, 2]))
+  #expect(docked.home == ["c": 0, "a": 1, "b": 1])
+  #expect(docked.rank == ["c": 0, "a": 0, "b": 1])
+
+  let undocked = try #require(orders.arrangement(displays: ["d1"], target: [3]))
+  #expect(undocked.home == ["c": 0, "a": 0, "b": 0])
+  #expect(undocked.rank == ["c": 0, "a": 1, "b": 2])
+
+  #expect(orders.arrangement(displays: ["d2"], target: [1]) == nil)
+  #expect(orders.arrangement(displays: ["d1", "d2"], target: [1, 2]) == nil)
+}
+
+/// The spaces of a test of `arrangementStep`: every space is a user space.
+private func arrangementStep(
+  _ spaces: [[SpaceID]], pinned: Set<SpaceID> = [], home: [SpaceID: Int] = [:],
+  rank: [SpaceID: Int], visible: [SpaceID?] = []
+) -> SpaceLayoutStep {
+  SpaceLayout.arrangementStep(
+    spaces: spaces, user: spaces.map { $0.map { _ in true } }, pinned: pinned, home: home,
+    rank: rank, visible: { visible.indices.contains($0) ? visible[$0] : nil })
+}
+
+@Test func arrangementStepSendsASpaceToItsDisplayFirst() {
+  let a = SpaceID(1)
+  let b = SpaceID(2)
+  let c = SpaceID(3)
+  let d = SpaceID(4)
+
+  // Equal counts, but macOS swapped b and c, and the order of the first display is wrong too.
+  #expect(
+    arrangementStep(
+      [[c, a], [b, d]], home: [a: 0, b: 0, c: 1, d: 1], rank: [a: 0, b: 1, c: 0, d: 1])
+      == .move(c, from: 0, to: 1))
+
+  // A hidden space goes before the visible one.
+  #expect(
+    arrangementStep(
+      [[c, d, a], [b]], home: [a: 0, b: 1, c: 1, d: 1], rank: [:], visible: [c, b])
+      == .move(d, from: 0, to: 1))
+  #expect(
+    arrangementStep([[c, a], [b]], home: [a: 0, b: 1, c: 1], rank: [:], visible: [c, b])
+      == .move(c, from: 0, to: 1))
+}
+
+@Test func arrangementStepKeepsPinsLastSpacesAndUnknownSpaces() {
+  let a = SpaceID(1)
+  let b = SpaceID(2)
+  let c = SpaceID(3)
+
+  #expect(arrangementStep([[a, b], [c]], pinned: [b], home: [b: 1], rank: [:]) == .done)
+  #expect(arrangementStep([[b], [c]], home: [b: 1], rank: [:]) == .done)
+  #expect(arrangementStep([[a, b], [c]], home: [b: 5], rank: [:]) == .done)
+  #expect(arrangementStep([[a, b], [c]], rank: [:]) == .done)
+}
+
+@Test func arrangementStepPutsTheRecordedOrderBack() {
+  let a = SpaceID(1)
+  let b = SpaceID(2)
+  let c = SpaceID(3)
+  let extra = SpaceID(9)
+
+  #expect(arrangementStep([[a, b, c]], rank: [a: 0, b: 1, c: 2]) == .done)
+  #expect(arrangementStep([[c, a, b]], rank: [a: 0, b: 1, c: 2]) == .reorder(a, to: c, on: 0))
+  #expect(arrangementStep([[a, c, b]], rank: [a: 0, b: 1, c: 2]) == .reorder(b, to: c, on: 0))
+
+  // A space without a record keeps its place, and the others are sorted around it.
+  #expect(arrangementStep([[a, extra, b]], rank: [a: 0, b: 1]) == .done)
+  #expect(arrangementStep([[b, extra, a]], rank: [a: 0, b: 1]) == .reorder(a, to: b, on: 0))
+}
+
+@Test func arrangementStepMovesOtherSpacesAroundTheVisibleOne() {
+  let a = SpaceID(1)
+  let b = SpaceID(2)
+  let c = SpaceID(3)
+
+  // a is visible and belongs first: the space in the way goes behind it.
+  #expect(
+    arrangementStep([[b, c, a]], rank: [a: 0, b: 1, c: 2], visible: [a])
+      == .reorder(b, to: a, on: 0))
+}
+
+/// `SpaceManager.moveSpace(_:to:)`: the space takes the place of the other one and the spaces between shift by one.
+private func applying(_ step: SpaceLayoutStep, to list: [SpaceID]) -> [SpaceID] {
+  guard case .reorder(let sid, let target, _) = step,
+    let from = list.firstIndex(of: sid), let to = list.firstIndex(of: target)
+  else { return list }
+
+  var result = list
+  result.remove(at: from)
+  result.insert(sid, at: to)
+  return result
+}
+
+@Test func arrangementStepReachesEveryOrderOfOneDisplay() {
+  let ids = (1...5).map { SpaceID(UInt64($0)) }
+  let rank = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
+
+  func permutations(_ list: [SpaceID]) -> [[SpaceID]] {
+    guard list.count > 1 else { return [list] }
+    return list.indices.flatMap { i -> [[SpaceID]] in
+      var rest = list
+      let head = rest.remove(at: i)
+      return permutations(rest).map { [head] + $0 }
+    }
+  }
+
+  for start in permutations(ids) {
+    for shown in ids {
+      var list = start
+      var steps = 0
+      while true {
+        let step = arrangementStep([list], rank: rank, visible: [shown])
+        if step == .done { break }
+        list = applying(step, to: list)
+        steps += 1
+        if steps > 20 { break }
+      }
+      #expect(list == ids, "from \(start) with \(shown) shown")
+      #expect(steps <= 20, "from \(start) with \(shown) shown")
+    }
+  }
 }

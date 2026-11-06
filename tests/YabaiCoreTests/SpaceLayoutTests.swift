@@ -40,6 +40,46 @@ import YabaiTestSupport
   #expect(layout.targets(builtin: 2) == [10, 5, 1])
 }
 
+private struct LayoutSelection: Sendable {
+  var specs: [String]
+  var displays: Int
+  var hasBuiltin: Bool
+  var selected: String?
+}
+
+@Test(arguments: [
+  LayoutSelection(
+    specs: ["16", "10:6", "15:1b", "10:5:1b"], displays: 2, hasBuiltin: true, selected: "15:1b"),
+  LayoutSelection(
+    specs: ["16", "10:6", "15:1b", "10:5:1b"], displays: 2, hasBuiltin: false, selected: "10:6"),
+  LayoutSelection(
+    specs: ["16", "15:1b", "10:6", "10:5:1b"], displays: 2, hasBuiltin: false, selected: "10:6"),
+  LayoutSelection(
+    specs: ["16", "10:6", "15:1b", "10:5:1b"], displays: 1, hasBuiltin: true, selected: "16"),
+  LayoutSelection(
+    specs: ["16", "10:6", "15:1b", "10:5:1b"], displays: 3, hasBuiltin: true, selected: "10:5:1b"),
+  LayoutSelection(specs: ["15", "10:5"], displays: 2, hasBuiltin: true, selected: "10:5"),
+  LayoutSelection(specs: ["15", "10:1b"], displays: 2, hasBuiltin: false, selected: "10:1b"),
+  LayoutSelection(specs: ["15", "10:5"], displays: 3, hasBuiltin: true, selected: nil),
+])
+private func spaceLayoutSelectsByDisplaysAndBuiltin(row: LayoutSelection) throws {
+  let layouts = try row.specs.map { try #require(SpaceLayout(parsing: $0)) }
+  let selected = SpaceLayout.select(
+    from: layouts, displayCount: row.displays, hasBuiltin: row.hasBuiltin)
+
+  #expect(selected == row.selected.flatMap { SpaceLayout(parsing: $0) })
+}
+
+@Test func spaceLayoutRepeatsALayoutForTheSameDisplays() throws {
+  let external = try #require(SpaceLayout(parsing: "10:6"))
+  let builtin = try #require(SpaceLayout(parsing: "15:1b"))
+
+  #expect(external.repeats(try #require(SpaceLayout(parsing: "9:7"))))
+  #expect(builtin.repeats(try #require(SpaceLayout(parsing: "1b:15"))))
+  #expect(!external.repeats(builtin))
+  #expect(!external.repeats(try #require(SpaceLayout(parsing: "16"))))
+}
+
 // NOTE: The display holds the spaces 1..n, one per character of the mask, and 'u' marks a user space.
 private func spaceTestLists(_ mask: String) -> ([SpaceID], [Bool]) {
   ((0..<mask.count).map { SpaceID(UInt64($0 + 1)) }, mask.map { $0 == "u" })

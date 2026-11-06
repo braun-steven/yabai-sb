@@ -277,7 +277,7 @@ yabai -m config space_layout 15 10:5 10:5:1b
 | 2 | `10:5` | 10 on the first display, 5 on the second, in arrangement order. |
 | 3, including the built-in display | `10:5:1b` | 10 and 5 on the external displays, 1 on the built-in display. |
 
-The `b` suffix binds that entry to the built-in display; other entries follow display arrangement order. After displays or spaces change, yabai moves spaces between displays and creates or removes spaces to reach the selected layout. Only empty spaces are destroyed, so a space containing windows can keep a display above its target count. This feature requires the scripting addition and partially disabled SIP.
+The `b` suffix binds that entry to the built-in display; other entries follow display arrangement order. A number of displays can have two layouts, one with a `b` entry and one without: `10:6 15:1b` gives two external displays 10 and 6 spaces, and one external display with the open laptop 15 and 1. After displays or spaces change, yabai moves spaces between displays and creates or removes spaces to reach the selected layout. Only empty spaces are destroyed, so a space containing windows can keep a display above its target count. This feature requires the scripting addition and partially disabled SIP.
 
 ```sh
 yabai -m config space_layout off  # stop enforcing counts

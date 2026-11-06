@@ -28,7 +28,10 @@ extension SpaceManager {
     let displayCount = DisplayID.count
     if displayCount < 1 || displayCount > SpaceLayout.max { return .done }
 
-    guard let layout = Config.current.space.spaceLayouts.first(where: { $0.count == displayCount })
+    guard
+      let layout = SpaceLayout.select(
+        from: Config.current.space.spaceLayouts, displayCount: displayCount,
+        hasBuiltin: DisplayID.all.contains { CGDisplayIsBuiltin($0.rawValue) != 0 })
     else {
       Logger.spaces.debug("no space_layout for \(displayCount) display(s)")
       return .done
@@ -74,10 +77,31 @@ extension SpaceManager {
     // NOTE: The pinned spaces (see SpacePinning.pinnedSpaces) are never moved or destroyed here. The pin reconcile moves
     // them to their displays, so a layout move of one would be undone by its pin, and the two would ping-pong.
     //
-    let step = SpaceLayout.reconcileStep(
-      target: target, spaces: spaces, user: user, pinned: pinnedSpaces(), home: home,
+    let pinned = pinnedSpaces()
+    //
+    // NOTE: Only for a while after a display change (SpaceOrders): at other times the user's arrangement is the current one.
+    //
+    let recorded =
+      spaceOrderRestoreDeadline == nil
+      ? nil : spaceOrders.arrangement(displays: arrangement, target: target)
+    var recordedHome: [SpaceID: Int] = [:]
+    var recordedRank: [SpaceID: Int] = [:]
+    for (sid, uuid) in spaceUUID {
+      recordedHome[sid] = recorded?.home[uuid]
+      recordedRank[sid] = recorded?.rank[uuid]
+    }
+
+    var step = SpaceLayout.reconcileStep(
+      target: target, spaces: spaces, user: user, pinned: pinned,
+      home: home.merging(recordedHome) { $1 },
       visible: { didList[$0].currentSpace },
       isEmpty: { $0.windows(includingMinimized: true)?.isEmpty ?? false })
+
+    if step == .done {
+      step = SpaceLayout.arrangementStep(
+        spaces: spaces, user: user, pinned: pinned, home: recordedHome, rank: recordedRank,
+        visible: { didList[$0].currentSpace })
+    }
 
     TopologyLog.record(
       "layout-step", "\(step) target=\(target) counts=\(user.map { $0.count(where: { $0 }) })")
@@ -94,12 +118,30 @@ extension SpaceManager {
       spaceHomes.record(located, connected: Set(arrangement))
     }
 
+    /// Whether the spaces may still change after the last display change: the pass then looks again.
+    func awaitsSettling() -> Bool {
+      guard let deadline = spaceOrderRestoreDeadline else { return false }
+      if ContinuousClock.now >= deadline {
+        spaceOrderRestoreDeadline = nil
+        return false
+      }
+      scheduleSpaceLayout(after: Self.spaceOrderCheckInterval, resetPasses: false)
+      return true
+    }
+
     switch step {
     case .done:
       recordHomes()
+      if !awaitsSettling() {
+        spaceOrders.record(
+          spaces.indices.map { i in
+            spaces[i].compactMap { spaceUUID[$0] }
+          }, displays: arrangement)
+      }
       return .done
     case .keep(let i):
       recordHomes()
+      _ = awaitsSettling()
       Logger.spaces.debug(
         "display \(i + 1) has \(counts(i)) spaces, but no empty space can be destroyed")
       return .done
@@ -121,6 +163,11 @@ extension SpaceManager {
       Logger.spaces.debug(
         "destroy empty space \(Int64(bitPattern: sid.rawValue)) on display \(i + 1) (\(counts(i)))")
       do { try destroySpace(sid) } catch { return .failed }
+    case .reorder(let sid, let other, let i):
+      Logger.spaces.debug(
+        "move space \(Int64(bitPattern: sid.rawValue)) to the place of \(Int64(bitPattern: other.rawValue)) on display \(i + 1)"
+      )
+      do { try moveSpace(sid, to: other) } catch { return .failed }
     }
 
     return .performed
@@ -140,10 +187,20 @@ extension SpaceManager {
   // delayed queue. resetPasses restarts the limit of passes for a new change of the displays.
   //
 
+  /// How long after a display change the passes put the recorded arrangement back and record nothing. In the cable tests
+  /// macOS had finished changing spaces by the last add.
+  static let spaceOrderRestoreWindow: Duration = .seconds(10)
+
+  /// How often the passes look again within `spaceOrderRestoreWindow`, when they have nothing left to do.
+  static let spaceOrderCheckInterval: Duration = .seconds(2)
+
   /// Posts the space layout reconcile event after the delay, superseding the pending one.
   func scheduleSpaceLayout(after delay: Duration, resetPasses: Bool) {
     if Config.current.space.spaceLayouts.isEmpty { return }
-    if resetPasses { spaceLayoutPasses = 0 }
+    if resetPasses {
+      spaceLayoutPasses = 0
+      spaceOrderRestoreDeadline = ContinuousClock.now + Self.spaceOrderRestoreWindow
+    }
 
     EventLoop.post(.spaceLayoutReconcile, after: delay, key: .spaceLayoutReconcile)
   }

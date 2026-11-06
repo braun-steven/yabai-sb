@@ -215,6 +215,12 @@ extension DaemonState {
           "value '2' given to command 'space_layout' for domain 'config' repeats a layout for 1 display(s)\n"
       ),
       ConfigCase(
+        option: "space_layout", value: "16 10:6 15:1b 10:5:1b", printed: "16 10:6 15:1b 10:5:1b",
+        invalid: "10:6 15:1b 14:2b",
+        failure:
+          "value '14:2b' given to command 'space_layout' for domain 'config' repeats a layout for 2 display(s)\n"
+      ),
+      ConfigCase(
         option: "space_layout", value: "1", printed: "1", invalid: "0",
         failure: "invalid value '0' given to command 'space_layout' for domain 'config'\n"),
       ConfigCase(option: "scratchpad_exclusive", value: "on", printed: "on", invalid: "x"),

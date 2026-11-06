@@ -65,6 +65,21 @@ public struct SpaceLayout: Equatable, Sendable {
     self.init(parsing: text.utf8)
   }
 
+  /// Whether the two layouts apply to the same displays: `space_layout` takes one layout with a built-in entry and one
+  /// without for each number of displays.
+  public func repeats(_ other: SpaceLayout) -> Bool {
+    count == other.count && (builtinIndex == nil) == (other.builtinIndex == nil)
+  }
+
+  /// The layout for the connected displays: of the layouts for their number, the one with a built-in entry when the
+  /// built-in display is connected and the one without when it is not, else the one there is.
+  public static func select(from layouts: [SpaceLayout], displayCount: Int, hasBuiltin: Bool)
+    -> SpaceLayout?
+  {
+    let candidates = layouts.filter { $0.count == displayCount }
+    return candidates.first { ($0.builtinIndex != nil) == hasBuiltin } ?? candidates.first
+  }
+
   /// `space_layout_targets`: the target of each display in arrangement order, where builtin is the index of
   /// the builtin display. The builtin entry goes to the builtin display, the others keep their order.
   public func targets(builtin: Int?) -> [Int] {
@@ -187,6 +202,58 @@ public struct SpaceLayout: Equatable, Sendable {
     }
   }
 
+  //
+  // NOTE: The counts say nothing about which spaces a display has, or in which order: macOS spreads returning spaces over
+  // the displays by its own history, and a move lands next to the visible space of its display. So after a display change
+  // a pass that finds the counts right goes on until the spaces match how they were on these displays (SpaceOrders).
+  // `home` and `rank` come from that record, and a space without a record stays where it is.
+  //
+
+  /// The next step towards the recorded arrangement, once the counts of the displays match: a space goes to its recorded
+  /// display, hidden spaces first, and a display that has them all puts them in the recorded order. A pinned space is
+  /// not moved to another display, and a display keeps its last user space. `home` gives the arrangement index of the
+  /// recorded display of a space, `rank` its recorded place on that display.
+  public static func arrangementStep(
+    spaces: [[SpaceID]], user: [[Bool]], pinned: Set<SpaceID>, home: [SpaceID: Int],
+    rank: [SpaceID: Int], visible: (Int) -> SpaceID?
+  ) -> SpaceLayoutStep {
+    let lists = zip(spaces, user).map { list, user in
+      zip(list, user).filter(\.1).map(\.0)
+    }
+
+    for from in lists.indices where lists[from].count > 1 {
+      let misplaced = lists[from].filter { sid in
+        !pinned.contains(sid) && home[sid].map { $0 != from && lists.indices.contains($0) } ?? false
+      }
+      guard let first = misplaced.first else { continue }
+
+      let shown = visible(from)
+      let sid = misplaced.first { $0 != shown } ?? first
+      if let to = home[sid] { return .move(sid, from: from, to: to) }
+    }
+
+    for (display, list) in lists.enumerated() {
+      var known = list.filter { rank[$0] != nil }.sorted {
+        rank[$0, default: 0] < rank[$1, default: 0]
+      }
+      let wanted = list.map { rank[$0] != nil ? known.removeFirst() : $0 }
+
+      guard let place = list.indices.first(where: { list[$0] != wanted[$0] }) else { continue }
+
+      //
+      // NOTE: A reorder of the visible space has to focus it, so while another space can be moved, that one moves: the
+      // space in the way goes behind the visible space, which comes one place closer with every step.
+      //
+      let sid = wanted[place]
+      if sid == visible(display), let current = list.firstIndex(of: sid) {
+        return .reorder(list[place], to: list[current], on: display)
+      }
+      return .reorder(sid, to: list[place], on: display)
+    }
+
+    return .done
+  }
+
   /// An empty user space of a display to destroy, preferring the last one that is not visible; the visible space is
   /// only asked for when no other one is empty. The last user space of the display is kept.
   static func destroyCandidate(
@@ -223,4 +290,6 @@ public enum SpaceLayoutStep: Equatable, Sendable {
   case create(on: Int, pinnedDisplay: Int?)
   /// Destroy the empty space of the display with too many user spaces.
   case destroy(SpaceID, on: Int)
+  /// Give the space the place of another space of the display: the spaces between them shift by one.
+  case reorder(SpaceID, to: SpaceID, on: Int)
 }

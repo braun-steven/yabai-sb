@@ -38,6 +38,10 @@ enum SpaceOperationError: Error, Sendable {
   var spaceLayoutPasses = 0
   /// The display each space was last seen on (SpaceHomes), for the space layout. Kept in memory, like the pins.
   var spaceHomes = SpaceHomes()
+  /// How the spaces were arranged on each set of displays (SpaceOrders), for the space layout. Kept in memory, like the pins.
+  var spaceOrders = SpaceOrders()
+  /// The end of the time after a display change in which the passes put the recorded arrangement back (`SpaceOrders`).
+  var spaceOrderRestoreDeadline: ContinuousClock.Instant?
   /// The pins of the labels (SpacePins), kept in memory: the config file sets them again at startup.
   var pins = SpacePins()
   var spacePinPasses = 0
@@ -288,6 +292,8 @@ enum SpaceOperationError: Error, Sendable {
     labels = LabelList<SpaceID>()
     pins = SpacePins()
     spaceHomes = SpaceHomes()
+    spaceOrders = SpaceOrders()
+    spaceOrderRestoreDeadline = nil
     pendingSpaceFocus = nil
     pendingSpaceMoves = []
     //

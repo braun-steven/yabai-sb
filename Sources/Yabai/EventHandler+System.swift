@@ -82,7 +82,9 @@ extension EventHandler {
     TopologyLog.record("mission-control-exit")
 
     let wm = WindowManager.shared
-    if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows {
+    if MissionControl.shared.mode == .show || MissionControl.shared.mode == .showAllWindows,
+      !SpaceManager.shared.topologyTransaction.isFrozen
+    {
       wm.correctForMissionControlChanges()
     }
     Border.setHiddenForMissionControl(false)
@@ -132,8 +134,7 @@ extension EventHandler {
       wm.centerMouse(on: focusedWindow)
     }
 
-    SpaceManager.shared.scheduleSpaceLayout(
-      after: .seconds(1), resetPasses: true, restoringArrangement: true)
+    SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.systemWoke)
   }
 
@@ -168,6 +169,9 @@ extension EventHandler {
 
     if Config.current.space.spaceLayouts.isEmpty { return }
 
+    // NOTE: The restore takes care of the spaces, and schedules a pass when it ends.
+    if sm.topologyTransaction.isFrozen { return }
+
     if MissionControl.shared.isActive {
       sm.scheduleSpaceLayout(after: .milliseconds(500), resetPasses: false)
       return
@@ -184,7 +188,9 @@ extension EventHandler {
     switch result {
     case .performed: sm.scheduleSpaceLayout(after: .milliseconds(500), resetPasses: false)
     case .failed: sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
-    case .done: sm.spaceLayoutPasses = 0
+    case .done:
+      sm.spaceLayoutPasses = 0
+      sm.scheduleTopologyCommit()
     }
   }
 
@@ -200,6 +206,8 @@ extension EventHandler {
       sm.spacePinPasses = 0
       return
     }
+
+    if sm.topologyTransaction.isFrozen { return }
 
     if MissionControl.shared.isActive {
       sm.schedulePinReconcile(after: .milliseconds(500), resetPasses: false)

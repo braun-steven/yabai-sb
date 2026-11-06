@@ -38,10 +38,18 @@ enum SpaceOperationError: Error, Sendable {
   var spaceLayoutPasses = 0
   /// The display each space was last seen on (SpaceHomes), for the space layout. Kept in memory, like the pins.
   var spaceHomes = SpaceHomes()
-  /// How the spaces were arranged on each set of displays (SpaceOrders), for the space layout. Kept in memory, like the pins.
-  var spaceOrders = SpaceOrders()
-  /// The end of the time after a display change in which the passes put the recorded arrangement back (`SpaceOrders`).
-  var spaceOrderRestoreDeadline: ContinuousClock.Instant?
+  /// The slots of the desktop (TopologyLedger), kept in memory, like the pins.
+  var topologyLedger = TopologyLedger()
+  /// Where the desktop is in a display change (SpaceManager+Topology.swift).
+  var topologyTransaction = TopologyTransaction()
+  /// The restore that runs, from its start until the end of the watch.
+  var topologyRestore: TopologyRestoreRun?
+  /// Whether a commit of the ledger waits for the activity to end.
+  var topologyCommitPending = false
+  /// The disturbances from the display callback that the event loop has seen (`TopologyMarks`).
+  var topologyHandledMarks: UInt64 = 0
+  /// The spaces yabai destroyed itself and macOS has not reported yet.
+  var expectedSpaceDestroys: Set<SpaceID> = []
   /// The views of destroyed spaces by the uuid of the space, oldest first (SpaceManager+Parking.swift).
   var parkedViews: OrderedDictionary<String, ParkedView> = [:]
   /// The trees of the views that came back, until their windows are in them.
@@ -187,7 +195,7 @@ enum SpaceOperationError: Error, Sendable {
 
   /// Runs a refresh pass of the spaces of every display, unless Mission Control is active.
   func refreshDisplaySpaces(includingHidden: Bool) {
-    if MissionControl.shared.isActive { return }
+    if MissionControl.shared.isActive || topologyTransaction.holdsWindows { return }
 
     refreshSpaces(
       spaceRefreshEntries(includingHidden: includingHidden),
@@ -304,8 +312,11 @@ enum SpaceOperationError: Error, Sendable {
     labels = LabelList<SpaceID>()
     pins = SpacePins()
     spaceHomes = SpaceHomes()
-    spaceOrders = SpaceOrders()
-    spaceOrderRestoreDeadline = nil
+    topologyLedger = TopologyLedger()
+    topologyTransaction = TopologyTransaction()
+    topologyRestore = nil
+    topologyCommitPending = false
+    expectedSpaceDestroys = []
     parkedViews = [:]
     returningTrees = [:]
     pendingSpaceFocus = nil

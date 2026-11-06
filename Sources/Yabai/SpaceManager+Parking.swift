@@ -135,7 +135,8 @@ extension WindowManager {
       if !sources.contains(where: { $0 === owner }) { sources.append(owner) }
     }
 
-    let others = view.windowIDs.filter { !wanted.contains($0) }
+    let onSpace = Set(windows)
+    let others = view.windowIDs.filter { !wanted.contains($0) && onSpace.contains($0) }
     view.clearTree()
     view.update()
 

@@ -212,17 +212,25 @@ space back, and use `sa_move.py` only for the windows without an AX reference.
 
 `topology.py` needs three displays and moves real windows, so read the state it saves first:
 
-1. Tell the user: the test windows go on spaces 1, 11, 14 and 16, and with `space_layout` on the current build scrambles
-   the desktop until `restore` has run.
+1. Tell the user: the test windows go on spaces 1, 11, 14 and 16, and displays go dark for up to 20 s.
 2. `topology.py snap before`, then `yabai -m config space_layout 16 10:6 15:1b 10:5:1b` when the test needs 16 spaces
    everywhere, then `topology.py fixture`. A deploy loses the trees of hidden spaces until they are shown, so a tree that
    lacks a window of its space after a deploy is no failure of the scenario.
 3. `topology.py run T4`. It saves the state before, during, after and 30 s later, records with `toporec`, prints the
    differences and restores. `topology.py scenarios` lists the scenarios, and an argument after the name sets how many
-   seconds the displays stay away.
+   seconds the displays stay away. With the lid closed only `T2`, `T3` and `T8` exist: turning off both externals would
+   leave no display. The "while away" line of a scenario shorter than the quiet period (`T6`, `T8`) reads a desktop that
+   is still waiting for its restore, so it fails by design.
 4. `topology.py cleanup`, `topology.py restore before`.
 
 The real cable stays the reference: `topology.py record <name> <seconds>` runs while the user unplugs and replugs.
+
+With `space_layout` set, the restore (`SpaceManager+Topology.swift`) writes its own lines: `topology-disturbed`,
+`restore-begin` with the seconds waited and the age of the commit, `layout-step`, `move-windows`, `restore-tree` with the
+shape of each tree, `restore-show`, `restore-done` with the seconds and passes, `restore-watch-disturbed`,
+`restore-window-gave-up`, `restore-gave-up` and `topology-stable` with the reason. Measured with `T2` and `T3`: about 5 s
+from the change to `restore-done`, of which 4 s is the wait for quiet. A tree that a deploy emptied fills up during a
+restore, so a difference `splith[] became splith[1]` after a deploy is no failure.
 
 After a real failure, read the topology log first: `~/.local/state/yabai/topology.log`, and `.1` for the older half. It is
 always on. A line is `<time> <kind> <detail>`, and the kinds `cg`, `space-created`, `space-destroyed`, `power`,

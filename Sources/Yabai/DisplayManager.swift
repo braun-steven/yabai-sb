@@ -41,6 +41,15 @@ enum DockOrientation: Int32, Sendable {
 let displayReconfigured: CGDisplayReconfigurationCallBack = { did, flags, _ in
   TopologyLog.recordChange("cg", "\(did) \(TopologyLog.text(of: flags))")
 
+  //
+  // NOTE: Straight from the callback, because the event loop can run seconds behind while displays change, and a commit
+  // of the ledger must not read the desktop in that time.
+  //
+  TopologyMarks.add()
+  EventLoop.post(
+    .topologyDisturbed(
+      time: TopologyClock.now, displays: !flags.isDisjoint(with: [.addFlag, .removeFlag])))
+
   if flags.contains(.addFlag) {
     EventLoop.post(.displayAdded(displayID: DisplayID(did)))
   } else if flags.contains(.removeFlag) {

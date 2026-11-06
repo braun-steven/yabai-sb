@@ -341,11 +341,24 @@ Spaces that contain windows are never destroyed. Spaces pinned to a connected di
 .br
 Like sway\(cqs output priority, a space whose display goes away remembers that display, and when the display is connected again, the spaces that came from it return to it first, as many as its target takes; the rest of its target is filled from the displays with too many spaces. A pin wins over the remembered display. The remembered displays are kept until the daemon quits.
 .br
-The arrangement of the spaces on each set of displays is remembered too: when the same displays are connected again, the spaces go back to the displays and the order they had there, as long as that arrangement has the numbers of spaces of the layout.
+See \fBspace_layout_restore\fP for the order of the spaces and their windows after a display change.
 .br
 A pinned space counts towards the target of its display: when a pin brings a space to a display that already has its target, another unpinned space leaves that display, the visible one when no other is left.
 .br
 System Integrity Protection must be partially disabled.
+.RE
+.sp
+\fBspace_layout_restore\fP [\fI<BOOL_SEL>\fP]
+.RS 4
+With \fBspace_layout\fP set, keep the desktop through display changes (default on).
+.br
+The spaces keep their indices over all displays: when a display goes away, its spaces stay in the order they had, new spaces stand in for the ones macOS destroys, and every window goes back to the index of its space, in the tree it had, within about 6 seconds. When the display returns, the spaces go back to their displays, and the stand\-ins are destroyed. The displays show what they showed, and the focused window stays focused.
+.br
+While displays change, \fBspace_layout\fP and space pins wait. A space that macOS replaces gets the label and settings of the old one. A window moved with \fBwindow \-\-space\fP in that time stays where it was put, and a window that macOS moves in the 15 seconds after a return goes back.
+.br
+Nothing is restored when \fBspace_layout\fP changed to another total of spaces since. The state is kept in memory, so it starts over with the daemon.
+.br
+With \fIoff\fP, \fBspace_layout\fP only keeps the number of spaces on each display.
 .RE
 .sp
 \fBbuiltin_display_last\fP [\fI<BOOL_SEL>\fP]

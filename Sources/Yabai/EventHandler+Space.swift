@@ -18,6 +18,7 @@ extension EventHandler {
     if type == 0 || type == 4 {
       Logger.events.debug("space created: \(Int64(bitPattern: sid.rawValue)), \(type)")
       TopologyLog.record("handle-space-created", "\(sid.rawValue) type=\(type)")
+      SpaceManager.shared.topologySpaceCreated()
       if let uuid = SLS.spaceName(SLS.connection, sid) {
         SpaceManager.shared.attachParkedView(uuid: uuid, to: sid)
       }
@@ -34,6 +35,7 @@ extension EventHandler {
     if let view = sm.views[sid] {
       Logger.events.debug("space destroyed: \(Int64(bitPattern: sid.rawValue))")
       TopologyLog.record("handle-space-destroyed", "\(sid.rawValue)")
+      sm.topologySpaceDestroyed(sid)
       sm.parkView(view)
       EventSignals.shared.push(.spaceDestroyed(sid))
       sm.scheduleSpaceLayout(after: .seconds(1), resetPasses: false)
@@ -58,7 +60,9 @@ extension EventHandler {
       }
     }
 
-    if !MissionControl.shared.isActive, let sid = sm.currentSpaceID, sid.isUser {
+    if !MissionControl.shared.isActive, !sm.topologyTransaction.holdsWindows,
+      let sid = sm.currentSpaceID, sid.isUser
+    {
       wm.validateAndCheckForWindows(on: sid)
 
       if let view, view.needsUpdate {
@@ -115,6 +119,9 @@ extension EventHandler {
   func displayWindowCheck() {
     DisplayManager.shared.invalidateSpaceCaches()
     let sm = SpaceManager.shared
+
+    // NOTE: The restore takes care of the windows, and refreshes the spaces when it ends.
+    if sm.topologyTransaction.isFrozen { return }
 
     if MissionControl.shared.isActive {
       sm.scheduleDisplayWindowCheck()
@@ -174,8 +181,7 @@ extension EventHandler {
     WindowManager.shared.handleDisplayAddAndRemove(did)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleDisplayWindowCheck()
-    SpaceManager.shared.scheduleSpaceLayout(
-      after: .seconds(1), resetPasses: true, restoringArrangement: true)
+    SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayAdded(did))
   }
@@ -188,8 +194,7 @@ extension EventHandler {
     WindowManager.shared.handleDisplayAddAndRemove(DisplayID.main)
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleDisplayWindowCheck()
-    SpaceManager.shared.scheduleSpaceLayout(
-      after: .seconds(1), resetPasses: true, restoringArrangement: true)
+    SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayRemoved(did))
   }
@@ -201,8 +206,7 @@ extension EventHandler {
     SpaceManager.shared.markSpacesInvalid()
     SpaceManager.shared.scheduleDisplaySpacesRefresh()
     SpaceManager.shared.scheduleDisplayWindowCheck()
-    SpaceManager.shared.scheduleSpaceLayout(
-      after: .seconds(1), resetPasses: true, restoringArrangement: true)
+    SpaceManager.shared.scheduleSpaceLayout(after: .seconds(1), resetPasses: true)
     SpaceManager.shared.schedulePinReconcile(after: .seconds(1), resetPasses: true)
     EventSignals.shared.push(.displayMoved(did))
   }

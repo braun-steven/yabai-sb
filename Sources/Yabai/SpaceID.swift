@@ -139,8 +139,9 @@ extension SpaceID {
     return did.flatMap { $0.currentSpace }
   }
 
-  func moveWindows(_ windows: [WindowID]) {
+  @WM func moveWindows(_ windows: [WindowID]) {
     TopologyLog.record("move-windows", "\(windows.map(\.rawValue)) to \(rawValue)")
+    SpaceManager.shared.noteWindowMove(windows)
     if SLS.hasBridgedWindowOperation {
       SLS.bridgedMoveWindows(windows, toSpace: self)
     } else if !ScriptingAddition.shared.moveWindows(windows, to: self) {
@@ -148,8 +149,9 @@ extension SpaceID {
     }
   }
 
-  func moveWindow(_ win: Window) {
+  @WM func moveWindow(_ win: Window) {
     TopologyLog.record("move-windows", "[\(win.id.rawValue)] to \(rawValue)")
+    SpaceManager.shared.noteWindowMove([win.id])
     if SLS.hasBridgedWindowOperation {
       SLS.bridgedMoveWindows([win.id], toSpace: self)
     } else if !ScriptingAddition.shared.moveWindows([win.id], to: self) {

@@ -150,6 +150,12 @@ enum Event: Sendable {
   case displayWindowCheck
   // NOTE: Only post with `key: .topologySnapshot` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case topologySnapshot(TopologySnapshotReason)
+  // NOTE: Posted by the display callback (TopologyTransaction).
+  case topologyDisturbed(time: Double, displays: Bool)
+  // NOTE: Only post with `key: .topologyCommit` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case topologyCommit
+  // NOTE: Only post with `key: .topologyPass` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case topologyPass
   case daemonMessage(DaemonMessage)
   // NOTE: Posted by an EventSubscriber when it ends (a closed peer, a failed write or a full backlog). It only removes
   // the subscriber from EventSubscribers, which runs on @WM.
@@ -160,6 +166,18 @@ extension Event {
   var isMouseMoved: Bool {
     if case .mouseMoved = self { return true }
     return false
+  }
+
+  /// Whether the handler can change a space, its windows or its tree, so the ledger has something new to commit. A
+  /// message is any command of the user.
+  var changesTheDesktop: Bool {
+    switch self {
+    case .windowCreated, .windowDestroyed, .slsWindowDestroyed, .windowMinimized,
+      .windowDeminimized, .spaceChanged, .displayChanged, .mouseUp, .missionControlExit,
+      .daemonMessage:
+      true
+    default: false
+    }
   }
 }
 
@@ -193,7 +211,8 @@ enum EventLoop {
   /// The delayed events that supersede each other: an insert with a key replaces the pending event with that key.
   /// Only post the events `.spaceLayoutReconcile`, `.spacePinReconcile`, `.missionControlCheckForExit`,
   /// `.configFileChanged`, `.focusClickCursorRestore`, `.spaceMoveFocusCheck`, `.spaceMoveRefreshCheck`,
-  /// `.displaySpacesRefresh`, `.ffmRecheck`, `.windowFrameRecheck`, `.displayWindowCheck` and `.topologySnapshot` with their key.
+  /// `.displaySpacesRefresh`, `.ffmRecheck`, `.windowFrameRecheck`, `.displayWindowCheck`, `.topologySnapshot`,
+  /// `.topologyCommit` and `.topologyPass` with their key.
   enum DelayedEventKey: Hashable, Sendable {
     case spaceLayoutReconcile
     case spacePinReconcile
@@ -207,6 +226,8 @@ enum EventLoop {
     case windowFrameRecheck
     case displayWindowCheck
     case topologySnapshot
+    case topologyCommit
+    case topologyPass
   }
 
   private struct DelayedState: Sendable {
@@ -314,6 +335,8 @@ extension EventHandler {
     case .windowResized(let wid): await windowResized(wid)
     default: autoreleasepool { handleSynchronously(event) }
     }
+
+    if event.changesTheDesktop { SpaceManager.shared.scheduleTopologyCommit() }
   }
 
   /// Runs the handler of an event that does not wait. The retained CF objects are taken here, so they are released
@@ -395,6 +418,12 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .displayWindowCheck) { displayWindowCheck() }
     case .topologySnapshot(let reason):
       if EventLoop.claimDelivery(of: .topologySnapshot) { TopologyLog.snapshot(reason) }
+    case .topologyDisturbed(let time, let displays):
+      SpaceManager.shared.topologyDisturbed(at: time, displays: displays)
+    case .topologyCommit:
+      if EventLoop.claimDelivery(of: .topologyCommit) { SpaceManager.shared.commitTopology() }
+    case .topologyPass:
+      if EventLoop.claimDelivery(of: .topologyPass) { SpaceManager.shared.topologyPass() }
     case .daemonMessage(let message): MessageLoop.handle(message)
     case .eventSubscriberRemoved(let id): EventSubscribers.shared.remove(id)
     }

@@ -42,6 +42,7 @@ public enum ConfigCommand {
     case treeAutotiling = "tree_autotiling"
     case focusWrapping = "focus_wrapping"
     case spaceAutoBackAndForth = "space_auto_back_and_forth"
+    case spaceLayoutRestore = "space_layout_restore"
     case mouseModifier = "mouse_modifier"
     case mouseAction1 = "mouse_action1"
     case mouseAction2 = "mouse_action2"

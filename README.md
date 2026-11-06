@@ -19,6 +19,7 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 - [Tree undo](#tree-undo)
 - [Automatic space layout](#automatic-space-layout)
 - [Space pins](#space-pins)
+- [Stable spaces across display changes](#stable-spaces-across-display-changes)
 - [Topology log](#topology-log)
 - [Built-in display last](#built-in-display-last)
 - [Space back and forth](#space-back-and-forth)
@@ -282,6 +283,12 @@ The `b` suffix binds that entry to the built-in display; other entries follow di
 ```sh
 yabai -m config space_layout off  # stop enforcing counts
 ```
+
+### Stable spaces across display changes
+
+macOS destroys the first space of a display that goes away, piles its windows on the first space of the main display, appends the other spaces, and does most of it again in another order when the display returns. With `space_layout` set, yabai puts all of that back, whether from a dock, a lid or a long sleep: space 12 stays space 12 with the same windows in the same tree, on 16 spaces or however many the layout gives. When displays change yabai waits until macOS is quiet, about 5 seconds, and then restores the spaces, windows, trees, the spaces the displays show and the focus, usually in about a second. When a display returns, a window that macOS moves in the next 15 seconds goes back as well.
+
+Give the layouts the same total of spaces, like `16 10:6 15:1b 10:5:1b`: with `15 10:5 10:5:1b` the 16th space of three displays has no place on the others, so nothing is restored after such a change. `yabai -m config space_layout_restore off` keeps only the counts.
 
 ### Space pins
 

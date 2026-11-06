@@ -65,6 +65,8 @@ struct SpaceDefaults {
   /// Whether `space --focus` of the focused space focuses the recent space (`space_auto_back_and_forth`).
   var autoBackAndForth = false
   var spaceLayouts: [SpaceLayout] = []
+  /// Whether `space_layout` also puts spaces, windows and trees back after a display change (SpaceManager+Topology.swift).
+  var spaceLayoutRestore = true
   var spaceLayoutSpec: String?
 }
 

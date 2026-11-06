@@ -76,7 +76,7 @@ extension SpaceManager {
     //
     // NOTE: A pass records the new arrangement (SpaceOrders); no event reports it.
     //
-    defer { scheduleSpaceLayout(after: .seconds(1), resetPasses: false) }
+    defer { scheduleTopologyCommit() }
     if actingDid != selectorDid {
       swapSpaceAcrossDisplays(actingSid, with: selectorSid)
       return
@@ -143,7 +143,7 @@ extension SpaceManager {
     if actingSid == selectorSid { throw .sameSpace }
     if actingDid != selectorDid { throw .sameDisplay }
     TopologyLog.record("reorder-space", "\(actingSid.rawValue) to \(selectorSid.rawValue)")
-    defer { scheduleSpaceLayout(after: .seconds(1), resetPasses: false) }
+    defer { scheduleTopologyCommit() }
 
     let actingPrevSid = actingSid.previous
     let selectorPrevSid = selectorSid.previous
@@ -507,9 +507,13 @@ extension SpaceManager {
     let firstSid = did?.spaces?.first(where: { $0.isUser })
 
     TopologyLog.record("destroy-space", "\(sid.rawValue)")
-    if !ScriptingAddition.shared.destroySpace(sid) { throw .scriptingAdditionFailed }
+    expectedSpaceDestroys.insert(sid)
+    if !ScriptingAddition.shared.destroySpace(sid) {
+      expectedSpaceDestroys.remove(sid)
+      throw .scriptingAdditionFailed
+    }
 
-    if let firstSid {
+    if let firstSid, !topologyTransaction.holdsWindows {
       WindowManager.shared.validateAndCheckForWindows(on: firstSid)
     }
   }

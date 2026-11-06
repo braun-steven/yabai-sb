@@ -461,6 +461,9 @@ enum ConfigOptionKind: Sendable {
   boolOption(
     .spaceAutoBackAndForth, get: { Config.current.space.autoBackAndForth },
     set: { Config.current.space.autoBackAndForth = $0 }),
+  boolOption(
+    .spaceLayoutRestore, get: { Config.current.space.spaceLayoutRestore },
+    set: { Config.current.space.spaceLayoutRestore = $0 }),
   choiceOption(
     .mouseModifier, choices: MouseModifierKey.allCases, get: { Config.current.mouse.modifier },
     set: {

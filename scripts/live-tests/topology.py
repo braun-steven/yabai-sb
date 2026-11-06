@@ -209,22 +209,26 @@ def restore_windows(target):
         time.sleep(0.8)
 
 def display_ids():
-    # The roles of the displays by arrangement: main external, second external, builtin.
+    # The roles of the displays by arrangement: main external, second external, builtin (none with the lid closed).
     displays = sorted(q("--displays"), key=lambda d: d["index"])
-    if len(displays) != 3:
-        raise SystemExit("the scenarios need three displays: two externals and the open lid")
-    return [d["id"] & 0xFFFFFFFF for d in displays]
+    if len(displays) not in (2, 3):
+        raise SystemExit("the scenarios need two externals, and the open lid for most of them")
+    return [d["id"] & 0xFFFFFFFF for d in displays] + [None] * (3 - len(displays))
 
 def scenarios():
     d1, d2, b = display_ids()
     # name: (off stages, on stages, seconds held), the stages as in display_off.swift
-    return {"T1": (f"{b}@0", f"{b}@0", 15),
-            "T2": (f"{d2}@0", f"{d2}@0", 15),
-            "T3": (f"{d1}@0", f"{d1}@0", 15),
-            "T4": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@3", 20),
-            "T5": (f"{d1}@0,{d2}@0.2", f"{d1}@0,{d2}@3", 20),
-            "T6": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@0.5", 1),
-            "T7": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@3", 90)}
+    table = {"T2": (f"{d2}@0", f"{d2}@0", 15),
+             "T3": (f"{d1}@0", f"{d1}@0", 15),
+             "T8": (f"{d2}@0", f"{d2}@0", 1)}
+    # NOTE: With the lid closed, disabling both externals would leave no display at all.
+    if b is not None:
+        table.update({"T1": (f"{b}@0", f"{b}@0", 15),
+                      "T4": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@3", 20),
+                      "T5": (f"{d1}@0,{d2}@0.2", f"{d1}@0,{d2}@3", 20),
+                      "T6": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@0.5", 1),
+                      "T7": (f"{d1}@0,{d2}@0.2", f"{d2}@0,{d1}@3", 90)})
+    return table
 
 def run(name, hold=None):
     table = scenarios()

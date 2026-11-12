@@ -43,6 +43,7 @@ extension EventHandler {
   //
 
   func missionControlEnter() {
+    SpaceManager.shared.topologyTransaction.noteUserFocus()
     let entered = !MissionControl.shared.isActive
     if entered {
       Logger.events.debug("mission control enter")

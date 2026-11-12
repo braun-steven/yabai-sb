@@ -6,7 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 ### Added
-- Config *space_layout_restore* (on by default) keeps the desktop through display changes while *space_layout* is set: the spaces keep their indices over all displays, and windows, trees, shown spaces and focus are put back after a dock, lid or sleep change, also while a display stays away
+- Config *space_layout_restore* (on by default) keeps the desktop through display changes while *space_layout* is set: the spaces keep their indices over all displays, and windows and trees are put back after a dock, lid or sleep change, also while a display stays away; the shown spaces and the focus only after a display came or went, unless you changed the focus in the meantime
 - Config *space_layout* takes two layouts for a number of displays, one with a built-in entry and one without, e.g. `16 10:6 15:1b 10:5:1b`
 - The daemon always records display, sleep, lock and space changes, what it did in reply, and observations of every display, space and window in `~/.local/state/yabai/topology.log`
 - Command *query --scripting-addition* reports the scripting addition: the embedded, installed and loaded payload versions, each capability the loaded payload found, the UUID of the running Dock build and whether the payload validated it, and whether SIP allows the payload (payload 2.1.42)

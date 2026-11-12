@@ -34,6 +34,7 @@ extension SpaceCommand {
     switch self {
     case .focus(let selector), .switch(let selector):
       if let target = try selector.resolve(acting: sid, context) {
+        sm.topologyTransaction.noteUserFocus()
         do {
           if case .focus = self {
             try sm.focusSpace(

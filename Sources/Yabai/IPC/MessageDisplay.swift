@@ -8,6 +8,7 @@ extension DisplayCommand {
     switch self {
     case .focus(let selector):
       if let target = try selector.resolve(acting: did, context) {
+        SpaceManager.shared.topologyTransaction.noteUserFocus()
         if did != target {
           // NOTE: Like sway's 'focus output', a direction only picks the display; focus enters it with no direction.
           WindowManager.shared.focusDisplay(target, from: nil)
@@ -17,6 +18,7 @@ extension DisplayCommand {
       }
     case .space(let selector):
       if let target = try selector.resolve(acting: did.currentSpace, context) {
+        SpaceManager.shared.topologyTransaction.noteUserFocus()
         do {
           try did.focusSpace(target)
         } catch .sameDisplay {

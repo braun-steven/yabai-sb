@@ -467,14 +467,21 @@ extension SpaceManager {
       return
     }
 
-    if showTopologySpaces(plan, observed, inputs) {
-      scheduleTopologyPass(after: Self.topologyPassDelay)
-      return
-    }
+    // NOTE: See TopologyTransaction.swift: the focus is left alone without a change of the displays, or after the user's.
+    if topologyTransaction.restoresFocus {
+      if showTopologySpaces(plan, observed, inputs) {
+        scheduleTopologyPass(after: Self.topologyPassDelay)
+        return
+      }
 
-    let wm = WindowManager.shared
-    if let focused = run.commit.focused, wm.focus.focused != focused {
-      wm.focusWindow(id: focused, warpsMouse: false)
+      let wm = WindowManager.shared
+      if let focused = run.commit.focused, wm.focus.focused != focused {
+        wm.focusWindow(id: focused, warpsMouse: false)
+      }
+    } else {
+      TopologyLog.record(
+        "restore-focus-skipped",
+        topologyTransaction.userFocused ? "user-focused" : "no-display-change")
     }
 
     TopologyLog.record("restore-done", "took=\(now - run.started) passes=\(run.passes)")

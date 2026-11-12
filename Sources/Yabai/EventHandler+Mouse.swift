@@ -45,6 +45,9 @@ extension EventHandler {
     // NOTE: The drop feedback of a drag whose mouse up was lost ends here too.
     ms.clearFeedback()
 
+    // NOTE: A click changes the focus, so a restore of the desktop leaves the focus where it is.
+    SpaceManager.shared.topologyTransaction.noteUserFocus()
+
     if MissionControl.shared.isActive { return }
 
     //

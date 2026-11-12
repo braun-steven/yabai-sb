@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-11-06
+.\"      Date: 2026-11-12
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-11-06" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-11-12" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -352,7 +352,7 @@ System Integrity Protection must be partially disabled.
 .RS 4
 With \fBspace_layout\fP set, keep the desktop through display changes (default on).
 .br
-The spaces keep their indices over all displays: when a display goes away, its spaces stay in the order they had, new spaces stand in for the ones macOS destroys, and every window goes back to the index of its space, in the tree it had, about 6 to 12 seconds after the change. When the display returns, the spaces go back to their displays, and the stand\-ins are destroyed. The displays show what they showed, and the focused window stays focused.
+The spaces keep their indices over all displays: when a display goes away, its spaces stay in the order they had, new spaces stand in for the ones macOS destroys, and every window goes back to the index of its space, in the tree it had, about 6 to 12 seconds after the change. When the display returns, the spaces go back to their displays, and the stand\-ins are destroyed. After a display came or went, the displays show what they showed, and the focused window stays focused; after a sleep or lock without a display change, or once you focused a space, display or window, clicked or opened Mission Control during the change, the focus stays where it is.
 .br
 While displays change, \fBspace_layout\fP and space pins wait. A space that macOS replaces gets the label and settings of the old one. A window moved with \fBwindow \-\-space\fP in that time stays where it was put, and a window that macOS moves in the 15 seconds after a return goes back.
 .br

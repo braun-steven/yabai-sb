@@ -5,6 +5,11 @@
 // move single windows, the latest about 10 s after the last display, so the desktop is watched for `watch` seconds
 // before the commits start again. A new disturbance goes back to waiting from any phase.
 //
+// The restore puts back the shown spaces and the focused window only after a display came or went (`restoresFocus`):
+// a sleep, a lock or a space that macOS replaced alone leaves the displays showing what they show, and the restore
+// would switch the user back to the space of the commit, seconds after an unlock. A focus of the user during the
+// transaction (`noteUserFocus`) also keeps the focus where it is.
+//
 // The clock is a parameter, so this is pure; SpaceManager+Topology.swift drives it.
 //
 
@@ -38,6 +43,8 @@ public struct TopologyTransaction: Equatable, Sendable {
   private var watchEnd = 0.0
   /// Whether a display came or went.
   public private(set) var displaysChanged = false
+  /// Whether the user changed the focus since the first disturbance.
+  public private(set) var userFocused = false
 
   public init() {}
 
@@ -46,6 +53,9 @@ public struct TopologyTransaction: Equatable, Sendable {
 
   /// Whether the views must leave the windows alone, because what is on a space is not final yet.
   public var holdsWindows: Bool { phase == .disturbed || phase == .restoring }
+
+  /// Whether the restore shows the spaces of the commit and focuses its window.
+  public var restoresFocus: Bool { displaysChanged && !userFocused }
 
   /// When the restore starts, while waiting for it.
   public var restoreTime: Double { min(lastChange + Self.quiet, waitStart + Self.limit) }
@@ -58,6 +68,7 @@ public struct TopologyTransaction: Equatable, Sendable {
     if phase == .stable {
       firstChange = now
       displaysChanged = false
+      userFocused = false
     }
     if phase != .disturbed { waitStart = now }
 
@@ -69,6 +80,11 @@ public struct TopologyTransaction: Equatable, Sendable {
   /// A change that does not start a transaction, but shows that one is still going on.
   public mutating func touch(at now: Double) {
     if phase == .disturbed { lastChange = max(lastChange, now) }
+  }
+
+  /// The user focused a space, display or window, clicked, or opened Mission Control; nothing while stable.
+  public mutating func noteUserFocus() {
+    if phase != .stable { userFocused = true }
   }
 
   public mutating func beginRestore() {

@@ -123,6 +123,8 @@ extension WindowCommand {
     let wm = WindowManager.shared
     let context = DaemonSelectorContext()
 
+    if case .focus = self { SpaceManager.shared.topologyTransaction.noteUserFocus() }
+
     switch self {
     case .focus(.container(let focus)) where wm.treeView(for: acting) != nil:
       do {

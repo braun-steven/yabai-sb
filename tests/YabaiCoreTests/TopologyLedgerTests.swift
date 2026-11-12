@@ -223,6 +223,42 @@ private func bind(
   #expect(transaction.firstChange == 100)
 }
 
+@Test(arguments: [
+  (displays: true, userFocuses: false, restores: true),
+  (displays: false, userFocuses: false, restores: false),
+  (displays: true, userFocuses: true, restores: false),
+  (displays: false, userFocuses: true, restores: false),
+])
+func theFocusIsRestoredOnlyAfterADisplayChangeWithoutAFocusOfTheUser(
+  displays: Bool, userFocuses: Bool, restores: Bool
+) {
+  var transaction = TopologyTransaction()
+  transaction.disturb(at: 10, displays: displays)
+  if userFocuses { transaction.noteUserFocus() }
+  transaction.beginRestore()
+
+  #expect(transaction.restoresFocus == restores)
+}
+
+@Test func aFocusWhileStableIsForgotten() {
+  var transaction = TopologyTransaction()
+  transaction.noteUserFocus()
+  transaction.disturb(at: 10, displays: true)
+
+  #expect(!transaction.userFocused)
+  #expect(transaction.restoresFocus)
+}
+
+@Test func aNewTransactionForgetsTheFocusOfTheOldOne() {
+  var transaction = TopologyTransaction()
+  transaction.disturb(at: 10, displays: true)
+  transaction.noteUserFocus()
+  transaction.finish()
+  transaction.disturb(at: 100, displays: true)
+
+  #expect(!transaction.userFocused)
+}
+
 // MARK: A desktop that behaves like macOS
 
 /// Three displays with 16 spaces, which collapse and return as measured with a real dock.

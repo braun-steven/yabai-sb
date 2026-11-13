@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The fork is versioned as yabai-sb from 1.0.0; the releases up to 7.1.25 below are upstream yabai's.
 
 ## [Unreleased]
+
+## [2.0.0] - 2026-11-13
 ### Added
 - Config *space_layout_restore* (on by default) keeps the desktop through display changes while *space_layout* is set: the spaces keep their indices over all displays, and windows and trees are put back after a dock, lid or sleep change, also while a display stays away; the shown spaces and the focus only after a display came or went, unless you changed the focus in the meantime
 - Config *space_layout* takes two layouts for a number of displays, one with a built-in entry and one without, e.g. `16 10:6 15:1b 10:5:1b`

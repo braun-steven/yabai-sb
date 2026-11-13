@@ -41,7 +41,7 @@ func directoryExists(_ filename: String) -> Bool {
 /// The daemon and its startup, and the options that run instead of it.
 enum Daemon {
   /// yabai-sb has its own semantic version, independent of upstream's (doc/upstream-sync.md).
-  static let version = "yabai-sb-v1.0.0"
+  static let version = "yabai-sb-v2.0.0"
 
   /// Whether the process runs as root, real or effective.
   static var isRoot: Bool {

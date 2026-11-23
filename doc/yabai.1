@@ -2,12 +2,12 @@
 .\"     Title: yabai
 .\"    Author: [see the "AUTHOR(S)" section]
 .\" Generator: Asciidoctor 2.0.26
-.\"      Date: 2026-11-12
+.\"      Date: 2026-11-23
 .\"    Manual: Yabai Manual
 .\"    Source: Yabai
 .\"  Language: English
 .\"
-.TH "YABAI" "1" "2026-11-12" "Yabai" "Yabai Manual"
+.TH "YABAI" "1" "2026-11-23" "Yabai" "Yabai Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -611,11 +611,11 @@ A click inside a window, or on a floating window or menu over the gap, is passed
 .RE
 .SS "Space Settings"
 .sp
-\fBlayout\fP [\fItree|float\fP]
+\fBlayout\fP [\fItree|float|scroll\fP]
 .RS 4
 Set the layout of the selected space.
 .br
-\fItree\fP (the default) arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP. \fIfloat\fP leaves windows unmanaged.
+\fItree\fP (the default) arranges windows in an i3\-style container tree, see \fBTREE LAYOUT\fP. \fIfloat\fP leaves windows unmanaged. \fIscroll\fP arranges them in columns on a strip that scrolls, like niri, see \fBSCROLL LAYOUT\fP.
 .br
 A space that already has the layout keeps its windows and tree.
 .RE
@@ -637,6 +637,30 @@ Like i3\(cqs \fIworkspace_layout\fP. With \fItabbed\fP, a window or container th
 Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree.
 .br
 Windows that open in a tabbed container, next to a selected container or with \fBwindow \-\-insert\fP are placed as usual. Default is \fIoff\fP.
+.RE
+.sp
+\fBscroll_column_width\fP [\fI<floating point number>\fP]
+.RS 4
+Width of a new column of a \fIscroll\fP space, as a share of the space, from \fI0.1\fP to \fI1.0\fP. Default is \fI0.5\fP.
+.RE
+.sp
+\fBscroll_center\fP [\fInever|overflow|always\fP]
+.RS 4
+How a \fIscroll\fP space scrolls to the column that gets focus, like niri\(cqs \fIcenter\-focused\-column\fP. \fInever\fP (the default) scrolls as little as shows the whole column, \fIoverflow\fP centers the column when it does not fit on the display together with the column focused before it, and \fIalways\fP centers it.
+.RE
+.sp
+\fBscroll_peek\fP [\fI<integer number>\fP]
+.RS 4
+How much of a window scrolled out of view a \fIscroll\fP space leaves on screen at the edge of the display, in points, from \fI1\fP to \fI200\fP, so that it can be seen and clicked. Default is \fI24\fP.
+.br
+The columns leave room for it, so with more than one column no column covers the display from edge to edge, see \fBSCROLL LAYOUT\fP.
+.RE
+.sp
+\fBscroll_animation_duration\fP [\fI<integer number>\fP]
+.RS 4
+Duration of the scroll animation of a \fIscroll\fP space in milliseconds, from \fI0\fP to \fI2000\fP. \fI0\fP moves the windows at once. Default is \fI200\fP.
+.br
+The animation moves the windows through the scripting addition; without it the windows move at once.
 .RE
 .sp
 \fBtop_padding\fP [\fI<integer number>\fP]
@@ -824,7 +848,7 @@ Size of the gap that separates windows on the selected space.
 Toggle space setting on or off for the selected space.
 .RE
 .sp
-\fB\-\-layout\fP \fItree|float\fP
+\fB\-\-layout\fP \fItree|float|scroll\fP
 .RS 4
 Set the layout of the selected space. A space that already has the layout keeps its windows and tree.
 .RE
@@ -988,6 +1012,13 @@ If handle is \fIabs\fP the new size will be \fIdx\fP width and \fIdy\fP height a
 Change the share of the selected window (or the selected container) in its container, like i3\(cqs \fIpercent\fP.
 .br
 If type is \fIrel\fP the share is changed by \fIdr\fP, otherwise \fIdr\fP becomes the new share. The space is taken from or given to the next container, or the previous one for the last container.
+.br
+On a \fIscroll\fP space, a column (a window alone in its column, or a column selected with \fB\-\-focus parent\fP) has no share of the space: \fIdr\fP is its width as a share of the space, from \fI0.1\fP to \fI1.0\fP, see \fBSCROLL LAYOUT\fP.
+.RE
+.sp
+\fB\-\-center\fP [\fI<WINDOW_SEL>\fP]
+.RS 4
+Scroll the \fIscroll\fP space of the selected window so that its column is centered, like niri\(cqs \fIcenter\-column\fP. The strip still stops at its ends and keeps the focused column in view, and with \fBscroll_center\fP \fIalways\fP the focused column stays centered. Fails for a window outside a \fIscroll\fP space.
 .RE
 .sp
 \fB\-\-toggle\fP \fIfloat|sticky|pip|shadow|split|zoom\-parent|zoom\-fullscreen|windowed\-fullscreen|native\-fullscreen|expose|<LABEL>\fP
@@ -1819,6 +1850,25 @@ Dropping a window dragged with the mouse onto the edge of another window places 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab.
 .br
 The \fIstack.prev\fP, \fIstack.next\fP, \fIstack.first\fP, \fIstack.last\fP, \fIstack.recent\fP and \fIstack.<index>\fP selectors pick tabs of the closest tabbed container, and \fIprev\fP, \fInext\fP, \fIfirst\fP and \fIlast\fP follow the order of the tree.
+.SH "SCROLL LAYOUT"
+.sp
+\fIscroll\fP arranges the windows of a space like niri: in columns on a strip that runs past the edges of the display and scrolls to keep the focused column in view. A column is a window or a container, which lays out its windows like any container of \fBTREE LAYOUT\fP: on top of each other, side by side or as tabs.
+.br
+Each column is its own share of the space wide, whatever the number of columns: a new column is \fBscroll_column_width\fP wide, \fBwindow \-\-ratio\fP sets the width of a column, and the left and right edges of \fBwindow \-\-resize\fP move its edges. A lone column fills the space, and columns that fit on the display are centered.
+.br
+With more than one column, the columns share the space less the room for one \fBscroll_peek\fP strip at the edge (with its gap, less the padding), so a column of \fI0.5\fP beside another leaves room for the strip of the next column. A column at an end of the strip is at most the space less one such room wide, a column in between at most the space less two. \fBspace \-\-balance\fP gives every column the default width again.
+.sp
+A new window opens as a new column right of the column of the focused window. \fBwindow \-\-insert\fP still places it inside a column.
+.br
+When focus moves to another column, the strip scrolls as \fBscroll_center\fP says, and \fBwindow \-\-center\fP centers a column. With the scripting addition the windows slide there in \fBscroll_animation_duration\fP milliseconds.
+.sp
+macOS keeps at least one point of every window on screen, also when the scripting addition moves it. A window scrolled out of view is parked at the edge of its display with \fBscroll_peek\fP points left on screen, and the column that the strip scrolls to stays clear of that strip on each side with columns beyond it. Where a column in view reaches closer to the edge than that, a parked window shows only what is left, at least one point. At an edge with another display beyond it, the window stays on its display instead, ordered below the columns in view. Tab bars and borders of windows out of view are hidden, and \fBfocus_follows_mouse\fP leaves windows that are not wholly in view alone; a click focuses them and scrolls to them.
+.sp
+\fBwindow \-\-focus\fP \fIwest|east\fP moves between columns and \fInorth|south\fP within a column; at the end of the strip it goes to the display in that direction, as in a tree. \fBwindow \-\-warp\fP \fIwest|east\fP takes a window that shares its column out into a new column on that side, and swaps a whole column (a window alone in its column, or a column selected with \fBwindow \-\-focus parent\fP) with its neighbour; at the end of the strip it goes to the display in that direction. \fBwindow \-\-warp\fP \fInorth|south\fP moves a window only within its column. \fBwindow \-\-stack\fP makes a window a tab of another window, which can be in another column. \fBwindow \-\-layout\fP of a window alone in its column changes that column, and so does \fBwindow \-\-split\fP, which sets the orientation of the column for the windows that \fBwindow \-\-insert\fP puts in it: new windows still open as new columns.
+.br
+\fBspace \-\-rotate\fP fails on a \fIscroll\fP space, and \fBmouse_drag_split\fP does not work on a \fIscroll\fP space.
+.sp
+When a window leaves a \fIscroll\fP space, or the space changes its layout, its windows that are scrolled out are put back on the display. When yabai stops, windows that are scrolled out stay parked at the edge until yabai lays them out again.
 .SH "EXIT CODES"
 .sp
 If \fByabai\fP can\(cqt handle a message, it will return a non\-zero exit code.

@@ -102,6 +102,8 @@ extension WindowCommand {
       try runProperty(on: try requiredWindow(acting))
     case .label(let label):
       try runLabel(label, on: try requiredWindow(acting))
+    case .center(let selector):
+      try runCenter(on: try requiredWindow(acting), selector: selector)
     }
   }
 
@@ -318,6 +320,23 @@ extension WindowCommand {
       } catch {}
     default:
       break
+    }
+  }
+
+  //
+  // NOTE: Scrolling a scroll space to the column of a window.
+  //
+
+  @WM private func runCenter(on window: Window, selector: WindowSelector?) throws(CommandError) {
+    let target = try selector.map { selector throws(CommandError) in
+      try selector.resolve(acting: window, DaemonSelectorContext())
+    }
+    do {
+      try WindowManager.shared.centerColumn(of: target ?? window)
+    } catch .invalidSourceView {
+      throw CommandError("cannot center the column of a window outside a scroll space.\n")
+    } catch {
+      throw CommandError("cannot locate the column of the window.\n")
     }
   }
 

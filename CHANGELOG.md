@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The fork is versioned as yabai-sb from 1.0.0; the releases up to 7.1.25 below are upstream yabai's.
 
 ## [Unreleased]
+### Added
+- Config *layout* and command *space --layout* take *scroll*: a niri-style layout of columns on a strip that scrolls to the focused column. A new window opens as a new column; columns keep their own width (*window --ratio*, the left and right edges of *window --resize*, *space --balance*); *window --warp east|west* moves a column or takes a window out of a shared column; windows scrolled out of view are parked at the edge of the display
+- Config *scroll_column_width*, *scroll_center* (*never*, *overflow*, *always*), *scroll_peek* and *scroll_animation_duration*: the width of a new column, how the strip scrolls to the focused column, how much of a window scrolled out of view stays on screen (24 points by default, which the columns leave room for), and how long the windows slide when it scrolls (through the scripting addition)
+- Command *window --center* centers the column of a window in its scroll space
 
 ## [2.0.0] - 2026-11-13
 ### Added

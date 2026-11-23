@@ -170,6 +170,9 @@ extension EventHandler {
       return
     }
 
+    // NOTE: A window that slides in a scroll animation is moved on every frame; the last frame places it.
+    if ScrollAnimator.shared.isSliding(windowID) { return }
+
     let newOrigin = window.axOrigin
     if newOrigin.equalTo(window.frame.origin) {
       Logger.events.debug("window moved (debounced): \(window.application.name) \(window.id)")
@@ -500,6 +503,7 @@ extension WindowManager {
     var views: [View] = []
     for (window, frame) in observed where ms.window != window {
       guard let view = managedView(for: window) else { continue }
+      if ScrollAnimator.shared.isSliding(window.id) { continue }
       guard view.needsFlush(windowID: window.id, frame: frame) else {
         Logger.windows.debug("\(window.id): back on its tile after a foreign frame change")
         continue

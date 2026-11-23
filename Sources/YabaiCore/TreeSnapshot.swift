@@ -11,10 +11,12 @@ public struct TreeSnapshot: Codable, Equatable, Sendable {
   public var children: [TreeSnapshot]
   /// The indices of the children in focus order, the most recently focused first.
   public var focusOrder: [Int]
+  /// The width of a column of a scroll space, as a share of the view; zero follows the default.
+  public var columnWidth: Float
 
   public init(
     layout: ConLayout, lastSplit: ConLayout, percent: Float, zoom: ConZoom, isSelected: Bool,
-    windowID: WindowID?, children: [TreeSnapshot], focusOrder: [Int]
+    windowID: WindowID?, children: [TreeSnapshot], focusOrder: [Int], columnWidth: Float = 0
   ) {
     self.layout = layout
     self.lastSplit = lastSplit
@@ -24,6 +26,7 @@ public struct TreeSnapshot: Codable, Equatable, Sendable {
     self.windowID = windowID
     self.children = children
     self.focusOrder = focusOrder
+    self.columnWidth = columnWidth
   }
 }
 

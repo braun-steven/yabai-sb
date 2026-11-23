@@ -54,7 +54,9 @@ extension Con {
 
 extension View {
   private var defaultLayout: ConLayout {
-    switch Config.current.space.treeDefaultOrientation {
+    // NOTE: The root of a scroll view is its strip of columns.
+    if layout == .scroll { return .splitH }
+    return switch Config.current.space.treeDefaultOrientation {
     case .horizontal: .splitH
     case .vertical: .splitV
     case .auto: area.w >= area.h ? .splitH : .splitV
@@ -65,14 +67,23 @@ extension View {
     if tree == nil {
       tree = Con(layout: defaultLayout)
       tree!.area = area
+      tree!.isStrip = layout == .scroll
     }
 
     return tree!
   }
 
-  func updateTree() {
+  /// Lays the tree out in the area of the view. A scroll view lays out its strip (`layOutStrip`); revealingFrom is the
+  /// column focused before a focus change.
+  func updateTree(revealingFrom previous: Int? = nil) {
     guard let root = tree else { return }
     let config = Config.current.tabBar
+    if layout == .scroll {
+      layOutStrip(
+        root, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: config.offset,
+        barInset: treeBarInset(), previous: previous)
+      return
+    }
     root.layOut(
       area, gap: windowGapValue, barHeight: treeBarHeight(), barOffset: config.offset,
       barInset: treeBarInset())
@@ -185,6 +196,14 @@ extension View {
 
       anchor.insert(node, toward: direction)
       focusNewWindow(node, windowID: target.id)
+    } else if layout == .scroll {
+      // NOTE: A window opens as a new column right of the column of its anchor, as in niri.
+      let anchor =
+        root.find(insertionPoint) ?? root.find(WindowManager.shared.focus.focused)
+        ?? root.focusedDescendant
+      let index = columnIndex(of: anchor).map { $0 + 1 }
+      root.attach(node, at: index)
+      focusNewWindow(node, windowID: target.id)
     } else if besideFocus {
       root.open(node, after: root.focusedDescendant, autotile: false)
       focusNewWindow(node, windowID: target.id)
@@ -282,6 +301,7 @@ extension View {
   func frame(for node: Con) -> Area {
     if node.zoom == .fullscreen { return tree!.area }
     if node.zoom == .parent, let parent = node.parent { return parent.area }
+    if layout == .scroll { return parkedFrame(node.area) }
     return node.area
   }
 }
@@ -342,7 +362,7 @@ extension Con {
 
 extension Con {
   fileprivate var isBarShown: Bool {
-    TabBar.isEnabled && layout == .tabbed && children.count > 0
+    TabBar.isEnabled && layout == .tabbed && children.count > 0 && !isScrolledOut
       && area.h > Float(2 * Config.current.tabBar.height) && isVisible && !hasZoom(.none)
       && !root.hasZoom(.fullscreen)
   }
@@ -410,7 +430,7 @@ extension View {
     guard tree != nil, let leaf = findWindow(windowID) else {
       return (true, windowArea, borderArea, radius)
     }
-    if !leaf.isVisible { return (false, windowArea, borderArea, radius) }
+    if !leaf.isVisible || leaf.isScrolledOut { return (false, windowArea, borderArea, radius) }
 
     var outer: Con?
     var node = leaf
@@ -557,7 +577,7 @@ extension Con {
 extension WindowManager {
   func cardDidOrder(_ windowID: WindowID) {
     guard let owner = managedWindows[windowID] else { return }
-    if owner.layout != .tree || owner.tree == nil || !owner.sid.isVisible { return }
+    if !owner.layout.isTiled || owner.tree == nil || !owner.sid.isVisible { return }
 
     var list: [WindowOrder] = []
     owner.tree!.collectCardOrder(after: windowID, into: &list)
@@ -571,10 +591,13 @@ extension View {
 
     var windowList: [WindowPlacement] = []
     captureWindows(in: root, into: &windowList)
+    // NOTE: A scroll view slides the windows that only move (ScrollAnimator.swift) and places the rest at once.
+    if layout == .scroll { windowList = ScrollAnimator.shared.animate(self, windowList) }
     if !windowList.isEmpty { WindowManager.shared.placeWindows(windowList) }
 
     root.renderBars()
     root.raiseTabs(force: false)
+    orderParkedWindows()
 
     if let selected = root.findSelected() { selected.showSelection() }
 
@@ -602,7 +625,11 @@ extension View {
     guard let node = findWindow(windowID) else { return }
 
     tree?.select(nil)
+    let previousColumn = focusedColumnIndex
     node.focus()
+    if layout == .scroll, focusedColumnIndex != previousColumn {
+      scrollToFocusedColumn(from: previousColumn)
+    }
 
     if !sid.isVisible {
       isDirty = true
@@ -617,7 +644,7 @@ extension View {
 extension View {
   static func refreshBars(forWindowID windowID: WindowID?) {
     guard let windowID, let owner = WindowManager.shared.managedWindows[windowID] else { return }
-    if owner.layout != .tree || owner.tree == nil { return }
+    if !owner.layout.isTiled || owner.tree == nil { return }
 
     if owner.sid.isVisible { owner.tree!.renderBars() }
   }

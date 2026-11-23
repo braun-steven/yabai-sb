@@ -311,7 +311,8 @@
           "description": "Set the layout of the selected space.",
           "enum": [
             "float",
-            "tree"
+            "tree",
+            "scroll"
           ]
         },
         "auto_padding": {
@@ -336,6 +337,32 @@
         "tree_autotiling": {
           "description": "Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree.",
           "type": "boolean"
+        },
+        "scroll_column_width": {
+          "description": "Width of a new column of a 'scroll' space, as a share of the space.",
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 1
+        },
+        "scroll_center": {
+          "description": "How a 'scroll' space scrolls to the column that gets focus, like niri's 'center-focused-column': 'never' scrolls as little as shows it, 'overflow' centers it when it does not fit beside the column focused before, 'always' centers it.",
+          "enum": [
+            "never",
+            "overflow",
+            "always"
+          ]
+        },
+        "scroll_peek": {
+          "description": "How much of a window scrolled out of view a 'scroll' space leaves on screen at the edge of the display, in points.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "scroll_animation_duration": {
+          "description": "Duration of the scroll animation of a 'scroll' space in milliseconds; 0 scrolls at once.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
         },
         "focus_wrapping": {
           "description": "What window --focus 'north|east|south|west' does at the edge of a 'tree' space, like i3's 'focus_wrapping'.",
@@ -483,7 +510,8 @@
             "description": "Set the layout of the selected space.",
             "enum": [
               "float",
-              "tree"
+              "tree",
+              "scroll"
             ]
           },
           "auto_padding": {

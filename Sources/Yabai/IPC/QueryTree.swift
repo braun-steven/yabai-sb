@@ -10,7 +10,7 @@ extension View {
 
   /// The tree for `query --tree`; nil unless the space uses the tree layout.
   func treeNode() -> TreeNode? {
-    guard layout == .tree else { return nil }
+    guard layout.isTiled else { return nil }
     return treeNode(for: root)
   }
 

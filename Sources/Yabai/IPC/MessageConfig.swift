@@ -350,7 +350,7 @@ enum ConfigOptionKind: Sendable {
     parse: { (domain, command, message, selSid) throws(CommandError) in
       let token = message.next()
       guard token.isValid else { return nil }
-      let layouts: [ViewType] = [.float, .tree]
+      let layouts: [ViewType] = [.float, .tree, .scroll]
       guard let layout = layouts.first(where: { token.equals($0.rawValue) }) else {
         throw CommandError.unknownValue(
           domain, command, token, expected: expectedChoices(layouts.map(\.rawValue)))
@@ -455,6 +455,41 @@ enum ConfigOptionKind: Sendable {
   boolOption(
     .treeAutotiling, get: { Config.current.space.treeAutotiling },
     set: { Config.current.space.treeAutotiling = $0 }),
+  floatOption(
+    .scrollColumnWidth, get: { Config.current.space.scrollColumnWidth },
+    parseValue: { token in
+      token.value.floatValue.flatMap {
+        $0 >= ScrollStrip.minimumShare && $0 <= ScrollStrip.maximumShare ? $0 : nil
+      }
+    },
+    expected: "a number from 0.1 to 1.0",
+    set: {
+      Config.current.space.scrollColumnWidth = $0
+      SpaceManager.shared.relayOutScrollViews()
+    }),
+  choiceOption(
+    .scrollCenter, choices: ScrollCenter.allCases, get: { Config.current.space.scrollCenter },
+    set: {
+      Config.current.space.scrollCenter = $0
+      SpaceManager.shared.relayOutScrollViews()
+    }),
+  integerOption(
+    .scrollPeek, get: { Config.current.space.scrollPeek },
+    parseValue: { token in
+      if case .int(let value) = token.value, value >= 1, value <= 200 { return value }
+      return nil
+    }, expected: "an integer from 1 to 200",
+    set: {
+      Config.current.space.scrollPeek = $0
+      SpaceManager.shared.relayOutScrollViews()
+    }),
+  integerOption(
+    .scrollAnimationDuration, get: { Config.current.space.scrollAnimationDuration },
+    parseValue: { token in
+      if case .int(let value) = token.value, value >= 0, value <= 2000 { return value }
+      return nil
+    }, expected: "an integer from 0 to 2000",
+    set: { Config.current.space.scrollAnimationDuration = $0 }),
   choiceOption(
     .focusWrapping, choices: FocusWrapping.allCases, get: { Config.current.window.focusWrapping },
     set: { Config.current.window.focusWrapping = $0 }),

@@ -400,9 +400,9 @@ Global Settings
 Space Settings
 ^^^^^^^^^^^^^^
 
-*layout* ['tree|float']::
+*layout* ['tree|float|scroll']::
     Set the layout of the selected space. +
-    'tree' (the default) arranges windows in an i3-style container tree, see *TREE LAYOUT*. 'float' leaves windows unmanaged. +
+    'tree' (the default) arranges windows in an i3-style container tree, see *TREE LAYOUT*. 'float' leaves windows unmanaged. 'scroll' arranges them in columns on a strip that scrolls, like niri, see *SCROLL LAYOUT*. +
     A space that already has the layout keeps its windows and tree.
 
 *tree_default_orientation* ['horizontal|vertical|auto']::
@@ -415,6 +415,20 @@ Space Settings
 *tree_autotiling* ['<BOOL_SEL>']::
     Like the i3 autotiling script: a new window that opens next to a window splits that window along its longer side, so the space is divided like a binary tree. +
     Windows that open in a tabbed container, next to a selected container or with *window --insert* are placed as usual. Default is 'off'.
+
+*scroll_column_width* ['<floating point number>']::
+    Width of a new column of a 'scroll' space, as a share of the space, from '0.1' to '1.0'. Default is '0.5'.
+
+*scroll_center* ['never|overflow|always']::
+    How a 'scroll' space scrolls to the column that gets focus, like niri's 'center-focused-column'. 'never' (the default) scrolls as little as shows the whole column, 'overflow' centers the column when it does not fit on the display together with the column focused before it, and 'always' centers it.
+
+*scroll_peek* ['<integer number>']::
+    How much of a window scrolled out of view a 'scroll' space leaves on screen at the edge of the display, in points, from '1' to '200', so that it can be seen and clicked. Default is '24'. +
+    The columns leave room for it, so with more than one column no column covers the display from edge to edge, see *SCROLL LAYOUT*.
+
+*scroll_animation_duration* ['<integer number>']::
+    Duration of the scroll animation of a 'scroll' space in milliseconds, from '0' to '2000'. '0' moves the windows at once. Default is '200'. +
+    The animation moves the windows through the scripting addition; without it the windows move at once.
 
 *top_padding* ['<integer number>']::
     Padding added at the upper side of the selected space.
@@ -537,7 +551,7 @@ COMMAND
 *--toggle* 'padding|gap|mission-control|show-desktop'::
     Toggle space setting on or off for the selected space.
 
-*--layout* 'tree|float'::
+*--layout* 'tree|float|scroll'::
     Set the layout of the selected space. A space that already has the layout keeps its windows and tree.
 
 *--label* ['<LABEL>']::
@@ -636,7 +650,11 @@ COMMAND
 
 *--ratio* 'rel|abs:<dr>'::
     Change the share of the selected window (or the selected container) in its container, like i3's 'percent'. +
-    If type is 'rel' the share is changed by 'dr', otherwise 'dr' becomes the new share. The space is taken from or given to the next container, or the previous one for the last container.
+    If type is 'rel' the share is changed by 'dr', otherwise 'dr' becomes the new share. The space is taken from or given to the next container, or the previous one for the last container. +
+    On a 'scroll' space, a column (a window alone in its column, or a column selected with *--focus parent*) has no share of the space: 'dr' is its width as a share of the space, from '0.1' to '1.0', see *SCROLL LAYOUT*.
+
+*--center* ['<WINDOW_SEL>']::
+    Scroll the 'scroll' space of the selected window so that its column is centered, like niri's 'center-column'. The strip still stops at its ends and keeps the focused column in view, and with *scroll_center* 'always' the focused column stays centered. Fails for a window outside a 'scroll' space.
 
 *--toggle* 'float|sticky|pip|shadow|split|zoom-parent|zoom-fullscreen|windowed-fullscreen|native-fullscreen|expose|<LABEL>'::
     Toggle the given property of the selected window. +
@@ -1218,6 +1236,23 @@ Dropping a window dragged with the mouse onto the edge of another window places 
 
 When the focused window closes, the window focused before it in the same container gets focus, so closing a tab shows the previous tab. +
 The 'stack.prev', 'stack.next', 'stack.first', 'stack.last', 'stack.recent' and 'stack.<index>' selectors pick tabs of the closest tabbed container, and 'prev', 'next', 'first' and 'last' follow the order of the tree.
+
+Scroll Layout
+-------------
+
+'scroll' arranges the windows of a space like niri: in columns on a strip that runs past the edges of the display and scrolls to keep the focused column in view. A column is a window or a container, which lays out its windows like any container of *TREE LAYOUT*: on top of each other, side by side or as tabs. +
+Each column is its own share of the space wide, whatever the number of columns: a new column is *scroll_column_width* wide, *window --ratio* sets the width of a column, and the left and right edges of *window --resize* move its edges. A lone column fills the space, and columns that fit on the display are centered. +
+With more than one column, the columns share the space less the room for one *scroll_peek* strip at the edge (with its gap, less the padding), so a column of '0.5' beside another leaves room for the strip of the next column. A column at an end of the strip is at most the space less one such room wide, a column in between at most the space less two. *space --balance* gives every column the default width again.
+
+A new window opens as a new column right of the column of the focused window. *window --insert* still places it inside a column. +
+When focus moves to another column, the strip scrolls as *scroll_center* says, and *window --center* centers a column. With the scripting addition the windows slide there in *scroll_animation_duration* milliseconds.
+
+macOS keeps at least one point of every window on screen, also when the scripting addition moves it. A window scrolled out of view is parked at the edge of its display with *scroll_peek* points left on screen, and the column that the strip scrolls to stays clear of that strip on each side with columns beyond it. Where a column in view reaches closer to the edge than that, a parked window shows only what is left, at least one point. At an edge with another display beyond it, the window stays on its display instead, ordered below the columns in view. Tab bars and borders of windows out of view are hidden, and *focus_follows_mouse* leaves windows that are not wholly in view alone; a click focuses them and scrolls to them.
+
+*window --focus* 'west|east' moves between columns and 'north|south' within a column; at the end of the strip it goes to the display in that direction, as in a tree. *window --warp* 'west|east' takes a window that shares its column out into a new column on that side, and swaps a whole column (a window alone in its column, or a column selected with *window --focus parent*) with its neighbour; at the end of the strip it goes to the display in that direction. *window --warp* 'north|south' moves a window only within its column. *window --stack* makes a window a tab of another window, which can be in another column. *window --layout* of a window alone in its column changes that column, and so does *window --split*, which sets the orientation of the column for the windows that *window --insert* puts in it: new windows still open as new columns. +
+*space --rotate* fails on a 'scroll' space, and *mouse_drag_split* does not work on a 'scroll' space.
+
+When a window leaves a 'scroll' space, or the space changes its layout, its windows that are scrolled out are put back on the display. When yabai stops, windows that are scrolled out stay parked at the edge until yabai lays them out again.
 
 Exit Codes
 ----------

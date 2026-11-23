@@ -38,7 +38,7 @@ extension DaemonState {
       #expect(
         result.output.stderr
           == "1: unknown value 'x' given to command 'window_gap' for domain 'config'; expected a non-negative integer\n"
-          + "3: unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree\n"
+          + "3: unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree, scroll\n"
       )
       #expect(!result.ok)
     }

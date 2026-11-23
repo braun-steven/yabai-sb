@@ -146,6 +146,8 @@ enum Event: Sendable {
   case ffmRecheck
   // NOTE: Only post with `key: .windowFrameRecheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case windowFrameRecheck
+  // NOTE: Only post with `key: .scrollAnimation` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
+  case scrollAnimationTick
   // NOTE: Only post with `key: .displayWindowCheck` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
   case displayWindowCheck
   // NOTE: Only post with `key: .topologySnapshot` (`EventLoop.post(_:after:key:)`); a stale one is dropped.
@@ -224,6 +226,7 @@ enum EventLoop {
     case displaySpacesRefresh
     case ffmRecheck
     case windowFrameRecheck
+    case scrollAnimation
     case displayWindowCheck
     case topologySnapshot
     case topologyCommit
@@ -414,6 +417,8 @@ extension EventHandler {
       if EventLoop.claimDelivery(of: .ffmRecheck) { ffmRecheck() }
     case .windowFrameRecheck:
       if EventLoop.claimDelivery(of: .windowFrameRecheck) { windowFrameRecheck() }
+    case .scrollAnimationTick:
+      if EventLoop.claimDelivery(of: .scrollAnimation) { ScrollAnimator.shared.tick() }
     case .displayWindowCheck:
       if EventLoop.claimDelivery(of: .displayWindowCheck) { displayWindowCheck() }
     case .topologySnapshot(let reason):

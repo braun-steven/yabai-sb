@@ -122,7 +122,7 @@ extension WindowManager {
     guard let sid = did.currentSpace else { return }
     let dstView = SpaceManager.shared.view(for: sid)
 
-    if dstView.layout == .tree {
+    if dstView.layout.isTiled {
       let focus = node.focusedDescendant
 
       node.detach()
@@ -168,8 +168,12 @@ extension WindowManager {
     guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
 
     let did = treeDisplay(in: direction, from: owner)
+    let result =
+      owner.layout == .scroll
+      ? scrollMove(node, in: owner, direction: direction, hasOutput: did != nil)
+      : node.move(direction, in: owner.tree!, hasOutput: did != nil)
 
-    switch node.move(direction, in: owner.tree!, hasOutput: did != nil) {
+    switch result {
     case .done:
       treeApply(owner)
     case .output:
@@ -186,7 +190,7 @@ extension WindowManager {
   //
 
   func treeFocusCandidate(in owner: View?, for target: Window) -> WindowID? {
-    guard let owner, owner.layout == .tree else { return nil }
+    guard let owner, owner.layout.isTiled else { return nil }
 
     //
     // NOTE: macOS can focus another application window before reporting this window destroyed.
@@ -215,7 +219,8 @@ extension WindowManager {
 
   func treeSplit(_ split: SplitOrientation, for target: Window?) throws(WindowOperationError) {
     guard let target, let owner = treeView(for: target) else { throw .invalidSourceView }
-    guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
+    guard var node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
+    if owner.layout == .scroll { node = scrollLayoutTarget(node, in: owner) }
 
     let orientation: ConOrientation
     switch split {

@@ -64,7 +64,8 @@ private let configChoices: [ChoiceRow] = [
   ChoiceRow(
     option: "focus_follows_mouse",
     expected: ["off"] + [FocusFollowsMouse.autofocus, .autoraise].map(\.rawValue)),
-  ChoiceRow(option: "layout", expected: [ViewType.float, .tree].map(\.rawValue)),
+  ChoiceRow(option: "layout", expected: [ViewType.float, .tree, .scroll].map(\.rawValue)),
+  ChoiceRow(option: "scroll_center", expected: ScrollCenter.allCases.map(\.rawValue)),
 ]
 
 @Test func configPropertiesAreTheOptionNames() throws {
@@ -131,7 +132,7 @@ func choiceOptionsListTheRawValuesOfTheirChoiceType(row: ChoiceRow) throws {
 @Test func spaceLayoutChoiceListsTheRawValues() throws {
   let space = try #require(properties(try loadSchema())["space"])
   let property = try #require(properties(items(space))["layout"])
-  #expect(enumValues(property) == [ViewType.float, .tree].map(\.rawValue))
+  #expect(enumValues(property) == [ViewType.float, .tree, .scroll].map(\.rawValue))
 }
 
 @Test func ruleSubLayerListsTheWindowLayers() throws {

@@ -130,6 +130,7 @@ extension WindowManager {
   /// caller flushes the dirty view later.
   func unmanage(_ target: Window, from owner: View, options: UnmanageOptions) {
     if owner.layout != .float {
+      owner.unparkWindows(target.id)
       target.adjustLayer(to: .normal)
       if owner.remove(target), options.contains(.flush) { owner.flush() }
     }

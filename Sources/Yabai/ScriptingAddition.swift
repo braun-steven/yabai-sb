@@ -373,17 +373,22 @@ final class ScriptingAddition: Sendable {
   }
 
   func send(_ bytes: [UInt8]) -> Bool {
+    reply(to: bytes).isSuccess
+  }
+
+  /// Sends a message to the payload and returns its answer.
+  private func reply(to bytes: [UInt8]) -> SAConnection.Outcome {
     if Headless.isEnabled {
       Headless.record(message: bytes)
-      return true
+      return .accepted
     }
     var sockfd: Int32 = 0
-    guard UnixSocket.open(&sockfd) else { return false }
+    guard UnixSocket.open(&sockfd) else { return .transportFailure }
     defer { UnixSocket.close(sockfd) }
     guard let socketPath,
       let connection = SAConnection(fd: sockfd), connection.connect(socketPath)
-    else { return false }
-    return connection.command(bytes).isSuccess
+    else { return .transportFailure }
+    return connection.command(bytes)
   }
 
   @discardableResult func focusSpace(_ sid: SpaceID) -> Bool {
@@ -425,6 +430,21 @@ final class ScriptingAddition: Sendable {
     payload.pack(x)
     payload.pack(y)
     return payload.send(SA_OPCODE_WINDOW_MOVE)
+  }
+
+  //
+  // NOTE: On macOS 27 the payload answers a window move with a failure even when the window moved (seen on every move
+  // of a test window), so a frame of a scroll animation only asks whether the payload answered at all.
+  //
+
+  /// Moves a window for a frame of a scroll animation (ScrollAnimator); false when the payload did not answer.
+  func slideWindow(_ wid: WindowID, x: Int32, y: Int32) -> Bool {
+    var payload = SAPayload()
+    payload.pack(wid)
+    payload.pack(x)
+    payload.pack(y)
+    guard let bytes = payload.message(SA_OPCODE_WINDOW_MOVE) else { return false }
+    return reply(to: bytes) != .transportFailure
   }
 
   @discardableResult func setLayer(_ layer: Int32, of wid: WindowID) -> Bool {

@@ -163,6 +163,9 @@ extension SpaceCommand {
         throw CommandError("could not locate the space to act on.\n", stopsMessage: true)
       }
       guard sm.rotateSpace(sid, by: degrees) else {
+        if sm.view(for: sid).layout == .scroll {
+          throw CommandError("cannot rotate a scroll space.\n")
+        }
         throw CommandError("cannot rotate a non-managed space.\n")
       }
     case .padding(let type, let top, let bottom, let left, let right):
@@ -203,7 +206,7 @@ extension SpaceCommand {
       guard sid.isUser else {
         throw CommandError("cannot set layout for a macOS fullscreen space!\n")
       }
-      sm.setLayout(layout == .float ? .float : .tree, for: sid)
+      sm.setLayout(ViewType(layout), for: sid)
     case .label(let token):
       guard let sid else {
         throw CommandError("could not locate the space to act on.\n", stopsMessage: true)

@@ -9,6 +9,7 @@ It is not a drop-in replacement for upstream (`tree` replaces `bsp`/`stack`, and
 ## Fork changes
 
 - [i3/sway container tree](#i3sway-container-tree)
+- [Scrolling layout](#scrolling-layout)
 - [Drag to resize splits](#drag-to-resize-splits)
 - [Tab bars and adaptive glass](#tab-bars-and-adaptive-glass)
 - [Exclusive scratchpads](#exclusive-scratchpads)
@@ -93,6 +94,33 @@ The upstream `bsp` and `stack` layouts are replaced by `tree`. Use tabbed contai
 The bsp selectors `sibling`, `*_nephew`, `uncle` and `*_cousin`, the `split-child` window property, and the options `split_ratio`, `split_type`, `window_placement`, `window_insertion_point`, `auto_balance` and `window_zoom_persist` are removed. Window animations (`window_animation_duration`, `window_animation_easing`), window opacity and its fades (`window_opacity`, `window_opacity_duration`, `active_window_opacity`, `normal_window_opacity`, `window --opacity`, the rule key `opacity` and the `opacity` field of `query --windows` and `rule --list`) and `menubar_opacity` are removed too.
 
 </details>
+
+### Scrolling layout
+
+`layout scroll` arranges the windows of a space like [niri](https://github.com/niri-wm/niri): in columns on a strip that runs past the edges of the display and scrolls to the focused column. A new window opens as a new column right of the focused one, and the other columns keep their width.
+
+```text
+         ┌───────── display ─────────┐
+┌──────┐ ┌────────────┐ ┌────────────┐ ┌──────┐
+│  A   │ │     B      │ │ C focused  │ │  D   │
+└──────┘ └────────────┘ └────────────┘ └──────┘
+ parked      in view       in view      parked
+```
+
+```sh
+yabai -m config layout scroll              # or per space: config --space 3 layout scroll
+yabai -m config scroll_column_width 0.5    # width of a new column, as a share of the display
+yabai -m config scroll_center never        # never|overflow|always, like niri's center-focused-column
+yabai -m config scroll_peek 24             # points of a scrolled-out window left showing at the edge
+yabai -m config scroll_animation_duration 200  # milliseconds; 0 moves at once
+yabai -m window --focus east               # next column; north/south move within a column
+yabai -m window --warp east                # move the column, or take the window out of a shared column
+yabai -m window --stack west               # make the window a tab of the column to the west
+yabai -m window --ratio abs:0.75           # width of the column; rel:+0.1 widens it
+yabai -m window --center                   # center the column
+```
+
+A column is a window or any container of the tree, so a column can be split or tabbed (`window --layout tabbed`). A column scrolled out of view is parked at the edge of the display with a strip of it showing (`scroll_peek`, 24 points by default), which you can click to scroll to it. The columns leave room for that strip, so with more than one column none covers the display from edge to edge. Next to another display a scrolled-out column waits behind the columns in view instead. With the scripting addition, scrolling slides the windows instead of moving them at once. See *SCROLL LAYOUT* in the [command reference][yabai-docs].
 
 ### Drag to resize splits
 

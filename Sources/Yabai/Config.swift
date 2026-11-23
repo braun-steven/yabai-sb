@@ -62,6 +62,14 @@ struct SpaceDefaults {
   var treeWorkspaceTabbed = false
   var treeAutotiling = false
   var skipWindowFocusAnimation = false
+  /// The width of a new column of a scroll space, as a share of the view (`scroll_column_width`).
+  var scrollColumnWidth: Float = 0.5
+  /// How a scroll space scrolls to the column that gets focus (`scroll_center`).
+  var scrollCenter = ScrollCenter.never
+  /// How much of a window scrolled out of view stays on screen at the edge, in points (`scroll_peek`).
+  var scrollPeek = 24
+  /// How long a scroll space takes to scroll, in milliseconds; 0 moves at once (`scroll_animation_duration`).
+  var scrollAnimationDuration = 200
   /// Whether `space --focus` of the focused space focuses the recent space (`space_auto_back_and_forth`).
   var autoBackAndForth = false
   var spaceLayouts: [SpaceLayout] = []

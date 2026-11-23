@@ -85,9 +85,11 @@ struct PlacementLine: CustomStringConvertible {
   let view = View(sid: Workspace.sid)
   let application = Application()
 
-  init(area: Area = Area(x: 0, y: 0, w: 1200, h: 800)) {
-    view.layout = .tree
+  /// A view of the layout in area. A scroll view's display is the area too, so its windows park at its edges.
+  init(area: Area = Area(x: 0, y: 0, w: 1200, h: 800), layout: ViewType = .tree) {
+    view.layout = layout
     view.area = area
+    view.scroll.display = area
     SpaceManager.shared.views[Workspace.sid] = view
   }
 

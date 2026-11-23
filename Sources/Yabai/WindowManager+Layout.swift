@@ -11,7 +11,7 @@ extension WindowManager {
 
     guard let sid = target.id.space else { throw .invalidSourceView }
     let owner = SpaceManager.shared.view(for: sid)
-    if owner.layout != .tree || owner.tree == nil { throw .invalidSourceView }
+    if !owner.layout.isTiled || owner.tree == nil { throw .invalidSourceView }
 
     guard let node = owner.tree?.find(target.id) else { throw .invalidSourceNode }
 
@@ -80,7 +80,8 @@ extension WindowManager {
 
   func setWindowLayout(_ target: Window?, _ layout: WindowLayout) throws(WindowOperationError) {
     guard let target, let owner = treeView(for: target) else { throw .invalidSourceView }
-    guard let node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
+    guard var node = treeActingCon(in: owner, for: target) else { throw .invalidSourceNode }
+    if owner.layout == .scroll { node = scrollLayoutTarget(node, in: owner) }
 
     let parent = node.parent ?? node
 

@@ -75,6 +75,9 @@ extension EventHandler {
     if window.id == wm.focus.focused { return }
     if !window.isEligibleForManagement { return }
     if ffmMissionControlIsOpen() { return }
+    // NOTE: A column of a scroll space that is not wholly in view is left alone: focusing it would scroll the strip
+    // under the pointer. A click scrolls to it.
+    if let view = wm.managedView(for: window), !view.isWhollyInView(window.id) { return }
 
     if focusFollowsMouse == .autoraise && ffmRaiseWouldOccludeFloatingWindow(window, at: point) {
       return

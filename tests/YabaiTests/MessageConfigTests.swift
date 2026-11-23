@@ -82,11 +82,15 @@ private let configExpectations: [String: String] = [
   "left_padding": "a non-negative integer",
   "right_padding": "a non-negative integer",
   "window_gap": "a non-negative integer",
-  "layout": "one of: float, tree",
+  "layout": "one of: float, tree, scroll",
   "auto_padding": "on or off",
   "tree_default_orientation": "one of: auto, horizontal, vertical",
   "tree_workspace_layout": "one of: default, tabbed",
   "tree_autotiling": "on or off",
+  "scroll_column_width": "a number from 0.1 to 1.0",
+  "scroll_center": "one of: never, overflow, always",
+  "scroll_peek": "an integer from 1 to 200",
+  "scroll_animation_duration": "an integer from 0 to 2000",
   "focus_wrapping": "one of: off, on, force",
   "space_auto_back_and_forth": "on or off",
   "space_layout_restore": "on or off",
@@ -189,6 +193,11 @@ extension DaemonState {
       ConfigCase(
         option: "tree_workspace_layout", value: "tabbed", printed: "tabbed", invalid: "stacked"),
       ConfigCase(option: "tree_autotiling", value: "on", printed: "on", invalid: "x"),
+      ConfigCase(option: "scroll_column_width", value: "0.75", printed: "0.75", invalid: "1.5"),
+      ConfigCase(option: "scroll_center", value: "always", printed: "always", invalid: "middle"),
+      ConfigCase(option: "scroll_peek", value: "32", printed: "32", invalid: "0"),
+      ConfigCase(
+        option: "scroll_animation_duration", value: "150", printed: "150", invalid: "-1"),
       ConfigCase(option: "focus_wrapping", value: "off", printed: "off", invalid: "wrap"),
       ConfigCase(option: "space_auto_back_and_forth", value: "on", printed: "on", invalid: "x"),
       ConfigCase(option: "space_layout_restore", value: "off", printed: "off", invalid: "x"),
@@ -455,6 +464,7 @@ extension DaemonState {
         "left_padding", "right_padding", "window_gap", "layout", "auto_padding",
         "tree_default_orientation",
         "tree_workspace_layout", "tree_autotiling", "focus_wrapping", "space_layout_restore",
+        "scroll_column_width", "scroll_center", "scroll_peek", "scroll_animation_duration",
         "space_auto_back_and_forth",
         "mouse_modifier",
         "mouse_action1",
@@ -467,8 +477,8 @@ extension DaemonState {
       let actual = configOptionNames.map(\.rawValue)
 
       #expect(configOptionTableIsComplete)
-      #expect(ConfigName.allCases.count == 54)
-      #expect(actual.count == 54)
+      #expect(ConfigName.allCases.count == 58)
+      #expect(actual.count == 58)
       #expect(Set(actual).count == actual.count)
       #expect(Set(actual) == expected)
     }

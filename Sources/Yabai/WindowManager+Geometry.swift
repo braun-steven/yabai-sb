@@ -22,6 +22,12 @@ extension WindowManager {
     }
     guard let node, let parent = node.parent else { throw .invalidSourceNode }
 
+    // NOTE: In a scroll view a column has no share of the root: its ratio is its width.
+    if owner.layout == .scroll, let column = wholeColumn(of: node, in: owner) {
+      setColumnWidth(column, in: owner, type: type, ratio: ratio)
+      return
+    }
+
     let horizontal = parent.layout == .splitH
     let size = horizontal ? parent.area.w : parent.area.h
     let delta = Self.ratioDelta(from: node.percent, type: type, ratio: ratio, size: size)
@@ -65,8 +71,18 @@ extension WindowManager {
       var didResize = false
       if direction.contains(.top) { didResize = node.resize(.north, by: dy) || didResize }
       if direction.contains(.bottom) { didResize = node.resize(.south, by: dy) || didResize }
-      if direction.contains(.left) { didResize = node.resize(.west, by: dx) || didResize }
-      if direction.contains(.right) { didResize = node.resize(.east, by: dx) || didResize }
+      if owner.layout == .scroll {
+        // NOTE: The left and right edges of a column of a scroll view set its width; moving the left edge left widens it.
+        if direction.contains(.left) {
+          didResize = resizeColumn(of: node, in: owner, by: -dx) || didResize
+        }
+        if direction.contains(.right) {
+          didResize = resizeColumn(of: node, in: owner, by: dx) || didResize
+        }
+      } else {
+        if direction.contains(.left) { didResize = node.resize(.west, by: dx) || didResize }
+        if direction.contains(.right) { didResize = node.resize(.east, by: dx) || didResize }
+      }
       if !didResize { throw .invalidDestinationNode }
 
       owner.updateTree()

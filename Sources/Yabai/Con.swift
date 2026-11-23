@@ -92,6 +92,15 @@ struct FeedbackWindow {
   var isSelected = false
   var insertDirection: InsertDirection?
   var render = ConRender()
+  /// The width of a column of a scroll view, as a share of the view; zero follows `scroll_column_width`. Only the
+  /// children of the root of a scroll view use it (ScrollView.swift).
+  var columnWidth: Float = 0
+  /// Whether the column of a scroll view that the container belongs to is scrolled out of view: its windows are parked
+  /// at the edge of the display, and its bars and outlines are not shown.
+  var isScrolledOut = false
+  /// Whether this is the root of a scroll view, whose children are columns: the tree operations leave its children
+  /// alone where they would merge a column into the strip (`flatten`, `applyWorkspaceLayout`).
+  var isStrip = false
 
   /// The smallest share of a split that a resize leaves a child (SplitRatio.resized).
   static let minPercent: Float = 0.05
@@ -266,6 +275,7 @@ extension Con {
 
     replacement.parent = parent
     replacement.percent = percent
+    replacement.columnWidth = columnWidth
     self.parent = nil
   }
 
@@ -280,6 +290,8 @@ extension Con {
     replace(with: wrap)
     wrap.insert(self, at: 0, focusIndex: Con.focusHead)
     percent = 1.0
+    // NOTE: The wrap takes over the column width; a container inside a column has none.
+    columnWidth = 0
     return wrap
   }
 
@@ -318,6 +330,7 @@ extension Con {
   // into a new container with the same layout, which becomes its only child.
   //
 
+  @discardableResult
   private func wrapChildren() -> Con {
     let wrap = Con(layout: layout)
     wrap.lastSplit = lastSplit
@@ -325,6 +338,21 @@ extension Con {
     insert(wrap, at: 0, focusIndex: Con.focusHead)
     wrap.percent = 1.0
     return wrap
+  }
+
+  /// Puts this window in a new vertical split in its place, a column of its own in a scroll view, so that a layout or
+  /// split command changes that column instead of the strip.
+  @discardableResult
+  func wrapInColumn() -> Con {
+    wrap(.splitV)
+  }
+
+  /// Puts every child of this root into one new container with its layout, and makes it a horizontal split: the strip
+  /// of a scroll view, with that container as its only column (View.restoreStrip).
+  func wrapChildrenInColumn() {
+    wrapChildren()
+    layout = .splitH
+    lastSplit = .splitH
   }
 
   //
@@ -356,7 +384,7 @@ extension Con {
   private func applyWorkspaceLayout() {
     if !Config.current.space.treeWorkspaceTabbed { return }
 
-    guard let root = self.parent, root.parent == nil else { return }
+    guard let root = self.parent, root.parent == nil, !root.isStrip else { return }
     if !isLeaf && layout == .tabbed { return }
 
     wrap(.tabbed).lastSplit = root.layout
@@ -395,7 +423,8 @@ extension Con {
       i += 1
     }
 
-    guard let parent = self.parent, parent.layout != .tabbed else { return }
+    // NOTE: A column of a scroll view stays a column: flattening it would spread its windows over the strip.
+    guard let parent = self.parent, parent.layout != .tabbed, !parent.isStrip else { return }
     if !isSplit || children.count == 0 { return }
 
     //
@@ -1324,6 +1353,7 @@ extension Con {
 
   private func assignLayoutAreas(_ areas: [Area], index: inout Int) {
     area = areas[index]
+    isScrolledOut = false
     index += 1
     if isLeaf { return }
 

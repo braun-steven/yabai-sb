@@ -13,7 +13,8 @@ extension Con {
 
     return TreeSnapshot(
       layout: layout, lastSplit: lastSplit, percent: percent, zoom: zoom, isSelected: isSelected,
-      windowID: windowID, children: children.map(\.snapshot), focusOrder: focusOrder)
+      windowID: windowID, children: children.map(\.snapshot), focusOrder: focusOrder,
+      columnWidth: columnWidth)
   }
 
   /// A container with the tree of a snapshot: its children are linked to it, in the order and focus order of the snapshot.
@@ -23,6 +24,7 @@ extension Con {
     percent = snapshot.percent
     zoom = snapshot.zoom
     isSelected = snapshot.isSelected
+    columnWidth = snapshot.columnWidth
 
     for child in snapshot.children {
       let node = Con(snapshot: child)

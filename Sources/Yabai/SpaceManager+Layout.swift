@@ -19,12 +19,20 @@ extension SpaceManager {
     let target = view(for: sid)
     guard target.layout != layout else { return }
 
+    leaveScrollLayout(target)
     target.layout = layout
     target.clear()
 
     if target.layout != .float {
       WindowManager.shared.validateAndCheckForWindows(on: sid)
     }
+  }
+
+  /// Before a view changes its layout: a scroll view puts its parked windows back on the display and ends its slide.
+  private func leaveScrollLayout(_ target: View) {
+    guard target.layout == .scroll else { return }
+    target.unparkWindows()
+    ScrollAnimator.shared.cancel(target.sid)
   }
 
   func setGap(_ gap: Int, type: ValueType?, for sid: SpaceID) -> Bool {
@@ -67,6 +75,7 @@ extension SpaceManager {
     for target in views.values {
       if !target.overrides.contains(.layout) {
         if target.sid.isUser && target.layout != layout {
+          leaveScrollLayout(target)
           target.layout = layout
           target.clear()
 
@@ -143,14 +152,15 @@ extension SpaceManager {
     return toggleViewSetting(\.isPaddingEnabled, for: sid)
   }
 
-  /// The view of a space when it is a tree with a root.
+  /// The view of a space when it tiles a tree with a root (`tree` or `scroll`).
   private func treeView(for sid: SpaceID) -> View? {
     let target = view(for: sid)
-    return target.layout == .tree && target.tree != nil ? target : nil
+    return target.layout.isTiled && target.tree != nil ? target : nil
   }
 
+  /// Rotates the tree of a space. A scroll space is not rotated: its root stays a row of columns.
   func rotateSpace(_ sid: SpaceID, by degrees: Int) -> Bool {
-    guard let target = treeView(for: sid) else { return false }
+    guard let target = treeView(for: sid), target.layout == .tree else { return false }
 
     target.tree!.rotate(by: degrees)
     target.updateAndFlush()
@@ -171,6 +181,8 @@ extension SpaceManager {
     guard let target = treeView(for: sid) else { return false }
 
     target.tree!.balance()
+    // NOTE: A scroll space gives every column the default width again too.
+    if target.layout == .scroll { target.resetColumnWidths() }
     target.updateAndFlush()
 
     return true
@@ -195,7 +207,7 @@ extension SpaceManager {
     guard let sid = win.id.space else { return }
 
     let target = view(for: sid)
-    if target.layout != .tree { return }
+    if !target.layout.isTiled { return }
 
     try? WindowManager.shared.setWindowLayout(win, .toggleSplit)
   }

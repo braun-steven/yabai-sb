@@ -222,7 +222,7 @@ extension EventHandler {
 
     wm.focus.clearPending(ifFor: window.id)
 
-    if let view = WindowManager.shared.managedView(for: window), view.layout == .tree {
+    if let view = WindowManager.shared.managedView(for: window), view.layout.isTiled {
       view.focusWindow(window.id)
     }
 

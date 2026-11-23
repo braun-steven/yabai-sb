@@ -503,7 +503,7 @@ extension TabBar {
   //
   static func refresh(for wid: WindowID?) {
     guard let wid, let owner = WindowManager.shared.managedWindows[wid] else { return }
-    if owner.layout != .tree { return }
+    if !owner.layout.isTiled { return }
     View.refreshBars(forWindowID: wid)
   }
 
@@ -513,7 +513,7 @@ extension TabBar {
   // area.
   //
   static func refreshAll() {
-    for owner in SpaceManager.shared.views.values where owner.layout == .tree {
+    for owner in SpaceManager.shared.views.values where owner.layout.isTiled {
       owner.tree?.releaseBars()
       owner.updateAndFlush()
     }

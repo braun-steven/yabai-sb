@@ -11,6 +11,20 @@ enum ViewType: String, CaseIterable, Sendable {
   case `default`
   case float
   case tree
+  /// A tree whose root is a strip of columns that scrolls (ScrollView.swift).
+  case scroll
+
+  /// Whether the view tiles its windows in a tree: `tree`, and `scroll`, whose columns are subtrees.
+  var isTiled: Bool { self == .tree || self == .scroll }
+
+  /// The layout that `space --layout` sets.
+  init(_ layout: SpaceCommandLayout) {
+    switch layout {
+    case .float: self = .float
+    case .tree: self = .tree
+    case .scroll: self = .scroll
+    }
+  }
 }
 
 /// The settings a space set for itself with `config --space`: the global config no longer changes them for its view.
@@ -82,6 +96,8 @@ enum ViewSpacing: CaseIterable, Sendable {
   var isDirty = false
   var isUnpadded = false
   var layoutFrame: CGRect?
+  /// The scroll state of a `scroll` view (ScrollView.swift).
+  var scroll = ScrollState()
 
   init(sid: SpaceID) {
     self.sid = sid
@@ -207,6 +223,7 @@ enum ViewSpacing: CaseIterable, Sendable {
     guard let frame = displayFrame else { return }
     area = rootArea(in: frame)
     layoutFrame = frame
+    if layout == .scroll { updateScrollDisplay(frame) }
 
     updateTree()
     isValid = true
@@ -215,7 +232,7 @@ enum ViewSpacing: CaseIterable, Sendable {
 
   static func autoPaddingApplies(layout: ViewType, autoPadding: Bool, tiledCount: Int) -> Bool {
     ViewArea.autoPaddingApplies(
-      isTree: layout == .tree, autoPadding: autoPadding, tiledCount: tiledCount)
+      isTree: layout.isTiled, autoPadding: autoPadding, tiledCount: tiledCount)
   }
 
   static func create(sid: SpaceID) -> View {

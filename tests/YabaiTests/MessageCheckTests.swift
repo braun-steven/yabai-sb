@@ -39,7 +39,7 @@ private let checkCases: [CheckCase] = [
   CheckCase(
     message: "config layout bogus",
     failures: [
-      "unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree\n"
+      "unknown value 'bogus' given to command 'layout' for domain 'config'; expected one of: float, tree, scroll\n"
     ]),
   CheckCase(message: "config layout tree", failures: []),
   CheckCase(

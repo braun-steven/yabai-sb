@@ -38,7 +38,7 @@ extension WindowManager {
     on sid: SpaceID, from direction: Direction?, excluding excluded: WindowID? = nil
   ) -> Window? {
     let owner = SpaceManager.shared.view(for: sid)
-    if owner.layout == .tree, let leaf = owner.tree?.entry(from: direction), leaf.isLeaf,
+    if owner.layout.isTiled, let leaf = owner.tree?.entry(from: direction), leaf.isLeaf,
       leaf.windowID != excluded, let target = leaf.windowID.flatMap({ window(for: $0) })
     {
       return target

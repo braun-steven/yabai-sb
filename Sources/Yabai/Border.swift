@@ -503,7 +503,7 @@ extension Border {
     var count = 0
     if let sid {
       let owner = SpaceManager.shared.view(for: sid)
-      count = owner.layout == .tree ? owner.tree?.visibleWindowCount() ?? 0 : 0
+      count = owner.layout.isTiled ? owner.tree?.visibleWindowCount() ?? 0 : 0
     }
     for target in WindowManager.shared.window.values {
       if target.scratchpad != nil || !shouldShow(target) { continue }
@@ -634,7 +634,7 @@ extension Border {
       return
     }
     let owner = SpaceManager.shared.view(for: sid)
-    var windows: OrderedSet<WindowID> = owner.layout == .tree ? OrderedSet(owner.windowIDs) : []
+    var windows: OrderedSet<WindowID> = owner.layout.isTiled ? OrderedSet(owner.windowIDs) : []
     borderLock.withLock { state in
       for border in state.borders.values where border.sid == sid { windows.append(border.wid) }
     }

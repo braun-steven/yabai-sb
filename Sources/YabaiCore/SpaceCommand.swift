@@ -161,5 +161,5 @@ public enum SpaceToggle: String, CaseIterable, Sendable {
 }
 
 public enum SpaceCommandLayout: String, CaseIterable, Sendable {
-  case float, tree
+  case float, tree, scroll
 }

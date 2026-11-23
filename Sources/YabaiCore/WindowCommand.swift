@@ -98,6 +98,8 @@ public enum WindowCommand: Equatable, Sendable {
   case scratchpad(ScratchpadAction)
   /// The label of the acting window; nil removes it.
   case label(String?)
+  /// Centers the column of the selected window (or the acting window) in its scroll space.
+  case center(WindowSelector?)
 
   /// Whether the command changes the tree of the space of the acting window, so `space --undo` can restore the tree before
   /// it. --insert only sets the pending insertion of the tree, and the commands that move a window to another space or
@@ -134,6 +136,7 @@ public enum WindowCommand: Equatable, Sendable {
     case label = "--label"
     case layout = "--layout"
     case split = "--split"
+    case center = "--center"
 
     /// Whether the command needs an acting window. The others select their window, or need none (a scratchpad
     /// toggle). A label is parsed before the window is checked, so a reserved label fails whatever the window.
@@ -233,6 +236,8 @@ public enum WindowCommand: Equatable, Sendable {
       return .scratchpad(.remove)
     case .label:
       return .label(try parseLabel(value, .windowLabel)?.string)
+    case .center:
+      return .center(try optionalSelector(value))
     case .layout:
       guard let layout = WindowLayout(token: value) else {
         throw unknownValue(

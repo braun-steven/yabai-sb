@@ -80,6 +80,7 @@ extension Event {
     case .topologyPass: "topologyPass"
     case .ffmRecheck: "ffmRecheck"
     case .windowFrameRecheck: "windowFrameRecheck"
+    case .scrollAnimationTick: "scrollAnimationTick"
     case .daemonMessage: "daemonMessage"
     case .eventSubscriberRemoved: "eventSubscriberRemoved"
     }
